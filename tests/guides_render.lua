@@ -25,11 +25,7 @@ end
 
 --- Wait for a render started in the background.
 local function rendered(path)
-  local deadline = api.now() + 30000
-  while (api.render_status() or not exists(path)) and api.now() < deadline do
-    paw.wait(20)
-  end
-  eq(exists(path), true, "the file " .. path)
+  T.until_(function() return not api.render_status() and exists(path) end, "the file " .. path)
 end
 
 local function dir(name)

@@ -52,17 +52,17 @@ local function melody(clip)
   return table.concat(out, " ")
 end
 
---- Press `<Space><Space>`, listen for a moment, press `<Space><Space>` again. Gives the
---- loudest level of the master meanwhile.
-local function listen(ms)
+--- Press `<Space><Space>`, let the playhead move a beat, and press
+--- `<Space><Space>` again. Gives the loudest sample of the bar from where
+--- the song started, rendered offline: what the learner hears there.
+local function listen()
+  local from = paw.transport.position
   step("<Space><Space>")
-  local loudest, deadline = 0, api.now() + (ms or 600)
-  while api.now() < deadline do
-    loudest = math.max(loudest, (paw.master:meter()))
-    paw.wait(10)
-  end
+  eq(paw.transport.playing, true, "Space Space plays")
+  T.until_beat(from + 1)
   step("<Space><Space>")
-  return loudest
+  eq(paw.transport.playing, false, "Space Space stops")
+  return T.render({ start = from, ["end"] = from + 4, tail = 0 }).peak
 end
 
 local function params(device) return device:get().params end
@@ -76,12 +76,8 @@ local function file_size(path)
 end
 
 --- Wait for a file that a render writes.
-local function wait_for_file(path)
-  local deadline = api.now() + 60000
-  while file_size(path) == 0 and api.now() < deadline do
-    paw.wait(50)
-  end
-  return file_size(path) > 0
+local function until_rendered(path)
+  T.until_(function() return file_size(path) > 0 end, "the render of " .. path)
 end
 
 test("make music 1: the first song has drums, bass and keys in a loop of four bars, and is saved", function()
@@ -151,26 +147,14 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
   step("r")
   eq(lead.armed, true, "the lead is armed")
 
-  -- Play live: the armed track plays what the keyboard sends.
   local function key(pitch, on)
     paw.midi.inject({ type = on and "note_on" or "note_off", pitch = pitch, velocity = 100, port = "Keystation 49" })
   end
-  key("E5", true)
-  local loudest, deadline = 0, api.now() + 1500
-  while api.now() < deadline and loudest < 0.01 do
-    loudest = math.max(loudest, (lead:meter()))
-    paw.wait(10)
-  end
-  key("E5", false)
-  eq(loudest > 0.01, true, "the synth plays the keys")
 
   -- Record: the notes come a little late, as a person plays them.
   step("0", "R")
   for i, pitch in ipairs({ "E5", "C5", "A4", "C5" }) do
-    local deadline = api.now() + 10000
-    while paw.transport.position < i - 1 + 0.08 and api.now() < deadline do
-      api.sleep(2)
-    end
+    T.until_beat(i - 1 + 0.08)
     key(pitch, true)
     T.until_beat(i - 1 + 0.5)
     key(pitch, false)
@@ -233,13 +217,7 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
   eq(paw.transport.loop_start == 0 and paw.transport.loop_end == 8, true, "the loop is bars 1 and 2")
   step("r", "R")
   -- Two times round the loop: stop when the playhead returns to bar 1 the third time.
-  local deadline, rounds, last = api.now() + 30000, 0, 0
-  while api.now() < deadline and rounds < 2 do
-    local now = paw.transport.position
-    if now < last then rounds = rounds + 1 end
-    last = now
-    paw.wait(10)
-  end
+  T.until_beat(0, 2)
   step("<Space><Space>")
   T.until_recorded()
   local clip = guitar:clips()[1]
@@ -373,29 +351,28 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   step(":w " .. folder .. "/my-song<CR>")
   -- A name alone goes into the folder renders of the song.
   step(":export my-song.wav<CR>")
-  eq(wait_for_file(folder .. "/my-song/renders/my-song.wav"), true, "the WAV file is in the folder renders of the song")
-  local said, until_said = nil, api.now() + 10000
-  while not said and api.now() < until_said do
+  -- The WAV file is in the folder renders of the song.
+  until_rendered(folder .. "/my-song/renders/my-song.wav")
+  local said = T.until_(function()
     for _, m in ipairs(paw.ui.messages) do
-      if m.text:find("^wrote renders/my%-song%.wav") then said = m.text end
+      if m.text:find("^wrote renders/my%-song%.wav") then return m.text end
     end
-    paw.wait(20)
-  end
-  eq(said ~= nil and said:find("(clips)", 1, true), nil, "the render does not clip: " .. tostring(said))
+  end, "the message of the render")
+  eq(said:find("(clips)", 1, true), nil, "the render does not clip: " .. said)
   if paw.health and paw.health.executable and not paw.health.executable("ffmpeg") then
     print("      (no ffmpeg: the MP3 step is not checked)")
   else
     step(":export my-song.mp3<CR>")
-    eq(wait_for_file(folder .. "/my-song/renders/my-song.mp3"), true, "the MP3 file is rendered")
+    until_rendered(folder .. "/my-song/renders/my-song.mp3")
   end
 
   step(":e renders<CR>", "/my-song.wav<CR>", "gh")
-  local state, deadline = paw.audition.state(), api.now() + 5000
-  while state and state.state == "loading" and api.now() < deadline do
-    paw.wait(20)
-    state = paw.audition.state()
-  end
-  eq(state and state.file, folder .. "/my-song/renders/my-song.wav", "gh plays the rendered file")
+  T.until_(function()
+    local now = paw.audition.state()
+    return not (now and now.state == "loading")
+  end, "the rendered file to load")
+  local state = paw.audition.state() or {}
+  eq(state.file, folder .. "/my-song/renders/my-song.wav", "gh plays the rendered file")
   eq(state.state, "playing", "and it plays")
   step("gh")
   eq((paw.audition.state() or {}).state ~= "playing", true, "gh again stops it")

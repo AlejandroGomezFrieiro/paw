@@ -118,17 +118,11 @@ test("continue suggests by itself after a pause, and again after what was accept
     paw.opt.complete_auto = true
     clip:add_note(n(48, 0, 4))
     paw.flush()
-    local limit = api.now() + 5000
-    while not paw.complete.current() and api.now() < limit do
-      paw.wait(10)
-    end
-    eq(paw.complete.current() ~= nil, true, "a suggestion came")
+    -- A suggestion comes after the pause.
+    T.advance_until(function() return paw.complete.current() end, "a suggestion", 5000)
     paw.keymap.feed("<Tab>")
     paw.flush()
-    limit = api.now() + 5000
-    while not paw.complete.current() and api.now() < limit do
-      paw.wait(10)
-    end
-    eq(paw.complete.current() and paw.complete.current().item.notes[1].start, 8, "the next one goes on from there")
+    local next = T.advance_until(function() return paw.complete.current() end, "a second suggestion", 5000)
+    eq(next.item.notes[1].start, 8, "the next one goes on from there")
   end)
 end)

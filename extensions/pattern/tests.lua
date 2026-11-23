@@ -463,15 +463,14 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   paw.transport.play()
   -- The loudest the track gets in two windows of each pass: around beat 0 and beat 4.
   local passes, pass, last, changed, stopped = { { 0, 0 } }, 1, 0, false, false
-  local deadline = api.now() + 30000 -- a loaded machine is slow, not wrong
-  while pass <= 3 and api.now() < deadline do
+  T.until_(function()
     local pos = paw.transport.position
     if pos < last - 1 then
       pass = pass + 1
       passes[pass] = { 0, 0 }
     end
     last = pos
-    if pass > 3 then break end
+    if pass > 3 then return true end
     local level = math.max(track:meter())
     if pos >= 0.2 and pos < 0.9 then passes[pass][1] = math.max(passes[pass][1], level) end
     if pos >= 4.2 and pos < 4.9 then passes[pass][2] = math.max(passes[pass][2], level) end
@@ -481,11 +480,10 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
       changed = true
     end
     if not paw.transport.playing then stopped = true end
-    api.sleep(3)
-  end
+    return false
+  end, "three passes of the loop")
   paw.transport.stop()
   paw.transport.loop_enabled = false
-  eq(pass > 3, true, "three passes of the loop")
   eq(stopped, false, "the transport never stopped")
   local loud, quiet = passes[1][1], passes[1][2]
   eq(loud > 0.05, true, "first pass: the note at beat 0 sounds (" .. loud .. ")")
@@ -494,4 +492,4 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   eq(passes[3][1] < loud * 0.25, true, "after the change: nothing at beat 0 (" .. passes[3][1] .. ")")
   -- And what the engine was given is what the clip holds.
   eq(notes_of(clip), "57@4+1v100", "the clip's notes")
-end)
+end, { live = "the meter of the track is read while the engine plays the loop in real time" })

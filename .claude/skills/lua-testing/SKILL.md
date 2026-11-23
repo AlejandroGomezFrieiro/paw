@@ -53,6 +53,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine is active, a step is one audio block. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
+| `T.wakes(fn, device, ...)` | Run `fn`, and give `true` or `false` for each device: did it make sound then? Each device sleeps through silence first, and a device that wakes runs blocks. It reads no meter. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
 | `T.expect_screen(name, w, h, opts)` | Compare the screen with a golden file (part 7). |
@@ -154,7 +155,8 @@ the owner's computer or folders. Mock what it needs.
 - Prefer a null test (two renders that must be the same) to a level with
   a tolerance.
 - Do not read a live meter (`:meter()`) after a wait. The level depends
-  on how many blocks ran in real time. With a stepped audio backend, play on the
+  on how many blocks ran in real time. To check that a device sounds, or
+  does not sound, use `T.wakes`. With a stepped audio backend, play on the
   stepped backend and read the meter after `T.next_block(n)`.
 - An extension's project must open and play without the extension.
   Test that too.
@@ -207,7 +209,7 @@ the owner's computer or folders. Mock what it needs.
   count that goes down fails until you make its line smaller.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
-  tutor. Wait for a state with `T.until_`, for blocks with
+  tutor (write `{ advance = N }`). Wait for a state with `T.until_`, for blocks with
   `T.next_block`, or for the playhead with `T.until_beat`. Move the
   clock with `T.advance(ms)`, or with `T.advance_until` to a state that a
   timer makes.

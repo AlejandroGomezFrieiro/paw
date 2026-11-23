@@ -82,7 +82,7 @@ a comment.]],
     },
     {
       say = "Listen while you change the value. Press `<leader><Space>`, and then press `-` some times to make the sound darker. Press `<leader><Space>` to stop.",
-      keys = { "<leader><Space>", { wait = 200 }, "-", "-", "-", { wait = 200 }, "<leader><Space>" },
+      keys = { "<leader><Space>", { advance = 200 }, "-", "-", "-", { advance = 200 }, "<leader><Space>" },
       start = function(ctx, look) ctx.cutoff = look.param(look.device("Lead", "synth"), "cutoff") end,
       check = function(ctx, look)
         return look.played(ctx) and look.param(look.device("Lead", "synth"), "cutoff") < ctx.cutoff
@@ -137,7 +137,7 @@ a comment.]],
     },
     {
       say = "Listen to the line with its echo. Press `<leader><Space>`, and `<leader><Space>` to stop.",
-      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
       done = "You hear a synth and a delay that you adjusted by ear.",
     },

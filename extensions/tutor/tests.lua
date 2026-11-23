@@ -45,7 +45,7 @@ local function type_keys(text)
   end
 end
 
---- Do what a step's `keys` say: type them, wait, or stand in for what a
+--- Do what a step's `keys` say: type them, let time pass, or stand in for what a
 --- person does outside the keyboard (a microphone, a MIDI keyboard, quitting).
 local function perform(step, lesson, from, to)
   local tutor = require("tutor")
@@ -53,10 +53,10 @@ local function perform(step, lesson, from, to)
     local item = step.keys[index]
     if type(item) == "string" then
       type_keys(item)
-    elseif item.wait then
-      -- The event loop runs meanwhile: a key that waits for more (`]` before
-      -- `]d`) runs when its wait is over, as at the keyboard.
-      paw.wait(item.wait)
+    elseif item.advance then
+      -- The time passes: a key that waits for more (`]` before `]d`) runs
+      -- when its wait is over, as at the keyboard.
+      T.advance(item.advance)
       paw.flush()
       tutor.poll()
     elseif item.sim == "quit" then
@@ -64,7 +64,7 @@ local function perform(step, lesson, from, to)
       -- hears of it through `command.pre`, as it would.
       paw.emit("command.pre", { name = "quit", args = {} })
     elseif type(item.sim) == "function" then
-      item.sim(lesson)
+      item.sim(lesson, T.advance)
       paw.flush()
       tutor.poll()
     elseif type(item.keys) == "function" then

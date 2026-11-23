@@ -96,7 +96,7 @@ the mixer.]],
     },
     {
       say = "`s` solos a track, so you hear only the soloed tracks. Press `<leader><Space>` to play and `s` to hear Bass alone. Press `s` again to hear all tracks, and `<leader><Space>` to stop.",
-      keys = { "<leader><Space>", "s", { wait = 200 }, "s", "<leader><Space>" },
+      keys = { "<leader><Space>", "s", { advance = 200 }, "s", "<leader><Space>" },
       check = function(ctx, look)
         local _, n = look.ran(ctx, "track.solo")
         return n >= 2 and not look.track("Bass").solo and look.played(ctx)
@@ -162,7 +162,7 @@ the mixer.]],
     },
     {
       say = "Listen from the start. Press `gs` and `<leader><Space>`, and `<leader><Space>` to stop.",
-      keys = { "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
       done = "The chords fade in through a bus, the melody has an echo, and the bass is on the right.",
     },

@@ -143,7 +143,7 @@ new. `c` makes the range empty and opens a new clip in insert mode.]],
     },
     {
       say = "Press `gcic` to unmute `snare`. Press `<leader><Space>` to hear the loop, and `<leader><Space>` again to stop.",
-      keys = { "gcic", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "gcic", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look)
         local c = look.clip("Beat", "snare")
         return c and not c.muted and look.played(ctx)

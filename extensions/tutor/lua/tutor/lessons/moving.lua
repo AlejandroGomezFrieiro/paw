@@ -148,7 +148,7 @@ not a column or a line.]],
     },
     {
       say = "`<Esc>` does not leave the current window in any view, and `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<leader><Space>` to play and `<leader><Space>` to stop.",
-      keys = { "<C-w>p", "gp", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<C-w>p", "gp", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look)
         return look.focused() == "arrange" and look.ran(ctx, "transport.to_cursor") and look.played(ctx)
       end,

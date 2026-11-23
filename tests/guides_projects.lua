@@ -112,7 +112,9 @@ test("guide: a new project is saved in the folder paw started in, as in Neovim",
   os.execute("mkdir -p '" .. home .. "/sub'")
   started_in(started)
   T.after(function() paw.files.cd(false) end)
-  paw.frontend.polled = paw.api.now()
+  -- A window asks for the state: a person uses paw.
+  paw.frontend.state(-1)
+  T.after(function() paw.frontend.polled = nil end)
   T.tone("Lead", 4)
   keys(":w<CR>")
   local cmdline = require("paw.views.cmdline")

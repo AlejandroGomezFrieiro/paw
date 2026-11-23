@@ -159,7 +159,7 @@ cursor, as Vim repeats an insert.]],
     },
     {
       say = "In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<leader><Space>` to listen, and `<leader><Space>` again to stop.",
-      keys = { "<C-w>p", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<C-w>p", "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "Your tune plays over the drums.",
     },

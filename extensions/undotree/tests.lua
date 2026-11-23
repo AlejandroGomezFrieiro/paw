@@ -245,10 +245,7 @@ test("undotree: A/B while playing keeps the transport going", function()
   eq(t.volume, -12, "B's mix")
   paw.transport.seek(0)
   paw.transport.play()
-  local deadline = api.now() + 10000
-  while paw.transport.position < 1 and api.now() < deadline do
-    api.sleep(5)
-  end
+  T.until_beat(1)
   for i = 1, 4 do
     paw.flush()
     local before = paw.transport.position
@@ -260,14 +257,11 @@ test("undotree: A/B while playing keeps the transport going", function()
     eq(after - before < 0.25, true, "no jump forward: " .. before .. " then " .. after)
     eq(api.undo_current(), i % 2 == 1 and a or b, "switch " .. i .. " went to " .. (i % 2 == 1 and "A" or "B"))
     eq(t.volume, i % 2 == 1 and -3 or -12, "and the engine has that mix")
-    local start = paw.transport.position
-    local wait = api.now() + 10000
-    while paw.transport.position < start + 0.2 and api.now() < wait do
-      api.sleep(5)
-    end
-    eq(paw.transport.position >= start + 0.2, true, "the position keeps moving after switch " .. i)
+    -- The position keeps moving after the switch.
+    T.until_beat(paw.transport.position + 0.2)
   end
-  eq(t:meter() > 0, true, "the track is sounding")
+  -- The track is sounding: its synth runs blocks, and does not sleep.
+  T.next_block(2, t:devices()[1].id)
   paw.transport.stop()
   -- The key does the same.
   paw.ui.focus("arrange")

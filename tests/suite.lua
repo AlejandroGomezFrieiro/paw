@@ -396,6 +396,41 @@ local function until_beat(beat, rounds, ms)
   end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms)
 end
 
+--- Run `fn`, and give for each device of `...` whether it made sound then:
+--- true or false, in the same order. A device at rest sleeps through
+--- silence (`paw.opt.device_sleep`) and wakes for a note or a sound. So
+--- each device falls asleep first, `fn` runs, and after a few blocks the
+--- devices that ran blocks of their own are the ones that sound. No meter
+--- is read: a live meter depends on the blocks that ran in a time.
+local function wakes(fn, ...)
+  local devices = { ... }
+  if not paw.opt.device_sleep then error("T.wakes needs paw.opt.device_sleep", 2) end
+  local function ran()
+    local counts = {}
+    for i, device in ipairs(devices) do
+      counts[i] = api.blocks(device.id)
+    end
+    return counts
+  end
+  until_(function()
+    local before = ran()
+    next_block(3)
+    local after = ran()
+    for i = 1, #devices do
+      if after[i] ~= before[i] then return false end
+    end
+    return true
+  end, "the devices to fall asleep")
+  local before = ran()
+  fn()
+  next_block(3)
+  local after, sounded = ran(), {}
+  for i = 1, #devices do
+    sounded[i] = after[i] > before[i]
+  end
+  return unpack(sounded, 1, #devices)
+end
+
 --- Wait until each take that stopped is clips in the project, and the
 --- handlers of their events have run. A stop ends a take at once, and its
 --- clips come when the engine has let go of it (`transport.recorded`).
@@ -705,6 +740,7 @@ local T = {
   manual = MANUAL,
   next_block = next_block,
   until_beat = until_beat,
+  wakes = wakes,
   until_recorded = until_recorded,
   stop = stop,
   scratch = scratch,

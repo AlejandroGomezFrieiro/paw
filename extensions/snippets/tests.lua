@@ -349,13 +349,7 @@ test("snippets: Ctrl-Space offers the snippets that fit as suggestions, and Tab 
   open(clip, 60, 0)
   paw.opt.complete_auto = false
   keys("<C-Space>")
-  local shown
-  for _ = 1, 300 do
-    shown = paw.complete.current()
-    if shown then break end
-    paw.wait(10)
-  end
-  eq(shown ~= nil, true, "suggestions show")
+  local shown = T.until_(function() return paw.complete.current() end, "suggestions show")
   local labels, which = {}, nil
   for i, item in ipairs(shown.items) do
     labels[#labels + 1] = item.label

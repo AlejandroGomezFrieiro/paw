@@ -516,15 +516,10 @@ test(
     apart()
     x, y = slot(0)
     click(x, y)
-    local deadline = api.now() + 5000
-    local function launched()
+    T.until_(function()
       local s = launcher.state()[t.id] or {}
       return s.slot == 0 or s.queued == 0
-    end
-    while not launched() and api.now() < deadline do
-      paw.wait(5)
-    end
-    eq(launched(), true, "the play mark launches the clip")
+    end, "the play mark launches the clip")
     launcher.stop(nil)
     T.stop()
     apart()

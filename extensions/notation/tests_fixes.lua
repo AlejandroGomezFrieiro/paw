@@ -97,14 +97,9 @@ test(
     api.ui_snapshot(120, 30)
     clip:add_note(N(60, 0.125, 0.125))
     api.undo_checkpoint()
-    local t0 = api.now()
     api.ui_snapshot(120, 30)
     eq(paw.harmony.fresh(), false, "a draw after an edit leaves the reading for later")
-    for _ = 1, 200 do
-      if paw.harmony.fresh() then break end
-      paw.wait(25)
-    end
-    eq(paw.harmony.fresh(), true, "and it is read once the edits pause: after " .. (api.now() - t0) .. " ms")
+    T.advance_until(function() return paw.harmony.fresh() end, "the key to be read once the edits pause", 5000)
     eq(view:clip().id, clip.id, "")
     paw.ui.focus("arrange")
   end
