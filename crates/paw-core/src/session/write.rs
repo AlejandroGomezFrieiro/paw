@@ -19,7 +19,7 @@ use std::time::Duration;
 use crate::clock::ScheduleTime;
 
 use anyhow::Result;
-use paw_engine::automation::value_at;
+use paw_types::automation::value_at;
 
 use super::{LaneKind, LaneOpts, Session};
 use crate::model::{AutoMode, Id, Target};

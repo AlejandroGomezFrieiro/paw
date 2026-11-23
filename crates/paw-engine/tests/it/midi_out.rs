@@ -10,12 +10,11 @@
 //! late the messages arrive is measured by `benches/midi_lateness.rs`.
 
 use paw_engine::midi::port_key;
-use paw_engine::midi_form::Form;
 use paw_engine::midi_out::MidiOut;
 use paw_engine::{
-    Attr, ClipSet, Ctl, Engine, EngineHandle, EventKind, MidiEv, Msg, SchedEntry, Schedule,
-    TrackRt, TrackSlot,
+    ClipSet, Engine, EngineHandle, MidiEv, Msg, SchedEntry, Schedule, TrackRt, TrackSlot,
 };
+use paw_types::{Attr, Ctl, EventKind, midi_form::Form};
 
 const RATE: f64 = 48_000.0;
 

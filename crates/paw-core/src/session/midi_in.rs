@@ -386,7 +386,7 @@ impl Session {
 
     /// Play a note on a track now, with its attribute: what the track's
     /// attribute map sends for it goes first.
-    pub(crate) fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_engine::Attr) -> Result<()> {
+    pub(crate) fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_types::Attr) -> Result<()> {
         let plan = self
             .doc.project
             .track(track)
@@ -399,7 +399,7 @@ impl Session {
         for event in before {
             self.live(track, event)?;
         }
-        let attr = if keep { attr } else { paw_engine::Attr::NONE };
+        let attr = if keep { attr } else { paw_types::Attr::NONE };
         let ch = ch.unwrap_or(0);
         self.live(track, EventKind::NoteOn { key, vel, ch, attr })
     }

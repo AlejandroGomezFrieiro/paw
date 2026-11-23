@@ -136,7 +136,7 @@ impl Document {
     /// The lane's value at a beat, or nothing when it has no points.
     pub(crate) fn lane_value_at(&self, id: Id, beat: f64) -> Result<Option<f64>> {
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
-        Ok(paw_engine::automation::value_at(&lane.played(), beat))
+        Ok(paw_types::automation::value_at(&lane.played(), beat))
     }
 
     /// The states of a state lane, whole.

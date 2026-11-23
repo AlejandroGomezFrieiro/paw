@@ -12,9 +12,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use paw_engine::midi::{MidiInputs, MidiTarget, port_key};
-use paw_engine::midi_form::Form;
 use paw_engine::midi_out::{MidiOut, MidiOutputs, clock_ns};
-use paw_engine::{Attr, EventKind};
+use paw_types::{Attr, EventKind, midi_form::Form};
 
 const PORT: &str = "Lateness";
 /// How far ahead the first note is stamped, and the notes apart.

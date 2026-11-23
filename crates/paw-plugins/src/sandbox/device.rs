@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use paw_engine::device::{Device, Io, Rest};
-use paw_engine::{Event, EventKind, MAX_PAIRS, ProcessCtx};
+use paw_engine::{Event, MAX_PAIRS, ProcessCtx};
+use paw_types::EventKind;
 use super::*;
 use super::shm::*;
 

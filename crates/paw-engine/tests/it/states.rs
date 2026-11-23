@@ -4,9 +4,10 @@
 use std::sync::{Arc, Mutex};
 
 use paw_engine::{
-    Automation, Device, DeviceSlot, Engine, EngineHandle, EventKind, Io, Msg, ProcessCtx,
-    SchedEntry, Schedule, StateChange, StateLane, TrackRt, TrackSlot,
+    Automation, Device, DeviceSlot, Engine, EngineHandle, Io, Msg, ProcessCtx, SchedEntry, Schedule,
+    StateChange, StateLane, TrackRt, TrackSlot,
 };
+use paw_types::EventKind;
 
 use crate::common::SR;
 

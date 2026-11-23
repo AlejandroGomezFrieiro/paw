@@ -9,6 +9,7 @@ use std::sync::atomic::Ordering;
 
 use anyhow::{Context, Result, bail};
 use atomic_float::AtomicF64;
+use paw_types::{Attr, EventKind};
 use symphonia::core::codecs::audio::AudioDecoderOptions;
 use symphonia::core::codecs::audio::well_known::{CODEC_ID_MP1, CODEC_ID_MP2, CODEC_ID_MP3};
 use symphonia::core::errors::Error;
@@ -17,7 +18,6 @@ use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 
-use crate::event::{Attr, EventKind};
 use crate::samples::{DiskStore, Samples, Sink, store_name};
 
 #[derive(Clone, Copy, Debug)]

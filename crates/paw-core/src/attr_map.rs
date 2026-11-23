@@ -38,7 +38,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
-use paw_engine::{Attr, ClipSet, Ctl, EventKind, MidiEv, Switch, TempoMap};
+use paw_engine::{ClipSet, MidiEv, Switch};
+use paw_types::{Attr, Ctl, EventKind, TempoMap};
 use serde::{Deserialize, Serialize};
 
 /// How long a keyswitch that is struck is held, in beats.

@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use paw_engine::midi_form::Form;
 use paw_engine::{DeviceSlot, MAX_DEVICES, MAX_TRACKS, MidiEv, TrackSlot};
+use paw_types::midi_form::Form;
 
 use super::clips::{Compiled, Parts};
 use super::routing::Routing;

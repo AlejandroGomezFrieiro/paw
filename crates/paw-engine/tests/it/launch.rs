@@ -3,11 +3,11 @@
 
 use std::sync::Arc;
 
-use paw_engine::launch::{Launch, Quantize, SlotClip, Slots, Target};
+use paw_engine::launch::{Launch, SlotClip, Slots, Target};
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, TempoMap,
-    TempoPoint, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, TrackSlot,
 };
+use paw_types::{Quantize, TempoMap, TempoPoint};
 
 use crate::common::{SR, send};
 
@@ -270,7 +270,7 @@ fn boundaries_follow_bars_and_the_signature() {
             bpm: 120.0,
             ramp: false,
         }],
-        &[paw_engine::SigPoint {
+        &[paw_types::SigPoint {
             beat: 0.0,
             num: 6,
             den: 8,

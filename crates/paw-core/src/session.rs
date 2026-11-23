@@ -16,8 +16,9 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
 use paw_engine::midi::{MidiInputs, MidiSink};
-use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Quality, Registry};
+use paw_engine::{Engine, EngineHandle, Msg, ParamInfo, Pool, Quality, Registry};
 use paw_proto::dirs::Dirs;
+use paw_types::EventKind;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 

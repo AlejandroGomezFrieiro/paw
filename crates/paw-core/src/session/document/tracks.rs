@@ -244,7 +244,7 @@ impl Document {
     }
 
     /// The milliseconds a note with `attr` is moved by the track's attribute map.
-    pub(crate) fn attr_delay(&self, track: Id, attr: paw_engine::Attr) -> Result<f64> {
+    pub(crate) fn attr_delay(&self, track: Id, attr: paw_types::Attr) -> Result<f64> {
         let track = self
             .project
             .track(track)

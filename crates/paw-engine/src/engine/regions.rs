@@ -2,9 +2,10 @@
 
 use std::ops::Range;
 
+use paw_types::TempoMap;
+
 use crate::clip::{AudioRegion, ClipSet};
 use crate::device::ProcessCtx;
-use crate::tempo::TempoMap;
 
 use super::clock::Clock;
 

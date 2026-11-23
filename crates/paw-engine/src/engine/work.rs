@@ -2,13 +2,14 @@
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
-use crate::automation::{self, AutoTarget};
+use paw_types::{Ctl, EventKind, TempoMap, automation::{next_point, state_at, value_at}};
+
+use crate::automation::AutoTarget;
 use crate::device::{Io, ProcessCtx};
-use crate::event::{Ctl, Event, EventKind};
+use crate::event::Event;
 use crate::guard;
 use crate::launch;
 use crate::slot::{DeviceSlot, TrackSlot};
-use crate::tempo::TempoMap;
 
 use super::clock::Clock;
 use super::device_rt::DeviceRt;
@@ -258,7 +259,7 @@ impl Work<'_> {
     fn automate(&self, t: &mut TrackRt) {
         let start = self.block.start;
         for lane in t.automation.lanes.iter_mut() {
-            let Some(value) = automation::value_at(&lane.points, start) else {
+            let Some(value) = value_at(&lane.points, start) else {
                 continue;
             };
             match lane.target {
@@ -291,7 +292,7 @@ impl Work<'_> {
     fn give_states(&self, t: &mut TrackRt, slack: f64, programs: &mut Programs) {
         let Block { n, start, end, .. } = *self.block;
         for lane in t.automation.states.iter_mut() {
-            let Some(index) = automation::state_at(&lane.points, start + slack) else {
+            let Some(index) = state_at(&lane.points, start + slack) else {
                 continue;
             };
             if self.block.restate {
@@ -319,9 +320,9 @@ impl Work<'_> {
                 lane.last = Some(index);
             }
             if n > 0
-                && let Some(next) = automation::next_point(&lane.points, start + slack)
+                && let Some(next) = next_point(&lane.points, start + slack)
                 && (next - end).abs() <= slack
-                && let Some(after) = automation::state_at(&lane.points, next + slack)
+                && let Some(after) = state_at(&lane.points, next + slack)
                 && after != index
                 && let Some(message) = lane
                     .changes

@@ -59,6 +59,7 @@ crates.
 | `paw-mcp` | A Model Context Protocol server in front of the control socket. |
 | `chain-syntax` | The [chain language](chain-language.md): it parses, prints, formats and checks a chain of devices as text, and it finds the completions, the hover text and the definitions at a place in the text. It depends on no other crate of paw, so a program that is not paw can use it. |
 | `chain-lsp` | The language server of the chain language, the program `chain-lsp`. It depends on `chain-syntax` and on no crate of paw, so any editor and any host can use it. |
+| `paw-types` | The values that the project model and the audio engine share: notes and controllers as MIDI 2.0 events and the packets that carry them, the tempo map, where a launch lands, and the values of automation lanes. It has no sound, no threads and no calls to the operating system, so it builds for WebAssembly. |
 
 ## Generated files
 

@@ -30,11 +30,10 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use anyhow::Result;
+use paw_types::{EventKind, midi_form::{Converter, Form, Wire}};
 use rtrb::Consumer;
 
-use crate::event::EventKind;
 use crate::midi::{PortInfo, port_key};
-use crate::midi_form::{Converter, Form, Wire};
 
 /// The name of the sequencer client that sends: its ports are not read
 /// back as MIDI input.
@@ -769,7 +768,7 @@ mod tests {
     }
 
     fn on(key: u8) -> EventKind {
-        EventKind::NoteOn { key, vel: 0.8, ch: 0, attr: crate::event::Attr::NONE }
+        EventKind::NoteOn { key, vel: 0.8, ch: 0, attr: paw_types::Attr::NONE }
     }
 
     /// Where each note-on went, on which channel, and its key.

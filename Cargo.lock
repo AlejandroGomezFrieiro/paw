@@ -3263,6 +3263,7 @@ dependencies = [
  "paw-proto",
  "paw-raster",
  "paw-scene",
+ "paw-types",
  "percent-encoding",
  "proptest",
  "quick-xml",
@@ -3297,6 +3298,7 @@ dependencies = [
  "hound",
  "libc",
  "memmap2",
+ "paw-types",
  "proptest",
  "realfft",
  "rtrb",
@@ -3365,6 +3367,7 @@ dependencies = [
  "anyhow",
  "mlua",
  "paw-engine",
+ "paw-types",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -3412,6 +3415,7 @@ dependencies = [
  "libloading",
  "lilv-sys",
  "paw-engine",
+ "paw-types",
  "rtrb",
  "rustix 1.1.6",
  "serde",
@@ -3483,6 +3487,13 @@ dependencies = [
  "rustix 1.1.6",
  "serde_json",
  "signal-hook",
+]
+
+[[package]]
+name = "paw-types"
+version = "0.1.0"
+dependencies = [
+ "proptest",
 ]
 
 [[package]]

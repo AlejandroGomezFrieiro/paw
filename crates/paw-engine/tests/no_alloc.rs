@@ -11,11 +11,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use paw_engine::midi_filter::{Control, MidiFilter, Rule};
 use paw_engine::record::{AudioCapture, Take, TakeShared};
 use paw_engine::{
-    Attr, AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Ctl, Delay,
-    DeviceSlot, Engine, EngineHandle, EventKind, KeyRt, MAX_BLOCK, Msg, NoteCtl, OutRt, Pool,
-    Quality, Registry, SchedEntry, Schedule, SendRt, StateChange, StateLane, Switch, TrackRt,
-    TrackSlot,
+    AudioData, AudioRegion, AutoLane, AutoTarget, Automation, ClipSet, Delay, DeviceSlot, Engine,
+    EngineHandle, KeyRt, MAX_BLOCK, Msg, OutRt, Pool, Quality, Registry, SchedEntry, Schedule,
+    SendRt, StateChange, StateLane, Switch, TrackRt, TrackSlot,
 };
+use paw_types::{Attr, Ctl, EventKind, NoteCtl};
 
 // Not `assert_no_alloc`: it forbids only inside a closure and counts on the
 // thread that broke the rule, so it cannot mark the pool's workers for good and
@@ -349,7 +349,7 @@ fn the_audio_thread_never_allocates() {
                 paw_engine::Place { from: 0.0, to: 8.0, zero: 0.0 },
                 paw_engine::Place { from: 8.0, to: 64.0, zero: 6.0 },
             ];
-            let six = [paw_engine::SigPoint { beat: 0.0, num: 6, den: 8 }];
+            let six = [paw_types::SigPoint { beat: 0.0, num: 6, den: 8 }];
             let time = paw_engine::LocalTime::new(blocks, if i == 3 { &six } else { &[] });
             send(&mut handle, Msg::SetLocalTime { track: slot, time: Some(Box::new(time)) });
         }
@@ -420,9 +420,9 @@ fn the_audio_thread_never_allocates() {
                     port: 99 + i as u32,
                     channel: if i == 0 { 5 } else { 0 },
                     form: if i == 0 {
-                        paw_engine::midi_form::Form::Mpe(15)
+                        paw_types::midi_form::Form::Mpe(15)
                     } else {
-                        paw_engine::midi_form::Form::Auto
+                        paw_types::midi_form::Form::Auto
                     },
                 },
             );
@@ -458,14 +458,14 @@ fn the_audio_thread_never_allocates() {
     send(&mut handle, Msg::SetTimeSig { num: 7, den: 8 });
     // A map with ramps and signature changes, swapped in whole.
     let ramps: Vec<_> = (0..64)
-        .map(|i| paw_engine::TempoPoint {
+        .map(|i| paw_types::TempoPoint {
             beat: i as f64 * 0.75,
             bpm: 80.0 + (i * 7 % 60) as f64,
             ramp: i % 2 == 0,
         })
         .collect();
     let sigs: Vec<_> = (0..16)
-        .map(|i| paw_engine::SigPoint {
+        .map(|i| paw_types::SigPoint {
             beat: i as f64 * 2.5,
             num: 3 + i % 4,
             den: 8,
@@ -473,7 +473,7 @@ fn the_audio_thread_never_allocates() {
         .collect();
     send(
         &mut handle,
-        Msg::SetTempoMap(Box::new(paw_engine::TempoMap::new(&ramps, &sigs))),
+        Msg::SetTempoMap(Box::new(paw_types::TempoMap::new(&ramps, &sigs))),
     );
     send(&mut handle, Msg::SetTempo(133.0));
     send(
@@ -511,7 +511,8 @@ fn the_audio_thread_never_allocates() {
     // Clip launching: slots given and replaced, launched on every kind of
     // boundary, legato, stopped, back to the arrangement, across seeks, the
     // loop going round and the song stopping.
-    use paw_engine::launch::{Launch, Quantize, SlotClip, Slots, Target};
+    use paw_engine::launch::{Launch, SlotClip, Slots, Target};
+    use paw_types::Quantize;
     let slots = |round: usize| {
         let rows = (0..4)
             .map(|row| {

@@ -8,7 +8,8 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use paw_engine::{Attr, Event, EventBuf, EventKind, Io, ProcessCtx, Registry};
+use paw_engine::{Event, EventBuf, Io, ProcessCtx, Registry};
+use paw_types::{Attr, EventKind};
 
 struct Counting;
 
