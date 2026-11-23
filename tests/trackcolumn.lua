@@ -73,6 +73,22 @@ test("track column: open and folded groups as a tree, nested", function()
   eq(row("Low"):find("Low +2", 1, true) ~= nil, true, "and says how many it holds")
 end)
 
+test("track column: a draw works out the tree of groups once, whatever the count of tracks", function()
+  orchestra()
+  lines()
+  local before = paw.trackcolumn.tree_builds
+  lines()
+  eq(paw.trackcolumn.tree_builds - before, 1, "one tree for the six tracks and two groups of a draw")
+end)
+
+test("groups: a project opened in the turn that read the groups gives its own groups", function()
+  local t = orchestra()
+  local strings = paw.groups.of(t[2])
+  eq(api.track_get(strings).name, "Strings", "Violins is in Strings")
+  api.project_new()
+  eq(paw.groups.of(t[2]), nil, "the new project has no Violins and no group")
+end)
+
 test("track column: an extension's part shows in its order, and set moves a built-in one", function()
   orchestra()
   paw.trackcolumn.add("ext", {

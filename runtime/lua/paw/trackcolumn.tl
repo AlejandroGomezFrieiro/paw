@@ -25,8 +25,6 @@
 local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
-local events = require("paw.events")
-local kernel = require("paw.events.kernel")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type GroupsModule = require("paw.groups")
@@ -86,8 +84,11 @@ local record M
   type Layout = Layout
   components: {string: Component}
   signs: {string: Sign}
+  --- How many times the column worked out the tree of groups, one time for
+  --- each draw of the arrange view. Tests count the work of a draw with it.
+  tree_builds: integer
 end
-M.components, M.signs = {}, {}
+M.components, M.signs, M.tree_builds = {}, {}, 0
 
 local function has<T>(list: {T}, value: T): boolean
   for _, v in ipairs(list) do
@@ -364,10 +365,10 @@ M.sign(
 
 -- The folds of groups, as a tree: an open group has `▾` on its line and a
 -- guide down its members, `╰` on the last; a folded one has `▸`. Each
--- level of nesting is a column. Worked out once for the tracks drawn, and
--- kept until the project changes.
+-- level of nesting is a column. Worked out once for each layout, from the
+-- tracks that it draws (`width`), and read by `render` for each line and by
+-- `click`.
 local record Tree
-  key: string
   depth: {integer: integer}
   chain: {integer: {integer}}
   group: {integer: boolean}
@@ -376,18 +377,11 @@ local record Tree
   last: {integer: integer}
   width: integer
 end
-local tree: Tree
-events.on(kernel.changed, function() tree = nil end)
 
 local function tree_of(rows: {integer}): Tree
-  -- The folds are the window's: its own key.
-  local folds = paw.folds
-  local key = table.concat(rows as {string}, ",") .. "|" .. folds.generation .. "|" .. tostring(folds.list())
-  if tree and tree.key == key then
-    return tree
-  end
-  local groups = paw.groups
-  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
+  M.tree_builds = M.tree_builds + 1
+  local groups, folds = paw.groups, paw.folds
+  local t: Tree = {depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
   for i, id in ipairs(rows) do
     local chain: {integer} = {}
     local at = groups.of(id)
@@ -409,12 +403,20 @@ local function tree_of(rows: {integer}): Tree
     end
     t.width = math.max(t.width, #chain + (t.group[id] and 1 or 0))
   end
-  tree = t
   return t
 end
 
 -- The tracks of the last layout, for a part that needs them all.
 local frame_rows: {integer} = {}
+-- The tree of the last layout's tracks.
+local tree: Tree
+
+local function current_tree(): Tree
+  if not tree then
+    tree = tree_of(frame_rows)
+  end
+  return tree
+end
 
 M.add(
   "fold",
@@ -424,9 +426,9 @@ M.add(
     -- members, `last` on its last member; paw's own (`paw.draw.g`, ASCII
     -- with `paw.opt.ascii`) when not set.
     glyphs = {},
-    width = function(frame: Frame): integer return tree_of(frame.rows).width end,
+    width = function(frame: Frame): integer tree = tree_of(frame.rows); return tree.width end,
     render = function(track: integer, ctx: Context): Cells
-      local t = tree_of(frame_rows)
+      local t = current_tree()
       if not t.chain[track] then
         return nil
       end
@@ -455,7 +457,7 @@ M.add(
     end,
     -- A click on the mark of a group folds it away or opens it, as `za`.
     click = function(track: integer, ctx: Context)
-      local t = tree_of(frame_rows)
+      local t = current_tree()
       if t.group[track] and ctx.line == 0 and ctx.kind == "track" and ctx.x == t.depth[track] then
         paw.frontend.act.fold(track)
       end
