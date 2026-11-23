@@ -32,6 +32,7 @@
 local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
+local options = require("paw.options")
 local slices = require("paw.slices")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
@@ -93,7 +94,8 @@ local record M
   type Stats = Stats
   type Changed = Changed
   type Progress = Progress
-  --- After a slice of the job: the kinds of node whose values changed.
+  --- The event `derived.changed`: a slice of the work that paw derives from
+  --- the project ended, and the values of these kinds of node changed.
   changed: events.Event<Changed>
   progress: function(after?: number): Progress
 
@@ -1115,13 +1117,7 @@ events.on(
     end
   end
 )
-local record OptionChanged
-  name: string
-end
-events.on(
-  events.event("option.changed") as events.Event<OptionChanged>,
-  function(e: OptionChanged) mark("option:" .. e.name) end
-)
+events.on(options.changed, function(e: options.Changed) mark("option:" .. e.name) end)
 events.on(kernel.changed, function() edits_seen = project_int("edits") end)
 events.on(kernel.project_loaded, function() M.reset() end)
 

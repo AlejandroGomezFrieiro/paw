@@ -248,12 +248,8 @@ end
 local record WinResized
   win: integer
 end
-local record OptionChanged
-  name: string
-end
 local view_focused: events.Event<ViewFocused> = events.event("view.focused")
 local win_resized: events.Event<WinResized> = events.event("win.resized")
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 
 local record M
   type Bar = Bar
@@ -1855,7 +1851,7 @@ function M.recolour()
   api.ui_redraw()
 end
 
-events.on(option_changed, function(event: OptionChanged)
+events.on(options.changed, function(event: options.Changed)
   if event.name == "termcolors" then M.recolour() end
   if event.name == "ascii" then paw.draw.use_glyphs() end
 end)

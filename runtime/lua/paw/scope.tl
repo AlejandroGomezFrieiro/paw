@@ -147,16 +147,11 @@ local record Added
   restored: boolean
 end
 local added: events.Event<Added> = events.event("track.added")
-local record Option
-  name: string
-end
-local option_changed: events.Event<Option> = events.event("option.changed")
 local tab_enter: events.Event<events.Payload> = events.event("tab.enter")
 local record WinEvent
   win: integer
 end
 local win_enter: events.Event<WinEvent> = events.event("win.enter")
-local render_done: events.Event<kernel.RenderEnd> = events.event("render.done")
 
 local function L(): LayoutModule
   return paw.layout
@@ -1431,8 +1426,8 @@ function M.held(): {integer}
 end
 
 events.on(
-  render_done,
-  function(info: kernel.RenderEnd)
+  kernel.render_done,
+  function(info: types.RenderResult)
     local p = pending[info.path]
     if not p then
       return
@@ -1532,8 +1527,8 @@ events.on(tab_enter, function() follow(false, tab_window(L().tab())) end)
 events.on(win_enter, function(e: WinEvent) follow(false, (L().get(e.win))) end)
 events.on(changed, function() follow(true) end)
 events.on(
-  option_changed,
-  function(e: Option)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "scope_rest" then
       M.apply(M.current(holder()))
     elseif e.name == "scopeloop" then

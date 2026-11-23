@@ -682,13 +682,9 @@ events.on(
 )
 
 -- `:set insertkeys=m,r` takes effect at once.
-local record OptionChanged
-  name: string
-end
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "insertkeys" then
       sync()
     end

@@ -63,7 +63,7 @@ local record M
   --- order `:automation` steps through them, and what each does.
   modes: {types.AutoMode}
   mode_text: {types.AutoMode: string}
-  --- The event that says the lanes shown (automation or takes) changed.
+  --- The event `lanes.changed`: the lanes shown (automation or takes) changed.
   changed: events.Event<Changed>
   param_of: function(lane: types.Lane): types.ParamInfo, types.Device
 end

@@ -21,7 +21,6 @@ local function styles()
   paw.ui.hl("ArtBandEdge", { fg = c.line_hi, bg = c.bg_alt })
 end
 styles()
-paw.on("theme.changed", styles)
 
 --- The keyswitch keys of a map: `{ [pitch] = art }`.
 function M.keyswitch_keys(map)

@@ -859,6 +859,16 @@ that the keyboard sends is `<` alone, because the keyboard sends `<lt>`.
 record of the payload. `paw.keymap.mode_changed` is now the one descriptor,
 and `paw.keymap.ModeChanged` is the one record.
 
+Eleven modules had their own record of the payload of `option.changed`,
+and two had their own of `render.before`. Now the module that sends an
+event gives its descriptor and its record: `paw.option.changed`,
+`paw.render.before`, `paw.events.startup` and `paw.events.exit`. A
+descriptor also declares the name of its event, so a handler that waits
+for a name that nothing declares is in the log, and `:checkhealth events`
+lists it. The first run found `theme.changed`, an event that nothing
+sends, in the articulations extension. `tools/apidoc.lua` writes the rows
+of these descriptors on the page on events.
+
 The contracts of a view missed some fields that the keymap reads:
 
 - `view:subscope()` can give a list of scopes, as the piano roll does.

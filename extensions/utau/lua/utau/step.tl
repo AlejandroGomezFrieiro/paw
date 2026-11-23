@@ -6,16 +6,10 @@
 -- the keys and the controls do in the vocal editor.
 --
 -- Written in Teal (paw/lang.tl): paw compiles it as it loads.
-local events = require("paw.events")
 local type types = require("paw.types")
 
 local type StepNote = paw.contracts.StepNote
 local type StepAction = paw.contracts.StepAction
-
-local record ModeChanged
-  mode: string
-  old: string
-end
 
 local record Clip
   id: integer
@@ -195,8 +189,8 @@ paw.step.target(
 )
 
 paw.on(
-  events.event("mode.changed") as events.Event<ModeChanged>,
-  function(e: ModeChanged)
+  paw.keymap.mode_changed,
+  function(e: paw.keymap.ModeChanged)
     if e.mode == "i" and e.old ~= "i" then
       began = api.undo_current()
     elseif e.old == "i" and e.mode ~= "i" then

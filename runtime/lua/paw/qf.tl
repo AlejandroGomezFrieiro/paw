@@ -21,6 +21,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local render = require("paw.render")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local commands = require("paw.commands")
@@ -159,23 +160,11 @@ local record EntryContext is commands.Context
   entry: Entry
 end
 
---- The payload of `option.changed`, as far as this module reads it.
-local record OptionChanged
-  name: string
-  value: options.Value
-end
-
 --- A value of the options of a render (paw/render.tl), which this module
 --- passes on.
 local record RenderValue
 end
 local type RenderOptions = {string: RenderValue}
-
---- The payload of `render.before`.
-local record RenderBefore
-  path: string
-  opts: RenderOptions
-end
 
 --- The payload of `plugins.scanned`: the notes of the scan, and the name
 --- it was about (`:plugins.rescan name`).
@@ -270,8 +259,9 @@ local record M
   HISTORY: integer
   --- The title of the list that the program keeps.
   PROBLEMS: string
-  --- The event `qf.changed` (`paw.qf.changed` is a function: a source's
-  --- entries can be different now).
+  -- The descriptor is `event`, because `changed` is a function: the
+  -- entries of a source can be different now.
+  --- The event `qf.changed`: the quickfix list or a location list changed.
   event: events.Event<Changed>
   type Located = Located
   severity_of: function(level: Level | boolean): integer
@@ -1018,10 +1008,9 @@ M.source(
   end
 )
 events.on(paw.diagnostic.changed, function() M.changed("diagnostic") end)
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "qf_diagnostics" then
       M.changed("diagnostic")
     end
@@ -1119,13 +1108,11 @@ local function render_feed()
   M.feed("render", all)
 end
 
-local render_before: events.Event<RenderBefore> = events.event("render.before")
-local render_finished: events.Event<types.RenderResult> = events.event("render.finished")
 events.on(
-  render_before,
-  function(e: RenderBefore)
+  render.before,
+  function(e: render.Before)
     if e.path then
-      render_opts[e.path] = e.opts
+      render_opts[e.path] = e.opts as RenderOptions
     end
   end
 )
@@ -1137,7 +1124,7 @@ local function rendered(info: types.RenderResult)
   render_feed()
 end
 events.on(kernel.render_done, rendered)
-events.on(render_finished, rendered)
+events.on(render.finished, rendered)
 events.on(
   kernel.render_failed,
   function(e: kernel.RenderEnd)

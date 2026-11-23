@@ -317,6 +317,19 @@ M.register("teal", function(h)
   end
 end, { desc = "the types of the configuration and extensions written in Teal" })
 
+M.register("events", function(h)
+  local names = paw.events.undeclared()
+  if #names == 0 then
+    h.ok("each event that a handler waits for by its name or its family is one that paw or an extension declares")
+  end
+  for _, name in ipairs(names) do
+    h.warn(
+      "a handler waits for `" .. name .. "`, which matches no event that a part of paw or an extension declares",
+      { "check the name for a typo", "an extension declares its own events with paw.events.event(name)" }
+    )
+  end
+end, { desc = "the names of the events that handlers wait for" })
+
 M.register("derived", function(h) require("paw.derived").health(h) end, {
   desc = "the data paw derives from the project (the chords of the song): values, memory and limits",
 })
