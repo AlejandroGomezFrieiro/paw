@@ -81,14 +81,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.Clip:exists()`: True if the clip is still in the project.
 - `paw.Clip:get()`: Everything about the clip as plain data (`paw.api.clip_get`).
+- `paw.Clip:note(place)`: The note at a place in the notes of the clip (from 1), at the pitch that the handle gives (`Clip:shifted`). Nothing when there is no such note, or when the shift takes it below 0 or above 127.
 - `paw.Clip:note_at(pitch, beat)`: The note on a pitch that sounds at a beat of the clip, and its place in the notes of the clip. Nothing when there is no such note.
 - `paw.Clip:notes(range)`: The notes of a MIDI clip: a list of { pitch, start, length, velocity }. `start` is in beats from the start of the clip. A note can have `meta`, a table of extension data such as a lyric. A note can also have `attr`, the MIDI 2.0 attribute of its note-on (`{ type, data }`, see `paw.attr`).
 
-  With a range, only the notes that sound in it. The second value is then the place of each note in the whole list, for `set_note` and `remove_note`:
+  With a range, only the notes that sound in it. The second value is the place of each note in the whole list, for `set_note` and `remove_note`:
 
   ```lua
   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
   ```
+
+  A handle from `Clip:shifted` leaves out each note that the shift takes below 0 or above 127. The places in the second value still count every note of the clip.
 - `paw.Clip:peaks(n)`: The waveform of an audio clip: `n` { min, max, rms } entries. Each entry covers an equal part of the sound of the clip, scaled by its gain. It gives how far the wave goes each way (-1 to 1) and how loud it is there. paw keeps the result, so the code that draws can ask for it each frame.
 - `paw.Clip:remove()`: Take the clip out of its track.
 - `paw.Clip:remove_note(index)`: Remove the note at a place among the clip's notes (from 1).
@@ -1887,7 +1890,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.bend_of(controls, note)`: The bend of a note of a clip in the clip's beats, or nil: `semis` at its end and where its ramp starts, as a fraction of its length. The piano roll shows it on the note, `K` says it.
 - `paw.roll_draw.chord(pitches, name)`: Make the notes being drawn these pitches, the first under the cursor: a chord at the same start and as long.
 - `paw.roll_draw.click_step()`: The Step button of the window: step input on or off, from normal mode too.
-- `paw.roll_draw.controls_of(id)`: Per-note bends of a clip, read once for each frame that shows it.
+- `paw.roll_draw.controls_of(clip)`: Per-note bends of a clip, read once for each frame that shows it. On a part's handle (`Clip:shifted`), each key is at the pitch that the note on it plays, as the part's notes are.
 - `paw.roll_draw.describe()`: The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 - `paw.roll_draw.digit(d)`: A digit of the count for the next key, or of a length after `=`.
 - `paw.roll_draw.edge(edge)`: Go to the other edge of the note (`o`), or to `edge`.

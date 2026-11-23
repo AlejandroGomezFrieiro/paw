@@ -605,6 +605,12 @@ function paw.Clip:exists() end
 --- Everything about the clip as plain data (`paw.api.clip_get`).
 function paw.Clip:get() end
 
+--- The note at a place in the notes of the clip (from 1), at the pitch
+--- that the handle gives (`Clip:shifted`). Nothing when there is no such
+--- note, or when the shift takes it below 0 or above 127.
+---@param place any
+function paw.Clip:note(place) end
+
 --- The note on a pitch that sounds at a beat of the clip, and its place in
 --- the notes of the clip. Nothing when there is no such note.
 ---@param pitch any
@@ -616,9 +622,12 @@ function paw.Clip:note_at(pitch, beat) end
 --- a table of extension data such as a lyric. A note can also have `attr`,
 --- the MIDI 2.0 attribute of its note-on (`{ type, data }`, see `paw.attr`).
 --- 
---- With a range, only the notes that sound in it. The second value is then
---- the place of each note in the whole list, for `set_note` and `remove_note`:
+--- With a range, only the notes that sound in it. The second value is the
+--- place of each note in the whole list, for `set_note` and `remove_note`:
 ---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
+--- A handle from `Clip:shifted` leaves out each note that the shift takes
+--- below 0 or above 127. The places in the second value still count every
+--- note of the clip.
 ---@param range any
 function paw.Clip:notes(range) end
 
@@ -7428,9 +7437,11 @@ function paw.roll_draw.chord(pitches, name) end
 --- The Step button of the window: step input on or off, from normal mode too.
 function paw.roll_draw.click_step() end
 
---- Per-note bends of a clip, read once for each frame that shows it.
----@param id any
-function paw.roll_draw.controls_of(id) end
+--- Per-note bends of a clip, read once for each frame that shows it. On
+--- a part's handle (`Clip:shifted`), each key is at the pitch that the
+--- note on it plays, as the part's notes are.
+---@param clip any
+function paw.roll_draw.controls_of(clip) end
 
 --- The note being drawn, in words: `C4 · end · 2 steps · 0.5 beats`, or nil.
 function paw.roll_draw.describe() end

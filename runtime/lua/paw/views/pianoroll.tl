@@ -373,7 +373,7 @@ M.opened = events.event("pianoroll.opened")
 -- it: they name this module's types, so it cannot name theirs.
 local record RollDraw
   hidden: function(clip: integer): {integer: boolean}
-  controls_of: function(clip: integer): {types.Control}
+  controls_of: function(clip: objects.Clip): {types.Control}
   bend_of: function(controls: {types.Control}, note: types.Note): number, number
   stepping: function(): boolean
   status: function(): string
@@ -808,7 +808,7 @@ view.layer(
       -- The notes insert mode's pencil holds show where it has them; each
       -- note's own bend shows on it.
       local held = paw.roll_draw.hidden(part.id) or {}
-      local controls = #shown > 0 and paw.roll_draw.controls_of(part.id) or {}
+      local controls = #shown > 0 and paw.roll_draw.controls_of(part.clip) or {}
       local ids: {integer: boolean} = named and named[part.id] or {}
       for k, note in ipairs(shown) do
         if not held[note.id] then
@@ -1750,7 +1750,7 @@ local function describe_more(lines: contracts.Description, note: types.Note, par
       attr = note.attr,
     }
   end
-  local bend, bend_at = paw.roll_draw.bend_of(paw.roll_draw.controls_of(part.id), own)
+  local bend, bend_at = paw.roll_draw.bend_of(paw.roll_draw.controls_of(part.clip), own)
   if bend then
     lines[#lines + 1] = string.format(
       "  bends %s %g semitone%s by its end, from %d%% of it (its own pitch bend)",
@@ -1819,7 +1819,7 @@ function view:change(fn: function(note: types.Note)): boolean
   if not place then
     return false
   end
-  local note = part.clip:notes()[place]
+  local note = part.clip:note(place)
   fn(note)
   part.clip:set_note(
     place,

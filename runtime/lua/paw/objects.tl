@@ -415,6 +415,7 @@ local record M
     remove: function(self: Clip)
     track: function(self: Clip): Track
     notes: function(self: Clip, range?: NoteRangeInput): {types.Note}, {integer}
+    note: function(self: Clip, place: integer): types.Note
     note_at: function(self: Clip, pitch: Pitch, beat: number): types.Note, integer
     shifted: function(self: Clip, semitones: integer): Clip
     set_note: function(self: Clip, index: integer, fields: NoteChangeInput): integer
@@ -1283,9 +1284,12 @@ end
 --- a table of extension data such as a lyric. A note can also have `attr`,
 --- the MIDI 2.0 attribute of its note-on (`{ type, data }`, see `paw.attr`).
 ---
---- With a range, only the notes that sound in it. The second value is then
---- the place of each note in the whole list, for `set_note` and `remove_note`:
+--- With a range, only the notes that sound in it. The second value is the
+--- place of each note in the whole list, for `set_note` and `remove_note`:
 ---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
+--- A handle from `Clip:shifted` leaves out each note that the shift takes
+--- below 0 or above 127. The places in the second value still count every
+--- note of the clip.
 function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
   local shift = shift_of(self)
   if range and (range.low or range.high) then
@@ -1299,6 +1303,13 @@ function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
   end
   local notes, places = api.clip_notes(self.id, range as types.NoteRange)
   if shift == 0 then
+    -- The kernel gives no places for the whole list: each is its index.
+    if not places then
+      places = {}
+      for i = 1, #notes do
+        places[i] = i
+      end
+    end
     return notes, places
   end
   -- The notes at the pitches they play. A note that the shift takes out of
@@ -1314,6 +1325,22 @@ function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
     end
   end
   return shown, at
+end
+
+--- The note at a place in the notes of the clip (from 1), at the pitch
+--- that the handle gives (`Clip:shifted`). Nothing when there is no such
+--- note, or when the shift takes it below 0 or above 127.
+function Clip:note(place: integer): types.Note
+  local n = api.clip_notes(self.id)[place]
+  if not n then
+    return nil
+  end
+  local pitch = n.pitch + shift_of(self)
+  if pitch < 0 or pitch > 127 then
+    return nil
+  end
+  n.pitch = pitch
+  return n
 end
 
 --- The note on a pitch that sounds at a beat of the clip, and its place in

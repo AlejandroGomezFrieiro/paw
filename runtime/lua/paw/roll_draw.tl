@@ -187,8 +187,9 @@ local record M
   --- The keys extensions added, by their keys (`M.key`). paw/ext.lua
   --- takes an extension's keys away when it unloads.
   keys: {string: PencilKey}
-  --- A clip's controller moves, none read when it has none.
-  controls_of: function(id: integer): {types.Control}
+  --- A clip's controller moves, none read when it has none. The keys of a
+  --- note's own moves are at the pitches that the handle gives.
+  controls_of: function(clip: objects.Clip): {types.Control}
 end
 M.keys = {}
 
@@ -290,13 +291,14 @@ local function bend_in(controls: {types.Control}, pitch: integer, start: number,
   return {semis = last * BEND_RANGE, ramp = start + length - first}
 end
 
---- Per-note bends of a clip, read once for each frame that shows it.
-local function controls_of(id: integer): {types.Control}
-  local c = api.clip_get(id)
-  if (c.control_count or 0) == 0 then
+--- Per-note bends of a clip, read once for each frame that shows it. On
+--- a part's handle (`Clip:shifted`), each key is at the pitch that the
+--- note on it plays, as the part's notes are.
+local function controls_of(clip: objects.Clip): {types.Control}
+  if (clip:get().control_count or 0) == 0 then
     return {}
   end
-  return api.clip_controls(id)
+  return clip:controls()
 end
 
 --- The bend of a note of a clip in the clip's beats, or nil: `semis` at
@@ -341,7 +343,7 @@ local function took(n: types.Note, part: Part): Drawn
     length = n.length,
     velocity = n.velocity,
     source = {clip = part.id, id = n.id, pitch = n.pitch, start = start, length = n.length},
-    bend = bend_in(controls_of(part.id), n.pitch, n.start, n.length),
+    bend = bend_in(controls_of(part.clip), n.pitch, n.start, n.length),
   }
 end
 
@@ -924,7 +926,7 @@ local function put_control(number: integer, value: integer)
   end
   local start = d.start - part.start
   local list: {types.Control} = {}
-  for _, c in ipairs(controls_of(part.id)) do
+  for _, c in ipairs(controls_of(part.clip)) do
     if not (c.type == "cc" and c.number == number and not c.key and math.abs(c.start - start) < EPS) then
       list[#list + 1] = c
     end
@@ -932,7 +934,7 @@ local function put_control(number: integer, value: integer)
   list[#list + 1] = {start = start, type = "cc", number = number, value = util.clamp(value, 0, 127) / 127}
   table.sort(list, function(a: types.Control, b: types.Control): boolean return a.start < b.start end)
   join()
-  api.clip_set_controls(part.id, list)
+  part.clip:set_controls(list as {objects.ControlInput})
   paw.notify(string.format("CC %d at %d from %s", number, value, music.name(d.pitch)))
   changed()
 end
@@ -1809,10 +1811,12 @@ local function write(): string
     if e.finish > e.part.length + EPS then
       e.clip.length = paw.time.bar_ceil(e.part.start + e.finish - EPS) - e.part.start
     end
-    api.clip_notes_edit(e.part.id, {set = e.set, remove = e.remove, add = e.add})
+    -- Through the part's handle: the pitches drawn are those the clip
+    -- plays, and the handle stores them back without its transpose.
+    e.clip:edit_notes({set = e.set as {objects.NoteChangeInput}, remove = e.remove, add = e.add as {objects.NoteInput}})
     -- A note's own controllers go with it; a bend drawn replaces its bend.
     local moved = false
-    local controls = controls_of(e.part.id)
+    local controls = controls_of(e.clip)
     for _, n in ipairs(e.moves) do
       local s = n.source
       local shift = s and (n.start - s.start) or 0
@@ -1852,7 +1856,7 @@ local function write(): string
     end
     if moved then
       table.sort(controls, function(a: types.Control, b: types.Control): boolean return a.start < b.start end)
-      api.clip_set_controls(e.part.id, controls)
+      e.clip:set_controls(controls as {objects.ControlInput})
     end
   end
   paw.ui.poke()
