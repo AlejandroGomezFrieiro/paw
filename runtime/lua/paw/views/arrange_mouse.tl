@@ -211,8 +211,9 @@ local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule
     x1: integer
   end
   local list: {Placed} = {}
+  local time = paw.ruler.lane_time()
   for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-    local start, stop = paw.markers.placed(m)
+    local start, stop = paw.markers.placed(m, time)
     if start and paw.markers.lane_row(m.id) == (row or 0) then
       list[#list + 1] = {m = m, x0 = self:col(start), x1 = self:col(stop)}
     end

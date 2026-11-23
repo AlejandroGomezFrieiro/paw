@@ -1052,15 +1052,19 @@ test("a block inside a subproject freezes where the window went in, renders as l
   keys(":freeze<CR>")
   local frozen = paw.freeze_block.frozen(inner)
   eq(frozen and table.concat(frozen.path, " "), way_in .. " " .. inner, ":freeze renders it through that block")
+  local said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
   -- Muted inside, Ballad plays nothing: what sounds is the file, at each place.
+  -- The mute is a part of the mix that the file was made from, so it makes
+  -- the block stale; u takes it back before the edit below.
   api.track_set(b.keys, { mute = true })
   paw.flush()
   api.undo_checkpoint()
   local worst, peak = difference(live, render())
   eq(peak > 0.05, true, "it sounds")
   eq(worst < 1e-5, true, "the same sound at both places, frozen as live: " .. worst)
-  local said = info()
-  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
+  keys("u")
+  eq(paw.freeze_block.describe(inner), "frozen, up to date", "u: the mute undone, the file is current again")
   paw.track(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
   paw.flush()
   api.undo_checkpoint()

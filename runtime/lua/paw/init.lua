@@ -391,6 +391,8 @@ function K.startup()
   paw.markers = require("paw.markers")
   -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
   paw.nest = require("paw.nest")
+  -- paw.nest is below this module (tools/layers.txt): it gets paw.flush here.
+  paw.nest.flush = paw.flush
   paw.pick.sources:put("nests", paw.nest.source)
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")

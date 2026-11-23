@@ -1323,11 +1323,12 @@ local function placed(ctx: contracts.RulerLaneContext, beat: number, length?: nu
   return a, b
 end
 
---- Where a marker or region shows in the window now, as the regions' lane
---- draws it: its start and end in the window's beats, nil when it does
---- not show.
-function M.placed(m: Marker): number, number
-  return placed(paw.ruler.lane_time(), m.beat, m.length)
+--- Where a marker or region shows in the window, as the regions' lane
+--- draws it. `time` is the window's time: give it `paw.ruler.lane_time()`.
+--- Gives the start and end in the window's beats, or nil when it does not
+--- show.
+function M.placed(m: Marker, time: contracts.RulerLaneContext): number, number
+  return placed(time, m.beat, m.length)
 end
 
 --- The rows of the lane: one for each level of the regions that show, at

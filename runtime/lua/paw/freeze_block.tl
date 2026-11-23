@@ -157,9 +157,9 @@ local function tempo_text(c: types.Clip, tail: number, path: {integer}): string
       out[#out + 1] = num(p.beat - from) .. "=" .. p.num .. "/" .. p.den
     end
   end
-  for _, block in ipairs(path) do
-    if api.nest_own_tempo(block) ~= nil then
-      local own = api.nest_tempo_points(block)
+  for _, id in ipairs(path) do
+    if api.nest_own_tempo(id) ~= nil then
+      local own = api.nest_tempo_points(id)
       for _, p in ipairs(own.tempos) do
         out[#out + 1] = "own " .. num(p.beat) .. "=" .. num(p.bpm) .. tostring(p.ramp)
       end

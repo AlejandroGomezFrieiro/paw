@@ -1416,7 +1416,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.parent(id)`: The region around a region (the smallest that holds it), or around a marker (the innermost at its beat). Nil at the top.
 - `paw.markers.path(beat)`: The regions around a beat, the outermost first. Where two siblings overlap, the one that starts later is taken.
 - `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:render range=` and `paw.markers.region` take it when names repeat.
-- `paw.markers.placed(m)`: Where a marker or region shows in the window now, as the regions' lane draws it: its start and end in the window's beats, nil when it does not show.
+- `paw.markers.placed(m, time)`: Where a marker or region shows in the window, as the regions' lane draws it. `time` is the window's time: give it `paw.ruler.lane_time()`. Gives the start and end in the window's beats, or nil when it does not show.
 - `paw.markers.prev(beat)`: The last marker before a beat, or nil.
 - `paw.markers.region(which)`: A region by number, id, name or path of names (`Chorus 2/Verse A`).
 - `paw.markers.regions()`: The regions alone.
@@ -1516,6 +1516,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.define_kind(name, spec)`: Define a kind of subproject that `:nest.new kind=<name>` makes, such as a drum pattern that opens in a step grid. `spec` gives `title`, `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each optional (`paw.contracts.NestKind`). The kind's data is in the subproject's `meta` under the kind's name: read it with `paw.nest.data(nest)`. Without the kind, the subproject plays and the arrange view edits it. Returns the spec.
 - `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen block. `c` is the clip, in the window's time.
 - `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder), as `:nest.export` does: its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
+- `paw.nest.flush`: the same as `paw.flush`.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.import(folder)`: Bring the project folder `folder` (`~/` is the home folder) into the song as a subproject, as `:import <folder>` does: a subproject that refers to the folder (`paw.api.nest_import`), on a row of its own below the cursor's track with one block from the cursor's bar. It plays at once. Its first edit, or `:nest.own`, makes it the song's own copy. Call it in one undo step (a command is one). Returns the message.
 - `paw.nest.is_open(row)`: Whether a row is open in place.

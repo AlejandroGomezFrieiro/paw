@@ -5859,11 +5859,13 @@ function paw.markers.path(beat) end
 ---@param region any
 function paw.markers.pathname(region) end
 
---- Where a marker or region shows in the window now, as the regions' lane
---- draws it: its start and end in the window's beats, nil when it does
---- not show.
+--- Where a marker or region shows in the window, as the regions' lane
+--- draws it. `time` is the window's time: give it `paw.ruler.lane_time()`.
+--- Gives the start and end in the window's beats, or nil when it does not
+--- show.
 ---@param m any
-function paw.markers.placed(m) end
+---@param time any
+function paw.markers.placed(m, time) end
 
 --- The last marker before a beat, or nil.
 ---@param beat any
@@ -6265,6 +6267,8 @@ function paw.nest.describe(c) end
 ---@param nest any
 ---@param folder any
 function paw.nest.export(nest, folder) end
+
+paw.nest.flush = paw.flush
 
 --- The subproject `id`, or nil when there is none.
 ---@param id any

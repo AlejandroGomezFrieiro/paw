@@ -20,7 +20,6 @@ local commands = require("paw.commands")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
-local events = require("paw.events")
 local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -139,6 +138,9 @@ local record M
   --- The event `nest.changed`: an edit changed the tracks, clips, devices
   --- or lanes of a subproject. It comes once for each undo step.
   changed: events.Event<Changed>
+  --- Sends the events of the edits made until now: `paw.flush`, which
+  --- paw sets here when it starts.
+  flush: function()
 end
 
 local opt = options.opt
@@ -1984,6 +1986,10 @@ function M.open(path: string, opts?: {string: boolean}): string
   local current = api.project_get().path
   if not (current and (current:gsub("/project%.toml$", ""):gsub("/+$", "")) == song) then
     paw.loading.open(song, opts)
+    -- `project.loaded` gives the windows the song's saved screen and no
+    -- scope (paw/layout.tl). Send it now, so that it comes before the
+    -- window enters the subproject and does not undo that.
+    M.flush()
   end
   local n = M.get(id)
   if not n then
