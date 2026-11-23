@@ -210,7 +210,7 @@ paw.ui.view("mixdiag_strip", strip)
 if paw.frontend and paw.frontend.bands then
   local c = paw.canvas.palette
   local colours = { error = c.error, warn = c.warn, info = c.select, hint = c.text_3 }
-  table.insert(paw.frontend.bands, function()
+  paw.frontend.bands:put("mixdiag", function()
     local mixdiag = require("mixdiag")
     local out, at = {}, {}
     for _, f in ipairs(mixdiag.findings or {}) do

@@ -7,6 +7,7 @@ local api = require("paw.api")
 local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
@@ -126,20 +127,21 @@ local function menus(): {string: {MenuLabel}}
 end
 
 --- Bands of their own under the frontend's ruler, from extensions, under
---- the one for markers: each a function that returns the band's entries,
+--- the one for markers, in the order of their names: each a function that
+--- returns the band's entries,
 --- `{ beat, length, name, color, command }` each (`length` 0 for a flag,
 --- `color` `#rrggbb` or nil for the window's own, `command` a command line,
 --- or `run` a function, for a click on it, and `hint`, what the status line
 --- says over it).
 ---
----   table.insert(paw.frontend.bands, function()
+---   paw.frontend.bands:put("sections", function()
 ---     return { { beat = 0, length = 16, name = "Intro", command = "section.goto 1" } }
 ---   end)
 ---
 --- A band with no entries takes no room. They are asked again whenever the
 --- project, the cursor or the transport changes; after a change of its own
 --- (a measurement that has ended) an extension calls `paw.frontend.refresh()`.
-M.bands = {}
+M.bands = registry.new("bands", "bands under the ruler", {changed = function() api.ui_redraw() end})
 
 --- Make the frontend get the state of the project again, when nothing in the
 --- project changed. This is for data that an extension adds to the state.
@@ -148,8 +150,23 @@ function M.refresh()
   api.ui_redraw()
 end
 
+-- The names of the bands, in their order.
+local function band_names(): {string}
+  local names: {string} = {}
+  for name in pairs(M.bands:entries()) do
+    names[#names + 1] = name
+  end
+  table.sort(names)
+  return names
+end
+
+-- The entries of the band at `index` in the order of the names: none for
+-- a band that is not there.
 local function band_entries(index: integer): {BandEntry}
-  local fn = M.bands[index]
+  local fn = M.bands:get(band_names()[index] or "")
+  if not fn then
+    return {}
+  end
   local ok, entries = pcall(fn)
   if not ok then
     paw.notify("a band of the window's ruler failed: " .. tostring(entries), "error")
@@ -164,7 +181,7 @@ end
 function M.band_state(): Bands
   local out: {BandState} = {}
   local rows = 0
-  for i in ipairs(M.bands) do
+  for i in ipairs(band_names()) do
     local entries = band_entries(i)
     if #entries > 0 then
       for j, e in ipairs(entries) do

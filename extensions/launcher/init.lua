@@ -231,19 +231,17 @@ smap("p", function(ctx)
 end, "Paste a clip into the slot")
 
 -- The line of keys under the view.
-paw.ui.keybar.lines.session = {
-  n = {
-    { "<CR>", "launch" },
-    { "L", "scene" },
-    { "S", "stop" },
-    { "B", "resume timeline" },
-    { "o", "new clip" },
-    { "i", "notes" },
-    { "~", "mode" },
-    { "<leader><Space>", "play" },
-    { "?", "keys" },
-  },
-}
+paw.ui.keybar.set("session", "n", {
+  { "<CR>", "launch" },
+  { "L", "scene" },
+  { "S", "stop" },
+  { "B", "resume timeline" },
+  { "o", "new clip" },
+  { "i", "notes" },
+  { "~", "mode" },
+  { "<leader><Space>", "play" },
+  { "?", "keys" },
+})
 
 -- Controllers: a pad launches a slot, a scene, or stops -------------------------
 

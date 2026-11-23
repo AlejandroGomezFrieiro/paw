@@ -273,15 +273,20 @@ test("an extension's band is under the ruler, and a click runs what it stands fo
   start()
   local ran
   local bands = paw.frontend.bands
-  local at = #bands + 1
-  bands[at] = function()
+  -- The last two names, so that the band is the last but one.
+  bands:put("zzz_test", function()
     return {
       { beat = 0, length = 8, name = "Verse", command = "transport.start" },
       { beat = 8, length = 0, name = "here", color = "#ff0000", run = function(e) ran = e.name end },
       { beat = 12, length = 4, name = "nothing to do" },
     }
+  end)
+  bands:put("zzzz_test", function() return {} end)
+  local at = 0
+  for _ in pairs(bands:entries()) do
+    at = at + 1
   end
-  bands[at + 1] = function() return {} end
+  at = at - 1
   local ok, err = pcall(function()
     local state = paw.frontend.band_state()
     local mine = {}
@@ -302,6 +307,7 @@ test("an extension's band is under the ruler, and a click runs what it stands fo
     paw.frontend.act.band(at, 1)
     eq(paw.transport.position, 0, "or its command")
   end)
-  bands[at + 1], bands[at] = nil, nil
+  bands:remove("zzzz_test")
+  bands:remove("zzz_test")
   if not ok then error(err, 0) end
 end)
