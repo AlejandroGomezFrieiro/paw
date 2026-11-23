@@ -41,7 +41,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `grc` | Renames the clip. |
 | `H` `L` | Moves the clip. |
 | `Alt-h` `Alt-l` | Shortens and lengthens the clip. |
-| `vic` `Ctrl-a` | Transposes the clip. On a selection, `Ctrl-a` `Ctrl-x` change the pitch of the clips. |
+| `vic` `Ctrl-a` | Transposes the clip. On a selection, `Ctrl-a` `Ctrl-x` `+` `-` move only the notes that start in the selection, so `vib12Ctrl-a` moves one bar up an octave and leaves the rest of the clip. A count gives the semitones. The message says how many notes moved, how far and in which clips, for example `moved 4 notes up 12 semitones in Keys`. With the [classic keys](key-rule.md#the-classic-keys), `Ctrl-a` with no selection transposes the whole clip at the cursor. |
 | `gw` `gW` | Puts a warp marker on the audio clip at the cursor. Removes the warp marker nearest to the cursor. |
 | `<Space>cl` | Puts a linked copy after the MIDI clip, as `&` puts a plain copy. See [Linked clips](#linked-clips). |
 | `<Space>cu` | Takes the clip out of its link, so that it is a plain copy again. |

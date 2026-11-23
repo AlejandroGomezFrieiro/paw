@@ -419,6 +419,14 @@ The limits page lists what paw does not do, and the known limits of what it does
   - The diff shows the changes inside subprojects, but the merge does not
     renumber subprojects. When both sides add a subproject, or a track to a
     subproject, with the same id, the merged project can fail to load.
+  - `:Pmerge` takes a file that git merged on its own as git merged it. When
+    git merged two changes to one text file line by line without a conflict,
+    paw doesn't check what the two changes mean together.
+  - `:Pmerge` reads a merge from the index of git, so it works only while
+    git still has the conflicts there: before `git add`.
+  - `Enter` in the window of `:Pdiff` goes into the subproject of a change,
+    but a quickfix entry of `:Pdiff.qf` puts the cursor on the change from
+    the scope that the window shows.
 
 ## Extensions and Lua
 

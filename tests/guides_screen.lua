@@ -132,3 +132,88 @@ test("guide: arrange your screen: windows, tabs and layouts", function()
   keys(":layout guide_write<CR>")
   eq(windows(), "arrange", ":layout puts a saved layout back")
 end)
+
+-- Workspaces ------------------------------------------------------------------------
+
+--- A fresh project on a screen of W by H, put back when the test ends.
+local function sized()
+  fresh()
+  local size = api.ui_size
+  api.ui_size = function() return W, H end
+  T.after(function() api.ui_size = size end)
+end
+
+--- The status line of the screen.
+local function status() return api.ui_snapshot(W, H)[H - 1] end
+
+test(
+  "guide: arrange your screen: Space wm goes to the mix workspace, and Space we back to edit as you left it",
+  function()
+    sized()
+    paw.add_track({ name = "Piano" })
+    keys("<Space>we")
+    eq(windows(), "arrange pianoroll", "Space we: the edit workspace")
+    eq(status():find(" edit ", 1, true) ~= nil, true, "the status line names it")
+    keys("4l")
+    local beat = paw.cursor.beat
+    keys(":tabnew mixer<CR>")
+    keys("gt")
+    keys("<C-w>j")
+    keys("<Space>wm")
+    eq(#paw.ui.tabs .. " " .. windows(), "1 mixer devices", "Space wm: the mix workspace")
+    eq(status():find(" mix ", 1, true) ~= nil, true, "the status line names it")
+    keys("<Space>we")
+    eq(
+      #paw.ui.tabs .. " " .. paw.ui.tab .. " " .. windows() .. " " .. paw.ui.focused,
+      "2 1 arrange pianoroll pianoroll",
+      "Space we: its two tabs, the first one, and the keys in the piano roll, as left"
+    )
+    eq(paw.cursor.beat, beat, "the cursor where it was")
+  end
+)
+
+test("guide: arrange your screen: Space wr puts the cursor on the first armed track, or says that none is", function()
+  sized()
+  local first = paw.add_track({ name = "Drums" })
+  local vox = paw.add_track({ name = "Vox" })
+  paw.cursor.set_track(first)
+  local function said() return paw.ui.messages[#paw.ui.messages].text end
+  keys("<Space>wr")
+  eq(paw.cursor.track_id(), first.id, "with no track armed, the cursor stays")
+  eq(said():find("no track is armed", 1, true) ~= nil, true, "and the message says so: " .. said())
+  keys("<Space>we")
+  keys("j")
+  keys("r")
+  eq(api.track_get(vox.id).armed, true, "r arms Vox")
+  keys("k")
+  keys("<Space>wr")
+  eq(paw.cursor.track_id(), vox.id, "Space wr: the cursor on Vox, the armed track")
+end)
+
+test("guide: arrange your screen: Space ws saves the screen as a workspace, and Space ww lists it", function()
+  sized()
+  local file = api.env().state_dir .. "/layouts/guide_desk.json"
+  T.after(function() os.remove(file) end)
+  keys("<Space>wm")
+  keys("<Space>ws")
+  keys("guide_desk<CR>")
+  eq(T.read_file(file) ~= nil, true, "the layouts folder has it")
+  keys("<Space>ww")
+  T.after(function() paw.ui.close() end)
+  eq(table.concat(paw.pick.state().matches, "\n"):find("guide_desk", 1, true) ~= nil, true, "the picker lists it")
+end)
+
+test("guide: arrange your screen: :workspace.save! keeps a workspace in the project, which opens in it", function()
+  sized()
+  keys("<Space>wm")
+  eq(api.project_get("modified"), false, "going to a workspace changes nothing in the project")
+  keys(":workspace.save! guide_desk<CR>")
+  eq(api.project_get("modified"), true, "the project has a change to save")
+  keys("<Space>we")
+  local path = T.scratch .. "/guide-workspace"
+  keys(":w " .. path .. "<CR>")
+  local screen = api.json_decode(T.read_file(path .. "/screen.json"))
+  eq(screen.workspace, "guide_desk", "screen.json names the workspace that the project opens in")
+  keys(":e " .. path .. "<CR>")
+  eq(paw.workspace.current() .. " " .. windows(), "guide_desk mixer devices", "the project opens in it")
+end)

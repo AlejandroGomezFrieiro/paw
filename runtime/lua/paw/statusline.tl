@@ -259,7 +259,7 @@ local default: Config = {
       "selection",
       "view",
     },
-    x = {"keys", "scope", "project", "engine", "cpu"},
+    x = {"keys", "workspace", "scope", "project", "engine", "cpu"},
     y = {},
     z = {},
   },

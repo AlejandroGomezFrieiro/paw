@@ -86,6 +86,7 @@ local type UndofileModule = require("paw.undofile")
 local type UtilModule = require("paw.util")
 local type VcaModule = require("paw.vca")
 local type VzoomModule = require("paw.vzoom")
+local type WorkspaceModule = require("paw.workspace")
 local type XmlModule = require("paw.xml")
 local type ZipModule = require("paw.zip")
 
@@ -247,6 +248,7 @@ global record paw
    vzoom: VzoomModule
    wait: function(ms: number)
    win: LayoutModule.Wins
+   workspace: WorkspaceModule
    xml: XmlModule
    zip: ZipModule
 end
