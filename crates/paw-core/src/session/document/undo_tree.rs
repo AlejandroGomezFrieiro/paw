@@ -6,7 +6,7 @@ use anyhow::{Result, bail};
 use serde_json::{Value, json};
 
 use super::Document;
-use crate::history::StateId;
+use crate::history::{self, StateId};
 use crate::model::Project;
 
 impl Document {
@@ -85,6 +85,13 @@ impl Document {
         let current = self.undo.history.current();
         self.undo.history.set_label(current, step.label);
         self.reopen_step(step.project);
+    }
+
+    /// Start the undo tree again from the project as it is now.
+    pub fn undo_reset(&mut self) {
+        self.undo.checkpoint = self.project.clone();
+        self.undo.history.reset(self.project.clone(), history::now());
+        self.undo.touched = false;
     }
 
     /// The keys typed for the open step.

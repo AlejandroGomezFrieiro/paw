@@ -157,12 +157,6 @@ impl Session {
         self.doc.undo.history.mark_saved(false);
     }
 
-    pub fn undo_reset(&mut self) {
-        self.doc.undo.checkpoint = self.doc.project.clone();
-        self.doc.undo.history.reset(self.doc.project.clone(), history::now());
-        self.doc.undo.touched = false;
-    }
-
     pub fn project_load(&mut self, path: &Path) -> Result<()> {
         if folder::is_folder_path(path) {
             return self.project_load_folder(path);
