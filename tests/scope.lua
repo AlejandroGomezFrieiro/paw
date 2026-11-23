@@ -956,6 +956,76 @@ test("two blocks at places with the same tempo use one bake file", function()
   reset()
 end)
 
+test("a block inside a subproject freezes where the window went in, renders as live, and goes stale", function()
+  start()
+  local b = ballad()
+  -- Ballad plays only inside Album, at beats 64 and 96 of the song, 4 beats in.
+  api.clip_remove(b.clip)
+  local album = api.nest_add({ name = "Album", length = 32 })
+  local inner_row = api.track_add({ name = "Ballad", nest = album })
+  local inner = api.clip_add(inner_row, { nest = b.nest, start = 4 })
+  local album_row = paw.add_track({ name = "Album" })
+  api.clip_add(album_row.id, { nest = album, start = 64 })
+  local way_in = api.clip_add(album_row.id, { nest = album, start = 96 })
+  paw.flush()
+  api.undo_checkpoint()
+  local live = render()
+  paw.cursor.set_track(album_row)
+  paw.cursor.set_beat(97)
+  keys("<CR>")
+  eq(paw.scope.breadcrumb(), "Song › ⧉Album", "in Album through its second block")
+  paw.cursor.set_track(paw.track(inner_row))
+  paw.cursor.set_beat(5)
+  keys(":freeze<CR>")
+  local frozen = paw.freeze_block.frozen(inner)
+  eq(frozen and table.concat(frozen.path, " "), way_in .. " " .. inner, ":freeze renders it through that block")
+  -- Muted inside, Ballad plays nothing: what sounds is the file, at each place.
+  api.track_set(b.keys, { mute = true })
+  paw.flush()
+  api.undo_checkpoint()
+  local worst, peak = difference(live, render())
+  eq(peak > 0.05, true, "it sounds")
+  eq(worst < 1e-5, true, "the same sound at both places, frozen as live: " .. worst)
+  local said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
+  paw.track(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
+  paw.flush()
+  api.undo_checkpoint()
+  said = info()
+  eq(said:find("frozen, stale: Ballad changed since: clips", 1, true) ~= nil, true, "K after an edit inside: " .. said)
+  eq(screen():find("stale: Ballad", 1, true) ~= nil, true, "the status line says so")
+  reset()
+end)
+
+test(
+  ":freeze on a stem block freezes it; a stem that plays through its row's devices says to freeze the row",
+  function()
+    start()
+    local b = ballad()
+    local pad = api.track_add({ name = "Pad", nest = b.nest })
+    api.clip_add(pad, { start = 0, length = 4, notes = { { pitch = 48, start = 0, length = 4 } } })
+    paw.flush()
+    api.undo_checkpoint()
+    paw.cursor.set_track(paw.track(b.row))
+    keys(":nest.outputs stems<CR>")
+    local rows = {}
+    for _, id in ipairs(api.track_list()) do
+      rows[api.track_get(id, "name")] = id
+    end
+    paw.cursor.set_track(paw.track(rows.Keys))
+    paw.cursor.set_beat(33)
+    keys(":freeze<CR>")
+    local block = api.clip_list(rows.Keys)[1].id
+    eq(frozen_file(block) ~= nil, true, "the stem of Keys, with its own devices, is frozen")
+    -- Pad has no devices: its notes play through the devices of its row.
+    T.expect_error("^this block plays its notes through the devices of Pad: freeze Pad instead$")
+    paw.cursor.set_track(paw.track(rows.Pad))
+    keys(":freeze<CR>")
+    eq(frozen_file(api.clip_list(rows.Pad)[1].id), nil, "the stem of Pad is not frozen")
+    reset()
+  end
+)
+
 -- Stems by group ---------------------------------------------------------------------------
 
 test(":render stems shows a plan of one file per group, and they add up to the mix", function()

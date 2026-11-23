@@ -1481,6 +1481,7 @@ local record types
     tracks: {integer}
     freeze: integer
     block: integer
+    through: {integer}
     dither: boolean
     normalize: number
     loudness: number

@@ -272,12 +272,24 @@ local function chosen_block(ctx)
   return c and c.kind == "nest" and c.id or nil
 end
 
+--- The blocks that the window went into subprojects through, outer first:
+--- where a block inside a subproject is rendered.
+local function way_in()
+  local out = {}
+  local s = paw.scope.current()
+  while s do
+    if s.kind == "nest" and s.clip then table.insert(out, 1, s.clip) end
+    s = s.parent
+  end
+  return out
+end
+
 paw.command("freeze", function(ctx)
   local block = chosen_block(ctx)
   if block then
     local name = api.nest_get(api.clip_get(block).nest, "name")
     local current = freeze_block.describe(block) == "frozen, up to date"
-    if not current then freeze_block.freeze(block, { tail = tonumber(ctx.args.tail) }) end
+    if not current then freeze_block.freeze(block, { tail = tonumber(ctx.args.tail), through = way_in() }) end
     return paw.notify(
       current and string.format("%s is frozen and up to date", name)
         or string.format("frozen: the block of %s · its devices rest; `:unfreeze` plays them again", name)

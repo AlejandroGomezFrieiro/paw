@@ -790,9 +790,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.freeze_block
 
 - `paw.freeze_block.describe(clip)`: What `K` says of a frozen block: "frozen, up to date", "frozen, stale: Ballad changed since: clips". Nil for a block that plays live.
-- `paw.freeze_block.freeze(clip, opts)`: Freeze block `clip`: render what it plays into its row, and play the file from now on. A block frozen before is made current. One undo step. Returns the file.
+- `paw.freeze_block.freeze(clip, opts)`: Freeze block `clip`: render what it plays into its row, and play the file from now on. A block inside a subproject is rendered at the place in the song of `opts.through`, else of the first blocks that place it. A block frozen before is made current. One undo step. Returns the file.
 - `paw.freeze_block.frozen(clip)`: What block `clip` is frozen to, `{ file, key, length, tail }`, or nil.
-- `paw.freeze_block.key(c, tail)`: The key of what block `c` plays now, with a tail of `tail` seconds.
+- `paw.freeze_block.key(c, tail, path)`: The key of what block `c` plays now, with a tail of `tail` seconds, on `path` (`paw.api.block_path`).
 - `paw.freeze_block.stale()`: The names of the subprojects that have a frozen block that is stale, for the status line. Empty when there is none.
 - `paw.freeze_block.unfreeze(clip)`: Play block `clip`'s subproject live again. The file stays, as undo can bring the freeze back.
 
@@ -1789,6 +1789,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   freeze      a track id: that track alone, before its fader, as a freeze renders it
   block       a clip id of a block of a subproject: what the block plays into its row,
               and nothing else, as a freeze of the block renders it
+  through     with `block` inside a subproject: the blocks that place it in the song,
+              outer first (`paw.api.block_path`); its first ones when left out
   threads     threads to render on
   background  true to return at once and render on a thread of its own:
               `render.progress` ({ path, fraction, seconds }) follows now
@@ -2494,6 +2496,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.automation_hold(track, target, device, param, on)`: A control is held (a fader under the pointer) or let go: in touch mode it writes automation for as long as it is held. The control is named as a lane's target is.
 - `paw.api.base64_decode(text)`: The bytes of base64 text, either alphabet, with or without its padding; spaces and line ends are left out. Nil and the reason when it is not base64.
 - `paw.api.base64_encode(data, opts)`: Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and `opts.pad = false` leaves out the `=` at the end.
+- `paw.api.block_beat(path, beat)`: The beat of the place of the last block of `path` (a `block_path`) at the song's beat `beat`: the inverse of `block_song_beat`.
+- `paw.api.block_path(clip, through)`: The blocks that place block `clip` in the song: a block of the song first, and `clip` last. For a block inside a subproject, its block in `through` places each subproject on the way, or else its first block does. Fails when no block of the song plays it.
+- `paw.api.block_song_beat(path, beat)`: The song's beat of beat `beat` of the place of the last block of `path` (a `block_path`): the song, or the subproject that holds the block.
 - `paw.api.blocks(device)`: The number of audio blocks that the engine finished since it started. With a device id, the number of blocks that this device ran: the blocks that it slept through do not count. A change sent to the engine is in effect in the block after the next one that finishes, so wait until the count is two more (the test helper `T.next_block` does this). Nil for a device that the engine does not have.
 - `paw.api.build()`: What this build of paw has: `{ vm, features }`. `vm` is the Lua that runs the code, `"luajit"` or `"lua52"`. `features` lists what an extension can name in the `needs` of its manifest: `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs, `io.popen`), `"network"` (sockets and requests over the network) and `"native"` (parts that Nix builds, such as plugins).
 - `paw.api.canvas_export(path, format, pages, scale)`: Write drawings (the operations of `paw.canvas.paint`) to a file: `format` "pdf" (one page for each drawing), "svg" or "png" (the first). Each page is `{ ops, width, height }` in pixels. `scale` is the points for one pixel in a PDF (0.75: 96 pixels to the inch).

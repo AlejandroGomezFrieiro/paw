@@ -681,6 +681,44 @@ fn a_frozen_block_plays_its_file_and_its_subproject_rests() {
     assert_eq!(placed.resting().collect::<Vec<_>>(), vec![crate::model::NestId(10)], "its subproject rests");
 }
 
+/// A subproject that only a frozen subproject places rests with it, and
+/// plays again when the block is unfrozen: Ballad's track Keys holds a block
+/// of Verse, whose track has the synth.
+#[test]
+fn a_subproject_inside_a_frozen_block_rests_and_plays_again_when_unfrozen() {
+    let (dir, file) = tone_wav("frozen-inside");
+    let verse = json!({ "id": 105, "name": "", "start": 0.0, "length": 4.0, "muted": false,
+        "content": { "kind": "nest", "nest": 20, "play": "master" } });
+    let project = |frozen: bool| -> Project {
+        let mut song = row(&[32.0], 4.0, false);
+        if frozen {
+            song["clips"][0]["meta"] = json!({ "frozen": { "file": file, "length": 4.0 } });
+        }
+        serde_json::from_value(json!({
+            "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+            "master": track_json(0, "Master", None, json!([]), json!([])),
+            "tracks": [
+                song,
+                track_json(11, "Master", Some(10), json!([]), json!([])),
+                track_json(12, "Keys", Some(10), json!([]), json!([verse])),
+                track_json(21, "Master", Some(20), json!([]), json!([])),
+                track_json(22, "Synth", Some(20), instrument(false), json!([phrase()])),
+            ],
+            "nests": [{ "id": 10, "name": "Ballad", "length": 4.0, "master": 11 },
+                { "id": 20, "name": "Verse", "length": 4.0, "master": 21 }],
+        }))
+        .unwrap()
+    };
+    let (frozen, live) = (project(true), project(false));
+    let (map, _) = compiles(&[&frozen]);
+    let (unfrozen, _) = compiles(&[&frozen, &live]);
+    std::fs::remove_dir_all(&dir).unwrap();
+    for track in [11, 12, 21, 22] {
+        assert_eq!(map.played.get(&track), Some(&Played::Held), "track {track} rests while the block is frozen");
+        assert_eq!(unfrozen.played.get(&track), None, "track {track} plays again when it is unfrozen");
+    }
+}
+
 /// The return row's fader and its sends act on the subproject's sound.
 #[test]
 fn the_return_row_mixes_the_subproject() {
