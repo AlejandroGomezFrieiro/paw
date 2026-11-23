@@ -31,6 +31,7 @@ keymap.group("<leader>r", "markers and regions")
 keymap.group("<leader>t", "tracks", { view = "arrange" })
 keymap.group("<leader>T", "tempo and transport")
 keymap.group("<leader>v", "views")
+keymap.group("<leader>w", "workspaces")
 keymap.group("<leader>z", "scopes")
 keymap.group("gr", "set a value")
 
@@ -134,6 +135,14 @@ map("<leader>dd", "view.toggle devices", { desc = "Show or hide the device panel
 map("<leader>vm", "view.toggle mixer", { desc = "Show or hide the mixer" })
 map("<leader>vd", "view.toggle devices", { desc = "Show or hide the device panel" })
 map("<leader>vp", "roll.toggle", { desc = "Show or hide the piano roll, on the clip under the cursor" })
+-- Workspaces: a screen for each task (paw/workspace.tl). The letters of
+-- the four default ones: record, edit, mix, and score for notation.
+map("<leader>ww", "workspace", { desc = "Choose a workspace" })
+map("<leader>wr", "workspace record", { desc = "The record workspace: the arrange view and the mixer" })
+map("<leader>we", "workspace edit", { desc = "The edit workspace: the arrange view and the piano roll" })
+map("<leader>wm", "workspace mix", { desc = "The mix workspace: the mixer and the device panel" })
+map("<leader>wn", "workspace score", { desc = "The score workspace: the notation view" })
+map("<leader>ws", "workspace.save", { desc = "Save the screen as a workspace: type its name" })
 -- Tempo and transport. `gm` and `gM` do the same without the leader.
 map("<leader>Tm", "transport.metronome", { desc = "Turn the metronome on or off" })
 map("<leader>Tc", "countin", { desc = "Count a bar in before recording, or not" })

@@ -30,7 +30,7 @@ The state belongs to the computer and not to a project.
 | `shada.json` | What paw keeps of your editing across restarts (see "Editing history" below). |
 | `devices.json` | The favorite devices, the devices added last, and the device chosen for each search. |
 | `window.json` | The layout of the graphical window. |
-| `layouts/` | The layouts written by `:layout save <name>`, one JSON file each. |
+| `layouts/` | The layouts written by `:layout save <name>` and `:workspace.save <name>`, one JSON file each. |
 | `recovery/` | The safety copies of unsaved work (`paw.opt.autosave`). `:recover` opens one. |
 | `projects/` | What paw remembers about each project outside its file, for example the plugins that stopped, the marks and the last cursor (`shada.json`), and the undo file (below). |
 | `media-index` | The hash of each media file that paw read on this computer, by its path, size, modification time and `inode` number. So paw hashes a file one time. See [Media files](media.md#what-a-file-is). |

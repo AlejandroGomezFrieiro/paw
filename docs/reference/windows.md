@@ -107,6 +107,9 @@ A name that is not a clip or a track shows a message, and the window shows the v
 | `<Space>zs` `<Space>zv` `<Space>zt` | Show the scope at the cursor in a new split, vertical split or tab. |
 | `:view.open undotree` | Shows a view where it docks, else in a window split from this window (the More menu of the graphical window). |
 | `:layout save edit`, `:layout edit` | Write the tabs and windows as layout `edit`. Put them back. |
+| `:workspace mix`, `<Space>wm` | Goes to the workspace `mix` (see [Workspaces](#workspaces)). Without a name, chooses one in a picker. |
+| `:workspace.save tracking`, `<Space>ws` | Keeps the tabs and windows as workspace `tracking`. Without a name, asks for one. |
+| `:workspace.save! tracking` | Keeps the tabs and windows as workspace `tracking` in the project, which then opens in it. |
 
 With more than one tab, a tab line along the top gives their names. A click
 on a tab goes to it. In the graphical window, each tab has a close
@@ -129,8 +132,9 @@ both follow the playhead. `:setlocal notimebind` removes the bind.
 ## Layouts
 
 `:layout save edit` writes the tabs and windows to the state directory,
-and `:layout edit` puts them back. A configuration can name its own
-layouts, and start with one, as follows.
+and `:layout edit` puts them back. A layout saved with `:layout save`
+comes before a layout of the same name in the configuration. A
+configuration can name its own layouts, and start with one, as follows.
 
 ```lua
 paw.layouts.edit = {
@@ -169,6 +173,48 @@ also a default, which is the layout of the seat that saved it last. When a proje
 each seat gets its own layout, and a seat that has none in the project gets the
 default. A window that attaches to paw after the project opened gets the
 layout of the windows, if the project has one.
+
+## Workspaces
+
+A workspace is a layout for one task. `<Space>w` and a letter go to a
+workspace, and the status line shows its name. paw keeps the tabs and
+windows of the workspace that you leave, until a project opens, so the
+screen of a workspace is as you left it when you come back.
+
+| Key | Workspace | Windows |
+| --- | --- | --- |
+| `<Space>wr` | record | The arrange view and the mixer. |
+| `<Space>we` | edit | The arrange view and the piano roll. |
+| `<Space>wm` | mix | The mixer and the device panel. |
+| `<Space>wn` | score | The notation view, from the notation extension. |
+| `<Space>ww` | any | Chooses a workspace in a picker. |
+| `<Space>ws` | new | Keeps the screen as a workspace, and asks for its name. |
+
+The four workspaces are layouts in `paw.layouts`, so `init.lua` can
+change them or add more:
+
+```lua
+paw.layouts.mix = { dir = "h", "mixer", "devices" }
+paw.layouts.drums = { dir = "v", "arrange", "roll" }
+```
+
+When you go to a workspace, paw looks for it in this order:
+
+1. The tabs and windows that you left in it.
+2. The workspaces of the project.
+3. A layout saved with `:workspace.save` or `:layout save`.
+4. A layout of `paw.layouts`.
+
+`:workspace.save! tracking` keeps the workspace in the project's
+`screen.json`, under `workspaces`, and names it as the workspace that the
+project opens in (`workspace`). The project file gets it when you save
+the project. When the project opens, paw puts back its tabs and windows,
+and then goes to that workspace. With `:set noproject_screen`, the
+project opens with the screen as it is.
+
+The status line component `workspace` shows the name. It is on by
+default, in the right part of the status line (see
+[The status line](status-line.md)).
 
 ## Scopes of windows
 

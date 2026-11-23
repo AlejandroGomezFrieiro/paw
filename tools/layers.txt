@@ -158,6 +158,7 @@ paw.roll_context
 paw.textbuf
 paw.pick
 paw.pick.*
+paw.workspace
 paw.roll_draw
 paw.roll_clips
 paw.mixer_rows

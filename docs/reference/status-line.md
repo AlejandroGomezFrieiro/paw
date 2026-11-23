@@ -14,7 +14,7 @@ give it, and the other sections keep their defaults.
 | `a` | `mode` |
 | `b` | (empty) |
 | `c` | `macro`, `transport`, `clock`, `tempo`, `flags`, `render`, `diagnostics`, `qf`, `pointer`, `grid`, `selection`, `view` |
-| `x` | `keys`, `scope`, `project`, `engine`, `cpu` |
+| `x` | `keys`, `workspace`, `scope`, `project`, `engine`, `cpu` |
 | `y`, `z` | (empty) |
 
 Each component has the narrowest screen that shows it, so the line does
@@ -43,6 +43,7 @@ name of the project before it removes a component.
 | `cursor` | The track and the clip under the cursor. |
 | `buffer` | The text buffer that has the keys. |
 | `keys` | The keys typed until now. |
+| `workspace` | The name of the workspace that you are in: `mix` (see [Workspaces](windows.md#workspaces)). Nothing before you go to a workspace. |
 | `scope` | The path of the scope of the window: `Song › Strings`. In a scope with time, also the place of the cursor in its bars and in the bars of the song: `Song › Bridge 3.2 (19.2)`. |
 | `project` | The name of the project, with an amber dot if it has changes that are not saved. |
 | `engine` | The audio engine. |
