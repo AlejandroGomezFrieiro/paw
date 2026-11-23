@@ -100,6 +100,24 @@ the leaks that are known, one on each line, for example
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
 
+## Expect an error on the message line
+
+paw shows an error of an event handler, a timer or a key on the message
+line, and it does not stop. The runner keeps each such error while a test
+runs, and the test fails when an error came that the test did not expect.
+The failure names the error and where it came from, for example the
+event handler or the key, and then gives the whole error with its list of
+calls.
+
+When a test checks a message that a command gives on purpose, it says so
+first with `T.expect_error(pattern)`. The pattern is a Lua pattern of the
+message, and the test fails if no message matches it:
+
+```lua
+T.expect_error("^a tempo is from 1 to 999 bpm")
+T.keys(":tempo 0<CR>")
+```
+
 ## Write a test that runs in any order
 
 A test makes all the state that it reads, so it gives the same result

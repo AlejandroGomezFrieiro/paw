@@ -112,6 +112,7 @@ test(
     -- project.toml is cut short.
     local text = T.read_file(dir .. "/project.toml")
     T.write_file(dir .. "/project.toml", text:sub(1, 12))
+    T.expect_error("TOML parse error")
     T.keys(":e! " .. dir .. "<CR>")
     local said = {}
     for i = math.max(1, #paw.ui.messages - 4), #paw.ui.messages do

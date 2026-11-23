@@ -229,6 +229,10 @@ test("commands given what they cannot take say so and change nothing", function(
   paw.add_track({ name = "B" })
   paw.cursor.set_track(a)
   local tempo = paw.project.tempo
+  T.expect_error("^a tempo is from 1 to 999 bpm")
+  T.expect_error("^track.remove removes the track at the cursor and takes no argument")
+  T.expect_error("^clip.add puts a clip at the cursor and takes length= and name=")
+  T.expect_error("^a clip's length is a number of beats above 0")
   for _, line in ipairs({ "tempo abc", "tempo 0", "tempo -1", "tempo by=abc" }) do
     T.keys(":" .. line .. "<CR>")
     has(said("error"), "a tempo is from 1 to 999 bpm", ":" .. line)

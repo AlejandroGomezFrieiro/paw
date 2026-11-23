@@ -1809,11 +1809,13 @@ local set_raw = api.hl_set
 local truecolor: boolean = nil
 
 local function set(name: string, def: Style)
-  defined[name] = def
   if truecolor == nil then truecolor = paw.draw.truecolor() end
   -- A window draws the group as defined, whatever the terminal shows.
   local shown = paw.draw.term_def(def, truecolor)
   set_raw(name, shown, shown ~= def and def or nil)
+  -- Kept only once the kernel took it: a group that it refused would fail
+  -- again at each change of `paw.opt.termcolors`.
+  defined[name] = def
 end
 -- Groups set straight through the kernel's call get the same treatment.
 api.hl_set = set

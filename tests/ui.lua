@@ -220,6 +220,13 @@ test("colours fall back to the nearest of the 256 when the terminal has no 24-bi
   paw.opt.termcolors = "auto"
 end)
 
+test("a highlight group that paw refused does not fail again when termcolors changes", function()
+  eq(pcall(paw.ui.hl, {}, {}), false, "a table is not a group's name")
+  -- The runner fails the test if the change of colours reports an error.
+  paw.opt.termcolors = "256"
+  paw.opt.termcolors = "auto"
+end)
+
 test("tracks fit their height to the screen, and the headers their width", function()
   fresh()
   paw.cmd("view.only")
