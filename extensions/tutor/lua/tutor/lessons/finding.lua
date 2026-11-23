@@ -46,7 +46,7 @@ keeps a history, which `<Up>` shows.]],
   steps = {
     {
       say = "Press `g` and wait. After half a second, a box shows all the keys that can come after `g`, and then you can press `<Esc>` to close the box.",
-      keys = { "g", { wait = 700 }, "<Esc>" },
+      keys = { "g", { advance = 700 }, "<Esc>" },
       check = function(ctx)
         if paw.keymap.hints() then ctx.hints = true end
         return ctx.hints and paw.keymap.pending() == ""
@@ -96,7 +96,7 @@ keeps a history, which `<Up>` shows.]],
     },
     {
       say = "Listen with the click. Press `<leader><Space>`, and then `<leader><Space>` to stop and `gm` to disable the click.",
-      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>", "gm" },
+      keys = { "<leader><Space>", { advance = 300 }, "<leader><Space>", "gm" },
       check = function(ctx, look) return look.played(ctx) and not paw.transport.metronome end,
       done = "The bass is quieter, and the click came from a command that you found by its name.",
     },

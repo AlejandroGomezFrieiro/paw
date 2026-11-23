@@ -107,7 +107,7 @@ the loaded extensions.]],
     },
     {
       say = "Listen to the pattern and the tune. Press `gs` and `<leader><Space>`, and `<leader><Space>` to stop.",
-      keys = { "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
       done = "You hear the drum pattern and the tune that musicops changed.",
     },

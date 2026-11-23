@@ -30,29 +30,14 @@ local keys = T.keys
 --- A key that also starts longer mappings (`]` and `]]`) runs when the wait
 --- for the rest is over, as it does at the keyboard.
 local function waited(text)
-  local before = paw.opt.timeoutlen
-  paw.opt.timeoutlen = 20
   paw.keymap.feed(text)
-  paw.wait(150)
-  paw.opt.timeoutlen = before
+  T.advance(paw.opt.timeoutlen)
   paw.flush()
   api.undo_checkpoint()
 end
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 40), "\n") end
 local function shows(text, what) eq(screen():find(text, 1, true) ~= nil, true, what or ("the screen shows " .. text)) end
-
---- The loudest meter of a track over `ms`, while `fn` runs at each step.
-local function loudest(track, ms, fn)
-  local most = 0
-  -- About 10 ms of sound each block.
-  for _ = 1, math.ceil(ms / 10) do
-    if fn then fn() end
-    most = math.max(most, track:meter())
-    T.next_block(1)
-  end
-  return most
-end
 
 local function track_named(name)
   for _, t in ipairs(paw.tracks()) do
@@ -122,10 +107,7 @@ test("guide: start paw the first time and hear sound", function()
   paw.opt.doctor_dir = T.scratch .. "/doctor"
   keys(":doctor output<CR>")
   local doctor = require("doctor")
-  local limit = api.now() + 20000
-  while doctor.running() and api.now() < limit do
-    paw.wait(20)
-  end
+  T.advance_until(function() return not doctor.running() end, "the check of the output to end", 20000)
   local result = doctor.run().done[1]
   eq(result.id, "output", "the output check ran")
   eq(
@@ -140,17 +122,17 @@ test("guide: start paw the first time and hear sound", function()
   keys("a")
   keys("synth<CR>")
   local t = paw.tracks()[1]
-  eq(t:devices()[1].kind, "synth", "the synth is on the track")
+  local synth = t:devices()[1]
+  eq(synth.kind, "synth", "the synth is on the track")
   keys("i<CR>")
   keys("4l")
   keys("<Esc>")
   local clip = t:clips()[1]
   eq(clip ~= nil and notes(clip), "60@0+1 v100", "one note of one beat in a new clip")
   keys("gs")
-  keys("<Space><Space>")
-  local heard = loudest(t, 600)
+  local heard = T.wakes(function() keys("<Space><Space>") end, synth)
   T.stop()
-  eq(heard > 0.01, true, "the meter of the track moves")
+  eq(heard, true, "the synth plays the note")
 end)
 
 test("guide: connect a MIDI keyboard", function()
@@ -164,48 +146,40 @@ test("guide: connect a MIDI keyboard", function()
   keys("a")
   keys("synth<CR>")
   local t = paw.tracks()[1]
+  local synth = t:devices()[1]
+  -- Whether the synth of the track plays a key of the keyboard.
   local function play()
-    -- The note before dies away first.
-    -- At most about three seconds of sound, as the engine plays it.
-    for _ = 1, 300 do
-      if t:meter() <= 0.0005 then break end
-      T.next_block(1)
-    end
-    return loudest(
-      t,
-      300,
-      function() paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keystation 49" }) end
+    return T.wakes(
+      function() paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keystation 49" }) end,
+      synth
     )
   end
-  local function release()
-    paw.midi.inject({ type = "note_off", pitch = 60, port = "Keystation 49" })
-    paw.wait(100)
-  end
-  eq(play() > 0.01, true, "the selected track plays the keyboard, not armed")
+  local function release() paw.midi.inject({ type = "note_off", pitch = 60, port = "Keystation 49" }) end
+  eq(play(), true, "the selected track plays the keyboard, not armed")
   release()
   local other = paw.add_track({ name = "Other" })
   keys("j")
   eq(paw.cursor.track_id(), other.id, "j goes to the next track")
-  eq(play() < 0.001, true, "and the keyboard no longer plays the first")
+  eq(play(), false, "and the keyboard no longer plays the first")
   release()
   keys("k")
   other.armed = true
   paw.flush()
-  eq(play() < 0.001, true, "with a track armed, only the armed tracks play the keyboard")
+  eq(play(), false, "with a track armed, only the armed tracks play the keyboard")
   release()
   other.armed = false
   keys(":set midi_follows_selection false<CR>")
   T.after(function() paw.opt.midi_follows_selection = true end)
-  eq(play() < 0.001, true, "turned off, the selected track does not play the keyboard")
+  eq(play(), false, "turned off, the selected track does not play the keyboard")
   release()
   keys("r")
   eq(t.armed, true, "r arms the track")
-  eq(play() > 0.01, true, "the armed track plays the keyboard")
+  eq(play(), true, "the armed track plays the keyboard")
   release()
   keys("r")
   keys("<A-i>")
   eq(t.monitor, true, "<A-i> switches the monitor on")
-  eq(play() > 0.01, true, "and the track plays the keyboard")
+  eq(play(), true, "and the track plays the keyboard")
   release()
   keys("I")
   keys("Keystation<CR>")
@@ -218,7 +192,7 @@ test("guide: connect a MIDI keyboard", function()
   )
   keys(":midi.select Keystation<CR>")
   T.after(function() paw.midi.select(nil) end)
-  eq(play() > 0.01, true, "the selected port still plays")
+  eq(play(), true, "the selected port still plays")
   release()
 end)
 
@@ -284,10 +258,10 @@ test("guide: add a track with a virtual instrument", function()
   keys("4l")
   keys("<Esc>")
   eq(notes(t:clips()[1]), "60@0+1 v100", "a note of one beat")
-  keys("gs<Space><Space>")
-  local heard = loudest(t, 600)
+  keys("gs")
+  local heard = T.wakes(function() keys("<Space><Space>") end, d)
   T.stop()
-  eq(heard > 0.01, true, "it plays")
+  eq(heard, true, "it plays")
   keys(":device.add drums<CR>")
   eq(t:devices()[2].kind, "drums", ":device.add drums")
 end)
@@ -302,10 +276,12 @@ test("guide: add an audio track for a microphone or a guitar", function()
   keys("test signal 1<CR>")
   eq(t.input, "1", "the first channel of the input")
   shows("test signal", "the header shows the input")
-  eq(loudest(t, 300) < 0.001, true, "not heard yet")
-  keys("<A-i>")
+  -- An equalizer on the track shows when the input goes through it.
+  local probe = t:add_device("eq")
+  eq(T.wakes(function() end, probe), false, "not heard yet")
+  eq(T.wakes(function() keys("<A-i>") end, probe), true, "the input is heard through the track")
   eq(t.monitor, true, "the monitor is on")
-  eq(loudest(t, 300) > 0.01, true, "the input is heard through the track")
+  probe:remove()
   keys(":track.input 1/2<CR>")
   eq(t.input, "1/2", ":track.input takes a pair")
   keys("a")
@@ -449,17 +425,14 @@ test("guide: find and change a setting inside a plugin", function()
   )
   keys(":plugstate.changes<CR>")
   eq(said():find("set    /LSP/Parameters@g_out: 1 → ", 1, true) ~= nil, true, "the path that changed: " .. said())
-  --- The value at a path of the plugin's state once it is `want` (two
-  --- seconds at most): what paw loads reaches the plugin a moment later.
+  --- The value at a path of the plugin's state once it is `want`: what paw
+  --- loads reaches the plugin in a later block.
   local function value(id, want)
-    local v
-    for _ = 1, 100 do
+    return T.until_(function()
       paw.flush()
-      v = require("plugstate.juceplugins").open(id):get("/LSP/Parameters@g_out")
-      if want == nil or v == want then return v end
-      api.sleep(20)
-    end
-    return v
+      local v = require("plugstate.juceplugins").open(id):get("/LSP/Parameters@g_out")
+      return v == want and v
+    end, "the plugin's value " .. want)
   end
   keys("u")
   eq(value(comp.id, 1), 1, "u: the value of before")
@@ -738,15 +711,9 @@ test("guide: loop a part of the song while you work", function()
   paw.project.tempo = 999
   paw.transport.seek(8)
   keys("<Space><Space>")
-  local passed, limit = 0, api.now() + 3000
-  local last = tr.position
-  while api.now() < limit and passed < 2 do
-    if tr.position < last then passed = passed + 1 end
-    last = tr.position
-    paw.wait(5)
-  end
+  -- The playhead returns to the start of the loop.
+  T.until_beat(8, 2)
   tr.stop()
-  eq(passed, 2, "the playhead returns to the start of the loop")
 end)
 
 --- The styles of the loop's band that the arrange view writes to its ruler
@@ -854,11 +821,10 @@ test("guide: change the tempo and the time signature", function()
   keys("<Space>Tt")
   eq(paw.ui.message.text, "tap again in time", "Space Tt is the first tap")
   for _ = 1, 3 do
-    paw.wait(500)
+    T.advance(500)
     keys("<Space>Tt")
   end
-  local near_bpm = paw.tempo.at(70)
-  eq(near_bpm > 80 and near_bpm < 160, true, "Space Tt on each beat: about 120 bpm, not " .. near_bpm)
+  eq(paw.tempo.at(70), 120, "Space Tt each half second: 120 bpm")
 end)
 
 test("guide: undo, and return to an earlier state", function()
@@ -904,20 +870,20 @@ test("guide: find a command or a key you forgot", function()
   keys("?")
   shows("Keys · arrange", "? lists the keys of the view")
   keys("playhead start")
-  paw.wait(200)
+  T.advance(200)
   shows("gs", "the key that moves the playhead to the start")
   keys("<CR>")
   eq(paw.transport.position, 0, "Enter does what the key does")
   paw.transport.seek(8)
   keys("<Space>fk")
   keys("playhead start")
-  paw.wait(200)
+  T.advance(200)
   keys("<CR>")
   eq(paw.transport.position, 0, "Space fk is the same list")
   keys("<Space>f:")
   shows("Commands", "Space f: lists the commands")
   keys("metronome")
-  paw.wait(200)
+  T.advance(200)
   keys("<CR>")
   eq(paw.transport.metronome, true, "a command found by a part of its name")
   keys(":transport.metronome<CR>")
@@ -1598,6 +1564,8 @@ test("guide: enter notes from a MIDI keyboard", function()
   eq(paw.ui.focused, "pianoroll", "Enter opens the clip in the piano roll")
   paw.ui.views:get("pianoroll"):set(60, 0)
   keys("I")
+  -- `=8` below gives the piano roll a step length of its own.
+  T.after(function() paw.ui.views:get("pianoroll"):set_step(nil) end)
   eq(paw.roll_draw.stepping(), true, "I starts step input")
   eq(paw.roll_draw.label():match("^STEP"), "STEP", "the title says STEP")
   keys("=8")

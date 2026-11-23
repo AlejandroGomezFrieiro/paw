@@ -270,15 +270,7 @@ test(
     paw.ui.focus("pianoroll")
     keys("\\a")
     keys("<Down>")
-    local tried
-    for _ = 1, 40 do
-      paw.wait(50)
-      if codes(clip) == "67:10.2 69:- 71:- 72:-" then
-        tried = true
-        break
-      end
-    end
-    eq(tried, true, "legato tried on the note: " .. codes(clip))
+    T.advance_until(function() return codes(clip) == "67:10.2 69:- 71:- 72:-" end, "legato tried on the note", 2000)
     keys("<Esc>")
     eq(codes(clip), "67:- 69:- 71:- 72:-", "taken back")
     eq(api.trial_active(), false, "no trial left")

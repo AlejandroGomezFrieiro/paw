@@ -80,7 +80,7 @@ paw does not make such a copy.]],
     },
     {
       say = "You can play the rendered file in a different player. In paw, press `<leader><Space>` to play the song, and `<leader><Space>` again to stop.",
-      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
       done = "The song is saved and exported.",
     },

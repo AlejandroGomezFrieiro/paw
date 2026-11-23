@@ -97,7 +97,7 @@ how to use them.]],
     },
     {
       say = "Press `<leader><Space>` to hear the faster song. Then press `<leader><Space>` to stop it.",
-      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
       done = "The song plays faster now.",
     },

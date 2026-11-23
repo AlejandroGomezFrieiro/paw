@@ -166,8 +166,8 @@ this, so the text and the test stay the same. Other items are:
 
 | Item | Effect |
 | --- | --- |
-| `{ wait = 300 }` | waits, in milliseconds, so that the learner can listen |
-| `{ sim = function(lesson) end, instead = { "keys" } }` | what a person does away from the computer keyboard: a test tone on the input, MIDI notes, a quit |
+| `{ advance = 300 }` | lets the time pass, in milliseconds, so that the learner can listen |
+| `{ sim = function(lesson, advance) end, instead = { "keys" } }` | what a person does away from the computer keyboard: a test tone on the input, MIDI notes, a quit. `advance(ms)` lets the time pass between two notes |
 | `{ sim = "quit", instead = { ":q", "<CR>" } }` | quits |
 
 Other fields:

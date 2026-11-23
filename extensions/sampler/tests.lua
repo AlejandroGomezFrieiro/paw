@@ -47,10 +47,7 @@ end
 
 --- Wait for a device to be running again (a project opened, a state put back).
 local function running(device)
-  for _ = 1, 400 do
-    if api.device_get(device).status == "running" then return device end
-    paw.wait(50)
-  end
+  T.until_(function() return api.device_get(device).status == "running" end, "the device to run again")
   return device
 end
 
@@ -248,11 +245,7 @@ test(
     assert(screen:find("Instruments", 1, true), "the picker is open:\n" .. screen)
     assert(screen:find("ks%s+DS") and screen:find("ks%s+SFZ"), "it lists the fixtures in both formats:\n" .. screen)
     paw.keymap.feed("vel")
-    local limit = api.now() + 5000
-    while api.now() < limit and sampler.known(device).name ~= "vel" do
-      paw.wait(20)
-    end
-    eq(sampler.known(device).name, "vel", "heard: loaded as a trial")
+    T.advance_until(function() return sampler.known(device).name == "vel" end, "heard: loaded as a trial", 5000)
     screen = table.concat(api.ui_snapshot(120, 30), "\n")
     assert(screen:find("vel · SFZ", 1, true), "the pane says what plays:\n" .. screen)
     paw.keymap.feed("<Esc>")

@@ -142,7 +142,7 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
     },
     {
       say = "Press `<C-w>p` to return to the arrange view. Press `<leader><Space>` to listen, and `<leader><Space>` to stop.",
-      keys = { "<C-w>p", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<C-w>p", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "The first chord sounds one octave higher.",
     },

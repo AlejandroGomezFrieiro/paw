@@ -167,7 +167,7 @@ moves the old items later instead.]],
     },
     {
       say = "Listen to the result. Press `gs` and `<leader><Space>`, and press `<leader><Space>` again to stop.",
-      keys = { "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
       done = "The hook goes up and then comes down again.",
     },

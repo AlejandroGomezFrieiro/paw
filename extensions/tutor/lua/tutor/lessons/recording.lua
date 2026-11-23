@@ -2,12 +2,13 @@
 local api = paw.api
 
 --- What a person does with a MIDI keyboard, done by the tests: three notes.
-local function play_three_notes()
+--- `advance(ms)` lets the time of the song pass.
+local function play_three_notes(_, advance)
   for _, pitch in ipairs({ "C4", "E4", "G4" }) do
     paw.midi.note_on(pitch, 100)
-    api.sleep(150)
+    advance(150)
     paw.midi.note_off(pitch)
-    api.sleep(50)
+    advance(50)
   end
 end
 
@@ -82,7 +83,7 @@ instead of starting replace mode.]],
     },
     {
       say = "`R` starts the recording from the cursor, as `<leader><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `R` to stop the recording, and `<leader><Space>` to stop the song.",
-      keys = { "R", { wait = 1000 }, "R", "<leader><Space>" },
+      keys = { "R", { advance = 1000 }, "R", "<leader><Space>" },
       check = function(_, look)
         local clip = look.clips("Voice")[1]
         return clip and clip.kind == "audio" and not paw.transport.playing and not paw.transport.recording
@@ -112,7 +113,7 @@ instead of starting replace mode.]],
     },
     {
       say = "Press `r` to disarm Keys. Then press `gs` and `<leader><Space>` to listen, and `<leader><Space>` to stop.",
-      keys = { "r", "gs", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "r", "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return not look.track("Keys").armed and look.played(ctx) end,
       done = "Your recordings play with the drums.",
     },

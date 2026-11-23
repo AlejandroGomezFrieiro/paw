@@ -68,6 +68,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
 | `T.stepped()` | True when the engine plays on the stepped backend. |
 | `T.until_beat(beat, rounds, ms)` | Play until the playhead is at `beat`, after `rounds` times round the loop. Fails after `ms` of the song (30 s if not given). |
+| `T.wakes(fn, device, ...)` | Run `fn`, and give `true` or `false` for each device: did it make sound then? Each device sleeps through silence first, and a device that wakes runs blocks. It reads no meter. |
 | `T.until_meters_at_rest()` | Wait until no meter of the engine shows a level. The engine lets a meter fall in its own blocks on the wall clock: the sound of a test before can still show. Then it puts out the held peaks and clip lights of the screen. Use it before a test draws or compares a meter. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
@@ -186,7 +187,8 @@ T.check_keys(
   `T.advance(ms)` or `T.until_beat`, then read the meter with
   `T.meter(track)`, or wait for a level with `T.level(track)` in
   `T.until_`. The lint counts each `:meter(` in a test: a live test only
-  reads one.
+  reads one. To check that a device sounds, or does not sound, use
+  `T.wakes`: it reads no meter.
 - A test that starts the engine again on `null` stays stepped. The
   `test` backend (the device that a test unplugs) plays on the wall
   clock: read no meter there.
@@ -243,7 +245,7 @@ T.check_keys(
   count that goes down fails until you make its line smaller.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
-  tutor. Wait for a state with `T.until_`, for blocks with
+  tutor (write `{ advance = N }`). Wait for a state with `T.until_`, for blocks with
   `T.next_block`, or for the playhead with `T.until_beat`. Move the
   clock with `T.advance(ms)`, or with `T.advance_until` to a state that a
   timer makes.

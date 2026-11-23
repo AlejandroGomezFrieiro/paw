@@ -79,7 +79,7 @@ module.]],
     },
     {
       say = "Listen with your click. Press `<leader><Space>`, and then `<leader><Space>` to stop and `<leader>k` to disable the click.",
-      keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>", "<leader>k" },
+      keys = { "<leader><Space>", { advance = 300 }, "<leader><Space>", "<leader>k" },
       check = function(ctx, look) return look.played(ctx) and not paw.transport.metronome end,
       done = "The key that you mapped works.",
     },

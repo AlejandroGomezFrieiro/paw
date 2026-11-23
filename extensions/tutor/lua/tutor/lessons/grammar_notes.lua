@@ -112,7 +112,7 @@ pitch. `/d4` finds a pitch by its name, and `n` goes to the next match.]],
     },
     {
       say = "Press `<C-w>p` to return to the arrange view. Press `<leader><Space>` to listen, and `<leader><Space>` to stop.",
-      keys = { "<C-w>p", "<leader><Space>", { wait = 300 }, "<leader><Space>" },
+      keys = { "<C-w>p", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.focused() == "arrange" and look.played(ctx) end,
       done = "Your changed riff plays.",
     },

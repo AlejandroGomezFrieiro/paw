@@ -233,8 +233,9 @@ tests. Follow these rules when you write a test:
   time with the load of the machine and does not fail.
 - Wait for an event or a state, not for a time. `T.until_` waits for a
   condition, `T.next_block` for the audio blocks, and `T.until_beat` for
-  the playhead. Don't call `api.sleep` or `paw.wait` to let time pass, and
-  don't put a `wait` step in a lesson of the tutor.
+  the playhead. Don't call `api.sleep` or `paw.wait` to let time pass. In
+  a lesson of the tutor, an `advance` step lets the time pass, not a
+  `wait` step.
 - Move the clock with `T.advance` when a timer or a delay is the
   behavior, for example a double click or a delay before a stretch is
   made. The section below tells how the clock of the tests works.
@@ -249,6 +250,9 @@ tests. Follow these rules when you write a test:
   `T.meter`, not with `:meter()` after a wait. To wait for a level, use
   `T.level(track)`, which reads the meter after the engine plays one more
   block, for example in `T.until_`.
+- To check that a device plays while you type keys or send notes, use
+  `T.wakes`. A device sleeps through silence and wakes when it makes
+  sound, so `T.wakes` reads no meter.
 - Make a plugin or a helper process that the test controls wait for the
   test, and don't compare a delay with a deadline. A plugin takes these
   test commands through `paw.api.device_call(id, command, data)`:

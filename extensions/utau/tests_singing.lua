@@ -805,11 +805,11 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   -- And it plays in real time.
   paw.transport.seek(0)
   paw.transport.play()
-  local loudest, deadline = 0, api.now() + 3000
-  while paw.transport.position < 1.5 and api.now() < deadline do
+  local loudest = 0
+  T.until_(function()
     loudest = math.max(loudest, track:meter())
-    api.sleep(5)
-  end
+    return paw.transport.position >= 1.5
+  end, "the playhead at beat 1.5")
   paw.transport.stop()
   eq(loudest > 0.05, true, "heard while playing")
   require("utau.editor").editor:edit(clip.id)
@@ -818,7 +818,7 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   eq(text:find("- あ", 1, true) ~= nil, true, "and shows phonemes from the voicebank")
   paw.ui.hide("utau")
   paw.ui.focus("arrange")
-end)
+end, { live = "the meter of the track is read while the engine plays in real time" })
 
 test("changing a lyric or a note sings it again", function()
   fresh()

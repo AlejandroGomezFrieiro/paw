@@ -61,14 +61,9 @@ local function load()
   return vinput
 end
 
---- Let time pass until `done()` or three seconds are over.
-local function settle(done)
-  local deadline = api.now() + 3000
-  while api.now() < deadline and not done() do
-    paw.wait(20)
-  end
-  return done()
-end
+--- Let the time pass until `done()`, three seconds at most: the tracker
+--- is a helper process, and is started again on a timer.
+local function advance_until(done, what) return T.advance_until(done, what, 3000) end
 
 local keys = T.keys
 
@@ -125,16 +120,17 @@ test("vinput: a track takes the input by name, and follows when it is renamed", 
   )
   eq(#track:devices(), 1, "with an instrument to hear it through")
   local other = paw.add_track({ name = "Keys" })
-  other:add_device("synth")
+  local keys_synth = other:add_device("synth")
   other.midi_input = { port = "Keys A" }
   other.armed = true
   paw.flush()
-  paw.midi.inject({ type = "note_on", pitch = 52, velocity = 100, port = "Guitar" })
-  T.until_(
-    function() return select(1, track:meter()) > 0.01 end,
-    "what arrives at the input's port to be heard on its track"
+  local heard, heard_on_other = T.wakes(
+    function() paw.midi.inject({ type = "note_on", pitch = 52, velocity = 100, port = "Guitar" }) end,
+    track:devices()[1],
+    keys_synth
   )
-  eq(select(1, other:meter()), 0, "and not on a track that takes another port")
+  eq(heard, true, "what arrives at the input's port is heard on its track")
+  eq(heard_on_other, false, "and not on a track that takes another port")
   paw.midi.inject({ type = "note_off", pitch = 52, port = "Guitar" })
   vinput.set("Guitar", "name", "Strat")
   eq(own_ports(), "Strat", "a renamed input has a port by the new name")
@@ -182,10 +178,9 @@ test("vinput: the tracker runs while the input is on, and is started again when 
     "an input with no source says so"
   )
   vinput.set("Guitar", "source", "Input 2")
-  eq(settle(function() return vinput.status("Guitar").state == "running" end), true, "with a source the tracker runs")
-  eq(
-    settle(function() return (vinput.status("Guitar").notes or 0) >= 2 end),
-    true,
+  advance_until(function() return vinput.status("Guitar").state == "running" end, "with a source the tracker runs")
+  advance_until(
+    function() return (vinput.status("Guitar").notes or 0) >= 2 end,
     "and what it prints is read as it goes"
   )
   local status = vinput.status("Guitar")
@@ -202,16 +197,12 @@ test("vinput: the tracker runs while the input is on, and is started again when 
   )
 
   vinput.set("Guitar", "gain", 2)
-  eq(
-    settle(function()
-      local f = io.open(fake .. ".args", "r")
-      local now = f and f:read("*a") or ""
-      if f then f:close() end
-      return now:find("--gain 2 ", 1, true) ~= nil and vinput.status("Guitar").state == "running"
-    end),
-    true,
-    "a changed setting starts it again with the new value"
-  )
+  advance_until(function()
+    local f = io.open(fake .. ".args", "r")
+    local now = f and f:read("*a") or ""
+    if f then f:close() end
+    return now:find("--gain 2 ", 1, true) ~= nil and vinput.status("Guitar").state == "running"
+  end, "a changed setting starts it again with the new value")
   near(vinput.status("Guitar").advice.gain, 1.23, 0.001, "what the run that ended said of the level is kept")
   paw.cmd("vinput")
   T.keys("ga")
@@ -219,29 +210,23 @@ test("vinput: the tracker runs while the input is on, and is started again when 
   paw.ui.focus("arrange")
 
   vinput.set("Guitar", "on", false)
-  eq(
-    settle(function() return vinput.status("Guitar").state == "off" end),
-    true,
+  advance_until(
+    function() return vinput.status("Guitar").state == "off" end,
     "turned off, the tracker is asked to finish"
   )
   eq(run.jobs.Guitar.proc, nil, "and has")
 
   vinput.set("Guitar", "source", "Nowhere")
   vinput.set("Guitar", "on", true)
-  eq(
-    settle(function() return vinput.status("Guitar").state == "failed" end),
-    true,
+  advance_until(
+    function() return vinput.status("Guitar").state == "failed" end,
     "a tracker that cannot start is given up on after a few tries"
   )
   eq(vinput.status("Guitar").text, "stopped: no capture port matching 'Nowhere'", "with what it said")
   vinput.set("Guitar", "source", "Input 2")
-  eq(
-    settle(function() return vinput.status("Guitar").state == "running" end),
-    true,
-    "a change is a reason to try again"
-  )
+  advance_until(function() return vinput.status("Guitar").state == "running" end, "a change is a reason to try again")
   vinput.remove("Guitar")
-  eq(settle(function() return run.jobs.Guitar == nil end), true, "removing the input ends its tracker")
+  advance_until(function() return run.jobs.Guitar == nil end, "removing the input ends its tracker")
   paw.opt.vinput_run = false
 end)
 
@@ -273,7 +258,7 @@ test("vinput: the ports to choose a source from come from the tracker", function
   load()
   vinput.add({ name = "Guitar" })
   eq(run.sources("gdi2m", true), nil, "the first listing is not there at once")
-  eq(settle(function() return run.sources("gdi2m") ~= nil end), true, "it arrives")
+  advance_until(function() return run.sources("gdi2m") ~= nil end, "it arrives")
   eq(
     table.concat(run.sources("gdi2m"), " | "),
     "Steinberg UR22mkII  Input 2:capture_MONO | Steinberg UR22mkII  Input 1:capture_MONO",
@@ -372,7 +357,7 @@ test("vinput: the window is worked with the pointer", function()
   paint()
   local box = find(paint(), "choose the guitar's input")
   click(box[2] + 20, box[3] + 4)
-  settle(function() return run.sources("gdi2m") ~= nil end)
+  advance_until(function() return run.sources("gdi2m") ~= nil end, "the list of ports")
   local item = find(paint(), "   Steinberg UR22mkII  Input 2:capture_MONO")
   eq(item ~= nil, true, "a click on the source opens the ports to choose from")
   click(item[2] + 30, item[3] + 4)
