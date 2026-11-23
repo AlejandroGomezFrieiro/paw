@@ -87,3 +87,11 @@ command("grid", function(ctx)
   end
   paw.notify(string.format("grid %g beats", paw.opt[name]))
 end, { desc = "Set the grid in beats, or scale it: `grid 0.5`, `grid by=2`" })
+
+-- The default workspaces (paw/workspace.tl): a layout for each task, which
+-- `<Space>w` and a letter go to. `init.lua` can change them or add more
+-- through `paw.layouts`, and `:workspace.save` keeps your own.
+paw.layouts.record = { dir = "v", "arrange", "mixer" }
+paw.layouts.edit = { dir = "v", "arrange", "roll" }
+paw.layouts.mix = { dir = "v", "mixer", "devices" }
+paw.layouts.score = "notation"

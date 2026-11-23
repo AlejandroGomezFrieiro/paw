@@ -1223,8 +1223,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.instance_of(win)`: The instance of the view that a window shows, made the first time: a split takes a fresh copy of the bound window's state, a window after one that went takes all of its state, and the first window takes the home state. Nil for a view without instances.
 - `paw.layout.instances(name, def, keys, fresh)`: Give a view an instance for each window. `def` is the view's table and `keys` the fields of each window (`fresh`: the ones a split starts without). The fields leave `def` for the home state. Returns the proxy that `paw.ui.views` holds.
 - `paw.layout.layout_names()`: The names of the layouts there are: the configuration's and those saved.
+- `paw.layout.layout_spec(name)`: Layout `name` as `M.restore` takes it: the one saved with `:layout save`, else the configuration's (`paw.layouts`). Nil and the reason when there is none.
 - `paw.layout.leaf(view, fields)`: A new window that shows `view`, with fields such as `size` or `hidden`.
-- `paw.layout.load(name)`: Put back layout `name`: the configuration's, else one saved.
+- `paw.layout.load(name)`: Put back layout `name`: the one saved, else the configuration's.
 - `paw.layout.loose(name, from)`: A window in no tab for the view `name`: a view in a window of its own of a graphical frontend. It starts from the state of the window `from` (the pane that it leaves), else of the window whose state the view holds now. It keeps its own state from then on.
 - `paw.layout.maximize()`: Give the current window the whole tab, or put the others back.
 - `paw.layout.move_to_edge(edge)`: Move the current window to an edge of the tab ("H", "J", "K", "L"), the whole height or width of it.
@@ -2498,6 +2499,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vzoom.track_rows()`: Rows per track in the arrange view's window, or nil for the option's.
 - `paw.vzoom.window(view)`: The window of `view` whose zoom is meant: the one being drawn, the focused one, else the one whose state the view has now.
 
+## Module paw.workspace
+
+- `paw.workspace.current()`: The name of the workspace on the screen, or nil.
+- `paw.workspace.go(name)`: Go to workspace `name`. The tabs and windows of the workspace that you leave stay in memory. Then `on_enter` of the workspace runs. Returns true and the text of `on_enter`, or false and the reason when `name` names no workspace or none of its windows can show.
+- `paw.workspace.names()`: The names of the workspaces there are: the defaults, the configuration's, those saved, the project's and those kept in memory.
+- `paw.workspace.save(name, project)`: Keep the tabs and windows as workspace `name` in the layouts folder. When `project` is true, keep them in the project's screen instead, so that the project opens in that workspace. The screen is now that workspace.
+
 ## Module paw.xml
 
 - `paw.xml.child(el, name)`: The first child of an element with a name, or nil.
@@ -2747,6 +2755,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_get(key)`: --- project --- The project as a table. With `key`, only that entry of the table: this is quicker (`edits`, which goes up with each change, is asked for on each key and each edit).
 - `paw.api.project_keep_changes()`: Keep the project as paw has it: forget the changes made outside.
 - `paw.api.project_load(path, opts)`: `opts.plugins_offline` opens it with all plugins offline. `opts.offline` is a list of devices (by id) to open offline.
+- `paw.api.project_mark_changed()`: Count the project as changed, so that it asks to be saved, with no undo step: for data that the next save writes and undo does not keep (`:workspace.save!` in the project's screen).
 - `paw.api.project_mark_saved()`: Count the project as it is now as saved, for a script that wrote what it holds somewhere itself (a clip opened alone, written back to its file).
 - `paw.api.project_new()`
 - `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.

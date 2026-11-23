@@ -332,6 +332,9 @@ paw.vca = {}
 ---@class paw.vzoom
 paw.vzoom = {}
 
+---@class paw.workspace
+paw.workspace = {}
+
 ---@class paw.xml
 paw.xml = {}
 
@@ -5085,12 +5088,18 @@ function paw.layout.instances(name, def, keys, fresh) end
 --- The names of the layouts there are: the configuration's and those saved.
 function paw.layout.layout_names() end
 
+--- Layout `name` as `M.restore` takes it: the one saved with `:layout
+--- save`, else the configuration's (`paw.layouts`). Nil and the reason
+--- when there is none.
+---@param name any
+function paw.layout.layout_spec(name) end
+
 --- A new window that shows `view`, with fields such as `size` or `hidden`.
 ---@param view any
 ---@param fields any
 function paw.layout.leaf(view, fields) end
 
---- Put back layout `name`: the configuration's, else one saved.
+--- Put back layout `name`: the one saved, else the configuration's.
 ---@param name any
 function paw.layout.load(name) end
 
@@ -9886,6 +9895,28 @@ function paw.vzoom.track_rows() end
 ---@param view any
 function paw.vzoom.window(view) end
 
+--- The name of the workspace on the screen, or nil.
+function paw.workspace.current() end
+
+--- Go to workspace `name`. The tabs and windows of the workspace that you
+--- leave stay in memory. Then `on_enter` of the workspace runs. Returns
+--- true and the text of `on_enter`, or false and the reason when `name`
+--- names no workspace or none of its windows can show.
+---@param name any
+function paw.workspace.go(name) end
+
+--- The names of the workspaces there are: the defaults, the
+--- configuration's, those saved, the project's and those kept in memory.
+function paw.workspace.names() end
+
+--- Keep the tabs and windows as workspace `name` in the layouts folder.
+--- When `project` is true, keep them in the project's screen instead, so
+--- that the project opens in that workspace. The screen is now that
+--- workspace.
+---@param name any
+---@param project any
+function paw.workspace.save(name, project) end
+
 --- The first child of an element with a name, or nil.
 ---@param el any
 ---@param name any
@@ -11211,6 +11242,11 @@ function paw.api.project_keep_changes() end
 ---@param path string
 ---@param opts any
 function paw.api.project_load(path, opts) end
+
+--- Count the project as changed, so that it asks to be saved, with
+--- no undo step: for data that the next save writes and undo does
+--- not keep (`:workspace.save!` in the project's screen).
+function paw.api.project_mark_changed() end
 
 --- Count the project as it is now as saved, for a script that wrote
 --- what it holds somewhere itself (a clip opened alone, written

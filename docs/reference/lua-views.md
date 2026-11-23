@@ -269,7 +269,7 @@ keys.
 | `paw.win` | `current()`, `list()` (the windows of the tab on the screen, each with `id`, `view`, `opts`, `state`), `split({ vertical, view })`, `close(win)`, `only()`, `show(win, name)`, `enter(win)`, `resize(win, "height" or "width", n, relative)`, `equalize()`, `maximize()`, `option(win, name, value)` |
 | `paw.tab` | `list()`, `current()`, `new(name, buffer)`, `go(i)`, `close(i)`, `move(i, to)` |
 | `paw.layout` | `capture()` gives the tabs and windows as plain data. `restore(data)` makes them again |
-| `paw.layouts` | `paw.layouts.name = {...}` names a layout for `:layout name` |
+| `paw.layouts` | `paw.layouts.name = {...}` names a layout for `:layout name` and `:workspace name` |
 
 The events are `win.enter`, `win.leave`, `win.resized`, `buf.enter`,
 `buf.leave`, `tab.enter` and `view.focused` (see [Events](events.md)).

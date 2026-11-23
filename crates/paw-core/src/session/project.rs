@@ -157,6 +157,14 @@ impl Session {
         self.doc.undo.history.mark_saved(false);
     }
 
+    /// Count the project as changed, so that it asks to be saved, with no
+    /// undo step: for data that a save writes and undo does not keep, such
+    /// as the workspaces of the project's screen.
+    pub fn mark_changed(&mut self) {
+        self.doc.undo.touched = true;
+        self.doc.undo.edits += 1;
+    }
+
     pub fn project_load(&mut self, path: &Path) -> Result<()> {
         if folder::is_folder_path(path) {
             return self.project_load_folder(path);

@@ -1827,6 +1827,10 @@ local record types
     seats: {string: SavedLayout}
     --- The named scopes (`:scope.name`), each a stack outermost first.
     scopes: {{SavedScope}}
+    --- The workspaces that `:workspace.save!` keeps, by name, and the
+    --- one that the project opens in.
+    workspaces: {string: SavedLayout}
+    workspace: string
     tab: integer
     tabs: {SavedTab}
   end
