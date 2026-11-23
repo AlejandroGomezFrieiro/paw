@@ -9531,6 +9531,13 @@ function paw.util.merge(base, extra) end
 ---@param step any
 function paw.util.round(v, step) end
 
+--- Break text into lines of at most `width` columns, at spaces. A word
+--- wider than `width` gets a line of its own. Empty text gives one empty
+--- line.
+---@param text any
+---@param width any
+function paw.util.wrap(text, width) end
+
 --- Put a track under a VCA.
 ---@param track any
 ---@param vca any

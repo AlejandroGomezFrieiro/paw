@@ -41,6 +41,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
 | `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. `T.eq` compares two tables by their values (deep). |
 | `T.fails(fn, pattern, what)` | `fn` gives an error that matches `pattern`. |
+| `T.expect_error(pattern)` | The test gives an error on the message line that matches `pattern`. Without it, such an error fails the test. |
 | `T.render(opts)` | Render offline to a file under `T.scratch`. The result does not depend on the machine. |
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
@@ -49,6 +50,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
+| `T.expect_screen(name, w, h, opts)` | Compare the screen with a golden file (part 7). |
 
 Planned helpers:
 
@@ -56,7 +58,6 @@ Planned helpers:
   `T.until_` that fails at quiescence (TASK-146). Then `paw.wait(ms)`
   advances a virtual clock.
 - `T.next_block(n)` on a stepped audio backend (TASK-147).
-- `T.expect_screen(name, w, h)` with golden files (TASK-152).
 - `T.check_keys(fixture, keys, expected)` (TASK-158).
 
 ## 3. Start clean and put back
@@ -130,6 +131,9 @@ the owner's computer or folders. Mock what it needs.
   action is one undo step).
 - A command or a key that can fail has a test of its message, not only
   of the success.
+- The runner fails a test when an error of `paw.try` (an event handler, a
+  timer, a key) comes and the test does not expect it. Before a test
+  checks an error message, it calls `T.expect_error(pattern)`.
 - Write the expected value as a literal (`T.eq(name, "Bass 2")`). Do not
   compute it with the code under test.
 - Where the result depends on a combination (mode, selection, view),
@@ -152,11 +156,26 @@ the owner's computer or folders. Mock what it needs.
 
 - `find()` on the screen text checks that one text exists. It does not
   check a layout: a wrong layout that still holds the text passes.
-- For a layout, use a golden file (planned, TASK-152):
-  `T.expect_screen(name, w, h)` against `tests/screens/<file>/<name>.txt`.
-  Bless with `PAW_BLESS=1`, read the diff, and name the blessed files in
-  the commit. Keep each grid small: the smallest size and region that
-  show the behavior.
+- For a layout, use a golden file: `T.expect_screen(name, w, h, opts)`
+  compares the screen with `tests/screens/<file>/<name>.txt`. For an
+  extension, the folder is `extensions/<ext>/screens/<file>/`.
+  `tests/tools/golden.lua` holds the helper.
+- Keep each grid small: the smallest size and region that show the
+  behavior. `opts.rows = { first, last }` and `opts.cols = { first, last }`
+  keep a region. `opts.styles = false` keeps the text only.
+- A golden file holds no value that changes from run to run or from
+  machine to machine: a time, a path, the user name, the processor load,
+  a list of plugins. Choose a size and a region without them. For example,
+  the status line shows `cpu` only from 90 columns.
+- To write or accept a golden file, run the test with `PAW_BLESS=1`:
+  `PAW_BLESS=1 tests/tools/suite.sh only "<words>"`. Read each file and
+  its diff, and name the blessed files in the commit.
+- If the file is not there or is different, the test fails. The message gives the
+  rows that differ and the command to bless. A golden file that no test
+  uses fails the run (`every golden screen has a test`). A run with
+  `PAW_BLESS=1` removes it.
+- Before TASK-146 (`T.settle`), use a golden file only for a view that
+  draws at once.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
 
@@ -229,6 +248,7 @@ PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
 tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
 tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins
+PAW_BLESS=1 tests/tools/suite.sh only "<words>"        # write the golden screens
 tools/tlcheck.sh                                       # Teal types
 luacheck .                                             # unused and undefined names
 tools/fmtcheck.sh                                      # the format (`fix` formats)

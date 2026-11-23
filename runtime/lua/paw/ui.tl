@@ -812,12 +812,26 @@ local function float_rect(width: integer, height: integer): ScreenRect
   return { name = f.name, x = math.floor((width - w) / 2), y = y, w = w, h = h }
 end
 
+-- A style that turns off every attribute of a cell. A highlight group
+-- changes only what it names, so a fill with "Normal" keeps the bold of
+-- the text under it.
+local NO_ATTRIBUTES: types.CellStyle = {
+  bold = false,
+  dim = false,
+  italic = false,
+  underline = false,
+  reverse = false,
+  strike = false,
+}
+
 --- Draw a box around a buffer's edge and return a buffer for the inside.
 function M.box(buf: contracts.Buf, title?: string, style?: string): contracts.Buf
   local w, h = buf.width, buf.height
   style = style or "Border"
   local g = paw.draw.g
+  -- A box covers what is under it: its colors and its attributes.
   buf:fill(0, 0, w, h, " ", "Normal")
+  buf:fill(0, 0, w, h, nil, NO_ATTRIBUTES)
   buf:text(0, 0, g.tl .. string.rep(g.h, w - 2) .. g.tr, style)
   for row = 1, h - 2 do
     buf:text(0, row, g.v, style)
@@ -1821,11 +1835,13 @@ local set_raw = api.hl_set
 local truecolor: boolean = nil
 
 local function set(name: string, def: Style)
-  defined[name] = def
   if truecolor == nil then truecolor = paw.draw.truecolor() end
   -- A window draws the group as defined, whatever the terminal shows.
   local shown = paw.draw.term_def(def, truecolor)
   set_raw(name, shown, shown ~= def and def or nil)
+  -- Kept only once the kernel took it: a group that it refused would fail
+  -- again at each change of `paw.opt.termcolors`.
+  defined[name] = def
 end
 -- Groups set straight through the kernel's call get the same treatment.
 api.hl_set = set

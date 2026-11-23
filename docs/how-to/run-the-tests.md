@@ -102,6 +102,24 @@ the leaks that are known, one on each line, for example
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
 
+## Expect an error on the message line
+
+paw shows an error of an event handler, a timer or a key on the message
+line, and it does not stop. The runner keeps each such error while a test
+runs, and the test fails when an error came that the test did not expect.
+The failure names the error and where it came from, for example the
+event handler or the key, and then gives the whole error with its list of
+calls.
+
+When a test checks a message that a command gives on purpose, it says so
+first with `T.expect_error(pattern)`. The pattern is a Lua pattern of the
+message, and the test fails if no message matches it:
+
+```lua
+T.expect_error("^a tempo is from 1 to 999 bpm")
+T.keys(":tempo 0<CR>")
+```
+
 ## Write a test that runs in any order
 
 A test makes all the state that it reads, so it gives the same result
@@ -119,6 +137,45 @@ below keep a test independent of the tests that ran before it:
   test itself, and not in a test before it.
 - Put back with `T.after` what the test changes outside the project, for
   example the MIDI test ports or the audio engine.
+
+## Check the screen with golden files
+
+A golden file holds the screen as a person read and accepted it. A test
+that checks a layout calls `T.expect_screen(name, width, height, opts)`,
+and the runner draws the screen at that size and compares it with the
+file `tests/screens/<file>/<name>.txt`, where `<file>` is the name of the
+test file. For a test file of an extension, the file is in
+`extensions/<extension>/screens/<file>/<name>.txt`. With
+`opts.rows = { first, last }` and `opts.cols = { first, last }`, the test
+keeps only part of the screen, and with `opts.styles = false`, it keeps
+only the text.
+
+Each line of a golden file is a row of the screen. Text in a style other
+than the most common one is marked with the number of its style, for
+example `{3:NOR}`. After the rows, a line `--` starts the list of the
+styles, with the colors and attributes of each number.
+
+To write or update the golden files of a test, follow these steps:
+
+1. Run the test with `PAW_BLESS=1`, for example
+   `PAW_BLESS=1 tests/tools/suite.sh only "a screen too small"`. The
+   output has a line `bless <path>` for each file that it wrote.
+2. Read each file and its diff, and check that the new screen is right.
+3. Commit the files with the change, and name them in the commit message.
+
+When a golden file is missing or different, the test fails. The message
+gives the path, the first rows that differ, and the command that writes
+the file. A golden file that no test uses also fails the run, with a test
+named `every golden screen has a test`. The runner checks a test file only
+when all of its tests ran to the end, so a filter with `only` doesn't fail
+the check. A run with `PAW_BLESS=1` removes the files that no test uses.
+
+A golden file must not hold anything that changes from one run or one
+machine to the next, such as a time, a path, the user name, the load of
+the processor or a list of the installed plugins. Choose a size and a
+part of the screen that leave those out. Use `T.screen(w, h)` and
+`find()` to check that one piece of text is on the screen, and use a
+golden file to check where things are.
 
 ## Write a test that does not depend on time
 
