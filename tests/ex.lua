@@ -300,6 +300,41 @@ test("ex: :quantize moves the notes that play in its bars, and says so when they
   eq(c:notes()[2].start, 1.3, "u gives it back")
 end)
 
+test("ex: the notes of a range come in the order of the song: by time, then pitch, then track", function()
+  local _, drums = song()
+  -- A note of the drums at the time and pitch of one of track T.
+  drums:clips()[1]:add_note({ pitch = 62, start = 2, length = 1 })
+  local got = {}
+  for _, item in ipairs(ex.items(ex.range("1,2"), "note")) do
+    got[#got + 1] = string.format("%s:%d@%g", paw.api.track_get(item.track).name, item.note.pitch, item.at)
+  end
+  eq(
+    table.concat(got, " "),
+    "Drums:36@0 T:60@0 Drums:38@1 T:61@1 T:62@2 Drums:62@2 T:63@3 "
+      .. "Drums:36@4 T:60@4 Drums:38@5 T:61@5 T:62@6 T:63@7",
+    "in order across tracks and clips"
+  )
+end)
+
+test("paw.notes.snap gives the start that paw.notes.quantize gives a note", function()
+  -- { start, options, the start on the grid }
+  local cases = {
+    { 1.1, { grid = 0.25 }, 1 },
+    { 0.9, { grid = 0.25, offset = 0.1 }, 0.9 },
+    { 1.1, { grid = 0.25, strength = 0.5 }, 1.05 },
+    { 0.45, { grid = 0.5, swing = 0.5 }, 0.75 },
+    { 3.95, { grid = 0.25, within = 4 }, 3.75 },
+    { -0.3, { grid = 0.25 }, 0 },
+  }
+  for _, case in ipairs(cases) do
+    local start, opts, want = case[1], case[2], case[3]
+    local what = paw.inspect(opts) .. " from " .. start
+    T.near(paw.notes.snap(start, opts), want, 1e-9, what)
+    local moved = paw.notes.quantize({ { pitch = 60, start = start, length = 0.1, velocity = 100 } }, opts)
+    T.near(moved[1].start, want, 1e-9, "quantize, " .. what)
+  end
+end)
+
 test("ex: normal runs keys at each bar, track or match", function()
   song()
   local seen = {}

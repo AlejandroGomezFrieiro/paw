@@ -6,8 +6,9 @@ bench/profile.md.
 
 Scenarios: startup, idle, idle-armed, keys, play, record, long, repeat
 (the keys of --keys, --times times, under the probes: to profile one key),
-and scope (the keys in a region and in a group of tracks, and the cost of a
-frame there against a frame of the song).
+scope (the keys in a region and in a group of tracks, and the cost of a
+frame there against a frame of the song), and scope-keys (the keys of --keys
+in the region Verse B of scope, --times rounds, each key on its own).
 
 paw runs with --clean --no-plugins --audio null, its XDG_* folders and HOME
 in a scratch folder, and a control socket of its own. The driver plays the
@@ -48,9 +49,11 @@ Options (all optional):
                    kernel and write a flamegraph of the Lua functions
   --label TEXT     a label for the results and file names
   --reps N         repetitions of startup and of each moving key (default 5)
-  --keys K1,K2     repeat: the keys, comma-separated, with Python escapes
-  --times N        repeat: how many rounds (default 20); it also gives the
-                   time from each key to its first frame (median, min, max)
+  --keys K1,K2     repeat and scope-keys: the keys, comma-separated, with
+                   Python escapes
+  --times N        repeat and scope-keys: how many rounds (default 20);
+                   repeat also gives the time from each key to its first
+                   frame (median, min, max)
   --setup LUA      Lua run in the kernel after the start, before measuring
   --budget MS      paw.opt.budget_ms (default 5, 0 is off): each callback
                    that takes longer is named once; keys lists them with
@@ -706,6 +709,33 @@ def scenario_scope(opts, project):
     paw.quit()
 
 
+def scenario_scope_keys(opts, project):
+    """The keys of --keys (as `repeat` takes them), --times rounds, in the
+    scope Song › Verse B of `scope`: each key on its own, measured as
+    `keys` measures one. For a key that changes the project, give the key
+    that takes the change back after it (`:%quantize 1/4\\r,u`)."""
+    paw, first = start(opts, project)
+    paw.eval(SCOPE_SETUP + '\npaw.keymap.feed("znar")\npaw.keymap.feed("]z")')
+    paw.screen.wait_quiet(500, 30)
+    names = opts.keys.split(",")
+    keys = [k.encode().decode("unicode_escape").encode("latin-1") for k in names]
+    recs = {name: [] for name in names}
+    named = slow_counts(paw)
+    for _ in range(opts.times):
+        for name, k in zip(names, keys):
+            recs[name].append(measure_key(paw, name, k))
+    for name in names:
+        rec = {"scenario": "scope-keys", "key": name, "times": opts.times,
+               "scope": paw.eval("return paw.scope.breadcrumb()")}
+        vals = sorted(r["kernel_cpu_ms"] for r in recs[name])
+        rec["kernel_cpu_ms"], rec["kernel_cpu_ms_min"], rec["kernel_cpu_ms_max"] = (
+            vals[len(vals) // 2], vals[0], vals[-1])
+        emit(opts, rec)
+    if opts.budget:
+        emit(opts, {"scenario": "scope-keys", "slow": slow_since(paw, named)})
+    paw.quit()
+
+
 def scenario_startup(opts, project):
     # Empty, then the large project.
     for proj, what in ((None, "empty"), (project, "large project")):
@@ -924,6 +954,8 @@ def main():
         scenario_repeat(opts, project)
     elif s == "scope":
         scenario_scope(opts, project)
+    elif s == "scope-keys":
+        scenario_scope_keys(opts, project)
     else:
         sys.exit(f"unknown scenario {s}\n{__doc__}")
 

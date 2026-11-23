@@ -137,6 +137,9 @@ end
 local paw = (_G as {string: Paw}).paw
 
 local registry: {string: Spec} = {}
+-- The commands of `registry` sorted by name, or nil when it changed since
+-- (`M.list`). Completion asks for the list after each typed character.
+local sorted: {Spec}
 
 --- The last command that can be adjusted, as it ran: what `adjust` runs
 --- again. `before` is the undo state that it started from.
@@ -162,6 +165,7 @@ local running = 0 -- how many commands run inside each other
 function M.define<C is Context>(name: string, run: function(C): (Result), opts?: Options)
   assert(name is string and run is function, "usage: paw.command(name, function, opts)")
   opts = opts or {}
+  sorted = nil
   registry[name] = {
     name = name,
     run = run as function(Context): (Result),
@@ -201,6 +205,7 @@ end
 --- Make `alias` another name for `target`.
 function M.alias(alias: string, target: string)
   local spec = assert(registry[target], "no command " .. target)
+  sorted = nil
   registry[alias] = {
     name = alias,
     run = spec.run,
@@ -224,6 +229,7 @@ end
 --- remove it with nil. An extension that unloads does this with the
 --- commands that it made.
 function M.put(name: string, spec: Spec)
+  sorted = nil
   registry[name] = spec
 end
 
@@ -249,11 +255,18 @@ end
 
 --- Every command, sorted by name.
 function M.list(): {Spec}
-  local out: {Spec} = {}
-  for _, spec in pairs(registry) do
-    out[#out + 1] = spec
+  if not sorted then
+    sorted = {}
+    for _, spec in pairs(registry) do
+      sorted[#sorted + 1] = spec
+    end
+    table.sort(sorted, function(a: Spec, b: Spec): boolean return a.name < b.name end)
   end
-  table.sort(out, function(a: Spec, b: Spec): boolean return a.name < b.name end)
+  -- A copy: the caller may change its list.
+  local out: {Spec} = {}
+  for i = 1, #sorted do
+    out[i] = sorted[i]
+  end
   return out
 end
 
@@ -949,14 +962,18 @@ function M.complete(line: string): {Entry}
   if not name then
     -- The command's name: those that start with it, then those that hold it.
     local later: {Entry} = {}
+    local lower = line:lower()
     for _, spec in ipairs(M.list()) do
-      local entry: Entry = {
-        text = spec.name, label = spec.name, desc = spec.alias_of and "→ " .. spec.alias_of or spec.desc
-      }
+      local into: {Entry}
       if starts(spec.name, line) then
-        out[#out + 1] = entry
-      elseif line ~= "" and spec.name:lower():find(line:lower(), 1, true) then
-        later[#later + 1] = entry
+        into = out
+      elseif line ~= "" and spec.name:lower():find(lower, 1, true) then
+        into = later
+      end
+      if into then
+        into[#into + 1] = {
+          text = spec.name, label = spec.name, desc = spec.alias_of and "→ " .. spec.alias_of or spec.desc
+        }
       end
     end
     for _, entry in ipairs(later) do

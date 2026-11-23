@@ -850,6 +850,37 @@ local function by_place(a: Item, b: Item): boolean
   return (a.order or 0) < (b.order or 0)
 end
 
+-- Sort `items` by `by_place`, as a merge sort in Lua. LuaJIT's
+-- `table.sort` calls a Lua comparator from C, and the JIT cannot compile
+-- that call: a range of thousands of notes spent more time there than
+-- in the comparisons. The sort is stable.
+local function sort_by_place(items: {Item})
+  local n = #items
+  local from, into: {Item}, {Item} = items, {}
+  local width = 1
+  while width < n do
+    -- Merge each two runs of `width` items of `from` into one of `into`.
+    for lo = 1, n, 2 * width do
+      local mid, hi = math.min(lo + width, n + 1), math.min(lo + 2 * width, n + 1)
+      local a, b = lo, mid
+      for k = lo, hi - 1 do
+        if b < hi and (a >= mid or by_place(from[b], from[a])) then
+          into[k], b = from[b], b + 1
+        else
+          into[k], a = from[a], a + 1
+        end
+      end
+    end
+    from, into = into, from
+    width = 2 * width
+  end
+  if from ~= items then
+    for k = 1, n do
+      items[k] = from[k]
+    end
+  end
+end
+
 --- The notes, clips or tracks (`kind`) a range holds, in the order they
 --- come in the song.
 function M.items(r: Range, kind: Level): {Item}
@@ -898,7 +929,7 @@ function M.items(r: Range, kind: Level): {Item}
       end
     end
   end
-  table.sort(out, by_place)
+  sort_by_place(out)
   return out
 end
 
@@ -2371,15 +2402,16 @@ ex(
     local items = notes_in(ctx)
     commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
+    -- On the song's grid, so that clips that start off it still line up:
+    -- the offset is the start of each note's clip. A strength under 100
+    -- moves each note that part of the way. A note on the grid already is
+    -- not sent. `snap` makes no copy of a note: there can be thousands.
+    local snap: transform.QuantizeOptions = {grid = grid, strength = strength / 100}
     for _, item in ipairs(items) do
-      -- On the song's grid, so that clips that start off it still line up.
-      -- A strength under 100 moves each note that part of the way. A note
-      -- on the grid already is not sent.
-      local moved = transform.quantize(
-        {item.note}, {grid = grid, strength = strength / 100, offset = item.at - item.note.start}
-      )
-      if moved[1].start ~= item.note.start then
-        changes[#changes + 1] = {item = item, change = {start = moved[1].start}}
+      snap.offset = item.at - item.note.start
+      local start = transform.snap(item.note.start, snap)
+      if start ~= item.note.start then
+        changes[#changes + 1] = {item = item, change = {start = start}}
       end
     end
     if #changes == 0 then

@@ -47,6 +47,28 @@ test("an unknown or failing Ex command says so in one line, never with a stack t
   paw.commands.put("test.refuses", nil)
 end)
 
+test("command names complete as the commands are now: made, aliased or removed after the last completion", function()
+  start()
+  local function completed(line)
+    local out = {}
+    for _, c in ipairs(paw.commands.complete(line)) do
+      out[#out + 1] = c.text
+    end
+    return table.concat(out, " ")
+  end
+  T.after(function()
+    paw.commands.put("test.zzmade", nil)
+    paw.commands.put("test.zzalias", nil)
+  end)
+  eq(completed("test.zz"), "", "none yet")
+  paw.command("test.zzmade", function() end, { desc = "test" })
+  eq(completed("test.zz"), "test.zzmade", "a command made since")
+  paw.commands.alias("test.zzalias", "test.zzmade")
+  eq(completed("test.zz"), "test.zzalias test.zzmade", "an alias, in the order of the names")
+  paw.commands.put("test.zzmade", nil)
+  eq(completed("test.zz"), "test.zzalias", "a command removed is gone")
+end)
+
 test(":e! goes back to the saved project, and the unsaved-work message names commands that exist", function()
   start()
   local path = T.scratch .. "/edit-bang"
