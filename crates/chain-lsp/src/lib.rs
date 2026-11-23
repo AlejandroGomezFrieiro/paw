@@ -13,7 +13,7 @@ use lsp_types::{
     TextDocumentSyncKind,
 };
 
-pub use host::{Host, InitOptions, SchemaSource};
+pub use host::{Host, InitOptions, SchemaSource, read_context};
 pub use server::CONTEXT;
 
 /// How the server starts: the source of the schema that the command line
@@ -33,13 +33,11 @@ pub fn serve(connection: &Connection, options: &Options) -> Result<()> {
     let (id, params) = connection.initialize_start()?;
     let params: InitializeParams = serde_json::from_value(params)?;
     let (init, mut warnings) = InitOptions::read(params.initialization_options);
-    let mut host = Host {
-        context: init
-            .chain_context
-            .clone()
-            .unwrap_or_else(|| serde_json::json!({})),
-        ..Host::default()
-    };
+    let mut host = Host::default();
+    match read_context(init.chain_context.clone().unwrap_or_default()) {
+        Ok(context) => host.context = context,
+        Err(message) => warnings.push(message),
+    }
     match init.schema_source().or_else(|| options.schema.clone()) {
         Some(source) => match source.load() {
             Ok(schema) => host.schema = Some(schema),

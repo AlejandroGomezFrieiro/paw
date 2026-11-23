@@ -1,0 +1,34 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2 "Wires"
+  2 | -- a device at the top level of version 2
+  3 | eq #1
+    | ^ 3:1: error E109: the top level of version 2 holds node lines (strip, bus, master, send, vca, producer, io) and wires; put `eq` under a strip
+  4 | -- `mods` at the top level of version 2
+  5 | mods
+    | ^ 5:1: error E109: in version 2, `mods` goes under a strip, with the inserts that it changes
+  6 | strip #2
+  7 | -- `=>` ends at a lane
+  8 | #2 => #3
+    |       ^ 8:7: error E109: `=>` stores in a lane: end it at a lane, such as "Keys", or at @"Part/Lane"
+  9 | -- a wire into a lane is `=>`
+ 10 | #2 -> "Print"
+    |    ^ 10:4: error E109: a lane keeps what comes into it: a wire into a lane is `=>`, not `->`
+ 11 | -- a lane is quoted
+ 12 | #2 => Print
+    |       ^ 12:7: error E106: a lane is a quoted name: "Print"
+ 13 | -- a wire joins a node
+ 14 | "Room" => "Print"
+    | ^ 14:1: error E109: a wire joins a node: one of its ends is `#id`
+ 15 | -- one wire on each line
+ 16 | #2 -> #3 -> #4
+    |          ^ 16:10: error E106: a wire joins two ends, one wire on each line; found `->` after them
+ 17 | -- a producer names its kind
+ 18 | producer #5
+    |          ^ 18:10: error E106: `producer` needs a kind of the host after it, such as `producer render`
+ 19 | -- a send holds no lines
+ 20 | send #6
+ 21 |   eq #7
+    |   ^ 21:3: error E109: a `send` line holds no lines under it

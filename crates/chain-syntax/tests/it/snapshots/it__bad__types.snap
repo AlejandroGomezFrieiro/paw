@@ -1,0 +1,37 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2 "Types"
+  2 | strip #1 "Lead"
+  3 |   arp #2
+  4 |   synth #3
+  5 |   -- E213: the synth gives no MIDI to the arpeggiator after it
+  6 |   arp #4
+    |   ^ 6:3: error E213: `arp` takes midi at `notes`, and the inserts before it give audio
+  7 | strip #5 "Room"
+  8 | producer singer #6
+  9 | producer pitch #7
+ 10 | -- E213: the camera of the avatar is a video, and the kick is audio
+ 11 | producer avatar #8 camera=@"Drums/Kick"
+    |                    ^ 11:20: error E213: `camera` takes video, and @"Drums/Kick" gives audio
+ 12 | "Notes" -> #1
+ 13 | -- fine: a lane with lyrics into the singer
+ 14 | "Notes" -> #6
+ 15 | -- E213: the singer needs lyrics, and the chords have none
+ 16 | "Chords" -> #6
+    | ^ 16:1: error E213: `#6` needs midi with lyrics=on, and "Chords" gives lyrics=off, and the host has no converter
+ 17 | -- fine: the host has a converter from stereo to mono
+ 18 | "Room" -> #7
+ 19 | -- E213: a strip takes audio or MIDI, not keyframes
+ 20 | "Keys" -> #5
+    | ^ 20:1: error E213: `#5` takes audio or midi, and "Keys" gives keyframes
+ 21 | -- fine: a curve moves a parameter
+ 22 | "Volume" -> #5.gain
+ 23 | -- E213: audio cannot move a parameter
+ 24 | "Room" -> #5.pan
+    | ^ 24:1: error E213: `#5.pan` is a parameter: it takes curve, and "Room" gives audio
+ 25 | #6 => "Sung"
+ 26 | -- E213: a lane of keyframes keeps no MIDI
+ 27 | #7 => "Keys"
+    | ^ 27:1: error E213: "Keys" takes keyframes, and `#7` gives midi

@@ -6,7 +6,6 @@ paw.option.define("ara_unpitched_key", 60, { min = 0, max = 127 }) -- the key of
 
 local api = paw.api
 local ara = require("ara")
-package.loaded["paw.ara"] = ara
 
 -- The attachment is loaded before the project's plugins are made, so that
 -- an ARA plugin in a saved project gets its clips again.

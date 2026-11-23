@@ -22,8 +22,8 @@ local global = (_G as {string: Table}).paw
 --- that `require("paw...")` gives, by its shortest name, and the classes
 --- (`paw.Track`), sorted by name.
 function lua.modules(): {Module}
-  -- The runtime's own: an extension may put a module of its under `paw.`
-  -- (`package.loaded["paw.sampler"]`), which is its to document.
+  -- The runtime's own: a name under `paw.` that has a file in runtime/lua.
+  -- A module of an extension has its own name and its own README.
   local function ours(name: string): boolean
     return source.module_file(name, {".lua", "/init.lua", ".tl", "/init.tl"}) ~= nil
   end

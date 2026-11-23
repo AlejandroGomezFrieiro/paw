@@ -163,3 +163,37 @@ fn without_a_schema_the_server_says_so_and_checks_the_grammar_only() {
         client.messages
     );
 }
+
+#[test]
+fn the_context_of_the_part_gives_the_lanes_and_a_new_context_checks_the_open_text_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("schema.json");
+    std::fs::write(&path, SCHEMA).unwrap();
+    let options = Options {
+        schema: Some(SchemaSource::File(path)),
+    };
+    let context = json!({ "chain_context": 2, "lanes": [{ "name": "Notes", "stream": "midi" }] });
+    let mut client = Client::start(options, json!({ "chainContext": context }));
+    let published = client.open("chain 2\nstrip #1\n\"Notes\" -> #1\n#1 => \"Print\"\n");
+    assert_eq!(
+        summary(&published),
+        [
+            "3:0 W302 the context of the host has no lane \"Print\" in this part: its type is not checked"
+        ],
+        "the lane of the context is known"
+    );
+    client.notify(
+        "chain/context",
+        json!({ "chain_context": 2, "lanes": [{ "name": "Print", "stream": "audio" }] }),
+    );
+    let published = client.next("textDocument/publishDiagnostics");
+    assert_eq!(
+        summary(&published),
+        [
+            "2:0 W302 the context of the host has no lane \"Notes\" in this part: its type is not checked"
+        ],
+        "the new context, on the text that is open"
+    );
+    let lanes = client.at("textDocument/completion", "chain 2\nstrip #1\n#1 => \"P$\n");
+    assert_eq!(lanes[0]["label"], "\"Print\"");
+}

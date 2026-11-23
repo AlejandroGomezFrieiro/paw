@@ -210,7 +210,7 @@ workspace), and `paw.render` of the same song takes most of that time.
 ### The Lua module
 
 ```lua
-local mixdiag = require("mixdiag")          -- also package.loaded["paw.mixdiag"]
+local mixdiag = require("mixdiag")
 
 mixdiag.analyze("song")                     -- or "loop", "selection", "track",
                                             -- { start = 0, ["end"] = 32, track = id }, { file = "x.wav" }

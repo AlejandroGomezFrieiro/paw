@@ -1,7 +1,92 @@
 {
-  "chain_schema": 1,
+  "chain_schema": 2,
   "host": "example",
+  "streams": [
+    {
+      "stream": "audio",
+      "name": "Audio",
+      "time": "samples",
+      "records": true,
+      "props": [{ "key": "channels", "type": "number", "integer": true, "min": 1, "max": 64, "default": 2 }]
+    },
+    {
+      "stream": "midi",
+      "name": "MIDI",
+      "time": "beats",
+      "records": true,
+      "props": [{ "key": "lyrics", "type": "switch", "default": false }]
+    },
+    { "stream": "curve", "name": "Curve", "time": "beats", "records": true, "control": true },
+    { "stream": "keyframes", "name": "Keyframes", "time": "beats" },
+    { "stream": "video", "name": "Video", "time": "seconds", "records": true }
+  ],
+  "default_ports": [
+    { "port": "in", "stream": "audio", "main": true },
+    { "port": "out", "stream": "audio", "main": true, "out": true }
+  ],
+  "nodes": [
+    {
+      "kind": "strip",
+      "name": "Strip",
+      "params": [
+        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
+        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 },
+        { "key": "mute", "type": "switch", "default": false },
+        { "key": "solo", "type": "switch", "default": false }
+      ],
+      "ports": [
+        { "port": "in", "stream": "audio", "main": true },
+        { "port": "notes", "stream": "midi", "main": true },
+        { "port": "out", "stream": "audio", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "bus",
+      "name": "Bus",
+      "params": [
+        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
+        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 }
+      ]
+    },
+    {
+      "kind": "master",
+      "name": "Master",
+      "params": [{ "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }]
+    },
+    {
+      "kind": "send",
+      "name": "Send",
+      "params": [
+        { "key": "level", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
+        { "key": "pre", "type": "switch", "default": false }
+      ]
+    },
+    {
+      "kind": "vca",
+      "name": "VCA",
+      "params": [{ "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }],
+      "ports": [{ "port": "gain", "stream": "curve", "main": true, "out": true }]
+    }
+  ],
   "devices": [
+    {
+      "kind": "synth",
+      "name": "Synth",
+      "params": [{ "key": "voices", "type": "number", "integer": true, "min": 1, "max": 32, "default": 8 }],
+      "ports": [
+        { "port": "notes", "stream": "midi", "main": true },
+        { "port": "out", "stream": "audio", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "arp",
+      "name": "Arpeggiator",
+      "params": [{ "key": "rate", "type": "note" }],
+      "ports": [
+        { "port": "notes", "stream": "midi", "main": true },
+        { "port": "out", "stream": "midi", "main": true, "out": true }
+      ]
+    },
     {
       "kind": "eq",
       "name": "EQ",
@@ -21,7 +106,7 @@
         { "key": "attack", "type": "number", "unit": "ms", "min": 0.1, "max": 100, "default": 10 },
         { "key": "release", "type": "number", "unit": "ms", "min": 10, "max": 1000, "default": 120 },
         { "key": "makeup", "type": "number", "unit": "dB", "min": 0, "max": 24, "default": 0 },
-        { "key": "key", "type": "source" }
+        { "key": "key", "type": "source", "stream": "audio" }
       ]
     },
     {
@@ -109,6 +194,92 @@
         { "key": "sync", "type": "note" },
         { "key": "shape", "type": "choice", "choices": ["sine", "triangle", "square"], "default": "sine" }
       ]
+    }
+  ],
+  "producers": [
+    {
+      "kind": "render",
+      "name": "Render",
+      "tier": "bake",
+      "ports": [
+        { "port": "in", "stream": "audio", "main": true },
+        { "port": "out", "stream": "audio", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "midi-keys",
+      "name": "Keyframes from MIDI",
+      "tier": "kernel",
+      "params": [{ "key": "smooth", "type": "number", "unit": "ms", "min": 0, "max": 1000, "default": 0 }],
+      "ports": [
+        { "port": "notes", "stream": "midi", "main": true },
+        { "port": "keys", "stream": "keyframes", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "singer",
+      "name": "Singer",
+      "tier": "bake",
+      "params": [{ "key": "voice", "type": "text" }],
+      "ports": [
+        { "port": "notes", "stream": "midi", "props": { "lyrics": true }, "main": true },
+        { "port": "out", "stream": "audio", "props": { "channels": 1 }, "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "pitch",
+      "name": "Pitch to MIDI",
+      "tier": "bake",
+      "ports": [
+        { "port": "in", "stream": "audio", "props": { "channels": 1 }, "main": true },
+        { "port": "notes", "stream": "midi", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "avatar",
+      "name": "Avatar",
+      "tier": "bake",
+      "params": [
+        { "key": "camera", "type": "source", "stream": "video" },
+        { "key": "script", "type": "text" }
+      ],
+      "ports": [
+        { "port": "keys", "stream": "keyframes", "main": true },
+        { "port": "notes", "stream": "midi" },
+        { "port": "video", "stream": "video", "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "mono",
+      "name": "To mono",
+      "converts": true,
+      "ports": [
+        { "port": "in", "stream": "audio", "props": { "channels": 2 }, "main": true },
+        { "port": "out", "stream": "audio", "props": { "channels": 1 }, "main": true, "out": true }
+      ]
+    },
+    {
+      "kind": "stereo",
+      "name": "To stereo",
+      "converts": true,
+      "ports": [
+        { "port": "in", "stream": "audio", "props": { "channels": 1 }, "main": true },
+        { "port": "out", "stream": "audio", "props": { "channels": 2 }, "main": true, "out": true }
+      ]
+    }
+  ],
+  "io": [
+    {
+      "kind": "audio-in",
+      "name": "Audio input",
+      "params": [{ "key": "channel", "type": "number", "integer": true, "min": 1, "max": 64, "default": 1 }],
+      "ports": [{ "port": "out", "stream": "audio", "props": { "channels": 1 }, "main": true, "out": true }]
+    },
+    {
+      "kind": "midi-in",
+      "name": "MIDI input",
+      "params": [{ "key": "device", "type": "text" }],
+      "ports": [{ "port": "out", "stream": "midi", "main": true, "out": true }]
     }
   ],
   "open_prefixes": ["clap:"]

@@ -1,12 +1,48 @@
 # The chain language
 
-The chain language is a text form of a chain of audio devices: devices in series, splits with parallel branches, modulators and checks. A person or a program can read and write it, and the crate `chain-syntax` parses, prints, formats and checks it. The language names no host, so any program that hosts devices can use it. Each host gives its kinds of device, split and modulator in a [schema](chain-schema.md), and the check reads that schema.
+The chain language is a text form of the graph of one part. A text names the nodes of the part, such as its strips, buses, sends and producers, and the wires that join them to each other and to lanes. A strip holds its inserts, which are a chain of devices with splits, branches and modulators. A person or a program can read and write the text, and the crate `chain-syntax` parses, prints, formats and checks it.
+
+The language names no host, so any program that hosts devices can use it. Each host gives its kinds of stream, device, split, modulator and producer in a [schema](chain-schema.md), and the check reads that schema. A host can also give a context for one text: the lanes of the part, and the lanes and nodes of other parts.
+
+The reference describes version 2 of the language. A reader of version 2 also reads a text of version 1, which is the inserts of one strip, with the header `chain 1`.
 
 paw writes its schema with `paw chain schema` (see [the programs and their options](programs.md)).
 
-The examples below use the kinds of a small example host: the devices `eq`, `compressor`, `saturation`, `gate`, `delay` and `limiter`, the splits `rack`, `layer` and `band`, and the modulators `macro` and `lfo`. A test of the crate checks that each example parses with no error, passes the check against the schema of the example host, and is already in the format that the formatter writes.
+The examples below use the kinds of a small example host. Its devices are `synth`, `arp`, `eq`, `compressor`, `saturation`, `gate`, `delay` and `limiter`, its splits are `rack`, `layer` and `band`, and its modulators are `macro` and `lfo`. Its producers are `render`, `midi-keys`, `singer`, `pitch`, `avatar`, `mono` and `stereo`, and its inputs are `audio-in` and `midi-in`. A test of the crate checks that each example parses with no error, passes the check against the schema of the example host, and is already in the format that the formatter writes.
 
-## A whole chain
+## A whole part
+
+```chain
+chain 2 "Violin I" rev=a41c07
+-- the notes play the synth, and the room mic has its own strip
+strip #1 "Violin I" gain=-3dB
+  synth #2 voices=4
+  eq #3 hp=120Hz
+  compressor #4 ratio=3 key=@"Drums/Kick"
+strip #5 "Room"
+bus #6 "Section"
+send #7 "To hall" level=-12dB
+producer midi-keys #9 smooth=20ms
+producer pitch #11
+"Notes" -> #1
+"Room" -> #5
+"Volume" -> #1.gain
+#1 -> #6
+#5 -> #6
+#1 -> #7
+#7 -> @"Strings/Bus"
+#6 -> @"Strings/Bus"
+"Notes" -> #9.notes
+#9 => "Keys"
+"Room" -> #11
+#11 => @"Strings/Violin I/Notes"
+checks
+  latency <= 6ms
+```
+
+## A whole chain of inserts
+
+A strip, a bus and the master hold a chain of inserts. The examples of the inserts below use version 1, where the whole text is the chain of one strip, so that they stay short.
 
 ```chain
 chain 1 "Gtr bus"
@@ -33,19 +69,40 @@ checks
 
 ## Lines and indents
 
-A chain is a text of lines. Each line holds one item: the header, a node, a branch, a `mods` or `checks` line, a modulator or a check. A line can end with a comment, and a line can hold only a comment or nothing.
+A text is a list of lines. Each line holds one item: the header, a node line, a wire, a node, a branch, a `mods` or `checks` line, a modulator or a check. A line can end with a comment, and a line can hold only a comment or nothing.
 
 The indent of a line says what it belongs to. Each step of indent is two spaces, and a tab in an indent is an error. A line goes one step under the line that holds it:
 
 | Line | What goes one step under it |
 | --- | --- |
+| A `strip`, `bus` or `master` line | Its inserts: nodes in series, and one `mods` line |
+| A `send`, `vca`, `producer` or `io` line, or a wire | Nothing |
 | A node of a split kind | Branches (`|` lines), or nodes when the split has one branch, and one `mods` line |
 | A branch | The nodes of the branch, in series |
 | `mods` | Modulators |
 | `checks` | Checks |
 | A device, a modulator or a check | Nothing |
 
-The top level holds the nodes of the chain in series, one `mods` line and one `checks` line. A split holds either branches or nodes, not both. A split with nodes and no `|` line has one branch, and a `rack` is such a split.
+In version 2, the top level holds the node lines, the wires and one `checks` line. In version 1, the top level holds the nodes of one chain in series, one `mods` line and one `checks` line. A split holds either branches or nodes, not both. A split with nodes and no `|` line has one branch, and a `rack` is such a split.
+
+## Streams, ports and wires
+
+A wire carries a stream of one kind, such as audio, MIDI or a curve. The schema of the host names the kinds of stream and their properties, such as the number of channels of audio. Each kind of node has inputs and outputs, which are called ports, and each port carries one kind of stream. A port can ask for values of the properties of its stream, for example a singer that needs MIDI with lyrics.
+
+A wire has one of two arrows:
+
+- `->` is a live wire. The host computes its signal as it plays.
+- `=>` is a store wire. A lane keeps its result, so it always ends at a lane.
+
+A wire with no port after the id of a node joins the main ports. Each kind has at most one main input and one main output of each stream, and the check picks the pair whose streams meet. A wire can name a port, such as `#9.notes`, or a parameter at its end, such as `#1.gain`. A stream that the schema marks as one that controls, such as a curve, can move a parameter.
+
+The check compares the type at each end of a wire. When the two ends differ, the wire is still right when the schema has a converter from one type to the other, because the host puts the converter on the wire. Otherwise the check gives the error `E213`, and the message names the property or the stream that is missing.
+
+Each kind runs in a tier: `live` as the host plays, `kernel` in the host as its source changes, or `bake` in a job whose result a lane keeps. An insert runs live. A producer of tier `kernel` or `bake` reaches the live graph only through a lane, so its live wires go only to other producers that do not run live.
+
+Inside a strip, the inserts take the streams that come into the strip, and each insert passes on each stream that it does not take. So MIDI passes an equalizer and reaches the synth after it. An insert whose main input no stream before it gives is an error.
+
+The check needs the context of the text to know the type of a lane or of an outside end. With no context, or with a lane that the context does not have, the check gives the warning `W302` and does not check the type.
 
 ## Grammar
 
@@ -54,7 +111,15 @@ The grammar is in EBNF. The rules describe one line at a time, and the table abo
 ```ebnf
 chain       = header , { line } ;
 header      = "chain" , version , [ name ] , { field } ;
-line        = indent , ( node | branch | mods | modulator | checks | check ) , [ comment ] ;
+line        = indent , ( graph-node | wire | node | branch | mods | modulator | checks | check ) , [ comment ] ;
+graph-node  = role , [ kind ] , [ id ] , [ name ] , { field } ;
+role        = "strip" | "bus" | "master" | "send" | "vca" | "producer" | "io" ;
+wire        = end , arrow , end ;
+arrow       = "->" | "=>" ;
+end         = id , [ "." , port ] | lane | outside ;
+port        = key ;
+lane        = quoted ;
+outside     = "@" , quoted ;
 node        = kind , [ id ] , [ name ] , { field } ;
 branch      = "|" , [ branch-name ] , [ id ] , { field } ;
 mods        = "mods" ;
@@ -73,25 +138,145 @@ value       = number | note | word | quoted | reference ;
 number      = [ "+" | "-" ] , digit , { digit } , [ "." , digit , { digit } ] , [ unit ] ;
 unit        = "dB" | "Hz" | "kHz" | "ms" | "s" | "%" | "st" ;
 note        = digit , { digit } , "/" , digit , { digit } , [ "." | "t" ] ;
-reference   = "@" , id-char , { id-char } ;
+reference   = "@" , id-char , { id-char } | outside ;
 compare     = "<" | "<=" | "=" | ">=" | ">" ;
 word        = letter , { letter | digit | "_" | "." | ":" | "/" | "+" | "-" } ;
 quoted      = '"' , { character | escape } , '"' ;
 comment     = "--" , { character } ;
 ```
 
-`version` is the number 1. `id-char` is a letter, a digit, `_` or `-`. `letter` is any letter of any script, or `_`. `indent` is two spaces for each step. `escape` is one of `\"`, `\\`, `\n`, `\t` and `\u{hex}`, where `hex` is the number of a Unicode character in hexadecimal. Spaces separate the tokens of a line, and a line ends at its newline.
+`version` is the number 2, or 1 for a text of version 1. A `graph-node` and a `wire` go only at the top level of version 2.
+
+`id-char` is a letter, a digit, `_` or `-`. `letter` is any letter of any script, or `_`. `indent` is two spaces for each step. `escape` is one of `\"`, `\\`, `\n`, `\t` and `\u{hex}`, where `hex` is the number of a Unicode character in hexadecimal. Spaces separate the tokens of a line, and a line ends at its newline.
 
 ## Rules and examples
 
 ### `chain`
 
-A chain is its header and then its lines. The top level is the chain in series, from its input to its output.
+A text is its header and then its lines. In version 2, the top level is the graph of one part. In version 1, the top level is one chain in series, from its input to its output.
+
+```chain
+chain 2
+strip #1
+  eq #2 hp=80Hz
+  compressor #3 threshold=-24dB
+"Room" -> #1
+```
+
+A reader of version 2 reads the text below as the same strip with no id. The host gives it the strip of the part.
 
 ```chain
 chain 1
-eq #1 hp=80Hz
-compressor #2 threshold=-24dB
+eq #2 hp=80Hz
+compressor #3 threshold=-24dB
+```
+
+### `graph-node`
+
+A node line names a node of the part's graph. It starts with its role, and then a producer or an input or output names its kind. Then come its id, its name and its fields, as on a node of the inserts. The schema gives the parameters of each role and of each kind.
+
+```chain
+chain 2
+strip #1 "Lead" gain=-6dB pan=-0.2
+bus #2 "Drums"
+producer midi-keys #3 smooth=20ms
+io audio-in #4 "Mic" channel=2
+```
+
+### `role`
+
+| Role | The node | Its kind |
+| --- | --- | --- |
+| `strip` | Sums its inputs, with a fader, a pan and its inserts | None |
+| `bus` | A strip that sums other nodes | None |
+| `master` | The strip at the end of the part | None |
+| `send` | A level from one node to another | None |
+| `vca` | A control of the gains of other nodes | None |
+| `producer` | Makes a stream from streams, in its tier | A producer of the schema |
+| `io` | An input or an output of the host | An input or output of the schema |
+
+A strip, a bus and the master hold their inserts one step under them.
+
+```chain
+chain 2
+master #1 gain=-1dB
+  limiter #2 ceiling=-1dB
+send #3 "To hall" level=-12dB pre=on
+vca #4 "Strings"
+```
+
+### `wire`
+
+A wire joins two ends with an arrow, one wire on each line. One end at least is a node of the text.
+
+```chain
+chain 2
+strip #1
+bus #2
+"Room" -> #1
+#1 -> #2
+```
+
+### `arrow`
+
+`->` is a live wire, whose signal the host computes as it plays. `=>` is a store wire, whose result a lane keeps. A store wire ends at a lane, and a wire that ends at a lane of the part is always a store wire.
+
+```chain
+chain 2
+producer render #1
+strip #2
+#2 -> #1
+#1 => "Print"
+```
+
+### `end`
+
+An end is a node of the text, with a port or a parameter after a `.`, a lane of the part, or an outside end.
+
+```chain
+chain 2
+producer midi-keys #1
+strip #2
+vca #3
+"Notes" -> #1.notes
+#1 => "Keys"
+#3 -> #2.gain
+#2 -> @"Strings/Bus"
+```
+
+### `port`
+
+A port names an input or an output of the kind of a node, as the schema gives them. A wire with no port joins the main ports.
+
+```chain
+chain 2
+producer avatar #1
+"Keys" -> #1.keys
+"Chords" -> #1.notes
+#1.video => "Avatar"
+```
+
+### `lane`
+
+A lane of the part is its name in quotes. The context of the text gives the stream of each lane.
+
+```chain
+chain 2
+strip #1
+"Notes" -> #1
+"Volume" -> #1.gain
+```
+
+### `outside`
+
+An outside end is a lane or a node of another part, by a path in quotes after `@`. The language does not read the path. The host gives it a meaning in the context of the text. An outside end can also be the value of a field of the type `source`.
+
+```chain
+chain 2
+strip #1
+  compressor #2 key=@"Drums/Kick"
+#1 -> @"Strings/Bus"
+```
 ```
 
 ### `header`
@@ -146,7 +331,7 @@ layer #1 "Parallel"
 
 ### `mods`
 
-`mods` holds the modulators of the split above it, or of the whole chain at the top level. A link of a modulator reaches only the nodes and branches inside its container.
+`mods` holds the modulators of the split above it, or of the strip above it. In version 1, a `mods` line at the top level holds the modulators of the whole chain. A link of a modulator reaches only the nodes and branches inside its container.
 
 ```chain
 chain 1
@@ -328,7 +513,7 @@ mods
 
 ### `reference`
 
-A reference names the output of a node with `@` and its id: a compressor can listen to a node before it. `@in` is the input of the chain. A reference to the node itself, or to a node that comes later in the signal, is an error. The signal meets the nodes from the top to the bottom, and each branch of a split from its first node to its last.
+A reference names the output of a node with `@` and its id: a compressor can listen to a node before it. `@in` is the input of the chain. A reference to the node itself, or to a node that comes later in the signal, is an error. The signal meets the nodes from the top to the bottom, and each branch of a split from its first node to its last. In version 2, a node of the inserts can listen only to a node of the same strip, and `@in` is the input of that strip. An outside end, `@"path"`, is also a reference.
 
 ```chain
 chain 1
@@ -397,7 +582,7 @@ A diagnostic gives the line and the column of the problem, its code, and a messa
 
 | Code | Severity | Problem |
 | --- | --- | --- |
-| `E101` | Error | The text does not start with the line `chain 1`. |
+| `E101` | Error | The text does not start with the line `chain 2`. |
 | `E102` | Error | The header names a version of the language that the reader does not know. |
 | `E103` | Error | A tab in the indent of a line. |
 | `E104` | Error | An indent that is not a whole number of steps of two spaces. |
@@ -415,10 +600,17 @@ A diagnostic gives the line and the column of the problem, its code, and a messa
 | `E207` | Error | One parameter twice on one line. |
 | `E208` | Error | A split with a number of branches that its kind does not take. |
 | `E209` | Error | A device with nodes under it. Only a split holds nodes. |
-| `E210` | Error | A reference to no node, to the node itself, or to a later node. |
+| `E210` | Error | A reference to no node, to the node itself, or to a later node. A wire whose end names no node line, or names an insert of a strip. |
 | `E211` | Error | A link to no node of its container, or to a parameter that the node does not have or that is not a number. |
 | `E212` | Error | A list with the wrong count of values, or out of order. |
+| `E213` | Error | A stream of the wrong type: at a wire, at a source, or between two inserts in series. The message names the stream or the property that is missing, such as a singer that needs MIDI with lyrics. A wire between two types that a converter of the schema joins is not an error. |
+| `E214` | Error | An insert whose kind does not run live, such as a producer of tier `bake`. |
+| `E215` | Error | A live wire from a node that does not run live into a node that does. Its output reaches the live graph through a lane. |
+| `E216` | Error | Two store wires into one lane. |
+| `E217` | Error | Wires that make a cycle. |
+| `E218` | Error | A port or a parameter that the kind of the node does not have, such as `#3.side` when node 3 has no output `side`. |
 | `W301` | Warning | A kind with an open prefix that the schema does not have, such as a plugin that is not installed. |
+| `W302` | Warning | A lane or an outside end that the context does not have, or a text with no context. Its type is not checked. |
 
 A diagnostic looks like this:
 

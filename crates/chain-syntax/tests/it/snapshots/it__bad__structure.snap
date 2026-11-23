@@ -8,7 +8,7 @@ expression: "annotate(&text, &parsed.diagnostics)"
   3 | compressor #2 key=@2
     |               ^ 3:15: error E210: `@2` is the node itself: a node cannot listen to its own output
   4 | compressor #3 key=@9
-    |               ^ 4:15: error E210: no node has the id `#9`
+    |               ^ 4:15: error E210: no node of this chain has the id `#9`
   5 | eq #4
     | ^ 5:1: error E209: `eq` is a device, so it holds no nodes; only a split does
   6 |   compressor #5

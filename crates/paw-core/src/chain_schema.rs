@@ -1,10 +1,11 @@
-//! paw's schema for the chain language (`paw chain schema`): each kind of
-//! device that the registry has (built-in, CLAP, VST3, LV2 and Lua), the
-//! kinds of split of the model's registry (`model/chain/kinds.rs`), and the
-//! kinds of modulator, as the generic crate `chain-syntax` reads them.
+//! paw's schema for the chain language (`paw chain schema`): the kinds of
+//! stream, the roles of a node of the part's graph, each kind of device
+//! that the registry has (built-in, CLAP, VST3, LV2 and Lua), the kinds of
+//! split of the model's registry (`model/chain/kinds.rs`), and the kinds of
+//! modulator, as the generic crate `chain-syntax` reads them.
 
-use chain_syntax::{Count, Kind, Param, ParamValue, Schema, SplitKind, Unit};
-use paw_engine::{DeviceFormat, DeviceInfo, ParamInfo};
+use chain_syntax::{Count, Kind, Param, ParamValue, Port, Schema, SplitKind, Stream, TimeBase, Unit};
+use paw_engine::{Category, DeviceFormat, DeviceInfo, ParamInfo};
 
 use crate::model::chain::{BuiltinSplit, KindSpec, SplitImpl, SplitKinds};
 
@@ -19,10 +20,14 @@ pub(crate) fn json(session: &crate::session::Session) -> String {
     schema(session.registry.iter().map(|factory| factory.info()), session.doc.split_kinds()).to_json()
 }
 
-/// The schema of the kinds of device in `devices`, with the kinds of split
-/// of `kinds` and paw's kinds of modulator.
+/// The schema of the kinds of device in `devices`, with paw's streams and
+/// roles of a node, the kinds of split of `kinds`, and paw's kinds of
+/// modulator.
 pub(crate) fn schema<'a>(devices: impl IntoIterator<Item = &'a DeviceInfo>, kinds: &SplitKinds) -> Schema {
     let mut schema = Schema::new("paw");
+    schema.streams = streams();
+    schema.default_ports = vec![port("in", "audio", false), port("out", "audio", true)];
+    schema.nodes = nodes();
     schema.devices = devices.into_iter().map(device).collect();
     schema.splits = splits(kinds);
     schema.modulators = modulators();
@@ -39,7 +44,48 @@ fn device(info: &DeviceInfo) -> Kind {
         // A plugin with no parameters in its description has them only
         // for each instance (`DeviceInfo::params`).
         open_params: info.params.is_empty() && info.format != DeviceFormat::Builtin,
+        // An instrument plays the notes that come in; an effect has the
+        // default ports, audio in and out.
+        ports: (info.category == Category::Instrument).then(|| vec![port("notes", "midi", false), port("out", "audio", true)]),
+        ..Kind::default()
     }
+}
+
+/// A main port of `stream`: an output when `out`.
+fn port(name: &str, stream: &str, out: bool) -> Port {
+    Port { port: name.into(), stream: stream.into(), props: Default::default(), main: true, out }
+}
+
+/// The kinds of stream that a lane of paw keeps and a wire carries.
+fn streams() -> Vec<Stream> {
+    let stream = |stream: &str, name: &str, time: TimeBase, control: bool| Stream {
+        stream: stream.into(),
+        name: name.into(),
+        time: Some(time),
+        records: true,
+        control,
+        props: Vec::new(),
+    };
+    vec![
+        stream("audio", "Audio", TimeBase::Samples, false),
+        stream("midi", "MIDI", TimeBase::Beats, false),
+        stream("curve", "Curve", TimeBase::Beats, true),
+    ]
+}
+
+/// The roles of a node line, with the parameters and ports of each. A
+/// strip takes notes for the instrument among its inserts, and audio.
+fn nodes() -> Vec<Kind> {
+    let fader = || vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0), number("pan", None, -1.0, 1.0, 0.0)];
+    let role = |kind: &str, params: Vec<Param>, ports: Option<Vec<Port>>| Kind { kind: kind.into(), params, ports, ..Kind::default() };
+    let strip_ports = vec![port("in", "audio", false), port("notes", "midi", false), port("out", "audio", true)];
+    vec![
+        role("strip", fader(), Some(strip_ports)),
+        role("bus", fader(), None),
+        role("master", fader(), None),
+        role("send", vec![number("level", Some(Unit::Decibel), -60.0, 12.0, 0.0), switch("pre")], None),
+        role("vca", vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0)], Some(vec![port("out", "curve", true)])),
+    ]
 }
 
 fn param(info: &ParamInfo) -> Param {
@@ -184,7 +230,7 @@ fn modulators() -> Vec<Kind> {
             kind: "macro".into(),
             name: "Macro".into(),
             params: vec![number("value", Some(Unit::Percent), 0.0, 100.0, 0.0)],
-            open_params: false,
+            ..Kind::default()
         },
         Kind {
             kind: "lfo".into(),
@@ -195,7 +241,7 @@ fn modulators() -> Vec<Kind> {
                 shape,
                 number("phase", Some(Unit::Percent), 0.0, 100.0, 0.0),
             ],
-            open_params: false,
+            ..Kind::default()
         },
     ]
 }
@@ -209,15 +255,16 @@ mod tests {
     }
 
     #[test]
-    fn the_schema_has_each_built_in_device_and_a_text_of_them_checks() {
+    fn the_schema_has_each_built_in_device_and_a_part_of_them_checks() {
         let registry = paw_engine::Registry::with_builtins();
         let schema = schema(registry.iter().map(|factory| factory.info()), &SplitKinds::builtin());
         assert_eq!(schema.devices.len(), registry.iter().count(), "one kind for each device");
         // The JSON that `paw chain schema` writes loads again as the same schema.
         let loaded = Schema::from_json(&schema.to_json()).expect("paw's schema loads");
         assert_eq!(loaded, schema);
-        let text = "chain 1\ncompressor #1\nlayer #2\n  | Dry\n  | Wet gain=-6dB\n    clap:org.example.missing #3\n";
-        let errors: Vec<String> = chain_syntax::check_text(text, &schema)
+        // An effect before the instrument passes the notes on to it.
+        let text = "chain 2\nstrip #1 gain=-3dB\n  compressor #2\n  synth #3\n  layer #4\n    | Dry\n    | Wet gain=-6dB\n      clap:org.example.missing #5\nbus #6\nsend #7 level=-12dB\nvca #8\n#1 -> #6\n#1 -> #7\n#7 -> #6\n#8 -> #6.gain\n";
+        let errors: Vec<String> = chain_syntax::check_text(text, &schema, None)
             .diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.is_error())

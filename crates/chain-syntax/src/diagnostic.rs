@@ -72,6 +72,24 @@ pub enum Code {
     Link,
     /// A list of values in the wrong order or with the wrong count.
     List,
+    /// A stream of the wrong type: at a wire, at a source, or between two
+    /// inserts in series. The message names the stream or the property
+    /// that is missing.
+    StreamType,
+    /// An insert of a strip whose kind does not run live.
+    NotLive,
+    /// A live wire `->` from a node that does not run live: its output
+    /// reaches the live graph only through a lane.
+    LiveFromLater,
+    /// Two store wires `=>` into one lane.
+    TwoStores,
+    /// The wires of the text make a cycle.
+    Cycle,
+    /// A port that the kind of the node does not have.
+    UnknownPort,
+    /// A lane or a stream outside the text that the context of the host
+    /// does not have, or no context: its type is not checked.
+    UnknownOutside,
     /// A kind of plugin that the schema does not have: its fields stay as
     /// they are written, with no check.
     UnknownPlugin,
@@ -79,7 +97,7 @@ pub enum Code {
 
 impl Code {
     /// Each code, in the order of the reference page.
-    pub const ALL: [Code; 22] = [
+    pub const ALL: [Code; 29] = [
         Self::MissingHeader,
         Self::Version,
         Self::Tab,
@@ -101,7 +119,14 @@ impl Code {
         Self::Reference,
         Self::Link,
         Self::List,
+        Self::StreamType,
+        Self::NotLive,
+        Self::LiveFromLater,
+        Self::TwoStores,
+        Self::Cycle,
+        Self::UnknownPort,
         Self::UnknownPlugin,
+        Self::UnknownOutside,
     ];
 
     /// The code as the diagnostics and the reference page write it.
@@ -128,14 +153,21 @@ impl Code {
             Self::Reference => "E210",
             Self::Link => "E211",
             Self::List => "E212",
+            Self::StreamType => "E213",
+            Self::NotLive => "E214",
+            Self::LiveFromLater => "E215",
+            Self::TwoStores => "E216",
+            Self::Cycle => "E217",
+            Self::UnknownPort => "E218",
             Self::UnknownPlugin => "W301",
+            Self::UnknownOutside => "W302",
         }
     }
 
     /// The severity of each diagnostic of this code.
     pub const fn severity(self) -> Severity {
         match self {
-            Self::UnknownPlugin => Severity::Warning,
+            Self::UnknownPlugin | Self::UnknownOutside => Severity::Warning,
             _ => Severity::Error,
         }
     }
@@ -151,7 +183,11 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub(crate) fn new(code: Code, span: Span, message: impl Into<String>) -> Self {
-        Self { code, message: message.into(), span }
+        Self {
+            code,
+            message: message.into(),
+            span,
+        }
     }
 
     pub fn severity(&self) -> Severity {
@@ -183,7 +219,10 @@ impl fmt::Display for Diagnostic {
 
 /// The nearest of `candidates` to `word`, for a "did you mean" in a
 /// message. None when no candidate is near.
-pub(crate) fn nearest<'a>(word: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+pub(crate) fn nearest<'a>(
+    word: &str,
+    candidates: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
     candidates
         .into_iter()
         .map(|candidate| (strsim::damerau_levenshtein(word, candidate), candidate))
@@ -194,6 +233,9 @@ pub(crate) fn nearest<'a>(word: &str, candidates: impl IntoIterator<Item = &'a s
 }
 
 /// `; did you mean `x`?` for the end of a message, when a candidate is near.
-pub(crate) fn did_you_mean<'a>(word: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<String> {
+pub(crate) fn did_you_mean<'a>(
+    word: &str,
+    candidates: impl IntoIterator<Item = &'a str>,
+) -> Option<String> {
     nearest(word, candidates).map(|near| format!("; did you mean `{near}`?"))
 }

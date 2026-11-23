@@ -1,0 +1,20 @@
+{
+  "chain_context": 2,
+  "lanes": [
+    { "name": "Notes", "stream": "midi", "props": { "lyrics": true } },
+    { "name": "Chords", "stream": "midi" },
+    { "name": "Player", "stream": "video" },
+    { "name": "Mic", "stream": "audio", "props": { "channels": 1 } },
+    { "name": "Room", "stream": "audio" },
+    { "name": "Keys", "stream": "keyframes" },
+    { "name": "Avatar", "stream": "video" },
+    { "name": "Sung", "stream": "audio", "props": { "channels": 1 } },
+    { "name": "Print", "stream": "audio" },
+    { "name": "Volume", "stream": "curve" }
+  ],
+  "outside": [
+    { "path": "Strings/Violin I/Notes", "stream": "midi" },
+    { "path": "Drums/Kick", "stream": "audio" },
+    { "path": "Strings/Bus", "node": "bus" }
+  ]
+}

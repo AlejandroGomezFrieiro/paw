@@ -1,0 +1,29 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2 "Ports"
+  2 | strip #1 "Lead"
+  3 |   compressor #2
+  4 | producer avatar #3
+  5 | send #4
+  6 | "Room" -> #1
+  7 | -- fine: a port by its name
+  8 | "Notes" -> #3.notes
+  9 | -- E218: a strip has no output `side`
+ 10 | #1.side -> #4
+    | ^ 10:1: error E218: `#1` (`strip`) has no output `side`: its outputs are out
+ 11 | -- E218: a send has no input or parameter `wet`
+ 12 | #1 -> #4.wet
+    | ^ 12:1: error E218: `#4` (`send`) has no input or parameter `wet`: its inputs are in
+ 13 | -- E210: a wire joins node lines, not the inserts of a strip
+ 14 | #2 -> #4
+    | ^ 14:1: error E210: `#2` is an insert of a strip: a wire joins the node lines of the top level
+ 15 | -- E210: no node line has the id
+ 16 | #9 -> #4
+    | ^ 16:1: error E210: no node line has the id `#9`
+ 17 | -- fine: a node of another part that the context has
+ 18 | #4 -> @"Strings/Bus"
+ 19 | -- W302: a path that the context does not have
+ 20 | #4 -> @"Brass/Bus"
+    | ^ 20:1: warning W302: the context of the host has no @"Brass/Bus": its type is not checked

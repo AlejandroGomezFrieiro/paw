@@ -1,5 +1,8 @@
-//! The tree of a chain text: the header, the nodes in series, the splits
-//! with their branches, the modulators and the checks.
+//! The tree of a chain text. In version 2, the top level is the graph of
+//! one part: its node lines and its wires. A strip holds its inserts: the
+//! devices in series, the splits with their branches, and the modulators.
+//! In version 1, the top level is one chain of inserts. Both versions end
+//! with the checks.
 //!
 //! Each line of the text is one item of the tree, and each item has a
 //! [`Trivia`]: its place in the text and its comments. Two trees are equal
@@ -10,8 +13,13 @@
 use crate::diagnostic::Span;
 use crate::value::Value;
 
-/// The latest version of the language, which the header names: `chain 1`.
-pub const VERSION: u32 = 1;
+/// The latest version of the language, which the header names: `chain 2`.
+/// A reader of version 2 also reads a text of version 1.
+pub const VERSION: u32 = 2;
+
+/// The first version, in which a text is one chain of devices: the inserts
+/// of one strip.
+pub const VERSION_1: u32 = 1;
 
 /// The place of a line in the text, and the comments around it. It is not
 /// part of the graph: any two trivia are equal.
@@ -37,15 +45,19 @@ impl PartialEq for Trivia {
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Document {
     pub header: Header,
-    /// The top level of the chain: its nodes in series and its modulators.
+    /// Version 1: the top level of the chain, its nodes in series and its
+    /// modulators. Empty in version 2.
     pub root: Body,
+    /// Version 2: the node lines and the wires of the top level, in the
+    /// order of the text. Empty in version 1.
+    pub graph: Vec<Item>,
     /// The `checks` block, when the text has one.
     pub checks: Option<Checks>,
     /// The comments after the last line.
     pub end: Trivia,
 }
 
-/// `chain 1 "Name" key=value`: the version of the language, and a name and
+/// `chain 2 "Name" key=value`: the version of the language, and a name and
 /// fields that the host gives a meaning to.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Header {
@@ -57,7 +69,12 @@ pub struct Header {
 
 impl Default for Header {
     fn default() -> Self {
-        Self { version: VERSION, name: None, fields: Vec::new(), trivia: Trivia::default() }
+        Self {
+            version: VERSION,
+            name: None,
+            fields: Vec::new(),
+            trivia: Trivia::default(),
+        }
     }
 }
 
@@ -78,6 +95,131 @@ impl PartialEq for Spanned {
     fn eq(&self, _: &Self) -> bool {
         true
     }
+}
+
+/// A line of the top level of version 2: a node of the part's graph, or a
+/// wire.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Item {
+    Node(GraphNode),
+    Wire(Wire),
+}
+
+/// The role of a node of a part's graph: the word that starts its line.
+/// The language knows these words. The schema of the host gives their
+/// parameters and ports, and the kinds of producer and of input or output.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Role {
+    /// Sums its inputs, with a fader, a pan and inserts.
+    Strip,
+    /// A strip that sums other nodes, not lanes.
+    Bus,
+    /// The strip at the end of the part.
+    Master,
+    /// A level from one node to another.
+    Send,
+    /// A control of the gains of other nodes.
+    Vca,
+    /// Makes a stream from streams, of a kind of the host.
+    Producer,
+    /// An input or an output of the host, of a kind of the host.
+    Io,
+}
+
+impl Role {
+    /// Each role, in the order of the reference page.
+    pub const ALL: [Role; 7] = [
+        Self::Strip,
+        Self::Bus,
+        Self::Master,
+        Self::Send,
+        Self::Vca,
+        Self::Producer,
+        Self::Io,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Strip => "strip",
+            Self::Bus => "bus",
+            Self::Master => "master",
+            Self::Send => "send",
+            Self::Vca => "vca",
+            Self::Producer => "producer",
+            Self::Io => "io",
+        }
+    }
+
+    pub fn from_word(word: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|role| role.as_str() == word)
+    }
+
+    /// A strip, a bus and the master hold inserts: a chain of version 1.
+    pub const fn holds_inserts(self) -> bool {
+        matches!(self, Self::Strip | Self::Bus | Self::Master)
+    }
+
+    /// A producer and an input or output name a kind of the host after
+    /// the role word.
+    pub const fn has_kind(self) -> bool {
+        matches!(self, Self::Producer | Self::Io)
+    }
+}
+
+/// `strip #1 "Violin I" gain=-3dB`, with its inserts under it, or
+/// `producer midi-keys #p2 smooth=20ms`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GraphNode {
+    pub role: Role,
+    /// The kind of a producer or of an input or output.
+    pub kind: Option<String>,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub fields: Vec<Field>,
+    /// The inserts of a strip, a bus or the master: devices and splits in
+    /// series, and their modulators. Empty for the other roles.
+    pub inserts: Body,
+    pub trivia: Trivia,
+}
+
+/// `#p2 => "Keys"`, `"Notes" -> #1`: one wire of the graph.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Wire {
+    pub from: End,
+    pub arrow: Arrow,
+    pub to: End,
+    pub trivia: Trivia,
+}
+
+/// What a wire carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Arrow {
+    /// `->`: a signal that the host computes as it plays.
+    Live,
+    /// `=>`: a result that a lane keeps. It always ends at a lane.
+    Store,
+}
+
+impl Arrow {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Live => "->",
+            Self::Store => "=>",
+        }
+    }
+}
+
+/// One end of a wire.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum End {
+    /// `#id`, or `#id.port`: a node of the text, and a port or a parameter
+    /// of it. With no port, the wire joins the main ports.
+    Node { id: String, port: Option<String> },
+    /// `"Notes"`: a lane of this part.
+    Lane(String),
+    /// `@"Strings/Violin I/Notes"`: a lane or a node of another part, by a
+    /// path that the host gives a meaning to.
+    Outside(String),
 }
 
 /// One line of a chain: a device, or a split with its branches under it.
@@ -207,11 +349,59 @@ impl Compare {
 
 impl Document {
     /// Each node of the chain in the order that the signal meets them:
-    /// depth first, each branch from its first node to its last.
+    /// depth first, each branch from its first node to its last. In
+    /// version 2, the inserts of each strip, strip after strip.
     pub fn nodes(&self) -> Vec<&Node> {
         let mut out = Vec::new();
         self.root.walk(&mut out);
+        for node in self.graph_nodes() {
+            node.inserts.walk(&mut out);
+        }
         out
+    }
+
+    /// The node lines of the top level of version 2, in the order of the text.
+    pub fn graph_nodes(&self) -> impl Iterator<Item = &GraphNode> {
+        self.graph.iter().filter_map(|item| match item {
+            Item::Node(node) => Some(node),
+            Item::Wire(_) => None,
+        })
+    }
+
+    /// The wires of version 2, in the order of the text.
+    pub fn wires(&self) -> impl Iterator<Item = &Wire> {
+        self.graph.iter().filter_map(|item| match item {
+            Item::Wire(wire) => Some(wire),
+            Item::Node(_) => None,
+        })
+    }
+
+    /// The text as version 2 reads it. A text of version 1 is the inserts
+    /// of one strip with no id: the host gives it the strip of the part. A
+    /// text of version 2 stays as it is.
+    pub fn to_version_2(&self) -> Document {
+        if self.header.version != VERSION_1 {
+            return self.clone();
+        }
+        let strip = GraphNode {
+            role: Role::Strip,
+            kind: None,
+            id: None,
+            name: None,
+            fields: Vec::new(),
+            inserts: self.root.clone(),
+            trivia: Trivia::default(),
+        };
+        Document {
+            header: Header {
+                version: VERSION,
+                ..self.header.clone()
+            },
+            root: Body::default(),
+            graph: vec![Item::Node(strip)],
+            checks: self.checks.clone(),
+            end: self.end.clone(),
+        }
     }
 }
 
@@ -220,7 +410,10 @@ impl Body {
         match &self.content {
             Content::Nodes(nodes) => nodes.iter().for_each(|node| node.walk(out)),
             Content::Branches(branches) => {
-                branches.iter().flat_map(|branch| &branch.nodes).for_each(|node| node.walk(out));
+                branches
+                    .iter()
+                    .flat_map(|branch| &branch.nodes)
+                    .for_each(|node| node.walk(out));
             }
         }
     }

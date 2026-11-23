@@ -7,7 +7,7 @@ use crate::diagnostic::Diagnostic;
 use crate::parse::parse;
 use crate::print::print;
 use crate::schema::{Param, ParamValue, Schema};
-use crate::tree::{Body, Content, Document, Field, Node};
+use crate::tree::{Body, Content, Document, Field, Item, Node};
 use crate::value::{Note, Number, Value};
 
 /// The canonical text of `text`.
@@ -45,6 +45,14 @@ pub fn format_with(text: &str, schema: &Schema) -> Result<String, Vec<Diagnostic
 /// A field that the schema does not name stays, after the others.
 pub fn normalize(document: &mut Document, schema: &Schema) {
     body(&mut document.root, None, schema);
+    for item in &mut document.graph {
+        if let Item::Node(node) = item {
+            if let Some(kind) = schema.kind_of(node) {
+                fields(&mut node.fields, &kind.params);
+            }
+            body(&mut node.inserts, None, schema);
+        }
+    }
 }
 
 fn body(body: &mut Body, branch_params: Option<&[Param]>, schema: &Schema) {
@@ -71,8 +79,16 @@ fn body(body: &mut Body, branch_params: Option<&[Param]>, schema: &Schema) {
 fn nodes(nodes: &mut [Node], schema: &Schema) {
     for node in nodes {
         let (params, branch_params) = match schema.split(&node.kind) {
-            Some(split) => (Some(split.params.as_slice()), Some(split.branch_params.as_slice())),
-            None => (schema.device(&node.kind).map(|device| device.params.as_slice()), None),
+            Some(split) => (
+                Some(split.params.as_slice()),
+                Some(split.branch_params.as_slice()),
+            ),
+            None => (
+                schema
+                    .insert(&node.kind)
+                    .map(|device| device.params.as_slice()),
+                None,
+            ),
         };
         if let Some(params) = params {
             fields(&mut node.fields, params);
@@ -82,11 +98,20 @@ fn nodes(nodes: &mut [Node], schema: &Schema) {
 }
 
 fn fields(fields: &mut Vec<Field>, params: &[Param]) {
-    let place = |field: &Field| params.iter().position(|param| param.key == field.key).unwrap_or(params.len());
+    let place = |field: &Field| {
+        params
+            .iter()
+            .position(|param| param.key == field.key)
+            .unwrap_or(params.len())
+    };
     // A stable sort keeps the order of the fields that the schema does not name.
     fields.sort_by_key(place);
     fields.retain(|field| {
-        params.iter().find(|param| param.key == field.key).and_then(default).is_none_or(|default| default != field.value)
+        params
+            .iter()
+            .find(|param| param.key == field.key)
+            .and_then(default)
+            .is_none_or(|default| default != field.value)
     });
 }
 
@@ -100,9 +125,13 @@ fn default(param: &Param) -> Option<Value> {
                 None => Number::plain(value),
             }))
         }
-        ParamValue::Switch { default } => Some(Value::Text(if (*default)? { "on" } else { "off" }.into())),
-        ParamValue::Choice { default, .. } | ParamValue::Text { default } => default.clone().map(Value::Text),
+        ParamValue::Switch { default } => {
+            Some(Value::Text(if (*default)? { "on" } else { "off" }.into()))
+        }
+        ParamValue::Choice { default, .. } | ParamValue::Text { default } => {
+            default.clone().map(Value::Text)
+        }
         ParamValue::Note { default } => default.as_deref()?.parse::<Note>().ok().map(Value::Note),
-        ParamValue::List { .. } | ParamValue::Source => None,
+        ParamValue::List { .. } | ParamValue::Source { .. } => None,
     }
 }

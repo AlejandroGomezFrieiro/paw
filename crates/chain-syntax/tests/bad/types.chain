@@ -1,0 +1,27 @@
+chain 2 "Types"
+strip #1 "Lead"
+  arp #2
+  synth #3
+  -- E213: the synth gives no MIDI to the arpeggiator after it
+  arp #4
+strip #5 "Room"
+producer singer #6
+producer pitch #7
+-- E213: the camera of the avatar is a video, and the kick is audio
+producer avatar #8 camera=@"Drums/Kick"
+"Notes" -> #1
+-- fine: a lane with lyrics into the singer
+"Notes" -> #6
+-- E213: the singer needs lyrics, and the chords have none
+"Chords" -> #6
+-- fine: the host has a converter from stereo to mono
+"Room" -> #7
+-- E213: a strip takes audio or MIDI, not keyframes
+"Keys" -> #5
+-- fine: a curve moves a parameter
+"Volume" -> #5.gain
+-- E213: audio cannot move a parameter
+"Room" -> #5.pan
+#6 => "Sung"
+-- E213: a lane of keyframes keeps no MIDI
+#7 => "Keys"

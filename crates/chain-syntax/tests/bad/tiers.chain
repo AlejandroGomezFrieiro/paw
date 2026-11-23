@@ -1,0 +1,20 @@
+chain 2 "Tiers"
+strip #1 "Bounce"
+  eq #2
+  -- E214: a render runs in a bake job, not as an insert
+  render #3
+  -- fine: a converter runs live
+  mono #4
+producer render #5
+producer midi-keys #6
+producer avatar #7
+"Room" -> #1
+"Room" -> #5
+-- E215: a live wire from a producer of tier bake into a strip
+#5 -> #1
+-- fine: its output goes to a lane
+#5 => "Print"
+-- fine: a live wire between two producers that do not run live
+"Notes" -> #6
+#6 -> #7
+#7 => "Avatar"

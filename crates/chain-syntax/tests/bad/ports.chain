@@ -1,0 +1,20 @@
+chain 2 "Ports"
+strip #1 "Lead"
+  compressor #2
+producer avatar #3
+send #4
+"Room" -> #1
+-- fine: a port by its name
+"Notes" -> #3.notes
+-- E218: a strip has no output `side`
+#1.side -> #4
+-- E218: a send has no input or parameter `wet`
+#1 -> #4.wet
+-- E210: a wire joins node lines, not the inserts of a strip
+#2 -> #4
+-- E210: no node line has the id
+#9 -> #4
+-- fine: a node of another part that the context has
+#4 -> @"Strings/Bus"
+-- W302: a path that the context does not have
+#4 -> @"Brass/Bus"
