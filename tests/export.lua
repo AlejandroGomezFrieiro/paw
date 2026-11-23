@@ -160,7 +160,7 @@ test("cancelling during the encode stops it and leaves nothing", function()
   end
   if not seen then
     if paw.render_status() then
-      paw.cmd("render.cancel")
+      paw.cmd("export.cancel")
       wait_idle()
     end
     for _, h in ipairs(handles) do
@@ -169,7 +169,7 @@ test("cancelling during the encode stops it and leaves nothing", function()
   end
   eq(seen ~= nil, true, "the status says it is encoding")
   eq(seen.fraction < 1, true, "and is not at 100%")
-  paw.cmd("render.cancel")
+  paw.cmd("export.cancel")
   wait_idle()
   for _, h in ipairs(handles) do
     paw.off(h)
@@ -196,7 +196,7 @@ test("without ffmpeg a lossy format is refused before anything is rendered, and 
     "WAV %(%.wav%) or FLAC",
     "and how formats that need nothing are named"
   )
-  fails(function() paw.cmd("render", { dir .. "/a.ogg" }) end, "ffmpeg", "the command too")
+  fails(function() paw.cmd("export", { dir .. "/a.ogg" }) end, "ffmpeg", "the command too")
   fails(function() paw.export.plan(dir .. "/stems/ each=track format=mp3") end, "ffmpeg", "an export too")
   paw.off(off)
   eq(heard, false, "nothing was rendered")
@@ -223,7 +223,7 @@ test("stems and regions are rendered to a lossy format too", function()
   local dir = fresh_dir("stems")
   paw.export.run(paw.export.plan(dir .. "/ each=track format=ogg tail=0 wait=true"))
   eq(names(dir), "Lead.ogg", "a stem is an Ogg file")
-  local files = paw.markers.render_regions(dir .. "/regions", { format = "opus", tail = 0 })
-  eq(#T.read_file(files[1]) > 500, true, "a region is an Opus file")
+  paw.export.run(paw.export.plan(dir .. "/regions/ each=region format=opus tail=0 wait=true"))
+  eq(#T.read_file(dir .. "/regions/01 Intro.opus") > 500, true, "a region is an Opus file")
   eq(names(dir .. "/regions"), "01 Intro.opus", "with nothing left over")
 end)

@@ -58,7 +58,7 @@ Without a range, most commands take the bar of the cursor (`.`), in the same way
 | `:t2,t4 mute`, `:t* unmute`, `:t/Drums/ solo`, `:t* unsolo` | Mutes and solos tracks. `mute!` and `solo!` switch each track. `:5,8 mute` mutes the clips in bars 5 to 8. |
 | `:t* volume -=3`, `:t2 volume -6` | Steps the volume of tracks down 3 dB. Sets it to -6 dB. |
 | `:t2 pan -0.5`, `:t2 pan +=0.1` | Sets the pan, from -1 (left) to 1 (right). Steps it to the right. |
-| `:t2,t4bounce`, `:'<,'>bounce` | Renders the tracks to one new audio track and mutes them. With a range of time, it renders that time and mutes only the parts of the clips in it. See [Bounce](render.md#bounce). |
+| `:t2,t4bounce`, `:'<,'>bounce` | Renders the tracks to one new audio track and mutes them. With a range of time, it renders that time and mutes only the parts of the clips in it. See [Bounce](export.md#bounce). |
 | `:5,8normal x`, `:t* normal gcc` | Types keys at the start of each bar of the range, on each of its tracks. With a range of tracks, at each track. |
 | `:%s/pattern/replacement/flags` | Changes what matches (below). |
 | `:&`, `:&&` | Does the last `:s` again on a range, without and with its flags. |

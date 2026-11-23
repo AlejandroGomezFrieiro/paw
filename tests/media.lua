@@ -23,7 +23,7 @@ test("a render to a format that cannot be written is refused before rendering", 
   eq(exists(path), false, "no file is written")
   eq(heard, false, "nothing is rendered, not even what renders before")
   paw.off(off)
-  T.fails(function() paw.cmd("render", { path }) end, "AAC", "the command refuses it too")
+  T.fails(function() paw.cmd("export", { path }) end, "AAC", ":export refuses it too")
   eq(exists(path), false, "and writes nothing")
   local names = {}
   for _, f in ipairs(api.render_formats()) do
@@ -437,7 +437,7 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   T.fails(function() paw.render(T.scratch .. "/other.wav", {}) end, "being rendered", "one render at a time")
   paw.wait(300)
   eq(paw.frontend.state(-1).modal.render ~= nil, true, "the window is told")
-  paw.cmd("render.cancel")
+  paw.cmd("export.cancel")
   finish()
   eq(exists(path), false, "a cancelled render leaves no file")
   eq(exists(T.scratch .. "/.bg-out.wav.part"), false, "not even a partial one")
@@ -463,21 +463,17 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   end
 end)
 
-test("the render command takes its options and completes them", function()
+test(":export takes its words and completes them", function()
   fresh()
   T.tone("Synth", 2)
   local path = T.scratch .. "/cmd.flac"
-  paw.cmd("render", { path, tail = 0, bits = 16, channels = "mono", wait = true })
+  paw.cmd("export", { path, tail = 0, bits = 16, channels = "mono", wait = true })
   eq(T.read_file(path):sub(1, 4), "fLaC", "the command writes FLAC")
-  local spec = paw.commands.get("render")
-  local words = spec.complete("mix.wav ra")
-  local found = false
-  for _, w in ipairs(words) do
-    if w == "mix.wav range=" then found = true end
-  end
-  eq(found, true, "options complete")
-  words = spec.complete("mix.wav range=")
-  eq(#words, 3, "and their values: song, loop, selection")
+  local spec = paw.commands.get("export")
+  local words = table.concat(spec.complete("mix.wav ta"), " ")
+  eq(words:find("mix.wav tap=", 1, true) ~= nil, true, "words complete")
+  words = spec.complete("mix.wav channels=")
+  eq(#words, 3, "and their values: stereo, mono, auto")
 end)
 
 -- Sample rates ----------------------------------------------------------------

@@ -1703,7 +1703,12 @@ function M.save(name?: string, own_row?: boolean): string
   name = name and name:match("^%s*(.-)%s*$") or ""
   -- A name has no slash; a word with one is a path (a folder).
   if name:find("/", 1, true) then
-    error(string.format("%s is a path: a subproject's name has no `/`", name), 0)
+    error(
+      string.format(
+        "%s is a path: a subproject's name has no `/`; `:export project %s` writes a project folder", name, name
+      ),
+      0
+    )
   end
   if name == "" then
     name = view_name(s)
@@ -1787,11 +1792,18 @@ local function exported_words(what: string, folder: string, made: types.NestExpo
   return table.concat(words, "; ")
 end
 
+--- `paw.api.song_export` (crates/paw-core/src/session/export.rs). The
+--- declarations of `paw.api` get it when `tools/apidoc.lua` runs on a
+--- binary that has it; until then this record names it.
+local record SongExport
+  song_export: function(dir: string): types.NestExported
+end
+
 --- Write subproject `nest` as a project folder of its own at `folder`
---- (`~/` is the home folder), as `:nest.export` does: its tracks, its
---- master, its markers and regions, its tempo and meter as its first
---- block plays them, and its media copied in (`paw.api.nest_export`). The
---- song does not change. Returns the message.
+--- (`~/` is the home folder): its tracks, its master, its markers and
+--- regions, its tempo and meter as its first block plays them, and its
+--- media copied in (`paw.api.nest_export`). The song does not change.
+--- Returns the message.
 function M.export(nest: integer, folder: string): string
   local n = M.get(nest)
   if not n then
@@ -1801,17 +1813,19 @@ function M.export(nest: integer, folder: string): string
   return exported_words("the subproject " .. n.name, folder, made)
 end
 
---- Write the window's view as a project folder of its own at `folder`
---- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
---- its tracks with their devices, their clips and lanes in its time, the
---- markers and regions inside, the tempo and meter of its time, and the
---- media copied in (`paw.api.scope_export`). Inside a subproject, the
---- subproject, as `paw.nest.export` writes it. The song does not change. Returns
---- the message.
+--- Write what the window shows as a project folder of its own at
+--- `folder` (`~/` is the home folder), as `:export project <folder>/`
+--- does. The whole song is a copy of the project with its media
+--- (`paw.api.song_export`). A subproject is as `paw.nest.export` writes
+--- it. A view is copies of its tracks with their devices, their clips and
+--- lanes in its time, the markers and regions inside, the tempo and meter
+--- of its time, and the media (`paw.api.scope_export`). The song does not
+--- change. Returns the message.
 function M.write(folder: string): string
   local s = paw.scope.current()
   if not s then
-    error("the window shows the whole song: `:w " .. folder .. "` writes all of it", 0)
+    local made = (api as SongExport).song_export(util.expand_path(folder))
+    return exported_words("the song", folder, made)
   end
   if s.kind == "nest" then
     return M.export(s.id as integer, folder)
@@ -1826,26 +1840,6 @@ function M.write(folder: string): string
   return exported_words("the view " .. name, folder, made)
 end
 
-commands.define(
-  "nest.export",
-  function(ctx: contracts.CommandContext): contracts.CommandResult
-    local words: {string} = {}
-    for _, word in ipairs(ctx.args as {string}) do
-      words[#words + 1] = tostring(word)
-    end
-    local folder = table.concat(words, " ")
-    if folder == "" then
-      error("nest.export needs a folder: `nest.export ~/lib/Ballad`", 0)
-    end
-    paw.notify(M.export(nest_here(), folder))
-  end,
-  {
-    label = "Write the subproject as a project of its own",
-    desc = "Write the subproject at the cursor as a project folder of its own, with its media: `nest.export ~/lib/Ballad`. The song does not change",
-    complete = "files",
-  }
-)
-
 for _, bang in ipairs({"", "!"}) do
   commands.define(
     "scope.write" .. bang,
@@ -1854,19 +1848,13 @@ for _, bang in ipairs({"", "!"}) do
       for _, word in ipairs(ctx.args as {string}) do
         words[#words + 1] = tostring(word)
       end
-      local text = table.concat(words, " ")
-      -- A name has no slash; a word with one is a folder to write to.
-      if bang == "" and text:find("/", 1, true) then
-        paw.notify(M.write(text))
-        return
-      end
-      paw.notify(M.save(text, bang == "!"))
+      paw.notify(M.save(table.concat(words, " "), bang == "!"))
     end,
     {
       label = bang == "" and "Save the view as a subproject, per track"
         or "Save the view as a subproject with its own row",
       desc = bang == ""
-        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`); with a path, write it as a project folder of its own and change nothing (`scope.write ~/lib/bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
+        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
     }
   )
 end

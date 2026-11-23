@@ -9,8 +9,8 @@
 --   ]' and ['               -- the next marker or region start, the one before
 --   :marker.list            -- all of them; choose one to go there
 --   :region.loop Verse      -- loop a region
---   :render out.wav range=Verse     -- a region is a range to render
---   :render.regions out/    -- every region to a file of its own
+--   :export in=Verse        -- a region is a time to export
+--   :export regions         -- every region to a file of its own
 --   ]r and [r               -- the next region at the same level, the one before
 --   :region.move Chorus +8  -- 8 bars later, with the regions and markers inside
 --
@@ -69,12 +69,6 @@ local record ById
   id: integer
 end
 
---- A value of the options of a render (paw/render.tl), which this module
---- passes on.
-local record RenderValue
-end
-local type RenderOptions = {string: RenderValue}
-
 --- A line of `:marker.list`.
 local record Item
   text: string
@@ -113,7 +107,6 @@ local record Paw is partial.Paw
   cursor: CursorModule
   time: objects.Time
   transport: objects.Transport
-  render: function(path: string, opts: RenderOptions)
   ruler: RulerModule
 end
 local paw = (_G as {string: Paw}).paw
@@ -135,7 +128,6 @@ local record M
   type AddOptions = AddOptions
   type Fields = Fields
   type ById = ById
-  type RenderOptions = RenderOptions
 end
 
 --- Each marker and region, in order of time: { id, beat, name, length, color }.
@@ -379,7 +371,7 @@ function M.label(marker: Marker): string
 end
 
 --- A region's names from the top down, joined by `/`: `Chorus 2/Verse A`.
---- `:render range=` and `paw.markers.region` take it when names repeat.
+--- `:export in=` and `paw.markers.region` take it when names repeat.
 function M.pathname(region: Marker): string
   local names: {string} = {}
   local node = tree().by_id[region.id]
@@ -672,58 +664,6 @@ do
       end,
     } as metatable<{string: Range}>
   )
-end
-
--- A region's file name: its place among its siblings and its name, for
--- each level from the top: `03 Chorus 2 - 01 Verse A`.
-local function file_name(node: Node): string
-  local parts: {string} = {}
-  while node do
-    local name = M.label(node.region):gsub("[/%z]", "_")
-    table.insert(parts, 1, string.format("%02d %s", node.place, name))
-    node = node.parent
-  end
-  return table.concat(parts, " - ")
-end
-
---- Render every region to a file of its own in `dir`, named by its path:
---- `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav`
---- (each number is the place among its siblings). `opts` is as for
---- `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and
---- `level`: a number renders the regions of that level only (1 the top),
---- "leaves" the regions with no region inside. Returns the files.
-function M.render_regions(dir: string, opts?: RenderOptions): {string}
-  opts = opts or {}
-  local level = opts.level as string | number
-  local depth = level and math.tointeger(tonumber(level))
-  if level and level ~= "leaves" and not (depth and depth >= 1) then
-    error("level= is a level from 1, or leaves", 0)
-  end
-  local nodes: {Node} = {}
-  for _, node in ipairs(M.walk()) do
-    if not level or node.depth == depth or (level == "leaves" and #node.children == 0) then
-      nodes[#nodes + 1] = node
-    end
-  end
-  if #nodes == 0 then
-    error(
-      level and "there are no regions at that level" or "there are no regions to render: `:region name` makes one", 0
-    )
-  end
-  pcall(api.fs_mkdir, dir)
-  local files: {string} = {}
-  for i, node in ipairs(nodes) do
-    local region = node.region
-    local each: RenderOptions = {}
-    for k, v in pairs(opts) do
-      each[k] = v
-    end
-    each.format, each.range, each.level = nil, nil, nil
-    each.start, each["end"] = region.beat as RenderValue, (region.beat + region.length) as RenderValue
-    files[i] = string.format("%s/%s.%s", dir, file_name(node), opts.format as string or "wav")
-    paw.render(files[i], each)
-  end
-  return files
 end
 
 -- Commands -----------------------------------------------------------------------
@@ -1236,36 +1176,6 @@ commands.define(
   {
     desc = "Set the playback loop to the region at the cursor, or to the one named, and turn looping on: `region.loop Verse`",
     complete = names,
-  }
-)
-
-commands.define(
-  "render.regions",
-  function(ctx: Context): Result
-    local dir = ctx.args[1]
-    if not dir then
-      input(
-        {prompt = "Render the regions into the folder: ", text = "regions", label = "Render the regions"},
-        function(text: string)
-          if text ~= "" then
-            commands.run("render.regions", {text})
-          end
-        end
-      )
-      return
-    end
-    local opts: RenderOptions = {}
-    for k, v in pairs(ctx.args as {string | integer: commands.Arg}) do
-      if k is string then
-        opts[k] = v as RenderValue
-      end
-    end
-    opts.background = (api.ui_attached() or nil) as RenderValue
-    local files = M.render_regions(dir as string, opts)
-    paw.notify(string.format("rendering %d region%s into %s", #files, #files == 1 and "" or "s", dir as string))
-  end,
-  {
-    desc = "Render every region to a file of its own: `render.regions out` (alone, it asks for the folder), `render.regions out format=flac bits=24`, `render.regions out format=mp3 quality=best`",
   }
 )
 

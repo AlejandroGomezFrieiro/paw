@@ -126,8 +126,8 @@ end
 
 -- Standard MIDI files, a format as any other (paw/formats.tl). `:import`
 -- puts the file's tracks at the cursor (`tempo=yes`: its tempo map too),
--- `:open` makes a new project of it; `:export song.mid clip` or
--- `selection` writes less than the whole project.
+-- `:open` makes a new project of it. `:export` writes MIDI files with its
+-- own grammar (paw/export.tl); `paw.formats.export` writes the whole project.
 paw.formats.register({
   name = "midi",
   desc = "Standard MIDI files",
@@ -140,21 +140,8 @@ paw.formats.register({
     return "imported "
       .. midi_said(path, paw.midifile.import(path, { tempo = tempo == true or tempo == "yes" or tempo == "on" }))
   end,
-  export = function(path, opts)
-    local what = opts.args[2] and tostring(opts.args[2])
-    local midi_opts = {}
-    if what == "clip" then
-      local clip = cursor.clip()
-      if not clip or clip.kind ~= "midi" then error("no MIDI clip at the cursor", 0) end
-      midi_opts.clips = { clip.id }
-    elseif what == "selection" then
-      local region = paw.keymap.selection()
-      if not region then error("nothing is selected", 0) end
-      midi_opts.tracks = edit.arrange.tracks(region)
-    elseif what then
-      error("export what: `clip`, `selection`, or nothing for the whole project", 0)
-    end
-    local notes = paw.midifile.export(path, midi_opts)
+  export = function(path)
+    local notes = paw.midifile.export(path)
     local lost = paw.midifile.lost_text()
     return string.format("exported %d notes to %s%s", notes, path, lost and "; MIDI 1.0 " .. lost or "")
   end,

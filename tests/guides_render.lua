@@ -43,33 +43,33 @@ test("guide: export a song as WAV, FLAC or MP3", function()
   T.tone("Lead", 8)
   local d = dir("export")
   paw.project.save(d .. "/song")
-  keys(":render<CR>")
+  keys(":export<CR>")
   rendered(d .. "/song/renders/song.wav")
   eq(paw.render_tags().title, nil, "no tags set")
-  keys(":render " .. d .. "/mix.flac<CR>")
+  keys(":export " .. d .. "/mix.flac<CR>")
   rendered(d .. "/mix.flac")
-  -- A name alone goes into the folder of the project.
-  keys(":render guide-export-test.wav<CR>")
-  rendered(d .. "/song/guide-export-test.wav")
-  keys(':render.tags artist=Ana album="First one" year=2026<CR>')
-  eq(paw.render_tags().artist .. "/" .. paw.render_tags().album, "Ana/First one", ":render.tags sets the tags")
+  -- A name alone goes into the folder renders of the project.
+  keys(":export guide-export-test.wav<CR>")
+  rendered(d .. "/song/renders/guide-export-test.wav")
+  keys(':export.tags artist=Ana album="First one" year=2026<CR>')
+  eq(paw.render_tags().artist .. "/" .. paw.render_tags().album, "Ana/First one", ":export.tags sets the tags")
   local mp3
   for _, f in ipairs(api.render_formats()) do
     if f.name == "MP3" then mp3 = f.available end
   end
   if mp3 then
-    keys(":render " .. d .. "/mix.mp3 quality=best<CR>")
+    keys(":export " .. d .. "/mix.mp3 quality=best<CR>")
     rendered(d .. "/mix.mp3")
   end
 end)
 
-test("guide: render stems", function()
+test("guide: export stems", function()
   start()
   T.tone("Lead", 8)
   T.tone("Bass", 8)
   local d = dir("stems")
   paw.project.save(d .. "/song")
-  keys(":render stems<CR>")
+  keys(":export stems<CR>")
   eq(paw.ui.float and paw.ui.float.name, "export.plan", "paw shows the plan first")
   keys("y")
   rendered(d .. "/song/renders/stems/Lead.wav")
@@ -98,22 +98,23 @@ test("guide: export part of the song or a loop", function()
   paw.cursor.set_track(paw.tracks()[1])
   keys("3|gl2W")
   eq(paw.transport.loop_start .. "-" .. paw.transport.loop_end, "8-16", "gl2W loops two bars")
-  keys(":render " .. d .. "/loop.wav range=loop tail=0<CR>")
+  keys(":export " .. d .. "/loop.wav in=loop tail=0<CR>")
   rendered(d .. "/loop.wav")
-  near(seconds(d .. "/loop.wav"), 4, 0.01, "range=loop renders the loop")
+  near(seconds(d .. "/loop.wav"), 4, 0.01, "in=loop exports the loop")
   keys("5|v2W")
-  keys(":render " .. d .. "/sel.wav range=selection tail=0<CR>")
+  -- `:` in visual mode types the range of the selection, '<,'>.
+  keys(":export " .. d .. "/sel.wav tail=0<CR>")
   rendered(d .. "/sel.wav")
-  near(seconds(d .. "/sel.wav"), 4, 0.01, "range=selection renders the selection")
+  near(seconds(d .. "/sel.wav"), 4, 0.01, ":'<,'>export exports the selection")
   keys("<Esc>5|v2W")
   keys(":region Verse<CR>")
   local region = paw.markers.list()[1]
   eq(region.name .. " " .. region.beat .. "+" .. region.length, "Verse 16+8", ":region names the selection")
   keys("<Esc>")
-  keys(":render " .. d .. "/verse.wav range=Verse tail=0<CR>")
+  keys(":export " .. d .. "/verse.wav in=Verse tail=0<CR>")
   rendered(d .. "/verse.wav")
-  near(seconds(d .. "/verse.wav"), 4, 0.01, "range=Verse renders the region")
-  keys(":render.regions " .. d .. "/regions<CR>")
+  near(seconds(d .. "/verse.wav"), 4, 0.01, "in=Verse exports the region")
+  keys(":export regions " .. d .. "/regions/<CR>")
   rendered(d .. "/regions/01 Verse.wav")
 end)
 
@@ -134,7 +135,7 @@ test("guide: export MIDI for another program", function()
   paw.ui.focus("arrange")
   paw.cursor.set_track(paw.tracks()[2])
   paw.cursor.set_beat(0)
-  keys(":export " .. d .. "/riff.mid clip<CR>")
+  keys(":export clip " .. d .. "/riff.mid<CR>")
   local function parts(path)
     local out = {}
     for _, part in ipairs(paw.midifile.parts(paw.midifile.read(path))) do
@@ -144,9 +145,16 @@ test("guide: export MIDI for another program", function()
   end
   eq(parts(d .. "/riff.mid"), "Bass:2", ":export clip writes the clip at the cursor")
   keys("ggVj")
-  keys(":export " .. d .. "/part.mid selection<CR>")
+  -- `:` in visual mode types the range of the selection, '<,'>.
+  keys(":export " .. d .. "/part.mid<CR>")
   keys("<Esc>")
-  eq(parts(d .. "/part.mid"), "Lead:1 Bass:2", ":export selection writes the selected tracks")
+  eq(parts(d .. "/part.mid"), "Lead:1 Bass:2", ":'<,'>export writes the selected tracks")
+  keys(":export " .. d .. "/{track}.mid each=track<CR>")
+  eq(
+    parts(d .. "/Lead.mid") .. " " .. parts(d .. "/Bass.mid"),
+    "Lead:1 Bass:2",
+    "each=track writes a file for each track"
+  )
 end)
 
 T.last("guide: move a song between paw and REAPER", function()

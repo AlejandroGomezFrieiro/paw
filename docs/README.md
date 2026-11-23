@@ -120,7 +120,7 @@ groups below link the main ones.
 
 - [How to export a song as WAV, FLAC or MP3](how-to/export-a-song.md): where the file goes, tags
 - [How to export part of the song or a loop](how-to/export-part-of-the-song.md)
-- [How to render stems](how-to/render-stems.md)
+- [How to export stems](how-to/export-stems.md)
 - [How to export MIDI for another program](how-to/export-midi.md)
 - [How to print a part or the score](../extensions/notation/README.md#how-to-print-a-part-or-the-score)
 - [How to move a song between paw and REAPER](how-to/open-a-reaper-project.md)
@@ -237,7 +237,7 @@ groups below link the main ones.
 ### Projects, files and programs
 
 - [Project files](reference/project-files.md): the project folder, `:w` and `:wa`, MIDI clip files, safety copies, `:recover`
-- [Render](reference/render.md): `:render`, formats, tags, stems, bounce
+- [Export](reference/export.md): `:export`, sound files, MIDI files, project folders, tags, stems, bounce
 - [Files that paw keeps](reference/state-files.md): configuration, state, cache, recent projects
 - [The programs and their options](reference/programs.md): `paw`, `paw-gui`, `paw-mcp`, environment variables
 - [Scripts and `paw ctl`](reference/ctl.md): `paw -l`, `paw ctl`, `paw attach`, `paw doctor`

@@ -223,14 +223,18 @@ test("MP3, Ogg and Opus carry the tags and the cover, read back with ffprobe", f
   eq(streams, "audio", "without a cover there is only the sound")
 end)
 
-test("the tags are given to :render, :render.tags and the window's dialog, and kept with the project", function()
+test("the tags are given to :export, :export.tags and the window's dialog, and kept with the project", function()
   local dir = setup("command")
-  paw.cmd("render.tags", { artist = "Ana", album = "Two words" })
+  paw.cmd("export.tags", { artist = "Ana", album = "Two words" })
   eq(paw.render_tags().album, "Two words", "the command sets them")
   eq(paw.frontend.render_dialog().tags.artist, "Ana", "the window's dialog starts from them")
-  paw.cmd("render", { dir .. "/a.wav", wait = true, tail = 0, title = "Mine", artist = "Bo" })
+  paw.cmd("export", { dir .. "/a.wav", wait = true, tail = 0, title = "Mine", artist = "Bo" })
   local info = wav_info(T.read_file(dir .. "/a.wav"))
-  eq(info.INAM .. "|" .. info.IART .. "|" .. info.IPRD, "Mine|Bo|Two words", "a render's options go over the project's")
+  eq(
+    info.INAM .. "|" .. info.IART .. "|" .. info.IPRD,
+    "Mine|Bo|Two words",
+    "the words of an export go over the project's"
+  )
   eq(paw.render_tags().artist, "Ana", "and do not change them")
   paw.frontend.act.render({ path = dir .. "/b.wav", tail = 0, tags = { artist = "Cy", year = "1999" } })
   while paw.render_status() do

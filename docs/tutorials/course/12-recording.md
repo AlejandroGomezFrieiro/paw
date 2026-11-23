@@ -49,5 +49,5 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Space><Space>`, and we made an audio take and a MIDI take.
 
 - Previous: [Loops, marks and jumps](11-loops.md)
-- Next: [Save and render](13-saving.md)
+- Next: [Save and export](13-saving.md)
 - [All lessons](README.md)

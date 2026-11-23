@@ -227,6 +227,15 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let exported = sh.session.borrow_mut().scope_export(options(lua, opts)?, Path::new(&dir)).lua()?;
             to_lua(lua, &serde_json::to_value(exported).map_err(mlua::Error::external)?)
         }
+        // Write the whole song as a project folder of its own at `dir`, a
+        // new or empty folder, with its media copied into `media/`. The
+        // song does not change, and its own folder stays the same. Returns
+        // what `nest_export` returns.
+        // @return types.NestExported
+        fn song_export(lua, sh, dir => String) {
+            let exported = sh.session.borrow_mut().song_export(Path::new(&dir)).lua()?;
+            to_lua(lua, &serde_json::to_value(exported).map_err(mlua::Error::external)?)
+        }
         // Change a subproject: a table of the entries to change (`name`,
         // `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives
         // them, or one `key` and its value.

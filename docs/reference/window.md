@@ -254,7 +254,7 @@ The render dialog has the fields below.
 | File | The path of the rendered file. The `…` button opens a file dialog. |
 | Range | The song, the loop, the selection or a region. |
 | Format | WAV, FLAC. With ffmpeg installed, also MP3, Ogg and Opus. These have a quality (Low, Medium, High or Best) in place of the sample size and the dither. |
-| Sample size, tail, normalize, dither, mono, a file for each track | As `:render` takes them. |
+| Sample size, tail, normalize, dither, mono, a file for each track | As `paw.render` takes them. |
 | Tags | Title, artist, album, track, year, genre, comment and cover. The project keeps them. |
 
 The render runs in the background, and the status line shows its progress and

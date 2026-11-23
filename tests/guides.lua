@@ -371,13 +371,13 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   local folder = T.scratch .. "/my-songs"
   os.execute("mkdir -p '" .. folder .. "'")
   step(":w " .. folder .. "/my-song<CR>")
-  -- A name alone goes into the folder of the song.
-  step(":render my-song.wav<CR>")
-  eq(wait_for_file(folder .. "/my-song/my-song.wav"), true, "the WAV file is rendered in the folder of the song")
+  -- A name alone goes into the folder renders of the song.
+  step(":export my-song.wav<CR>")
+  eq(wait_for_file(folder .. "/my-song/renders/my-song.wav"), true, "the WAV file is in the folder renders of the song")
   local said, until_said = nil, api.now() + 10000
   while not said and api.now() < until_said do
     for _, m in ipairs(paw.ui.messages) do
-      if m.text:find("^rendered my%-song%.wav") then said = m.text end
+      if m.text:find("^wrote renders/my%-song%.wav") then said = m.text end
     end
     paw.wait(20)
   end
@@ -385,17 +385,17 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   if paw.health and paw.health.executable and not paw.health.executable("ffmpeg") then
     print("      (no ffmpeg: the MP3 step is not checked)")
   else
-    step(":render my-song.mp3<CR>")
-    eq(wait_for_file(folder .. "/my-song/my-song.mp3"), true, "the MP3 file is rendered")
+    step(":export my-song.mp3<CR>")
+    eq(wait_for_file(folder .. "/my-song/renders/my-song.mp3"), true, "the MP3 file is rendered")
   end
 
-  step(":e .<CR>", "/my-song.wav<CR>", "gh")
+  step(":e renders<CR>", "/my-song.wav<CR>", "gh")
   local state, deadline = paw.audition.state(), api.now() + 5000
   while state and state.state == "loading" and api.now() < deadline do
     paw.wait(20)
     state = paw.audition.state()
   end
-  eq(state and state.file, folder .. "/my-song/my-song.wav", "gh plays the rendered file")
+  eq(state and state.file, folder .. "/my-song/renders/my-song.wav", "gh plays the rendered file")
   eq(state.state, "playing", "and it plays")
   step("gh")
   eq((paw.audition.state() or {}).state ~= "playing", true, "gh again stops it")

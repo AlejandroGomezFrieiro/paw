@@ -1,14 +1,14 @@
--- Lesson 13: saving and rendering.
+-- Lesson 13: save and export.
 return {
   id = "saving",
-  title = "Save and render",
+  title = "Save and export",
   intro = [[
-In this lesson, we change a song, save it, and render it to a WAV file.
+In this lesson, we change a song, save it, and export it to a WAV file.
 
 A project is a folder that contains the whole song, e.g., the tracks, the
 devices and their settings, the clips and the notes. It also contains the
 automation and the loop, and each part is in a file of its own. Recordings
-are in the `media` folder of the project. To render, paw plays the whole
+are in the `media` folder of the project. To export, paw plays the whole
 song into a WAV file, which other programs can play.
 
 The practice project already has a folder of its own in the folder of the
@@ -21,12 +21,12 @@ has no folder until you type `:w name`. `:new` starts an empty project.
 `:wq` or `ZZ` save and quit, and `:q` or `ZQ` quit without a save.
 
 The status line shows the name of the project, with `[+]` when there are
-changes that are not saved. `:render name.wav` writes the song to a file.
+changes that are not saved. `:export name.wav` writes the song to a file.
 `tail=2` adds two seconds for the echoes to stop, and `bits=16` makes a
 16-bit file.
 
-A file name without a folder goes into the folder of the project. `:pwd`
-shows the folder of the project, and `:cd` changes it.]],
+A file name without a folder goes into the folder `renders` of the
+project. `:pwd` shows the folder of the project, and `:cd` changes it.]],
   vim = [[
 `:w`, `:e`, `:wq`, `:x`, `ZZ` and `ZQ` work as in Vim, but on projects
 instead of files. Only one project is open at a time, and `:e` replaces it.
@@ -49,8 +49,8 @@ paw does not make such a copy.]],
   end,
   at = function() paw.cursor.set_track(paw.track("Keys")) end,
   test = {
-    -- Rendering writes beside the practice project; the test tidies up.
-    after = function() os.remove(paw.files.here() .. "/tutor-song.wav") end,
+    -- The export writes into the renders folder of the practice project; the test tidies up.
+    after = function() os.remove(paw.files.here() .. "/renders/tutor-song.wav") end,
   },
   steps = {
     {
@@ -66,24 +66,24 @@ paw does not make such a copy.]],
       done = "The project is saved, the `[+]` is gone, and the message line shows the file.",
     },
     {
-      say = "`:render` plays the song into a WAV file. Type `:render tutor-song.wav tail=2` and `<CR>`.",
-      keys = { ":render tutor-song.wav tail=2", "<CR>" },
-      check = function(ctx, look) return look.ran(ctx, "render") and look.said(ctx, "tutor-song.wav") end,
-      done = "tutor-song.wav is in the folder of the practice project, and the message line shows its length and peak level.",
+      say = "`:export` plays the song into a WAV file. Type `:export tutor-song.wav tail=2` and `<CR>`.",
+      keys = { ":export tutor-song.wav tail=2", "<CR>" },
+      check = function(ctx, look) return look.ran(ctx, "export") and look.said(ctx, "tutor-song.wav") end,
+      done = "tutor-song.wav is in the folder `renders` of the practice project, and the message line shows its length and peak level.",
       hint = "`tail=2` keeps two more seconds after the last note, so the echo does not stop too early.",
     },
     {
       say = "`:messages` shows the messages that you missed. Type `:messages` and `<CR>`, and then press `q` to close the list.",
       keys = { ":messages", "<CR>", "q" },
       check = function(ctx, look) return look.ran(ctx, "messages") and not look.float() end,
-      done = "The list showed all the messages since paw started, with the saves and the renders.",
+      done = "The list showed all the messages since paw started, with the saves and the export.",
     },
     {
       say = "You can play the rendered file in a different player. In paw, press `<leader><Space>` to play the song, and `<leader><Space>` again to stop.",
       keys = { "<leader><Space>", { wait = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.played(ctx) end,
-      done = "The song is saved and rendered.",
+      done = "The song is saved and exported.",
     },
   },
-  outro = "We saved with `:w`, and we saw `[+]` for changes that are not saved. Then we rendered with `:render name.wav tail=2` and read `:messages`.",
+  outro = "We saved with `:w`, and we saw `[+]` for changes that are not saved. Then we exported with `:export name.wav tail=2` and read `:messages`.",
 }

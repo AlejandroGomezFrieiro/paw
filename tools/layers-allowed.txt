@@ -128,11 +128,8 @@ paw.recent paw.pick.sources 1
 paw.recent paw.ui 1
 paw.reconnect paw 1
 paw.remote paw 2
-paw.render paw.commands 1
-paw.render paw.export 1
 paw.render paw.keymap 1
 paw.render paw.ui 2
-paw.render paw.views.files 1
 paw.roles paw.commands 1
 paw.roles paw.keymap 1
 paw.roll_clips paw.frontend 1

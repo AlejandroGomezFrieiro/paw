@@ -1,24 +1,22 @@
-# Render
+# Export
 
-<!-- tags: render rendering export stems bounce render-tags -->
+<!-- tags: export exporting render rendering stems bounce export-tags midi-export project-export -->
 
-A render writes the song, a part of it, or its tracks to sound files. For
-the steps, see [How to export a song as WAV, FLAC or MP3](../how-to/export-a-song.md) and
-[How to render stems](../how-to/render-stems.md).
+An export writes the song, a part of it, or its tracks to files: sound
+files, MIDI files, or a project folder. For the steps, see
+[How to export a song as WAV, FLAC or MP3](../how-to/export-a-song.md),
+[How to export stems](../how-to/export-stems.md) and
+[How to export MIDI for another program](../how-to/export-midi.md).
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `:export` | Export the song, a part of it, or its tracks to sound files (see `:export`). |
+| `:export` | Export the song, a part of it, or its tracks to sound files or MIDI files (see `:export`). |
 | `:export!` | The same, with no plan first, and it replaces files. |
+| `:export project out/` | Write what the window shows as a project folder (see Project folders). |
 | `:export.cancel` | Stop the export and the files that wait after it. |
-| `:render mix.flac` | Render the song to a file (see below). |
-| `:render.cancel` | Stop the render. |
-| `:render.tags` | Show or set the tags of the project (see Tags). |
-| `:render stems` | Render one file for each group (see Stems). |
-| `:render.regions out` | Render each region to a file of its own (see Regions). |
-| `:stems out` | Render one file for each track into `out` (default: `renders/stems`), as `:export out/ each=track` does. |
+| `:export.tags` | Show or set the tags of the project (see Tags). |
 | `:bounce` | Render tracks to a new audio track (see Bounce). |
 
 ## `:export`
@@ -46,9 +44,14 @@ the time, as it does for each command that takes a range (see
 | `:export tracks` | one file for each track |
 | `:export regions` | one file for each region |
 | `:export each=region,group` | one file for each group in each region |
+| `:export song.mid` | the song as a MIDI file (see MIDI files) |
+| `:export clip riff.mid` | the clip at the cursor as a MIDI file |
+| `:export project ~/lib/Ballad/` | what the window shows, as a project folder |
 
-An ending of another program's file, such as `.mid` or `.rpp`, writes that
-format instead (see [MIDI](midi.md), and `:help formats` for the list).
+The ending of the target sets the format. `.mid` and `.midi2` write MIDI
+files (see MIDI files). An ending of another program's file, such as
+`.rpp`, writes the whole project in that format, with no range (see
+`:help formats` for the list).
 
 ### The words
 
@@ -61,7 +64,7 @@ format instead (see [MIDI](midi.md), and `:help formats` for the list).
 | `format=` | `wav`, `flac`, `mp3`, `ogg`, `opus`, when the target has no ending | `wav` |
 | `level=` | with `each=region`: a level from 1, or `leaves` | every region |
 | `wait=true` | export in the foreground | |
-| `tail=`, `rate=`, `bits=`, `dither=`, `quality=`, `bitrate=`, `normalize=`, `loudness=`, and the tags | as for `:render` below | `tail=2` |
+| `tail=`, `rate=`, `bits=`, `dither=`, `quality=`, `bitrate=`, `normalize=`, `loudness=`, and the tags | see Sound files | `tail=2` |
 
 - `each=group` makes one file for each group at the top level, and one for
   each track outside a group. In a window narrowed to a group, the top
@@ -155,16 +158,14 @@ export the tracks and the time of the selection.
 | `paw.export.last()` | What the last export wrote: `{ results, failed, cancelled, message }`. |
 | `paw.export.cancel()` | Stop the export. |
 
-## `:render`
+## Sound files
 
-`:render mix.flac` renders the song to a file. The extension of the file
-sets the format. With no name, the file is `<project>.wav` in the folder
-`renders` of the project (see [The renders folder](#the-renders-folder)).
+paw renders each sound file of an export. The extension of the file sets
+the format.
 
-- The render runs on a thread of its own, and the status line shows
-  `rendering mix.flac 43% · Esc cancels` while it runs. A message tells when the render
-  is complete.
-- `Esc` in normal mode, or `:render.cancel`, stops the render.
+- The render runs on a thread of its own, and the status line shows its
+  progress while it runs. A message tells when the export is complete.
+- `Esc` in normal mode, or `:export.cancel`, stops the render.
 - The render plays a copy of the project made when it starts, so an edit
   during the render changes the project and not the file.
 - paw writes the file as `.mix.flac.part` next to the target and gives it
@@ -173,7 +174,7 @@ sets the format. With no name, the file is `<project>.wav` in the folder
 
 ### The renders folder
 
-A render with no name goes into `renders` in the folder of the project:
+An export goes into `renders` in the folder of the project:
 `song/renders/song.wav`, and the stems in `song/renders/stems`. paw makes
 the folder at the first render and keeps the rendered files apart
 from the files of the project, so a save never moves them to `unused`. To
@@ -181,18 +182,17 @@ keep them out of git, add `renders/` to a `.gitignore` file.
 
 - A project in one JSON file renders next to its file.
 - Before the first save, paw renders into the folder where it started.
-- A name without a folder (`:render mix.flac`) goes into the folder of the
-  project, or into the folder that `:cd` set.
+- A name with a folder (`:export mixes/mix.flac`) goes into that folder,
+  from the folder of the project, or from the folder that `:cd` set.
 
-### Options
+### Words of sound
 
-The options are words after the file name, and `<Tab>` completes them.
+The words of `:export` in this table set how the files sound, and `<Tab>` completes
+them.
 
-| Option | Values |
+| Word | Values |
 | --- | --- |
-| `range=` | `song`, `loop`, `selection`, or the name of a region, or its path when names repeat: `Chorus 2/Verse A` (see [Markers and regions](markers.md)) |
-| `start=`, `end=` | the range in beats |
-| `tail=2` | seconds after the end, for reverbs (default: 1) |
+| `tail=2` | seconds after the end, for reverbs (default: 2) |
 | `rate=44100` | the sample rate |
 | `bits=` | `16`, `24` (default) or `32` (float, WAV only) |
 | `channels=` | `stereo` (default), `mono` or `auto` (see [Mono and stereo](#mono-and-stereo)) |
@@ -201,13 +201,7 @@ The options are words after the file name, and `<Tab>` completes them.
 | `dither=true` | dither |
 | `normalize=-1` | the peak level in dB |
 | `loudness=-14` | the integrated loudness in LUFS, measured as BS.1770. With `normalize` too, the peak level is a ceiling. |
-| `tracks=` | `selected`, or `3,5`: a stem of those tracks |
-| `master=false` | without the devices, fader and pan of the master |
-| `stems=true` | one file for each track, into a directory |
-| `wait=true` | render in the foreground |
 | `artist=` and the other tags | tags for this file only (see Tags) |
-
-`:stems out format=flac master=false` also renders stems.
 
 For normalization, paw renders the song once into a temporary file,
 measures it, and encodes from there.
@@ -237,14 +231,14 @@ installed.
   file, and paw gives the file its name when it is complete. paw removes
   the WAV after the encode, even when the encode fails or you cancel it.
 - The encode runs on the thread of the render. The status line shows
-  `encoding mix.mp3 61%` (the graphical window shows "Encoding"). `Esc` or
-  `:render.cancel` also stops `ffmpeg`.
+  that it encodes (the graphical window shows "Encoding"). `Esc` or
+  `:export.cancel` also stops `ffmpeg`.
 - Opus holds only 48 kHz and the lower usual rates, so `ffmpeg` converts to
   48 kHz, and it also converts MP3 above 48 kHz to 48 kHz.
 - `ffmpeg` is the program on the PATH. `paw.opt.ffmpeg = "/path/to/ffmpeg"`
   names a different program.
 - Without `ffmpeg`, or with an `ffmpeg` without the encoder,
-  `:render mix.mp3` fails before it renders anything, and the message says why
+  `:export mix.mp3` fails before it renders anything, and the message says why
   and names the formats that need nothing (WAV and FLAC).
   `render_formats()` then gives `available = false` and `why`, and the
   render dialog of the graphical window does not offer the format.
@@ -259,6 +253,58 @@ installed.
 A `bitrate` is constant for MP3, and the target for Opus and Vorbis.
 `bits=` and `dither=` do not apply to these formats.
 
+## MIDI files
+
+A target that ends in `.mid` (or `.midi`, `.smf`, `.kar`) writes a
+Standard MIDI file of type 1. The file has the tempo map, the time
+signatures and the markers, and one track for each track with notes. A
+target that ends in `.midi2` writes one clip as the project keeps it (see
+[MIDI clip files](project-files.md#midi-clip-files)).
+
+| Line | What paw writes |
+| --- | --- |
+| `:export song.mid` | the song: each track that the window shows |
+| `:t2,t4export part.mid`, `:'<,'>export part.mid` | those tracks; a group gives the tracks inside it |
+| `:17,32export bridge.mid`, `:export in=Chorus chorus.mid` | the notes and the controller moves that start in that time, at their place in the song |
+| `:export clip riff.mid` | the clip at the cursor |
+| `:export parts.mid each=track` | one file for each track, `parts Bass.mid` and the next files |
+| `:t/Keys/export riff.mid each=clip` | one file for each clip of the range, `riff Keys 01.mid` and the next files |
+| `:export clip riff.midi2` | the clip at the cursor as a MIDI 2 clip file |
+| `:'<,'>export riff.midi2 each=clip` | each clip of the selection as a MIDI 2 clip file |
+
+- A MIDI file takes `each=track`, `each=clip` and `in=`. paw refuses the
+  words of sound by name: `tap= is for sound; song.mid is MIDI`.
+- A `.midi2` file holds one clip, so it needs `clip` or `each=clip`.
+- The names and folders work as for sound files: a name with no folder
+  goes into `renders/`, and the fields such as `{track}` fill in.
+- paw replaces a MIDI file in `renders/` without a question. To replace a
+  file in another folder, type `:export!`.
+- A muted clip is left out, and so is an audio clip.
+- The message counts the notes, and says what MIDI 1.0 could not keep:
+  note times rounded to a tick, controller values rounded to 7 bits, and
+  the controller moves of one note (see [Limits](limits.md)).
+
+## Project folders
+
+`:export project <folder>/` writes what the window shows as a project
+folder of its own, with its media copied into `media/`. The song does not
+change, and its folder stays the same. The folder must be new or empty.
+
+| The window shows | The project folder holds |
+| --- | --- |
+| the song | a copy of the whole project |
+| a subproject | the subproject: its tracks, its master, its markers and regions, and its tempo and meter as its first block plays them |
+| a view, such as a region after `znar` | copies of its tracks with their devices, the clips and lanes in its time from beat 0, the markers and regions inside, and the tempo and meter of its time |
+
+- A view cuts each route to a track outside it: the track plays into the
+  master, and the message names each cut.
+- In a view, a clip that crosses an edge and cannot be cut there, such as
+  an audio clip, is an error that names the clip.
+- A range does not go with `:export project`. To write a part, show it in
+  the window first.
+- `:import <folder>` brings a project folder back as a subproject (see
+  [Subprojects](subprojects.md)).
+
 ## Tags
 
 A rendered file has a title, artist, album, track number, year, genre,
@@ -267,15 +313,15 @@ project, which keeps them for each render (`project.meta.tags`, saved with
 it).
 
 ```
-:render.tags artist=Ana album="First one" track=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
-:render.tags                  " what is set
-:render.tags genre=           " an empty value takes one out
+:export.tags artist=Ana album="First one" track=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
+:export.tags                  " what is set
+:export.tags genre=           " an empty value takes one out
 ```
 
 - In Lua, `paw.render_tags()` gives the table, and
   `paw.render_tags({ artist = "Ana" })` sets those fields and keeps the
   others.
-- `:render` accepts the same words (`:render mix.mp3 artist=Bo`), and
+- `:export` accepts the same words (`:export mix.mp3 artist=Bo`), and
   `paw.render` accepts a `tags` table, for that file only, and either one
   replaces the tags of the project for that file.
 - The title of an MP3, Ogg or Opus file is the name of the project, unless
@@ -322,80 +368,34 @@ recording in the center gives a mono file. The same recording panned off
 center, or through a stereo device such as a reverb, gives a stereo file.
 The result of the render says how many channels the file has.
 
-## Lua
-
-`paw.render(path, opts)` accepts the options as a table. The fields are
-`range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
-`channels` (`"stereo"`, `"mono"`, `"auto"`), `quality`, `bitrate`, `ffmpeg`,
-`dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `tap`, `master`,
-`threads`, `sleep`, `tags` and `freeze`.
-
-`tap` is the point in the sound of the tracks where the render listens.
-Each point holds all the points before it.
-
-| `tap` | The file holds |
-| --- | --- |
-| `"pre"` | the clips and devices of the tracks, and of the tracks inside them, without the fader, pan or mute |
-| `"post"` | the clips and devices with the fader, pan and mute, but not the groups, the sends or the master |
-| `"groups"` | the tracks as you hear them when they are soloed, through their groups and the returns of their sends, but not the master |
-| `"master"` | the same as `"groups"`, and then the devices, fader and pan of the master. This is the default. |
-
-`"pre"` and `"post"` need `tracks`. Files rendered at `"groups"` or at
-`"master"` add up to the mix at that point. `master = false` is the same as
-`tap = "groups"`.
-
-- `sleep = false` makes each device run on each block, even when it is at
-  rest (see [The audio engine](engine.md#devices-at-rest)), and the file is
-  the same to the bit.
-
-- It waits for the file, and returns `{ path, frames, seconds,
-  sample_rate, peak, gain, loudness, format, bits, channels, ... }`.
-- With `background = true`, it returns immediately and events follow.
-
-| Event | Contents |
-| --- | --- |
-| `render.progress` | `{ path, fraction, seconds, stage }`, some times each second. `stage` is `"rendering"` or `"encoding"`. |
-| `render.done` | the table above, one time, for the final file |
-| `render.failed` | `{ path, error }` |
-| `render.cancelled` | |
-| `render.finished` | a render in the foreground is complete |
-
-| Function | Result |
-| --- | --- |
-| `paw.render(path, opts)` | Render a file with the options above. |
-| `paw.render_status()` | The render that runs: `{ path, fraction, seconds, cancelling, stage, queued }`. |
-| `paw.render_cancel()` | Stop it. |
-| `paw.render_ranges.chorus = function() return 32, 48 end` | Add a named range. |
-
-The graphical window finds the render in `paw.frontend.state().modal.render`.
-
 ## Stems
 
-`:export each=track` writes one file for each track. The files add
-up to the mix exactly through sends, returns and buses that only filter,
-delay or mix. A compressor or a limiter on a shared bus hears each stem
-alone and acts on a stem differently than on the sum, so with those the files
-differ a little from the mix.
-
-`:render stems` writes one file for each group, with the name of the
+`:export stems` writes one file for each group, with the name of the
 group, into `renders/stems`:
 
 - each group at the top level, and each track outside a group that has
-  clips, each with all that its sound goes through, so these files also
-  add up to the mix.
-- First, paw shows the plan, which lists each file and its tracks. `y` or `Enter`
-  renders, and `n` or `Esc` cancels.
+  clips, each with all that its sound goes through, so these files add up
+  to the mix.
+- First, paw shows the plan, which lists each file and its tracks. `y` or
+  `Enter` exports, and `n` or `Esc` cancels.
+
+`:export tracks` writes one file for each track, into `renders/tracks`.
+The files add up to the mix exactly through sends, returns and buses that
+only filter, delay or mix. A compressor or a limiter on a shared bus hears
+each stem alone and acts on a stem differently than on the sum, so with
+those the files differ a little from the mix, and the plan says so.
 
 | Command | Effect |
 | --- | --- |
-| `:render stems` | One file for each group, into `renders/stems`. |
-| `:render stems out` | The same, into `out`. |
-| `:render stems tracks` | One file for each track. |
-| `:render Strings` | One group, to `renders/Strings.wav`, with no plan. |
+| `:export stems` | One file for each group, into `renders/stems`. |
+| `:export stems out/` | The same, into `out`. |
+| `:export tracks` | One file for each track, into `renders/tracks`. |
+| `:t/Strings/export` | One group, to `renders/Strings.wav`. |
 
-- In a window narrowed to a group, `:render stems` writes the parts of its group.
-- The options of `:render` apply (`format=flac`, `tail=`, `bits=`,
-  `master=false`, and the others).
+- In a window narrowed to a group, `:export stems` writes the parts of its
+  group.
+- The words of `:export` apply (`format=flac`, `tail=`, `bits=`, `tap=`,
+  and the others).
 - In Lua, `paw.export.plan("stems")` gives the plan, and
   `paw.export.run(plan)` writes it.
 
@@ -443,15 +443,64 @@ return the new track.
 
 ## Regions
 
-`:render.regions out` writes each region to a file of its own (see
-[Markers and regions](markers.md)). A region inside another region has
-the path in its file name: `02 Chorus 2 - 01 Verse A.wav`. `level=1`
-renders only the regions at the top level, and `level=leaves` only the
+`:export regions` writes each region to a file of its own, into
+`renders/regions` (see [Markers and regions](markers.md)). Each name has
+the number of the file and the path of the region: `01 Intro.wav`, and
+`02 Chorus 2 - Verse A.wav` for a region inside another region. `level=1`
+writes only the regions at the top level, and `level=leaves` only the
 regions with no region inside.
+
+## Lua
+
+`paw.render(path, opts)` renders one file, with the options as a table. The fields are
+`range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
+`channels` (`"stereo"`, `"mono"`, `"auto"`), `quality`, `bitrate`, `ffmpeg`,
+`dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `tap`, `master`,
+`threads`, `sleep`, `tags` and `freeze`. `range` is `"song"`, `"loop"`,
+`"selection"` or the name of a region.
+
+`tap` is the point in the sound of the tracks where the render listens.
+Each point holds all the points before it.
+
+| `tap` | The file holds |
+| --- | --- |
+| `"pre"` | the clips and devices of the tracks, and of the tracks inside them, without the fader, pan or mute |
+| `"post"` | the clips and devices with the fader, pan and mute, but not the groups, the sends or the master |
+| `"groups"` | the tracks as you hear them when they are soloed, through their groups and the returns of their sends, but not the master |
+| `"master"` | the same as `"groups"`, and then the devices, fader and pan of the master. This is the default. |
+
+`"pre"` and `"post"` need `tracks`. Files rendered at `"groups"` or at
+`"master"` add up to the mix at that point. `master = false` is the same as
+`tap = "groups"`.
+
+- `sleep = false` makes each device run on each block, even when it is at
+  rest (see [The audio engine](engine.md#devices-at-rest)), and the file is
+  the same to the bit.
+
+- It waits for the file, and returns `{ path, frames, seconds,
+  sample_rate, peak, gain, loudness, format, bits, channels, ... }`.
+- With `background = true`, it returns immediately and events follow.
+
+| Event | Contents |
+| --- | --- |
+| `render.progress` | `{ path, fraction, seconds, stage }`, some times each second. `stage` is `"rendering"` or `"encoding"`. |
+| `render.done` | the table above, one time, for the final file |
+| `render.failed` | `{ path, error }` |
+| `render.cancelled` | |
+| `render.finished` | a render in the foreground is complete |
+
+| Function | Result |
+| --- | --- |
+| `paw.render(path, opts)` | Render a file with the options above. |
+| `paw.render_status()` | The render that runs: `{ path, fraction, seconds, cancelling, stage, queued }`. |
+| `paw.render_cancel()` | Stop it. |
+| `paw.render_ranges.chorus = function() return 32, 48 end` | Add a named range. |
+
+The graphical window finds the render in `paw.frontend.state().modal.render`.
 
 ## Behavior
 
-- Stems and bounces go through `paw.render`, so the hook `render.before`
+- Exports and bounces go through `paw.render`, so the hook `render.before`
   runs for them.
 - A render, an export, stems, a bounce and a freeze always play the
   built-in devices at full quality, whatever `paw.opt.quality` says (see

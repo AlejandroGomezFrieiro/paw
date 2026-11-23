@@ -1,6 +1,10 @@
--- Exports of sound: the words of `:export` turned into a plan of renders,
--- the plan float, the queue that renders the plan one file at a time, and
--- the message at the end. `paw.render` (paw/render.tl) renders each file.
+-- Exports: the words of `:export` turned into a plan of renders, the plan
+-- float, the queue that renders the plan one file at a time, and the
+-- message at the end. `paw.render` (paw/render.tl) renders each file. The
+-- same grammar writes MIDI files (`.mid`, and `.midi2` for one clip), and
+-- `:export project <folder>/` writes what the window shows as a project
+-- folder (paw/nest.tl). Another ending, such as `.rpp`, goes to its format
+-- (paw/formats.tl).
 --
 --   paw.export.plan("stems format=flac")               -- the plan: what would be written
 --   paw.export.plan("bridge.wav", paw.ex.range("17,32"))
@@ -30,6 +34,9 @@ local type MarkersModule = require("paw.markers")
 local type FormatsModule = require("paw.formats")
 local type SeatsModule = require("paw.seats")
 local type UiModule = require("paw.ui")
+local type CursorModule = require("paw.cursor")
+local type MidifileModule = require("paw.midifile")
+local type NestModule = require("paw.nest")
 
 --- `paw.files` (paw/views/files.lua): a path from the folder `:cd` set.
 local record Files
@@ -43,6 +50,9 @@ local record Paw is partial.Paw
   formats: FormatsModule
   seats: SeatsModule
   ui: UiModule
+  cursor: CursorModule
+  midifile: MidifileModule
+  nest: NestModule
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -790,7 +800,9 @@ local function target_of(
     error(string.format("%s and format=%s say two formats: give one", target, format), 0)
   end
   if ext and not endings[ext] then
-    error(string.format("%s: paw writes sound as .wav, .flac, .mp3, .ogg or .opus", target), 0)
+    -- The kernel names a format that it knows and does not write (AAC).
+    local why = api.render_check(target, options.opt.ffmpeg)
+    error(why or string.format("%s: paw writes sound as .wav, .flac, .mp3, .ogg or .opus", target), 0)
   end
   -- The ending of a preset's target gives way to format=.
   local stem = ext and target:sub(1, -#ext - 2) or target
@@ -1310,6 +1322,267 @@ function M.confirm(plan: Plan)
   )
 end
 
+-- MIDI files ---------------------------------------------------------------------------
+
+--- The kinds of MIDI file that `:export` writes, by the ending of the
+--- target: a Standard MIDI file, or a MIDI 2 clip file as the project
+--- keeps a clip.
+local enum MidiKind
+  "smf"
+  "midi2"
+end
+
+--- The kind of MIDI file that a target names, or nil.
+local function midi_kind(word: string): MidiKind
+  local e = word and ending(word)
+  if e == "midi2" then
+    return "midi2"
+  end
+  for _, x in ipairs(paw.midifile.extensions) do
+    if e == x then
+      return "smf"
+    end
+  end
+  return nil
+end
+
+--- The words that a MIDI file takes. The others are for sound.
+local MIDI_WORDS: {string: boolean} = {each = true, ["in"] = true}
+
+--- One MIDI file of an export: its path, and the tracks or the clips it holds.
+local record MidiFile
+  file: string
+  tracks: {integer}
+  clips: {integer}
+end
+
+--- The tracks that a MIDI export reads: those of the range, or those that
+--- the window shows, with the tracks inside each group, in order.
+local function midi_tracks(range: Range): {integer}
+  local out: {integer} = {}
+  local seen: {integer: boolean} = {}
+  local function add(id: integer)
+    if not seen[id] and not paw.groups.is_group(id) and not paw.vca.is_vca(id) then
+      seen[id] = true
+      out[#out + 1] = id
+    end
+  end
+  for _, id in ipairs(range and range.tracks or paw.scope.tracks()) do
+    if paw.groups.is_group(id) then
+      for _, other in ipairs(api.track_list()) do
+        if other ~= id and paw.scope.contains(other, id) then
+          add(other)
+        end
+      end
+    end
+    add(id)
+  end
+  return out
+end
+
+--- A MIDI clip of a track, by their ids.
+local record TrackClip
+  track: integer
+  clip: integer
+end
+
+--- The MIDI clips of `tracks` that play in the span.
+local function midi_clips(tracks: {integer}, span: Span): {TrackClip}
+  local out: {TrackClip} = {}
+  for _, id in ipairs(tracks) do
+    for _, c in ipairs(api.clip_list(id)) do
+      local inside_span = not span.to or (c.start + c.length > (span.from or 0) and c.start < span.to)
+      if c.kind == "midi" and not c.muted and inside_span then
+        out[#out + 1] = {track = id, clip = c.id}
+      end
+    end
+  end
+  return out
+end
+
+--- The MIDI clip at the cursor, by id, or an error.
+local function clip_at_cursor(): integer
+  local c = paw.cursor.clip()
+  local clip = c and api.clip_get(c.id as integer)
+  if not clip or clip.kind ~= "midi" then
+    error("no MIDI clip at the cursor: put the cursor on one", 0)
+  end
+  return clip.id
+end
+
+--- The words of a MIDI export, which are `each=` and `in=` only. A word
+--- of sound is refused by name.
+local function midi_words(args: Args, target: string): {string: string}
+  local words: {string: string} = {}
+  for k, v in pairs(args as {string | integer: commands.Arg}) do
+    if k is string then
+      if not KNOWN[k] then
+        error(string.format("%s=: not a word of :export; <Tab> after :export lists them", k), 0)
+      end
+      if not MIDI_WORDS[k] then
+        error(string.format("%s= is for sound; %s is MIDI", k, target), 0)
+      end
+      words[k] = tostring(v)
+    end
+  end
+  return words
+end
+
+--- What the files of a MIDI export hold: one file, or one for each track
+--- or clip with `each=`. Gives the files without their paths, and the
+--- name of each for `{track}`.
+local function midi_items(clip_word: boolean, each: Each, range: Range, span: Span): {MidiFile}, {string}
+  local items: {MidiFile} = {}
+  local names: {string} = {}
+  if clip_word then
+    local id = clip_at_cursor()
+    return {{clips = {id}}}, {name_of(api.clip_get(id).track)}
+  end
+  local tracks = midi_tracks(range)
+  local clips = midi_clips(tracks, span)
+  if each == "clip" then
+    for i, c in ipairs(clips) do
+      items[i], names[i] = {clips = {c.clip}}, name_of(c.track)
+    end
+  elseif each == "track" then
+    local with_clips: {integer: boolean} = {}
+    for _, c in ipairs(clips) do
+      with_clips[c.track] = true
+    end
+    for _, id in ipairs(tracks) do
+      if with_clips[id] then
+        items[#items + 1] = {tracks = {id}}
+        names[#items] = name_of(id)
+      end
+    end
+  elseif #clips > 0 then
+    items[1], names[1] = {tracks = tracks}, range and range.tracks and joined_names(tracks) or project_name()
+  end
+  return items, names
+end
+
+--- The files of a MIDI export, with their paths from the target and its
+--- fields, and the time that they hold.
+local function midi_files(
+  target: string, kind: MidiKind, clip_word: boolean, args: Args, range: Range
+): {MidiFile}, Span
+  local words = midi_words(args, target)
+  local kinds = each_list(words.each)
+  local each = kinds[1]
+  if #kinds > 1 or (each and each ~= "track" and each ~= "clip") then
+    error(string.format("each=%s: a MIDI file takes each=track or each=clip", words.each), 0)
+  end
+  if clip_word and (each or range) then
+    error("`clip` is the clip at the cursor: for the clips of a range, type :'<,'>export each=clip " .. target, 0)
+  end
+  local span = span_of(range, words["in"])
+  local items, names = midi_items(clip_word, each, range, span)
+  if #items == 0 then
+    error("nothing to export: no track here has a MIDI clip", 0)
+  end
+  if kind == "midi2" and not items[1].clips then
+    error(target .. " holds one clip: `:export clip " .. target .. "`, or each=clip for each clip of a range", 0)
+  end
+  -- With each= and a target without its field, paw adds the field.
+  local ext = ending(target)
+  local stem = target:sub(1, -#ext - 2)
+  if each and not names_kind(stem, each) then
+    stem = stem .. " " .. ADDED[each]
+  end
+  local date = os.date("%Y-%m-%d") as string
+  local used: {string: integer} = {}
+  for i, item in ipairs(items) do
+    local fields = {
+      project = project_name(),
+      track = names[i],
+      group = names[i],
+      tracks = names[i],
+      region = span.region or span.when,
+      n = string.format("%02d", i),
+      date = date,
+    }
+    local file = place(fill(stem, fields) .. "." .. ext, true)
+    -- Two files of one name get a number each.
+    used[file] = (used[file] or 0) + 1
+    if used[file] > 1 then
+      file = file:sub(1, -#ext - 2) .. " " .. used[file] .. "." .. ext
+    end
+    item.file = file
+  end
+  return items, span
+end
+
+--- Write the MIDI files of the words of `:export`: Standard MIDI files of
+--- type 1 with one track for each track, or MIDI 2 clip files. A file
+--- outside the renders folder that is there is replaced with `!` only.
+local function midi_export(args: Args, range: Range, bang: boolean): commands.Result
+  local first = text_of(args[1])
+  local clip_word = first == "clip"
+  if M.presets[first] then
+    error(string.format("%s is a preset of sound files; %s is MIDI", first, text_of(args[2])), 0)
+  end
+  local target = text_of(args[clip_word and 2 or 1])
+  local extra = args[clip_word and 3 or 2]
+  if extra ~= nil then
+    error("`" .. tostring(extra) .. "`: one target only; words take a value: each=track", 0)
+  end
+  local kind = midi_kind(target)
+  local files, span = midi_files(target, kind, clip_word, args, range)
+  -- No file is written when one of them cannot be.
+  for _, f in ipairs(files) do
+    if not bang and io.open(f.file) ~= nil and not in_renders(f.file) then
+      error(shown(f.file) .. " is there: `:export!` replaces it", 0)
+    end
+  end
+  local notes = 0
+  local lost: string
+  for _, f in ipairs(files) do
+    local dir = f.file:match("^(.*)/[^/]+$")
+    if dir then
+      pcall(api.fs_mkdir, dir)
+    end
+    if kind == "midi2" then
+      local id = f.clips[1]
+      local clip_notes = api.clip_notes(id)
+      api.midi2_write(f.file, {notes = clip_notes, controls = api.clip_controls(id), length = api.clip_get(id).length})
+      notes = notes + #clip_notes
+    else
+      notes = notes + paw.midifile.export(f.file, {tracks = f.tracks, clips = f.clips, from = span.from, to = span.to})
+      lost = lost or paw.midifile.lost_text()
+    end
+  end
+  local where = #files == 1 and shown(files[1].file)
+    or string.format("%d files in %s", #files, shown(files[1].file:match("^(.*)/[^/]+$") or "."))
+  paw.notify(
+    string.format(
+      "exported %d note%s to %s%s", notes, notes == 1 and "" or "s", where, lost and ("; MIDI 1.0 " .. lost) or ""
+    )
+  )
+end
+
+-- Project folders ----------------------------------------------------------------------
+
+--- `:export project <folder>/`: what the window shows (the song, a view or
+--- a subproject) as a project folder of its own (`paw.nest.write`).
+local function project_export(args: Args, range: Range): commands.Result
+  if range then
+    error(
+      "a range does not go with export project: it writes what the window shows; show a part first, for example with `znar` on a region",
+      0
+    )
+  end
+  local folder = text_of(args[2])
+  if not folder or folder == "" then
+    error("export project needs a folder: `:export project ~/lib/Ballad/`", 0)
+  end
+  for k in pairs(args as {string | integer: commands.Arg}) do
+    if k ~= 1 and k ~= 2 then
+      error("export project takes a folder only: `:export project ~/lib/Ballad/`", 0)
+    end
+  end
+  paw.notify(paw.nest.write(folder))
+end
+
 -- The command ----------------------------------------------------------------------------
 
 --- The words of a command as text again: `stems format=flac`.
@@ -1347,19 +1620,27 @@ end
 local function export(ctx: commands.Context, bang: boolean): commands.Result
   local args = ctx.args
   local range = ctx.range
-  -- A file of another program (a MIDI file, a project): its format writes it.
-  local target = M.presets[text_of(args[1]) or ""] and text_of(args[2]) or text_of(args[1])
+  local first = text_of(args[1])
+  if first == "project" then
+    return project_export(args, range)
+  end
+  last_line = (range and range.text or "") .. "export" .. (bang and "! " or " ") .. unparse(args)
+  -- The target: after a preset or `clip`, else the first word.
+  local target = (M.presets[first or ""] or first == "clip") and text_of(args[2]) or first
+  if target and midi_kind(target) then
+    return midi_export(args, range, bang)
+  end
+  if first == "clip" then
+    error("`clip` is for MIDI files: `:export clip riff.mid`; for sound files, each=clip", 0)
+  end
+  -- A file of another program (a project of REAPER): its format writes it.
   if target and other_format(target) then
-    -- `:` in visual mode types `'<,'>`: the word `selection` says what to write.
-    if range and not range.selection then
-      error(
-        target .. ": a range is for sound files; `:export " .. target .. " selection` writes the selected tracks", 0
-      )
+    if range then
+      error(target .. " holds the whole project: a range is for sound and MIDI files", 0)
     end
     return paw.formats.export((paw.files as Files).path(target), {args = args as {string | integer: commands.Arg}})
       as commands.Result
   end
-  last_line = (range and range.text or "") .. "export" .. (bang and "! " or " ") .. unparse(args)
   local plan = M.plan_args(args, range)
   if plan.confirm and not bang then
     return M.confirm(plan)
@@ -1367,26 +1648,33 @@ local function export(ctx: commands.Context, bang: boolean): commands.Result
   M.run(plan)
 end
 
---- Complete the words of `:export`: the presets, the files of other
---- programs, `clip` and `selection` after a MIDI file, then the words and
---- their values.
+--- Complete the words of `:export`: the presets, `clip`, `project` and
+--- the files of other programs, a file after `clip` and a folder after
+--- `project`, then the words and their values.
 local function complete(rest: string): {string}
   local before, word = rest:match("^(.-)(%S*)$")
   local out: {string} = {}
   local key = word:match("^(%w+)=")
-  if before == "" and not key then
-    for _, name in ipairs(M.preset_names()) do
-      out[#out + 1] = name
+  local first = before:match("^(%S+)%s+$")
+  if first == "project" then
+    local dirs = commands.completers:get("dirs")
+    for _, item in ipairs(dirs and dirs(word) or {}) do
+      out[#out + 1] = before .. item.text
+    end
+    return out
+  end
+  if (before == "" or first == "clip") and not key then
+    if before == "" then
+      for _, name in ipairs(M.preset_names()) do
+        out[#out + 1] = name
+      end
+      out[#out + 1] = "clip"
+      out[#out + 1] = "project"
     end
     local files = commands.completers:get("exportable")
     for _, item in ipairs(files and files(word) or {}) do
-      out[#out + 1] = item.text
+      out[#out + 1] = before .. item.text
     end
-  end
-  local first = before:match("^(%S+)%s+$")
-  if first and other_format(first) and not key then
-    out[#out + 1] = before .. "clip"
-    out[#out + 1] = before .. "selection"
   end
   for _, w in ipairs(M.words) do
     local name = w[1] as string
@@ -1407,7 +1695,7 @@ for _, bang in ipairs({"", "!"}) do
     function(ctx: commands.Context): commands.Result return export(ctx, bang == "!") end,
     {
       desc = bang == ""
-        and "Export the song or a part of it to sound files, or to a file of another program by its ending: `export`, `export song.flac`, `export stems`, `:17,32export bridge.wav`, `:t/Drums/export drums.wav`, `export song.mid`" or "Export and replace files without the plan first: `export! stems`",
+        and "Export the song or a part of it to sound files, MIDI files or a file of another program by its ending, or as a project folder: `export`, `export song.flac`, `export stems`, `:17,32export bridge.wav`, `:t/Drums/export drums.wav`, `export song.mid`, `export clip riff.mid`, `export project ~/lib/Ballad/`" or "Export and replace files without the plan first: `export! stems`",
       range = true,
       complete = complete,
     }
@@ -1422,6 +1710,33 @@ commands.define(
     end
   end,
   {desc = "Stop the export that runs, and the files that wait after it; it leaves no file of the render that runs"}
+)
+
+commands.define(
+  "export.tags",
+  function(ctx: commands.Context): commands.Result
+    local set: {string: string} = {}
+    for _, key in ipairs(render.tag_names) do
+      if ctx.args[key] ~= nil and ctx.args[key] ~= true then
+        set[key] = ctx.args[key] as string
+      end
+    end
+    local tags = render.tags(next(set) ~= nil and set as types.RenderTags or nil) as {string: string}
+    local words: {string} = {}
+    for _, key in ipairs(render.tag_names) do
+      if tags[key] then
+        words[#words + 1] = key .. "=" .. tostring(tags[key])
+      end
+    end
+    paw.notify(
+      #words > 0 and ("exported files are tagged " .. table.concat(words, ", "))
+        or "no tags: set some with `export.tags artist=Me album=First`"
+    )
+  end,
+  {
+    desc = "Show or set the tags of the project's exported files: `export.tags artist=Me album=\"First one\" track=3 "
+      .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
+  }
 )
 
 -- `Esc` in normal mode stops a render (paw/render.tl): the kernel then says

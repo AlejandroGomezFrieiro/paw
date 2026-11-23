@@ -3,7 +3,7 @@
 --   :open song.mid                 -- a new project from it (asks nothing: see below)
 --   :import song.mid               -- into this one: new tracks below the cursor's, at the cursor
 --   :import song.mid tempo=yes     -- and its tempo map from the cursor on
---   :export song.mid               -- the project; `:export song.mid clip`, `selection`
+--   :export song.mid               -- the project; `:export clip riff.mid` the clip at the cursor (paw/export.tl)
 --
 --   local file = paw.midifile.read("song.mid")    -- what is in it, in ticks
 --   paw.midifile.open("song.mid")   paw.midifile.import("song.mid", { start = 16, tempo = true })
@@ -160,10 +160,14 @@ local record M
     tempo: boolean
   end
 
-  --- What `export` writes: the tracks (objects or ids), or the clips (ids).
+  --- What `export` writes: the tracks (objects or ids), or the clips
+  --- (ids), and the notes and moves that start from beat `from` up to
+  --- beat `to` of the song (all of them when not given).
   record ExportOptions
     tracks: {Untyped | integer}
     clips: {integer}
+    from: number
+    to: number
   end
 
   --- What `open` gives: the tracks made, the notes, and what was left out.
@@ -1225,7 +1229,14 @@ local function between(x: number): boolean
   return math.abs(x - math.floor(x + 0.5)) > 1e-6
 end
 
-local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lost): Track, number
+--- True when beat `at` of the song is in the time of an export.
+local function in_time(at: number, opts: M.ExportOptions): boolean
+  return at >= (opts.from or -math.huge) - 1e-9 and at < (opts.to or math.huge) - 1e-9
+end
+
+local function export_track(
+  track: Untyped, opts: M.ExportOptions, only: {integer: boolean}, lost: M.Lost
+): Track, number
   local out: Track = {name = track.name as string, notes = {}, controls = {}}
   local channel = default_channel(track)
   local last: number = 0
@@ -1237,8 +1248,8 @@ local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lo
       local played = clip:shifted(c.transpose or 0)
       local louder = c.velocity or 0
       for _, n in ipairs(played:notes() as {types.Note}) do
-        if n.start >= -1e-9 and n.start < c.length - 1e-9 then
-          local length = math.min(n.length, c.length - n.start)
+        if n.start >= -1e-9 and n.start < c.length - 1e-9 and in_time(c.start + n.start, opts) then
+          local length = math.min(n.length, c.length - n.start, (opts.to or math.huge) - c.start - n.start)
           local note_meta = (n.meta or {}) as M.NoteMeta
           out.notes[#out.notes + 1] = {
             tick = (c.start + n.start) * EXPORT_PPQ,
@@ -1257,7 +1268,7 @@ local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lo
       end
       for _, k in ipairs(c.control_count > 0 and played:controls() as {types.Control} or {}) do
         local in_range = not k.key or (k.key >= 0 and k.key <= 127)
-        if in_range and k.start >= -1e-9 and k.start < c.length - 1e-9 then
+        if in_range and k.start >= -1e-9 and k.start < c.length - 1e-9 and in_time(c.start + k.start, opts) then
           local raw: Control = {
             tick = (c.start + k.start) * EXPORT_PPQ,
             type = k.type,
@@ -1315,7 +1326,10 @@ end
 
 --- Write a format 1 MIDI file with the tempo map, time signatures and
 --- markers. It contains the whole project, `opts.tracks` (tracks or ids),
---- or only `opts.clips` (ids). Returns the number of notes written.
+--- or only `opts.clips` (ids), with one track of the file for each track
+--- that has notes or moves. `opts.from` and `opts.to` keep the notes and
+--- moves that start in that time, at their place in the song. Returns the
+--- number of notes written.
 function M.export(path: string, opts?: M.ExportOptions): integer
   opts = opts or {}
   local tracks: {Untyped} = {}
@@ -1347,7 +1361,7 @@ function M.export(path: string, opts?: M.ExportOptions): integer
   local lost: M.Lost = {times = 0, values = 0, dropped = 0}
   M.last_export = lost
   for _, track in ipairs(tracks) do
-    local t, ends = export_track(track, only, lost)
+    local t, ends = export_track(track, opts, only, lost)
     if #t.notes > 0 or #t.controls > 0 then
       file.tracks[#file.tracks + 1] = t
       notes, last = notes + #t.notes, math.max(last, ends)

@@ -283,7 +283,7 @@ end, {
     return out
   end,
 })
--- `:render`, `:render.cancel` and `:stems` are in paw/render.tl.
+-- `:export`, `:export.cancel` and `:export.tags` are in paw/export.tl.
 -- `:bounce` renders tracks into the project as a new audio track
 -- (paw/bounce.tl): the tracks of a range (`:t2,t4bounce`), else of the
 -- selection, else of the cursor. A range of time (`:5,8bounce`,

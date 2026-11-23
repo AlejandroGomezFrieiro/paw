@@ -422,8 +422,8 @@ pub struct RenderOpts {
     /// Where in the signal the render listens: see [`render::Tap`]. `master`
     /// when not given.
     pub tap: Option<render::Tap>,
-    /// The older word for `tap`: false is `tap = groups`. It goes when the
-    /// `:export` command takes the place of `:render`.
+    /// The older word for `tap`: false is `tap = groups`. `paw.render`
+    /// still takes it.
     pub master: bool,
     /// Threads to render on, when not as many as the session uses. The file
     /// is the same whatever the number.

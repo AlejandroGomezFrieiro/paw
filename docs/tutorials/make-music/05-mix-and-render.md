@@ -73,24 +73,25 @@ render the song to a WAV file and an MP3 file, and listen to the file.
    - The lane of the track shows a line from -20 dB up to 0 dB, so the
      lead comes up over the first bar of the chorus.
 
-## Save and render
+## Save and export
 
 1. Type `:w my-song` and press Enter.
-2. Type `:render my-song.wav` and press Enter.
-   - paw puts the file in the folder of the song, `my-song`.
+2. Type `:export my-song.wav` and press Enter.
+   - paw puts the file in the folder `renders` of the song,
+     `my-song/renders`.
    - The status line shows the progress. Then paw says
-     `rendered my-song.wav`, with the length and the peak level.
+     `wrote renders/my-song.wav`, with the length and the peak level.
    - If the message ends with `(clips)`, the mix is too loud. Lower the
-     faders and render again.
-3. Type `:render my-song.mp3` and press Enter.
-   - paw renders the MP3 file with `ffmpeg`, which the package of paw
+     faders and export again.
+3. Type `:export my-song.mp3` and press Enter.
+   - paw writes the MP3 file with `ffmpeg`, which the package of paw
      includes.
 
 ## Listen to the file
 
-1. Type `:e .` and press Enter.
-   - The folder of the song shows as a list of files, with the length of
-     each sound file.
+1. Type `:e renders` and press Enter.
+   - The folder `renders` of the song shows as a list of files, with the
+     length of each sound file.
 2. Type `/my-song.wav` and press Enter. Press `gh`.
    - `gh` plays the file, which is your song as other people hear it.
 3. Press `gh` to stop. Press `<C-^>` (Ctrl and 6) to return to the
@@ -100,7 +101,7 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 
 We mixed the song with the faders, the pan and three built-in effects. We
 sent two tracks to a reverb and automated the volume of the lead. Then we
-rendered the song to a WAV file and an MP3 file, which you can share. You
+exported the song to a WAV file and an MP3 file, which you can share. You
 now have a whole song, from the first note to the MP3 file.
 
 - Previous: [Arrange the song](04-arrange-the-song.md)

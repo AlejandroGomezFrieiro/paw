@@ -187,4 +187,4 @@ and a split can show the whole song beside the strings.
 does not change the other tracks. The project keeps the scope of each
 window with its windows. `paw.opt.scope_rest` sets what the other
 tracks do: play, mute, or play from frozen files. See
-[Render](render.md).
+[Export](export.md).

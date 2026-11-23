@@ -661,7 +661,7 @@ end, {
 paw.command("pwd", function()
   local how = chosen and "set with `:cd`" or api.project_get("path") and "the project's folder" or "where paw started"
   paw.notify(M.here() .. " (" .. how .. ")")
-end, { desc = "Show the folder that relative names (`:render mix.wav`, `:import loop.wav`) go to" })
+end, { desc = "Show the folder that relative names (`:import loop.wav`, `:w take2`) go to" })
 
 paw.command("files", show(false), {
   desc = "The files of a folder as a buffer to edit, in this window: `files`, `files ~/music`, `files media` (the project's own folder)",

@@ -1,5 +1,5 @@
 //! A nest, or a view of tracks over a time, as a project of its own
-//! (`:nest.export`, `:scope.write <folder>`; `nest.md` 3.6, 4.3).
+//! (`:export project <folder>/` in its window; `nest.md` 3.6, 4.3).
 //!
 //! The project that this module makes is a copy: the song does not change.
 //! Its tempo and meter are the map of the place where the nest or the view

@@ -117,27 +117,26 @@ test(":region.remove moves the regions inside up a level; :region.remove! remove
   )
 end)
 
-test("render.regions names each file by its path, and level= chooses the regions", function()
+test(":export regions names each file by its path, and level= chooses the regions", function()
   start()
   T.tone("tone", 64)
   paw.project.tempo = 480
   song()
   paw.markers.add(48, "Verse A", { length = 8 })
   eq(paw.markers.region("Outro/Verse A").beat, 48, "a path of names finds a region when names repeat")
-  local dir = T.scratch .. "/nested"
-  local function rendered(level)
+  local function planned(level)
     local out = {}
-    for i, f in ipairs(paw.markers.render_regions(dir, { tail = 0, level = level })) do
-      out[i] = f:match("[^/]+$")
+    for i, r in ipairs(paw.export.plan("regions level=" .. level).renders) do
+      out[i] = r.file:match("[^/]+$")
     end
     return table.concat(out, ", ")
   end
   eq(
-    rendered("leaves"),
-    "01 Intro.wav, 02 Chorus 2 - 01 Verse A.wav, 02 Chorus 2 - 02 Verse B.wav, 03 Outro - 01 Verse A.wav",
+    planned("leaves"),
+    "01 Intro.wav, 02 Chorus 2 - Verse A.wav, 03 Chorus 2 - Verse B.wav, 04 Outro - Verse A.wav",
     "the regions with none inside, named by their path"
   )
-  eq(rendered(1), "01 Intro.wav, 02 Chorus 2.wav, 03 Outro.wav", "level=1: the top level")
+  eq(planned(1), "01 Intro.wav, 02 Chorus 2.wav, 03 Outro.wav", "level=1: the top level")
 end)
 
 test("a region scope's children are its regions inside, and :narrow takes the one of that name inside", function()

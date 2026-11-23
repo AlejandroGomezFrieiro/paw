@@ -131,7 +131,7 @@ test(":export of a transposed copy writes the pitches it plays", function()
   local _, _, copy = linked()
   keys(":clip.override transpose=3 velocity=-10<CR>")
   local path = T.scratch .. "/copy.mid"
-  keys(":export " .. path .. " clip<CR>")
+  keys(":export clip " .. path .. "<CR>")
   local file = assert(paw.midifile.read(path))
   local got = {}
   for _, n in ipairs(file.tracks[2].notes) do

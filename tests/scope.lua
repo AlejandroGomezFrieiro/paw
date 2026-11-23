@@ -1278,13 +1278,13 @@ test(
 
 -- Stems by group ---------------------------------------------------------------------------
 
-test(":render stems shows a plan of one file per group, and they add up to the mix", function()
+test(":export stems shows a plan of one file per group, and they add up to the mix", function()
   start()
   orchestra()
   paw.flush()
   local mix = render({ master = false })
   local dir = T.scratch .. "/group-stems"
-  keys(":render stems " .. dir .. " wait=true bits=32 tail=1<CR>")
+  keys(":export stems " .. dir .. "/ channels=stereo wait=true bits=32 tail=1<CR>")
   eq(paw.ui.float and paw.ui.float.name, "export.plan", "a plan first")
   local text = screen()
   eq(

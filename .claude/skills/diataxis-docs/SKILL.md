@@ -78,7 +78,7 @@ Directions for an already-competent user with a real goal. Work, not study.
   A guide may cut across many commands and views.
 - Open with one line: "This guide shows you how to…" and what it assumes.
 - **Action and only action**: no teaching, no digressions, no full option
-  lists ("See [`:render`](…) for every option").
+  lists ("See [`:export`](…) for every option").
 - **Real-world forks**: conditional imperatives — "If the track has no
   input, press `I` first. To record several takes, …".
 - **Omit the unnecessary**; start and end at sensible points the reader
@@ -211,7 +211,7 @@ Internal text is in ASD-STE100 Simplified Technical English (Issue 9).
   words are fixed in the glossary below.
 - Technical names (TN) are allowed for things: paw's names (track, clip,
   lane, device, view, buffer, pane, scene, role, register, quickfix list),
-  and every code span (`:render`, `paw.qf`, `gU`, file names, option names)
+  and every code span (`:export`, `paw.qf`, `gU`, file names, option names)
   is a technical name and counts as one word. Do not use a technical name
   as a verb ("yank the clip" → "copy the clip with `y`", unless `yank` is
   the command's name in code).

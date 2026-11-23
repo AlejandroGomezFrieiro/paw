@@ -14,7 +14,7 @@ local order = {
   "mixing", -- faders, pan, mute, solo, buses, sends, automation
   "loops", -- looping, marks, jumps, search
   "recording", -- recording audio and MIDI
-  "saving", -- saving and rendering
+  "saving", -- save and export
   "finding", -- finding any command or key
   "your_own", -- options, mappings and commands in init.lua
   "extensions", -- what each bundled extension adds

@@ -376,7 +376,7 @@ The limits page lists what paw does not do, and the known limits of what it does
 
 - MP3, Ogg Vorbis and Opus without `ffmpeg`. No encoder for these formats
   in pure Rust has enough quality, and paw links no C library for them.
-  They need `ffmpeg` (see [Render](render.md)). The Nix package puts one on
+  They need `ffmpeg` (see [Export](export.md)). The Nix package puts one on
   the PATH.
 - Tags:
   - No cover in a WAV file, because players do not read one. The other
