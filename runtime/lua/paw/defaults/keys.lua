@@ -578,7 +578,7 @@ ax("<CR>", function(region)
   paw.roll_clips.open(ids, under and under.id)
 end, "Edit the notes of the selected MIDI clips together")
 -- The main value of what is selected: whole tracks (`V`) their volume, a
--- stretch of clips the pitch of their notes; the second the tracks' pan.
+-- stretch of time the pitch of the notes that start in it; the second the tracks' pan.
 local function main_value(sign)
   return function(region, ctx)
     local n = sign * (ctx.count or 1)
@@ -597,10 +597,10 @@ local function pan_value(sign)
     end
   end
 end
-ax("<C-a>", main_value(1), "Tracks louder, or the clips' notes up")
-ax("<C-x>", main_value(-1), "Tracks softer, or the clips' notes down")
-ax("+", main_value(1), "Tracks louder, or the clips' notes up")
-ax("-", main_value(-1), "Tracks softer, or the clips' notes down")
+ax("<C-a>", main_value(1), "Tracks louder, or the notes in the selection up")
+ax("<C-x>", main_value(-1), "Tracks softer, or the notes in the selection down")
+ax("+", main_value(1), "Tracks louder, or the notes in the selection up")
+ax("-", main_value(-1), "Tracks softer, or the notes in the selection down")
 ax("]", pan_value(1), "Pan the tracks right", "second+")
 ax("[", pan_value(-1), "Pan the tracks left", "second-")
 ax("L", function(region, ctx) shift(region, ctx.count or 1) end, "Move the clips right")
