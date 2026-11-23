@@ -706,13 +706,14 @@ function M.pick()
       actions = {
         ["<CR>"] = {
           keep = true,
+          refresh = true,
           desc = "show or hide / edit or not",
           fn = function(row: Row)
             if not row then
               return
             end
-            -- The row keeps what it shows now: the next Enter on it
-            -- turns it back.
+            -- The row keeps what it shows now, so the line (`refresh`)
+            -- and the next Enter on it read the new state.
             if row.kind == "track" and not row.active then
               M.show_track(row.id, not row.on)
               row.on = not row.on

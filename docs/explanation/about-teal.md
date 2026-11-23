@@ -924,9 +924,10 @@ A change to text would change the files that save the layout.
 
 The picker of `:roll.tracks` read a third argument in its action for
 Enter, to change the text of the line. The picker never gives that
-argument, so the line keeps its old text after Enter. The port removed
-the code that could not run, and the line still does not change. The
-bug needs a fix and a test.
+argument, so the line kept its old text after Enter. The port removed
+the code that could not run. Now an action of a picker can say
+`refresh = true`, and the picker makes the line of the item again after
+the action. `:roll.tracks` uses it, and a test checks the line.
 
 `pianoroll.opened` and `roll_clips.changed` had a descriptor in the
 module that sends them and a second one in `paw.lsp`. `paw.lsp` now uses
