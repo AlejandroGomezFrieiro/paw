@@ -7,6 +7,71 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: keys in a scope (TASK-6.7)
+
+The scenario `scope` of `bench/profile/drive.py` ([profile.md](profile.md)).
+The project: `bench/profile/project.lua`, with five regions and a group of 16
+tracks that the scenario adds. One binary of main (07a06cd3) ran with the Lua
+of main and of the branch (`PAW_RUNTIME`), in turns, 3 pairs, under the
+measure lock on cores 16 to 23. All values were measured under external load
+(load average 3.3 to 6.7). Each value is the processor time of the kernel
+thread from the key until the screen is quiet for 250 ms: the median of the
+3 runs, then the smallest and largest value of all runs (a move runs 5 times
+in each run). "First frame" is the median time from the key to its first
+frame on the branch.
+
+Two causes were over the limit or made a scope slower than the song:
+
+- Each frame asked for the region of the scope again, for each lane and for
+  each bar of the ruler. Each time, `paw.markers.list()` read the whole
+  project from the kernel. Now `paw.scope` keeps the regions until the
+  project or an event changes (`runtime/lua/paw/scope.tl`).
+- `:%quantize` in a region read every note of every clip of the scope's
+  tracks, and then kept the notes in the region's time. Now the kernel gives
+  only the notes that sound in the time (`runtime/lua/paw/ex.tl`).
+
+| Key, in the order of the scenario | main | branch | first frame |
+| --- | ---: | ---: | ---: |
+| A frame of the song | 11 ms (8 to 48) | 11 ms (8 to 51) | |
+| `znar` (into Verse A) | 39 ms (35 to 39) | 38 ms (34 to 38) | 33 ms |
+| A frame in the region | 13 ms (11 to 60) | 11 ms (8 to 57) | |
+| `j` | 16 ms (12 to 57) | 11 ms (9 to 18) | 11 ms |
+| `k` | 14 ms (12 to 45) | 10 ms (9 to 14) | 10 ms |
+| `w` | 17 ms (11 to 31) | 19 ms (11 to 45) | 12 ms |
+| `b` | 15 ms (13 to 51) | 12 ms (10 to 54) | 12 ms |
+| `zfar` | 12 ms (11 to 13) | 7.0 ms (6.9 to 8.4) | 7 ms |
+| `zm` | 40 ms (34 to 101) | 25 ms (24 to 26) | 16 ms |
+| `zr` | 14 ms (13 to 42) | 7.3 ms (6.8 to 13.2) | 7 ms |
+| `znn` (into Strings in Verse A) | 28 ms (27 to 115) | 20 ms (19 to 21) | 12 ms |
+| `zw` | 17 ms (16 to 30) | 4.8 ms (4.5 to 14.9) | 5 ms |
+| `]z` (Verse B) | 32 ms (29 to 36) | 27 ms (26 to 30) | 11 ms |
+| `:%quantize 1/4` (about 6 400 notes) | 270 ms (245 to 301) | 253 ms (225 to 262) | 76 ms |
+| `u` | 111 ms (84 to 133) | 92 ms (81 to 114) | 31 ms |
+| Open the piano roll (`<CR>`) | 36 ms (33 to 44) | 32 ms (29 to 37) | 25 ms |
+| `j` in the piano roll | 40 ms (31 to 74) | 42 ms (35 to 60) | 5 ms |
+| `:q` | 21 ms (19 to 23) | 19 ms (16 to 21) | 19 ms |
+| `zW` | 17 ms (14 to 20) | 19 ms (13 to 21) | 19 ms |
+| `znag` (into Strings) | 24 ms (22 to 26) | 28 ms (24 to 36) | 19 ms |
+| A frame in the group | 7.2 ms (5.8 to 48) | 7.2 ms (5.7 to 37) | |
+| `j` in the group | 11 ms (10 to 47) | 11 ms (10 to 46) | 11 ms |
+| `k` in the group | 9.5 ms (8.8 to 50) | 11 ms (9 to 46) | 11 ms |
+| `zw` out of the group | 6.6 ms (6.6 to 6.9) | 7.1 ms (6.5 to 7.4) | 7 ms |
+
+A frame in the region now costs the same as a frame of the song, and a frame
+in the group costs less. Before, a frame in the region cost 13 to 14 ms
+against 11 ms for the song. In the samples of `jit.profile`, `markers.list`
+was 21 % of the region's frames before and 1.5 % after.
+
+Each key is under 100 ms but two. `:%quantize 1/4` and the `u` after it are
+over the limit. Their first frame comes after 76 and 31 ms. The rest is work
+after the frame: the chord reading runs one slice of 61 to 103 ms (the job
+`derived`), and the command itself costs 45 to 58 ms. The same edit on the
+whole song costs more, so it is not a cost of the scope. TASK-183 (m-3) is
+for it.
+
+`j` in the piano roll costs 35 to 60 ms because the note that it plays
+moves the meters (TASK-113).
+
 ## 2026-11-22: windows kept by their stamp (TASK-124)
 
 A window without the keyboard keeps its cells while the `stamp` of its
