@@ -8,7 +8,7 @@
 //! frame of each beat come from one function of the frame count, and do
 //! not depend on where the blocks fall.
 
-use crate::tempo::TempoMap;
+use paw_types::TempoMap;
 
 /// Where the song plays: the beat it was last put on, and the frames
 /// played since.
@@ -173,8 +173,10 @@ impl<'a> Clock<'a> {
 
 #[cfg(test)]
 mod tests {
+
+    use paw_types::{SigPoint, TempoPoint};
+
     use super::*;
-    use crate::tempo::{SigPoint, TempoPoint};
 
     /// An event is on the last frame whose beat is at or before it, so the
     /// block whose beats hold the event also holds its frame. The beats are

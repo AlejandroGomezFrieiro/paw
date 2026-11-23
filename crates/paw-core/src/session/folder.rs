@@ -1942,7 +1942,7 @@ impl super::Session {
         }
         if only.is_none() {
             // The undo file keeps these files as the state saved.
-            self.doc.undo.file.saved_files = Some((self.doc.undo.history.current(), layout.files));
+            self.undo_file.saved_files = Some((self.doc.undo.history.current(), layout.files));
         }
         let saved = Saved {
             path: file.clone(),

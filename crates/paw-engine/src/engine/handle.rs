@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
+use paw_types::EventKind;
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
 
-use crate::event::EventKind;
 use crate::midi_out::MidiOut;
 
 use super::{Engine, Waker};

@@ -23,17 +23,15 @@ mod work;
 use std::sync::Arc;
 use std::sync::atomic::Ordering::Relaxed;
 
+use paw_types::{Ctl, EventKind, TempoMap, automation::next_point};
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
 
-use crate::automation;
-use crate::event::{Ctl, EventKind};
 use crate::midi_filter::MidiFilter;
 use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::{MidiCapture, Take};
 use crate::slot::{DeviceSlot, TrackSlot};
-use crate::tempo::TempoMap;
 
 use clock::PlayHead;
 
@@ -459,7 +457,7 @@ impl Engine {
             let Some(claim) = t.claim() else { continue };
             let Some(t) = claim.as_deref() else { continue };
             for lane in &t.automation.states {
-                if let Some(at) = automation::next_point(&lane.points, beat) {
+                if let Some(at) = next_point(&lane.points, beat) {
                     next = Some(next.map_or(at, |n| n.min(at)));
                 }
             }
@@ -505,8 +503,10 @@ pub(crate) fn ctl_at(index: usize) -> Ctl {
 
 #[cfg(test)]
 mod tests {
+
+    use paw_types::Attr;
+
     use super::*;
-    use crate::event::Attr;
     use crate::midi_filter::{Control, Rule};
 
     fn on(key: u8) -> EventKind {

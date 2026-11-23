@@ -1,6 +1,6 @@
 //! The document: the project, its edits and its undo tree, with no engine.
 //!
-//! [`Session`](super::Session) holds one document in `doc`. An edit changes
+//! The session holds one document in `doc`. An edit changes
 //! [`Document::project`] and marks it dirty. The session's `flush` then
 //! compares the project with what the engine last saw and sends the
 //! difference: only `sync` tells the engine. A test of an edit or an undo
@@ -10,7 +10,9 @@
 //! lanes, nests, devices, tempo, the project's fields, the undo tree). Where
 //! a method needs what only the session has (a file, a plugin's parameter
 //! range), it takes it as an argument: `sound_seconds`, `is_file`,
-//! [`ParamRange`], `path`.
+//! [`ParamRange`], `path`. It reads no clock either: a step of the undo tree
+//! gets the schedule time of the turn (`now`) and the wall time that the
+//! tree shows (`wall`, seconds since 1970) from the session.
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -18,10 +20,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use serde_json::Value;
 
-use super::undo::{self, SWEEP_GAP};
 use crate::clock::ScheduleTime;
 use crate::events::{ClipCopied, KernelEvent as E, NestCopied, TrackCopied};
-use crate::history::{self, History, StateId};
+use crate::history::{History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
 
@@ -39,8 +40,16 @@ mod project;
 mod tempo;
 mod tracks;
 mod undo_tree;
+mod values;
 pub(super) use automation::{check_lane_state, clean_points};
-pub(super) use clips::{ClipField, check_clip_track};
+pub(super) use clips::{ClipField, check_clip_track, check_pitch, check_ratio, check_tempo, check_warp};
+pub(crate) use clips::{ClipKind, ClipOpts, CustomSet};
+pub(crate) use tracks::TrackListOpts;
+#[cfg(test)]
+pub(super) use tracks::TrackOpts;
+pub(super) use undo_tree::{Adjusting, new_history};
+use undo_tree::{SWEEP_GAP, Undo};
+pub(super) use values::{de, finite, holds, sorted};
 pub(crate) use chain::{Place, WrapOpts};
 
 /// The project, its undo tree, and what its edits report.
@@ -52,8 +61,8 @@ pub(crate) struct Document {
     /// The project differs from what the engine last saw: the session's
     /// next `flush` sends the difference.
     pub(super) dirty: bool,
-    /// The undo tree and the open step: see `session/undo.rs`.
-    pub(super) undo: undo::Undo,
+    /// The undo tree and the open step: see `undo_tree.rs`.
+    pub(super) undo: Undo,
     pub(super) next_id: Id,
     /// The kinds of clip that extensions defined (`paw.clip_kinds.define`):
     /// a clip of another custom kind is not added. Not part of the project.
@@ -66,13 +75,23 @@ pub(crate) struct Document {
     pub warnings: Vec<String>,
 }
 
+#[cfg(test)]
 impl Default for Document {
-    /// An empty project with no undo steps.
+    /// For a test: an empty project with no undo steps, made at the wall
+    /// time 0.
     fn default() -> Self {
+        Self::new(0.0)
+    }
+}
+
+impl Document {
+    /// An empty project with no undo steps, made at the wall time `wall`
+    /// (seconds since 1970).
+    pub(crate) fn new(wall: f64) -> Self {
         let project = Project::default();
         Self {
             named: (project.tracks.clone(), project.master.clone()),
-            undo: undo::Undo::new(&project),
+            undo: Undo::new(&project, wall),
             project,
             dirty: false,
             next_id: MASTER_ID + 1,
@@ -157,9 +176,10 @@ impl Document {
     }
 
     /// Close the current undo step at `now`, if anything changed since the
-    /// last one. True when it made a new step; false when nothing changed,
-    /// or when the open step joined the step before it.
-    pub(crate) fn checkpoint(&mut self, now: ScheduleTime) -> bool {
+    /// last one; the step shows the wall time `wall`. True when it made a new
+    /// step; false when nothing changed, or when the open step joined the
+    /// step before it.
+    pub(crate) fn checkpoint(&mut self, now: ScheduleTime, wall: f64) -> bool {
         let sweep = std::mem::take(&mut self.undo.sweep);
         let join = self.undo.join.take();
         self.undo.adjusting = None;
@@ -176,7 +196,7 @@ impl Document {
         if join.is_some_and(|state| state == self.undo.history.current() && self.undo.history.can_extend()) {
             // Asked for: what this turn did belongs to the step before.
             self.undo.checkpoint = self.project.clone();
-            self.undo.history.amend(self.undo.checkpoint.clone(), history::now());
+            self.undo.history.amend(self.undo.checkpoint.clone(), wall);
             self.undo.last_sweep = None;
             return false;
         }
@@ -193,7 +213,7 @@ impl Document {
             // Still the same move: the step made for it holds where it got to.
             let state = *state;
             self.undo.checkpoint = self.project.clone();
-            self.undo.history.amend(self.undo.checkpoint.clone(), history::now());
+            self.undo.history.amend(self.undo.checkpoint.clone(), wall);
             self.undo.last_sweep = Some((key.clone(), now, state));
             return false;
         }
@@ -202,7 +222,7 @@ impl Document {
         }
         let previous = std::mem::replace(&mut self.undo.checkpoint, self.project.clone());
         self.undo.history.set_current_snapshot(previous);
-        let state = self.undo.history.push(self.undo.checkpoint.clone(), history::now());
+        let state = self.undo.history.push(self.undo.checkpoint.clone(), wall);
         if self.undo.history.newly_pruned() {
             self.warnings.push(format!(
                 "the undo history keeps {} steps and {} MB at most: its oldest steps are let go",
@@ -237,7 +257,7 @@ impl Document {
         // A move in the tree ends a sweep: the open step joins no step
         // before it, so the time does not matter.
         self.undo.last_sweep = None;
-        self.checkpoint(ScheduleTime::ZERO);
+        self.checkpoint(ScheduleTime::ZERO, 0.0);
         let (from, id) = self.history_move(go)?;
         if id != from {
             self.take_current_state();
@@ -515,7 +535,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        assert!(doc.checkpoint(ScheduleTime::ZERO), "the edit makes an undo step");
+        assert!(doc.checkpoint(ScheduleTime::ZERO, 0.0), "the edit makes an undo step");
 
         assert!(doc.undo(), "the step is undone");
         assert!(doc.project.tracks.is_empty(), "the undo takes the track away");
@@ -542,7 +562,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        doc.checkpoint(ScheduleTime::ZERO);
+        doc.checkpoint(ScheduleTime::ZERO, 0.0);
         let source = |doc: &Document| doc.project.nest(NestId(10)).and_then(|n| n.source.clone());
         let copied = |doc: &Document| {
             doc.events.iter().filter(|e| matches!(e.event, E::NestCopied(_))).count()
@@ -553,7 +573,7 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-            doc.checkpoint(ScheduleTime::ZERO);
+            doc.checkpoint(ScheduleTime::ZERO, 0.0);
         };
         rename(&mut doc, 2, "Lead");
         assert!(source(&doc).is_some(), "an edit of the song leaves the reference");
@@ -576,7 +596,7 @@ mod tests {
             anyhow::bail!("{} tracks: no change", project.tracks.len())
         });
         assert!(failed.is_err());
-        assert!(!doc.checkpoint(ScheduleTime::ZERO), "no step for an edit that failed");
+        assert!(!doc.checkpoint(ScheduleTime::ZERO, 0.0), "no step for an edit that failed");
         assert!(!doc.undo(), "nothing to undo");
     }
 
@@ -593,7 +613,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        doc.checkpoint(at(0));
+        doc.checkpoint(at(0), 0.0);
         let drag = |doc: &mut Document, gain: f64, now: ScheduleTime| {
             doc.edit(|p| {
                 p.track_mut(id).unwrap().volume = gain;
@@ -601,7 +621,7 @@ mod tests {
             })
             .unwrap();
             doc.swept(format!("volume {id}"));
-            doc.checkpoint(now)
+            doc.checkpoint(now, 0.0)
         };
         assert!(drag(&mut doc, -1.0, at(100)), "the first move makes a step");
         assert!(!drag(&mut doc, -2.0, at(100) + SWEEP_GAP / 2), "a move within the gap joins it");

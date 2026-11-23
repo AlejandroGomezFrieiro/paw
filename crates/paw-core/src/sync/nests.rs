@@ -200,8 +200,8 @@ impl Placed {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Local {
     places: Vec<paw_engine::Place>,
-    meter: Vec<paw_engine::SigPoint>,
-    tempo: Vec<paw_engine::TempoPoint>,
+    meter: Vec<paw_types::SigPoint>,
+    tempo: Vec<paw_types::TempoPoint>,
 }
 
 impl Local {

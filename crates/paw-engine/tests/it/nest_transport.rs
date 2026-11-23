@@ -6,8 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use paw_engine::{
     Device, DeviceSlot, Engine, Io, LocalTime, Msg, Place, ProcessCtx, SchedEntry, Schedule,
-    SigPoint, TempoMap, TempoPoint, TrackRt, TrackSlot,
+    TrackRt, TrackSlot,
 };
+use paw_types::{SigPoint, TempoMap, TempoPoint};
 
 use crate::common::{SR, send};
 

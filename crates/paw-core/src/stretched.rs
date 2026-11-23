@@ -19,7 +19,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::Result;
-use paw_engine::{AudioData, AudioRegion, DiskStore, Sink, TempoMap};
+use paw_engine::{AudioData, AudioRegion, DiskStore, Sink};
+use paw_types::TempoMap;
 use serde_json::json;
 
 use crate::bake::scheduler::{Bake, Made, Scheduler, Task};

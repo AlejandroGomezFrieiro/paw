@@ -34,7 +34,7 @@ use crate::db_to_gain;
 use crate::device::{
     Controller, Device, DeviceFactory, DeviceInfo, Instance, Io, ParamInfo, ProcessCtx,
 };
-use crate::event::EventKind;
+use paw_types::EventKind;
 
 /// Samples that can sound at once.
 pub const VOICES: usize = 32;
@@ -493,7 +493,7 @@ mod tests {
                     key,
                     vel: 1.0,
                     ch: 0,
-                    attr: crate::event::Attr::NONE,
+                    attr: paw_types::Attr::NONE,
                 },
             });
         }

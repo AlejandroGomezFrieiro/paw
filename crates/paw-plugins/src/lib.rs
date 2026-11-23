@@ -34,9 +34,8 @@ use std::sync::OnceLock;
 use std::thread::ThreadId;
 use std::time::UNIX_EPOCH;
 
-use paw_engine::{
-    Category, DeviceFactory, DeviceFormat, DeviceInfo, Event, EventKind, Registry,
-};
+use paw_engine::{Category, DeviceFactory, DeviceFormat, DeviceInfo, Event, Registry};
+use paw_types::EventKind;
 use serde::{Deserialize, Serialize};
 
 static MAIN_THREAD: OnceLock<ThreadId> = OnceLock::new();

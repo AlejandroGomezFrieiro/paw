@@ -2,14 +2,17 @@
 //! and their fields. What loads, asks or calls a plugin is the session's,
 //! in `session/devices.rs`.
 
+use std::collections::BTreeMap;
+
 use anyhow::{Context, Result, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use paw_engine::MAX_PAIRS;
 use serde_json::Value;
 
 use super::Document;
-use crate::model::{Id, MASTER_ID};
-use crate::session::{de, de_meta, ports};
+use super::values::{de, de_meta};
+use crate::model::{Id, MASTER_ID, Project};
 
 impl Document {
     pub(crate) fn device_remove(&mut self, id: Id) -> Result<()> {
@@ -46,7 +49,7 @@ impl Document {
             }
             if from != track {
                 for (pair, to) in p.device(id).map(|d| d.outputs.clone()).unwrap_or_default() {
-                    ports::check_output(p, track, pair, to)?;
+                    check_output(p, track, pair, to)?;
                 }
             }
             let source = p.track_mut(from).unwrap();
@@ -103,9 +106,9 @@ impl Document {
                 let (track, _) = p
                     .find_device(id)
                     .with_context(|| format!("no device {id}"))?;
-                let outputs = ports::parse_outputs(value)?;
+                let outputs = parse_outputs(value)?;
                 for (pair, to) in &outputs {
-                    ports::check_output(p, track, *pair, *to)?;
+                    check_output(p, track, *pair, *to)?;
                 }
                 p.device_mut(id).unwrap().outputs = outputs;
                 return Ok(());
@@ -133,4 +136,61 @@ impl Document {
             Ok(())
         })
     }
+}
+
+/// A device's routed output pairs from what a script gives: a table of
+/// pair number to track (`{ [2] = 5 }`, which may arrive as a list with
+/// holes), or nil for none.
+fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
+    let mut out = BTreeMap::new();
+    let mut put = |pair: u32, to: &Value| -> Result<()> {
+        match to {
+            Value::Null => {}
+            to => match to.as_u64() {
+                Some(to) => {
+                    out.insert(pair, to as Id);
+                }
+                None => bail!("an output pair goes to a track, by its id"),
+            },
+        }
+        Ok(())
+    };
+    match value {
+        Value::Null => {}
+        Value::Array(list) => {
+            for (i, to) in list.iter().enumerate() {
+                put(i as u32 + 1, to)?;
+            }
+        }
+        Value::Object(map) => {
+            for (pair, to) in &map {
+                let Ok(pair) = pair.parse::<u32>() else {
+                    bail!("output pairs are numbered: `{pair}` is not a number");
+                };
+                put(pair, to)?;
+            }
+        }
+        _ => bail!("a device's outputs are a table of pair number to track"),
+    }
+    Ok(out)
+}
+
+/// Whether a device on `track` may play its pair `pair` into track `to`.
+fn check_output(p: &Project, track: Id, pair: u32, to: Id) -> Result<()> {
+    if !(2..=MAX_PAIRS as u32).contains(&pair) {
+        bail!("output pair {pair} is not one that can be routed: from 2 to {MAX_PAIRS}");
+    }
+    if track == MASTER_ID {
+        bail!("the master feeds nothing, so its devices' outputs cannot be routed");
+    }
+    if p.track(to).is_none() {
+        bail!("no track {to} for output pair {pair}");
+    }
+    if to == track {
+        bail!("output pair {pair} cannot play into the device's own track");
+    }
+    if to != MASTER_ID && p.would_cycle(track, to) {
+        bail!("output pair {pair} into track {to} would make a loop");
+    }
+    p.check_route(track, to, crate::model::Route::Pair)
 }

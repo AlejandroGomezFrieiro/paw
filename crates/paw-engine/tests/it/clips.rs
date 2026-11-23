@@ -1,9 +1,10 @@
 //! Replacing one track's clips while playing must not disturb the others.
 
 use paw_engine::{
-    ClipSet, DeviceSlot, Engine, EngineHandle, EventKind, MAX_BLOCK, Msg, Registry, SchedEntry,
-    Schedule, TrackRt, TrackSlot,
+    ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
+    TrackRt, TrackSlot,
 };
+use paw_types::EventKind;
 
 use crate::common::{SR, send};
 
@@ -318,7 +319,8 @@ fn a_reversed_region_plays_its_stretch_of_the_source_from_the_end() {
 /// different clips and sound of their own: each clip's events (sorted as a
 /// clip's are) and sound.
 fn overlapping_clips(data: &std::sync::Arc<paw_engine::AudioData>, count: usize) -> Vec<ClipSet> {
-    use paw_engine::{AudioRegion, Ctl};
+    use paw_engine::AudioRegion;
+    use paw_types::Ctl;
     (0..count)
         .map(|c| {
             let mut set = ClipSet::default();

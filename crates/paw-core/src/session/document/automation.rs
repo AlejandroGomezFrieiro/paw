@@ -11,8 +11,8 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use serde_json::{Value, json};
 
 use super::Document;
+use super::values::{de, holds};
 use crate::model::{Id, Lane, LaneState, Segment, Shape, Target};
-use crate::session::{de, holds};
 
 /// The lowest and highest value of a plugin's parameter (device, key),
 /// or none when the plugin is not there to say.
@@ -136,7 +136,7 @@ impl Document {
     /// The lane's value at a beat, or nothing when it has no points.
     pub(crate) fn lane_value_at(&self, id: Id, beat: f64) -> Result<Option<f64>> {
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
-        Ok(paw_engine::automation::value_at(&lane.played(), beat))
+        Ok(paw_types::automation::value_at(&lane.played(), beat))
     }
 
     /// The states of a state lane, whole.
@@ -211,7 +211,7 @@ fn target_range(target: &Target, states: usize, param_range: ParamRange) -> (f64
 /// Points made valid for a target: finite, at beat 0 or later, within the
 /// target's range, and sorted by beat (points sharing a beat keep their
 /// order). A state lane's points name a state of its `states` by number.
-pub(in crate::session) fn clean_points(
+pub(crate) fn clean_points(
     target: &Target,
     states: usize,
     points: Vec<(f64, f64)>,
@@ -261,7 +261,7 @@ fn lane_json(l: &Lane, track: Id, param_range: ParamRange) -> Value {
 
 /// A state for a state lane, checked: a name, a state that is base64,
 /// a program within MIDI's range.
-pub(in crate::session) fn check_lane_state(mut state: LaneState) -> Result<LaneState> {
+pub(crate) fn check_lane_state(mut state: LaneState) -> Result<LaneState> {
     state.name = state.name.trim().to_string();
     if state.name.is_empty() {
         bail!("a lane's state needs a `name`");
@@ -298,7 +298,7 @@ pub(in crate::session) fn check_lane_state(mut state: LaneState) -> Result<LaneS
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::TrackOpts;
+    use super::super::TrackOpts;
 
     #[test]
     fn a_lane_keeps_its_points_within_the_range_of_its_parameter() {

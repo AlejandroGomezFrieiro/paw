@@ -11,6 +11,7 @@ default = ["cpal", "midi"]
 midi = ["dep:alsa-sys"]
 
 [dependencies]
+paw-types.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 serde.workspace = true

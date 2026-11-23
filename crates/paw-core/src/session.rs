@@ -16,20 +16,22 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, Stream, StreamInfo};
 use paw_engine::midi::{MidiInputs, MidiSink};
-use paw_engine::{Engine, EngineHandle, EventKind, Msg, ParamInfo, Pool, Quality, Registry};
+use paw_engine::{Engine, EngineHandle, Msg, ParamInfo, Pool, Quality, Registry};
 use paw_proto::dirs::Dirs;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use paw_types::EventKind;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::history::{self, History};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, DeviceInst, KindData, MediaRef, Signal, Timeline, Id, Lane, LaneState, MASTER_ID, NestPlay, Note, NoteAttr, Project,
-    Sound, StretchMode, Target, Timebase, Track, WarpMarker,
+    Clip, ClipContent, Control, DeviceInst, Id, Lane, LaneState, MASTER_ID, NestPlay, Note, NoteAttr, Project,
+    StretchMode, Target, Timebase, Track,
 };
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub(crate) use document::{Document, notes};
+pub(crate) use document::{ClipKind, ClipOpts, CustomSet, Document, TrackListOpts, notes};
+use document::{de, finite, holds, new_history, sorted};
 mod editing;
 mod project;
 mod tracks;
@@ -74,7 +76,6 @@ mod undo;
 mod watch;
 pub(crate) use watch::Lost;
 mod write;
-use undo::new_history;
 
 const FILE_VERSION: u32 = 1;
 /// More points than any screen has columns.
@@ -168,31 +169,6 @@ pub(crate) fn project_file_text(value: Value) -> Result<String> {
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct TrackOpts {
-    pub name: Option<String>,
-    /// Position among the tracks of its place (the song, or its
-    /// subproject), counting from 1. Appended when absent.
-    pub index: Option<usize>,
-    pub volume: Option<f64>,
-    pub pan: Option<f64>,
-    pub output: Option<Id>,
-    pub color: Option<String>,
-    /// The nest (subproject) the track is made in; the song when absent.
-    pub nest: Option<crate::model::NestId>,
-}
-
-/// What `paw.api.track_list` takes: the tracks of the song when empty.
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub(crate) struct TrackListOpts {
-    /// The tracks of this subproject, without its master.
-    pub nest: Option<crate::model::NestId>,
-    /// Every track: the song's and those of each subproject.
-    pub all: bool,
-}
-
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
 pub(crate) struct PresetLoad {
     /// The preset's name, shown with the device.
     pub name: Option<String>,
@@ -222,53 +198,6 @@ pub(crate) struct DeviceOpts {
     pub params: BTreeMap<String, f64>,
     /// A plugin's state as [`Session::device_state`] gave it, to start from.
     pub state: Option<String>,
-}
-
-/// What a new clip holds: `midi`, `audio` or the name of a kind that an
-/// extension defines, in Lua. A word that is no name fails with the text of
-/// [`FromStr`](std::str::FromStr); whether an extension defined it is known
-/// where the clip is added (`Document::clip_kinds`).
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-#[serde(try_from = "String")]
-pub(crate) enum ClipKind {
-    Midi,
-    Audio,
-    /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
-    Nest,
-    Custom(ClipKindId),
-}
-
-impl ClipKind {
-    /// The built-in kind that decides how the clip may play: its own, or
-    /// that of the sound of a custom clip (MIDI when it has none).
-    pub(crate) fn playing(&self, sound: Option<&Sound>) -> ClipKind {
-        match (self, sound.map(Sound::content)) {
-            (ClipKind::Custom(_), Some(ClipContent::Audio { .. })) => ClipKind::Audio,
-            (ClipKind::Custom(_), _) => ClipKind::Midi,
-            (built_in, _) => built_in.clone(),
-        }
-    }
-}
-
-impl std::str::FromStr for ClipKind {
-    type Err = anyhow::Error;
-
-    fn from_str(word: &str) -> Result<Self> {
-        Ok(match word {
-            "midi" => Self::Midi,
-            "audio" => Self::Audio,
-            "nest" => Self::Nest,
-            other => Self::Custom(other.parse::<ClipKindId>()?),
-        })
-    }
-}
-
-impl TryFrom<String> for ClipKind {
-    type Error = anyhow::Error;
-
-    fn try_from(word: String) -> Result<Self> {
-        word.parse()
-    }
 }
 
 /// What a new lane automates: `volume`, `pan`, `param` or `state` in Lua.
@@ -301,73 +230,6 @@ impl TryFrom<String> for LaneKind {
     fn try_from(word: String) -> Result<Self> {
         word.parse()
     }
-}
-
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub(crate) struct ClipOpts {
-    /// Inferred from `file` when absent.
-    pub kind: Option<ClipKind>,
-    pub name: Option<String>,
-    pub start: f64,
-    pub length: Option<f64>,
-    pub notes: Vec<Note>,
-    pub file: Option<PathBuf>,
-    pub offset: f64,
-    pub gain: f64,
-    /// Beats an audio clip fades in and out over.
-    pub fade_in: f64,
-    pub fade_out: f64,
-    /// Controller moves of a MIDI clip.
-    pub controls: Vec<Control>,
-    pub meta: Map<String, Value>,
-    /// How it plays, as the clip's fields of these names have it: an
-    /// audio clip's timebase, stretch and pitch, and looping.
-    pub timebase: Option<Timebase>,
-    pub stretch: Option<f64>,
-    pub pitch: f64,
-    pub stretch_mode: StretchMode,
-    pub source_tempo: Option<f64>,
-    pub warp: Vec<WarpMarker>,
-    pub formants: bool,
-    #[serde(rename = "loop")]
-    pub looped: bool,
-    pub loop_length: Option<f64>,
-    pub loop_start: f64,
-    /// A MIDI clip's overrides, as the clip's fields of these names have
-    /// them (`model/overrides.rs`).
-    pub transpose: i8,
-    pub velocity: i8,
-    /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
-    pub cue: bool,
-    /// A clip of a kind that an extension defines: its content (`data` is
-    /// required, `length` too; `offset` is in the kind's timeline).
-    pub version: Option<u32>,
-    pub timeline: Timeline,
-    pub data: Option<KindData>,
-    pub media: Vec<MediaRef>,
-    pub sound: Option<Sound>,
-    pub signals: Vec<Signal>,
-    /// A nest clip: the subproject it places, and what it plays of it
-    /// (its mix when absent). `offset` is then beats into the subproject.
-    pub nest: Option<crate::model::NestId>,
-    pub play: Option<crate::model::NestPlay>,
-}
-
-/// What [`Document::clip_set_custom`] gives a custom clip: what its kind
-/// compiled, replacing data, media, sound and signals together, so that it
-/// is one edit. `version`, `timeline` and `offset` stay as they are when
-/// absent.
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub(crate) struct CustomSet {
-    pub data: Option<KindData>,
-    pub version: Option<u32>,
-    pub timeline: Option<Timeline>,
-    pub offset: Option<f64>,
-    pub media: Vec<MediaRef>,
-    pub sound: Option<Sound>,
-    pub signals: Vec<Signal>,
 }
 
 #[derive(Default, Deserialize)]
@@ -482,6 +344,10 @@ impl Default for RenderOpts {
 pub(crate) struct Session {
     /// The project, its edits and its undo tree: see `session/document.rs`.
     pub doc: Document,
+    /// The undo file of the project, which a thread writes: see
+    /// `session/undo_file.rs`. The states of the undo tree of `doc` that
+    /// are only in this file are read back from it.
+    undo_file: undo_file::UndoFile,
     /// The project as the engine last saw it.
     synced: Project,
 
@@ -573,45 +439,14 @@ pub(crate) struct AudioChoice {
     pub rate: Option<u32>,
 }
 
-/// Free-form data from a script. An empty Lua table arrives as an empty
-/// list, and means an empty map here.
-fn de_meta(key: &str, value: Value) -> Result<Map<String, Value>> {
-    match value {
-        Value::Array(list) if list.is_empty() => Ok(Map::new()),
-        value => de(key, value),
-    }
-}
-
-/// Whether `key` of a view already holds `value`: setting it would change
-/// nothing, and makes no undo step. Numbers are compared as numbers.
-fn holds(view: &Result<Value>, key: &str, value: &Value) -> bool {
-    fn same(a: &Value, b: &Value) -> bool {
-        match (a, b) {
-            (Value::Number(a), Value::Number(b)) => a.as_f64() == b.as_f64(),
-            (Value::Array(a), Value::Array(b)) => {
-                a.len() == b.len() && a.iter().zip(b).all(|(a, b)| same(a, b))
-            }
-            (Value::Object(a), Value::Object(b)) => {
-                a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| same(v, w)))
-            }
-            _ => a == b,
-        }
-    }
-    view.as_ref()
-        .is_ok_and(|view| view.get(key).is_some_and(|old| same(old, value)))
-}
-
-fn de<T: DeserializeOwned>(key: &str, value: Value) -> Result<T> {
-    serde_json::from_value(value).map_err(|err| anyhow!("bad value for `{key}`: {err}"))
-}
-
 impl Session {
     pub(crate) fn new(opts: &BackendOptions, registry: Registry) -> Result<Self> {
         let (handle, stream) = start_engine(opts)?;
-        let doc = Document::default();
+        let doc = Document::new(history::now());
         let mut session = Self {
             synced: doc.project.clone(),
             doc,
+            undo_file: Default::default(),
             engine: engine::EngineLink {
                 handle,
                 map: Mapper::new(),
@@ -839,20 +674,6 @@ pub(crate) fn check_sample_rate(rate: u32) -> Result<()> {
     Ok(())
 }
 
-/// `value`, or an error naming `what` if it is NaN or infinite.
-fn finite(what: &str, value: f64) -> Result<f64> {
-    if value.is_finite() {
-        Ok(value)
-    } else {
-        bail!("{what} must be a finite number, not {value}")
-    }
-}
-
-fn sorted(mut notes: Vec<Note>) -> Vec<Note> {
-    notes.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.pitch.cmp(&b.pitch)));
-    notes
-}
-
 /// Give the plugins of an engine that is about to render offline a moment
 /// to get ready. Many prepare in the background what a change of settings
 /// needs (a delay line, an impulse response, samples) and stay silent until
@@ -870,25 +691,6 @@ pub(crate) fn settle_plugins(engine: &mut Engine, live: &LiveDevices) {
         std::thread::sleep(Duration::from_millis(12));
     }
     engine.process(left, right);
-}
-
-fn check_controls(mut controls: Vec<Control>) -> Result<Vec<Control>> {
-    if let Some((control, problem)) = controls
-        .iter()
-        .find_map(|c| c.problem().map(|problem| (c, problem)))
-    {
-        bail!("a controller move cannot be {control:?}: {problem}");
-    }
-    controls.sort_by(|a, b| a.start.total_cmp(&b.start));
-    Ok(controls)
-}
-
-/// A fade is a number of beats from 0 up.
-fn check_fade(beats: f64) -> Result<f64> {
-    if !beats.is_finite() || beats < 0.0 {
-        bail!("a fade is a number of beats from 0 up");
-    }
-    Ok(beats)
 }
 
 /// A warp marker as a clip's description gives it: with the beat of the

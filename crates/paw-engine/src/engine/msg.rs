@@ -1,11 +1,11 @@
 //! The messages the main thread sends the audio thread, and what goes back to be freed.
 
+use paw_types::{EventKind, TempoMap};
 use rtrb::Producer;
 
 use crate::automation::Automation;
 use crate::clip::ClipSet;
 use crate::device::Device;
-use crate::event::EventKind;
 use crate::launch::{Launch, Slots};
 use crate::midi_filter::MidiFilter;
 use crate::midi_out::MidiOut;
@@ -13,7 +13,6 @@ use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::Take;
 use crate::slot::{DeviceSlot, TrackSlot};
-use crate::tempo::TempoMap;
 
 use super::device_rt::{KeyBuf, OutBufs};
 use super::schedule::Schedule;
@@ -63,7 +62,7 @@ pub enum Msg {
     /// or `None` for the song's.
     SetLocalTime {
         track: TrackSlot,
-        time: Option<Box<crate::tempo::LocalTime>>,
+        time: Option<Box<crate::LocalTime>>,
     },
     SetParam {
         device: DeviceSlot,
@@ -170,7 +169,7 @@ pub enum Msg {
         track: TrackSlot,
         port: u32,
         channel: u8,
-        form: crate::midi_form::Form,
+        form: paw_types::midi_form::Form,
     },
     /// Where MIDI output goes: the queue a sender thread reads (see
     /// [`EngineHandle::midi_output`]), or nowhere.
@@ -236,5 +235,5 @@ pub(super) enum Garbage {
     Launches(#[allow(dead_code)] Box<[Launch]>),
     Preview(#[allow(dead_code)] Box<Preview>),
     MidiFilter(#[allow(dead_code)] Box<MidiFilter>),
-    LocalTime(#[allow(dead_code)] Box<crate::tempo::LocalTime>),
+    LocalTime(#[allow(dead_code)] Box<crate::LocalTime>),
 }

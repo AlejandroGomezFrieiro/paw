@@ -15,10 +15,10 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use atomic_float::AtomicF64;
+use paw_types::EventKind;
 use rtrb::{Consumer, Producer};
 
 use crate::slot::TrackSlot;
-use crate::event::EventKind;
 
 /// What the engine captures while a take is installed and the transport plays.
 /// Built on the main thread and sent over with [`Msg::SetTake`](crate::Msg::SetTake).

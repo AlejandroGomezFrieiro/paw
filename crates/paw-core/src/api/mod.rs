@@ -13,9 +13,9 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use paw_engine::EventKind;
 use mlua::serde::SerializeOptions;
 use mlua::{FromLuaMulti, Lua, LuaSerdeExt, MultiValue, Table, Value as LuaValue};
+use paw_types::EventKind;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;

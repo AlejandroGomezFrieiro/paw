@@ -7,6 +7,7 @@ rust-version.workspace = true
 description = "The kernel: project model, engine sync, Lua host, cell grid, event loop, RPC."
 
 [dependencies]
+paw-types.workspace = true
 paw-engine.workspace = true
 paw-luadev.workspace = true
 paw-measure.workspace = true

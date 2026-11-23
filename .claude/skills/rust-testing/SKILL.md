@@ -173,7 +173,7 @@ Where they are:
 | `paw-core/src/xml/props.rs` | An XML tree, written as the DAWproject writer writes it and read again, is the same tree |
 | `paw-core/src/attr_map/props.rs` | An attribute map, saved in the project file and read again, is the same map |
 | `paw-core/src/model/props.rs` | An undo gives the project before a change, and a redo the project after it |
-| `paw-engine/src/tempo/props.rs` | A beat to seconds and back is the same beat |
+| `paw-types/src/tempo/props.rs` | A beat to seconds and back is the same beat |
 | `chain-syntax/src/props.rs` | A chain that is printed and parsed again is the same graph. A second format of a text changes nothing |
 
 Rules:

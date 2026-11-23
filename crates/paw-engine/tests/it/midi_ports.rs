@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use alsa_sys::*;
 use paw_engine::midi::{MidiInputs, MidiTarget};
-use paw_engine::{Attr, Ctl, EventKind, NoteCtl, ump};
+use paw_types::{Attr, Ctl, EventKind, NoteCtl, ump};
 
 /// A sequencer client with one port that others can read from.
 struct Sender {

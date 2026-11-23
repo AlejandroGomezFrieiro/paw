@@ -20,8 +20,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Result, bail};
-use paw_engine::EventKind;
-use paw_engine::ump::{self, scale_down, scale_up};
+use paw_types::{EventKind, ump::{self, scale_down, scale_up}};
 use serde_json::{Map, Value, json};
 
 use crate::model::{Control, ControlKind, Note, NoteAttr, check_clip_beat};
@@ -420,7 +419,7 @@ impl Reader {
         }
     }
 
-    fn note_on(&mut self, key: u8, vel: u8, attr: paw_engine::Attr) {
+    fn note_on(&mut self, key: u8, vel: u8, attr: paw_types::Attr) {
         let extra = self.pending.take().unwrap_or_default();
         let note = Note {
             start: self.beat(self.tick),

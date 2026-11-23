@@ -13,13 +13,13 @@
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 
 use atomic_float::AtomicF64;
+use paw_types::{Attr, Quantize, TempoMap, tempo::EPS};
 
 use crate::clip::{ClipSet, Stamp};
 use crate::device::ProcessCtx;
 use crate::engine::mix_audio_constant;
 use crate::slot::TrackSlot;
-use crate::event::{Attr, Event, EventBuf};
-use crate::tempo::TempoMap;
+use crate::event::{Event, EventBuf};
 
 /// A clip in a slot: events and sound laid out in beats from its start,
 /// repeated every `length` beats.
@@ -40,51 +40,6 @@ impl Slots {
             .get(row as usize)?
             .as_ref()
             .filter(|s| s.length > 0.0)
-    }
-}
-
-/// Where launches land.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Quantize {
-    /// At once.
-    Off,
-    /// On a grid of this many beats (quarter notes), counted from the
-    /// start of each bar.
-    Grid(f64),
-    /// On the beats of the signature: an eighth in 6/8.
-    Beat,
-    /// On the start of every so many bars, counted from the first.
-    Bars(u32),
-}
-
-/// Two positions this close are the same.
-const EPS: f64 = 1e-9;
-
-impl Quantize {
-    /// The first boundary at or after `beat`.
-    pub fn next(self, map: &TempoMap, beat: f64) -> f64 {
-        let beat = beat.max(0.0);
-        match self {
-            Quantize::Off => beat,
-            Quantize::Bars(every) => {
-                let every = every.max(1) as i64;
-                let mut bar = map.bar_of(beat);
-                if map.bar_start(bar) < beat - EPS {
-                    bar += 1;
-                }
-                map.bar_start((bar + every - 1).div_euclid(every) * every)
-            }
-            Quantize::Grid(_) | Quantize::Beat => {
-                let bar = map.bar_of(beat);
-                let start = map.bar_start(bar);
-                let unit = match self {
-                    Quantize::Grid(unit) => unit.max(1e-3),
-                    _ => 4.0 / map.bar_signature(bar).1 as f64,
-                };
-                let steps = ((beat - start) / unit - EPS).ceil().max(0.0);
-                (start + steps * unit).min(map.bar_start(bar + 1))
-            }
-        }
     }
 }
 
@@ -358,7 +313,7 @@ impl LaunchState {
 /// playback had run through them. What the instrument was last told to
 /// play (a keyswitch, see [`ClipSet::switches`]) is told again first.
 pub(crate) fn chase(events: &mut EventBuf, clips: &ClipSet, before: f64) {
-    use crate::event::EventKind;
+    use paw_types::EventKind;
     // Each key's last note-on, while it is held: velocity, channel, attribute.
     let mut held = [(0f32, 0u8, Attr::NONE); 128];
     let mut controllers = [f64::NAN; 130];

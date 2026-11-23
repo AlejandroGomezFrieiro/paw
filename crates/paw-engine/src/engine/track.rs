@@ -1,8 +1,10 @@
 //! A track as the audio thread holds it, and the connections between tracks.
 
+use paw_types::EventKind;
+
 use crate::automation::Automation;
 use crate::clip::ClipSet;
-use crate::event::{Event, EventBuf, EventKind};
+use crate::{event::Event, event::EventBuf};
 use crate::launch::Launcher;
 use crate::slot::{DeviceSlot, TrackSlot};
 
@@ -50,7 +52,7 @@ pub struct TrackRt {
     /// form it goes in.
     pub(super) midi_out: u32,
     pub(super) midi_out_channel: u8,
-    pub(super) midi_out_form: crate::midi_form::Form,
+    pub(super) midi_out_form: paw_types::midi_form::Form,
     /// What it played this block, on its way to the port.
     pub(super) sent: Vec<Event>,
     /// The track's clips were replaced: stop its notes, and start again those
@@ -61,7 +63,7 @@ pub struct TrackRt {
     pub(super) launcher: Launcher,
     /// Its own time, which its devices see instead of the song's: a
     /// subproject's bars.
-    pub(super) local: Option<Box<crate::tempo::LocalTime>>,
+    pub(super) local: Option<Box<crate::LocalTime>>,
 }
 
 impl TrackRt {
@@ -91,7 +93,7 @@ impl TrackRt {
             held: 0,
             midi_out: 0,
             midi_out_channel: 0,
-            midi_out_form: crate::midi_form::Form::Auto,
+            midi_out_form: paw_types::midi_form::Form::Auto,
             sent: Vec::with_capacity(1024),
             flush: false,
             chase: false,

@@ -5,8 +5,9 @@ use std::ptr;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 
-use paw_engine::{Device, EventKind, Io, ProcessCtx, Rest, ump};
+use paw_engine::{Device, Io, ProcessCtx, Rest};
 use lilv_sys::*;
+use paw_types::{EventKind, ump};
 
 use crate::lv2_patch;
 use crate::{HeldNotes, write_output};

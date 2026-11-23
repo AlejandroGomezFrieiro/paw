@@ -19,7 +19,7 @@
 //! start is (the time its `offset` maps to).
 
 use anyhow::{Result, bail};
-use paw_engine::TempoMap;
+use paw_types::TempoMap;
 
 use crate::model::{Clip, ClipContent, Timebase, WarpMarker};
 use crate::stretch::RATIO_RANGE;
@@ -308,9 +308,10 @@ pub(crate) fn target_range(warp: &[WarpMarker], index: usize, stretch: f64) -> (
 
 #[cfg(test)]
 mod tests {
+    use paw_types::TempoPoint;
+
     use super::*;
     use crate::model::Id;
-    use paw_engine::TempoPoint;
     use std::path::PathBuf;
 
     fn clip(start: f64, length: f64, offset: f64) -> Clip {

@@ -20,6 +20,7 @@ default-members = [
   "crates/paw-raster",
   "crates/paw-scene",
   "crates/paw-tui",
+  "crates/paw-types",
 ]
 
 [workspace.package]
@@ -61,6 +62,8 @@ paw-raster = { path = "crates/paw-raster" }
 paw-scene = { path = "crates/paw-scene" }
 # The chain language, generic: it depends on no paw crate.
 chain-syntax = { path = "crates/chain-syntax" }
+# The value types of the model and the engine: builds for wasm32.
+paw-types = { path = "crates/paw-types" }
 anyhow = "1"
 # Typed errors where a caller tells one failure from another. Already in
 # Cargo.lock through other crates.

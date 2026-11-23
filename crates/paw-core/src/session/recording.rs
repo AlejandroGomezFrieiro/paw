@@ -20,7 +20,8 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use paw_engine::record::{self, AudioCapture, MidiCapture, TakeShared};
-use paw_engine::{EventKind, Msg, TempoMap, TrackSlot};
+use paw_engine::{Msg, TrackSlot};
+use paw_types::{EventKind, TempoMap};
 use rtrb::{Consumer, RingBuffer};
 
 use super::*;
@@ -819,8 +820,9 @@ fn slot_track(tracks: &HashMap<Id, TrackSlot>, slot: TrackSlot) -> Option<Id> {
 
 #[cfg(test)]
 mod tests {
+    use paw_types::Attr;
+
     use super::*;
-    use paw_engine::event::Attr;
 
     const RATE: f64 = 48000.0;
     const TRACK: Id = 7;

@@ -14,13 +14,13 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use anyhow::Result;
+use paw_types::EventKind;
 use rtrb::Producer;
 
-use crate::event::EventKind;
 #[cfg(feature = "midi")]
-use crate::event::{Ctl, NoteCtl};
+use paw_types::{Ctl, NoteCtl};
 #[cfg(feature = "midi")]
-use crate::ump;
+use paw_types::ump;
 
 /// Where MIDI input goes.
 #[derive(Default)]
@@ -659,7 +659,7 @@ mod imp {
                         key,
                         vel: ump::velocity7(note.velocity.min(127)),
                         ch,
-                        attr: crate::event::Attr::NONE,
+                        attr: paw_types::Attr::NONE,
                     }
                 } else {
                     EventKind::NoteOff { key, ch }

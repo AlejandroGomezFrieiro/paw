@@ -4,9 +4,9 @@
 use std::sync::Arc;
 
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, Msg, SchedEntry, Schedule, SigPoint, TempoMap,
-    TempoPoint, TrackRt, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, Msg, SchedEntry, Schedule, TrackRt, TrackSlot,
 };
+use paw_types::{SigPoint, TempoMap, TempoPoint};
 
 use crate::common::{SR, send};
 

@@ -2,8 +2,8 @@
 
 use std::rc::Rc;
 
-use paw_engine::{EventKind, ump};
 use mlua::{Lua, Table, Value as LuaValue};
+use paw_types::{EventKind, ump};
 use serde::Deserialize;
 
 use crate::model::{Control, Id, NoteAttr};
@@ -70,7 +70,7 @@ fn midi_kind(lua: &Lua, event: LuaValue) -> mlua::Result<EventKind> {
                     key: pitch()?,
                     vel,
                     ch,
-                    attr: event.attr.map_or(paw_engine::Attr::NONE, Into::into),
+                    attr: event.attr.map_or(paw_types::Attr::NONE, Into::into),
                 }
             } else {
                 EventKind::NoteOff { key: pitch()?, ch }

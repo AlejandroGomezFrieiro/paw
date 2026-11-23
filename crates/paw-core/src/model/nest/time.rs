@@ -15,7 +15,7 @@
 
 use std::sync::Arc;
 
-use paw_engine::{SigPoint, TempoMap, TempoPoint};
+use paw_types::{SigPoint, TempoMap, TempoPoint};
 
 use super::{Nest, NestMeter, NestTempo};
 use crate::model::{Clip, ClipContent, Control, Id, Lane, Note, Notes};

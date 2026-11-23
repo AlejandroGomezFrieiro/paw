@@ -6,21 +6,136 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
-use serde_json::Value;
+use serde::Deserialize;
+use serde_json::{Map, Value};
 
 use super::Document;
+use super::values::{check_controls, check_fade, de, de_meta, finite, sorted};
 use crate::model::{
-    Clip, ClipContent, Control, CustomContent, Id, MASTER_ID, NestPlay, Note, Notes, Overrides, Project, Signal,
-    check_clip_beat, check_notes,
+    Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
+    Overrides, Project, Signal, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
 };
-use crate::session::{
-    ClipKind, ClipOpts, CustomSet, check_controls, check_fade, de, de_meta, finite, sorted, stretching,
-};
+use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
+
+/// What a new clip holds: `midi`, `audio` or the name of a kind that an
+/// extension defines, in Lua. A word that is no name fails with the text of
+/// [`FromStr`](std::str::FromStr); whether an extension defined it is known
+/// where the clip is added (`Document::clip_kinds`).
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "String")]
+pub(crate) enum ClipKind {
+    Midi,
+    Audio,
+    /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
+    Nest,
+    Custom(ClipKindId),
+}
+
+impl ClipKind {
+    /// The built-in kind that decides how the clip may play: its own, or
+    /// that of the sound of a custom clip (MIDI when it has none).
+    pub(crate) fn playing(&self, sound: Option<&Sound>) -> ClipKind {
+        match (self, sound.map(Sound::content)) {
+            (ClipKind::Custom(_), Some(ClipContent::Audio { .. })) => ClipKind::Audio,
+            (ClipKind::Custom(_), _) => ClipKind::Midi,
+            (built_in, _) => built_in.clone(),
+        }
+    }
+}
+
+impl std::str::FromStr for ClipKind {
+    type Err = anyhow::Error;
+
+    fn from_str(word: &str) -> Result<Self> {
+        Ok(match word {
+            "midi" => Self::Midi,
+            "audio" => Self::Audio,
+            "nest" => Self::Nest,
+            other => Self::Custom(other.parse::<ClipKindId>()?),
+        })
+    }
+}
+
+impl TryFrom<String> for ClipKind {
+    type Error = anyhow::Error;
+
+    fn try_from(word: String) -> Result<Self> {
+        word.parse()
+    }
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct ClipOpts {
+    /// Inferred from `file` when absent.
+    pub kind: Option<ClipKind>,
+    pub name: Option<String>,
+    pub start: f64,
+    pub length: Option<f64>,
+    pub notes: Vec<Note>,
+    pub file: Option<PathBuf>,
+    pub offset: f64,
+    pub gain: f64,
+    /// Beats an audio clip fades in and out over.
+    pub fade_in: f64,
+    pub fade_out: f64,
+    /// Controller moves of a MIDI clip.
+    pub controls: Vec<Control>,
+    pub meta: Map<String, Value>,
+    /// How it plays, as the clip's fields of these names have it: an
+    /// audio clip's timebase, stretch and pitch, and looping.
+    pub timebase: Option<Timebase>,
+    pub stretch: Option<f64>,
+    pub pitch: f64,
+    pub stretch_mode: StretchMode,
+    pub source_tempo: Option<f64>,
+    pub warp: Vec<WarpMarker>,
+    pub formants: bool,
+    #[serde(rename = "loop")]
+    pub looped: bool,
+    pub loop_length: Option<f64>,
+    pub loop_start: f64,
+    /// A MIDI clip's overrides, as the clip's fields of these names have
+    /// them (`model/overrides.rs`).
+    pub transpose: i8,
+    pub velocity: i8,
+    /// Keep it off the timeline, among the track's cues (`session/cues.rs`).
+    pub cue: bool,
+    /// A clip of a kind that an extension defines: its content (`data` is
+    /// required, `length` too; `offset` is in the kind's timeline).
+    pub version: Option<u32>,
+    pub timeline: Timeline,
+    pub data: Option<KindData>,
+    pub media: Vec<MediaRef>,
+    pub sound: Option<Sound>,
+    pub signals: Vec<Signal>,
+    /// A nest clip: the subproject it places, and what it plays of it
+    /// (its mix when absent). `offset` is then beats into the subproject.
+    pub nest: Option<crate::model::NestId>,
+    pub play: Option<crate::model::NestPlay>,
+}
+
+/// What [`Document::clip_set_custom`] gives a custom clip: what its kind
+/// compiled, replacing data, media, sound and signals together, so that it
+/// is one edit. `version`, `timeline` and `offset` stay as they are when
+/// absent.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct CustomSet {
+    pub data: Option<KindData>,
+    pub version: Option<u32>,
+    pub timeline: Option<Timeline>,
+    pub offset: Option<f64>,
+    pub media: Vec<MediaRef>,
+    pub sound: Option<Sound>,
+    pub signals: Vec<Signal>,
+}
 
 impl Document {
     /// Add a clip to `track` and give its id. `source` is the clip file
-    /// that a MIDI clip refers to, already read into `opts`;
-    /// `sound_seconds` reads how long the sound file of an audio clip is.
+    /// that a MIDI clip refers to, already read into `opts`. The sound file
+    /// of an audio clip (`opts.file`) is kept as given: the session makes
+    /// its path whole. `sound_seconds` reads how long that file is.
     pub(crate) fn clip_add(
         &mut self,
         track: Id,
@@ -107,7 +222,6 @@ impl Document {
                     bail!("an audio clip's offset is a number of seconds from 0 up");
                 }
                 let gain = finite("clip gain", opts.gain)?.clamp(-120.0, 24.0);
-                let file = std::path::absolute(&file).unwrap_or(file);
                 // Its whole file from where it starts, in time.
                 let seconds = (sound_seconds(&file)? - opts.offset).max(0.0) * opts.stretch.unwrap_or(1.0);
                 let natural = tempo.beat(tempo.seconds(opts.start) + seconds) - opts.start;
@@ -430,7 +544,7 @@ impl Document {
 }
 
 /// The master track has no clips.
-pub(in crate::session) fn check_clip_track(track: Id) -> Result<()> {
+pub(crate) fn check_clip_track(track: Id) -> Result<()> {
     if track == MASTER_ID {
         bail!("the master track has no clips: put them on a track");
     }
@@ -452,8 +566,8 @@ fn check_clip_opts(kind: ClipKind, opts: &ClipOpts, length: f64) -> Result<()> {
         bail!("only MIDI clips have a transpose and a velocity change");
     }
     let stretch = opts.stretch.unwrap_or(1.0);
-    stretching::check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
-    stretching::check_warp(kind, &opts.warp)?;
+    check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
+    check_warp(kind, &opts.warp)?;
     if opts.loop_length.is_some_and(|l| !l.is_finite() || l <= 0.0)
         || !opts.loop_start.is_finite()
     {
@@ -519,7 +633,7 @@ fn check_signals(signals: Vec<Signal>) -> Result<Arc<[Signal]>> {
 /// parsed once. Which fields a clip has depends on its kind, so an unknown
 /// key fails where the clip is known.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::session) enum ClipField {
+pub(crate) enum ClipField {
     Name,
     Start,
     Length,
@@ -536,7 +650,7 @@ pub(in crate::session) enum ClipField {
 }
 
 impl ClipField {
-    pub(in crate::session) fn parse(key: &str) -> Option<Self> {
+    pub(crate) fn parse(key: &str) -> Option<Self> {
         Some(match key {
             "name" => Self::Name,
             "start" => Self::Start,
@@ -604,10 +718,70 @@ fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
     Ok(true)
 }
 
+/// Check how a new clip of `kind` is to play.
+pub(crate) fn check_playing(
+    kind: ClipKind,
+    stretch: f64,
+    pitch: f64,
+    source_tempo: Option<f64>,
+) -> Result<()> {
+    if kind != ClipKind::Audio && (stretch != 1.0 || pitch != 0.0) {
+        bail!("only audio clips are stretched or shifted");
+    }
+    check_ratio(stretch)?;
+    check_pitch(pitch)?;
+    if let Some(bpm) = source_tempo {
+        check_tempo(bpm)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn check_ratio(ratio: f64) -> Result<f64> {
+    let (lo, hi) = RATIO_RANGE;
+    if !(lo..=hi).contains(&ratio) {
+        bail!("a clip is stretched to between {lo} and {hi} times its length, not {ratio}");
+    }
+    Ok(ratio)
+}
+
+pub(crate) fn check_pitch(semitones: f64) -> Result<f64> {
+    if !semitones.is_finite() || semitones.abs() > PITCH_RANGE {
+        bail!("a clip is shifted by at most {PITCH_RANGE} semitones either way, not {semitones}");
+    }
+    Ok(semitones)
+}
+
+pub(crate) fn check_tempo(bpm: f64) -> Result<f64> {
+    if !(1.0..=999.0).contains(&bpm) {
+        bail!("a tempo is between 1 and 999, not {bpm}");
+    }
+    Ok(bpm)
+}
+
+/// Check an audio clip's warp markers: in order of their moments of the
+/// file, and of where they play them.
+pub(crate) fn check_warp(kind: ClipKind, warp: &[WarpMarker]) -> Result<()> {
+    if kind != ClipKind::Audio && !warp.is_empty() {
+        bail!("only audio clips have warp markers");
+    }
+    for m in warp {
+        if !m.source.is_finite() || !m.target.is_finite() || m.source < 0.0 {
+            bail!("a warp marker is a moment of the file from 0 on, and where it plays");
+        }
+    }
+    if warp
+        .windows(2)
+        .any(|w| w[1].source <= w[0].source || w[1].target <= w[0].target)
+    {
+        bail!("warp markers follow each other in the file and where they play it");
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::TrackOpts;
+    use super::super::TrackOpts;
 
     /// A document with one track, and the track's id.
     fn one_track() -> (Document, Id) {

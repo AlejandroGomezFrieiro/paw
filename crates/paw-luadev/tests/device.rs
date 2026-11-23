@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use paw_engine::device::{Instance, Io};
-use paw_engine::{Attr, Event, EventBuf, EventKind, ProcessCtx};
+use paw_engine::{Event, EventBuf, ProcessCtx};
+use paw_types::{Attr, EventKind};
 
 /// A script written to a file of its own.
 fn script(name: &str, text: &str) -> PathBuf {
@@ -124,7 +125,7 @@ fn events_are_passed_on_with_those_sent_in_order() {
         frame: 30,
         kind: EventKind::NoteControl {
             key: 60,
-            ctl: paw_engine::NoteCtl::Bend,
+            ctl: paw_types::NoteCtl::Bend,
             value: 0.25,
             ch: 3,
         },

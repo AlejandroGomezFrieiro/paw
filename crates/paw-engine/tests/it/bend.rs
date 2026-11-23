@@ -1,6 +1,7 @@
 //! A note's own pitch bend, arriving with the note.
 
-use paw_engine::{Attr, Ctl, Event, EventBuf, EventKind, Io, NoteCtl, ProcessCtx, Registry};
+use paw_engine::{Event, EventBuf, Io, ProcessCtx, Registry};
+use paw_types::{Attr, Ctl, EventKind, NoteCtl};
 
 fn rises(events: &[EventKind]) -> usize {
     let registry = Registry::with_builtins();

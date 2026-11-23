@@ -21,9 +21,10 @@
 
 use std::f32::consts::TAU;
 
+use paw_types::EventKind;
+
 use crate::db_to_gain;
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
-use crate::event::EventKind;
 
 const GAIN: usize = 0;
 const KICK_TUNE: usize = 1;
@@ -416,7 +417,7 @@ mod tests {
                             key,
                             vel,
                             ch: 9,
-                            attr: crate::event::Attr::NONE,
+                            attr: paw_types::Attr::NONE,
                         },
                     });
                 }

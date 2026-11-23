@@ -50,6 +50,8 @@ impl Session {
         // The master refuses a clip before its file is read.
         document::check_clip_track(track)?;
         let source = Self::read_midi_source(&mut opts)?;
+        // The clip keeps its sound file by the whole path.
+        opts.file = opts.file.map(|file| std::path::absolute(&file).unwrap_or(file));
         let audio = &mut self.audio;
         self.doc.clip_add(track, opts, source, |file| Ok(audio.load(file)?.seconds()))
     }

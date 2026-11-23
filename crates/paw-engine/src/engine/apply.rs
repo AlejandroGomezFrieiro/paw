@@ -7,20 +7,18 @@
 
 use std::sync::atomic::Ordering::Relaxed;
 
+use paw_types::{EventKind, TempoMap, automation::state_at, midi_form::Form};
 use rtrb::Producer;
 
-use crate::automation::{self, Automation};
+use crate::automation::Automation;
 use crate::clip::{ClipSet, PartEdit};
 use crate::device::Device;
-use crate::event::EventKind;
 use crate::host::HostPath;
 use crate::launch::{Launch, Slots};
-use crate::midi_form::Form;
 use crate::midi_out::MidiOut;
 use crate::preview::Preview;
 use crate::record::Take;
 use crate::slot::{DeviceSlot, TrackSlot};
-use crate::tempo::TempoMap;
 
 use super::Engine;
 use super::click::Count;
@@ -175,7 +173,7 @@ impl Engine {
         }
     }
 
-    fn set_local_time(&mut self, track: TrackSlot, time: Option<Box<crate::tempo::LocalTime>>) {
+    fn set_local_time(&mut self, track: TrackSlot, time: Option<Box<crate::LocalTime>>) {
         let old = match self.track_mut(track) {
             Some(t) => std::mem::replace(&mut t.local, time),
             None => time,
@@ -339,7 +337,7 @@ impl Engine {
         for t in self.tracks.iter_mut() {
             if let Some(t) = t.get_mut().as_deref_mut() {
                 for lane in t.automation.states.iter_mut() {
-                    let at = automation::state_at(&lane.points, beat + 1e-9);
+                    let at = state_at(&lane.points, beat + 1e-9);
                     // A program change goes with the events of a
                     // block: that one is given when the song plays.
                     let program = at

@@ -2,8 +2,8 @@
 
 use std::rc::Rc;
 
-use paw_engine::EventKind;
 use mlua::{Lua, Table, Value as LuaValue};
+use paw_types::EventKind;
 
 use crate::model::Id;
 
@@ -57,7 +57,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             if pitch > 127 {
                 return Err(mlua::Error::runtime(format!("a pitch goes up to 127, not {pitch}")));
             }
-            let attr = attr_from_lua(lua, attr)?.map_or(paw_engine::Attr::NONE, Into::into);
+            let attr = attr_from_lua(lua, attr)?.map_or(paw_types::Attr::NONE, Into::into);
             sh.session.borrow_mut().live_note(track, pitch, vel, attr).lua()
         }
         // @return nil

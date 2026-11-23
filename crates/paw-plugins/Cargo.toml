@@ -7,6 +7,7 @@ rust-version.workspace = true
 description = "Hosts CLAP, LV2 and VST3 plugins as engine devices."
 
 [dependencies]
+paw-types.workspace = true
 paw-engine.workspace = true
 anyhow.workspace = true
 bitflags.workspace = true

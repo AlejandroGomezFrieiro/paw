@@ -192,9 +192,9 @@ impl Session {
         if self.doc.undo.history.len() != 1 || self.doc.undo.touched {
             return Ok(json!({}));
         }
-        let mut book = self.doc.undo.file.book(dir);
+        let mut book = self.undo_file.book(dir);
         let opened = self.open_tree(&mut book, &file);
-        self.doc.undo.file.writer = Some(Writer::Idle(book));
+        self.undo_file.writer = Some(Writer::Idle(book));
         opened
     }
 
@@ -229,11 +229,11 @@ impl Session {
             anyhow::bail!("{}: the undo tree is damaged", book.store.dir().display());
         }
         book.written = tree.states.iter().map(|s| (s.id, s.files)).collect();
-        self.doc.undo.file.lazy = Lazy {
+        self.undo_file.lazy = Lazy {
             dir: book.store.dir().to_path_buf(),
             states: tree.states.iter().filter(|s| s.id != tree.saved).map(|s| (s.id, s.files)).collect(),
         };
-        self.doc.undo.file.saved_files = None;
+        self.undo_file.saved_files = None;
         Ok(json!({ "states": tree.states.len() }))
     }
 
@@ -243,17 +243,17 @@ impl Session {
     /// that is not kept in a folder.
     pub(crate) fn undo_file_write(&mut self, dir: &Path, byte_limit: u64) {
         let Some(file) = self.folder_file() else { return };
-        let Some((saved, files)) = self.doc.undo.file.saved_files.take() else { return };
+        let Some((saved, files)) = self.undo_file.saved_files.take() else { return };
         // Saved somewhere else: the states still in the old undo file are
         // read now, as the new one does not have their files.
-        if self.doc.undo.file.lazy.dir != dir {
-            let ids: Vec<StateId> = self.doc.undo.file.lazy.states.keys().copied().collect();
+        if self.undo_file.lazy.dir != dir {
+            let ids: Vec<StateId> = self.undo_file.lazy.states.keys().copied().collect();
             self.undo_file_states(&ids);
-            for id in std::mem::take(&mut self.doc.undo.file.lazy.states).into_keys() {
+            for id in std::mem::take(&mut self.undo_file.lazy.states).into_keys() {
                 self.doc.undo.history.forget(id);
             }
         }
-        let mut book = self.doc.undo.file.book(dir);
+        let mut book = self.undo_file.book(dir);
         if let Some(error) = book.error.take() {
             self.doc.warnings.push(format!("the undo file was not written: {error}"));
         }
@@ -261,11 +261,11 @@ impl Session {
         // tree here too.
         for id in std::mem::take(&mut book.dropped) {
             self.doc.undo.history.forget(id);
-            self.doc.undo.file.lazy.states.remove(&id);
+            self.undo_file.lazy.states.remove(&id);
         }
         let h = &self.doc.undo.history;
         if h.get(saved).is_none() {
-            self.doc.undo.file.writer = Some(Writer::Idle(book));
+            self.undo_file.writer = Some(Writer::Idle(book));
             return;
         }
         let mut files = Some(files);
@@ -274,7 +274,7 @@ impl Session {
             .map(|s| {
                 let source = if s.id == saved {
                     Source::Files(files.take().unwrap_or_default())
-                } else if let Some(id) = self.doc.undo.file.lazy.states.get(&s.id) {
+                } else if let Some(id) = self.undo_file.lazy.states.get(&s.id) {
                     Source::Written(*id)
                 } else if let Some(id) = book.written.get(&s.id).filter(|_| s.id != h.current()) {
                     Source::Written(*id)
@@ -314,12 +314,12 @@ impl Session {
                 }
                 book
             });
-        self.doc.undo.file.writer = handle.ok().map(Writer::Busy);
+        self.undo_file.writer = handle.ok().map(Writer::Busy);
     }
 
     /// Wait for the undo file being written: before the program ends.
     pub(crate) fn undo_file_wait(&mut self) {
-        self.doc.undo.file.wait();
+        self.undo_file.wait();
     }
 
     /// Read the project of state `id` from the undo file, when the tree
@@ -329,10 +329,10 @@ impl Session {
     ///
     /// When its files are not in the undo file, or do not make a project.
     pub(super) fn undo_file_state(&mut self, id: StateId) -> Result<()> {
-        let Some(top) = self.doc.undo.file.lazy.states.get(&id).copied() else { return Ok(()) };
+        let Some(top) = self.undo_file.lazy.states.get(&id).copied() else { return Ok(()) };
         let file = self.folder_file().context("the project is not a folder")?;
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
-        let files = Store::new(&self.doc.undo.file.lazy.dir).read_files(top)?;
+        let files = Store::new(&self.undo_file.lazy.dir).read_files(top)?;
         let read = folder::read_from(&MemoryFiles::new(&dir, files), &self.home, &dir)?;
         let mut project = read.project;
         project.validate()?;
@@ -341,7 +341,7 @@ impl Session {
         self.find_media(&mut project, &file);
         super::undo::share_with(&mut project, &self.doc.project);
         self.doc.undo.history.set_snapshot(id, project);
-        self.doc.undo.file.lazy.states.remove(&id);
+        self.undo_file.lazy.states.remove(&id);
         Ok(())
     }
 
@@ -361,7 +361,7 @@ impl Session {
     /// Take the states that are only in the undo file, to keep with a
     /// project put aside (`project_shelve`), or give them back.
     pub(super) fn undo_file_swap(&mut self, lazy: Lazy) -> Lazy {
-        std::mem::replace(&mut self.doc.undo.file.lazy, lazy)
+        std::mem::replace(&mut self.undo_file.lazy, lazy)
     }
 }
 

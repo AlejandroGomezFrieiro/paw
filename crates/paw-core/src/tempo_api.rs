@@ -6,8 +6,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use paw_engine::{SigPoint, TempoMap, TempoPoint};
 use mlua::{Lua, MultiValue, Table, Value as LuaValue};
+use paw_types::{SigPoint, TempoMap, TempoPoint};
 use serde::Deserialize;
 
 use crate::api::{LuaResult, Named, Shared, from_lua, guard, guarded, named};

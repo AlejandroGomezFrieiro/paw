@@ -34,7 +34,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // unchanged: a MIDI file opened as a project (paw/midifile.tl).
         // @return nil
         fn undo_reset(_, sh, () => ()) {
-            sh.session.borrow_mut().doc.undo_reset();
+            sh.session.borrow_mut().undo_reset();
             Ok(())
         }
         // The undo tree and checkpoints: crate::history, session/undo.rs.

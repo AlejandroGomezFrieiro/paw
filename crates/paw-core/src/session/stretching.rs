@@ -19,10 +19,10 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
+use super::document::{check_pitch, check_ratio, check_tempo, check_warp};
 use super::{ClipKind, MAX_PEAKS, Session, de};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
-use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 use crate::bake::scheduler::{Busy, Priority, Status};
 use crate::events::{BakeProgress, KernelEvent as E};
 use crate::stretched::{Key, SETTLE, ViewRange};
@@ -54,66 +54,6 @@ pub(super) fn not_audio(clip: &Clip, what: &str) -> anyhow::Error {
         ),
         _ => anyhow::anyhow!("only audio clips {what}"),
     }
-}
-
-/// Check how a new clip of `kind` is to play.
-pub(super) fn check_playing(
-    kind: ClipKind,
-    stretch: f64,
-    pitch: f64,
-    source_tempo: Option<f64>,
-) -> Result<()> {
-    if kind != ClipKind::Audio && (stretch != 1.0 || pitch != 0.0) {
-        bail!("only audio clips are stretched or shifted");
-    }
-    check_ratio(stretch)?;
-    check_pitch(pitch)?;
-    if let Some(bpm) = source_tempo {
-        check_tempo(bpm)?;
-    }
-    Ok(())
-}
-
-fn check_ratio(ratio: f64) -> Result<f64> {
-    let (lo, hi) = RATIO_RANGE;
-    if !(lo..=hi).contains(&ratio) {
-        bail!("a clip is stretched to between {lo} and {hi} times its length, not {ratio}");
-    }
-    Ok(ratio)
-}
-
-fn check_pitch(semitones: f64) -> Result<f64> {
-    if !semitones.is_finite() || semitones.abs() > PITCH_RANGE {
-        bail!("a clip is shifted by at most {PITCH_RANGE} semitones either way, not {semitones}");
-    }
-    Ok(semitones)
-}
-
-fn check_tempo(bpm: f64) -> Result<f64> {
-    if !(1.0..=999.0).contains(&bpm) {
-        bail!("a tempo is between 1 and 999, not {bpm}");
-    }
-    Ok(bpm)
-}
-
-/// Check an audio clip's warp markers: in order of their moments of the
-/// file, and of where they play them.
-pub(super) fn check_warp(kind: ClipKind, warp: &[WarpMarker]) -> Result<()> {
-    if kind != ClipKind::Audio && !warp.is_empty() {
-        bail!("only audio clips have warp markers");
-    }
-    for m in warp {
-        if !m.source.is_finite() || !m.target.is_finite() || m.source < 0.0 {
-            bail!("a warp marker is a moment of the file from 0 on, and where it plays");
-        }
-    }
-    if warp
-        .windows(2)
-        .any(|w| w[1].source <= w[0].source || w[1].target <= w[0].target)
-    {
-        bail!("warp markers follow each other in the file and where they play it");
-    }
-    Ok(())
 }
 
 /// The seconds after the playhead whose bakes are made first.
