@@ -252,7 +252,7 @@ impl Session {
             end: Some(end),
             tail: 0.0,
             bits: 32,
-            master: false,
+            tap: Some(super::render::Tap::Groups),
             ..RenderOpts::default()
         };
         self.render_snapshot(project, &path, &opts)?;

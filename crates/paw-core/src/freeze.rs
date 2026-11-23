@@ -196,9 +196,9 @@ pub fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap<Id, Pl
 
 /// Turn a copy of the project into what freezing `id` renders: the track
 /// and the tracks that feed it, as they sound before its fader, with every
-/// other track silent and the master's own processing left to the caller
-/// (a render with `master = false`). The track itself plays live, even when
-/// it is frozen now; tracks frozen inside it play their files.
+/// other track silent and the master's own processing left to the caller.
+/// The track itself plays live, even when it is frozen now; tracks frozen
+/// inside it play their files.
 pub fn alone(project: &mut Project, id: Id) -> Result<()> {
     if id == MASTER_ID {
         bail!("the master track cannot be frozen");
@@ -206,31 +206,70 @@ pub fn alone(project: &mut Project, id: Id) -> Result<()> {
     if project.track(id).is_none() {
         bail!("no track {id} to freeze");
     }
-    let mut set = feeders(project, id);
-    set.insert(id);
+    tracks_alone(project, &[id], Fader::Out)?;
+    project.track_mut(id).expect("checked above").meta.remove("frozen");
+    Ok(())
+}
+
+/// Whether a render of tracks alone hears their faders.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fader {
+    /// Before the fader: no fader, pan, mute, VCA, or volume and pan lane.
+    Out,
+    /// After the fader, the pan and the mute.
+    In,
+}
+
+/// Turn a copy of the project into the sound of `ids` alone: each track
+/// with the tracks that feed it, straight into the master, with no sends
+/// and no groups, and every other track silent. The caller leaves out the
+/// master's own processing. A track of `ids` that feeds another track of
+/// `ids` (a member of a listed group) is heard once, inside that track,
+/// with its own fader.
+pub fn tracks_alone(project: &mut Project, ids: &[Id], fader: Fader) -> Result<()> {
+    if ids.contains(&MASTER_ID) {
+        bail!("the master is not a track to hear alone: leave it out of the tracks");
+    }
+    if let Some(id) = ids.iter().find(|id| project.track(**id).is_none()) {
+        bail!("no track {id} to render");
+    }
+    let fed: HashMap<Id, HashSet<Id>> =
+        ids.iter().map(|&id| (id, feeders(project, id))).collect();
+    // The listed tracks that no other listed track holds.
+    let outer: Vec<Id> = ids
+        .iter()
+        .copied()
+        .filter(|id| !fed.values().any(|set| set.contains(id)))
+        .collect();
+    let mut heard: HashSet<Id> = outer.iter().copied().collect();
+    for id in &outer {
+        heard.extend(&fed[id]);
+    }
     let is_vca = |t: &Track| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
     for track in project.tracks.iter_mut() {
-        let wanted = set.contains(&track.id);
         // A VCA carries no sound, and muting it would mute its members.
-        let mute = !wanted && !is_vca(track);
+        let mute = !heard.contains(&track.id) && !is_vca(track);
         if track.solo || (mute && !track.mute) {
             let t = Arc::make_mut(track);
             t.solo = false;
             t.mute |= mute;
         }
     }
-    let track = project.track_mut(id).expect("checked above");
-    // Before the fader: what the fader, pan, VCAs and sends do stays live.
-    track.volume = 0.0;
-    track.pan = 0.0;
-    track.mute = false;
-    track.output = None;
-    track.sends.clear();
-    track
-        .lanes
-        .retain(|l| !matches!(l.target, Target::Volume | Target::Pan));
-    track.meta.remove("vcas");
-    track.meta.remove("frozen");
+    for id in outer {
+        let track = project.track_mut(id).expect("checked above");
+        // Not through its groups, and not into the returns of its sends.
+        track.output = None;
+        track.sends.clear();
+        if fader == Fader::Out {
+            track.volume = 0.0;
+            track.pan = 0.0;
+            track.mute = false;
+            track
+                .lanes
+                .retain(|l| !matches!(l.target, Target::Volume | Target::Pan));
+            track.meta.remove("vcas");
+        }
+    }
     Ok(())
 }
 
@@ -362,6 +401,21 @@ mod tests {
         );
         assert!(p.track(4).unwrap().mute, "the rest is silent");
         assert!(alone(&mut p, MASTER_ID).is_err());
+    }
+
+    #[test]
+    fn a_member_listed_with_its_group_is_heard_once_inside_the_group() {
+        let mut p = song();
+        Arc::make_mut(&mut p.tracks[1]).volume = -3.0;
+        tracks_alone(&mut p, &[2, 1], Fader::In).unwrap();
+        let violins = p.track(2).unwrap();
+        assert_eq!(
+            (violins.output, violins.volume),
+            (Some(1), -3.0),
+            "the violins still go into the strings, with their fader"
+        );
+        let strings = p.track(1).unwrap();
+        assert_eq!((strings.output, strings.volume), (None, -6.0), "after the fader");
     }
 
     fn clip(id: Id, content: Value) -> Arc<Clip> {

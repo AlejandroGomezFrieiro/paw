@@ -165,8 +165,22 @@ in a file and not on its command line.
 `paw.render(path, opts)` accepts the options as a table. The fields are
 `range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
 `channels` (1, 2, `"mono"`, `"stereo"`), `quality`, `bitrate`, `ffmpeg`,
-`dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `master`,
+`dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `tap`, `master`,
 `threads`, `sleep`, `tags` and `freeze`.
+
+`tap` is the point in the sound of the tracks where the render listens.
+Each point holds all the points before it.
+
+| `tap` | The file holds |
+| --- | --- |
+| `"pre"` | the clips and devices of the tracks, and of the tracks inside them, without the fader, pan or mute |
+| `"post"` | the clips and devices with the fader, pan and mute, but not the groups, the sends or the master |
+| `"groups"` | the tracks as you hear them when they are soloed, through their groups and the returns of their sends, but not the master |
+| `"master"` | the same as `"groups"`, and then the devices, fader and pan of the master. This is the default. |
+
+`"pre"` and `"post"` need `tracks`. Files rendered at `"groups"` or at
+`"master"` add up to the mix at that point. `master = false` is the same as
+`tap = "groups"`.
 
 - `sleep = false` makes each device run on each block, even when it is at
   rest (see [The audio engine](engine.md#devices-at-rest)), and the file is

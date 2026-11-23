@@ -1470,6 +1470,14 @@ local record types
     cover: string
   end
 
+  --- The point in the signal where a render listens (`render::Tap`).
+  enum RenderTap
+    "pre"
+    "post"
+    "groups"
+    "master"
+  end
+
   --- What `paw.api.render` and `render_start` take (`RenderOpts`): `start`
   --- and `end` in beats, `tail` and `settle` in seconds.
   record RenderOptions
@@ -1485,6 +1493,7 @@ local record types
     normalize: number
     loudness: number
     channels: integer
+    tap: RenderTap
     master: boolean
     threads: integer
     sleep: boolean

@@ -599,6 +599,48 @@ test("a render can be one track, dithered, or brought to a level", function()
   eq(first[2000] == second[2000] and first[2500] == second[2500], true, "the same way every time")
 end)
 
+test("a render listens at the point of the signal that tap names", function()
+  fresh()
+  -- Each device and fader on the way is -6 dB: a factor of g.
+  local g = 10 ^ (-6 / 20)
+  local group = paw.add_track({ name = "Group" })
+  group:add_device("gain", { gain = -6 })
+  group.volume = -6
+  local member = paw.add_track({ name = "Member" })
+  member:add_clip({ file = steady("tap-member", 2, 0.4), start = 0, length = 4 })
+  member:add_device("gain", { gain = -6 })
+  member.volume = -6
+  member.output = group.id
+  local ret = paw.add_track({ name = "Return" })
+  local other = paw.add_track({ name = "Other" })
+  other:add_clip({ file = steady("tap-other", 2, 0.2), start = 0, length = 4 })
+  other:send(ret, -6)
+  paw.master.volume = -6
+  paw.flush()
+  local function level(opts)
+    opts.tail, opts.bits = 0, 16
+    return samples(render(opts))[1000]
+  end
+
+  local member_at = { pre = 0.4 * g, post = 0.4 * g ^ 2, groups = 0.4 * g ^ 4, master = 0.4 * g ^ 5 }
+  for tap, want in pairs(member_at) do
+    near(level({ tracks = { member.id }, tap = tap }), want, 0.001, "the member at tap=" .. tap)
+  end
+  member.mute = true
+  near(level({ tracks = { member.id }, tap = "pre" }), 0.4 * g, 0.001, "tap=pre is before the mute")
+  near(level({ tracks = { member.id }, tap = "post" }), 0, 0.001, "tap=post is after it")
+  member.mute = false
+
+  for _, tap in ipairs({ "groups", "master" }) do
+    local stems = level({ tracks = { group.id }, tap = tap }) + level({ tracks = { other.id }, tap = tap })
+    near(stems, level({ tap = tap }), 0.001, "the stems at tap=" .. tap .. " add up to the mix")
+  end
+  near(level({}), (0.4 * g ^ 4 + 0.2 + 0.2 * g) * g, 0.001, "the mix is through the master")
+
+  T.fails(function() render({ tap = "post" }) end, "name the tracks", "tap=post of the mix")
+  T.fails(function() render({ tap = "master", master = false }) end, "disagree", "two words that disagree")
+end)
+
 test("moving a fader while the song plays writes automation", function()
   fresh()
   api.engine_restart({ backend = "null" })
