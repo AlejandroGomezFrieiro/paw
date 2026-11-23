@@ -9,13 +9,13 @@ paw, see [About the architecture](about-the-architecture.md).
 
 ## Many cores and one result
 
-The engine processes the tracks on a pool of worker threads, with one
-thread for each core. Tracks that do not depend on each other run at the
-same time, and a track that sends, keys or plays into another track runs
-before that track.
+The engine processes the parts on a pool of worker threads, with one
+thread for each core. Parts that do not depend on each other run at the
+same time, and a part that sends, keys or plays into another part runs
+before that part.
 
 A render must give the same file each time, so each worker treats denormal
-numbers as zero, as the audio thread does, and a track sounds the same on
+numbers as zero, as the audio thread does, and a part sounds the same on
 any thread. A render is the same to the bit with one thread or with
 sixteen. The workers take work with one atomic operation, and they do not
 allocate memory or take locks.
@@ -38,12 +38,12 @@ file.
 
 The branches of a split in a chain of devices line up in the same way.
 paw delays each shorter branch to the longest one, and also the dry part
-of the split, so all the branches meet at the merge. A track is then as
+of the split, so all the branches meet at the merge. A part is then as
 late as the slowest path through its chain.
 
 ## A change to a chain
 
-The main thread turns the chain of a track into a plan: a list of steps
+The main thread turns the chain of a part into a plan: a list of steps
 that the audio thread runs in order. The plan holds all the memory that
 its splits need, so the audio thread does not allocate when it runs one.
 

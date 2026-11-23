@@ -32,7 +32,7 @@ If the master goes red, see
    2. Press `q` to close the report.
    3. Correct the mix, and press `<Space>ma` again.
 
-To measure only the loop, press `<Space>ml`. To measure what one track adds,
+To measure only the loop, press `<Space>ml`. To measure what one part adds,
 put the cursor on it and press `<Space>mk`.
 
 ## Check the mix in mono
@@ -45,7 +45,7 @@ put the cursor on it and press `<Space>mk`.
    place, press `]d` in the arrange view.
 
 A stereo effect with one side upside down, or two microphones at
-different distances, can cancel in mono. To correct one track, put a
+different distances, can cancel in mono. To correct one part, put a
 `utility` device on it, and set `invert_l` or `invert_r`.
 
 In the graphical window, choose More ▸ Mix report.

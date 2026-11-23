@@ -19,7 +19,7 @@ reverbs.
 2. Type `:`, and paw types the range of the selection, `'<,'>`. Then type
    `export /home/ana/Music/part.wav`.
 
-The file holds the tracks and the bars of the selection.
+The file holds the parts and the bars of the selection.
 
 ## Export some bars
 
@@ -46,5 +46,5 @@ If your regions are inside other regions, choose a level:
 A file of a region inside a region has the path in its name, for example
 `02 Chorus 2 - Verse A.wav`.
 
-To export each track of the part, see
+To export each part of the selection, see
 [How to export stems](export-stems.md).

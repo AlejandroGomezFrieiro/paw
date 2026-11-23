@@ -1,17 +1,17 @@
 # How to add an effect and change its settings
 
-You can put an effect on a track, such as an EQ, a compressor, a reverb or
+You can put an effect on a part, such as an EQ, a compressor, a reverb or
 a delay, and then change its settings with the keys of the device panel.
 The built-in effects are listed in [Devices](../reference/devices.md), and
 each key of the panel is in [The device panel](../reference/device-panel.md).
 
 ## Add the effect
 
-1. Put the cursor on the track in the arrange view or in the mixer.
+1. Put the cursor on the part in the arrange view or in the mixer.
 2. Press `a`. A list of the devices opens, with the built-in devices and
    the plugins that paw found.
 3. Type a part of the name, for example `Compressor`, and press `Enter`.
-   paw adds the effect at the end of the chain of the track.
+   paw adds the effect at the end of the chain of the part.
 
 The built-in effects include `eq`, `compressor`, `reverb`, `delay`,
 `chorus`, `saturation`, `gate` and `limiter`. A plugin, for example a
@@ -20,7 +20,7 @@ VST3 or CLAP compressor, is in the same list.
 ## Change a setting
 
 1. Press `<Space>dd` to show the device panel. It shows the devices of the
-   track, each with its settings below its name. Press `w` to go to the
+   part, each with its settings below its name. Press `w` to go to the
    next device, and `b` to go to the previous device.
 2. Go to the setting:
    - To find a setting by name, press `f`, type a part of the name, for
@@ -44,7 +44,7 @@ To save your settings as a preset, press `<Space>dw`.
 
 ## Compare and remove
 
-- To hear the track without the effect, press `gcc` on the device. Press
+- To hear the part without the effect, press `gcc` on the device. Press
   `gcc` again to hear the effect again.
 - To remove the effect, press `x` on the row of the device name. Press `u`
   to get it back.

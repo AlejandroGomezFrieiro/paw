@@ -1,6 +1,6 @@
 ---
 name: paw-extension
-description: 'Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of track, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".'
+description: 'Create, extend or debug an extension for paw (the personal audio workstation in this repository): a directory of Lua that adds commands, keys, views, buffer types, kinds of part, Lua devices, picker sources, query fields, status line components, hooks, health checks, and optionally native parts built by Nix. Use whenever a task adds a feature to paw that is not core (see docs/explanation/about-core-and-extensions.md), writes or changes anything under extensions/ or ~/.config/paw/extensions, or asks "how do I make paw do X" where the answer is Lua — even if it only says "add a command", "a new view", "a tracker", "a plugin for paw".'
 ---
 
 # Creating a paw extension
@@ -16,7 +16,7 @@ the source of truth; this page is the map):
   modifiers). Use it before an extension needs a new part of the core.
 - `docs/reference/extensions.md` — layout, manifests and versions, what an
   extension owns and `:ext.unload`, views in the graphical window, health
-  checks, what the core gives an extension (devices, track kinds, native
+  checks, what the core gives an extension (devices, part kinds, native
   engines, Nix packaging). `docs/reference/pictures.md` — strips,
   pictures of pixels (`paw.canvas.image`, `buf:image`) and `paw.plot`.
 - `docs/reference/scripting.md` and the `lua-*.md` pages beside it — the API by area; `docs/reference/events.md` (every hook, one
@@ -40,14 +40,14 @@ take out what your extension adds. An extension's README follows
 1. **Lanes are the truth.** Source lanes hold the data. A derived lane is a
    recipe plus its kept result. A project opens and plays without the
    extension or program that made a derived lane. An extension never owns
-   the data of a source lane (today: the notes and clips of a track).
-   Keep extension data in `meta` (note/clip/track/project) or files; the
+   the data of a source lane (today: the notes and clips of a part).
+   Keep extension data in `meta` (note/clip/part/project) or files; the
    project must open, play and edit without the extension (notation and
    articulations are the models: notation is a *view* over MIDI). A kind
    of clip saves what it compiles, so its clips play without it. Lanes of
    each kind do not exist yet: the target design is in the skill
    `architecture`, where the container is a *part*. The API still says
-   *track*; use the API names.
+   *part*; use the API names.
 2. **The key rule.** `h j k l w b e 0 ^ $ gg G` only move; `+ -` and
    `Ctrl-a`/`Ctrl-x` change the main value, `[ ]` the second; `< >` are time;
    `K` describes; `Esc` cancels and stays. A view's own keys go on
@@ -90,7 +90,7 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
   runtime's modules already in Teal (`paw.music`, `paw.attr`, `paw.regex`, `paw.harmony.read`, ...) with
   their real types. The modules still in Lua type what their doc comments
   give (`--- @type ...`, collected in `runtime/types/paw/partial.d.tl`):
-  the functions that register a view, a buffer type, a text kind, a track
+  the functions that register a view, a buffer type, a text kind, a part
   kind, a role, a picker, a status component, a query field, a grep source
   and a health check. The rest of paw is `paw.Untyped`: callable and
   indexable, and you cast what you keep (`x as integer`).
@@ -168,15 +168,15 @@ paw.keymap.set("]e", fn, { view = "pianoroll", motion = true, desc = "Next onset
 paw.ui.view("euclid", { render = function(self, buf, ctx) end, on_key = …, title = "Euclid" })
 paw.buftype("tally", { … })                    -- a buffer type with its own keys/motions/K/status
 paw.textbuf.kind("clips", { … })               -- a listing edited as text, :w shows a plan
-paw.track_kinds.define("euclid", { … })        -- a kind of track (create, editor, describe)
+paw.part_kinds.define("euclid", { … })        -- a kind of part (create, editor, describe)
 paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
 paw.nest.define_kind("drums.pattern", { … })   -- a kind of subproject: create(region), enter(nest), describe(nest)
-paw.chain.define_kind("drums.transient", { min = 2, max = 2, first = 2 })  -- a kind of split in a chain; edit a chain with paw.chain.of({ track = id })
+paw.chain.define_kind("drums.transient", { min = 2, max = 2, first = 2 })  -- a kind of split in a chain; edit a chain with paw.chain.of({ part = id })
 paw.on("edit.after", function(payload) end)    -- hooks: see docs/reference/events.md
 paw.statusline.component("euclid", { fn = function(ctx) return { { "E", "StatusOn" } } end })
-paw.trackcolumn.add("euclid", { order = 25, width = 1, render = function(track, ctx) end })  -- a part of the track column
-paw.trackcolumn.sign("euclid", { priority = 10, render = function(track, ctx) end })      -- a sign in its `signs` part
-paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in part
+paw.partcolumn.add("euclid", { order = 25, width = 1, render = function(part, ctx) end })  -- a component of the part column
+paw.partcolumn.sign("euclid", { priority = 10, render = function(part, ctx) end })      -- a sign in its `signs` component
+paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in component
 paw.ruler.add("euclid", { order = 20, render = function(bar, ctx) end })            -- a part of each bar's label
 paw.insert.add("E", { kind = "midi", desc = "A Euclid clip", length = "2 bars", open = function(ctx, item) end })  -- a key of the arrange view's insert mode (docs/reference/insert-mode.md); `insert = "e"` on a clip kind does it too
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
@@ -191,7 +191,7 @@ paw.pick.sources:put("euclid", { desc = "Rhythms", items = … })  -- a picker: 
 A module that takes entries from extensions keeps them in a registry
 (`paw.registry`, runtime/lua/paw/registry.tl). The page "Extensions" of
 the reference lists the registries of paw. Commands, views, buffer types
-and kinds of track are registries, for example. Read an entry with `get`:
+and kinds of part are registries, for example. Read an entry with `get`:
 `paw.ui.views:get("pianoroll")`. Each kind above is a registry: keys
 (`paw.keymap.mappings`), hooks (`paw.events.hooks`), timers
 (`paw.timers.waiting`) and options (`paw.option.defined`) too.
@@ -228,10 +228,10 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 | commands + keys + text objects on the timeline | `extensions/sections` |
 | a view in its own window, cells + pixels | `extensions/undotree`, `extensions/mixdiag` |
 | a whole editor over MIDI with its own grammar | `extensions/notation` |
-| a kind of track with its own editor | `extensions/drums`, `extensions/utau` |
+| a kind of part with its own editor | `extensions/drums`, `extensions/utau` |
 | per-note data, roll layers, popovers | `extensions/articulations` |
 | a native engine / CLAP plugin built by Nix | `extensions/sampler`, `extensions/utau` |
-| parts and signs of the track column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
+| components and signs of the part column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
 | an extension in Teal with many modules (`lua/<name>/*.tl`), formats of other programs | `extensions/interop` |
 | a buffer type (e.g. a tracker, time top→down) | docs/reference/lua-views.md `paw.buftype` example ("tally") |
 

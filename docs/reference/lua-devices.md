@@ -23,7 +23,7 @@ The file returns its device, made with `dsp.device { ... }`.
 | `vendor` | The vendor. |
 | `params` | A list of `{ key, name, min, max, default, unit }`, or of choices: `{ key = "mode", choices = { "Soft", "Hard" }, default = "Soft" }`. The value of a choice is its number, from 0. |
 | `midi_effect` | True means that the events that the device sends replace the events that come in (an arpeggiator, a chord maker). |
-| `sidechain` | True means that the device can listen to a different track (see [Routing](routing.md#side-chains)). |
+| `sidechain` | True means that the device can listen to a different part (see [Routing](routing.md#side-chains)). |
 
 | Function | When paw calls it |
 | --- | --- |
@@ -43,7 +43,7 @@ The file returns its device, made with `dsp.device { ... }`.
 | `b.params` | The parameter values, by key. |
 | `b.sample_rate` | The sample rate. |
 | `b.playing`, `b.tempo`, `b.beat`, `b.seconds`, `b.bar`, `b.bar_start`, `b.sig_num`, `b.sig_den` | The transport. In a subproject, `b.beat`, `b.seconds` and the bars count from the start of the clip of the subproject that plays, and `b.bar` is 0 in its first bar (see [The audio engine](engine.md#the-transport-in-a-subproject)). |
-| `b.key_left`, `b.key_right` | The side-chain, or nil when no track is connected. |
+| `b.key_left`, `b.key_right` | The side-chain, or nil when no part is connected. |
 | `b.events`, `b.nevents` | The MIDI events (see below). |
 
 LuaJIT compiles the loops over the arrays, and a gain costs less than one microsecond for each block.
@@ -120,17 +120,17 @@ Large data, e.g., the samples of a sampler or the phrases of a singer, is too bi
 ## Reload
 
 - paw looks at the files each second (`paw.opt.lua_devices_watch`, in ms, 0 for never). When a script changes, paw loads it again, and its devices start again from the new code with their parameter values, and a new parameter starts at its default.
-- `:device.reload` loads the device selected in the panel again immediately, or all the Lua devices of the track.
+- `:device.reload` loads the device selected in the panel again immediately, or all the Lua devices of the part.
 - `:device.scripts` lists the scripts, where they are, and why a script did not load.
 
 ## Errors
 
 - If a script does not load (a syntax error, no `process`, a top level that runs for more than five seconds), paw reports it with the file and the line, and a device that runs an earlier version continues.
-- If a script fails while it runs, only that device stops, and paw shows the device as stopped, with the error (`tilt.lua:23: attempt to index a nil value`). The track continues, so an effect lets the sound through and an instrument is silent. `:device.restart`, or a save of the file, starts the device again.
+- If a script fails while it runs, only that device stops, and paw shows the device as stopped, with the error (`tilt.lua:23: attempt to index a nil value`). The part continues, so an effect lets the sound through and an instrument is silent. `:device.restart`, or a save of the file, starts the device again.
 
 ## Process
 
-Each Lua device runs in a helper process, as a plugin does, with a LuaJIT state of its own. The engine gives the helper each block through shared memory and waits for it inside the block, so a Lua device adds no latency, and a slow script costs its own track a block of sound.
+Each Lua device runs in a helper process, as a plugin does, with a LuaJIT state of its own. The engine gives the helper each block through shared memory and waits for it inside the block, so a Lua device adds no latency, and a slow script costs its own part a block of sound.
 
 The events of that block go to the script at the start of the next block that it takes, so a note that you play at that time sounds and a note-off is not lost.
 

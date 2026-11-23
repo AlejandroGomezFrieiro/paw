@@ -2,7 +2,7 @@
 
 <!-- tags: attachment paw_attach.h plugins.attach ara native device-files paw.clips -->
 
-An attachment is a native library that an extension ships, and paw offers it each CLAP plugin that paw makes. An attachment that takes a plugin can use the extensions of the plugin and answer calls to the device, and it can read sound files through paw, get the audio clips of the track, and keep a file beside the state of the device. The [ara](../../extensions/ara/README.md) extension is an attachment, and [About ARA plugins](../explanation/about-ara.md) explains why paw has attachments.
+An attachment is a native library that an extension ships, and paw offers it each CLAP plugin that paw makes. An attachment that takes a plugin can use the extensions of the plugin and answer calls to the device, and it can read sound files through paw, get the audio clips of the part, and keep a file beside the state of the device. The [ara](../../extensions/ara/README.md) extension is an attachment, and [About ARA plugins](../explanation/about-ara.md) explains why paw has attachments.
 
 The interface is C, in `crates/paw-plugins/include/paw_attach.h`.
 
@@ -35,18 +35,18 @@ All three run on the main thread of the process that hosts the plugin.
 | `PAW_CALL_UNKNOWN` | The attachment does not know the method. paw gives it to the next attachment, then to the plugin. |
 | `PAW_CALL_DONE` | Done. The answer is what the attachment wrote. |
 | `PAW_CALL_FAILED` | Failed. What the attachment wrote tells why. |
-| `PAW_CALL_STOPPED` | Call again with the plugin stopped. paw holds the audio thread off the plugin, deactivates it, calls again and activates it. The track is silent, or passes its sound through, for those blocks. |
+| `PAW_CALL_STOPPED` | Call again with the plugin stopped. paw holds the audio thread off the plugin, deactivates it, calls again and activates it. The part is silent, or passes its sound through, for those blocks. |
 
 ### The calls of paw
 
 | Method | Data | Answer |
 | --- | --- | --- |
 | `paw.file.load` | The file that paw kept for the attachment. Empty the first time. | Nothing. |
-| `paw.clips` | The audio clips of the track, as JSON (below). | Nothing. |
+| `paw.clips` | The audio clips of the part, as JSON (below). | Nothing. |
 | `paw.file.save` | Nothing. | The file to keep, or nothing. |
 
 - paw sends `paw.file.load` when it makes the device, after the state of the plugin. A device that does not know the method keeps no files and gets no clips.
-- paw sends `paw.clips` after `paw.file.load`, and again each time the clips of the track or the tempo change, for example after an edit, an undo, or a project that opens. A device that does not know the method is not asked again.
+- paw sends `paw.clips` after `paw.file.load`, and again each time the clips of the part or the tempo change, for example after an edit, an undo, or a project that opens. A device that does not know the method is not asked again.
 - paw sends `paw.file.save` when it keeps the states of the plugins, which happens when it saves the project, renders, or starts the engine again.
 - A render makes its own devices, which get the same calls.
 
@@ -54,7 +54,7 @@ All three run on the main thread of the process that hosts the plugin.
 
 ```json
 {
-  "track": { "id": 2, "name": "Vox" },
+  "part": { "id": 2, "name": "Vox" },
   "clips": [
     { "id": 5, "name": "take1", "file": "/song/media/take1.wav", "offset": 0.0,
       "start": 2.0, "length": 8.0, "stretch": 1.0, "gain": 0.0, "muted": false }
@@ -65,7 +65,7 @@ All three run on the main thread of the process that hosts the plugin.
 ```
 
 - `start` and `length` are seconds of the song, `offset` is seconds into the file, and `gain` is in dB.
-- Only the audio clips of the track are in the list.
+- Only the audio clips of the part are in the list.
 - `tempo` has a point at each tempo change, a point on each beat of a ramp, and a point after the last clip, and the tempo is constant between two points.
 
 ## What paw gives an attachment
@@ -80,5 +80,5 @@ All three run on the main thread of the process that hosts the plugin.
 
 ## The file of an attachment
 
-- The project keeps the file of an attachment as `<n>-<kind>.<name>` in the track folder, beside the `.state` of the device, where `<name>` is the name of the attachment. `devices.json` names the file under `file_names`, and [Project files](project-files.md) has the details.
+- The project keeps the file of an attachment as `<n>-<kind>.<name>` in the part folder, beside the `.state` of the device, where `<name>` is the name of the attachment. `devices.json` names the file under `file_names`, and [Project files](project-files.md) has the details.
 - A project in one JSON file keeps it in `files`, base64 encoded.

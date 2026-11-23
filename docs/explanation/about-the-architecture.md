@@ -14,7 +14,7 @@ that moves between them.
             ┌────────────── main thread ──────────────┐        ┌─ audio thread ─┐
  terminal ─▶│ keys ─▶ Lua runtime ─▶ paw.api          │  msgs  │                │
  socket   ─▶│         (views, keys,   │               │ ─────▶ │    Engine      │
-            │          commands)      ▼               │        │ tracks,devices │
+            │          commands)      ▼               │        │ parts,devices │
  terminal ◀─│ cell grid ◀── render   Session          │ ◀───── │ clips,transport│
             │                 project ─▶ sync ────────┼─ garbage, meters, position
             └─────────────────────────────────────────┘        └────────────────┘
@@ -28,7 +28,7 @@ lists every crate and folder.
 
 ## The project is plain data
 
-Tracks, devices and clips are kept behind `Arc`, which is Rust's shared
+Parts, devices and clips are kept behind `Arc`, which is Rust's shared
 pointer, so an edit makes a copy of only the part that it changes. Undo is
 a tree of snapshots that share all the parts that did not change. If you
 undo and then make a change, paw starts a new branch and keeps the old one.
@@ -48,7 +48,7 @@ no longer uses, and the main thread frees it.
 
 ## Worker threads and a fixed order of the mix
 
-Worker threads process the tracks that do not feed each other at the same
+Worker threads process the parts that do not feed each other at the same
 time. Then one thread adds their outputs in a fixed order, so a rendered
 file has the same bytes on one thread or on sixteen threads.
 

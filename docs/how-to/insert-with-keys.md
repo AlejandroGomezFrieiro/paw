@@ -10,7 +10,7 @@ from the keyboard, in insert mode. All the keys are listed in
 
 ## Insert clips
 
-1. Put the cursor on a track, at the bar where the clip starts, and press
+1. Put the cursor on a part, at the bar where the clip starts, and press
    `i`. The status line shows `INSERT`.
 2. Press `m`, and an empty MIDI clip starts at the cursor. The cursor moves
    to its end.

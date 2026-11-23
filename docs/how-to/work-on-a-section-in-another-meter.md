@@ -31,7 +31,7 @@ eight bars of 6/8 and not eight bars of 4/4.
    bridge, and the message describes it:
 
    ```
-   Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 3 tracks · `zw` goes back
+   Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 3 parts · `zw` goes back
    ```
 
    The ruler counts the bars of the bridge from 1 in 6/8, with the bars
@@ -62,17 +62,17 @@ narrow column.
    you back to the column, still folded.
 3. To open the fold, press `za` on it.
 
-## If some tracks stay in the old meter
+## If some parts stay in the old meter
 
 If the drums must stay in 4/4 under a bridge in 6/8, the meter can't be
 in the song, because the song has one meter at each bar. Make the bridge
-a subproject with tracks and a meter of its own:
+a subproject with parts and a meter of its own:
 
 1. Type `17|` to go to bar 17.
 2. Type `:nest.new Bridge 8 6/8 meter=own`. The message ends with
    `(the song's meter stays)`, and the window goes inside the
-   subproject, with one empty track.
-3. Add the tracks of the bridge there. Inside the subproject, the ruler
+   subproject, with one empty part.
+3. Add the parts of the bridge there. Inside the subproject, the ruler
    and the status line count bars of 6/8, and `3|` goes to bar 3. The
    song keeps its bars in 4/4.
 4. Press `zw` to return to the song.

@@ -1,8 +1,8 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.own :nest.time :nest.meter :nest.unique kind= -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_part :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.own :nest.time :nest.meter :nest.unique kind= -->
 
-A subproject is a section of the song with tracks of its own and a
+A subproject is a section of the song with parts of its own and a
 timeline of its own. The song plays it from a row of its own, its return
 row, where a clip of the subproject (its block) covers the time of the
 section. The commands and the Lua functions call a subproject a nest. For
@@ -29,9 +29,9 @@ entering a subproject and moving around in it, see
 `:nest.new` then does these things:
 
 1. It adds the subproject, named as you typed or `Subproject 1`.
-2. It adds the return row below the track of the cursor, with the same
+2. It adds the return row below the part of the cursor, with the same
    name, and one block on it over the time of the subproject. The row goes
-   where `o` puts a track. On a track of a group, the row goes into the
+   where `o` puts a part. On a part of a group, the row goes into the
    group and plays into it, and the message says
    `on its own row in the group Keys`.
 3. With a meter, it writes the meter into the tempo map of the song at the
@@ -48,9 +48,9 @@ entering a subproject and moving around in it, see
    beats earlier, and what started at bar 41 still starts at bar 41. The
    message says how far it moved: `the rest of the song moved 8 beats
    earlier`.
-5. The window goes inside the subproject, with one empty track, and the
-   cursor on that track at its first bar. A kind of subproject adds its
-   own tracks in place of the empty track.
+5. The window goes inside the subproject, with one empty part, and the
+   cursor on that part at its first bar. A kind of subproject adds its
+   own parts in place of the empty part.
 
 The message says what it did, for example `added the subproject Ballad
 over bars 33-40 in 6/8, on its own row; inside it now`. `u` takes the
@@ -73,16 +73,16 @@ Two more words change what `:nest.new` does with the time of the song:
   `its own tempo, 120 bpm`, with the tempo it took.
 - `kind=` makes a kind of subproject that an extension defines, for
   example `:nest.new Groove 2 kind=drums.pattern`. The kind adds the
-  tracks and clips, and it can open a view of its own when the window goes
+  parts and clips, and it can open a view of its own when the window goes
   inside, such as a step grid. The message names the kind, for example
   `added the subproject Groove (Drum pattern) over bars 3-4`. Without the
   extension, the subproject is a plain one: it plays, and the arrange view
-  edits its tracks. See
+  edits its parts. See
   [Kinds of subproject](extensions.md#kinds-of-subproject).
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `nest_track` | `"track"` | The track that a new subproject starts with: `"track"` for a plain track, as `o` adds, or the name of a kind of track, for example `"vocal"`. |
+| `nest_part` | `"part"` | The part that a new subproject starts with: `"part"` for a plain part, as `o` adds, or the name of a kind of part, for example `"vocal"`. |
 
 ## Time inside a subproject
 
@@ -177,31 +177,31 @@ and under the name a small piano roll of the notes that the subproject
 plays there. When the song plays the subproject in more places than one,
 the name ends with the number of places, for example `⧉ Bridge ×2`. A
 kind of subproject puts its letter after `⧉`, for example `⧉D Groove`.
-The header of the return row has `⧉` before the name too, and the track
-column has `▸` beside it, or `▾` while its tracks show under it. The
+The header of the return row has `⧉` before the name too, and the part
+column has `▸` beside it, or `▾` while its parts show under it. The
 graphical window draws the same blocks.
 
 | Keys or command | Effect |
 | --- | --- |
-| `za` on a return row | Show the tracks of the subproject under the row, in the time of the song, or hide them again. On one of those tracks, `za` hides them and puts the cursor on the row. |
-| `K` on a block | Describe the subproject in a float with `⧉` and its name on the border, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, then its tracks (`2 tracks: Piano, Strings`), then the places where the song plays it, as song bars (`plays in 2 places: @9 (here), @97`). A kind of subproject adds its name and its own words after the name, for example `subproject Groove (Drum pattern: 16 steps)`. The last line gives the keys `znn` and `<Space>zp`. |
+| `za` on a return row | Show the parts of the subproject under the row, in the time of the song, or hide them again. On one of those parts, `za` hides them and puts the cursor on the row. |
+| `K` on a block | Describe the subproject in a float with `⧉` and its name on the border, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, then its parts (`2 parts: Piano, Strings`), then the places where the song plays it, as song bars (`plays in 2 places: @9 (here), @97`). A kind of subproject adds its name and its own words after the name, for example `subproject Groove (Drum pattern: 16 steps)`. The last line gives the keys `znn` and `<Space>zp`. |
 | `:nest.list` | Choose a subproject from a list of its blocks, with the subprojects that no block plays (`unused`), and go inside it. |
-| `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
+| `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its parts, named after the part, in a group under the return row. One undo step. |
 | `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |
 
-The tracks that `za` shows under a return row belong to the subproject,
-and the screen marks them so that you can tell them from the tracks of
+The parts that `za` shows under a return row belong to the subproject,
+and the screen marks them so that you can tell them from the parts of
 the song:
 
-- A dotted line `┆` goes down the track column beside them, and a line
+- A dotted line `┆` goes down the part column beside them, and a line
   `╰┄ end of ⧉Bridge` closes them.
-- They have no track number. The tracks of the song keep their numbers.
+- They have no part number. The parts of the song keep their numbers.
 - They show their clips only in the blocks of the return row, with a
   dotted edge at each side of a block, and nothing outside the blocks.
 - The message names the places where the song plays the subproject, for
   example `an edit here changes both places (@9, @25)`.
 
-The cursor finds the clips of those tracks in each block, so a key
+The cursor finds the clips of those parts in each block, so a key
 that works on the clip at the cursor, for example `~` to mute it,
 changes the subproject. The window still shows the song:
 `znn` on the block goes inside the subproject. The rows that `za` opens
@@ -209,10 +209,10 @@ are not part of the project, and `u` does not
 close them.
 
 With stems, the return row is a group, and each stem row holds a block
-that plays one track of the subproject. Each track plays through its own
+that plays one part of the subproject. Each part plays through its own
 devices into its stem row, and the stem rows play into the return row, so
-the fader, the sends and the devices of each stem row act on one track,
-and those of the return row on their sum. The master track of the
+the fader, the sends and the devices of each stem row act on one part,
+and those of the return row on their sum. The master part of the
 subproject does not play with stems: its devices and fader are skipped.
 
 ## One subproject in several places
@@ -236,8 +236,8 @@ block, it goes inside the copy.
 
 A frozen block plays a rendered file of what it plays into its return
 row, and the devices of the subproject rest while no block plays it live.
-The rules are the rules of a frozen track, in
-[Frozen tracks](freezing.md#frozen-blocks-of-subprojects).
+The rules are the rules of a frozen part, in
+[Frozen parts](freezing.md#frozen-blocks-of-subprojects).
 
 | Command | Effect |
 | --- | --- |
@@ -255,13 +255,13 @@ subproject. While a frozen block is stale, the status line says
 
 | Keys or command | Effect |
 | --- | --- |
-| `<Space>zw`, `:scope.write [name]` | Save the view of the window as a subproject, per track. One undo step. `.` then goes to the next view beside it, as `]z` does, and saves that one too. |
+| `<Space>zw`, `:scope.write [name]` | Save the view of the window as a subproject, per part. One undo step. `.` then goes to the next view beside it, as `]z` does, and saves that one too. |
 | `<Space>zW`, `:scope.write! [name]` | Save the view of the window as a subproject with its own row. One undo step. |
-| `:scope.write! [name] stems` | The same, with a stem row for each track when the tracks played into more than one bus, so that each bus still gets its tracks. |
+| `:scope.write! [name] stems` | The same, with a stem row for each part when the parts played into more than one bus, so that each bus still gets its parts. |
 
 A view is a part of the song that the window shows, for example the
 region that `znar` enters (see [Narrowing](narrowing.md)). Both commands
-take the clips of the view's tracks in the view's time, cut at its
+take the clips of the view's parts in the view's time, cut at its
 edges, and move them into a new subproject. The subproject takes the name
 that you type, else the name of the view or of its region. A name has no
 `/`, so both commands refuse a path such as `~/lib/bridge`. To write the
@@ -274,56 +274,56 @@ of its own, a view saves that meter instead: a view of a 6/8 subproject
 gives a subproject in 6/8. The markers and regions inside
 the time move into the subproject. A region over the whole time stays in
 the song. A view with no time, such as a group over the whole song, takes
-the song from its start to the end of the last clip of its tracks. The
+the song from its start to the end of the last clip of its parts. The
 subproject then follows the meter of the song, and every marker and
 region stays in the song.
 
-The message says what moved, for example `nested 2 tracks, bars 5-10, as
-Bridge (6/8)` per track, or `made the subproject ⧉Bridge from Piano and
+The message says what moved, for example `nested 2 parts, bars 5-10, as
+Bridge (6/8)` per part, or `made the subproject ⧉Bridge from Piano and
 Pad, bars 9-16 (4/4)` with its own row. When markers or regions move in,
 the message gives how many. `u` gives back the project as it was before.
 
-Per track (`<Space>zw`), each track keeps its devices, fader, sends and
-lanes. The subproject gets a track of the same name for each track that
-had clips in the time, and each track gets a block over the time that
-plays the clips of that track. The clips play through the devices of the
-track, as before, so the song sounds the same to the sample. The window
+Per part (`<Space>zw`), each part keeps its devices, fader, sends and
+lanes. The subproject gets a part of the same name for each part that
+had clips in the time, and each part gets a block over the time that
+plays the clips of that part. The clips play through the devices of the
+part, as before, so the song sounds the same to the sample. The window
 stays in the view.
 
-With its own row (`<Space>zW`), the tracks go into the subproject, and a
+With its own row (`<Space>zW`), the parts go into the subproject, and a
 new return row plays its mix. The routes of the song stay as they were,
 and the message names each route that has to change:
 
-- A track moves in as it is, with its devices, when nothing of it is
-  outside the time and every track that plays into it moves in too. Any
-  other track with clips in the time stays in the song with the rest of
+- A part moves in as it is, with its devices, when nothing of it is
+  outside the time and every part that plays into it moves in too. Any
+  other part with clips in the time stays in the song with the rest of
   its clips, and a copy goes in, with copies of its devices and of its
-  lanes over the time. So a group whose tracks have clips outside the
-  time stays in the song, and so does a bus that other tracks of the
+  lanes over the time. So a group whose parts have clips outside the
+  time stays in the song, and so does a bus that other parts of the
   song send to.
 - The return row has the name of the subproject, and it plays where the
-  tracks played. When they played into a group, the row goes into that
-  group, after its last track, so the group's devices process the
+  parts played. When they played into a group, the row goes into that
+  group, after its last part, so the group's devices process the
   subproject as they processed the clips. The message says so, for
   example `its row is in the group Keys, so it plays as before`.
-  Otherwise the row goes at the place of the first track, above its
+  Otherwise the row goes at the place of the first part, above its
   group.
-- When the tracks played into more than one bus, the row plays into the
+- When the parts played into more than one bus, the row plays into the
   master, and the message names the buses that no longer process the
   time, for example `the Drums bus and the Keys bus no longer process
   bars 9-16`. With the word `stems` (`:scope.write! Bridge stems`), the
-  subproject gets a stem row for each track under its row, and each stem
-  plays into the bus that its track played into, so the song sounds the
+  subproject gets a stem row for each part under its row, and each stem
+  plays into the bus that its part played into, so the song sounds the
   same.
-- When the view is a group whose tracks all move in, the group track
+- When the view is a group whose parts all move in, the group part
   becomes the return row, with its devices, fader, sends and lanes. A
   group that moves in whole stays a group inside the subproject.
-- A send to a track that stays out becomes a send of the return row at
+- A send to a part that stays out becomes a send of the return row at
   the same level, and the message names each one, for example `the send
   Bass → Verb (-6 dB) is now Bridge's`.
-- A VCA over a track that moves in now moves the return row, and the
+- A VCA over a part that moves in now moves the return row, and the
   message says so.
-- A side-chain from a track outside the view is refused, with the route
+- A side-chain from a part outside the view is refused, with the route
   named: `compressor on Bass listens to Kick: take Kick in too, or use
   <Space>zw`.
 - The window goes inside the subproject, at the same place.
@@ -347,8 +347,8 @@ without the song.
 
 Inside a subproject, `:export project` writes the subproject as the song plays it:
 
-- The tracks of the subproject become the tracks of the project, and its
-  master track becomes the master, with its devices, fader and lanes.
+- The parts of the subproject become the parts of the project, and its
+  master part becomes the master, with its devices, fader and lanes.
 - A subproject that follows the tempo or the meter of the song gets the
   tempo and the meter of the song over its first block. A subproject with
   its own tempo or meter keeps it.
@@ -357,22 +357,22 @@ Inside a subproject, `:export project` writes the subproject as the song plays i
 
 In a view, `:export project` writes the view of the window:
 
-- The project gets a copy of each track of the view, with its devices,
+- The project gets a copy of each part of the view, with its devices,
   and its clips and lanes in the time of the view, cut at the edges and
   moved to start at beat 0. An audio clip or a looped clip over an edge
   is refused, as for `<Space>zw`.
 - The project gets the tempo and the meter of the song over that time,
-  the markers and regions that fit in it, and a master track with no
+  the markers and regions that fit in it, and a master part with no
   devices.
-- A route to a track outside the view goes. A track that played into
-  such a track plays into the master. The message names each route that
+- A route to a part outside the view goes. A part that played into
+  such a part plays into the master. The message names each route that
   goes, for example `the send of Bass to Verb is left out`.
 
 The command copies the sound files that the clips play into `media/` of
 the new folder, one copy for each set of equal bytes, and write their
 `media.json`. A sound file that is missing stays missing, and the message
 says how many. The message names the folder and what it has, for example
-`wrote the subproject Ballad to ~/lib/Ballad/: 2 tracks, 1 media file; the
+`wrote the subproject Ballad to ~/lib/Ballad/: 2 parts, 1 media file; the
 song did not change`. In the song, the folder holds a copy of the whole
 project.
 
@@ -380,20 +380,20 @@ project.
 
 | Keys or command | Effect |
 | --- | --- |
-| `:import <folder>` | Make a project folder a subproject of the song, with a return row below the track at the cursor and one block from the bar of the cursor. The row goes where `o` puts a track, so on a track of a group it goes into the group. The subproject refers to the folder. |
+| `:import <folder>` | Make a project folder a subproject of the song, with a return row below the part at the cursor and one block from the bar of the cursor. The row goes where `o` puts a part, so on a part of a group it goes into the group. The subproject refers to the folder. |
 | `:nest.own` | Make the subproject at the cursor, which refers to a folder, the song's own copy now. Inside a subproject, that subproject. |
 | `:e <song>/nests/<name>` | Open the song and go inside its subproject `<name>`. When the song is open already, go inside the subproject. |
 
 `:import` takes a project folder, or its `project.toml`, for example
 `:import ~/lib/Ballad`, which `:export project` wrote. The subproject plays
 at once, and the command with its row and block is one undo step. The
-message names the folder and the number of tracks, for example
+message names the folder and the number of parts, for example
 `imported the subproject Ballad from ~/lib/Ballad at bar 1, on its own
-row: 2 tracks; it refers to the folder until you edit it`. The
+row: 2 parts; it refers to the folder until you edit it`. The
 subproject gets the project's parts in these ways:
 
-- The tracks of the project become the tracks of the subproject, and the
-  master track of the project becomes its master. The subprojects inside
+- The parts of the project become the parts of the subproject, and the
+  master part of the project becomes its master. The subprojects inside
   the project come with it.
 - Its markers, regions and data come from the project, and so does its
   key when the key is not the song's.
@@ -429,16 +429,16 @@ error.
 Promote makes the subproject song data again, and puts a view of it where
 the subproject was, so that you keep your place:
 
-- The tracks of the subproject become tracks of the song, in a group
+- The parts of the subproject become parts of the song, in a group
   named after the subproject, at the place of its return row. Their clips
   move to the beats where the block plays them, cut at the edges of the
   block, as the song played them.
-- The devices of the tracks stay on the tracks, so no plugin loads again.
-  The group track gets the devices of the subproject's master track first,
+- The devices of the parts stay on the parts, so no plugin loads again.
+  The group part gets the devices of the subproject's master part first,
   then those of the return row, the sum of their faders in dB, and the
   pan, the sends, the output and the color of the return row.
-- The lanes of the master track and of the return row go to the group
-  track. Two volume lanes become one, with their values added in dB, and
+- The lanes of the master part and of the return row go to the group
+  part. Two volume lanes become one, with their values added in dB, and
   the message says so. For other lanes with the same target, the lane of
   the return row stays.
 - The regions of the subproject come back at their beats in the song,
@@ -460,8 +460,8 @@ the subproject was, so that you keep your place:
   `"D minor"`), gives that key to the region named after it, when the key
   differs from the key of the song. The region is then a key over its
   time for harmony, as a region with a `key` is, and the message says so.
-- The return row, the master track and the subproject go.
-- The window shows a view of the group's tracks over the time of the
+- The return row, the master part and the subproject go.
+- The window shows a view of the group's parts over the time of the
   region, named after the subproject, for example `Song › Ballad`. The
   view is in the picker of scopes. When the window was inside the
   subproject, it is now inside the view, at the same place.
@@ -469,13 +469,13 @@ the subproject was, so that you keep your place:
 `u` gives back the subproject as it was. The render of the song is the same
 before and after.
 
-A subproject saved per track (`<Space>zw`) promotes otherwise: the clips
-of each of its tracks go back to the track of the block that plays it,
+A subproject saved per part (`<Space>zw`) promotes otherwise: the clips
+of each of its parts go back to the part of the block that plays it,
 cut at the edges of the blocks, and the blocks, the subproject and its
-tracks go. The window shows a view of those tracks over the time of the
+parts go. The window shows a view of those parts over the time of the
 region.
 
 Promote refuses a stem row (`:nest.outputs master` first), and a return
 row that holds clips that aren't blocks.
-Per track, it refuses a subproject with blocks at two places, and a track
+Per part, it refuses a subproject with blocks at two places, and a part
 of the subproject that has devices, lanes, or a fader or pan of its own.

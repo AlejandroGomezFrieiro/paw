@@ -15,7 +15,7 @@ sends the same gestures.
 The functions include the following.
 
 - clips: `select_clip`, `select_clips_box`, `drag_clips`, `trim_clips`, `set_fade`, `set_clip_gain`, `split_clips`, `glue_clips`, `open_clip`
-- tracks: `move_track`, `set_track_height`, `sweep_flag`
+- parts: `move_part`, `set_part_height`, `sweep_flag`
 - time: `select_range`, `set_loop`, `set_loop_edge`, `ruler_click`
 - notes: `add_note`, `drag_notes`, `stretch_notes`, `select_notes_box`, `erase_notes`, `draw_velocities`, `quantize_notes`, `set_velocity`
 - other: `set_param`, `float_pointer`, `drop`, `leave`, and the full list is the record `Act` in `runtime/lua/paw/frontend/core.tl`.
@@ -23,7 +23,7 @@ The functions include the following.
 | Function | Effect |
 | --- | --- |
 | `paw.frontend.act.leave(how, then)` | Asks about changes that are not saved, then does `then`, for example `"open:" .. path`. |
-| `paw.frontend.act.drop(paths, row, beat)` | Puts dropped files in the project. With a `row` (a position in the list of tracks) and a `beat`, it puts the files one after the other on that track, at the beat on the grid. Without them, as a drop on the window. |
+| `paw.frontend.act.drop(paths, row, beat)` | Puts dropped files in the project. With a `row` (a position in the list of parts) and a `beat`, it puts the files one after the other on that part, at the beat on the grid. Without them, as a drop on the window. |
 | `paw.frontend.chosen_clips()` | The clips selected with the pointer. The state marks each of these clips `selected`. |
 | `paw.frontend.layout_get()` | The layout that the window keeps (see [What the window keeps](window.md#what-the-window-keeps)). An empty table when there is none. |
 | `paw.frontend.layout_set(layout)` | Writes the layout to `window.json` in the kernel's state directory. |
@@ -43,8 +43,8 @@ right-click menus of the window, in the three lists below.
 | List | Menu |
 | --- | --- |
 | `clip` | The menu of a clip. |
-| `track` | The menu of a track header. |
-| `timeline` | The menu of the empty timeline. The buttons that make a track also offer these entries. |
+| `part` | The menu of a part header. |
+| `timeline` | The menu of the empty timeline. The buttons that make a part also offer these entries. |
 
 Each entry is a table:
 
@@ -52,14 +52,14 @@ Each entry is a table:
 | --- | --- |
 | `label` | The text of the entry. |
 | `command` | A command line. |
-| `run` | A function, given the clip or the track, and the beat clicked. |
+| `run` | A function, given the clip or the part, and the beat clicked. |
 | `only` | `"midi"` or `"audio"`: the entry of a clip is gray on other clips. |
 
 Before `command` or `run`, the cursor moves to the clicked position.
 
 ```lua
 table.insert(paw.frontend.menus.clip, { label = "Open as notation", command = "notation.open", only = "midi" })
-table.insert(paw.frontend.menus.timeline, { label = "New drum track", run = function(track, beat) end })
+table.insert(paw.frontend.menus.timeline, { label = "New drum part", run = function(part, beat) end })
 ```
 
 ## `paw.frontend.bands`
@@ -92,7 +92,7 @@ end)
 
 `paw.frontend.openers` is a list of functions, and a double-click on a clip
 calls each one with the clip, before the piano roll opens. A function that
-opens the clip in an editor of its own returns true. A kind of track with
+opens the clip in an editor of its own returns true. A kind of part with
 an `editor` (see [Everything an extension can
 own](extensions.md#what-the-core-gives-an-extension)) does not need an
 opener, because a double-click on its clip opens its editor.
@@ -229,8 +229,8 @@ paints ([gui.lua](../../extensions/utau/lua/utau/gui.lua)), and it shows notes
 with lyrics, the drawn pitch and the sung pitch, and phonemes. Its toolbar
 has the singer, the tools and the grid.
 
-## Kinds of track
+## Kinds of part
 
-The "+ Track" and "New track" menus offer each kind of track. The track
+The "+ Part" and "New part" menus offer each kind of part. The part
 header shows the kind before the devices. A kind with an `editor` opens
 its clips there on a double-click.

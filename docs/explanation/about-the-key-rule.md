@@ -16,7 +16,7 @@ used a motion key for another action broke operators in that view.
 
 For that reason, `b` is only a motion. The bypass in the device panel went
 to `gc`, and the "back to the timeline"
-of the session view went to `B` (`gB` for every track). `e` is only a
+of the session view went to `B` (`gB` for every part). `e` is only a
 motion too, so the window of a plugin is `ge` in every view. The session
 view opens the notes of a slot with `i`, the key that enters notes in the
 piano roll.
@@ -71,10 +71,10 @@ curve editor, the drum grid and the score, so `g0` is the playhead to the
 start in every view. `R` records, so a plugin starts again with `gR` in the
 device panel, and the virtual inputs look for ports with `gR`.
 
-### Tracks, the session view and the device panel
+### Parts, the session view and the device panel
 
-`s` is solo wherever there is a track, so the session view stops the clip
-of a track with `S` (`gS` every clip). The presets of the device panel are
+`s` is solo wherever there is a part, so the session view stops the clip
+of a part with `S` (`gS` every clip). The presets of the device panel are
 `c` on a device (choose), `]p` `[p` (step), `<Space>dw` (save, as `:w`
 writes) and `<Space>dW` (the default).
 
@@ -90,13 +90,13 @@ also set the layout of the page, and `gS` keeps its meaning of the session
 view and the panel.
 
 The score gives `gv` (select again), `gt` and `gT` (tabs) back to their
-meanings in every view. The other voice is `gV`, every track as a score is
+meanings in every view. The other voice is `gV`, every part as a score is
 `zS`, and triplets come from the tuplet popover `\3`. The drum grid also
 makes triplet steps with `\3`, so one key makes triplets.
 
 ### Adding, operators and values
 
-`a` appends. It already added a device on a track and notes after a note,
+`a` appends. It already added a device on a part and notes after a note,
 and it does the same in the mixer and the panel. `A` already added a point
 of automation at the cursor in every view that had it.
 
@@ -107,7 +107,7 @@ default.
 
 ### Sections, windows and the local leader
 
-`]]` `[[` go between sections, and `]s` `[s` stay the tracks of a group.
+`]]` `[[` go between sections, and `]s` `[s` stay the parts of a group.
 `]p` `[p` go through the phonemes of the vocal editor, so `(` `)` stay the
 phrase motions.
 
@@ -134,7 +134,7 @@ The comma is free again in normal mode, and `;` and `,` do the last
 
 paw puts a domain after the leader. After
 `<Space>`, the first key is a domain, e.g., `m` the mix, `d` the devices,
-`t` the tracks or `p` the project. The second key is what to do in that
+`t` the parts or `p` the project. The second key is what to do in that
 domain. You learn one letter for one domain, and it has the same meaning in
 all the keys, so `<Space>mm` shows the mixer, and `<Space>ma` measures the
 mix.

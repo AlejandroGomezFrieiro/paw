@@ -2,7 +2,7 @@
 
 <!-- tags: terminal grammar -->
 
-The keys of paw work like the keys of Neovim, on a timeline instead of a text. In the arrange view, a track is a line, a beat is a column and a clip is a word, and in the piano roll a pitch is a line and a note is a word. All keys are mappings in `runtime/lua/paw/defaults/`, made with the functions of [your configuration](../how-to/configure-paw.md), and you can change each of them.
+The keys of paw work like the keys of Neovim, on a timeline instead of a text. In the arrange view, a part is a line, a beat is a column and a clip is a word, and in the piano roll a pitch is a line and a note is a word. All keys are mappings in `runtime/lua/paw/defaults/`, made with the functions of [your configuration](../how-to/configure-paw.md), and you can change each of them.
 
 The arrange view and the piano roll share the keys below. The keys of one view are on its page, which are [the arrange view](arrange-view.md) and [the piano roll](piano-roll.md), and [The key rule](key-rule.md) gives the meaning that a key has in every view.
 
@@ -13,21 +13,21 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
 | `h` `l` | a grid step | a grid step |
-| `j` `k` | the next and the previous track | a semitone down and up |
-| `Ctrl-d` `Ctrl-u` | four tracks down and up | an octave down and up |
+| `j` `k` | the next and the previous part | a semitone down and up |
+| `Ctrl-d` `Ctrl-u` | four parts down and up | an octave down and up |
 | `w` `b` `e` | the start of the next clip, the start of this clip, the end of this clip | the same for notes, at any pitch |
 | `W` `B` | the next and the previous bar | the same |
-| `0` `^` `$` | the start of the project, the first clip of the track, the end of its last clip | the start of the clip, the first note, the end of the clip |
-| `gg` `G`, `5G` | the first and the last track, track 5 | the highest and the lowest note |
+| `0` `^` `$` | the start of the project, the first clip of the part, the end of its last clip | the start of the clip, the first note, the end of the clip |
+| `gg` `G`, `5G` | the first and the last part, part 5 | the highest and the lowest note |
 | `)` `(` | | the next phrase, the start of this phrase or the one before |
 | `]c` `[c` | | the next chord, the chord before: where two or more notes start together |
 | `9\|`, `:9` | bar 9; in a scope with time, its bar 9 | |
 | `@9\|`, `:@9` | bar 9 of the song, also in a scope with its own bars | |
 | `]z` `[z` | the next scope beside this window's scope, the one before ([Scopes](narrowing.md)) | |
-| `/name`, `n` `N`, `*` | finds a clip or track by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
+| `/name`, `n` `N`, `*` | finds a clip or part by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
 
-To see the counts, `:set relativenumber` shows how many `j` or `k` go to each track, and `:set relativebar` shows how many `W` or `B` go to each bar. [The track column](arrange-view.md#the-track-column) has the details.
+To see the counts, `:set relativenumber` shows how many `j` or `k` go to each part, and `:set relativebar` shows how many `W` or `B` go to each bar. [The part column](arrange-view.md#the-part-column) has the details.
 
 ## Marks and jumps
 
@@ -43,19 +43,19 @@ To see the counts, `:set relativenumber` shows how many `j` or `k` go to each tr
 
 ## Operators
 
-An operator acts on what a motion moves over, on a text object, or on a selection. An operator typed two times acts on whole lines, so `dd` deletes a track and `3dd` deletes three tracks.
+An operator acts on what a motion moves over, on a text object, or on a selection. An operator typed two times acts on whole lines, so `dd` deletes a part and `3dd` deletes three parts.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
-| `d` | deletes: `dw` up to the next clip, `d2W` two bars, `dd` the track | deletes notes: `dw`, `d4l`, `dd` every note of the pitch |
+| `d` | deletes: `dw` up to the next clip, `d2W` two bars, `dd` the part | deletes notes: `dw`, `d4l`, `dd` every note of the pitch |
 | `y` | copies to a register, for `p` | the same |
 | `c` | empties the time, and opens a new clip there to enter notes | deletes, then enters notes |
-| `>` `<` | moves clips a grid step later or earlier (`>>` all clips of the track) | the same for notes |
+| `>` `<` | moves clips a grid step later or earlier (`>>` all clips of the part) | the same for notes |
 | `=` | snaps clips and their notes to the grid | snaps notes to the grid |
-| `gc` | mutes or unmutes clips, `gcc` the track | |
+| `gc` | mutes or unmutes clips, `gcc` the part | |
 | `gl` | sets the playback loop to it and turns looping on: `glic` the clip, `gl4W` four bars, `glar` the region | the same |
-| `zn` | enters it as a scope, in this window: `znar` the region, `znag` the group, `znit` the track; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
-| `zf` | folds it: `zfar` the region into one column, `zfag` the group into one row, `Vjjzf` the tracks into one row ([Folds](narrowing.md#folds)) | |
+| `zn` | enters it as a scope, in this window: `znar` the region, `znag` the group, `znit` the part; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
+| `zf` | folds it: `zfar` the region into one column, `zfag` the group into one row, `Vjjzf` the parts into one row ([Folds](narrowing.md#folds)) | |
 
 ## Text objects
 
@@ -67,12 +67,12 @@ A text object names a part of the project.
 | `ac` | the clip and the gap after it | the chord as the harmony reads it |
 | `ib` | this bar (`2ib` two bars) | this bar |
 | `il` | the loop | |
-| `ir` | the innermost region that the cursor is in, on this track (`2ir` the region around it) | the region that the cursor is in |
-| `ar` | the innermost region that the cursor is in, on every track (`2ar` the region around it) | the same |
-| `it` | everything on the track | |
+| `ir` | the innermost region that the cursor is in, on this part (`2ir` the region around it) | the region that the cursor is in |
+| `ar` | the innermost region that the cursor is in, on every part (`2ar` the region around it) | the same |
+| `it` | everything on the part | |
 | `ie` | the entire project | every note of the clip |
 
-In a window narrowed to a scope ([Scopes](narrowing.md)), the text objects take only what the scope shows. `ie` is the entire scope, its tracks in its time. `ar` is the region on the tracks of the scope, cut at the edges of its time, and `ir` and `it` are cut there too. So in `Song › Bridge › Strings`, `dar` deletes the clips of the strings in the region, and the other tracks keep theirs.
+In a window narrowed to a scope ([Scopes](narrowing.md)), the text objects take only what the scope shows. `ie` is the entire scope, its parts in its time. `ar` is the region on the parts of the scope, cut at the edges of its time, and `ir` and `it` are cut there too. So in `Song › Bridge › Strings`, `dar` deletes the clips of the strings in the region, and the other parts keep theirs.
 
 In visual mode, the same text object again takes in one more, as `iw` does in Vim, so `vic` and then `ic` selects this chord and the next.
 
@@ -103,8 +103,8 @@ Visual mode selects first, and an operator or a key then acts on the selection.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
-| `v` | selects time, across the tracks that `j` and `k` add | selects time at every pitch |
-| `V` | selects whole tracks | selects whole pitches |
+| `v` | selects time, across the parts that `j` and `k` add | selects time at every pitch |
+| `V` | selects whole parts | selects whole pitches |
 | `Ctrl-v` | | selects a rectangle |
 
 | Keys | On a selection |
@@ -112,8 +112,8 @@ Visual mode selects first, and an operator or a key then acts on the selection.
 | `x` | Deletes it. |
 | `~` | Mutes it. |
 | `J` | Joins the clips. |
-| `Ctrl-a` `Ctrl-x`, `+` `-` | Transposes it. Over whole tracks (`V`), changes the volume. |
-| `]` `[` | Over whole tracks (`V`), changes the pan. |
+| `Ctrl-a` `Ctrl-x`, `+` `-` | Transposes it. Over whole parts (`V`), changes the volume. |
+| `]` `[` | Over whole parts (`V`), changes the pan. |
 | `p` | Replaces it with the register. |
 | `o` | Goes to the other end. |
 | `gv` | Selects the last selection again. |
@@ -125,8 +125,8 @@ A selection includes the note (or drum hit) under its far end, in the same way t
 
 | Keys | Effect |
 | --- | --- |
-| `p` | Pastes after the clip or note under the cursor. Tracks go below. |
-| `P` | Pastes at the cursor. Tracks go above. |
+| `p` | Pastes after the clip or note under the cursor. Parts go below. |
+| `P` | Pastes at the cursor. Parts go above. |
 | `3p` | Pastes three times, one after the other. A next `p` continues from the last one. |
 | `"a` | Names register `a` for the next command (`"ayy`, `"ap`). |
 | `"_` | The register that keeps nothing. |
@@ -157,4 +157,4 @@ The key or the command that changed something names a step, and a motion before 
 
 ## Ranges
 
-`:` also takes the Ex commands of Vim over bars and tracks, for example `:5,8d`, `:%s/c4/d4/g` and `:g/vel<20/d`. A command can also take bars before its name, as in `:5,8notation.transpose 2`. [Ex commands](ex.md) describes them.
+`:` also takes the Ex commands of Vim over bars and parts, for example `:5,8d`, `:%s/c4/d4/g` and `:g/vel<20/d`. A command can also take bars before its name, as in `:5,8notation.transpose 2`. [Ex commands](ex.md) describes them.

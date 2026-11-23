@@ -14,9 +14,9 @@ is in [MIDI controllers](../reference/learn.md).
 In the graphical window, click the plug icon next to the parameter, and
 then turn the knob.
 
-## Map the fader of a track
+## Map the fader of a part
 
-1. Select the track.
+1. Select the part.
 2. Type `:learn volume`, or type `:learn pan` for the pan.
 3. Move the fader on the controller.
 
@@ -39,6 +39,6 @@ If you
 want the target to jump at once, set `paw.opt.learn_pickup = false` in
 `init.lua`.
 
-To record the moves as automation, set the automation mode of the track
+To record the moves as automation, set the automation mode of the part
 first, as [How to write automation with the faders](write-automation-with-the-faders.md)
 shows.

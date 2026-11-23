@@ -7,25 +7,25 @@ The tests of the tutor compare every key here with the mappings of paw, and `?` 
 
 ## The sentence
 
-A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, `d2W`, `yic` and `gl4W`. An operator typed twice takes whole rows (tracks in A, pitches in R), as in `dd` and `3yy`. `"a` before it names a register, as in `"ayic`, and `.` repeats the last change.
+A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, `d2W`, `yic` and `gl4W`. An operator typed twice takes whole rows (parts in A, pitches in R), as in `dd` and `3yy`. `"a` before it names a register, as in `"ayic`, and `.` repeats the last change.
 
 ## Move (motions)
 
 | Keys | A | R |
 | --- | --- | --- |
 | `h` `l` | a grid step | a step in time |
-| `j` `k` | next, previous track | a semitone down, up |
-| `<C-d>` `<C-u>` | four tracks down, up | an octave down, up |
+| `j` `k` | next, previous part | a semitone down, up |
+| `<C-d>` `<C-u>` | four parts down, up | an octave down, up |
 | `w` `b` `e` | next clip's start, this clip's start, this clip's end | the same for notes |
 | `W` `B` | next, previous bar | next, previous bar |
 | `0` `^` `$` | start of the project, first clip, end of the last clip | start of the clip, first note, end of the clip |
-| `gg` `G` | first, last track (`5G` track 5) | highest, lowest note |
+| `gg` `G` | first, last part (`5G` part 5) | highest, lowest note |
 | `5\|` | bar 5 (also `:5`); in a scope with time, its bar 5 | |
 | `@19\|` | bar 19 of the song, also in a scope with its own bars (also `:@19`) | |
 | `gP` | cursor to the playhead | |
 | `]'` `['` | next marker or region, the one before | |
 | `]r` `[r` | next region at the same level, the one before | |
-| `]z` `[z` | the next scope beside this window's scope, the one before (a region, a group, a track; `3]z` three on): [Scopes](narrowing.md) | |
+| `]z` `[z` | the next scope beside this window's scope, the one before (a region, a group, a part; `3]z` three on): [Scopes](narrowing.md) | |
 | `)` `(` | | next phrase, start of this phrase or the one before |
 | `zs` `zz` `ze` | put the cursor at the left, in the middle, at the right of the timeline | |
 | `zh` `zl` | scroll a bar | |
@@ -41,40 +41,40 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `c` | empty and enter notes in a new clip | delete and enter notes |
 | `>` `<` | move clips later, earlier | move notes |
 | `=` | snap clips and notes to the grid | snap notes |
-| `gc` | mute or unmute clips (`gcc` the track) | |
+| `gc` | mute or unmute clips (`gcc` the part) | |
 | `gl` | set the playback loop to it, and turn looping on | the same |
 | `x` | delete the clip | delete the note |
-| `D` `C` `Y` | delete, change, yank to the end of the track | to the end of the clip |
-| `p` `P` | paste after the clip (tracks below), at the cursor (tracks above) | after the note, at the cursor |
+| `D` `C` `Y` | delete, change, yank to the end of the part | to the end of the clip |
+| `p` `P` | paste after the clip (parts below), at the cursor (parts above) | after the note, at the cursor |
 | `&` `S` `J` `~` | repeat, split, join, mute the clip | |
 | `H` `L` `<A-h>` `<A-l>` | move the clip, shorten and lengthen it | move the note, shorten and lengthen it |
-| `+` `-` `<C-a>` `<C-x>` | track volume (`6<C-x>` six dB down) | the note's pitch (`12<C-a>` an octave up) |
+| `+` `-` `<C-a>` `<C-x>` | part volume (`6<C-x>` six dB down) | the note's pitch (`12<C-a>` an octave up) |
 | `[` `]` | pan | velocity |
 | `<CR>` | open the clip in R | add or remove a note |
 | `gh` | | hear the pitch |
-| `ga` `gE` | | edit the clip of another track's note under the cursor instead; edit it too, or no longer |
+| `ga` `gE` | | edit the clip of another part's note under the cursor instead; edit it too, or no longer |
 | `gn` `gN` | | the next, the previous clip edited becomes the active one |
 | `gC` `gX` | the lane's curve (on a lane row; `gc` turns it off and on) | the strip's controller as a curve, the note's own |
-| `o` `O` | add a track below, above | |
-| `grn` `grc` | rename the track, the clip | |
+| `o` `O` | add a part below, above | |
+| `grn` `grc` | rename the part, the clip | |
 | `gw` `gW` | put a warp marker on an audio clip at the cursor, take off the nearest | |
-| `<A-j>` `<A-k>` | move the track down, up | |
-| `M` `s` `r` | mute, solo, arm the track | |
-| `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the track, `Vjjzn` the selected tracks; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
+| `<A-j>` `<A-k>` | move the part down, up | |
+| `M` `s` `r` | mute, solo, arm the part | |
+| `zn` `znn` | `zn` and a motion: enter what the motion covers as a scope, in this window: `znar` the region, `znag` the group, `znit` the part, `Vjjzn` the selected parts; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |
 | `zw` `zW` | up one level of scope; up to the whole song | |
-| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected tracks into one row (`Fold 1`), a visual block into one frame over its tracks and bars (`Piano, Pad 9-24`) ([Folds](narrowing.md#folds)) | |
+| `zf` | `zf` and a motion: fold what the motion covers: `zfar` the region into one column (`Bridge ▸ 8`), `zfag` the group into one row, `Vjjzf` the selected parts into one row (`Fold 1`), a visual block into one frame over its parts and bars (`Piano, Pad 9-24`) ([Folds](narrowing.md#folds)) | |
 | `za` `zc` | close the fold, group or region at the cursor, or open it; close it | |
 | `zm` `zr` | close one more level of regions, the deepest first; open one level | |
-| `zd` `zE` | delete the fold at the cursor (its tracks and clips stay); delete every fold of the window | |
+| `zd` `zE` | delete the fold at the cursor (its parts and clips stay); delete every fold of the window | |
 | `zM` `zR` | close every group, region and fold of the window; open them all | |
-| `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected tracks; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
+| `<Space>tv` `<Space>ta` `<Space>tr` `<Space>tx` `<Space>tl` | a new VCA over the selected parts; put them under a VCA; take them out of their VCAs; take the VCA at the cursor away; link the faders of a group | |
 | `I` `<A-i>` | choose the input (audio, MIDI port and channel), monitor it | |
 | `a` | add a device | enter notes after the note |
 | `A` | add a volume automation point | |
 | `<Space>at` `<Space>ax` | automation off and on, clear it | |
-| `<Space>am` | the track's automation mode: read, touch, latch, write, off in turn | |
+| `<Space>am` | the part's automation mode: read, touch, latch, write, off in turn | |
 | `]t` `[t` | the clip's next take, the one before | |
-| `zt` `zT` | show or hide the track's take lanes, the tempo lane under the ruler | |
+| `zt` `zT` | show or hide the part's take lanes, the tempo lane under the ruler | |
 | `g'` `g"` | put a marker at the cursor; go to one from a list | |
 | `gx` | remove the marker at the cursor; a right click on its name under the ruler has "Remove" | |
 | `gX` | remove the region that the cursor is in; its clips stay | |
@@ -125,7 +125,7 @@ In the **curve editor**:
 | `M` `s` `r` `I` | mute, solo, arm, input |
 | `gc` | mute |
 | `dj` `yj` `p` | rows |
-| `dd` `yy` `p` | tracks |
+| `dd` `yy` `p` | parts |
 | `V` with `-` | several faders |
 
 | Keys | D |
@@ -134,15 +134,15 @@ In the **curve editor**:
 | `a` | add a device |
 | `x` | remove (on a parameter: its default) |
 | `gc` | bypass |
-| `s` `M` `r` | solo, mute, arm the track |
+| `s` `M` `r` | solo, mute, arm the part |
 | `c` | a preset or a value |
 | `[p` `]p` | step presets |
 | `<Space>dw` | save a preset |
 | `yy` `dd` `p` | devices (`yy` on a parameter: its setting) |
 | `<A-j>` `<A-k>` | reorder |
-| `gS` | the track that the device listens to (side-chain) |
+| `gS` | the part that the device listens to (side-chain) |
 | `O` | where its further output pairs play |
-| `\p` | pin the panel to its track, or follow the cursor again |
+| `\p` | pin the panel to its part, or follow the cursor again |
 
 ## Name a region (text objects)
 
@@ -155,9 +155,9 @@ In the **curve editor**:
 | `iv` `av` | | the voice of the note: the top line, the bass or a line between, with its octave doublings |
 | `i=` `a=` | | every note of the pitch, of the pitch class |
 | `ib` | this bar (`2ib` two) | this bar |
-| `ir` | the region, on this track (`2ir` the region around it) | the region (`2ir` the region around it) |
+| `ir` | the region, on this part (`2ir` the region around it) | the region (`2ir` the region around it) |
 | `il` | the loop | |
-| `it` | everything on the track | |
+| `it` | everything on the part | |
 | `ie` | the entire project (in a scope, the entire scope) | every note of the clip |
 
 In visual mode, the same text object again takes in one more, so `vic` and then `ic` selects two chords.
@@ -172,7 +172,7 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `x` `p` | delete it, replace it with the register |
 | `<CR>` | (A) edit the notes of the MIDI clips selected together in R |
 | `~` `J` | mute, join (A) |
-| `<C-a>` `<C-x>` `+` `-` | transpose the notes that start in the selection, and no others; a count first is how much: `vib12<C-a>` moves the notes of one bar up an octave. The message says how many notes moved, how far and in which clips (over whole tracks, `V`: the volume) |
+| `<C-a>` `<C-x>` `+` `-` | transpose the notes that start in the selection, and no others; a count first is how much: `vib12<C-a>` moves the notes of one bar up an octave. The message says how many notes moved, how far and in which clips (over whole parts, `V`: the volume) |
 | `:` | a command for the selection: the line starts `:'<,'>` |
 | `<Esc>` | back to normal mode |
 
@@ -295,24 +295,24 @@ After the leader, the first key is a domain, and the next key is what to do in i
 
 | Domain | Keys |
 | --- | --- |
-| a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the track, of every track; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
+| a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the part, of every part; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
 | c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
 | d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
-| e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the tracks, `<Space>er` the regions, `<Space>ep` a preset from a list, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
-| f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` tracks, `<Space>fd` the devices of the track, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
+| e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the parts, `<Space>er` the regions, `<Space>ep` a preset from a list, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
+| f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` parts, `<Space>fd` the devices of the part, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |
 | h: tutor | `<Space>hh` a hint, `<Space>hn` the next step, `<Space>hr` start again, `<Space>hl` the lessons, `<Space>hq` leave |
 | l: language servers | `<Space>la` fixes and actions, `<Space>ll` what they say about what is under the cursor, `<Space>li` the servers; with MIDI LSP, `<Space>lD` every problem and `<Space>lR` its rules |
 | m: mix | `<Space>mm` show or hide the mixer; with mixdiag, `<Space>ma` measure the mix, `<Space>mx` the findings, `<Space>mr` the report, and more |
-| n: notation | `<Space>nn` the clip as notation, `<Space>ns` every track as a score, `<Space>nc` the pages, `<Space>ne` `<Space>nE` export MusicXML, PDF |
+| n: notation | `<Space>nn` the clip as notation, `<Space>ns` every part as a score, `<Space>nc` the pages, `<Space>ne` `<Space>nE` export MusicXML, PDF |
 | p: project | `<Space>pr` recent projects; with undotree, `<Space>pu` the undo tree, `<Space>pc` `<Space>pC` write and list checkpoints, `<Space>pa` `<Space>pb` `<Space>pB` mark A, switch A and B, forget them, `<Space>pn` name the state, `<Space>p.` what the last step changed |
 | r: markers and regions | `<Space>rm` add a marker, `<Space>rn` make a region, `<Space>rx` remove the marker, `<Space>rX` remove the region, `<Space>rl` loop the region |
-| t: tracks (A) | `<Space>ts` send, `<Space>to` output, `<Space>tf` `<Space>tF` freeze, unfreeze the track or the selected tracks, `<Space>tg` `<Space>tG` make a group, remove the track from its group, `<Space>tv` a new VCA, `<Space>ta` `<Space>tr` add to a VCA, remove from it, `<Space>tx` remove the VCA, `<Space>tl` link the faders, `<Space>tb` bounce to audio |
+| t: parts (A) | `<Space>ts` send, `<Space>to` output, `<Space>tf` `<Space>tF` freeze, unfreeze the part or the selected parts, `<Space>tg` `<Space>tG` make a group, remove the part from its group, `<Space>tv` a new VCA, `<Space>ta` `<Space>tr` add to a VCA, remove from it, `<Space>tx` remove the VCA, `<Space>tl` link the faders, `<Space>tb` bounce to audio |
 | T: tempo and transport | `<Space>Tt` tap the tempo, `<Space>Tm` the metronome, `<Space>Tc` the count-in |
-| u: utau | `<Space>ut` add a vocal track, `<Space>uv` make the track vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
+| u: utau | `<Space>ut` add a vocal part, `<Space>uv` make the part vocal, `<Space>us` the singer, `<Space>ue` the vocal editor, `<Space>ul` the lyric sheet, `<Space>ur` render again, `<Space>uf` `<Space>uF` freeze, unfreeze, `<Space>uo` OpenUtau, `<Space>ui` the engine |
 | v: views | `<Space>vm` mixer, `<Space>vd` device panel, `<Space>vp` piano roll, `<Space>vs` session view, `<Space>vn` notation, `<Space>vu` undo tree |
 | w: workspaces | `<Space>ww` choose a workspace, `<Space>wr` record, `<Space>we` edit, `<Space>wm` mix, `<Space>wn` score, `<Space>ws` save the screen as a workspace (see [Workspaces](windows.md#workspaces)) |
-| z: scopes | `<Space>zz` a scope from a list, `<Space>za` add a subproject here, `<Space>zp` promote the subproject at the cursor to a view, `<Space>zw` save this window's view as a subproject per track (`.` saves the next view beside it), `<Space>zW` save it as a subproject with its own row (see [Subprojects](subprojects.md)), `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
+| z: scopes | `<Space>zz` a scope from a list, `<Space>za` add a subproject here, `<Space>zp` promote the subproject at the cursor to a view, `<Space>zw` save this window's view as a subproject per part (`.` saves the next view beside it), `<Space>zW` save it as a subproject with its own row (see [Subprojects](subprojects.md)), `<Space>zs` `<Space>zv` `<Space>zt` the scope at the cursor (or of the selection) in a new split, vertical split, tab, `<Space>zn` name this window's scope |
 
 `u` and `<C-r>` (undo and redo) have no leader, and the keys of one view are on the local leader `\`. `<Space>.` is the one leader key that is not a domain: it adjusts the last change (see [Repeat and remember](#repeat-and-remember)).
 
@@ -327,7 +327,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | `gM` | count a bar in before recording, or not |
 | `<Space>Tt` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |
-| `R` | record armed tracks from the cursor, as `<Space><Space>` plays (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take. `<Esc>` also stops a recording, and stops the song with it |
+| `R` | record armed parts from the cursor, as `<Space><Space>` plays (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take. `<Esc>` also stops a recording, and stops the song with it |
 
 ## Find
 
@@ -335,13 +335,13 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | --- | --- |
 | `?` | every key of this view |
 | `:` | a command by name; `<Tab>` completes, `<Up>` for history |
-| `/` `n` `N` `*` | find a clip or track by name (in R a pitch: `/c4`); next, previous; next with this name |
+| `/` `n` `N` `*` | find a clip or part by name (in R a pitch: `/c4`); next, previous; next with this name |
 | `<Space>f:` | pick a command |
-| `<Space>fk` `<Space>ft` `<Space>fc` `<Space>fd` | pick a key, track, clip, device of the track |
+| `<Space>fk` `<Space>ft` `<Space>fc` `<Space>fd` | pick a key, part, clip, device of the part |
 | `<Space>fm` `<Space>fr` `<Space>f'` `<Space>f"` | markers, regions, marks, registers |
 | `<Space>fl` `<Space>ff` `<Space>fo` `<Space>fp` `<Space>f.` | messages, files, options, every picker, the last picker |
 | `<Space>fh` `<Space>fg` `<Space>fn` `<Space>fa` | help tags, any text in the project, notes (pitch, lyric, articulation), audio files |
-| `<Space>da` | a device to add to the track |
+| `<Space>da` | a device to add to the part |
 | `<Space>fz` | a scope to enter, or a level of this window's scope to go up to (also `<Space>zz`) |
 | `<Space>pr` | recent projects (`:recent 2` opens the second) |
 | `<Space>fq` `<Space>fu` `<Space>fe` `<Space>fs` `<Space>fP` | the quickfix list, undo states, extensions, the Lua API, presets |
@@ -349,12 +349,12 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | in a picker | Tab marks a line, Ctrl-q sends the marked (or all) to the quickfix list; Ctrl-v, Ctrl-x, Ctrl-t open it beside, below, in a tab; Ctrl-r steps fuzzy, exact, regex; Alt-d deletes; Ctrl-Up what was typed before |
 | `:vimgrep /pizz/` | every text in the project that matches, in the quickfix list |
 | `:select clip[name~=pizz] > note[pitch>=C5]` | choose what a query finds; `:query` lists it |
-| `]c` `[c` | next, previous clip of the same kind on the track (R: next, previous chord; `]n` `[n`, note of the same pitch) |
-| `]s` `[s` | next, previous track in the group (in a score, instrument in the group) |
+| `]c` `[c` | next, previous clip of the same kind on the part (R: next, previous chord; `]n` `[n`, note of the same pitch) |
+| `]s` `[s` | next, previous part in the group (in a score, instrument in the group) |
 | `]]` `[[` | with the sections extension, the next and previous section in A (in a score, the next and previous instrument) |
-| `[{` `]}` | up to the group the track is in; its last track (in a score, the group's first and last instrument); `[u` is `[{` too |
-| `]u` | down into the group: its first track |
-| `ig` `ag` | the group's tracks; with the group track |
+| `[{` `]}` | up to the group the part is in; its last part (in a score, the group's first and last instrument); `[u` is `[{` too |
+| `]u` | down into the group: its first part |
+| `ig` `ag` | the group's parts; with the group part |
 
 Stop half way through a sequence and the keys that can follow are listed.
 
@@ -384,29 +384,29 @@ Stop half way through a sequence and the keys that can follow are listed.
 | `<C-w>x` `<C-w>r` `<C-w>T` | exchange the window with the next, rotate them, the window to a tab of its own |
 | `<C-w>d` | in the graphical window: a view in a window of its own back into the main window, as a pane |
 | `gt` `gT` | next tab, previous tab (`:tabnew` makes one) |
-| `ge` | the track's plugin window |
+| `ge` | the part's plugin window |
 | `zi` `zo` `[g` `]g` | zoom in, out; finer, coarser grid |
-| `<C-=>` `<C-->` `<C-0>`, `z+` `z-` `z=` | taller rows, shorter rows, rows as tall as the options say: tracks in the arrange view (on a selection or with a count, those tracks), the lane at the cursor, keys in the piano roll. Most terminals don't send `Ctrl` with `=` `-` `0`: `z+` `z-` `z=` work in each one |
+| `<C-=>` `<C-->` `<C-0>`, `z+` `z-` `z=` | taller rows, shorter rows, rows as tall as the options say: parts in the arrange view (on a selection or with a count, those parts), the lane at the cursor, keys in the piano roll. Most terminals don't send `Ctrl` with `=` `-` `0`: `z+` `z-` `z=` work in each one |
 | `<C-s>` `:w` | save |
 | `ZZ` `ZQ` `:q` | save and quit, quit, close the window (quit in the last one) |
 
-## Edit lists as text (`:e paw://tracks`)
+## Edit lists as text (`:e paw://parts`)
 
-The tracks, sends, the devices of a track and the markers show as lines of text (`paw://tracks`, `paw://sends`, `paw://track/2/devices`, `paw://markers`). Every motion, operator, count, register, selection and `.` works on the text as in Vim, and nothing changes in the project until `:w`.
+The parts, sends, the devices of a part and the markers show as lines of text (`paw://parts`, `paw://sends`, `paw://part/2/devices`, `paw://markers`). Every motion, operator, count, register, selection and `.` works on the text as in Vim, and nothing changes in the project until `:w`.
 
 | Keys | |
 | --- | --- |
 | `cw` `cif` | change the name, change the value of the field under the cursor (`af` the whole field) |
-| `dd`, `yy` `p`, `dd` `p` | delete; copy (a track with its devices and clips); move down |
-| `o` `O` | a new line: a new track, device or marker (`Tab` types the space between fields) |
+| `dd`, `yy` `p`, `dd` `p` | delete; copy (a part with its devices and clips); move down |
+| `o` `O` | a new line: a new part, device or marker (`Tab` types the space between fields) |
 | `<C-a>` `<C-x>` | add, take 1 (or the count) from the number under or after the cursor |
-| `rM` `rS` `rR` `r-` | on a track's flags: mute, solo, arm, or not |
+| `rM` `rS` `rR` `r-` | on a part's flags: mute, solo, arm, or not |
 | `<C-v>` `I` `A` `r` | in a block: type before or after it on every line, replace it |
 | `u` `<C-r>` | undo, redo the text |
 | `:w` | show what will change; `y` or `<CR>` applies it as one undo step, `n` returns to the buffer |
 | `:e` | with `!` (`:e!`), throw the changes away and read again; `:w!` applies over changes made elsewhere since |
 | `:sort` | sort the lines (`!` reversed, `n` by number); over ranges of lines too: `:%s/a/b/g`, `:2,4d`, `:m 0` |
-| `<CR>` `-` | a track's devices, a device in the panel, go to a marker; back up to the tracks |
+| `<CR>` `-` | a part's devices, a device in the panel, go to a marker; back up to the parts |
 | `<C-w>f` | the buffer in a window of its own, in the graphical frontend (as in a curve) |
 
 
@@ -417,7 +417,7 @@ A folder shows as lines to edit, and as a tree (`:Files`). The edits are those o
 | Keys | |
 | --- | --- |
 | `<CR>` `-` | open (a folder goes in, a project opens, a sound is placed at the cursor); up |
-| `go` `gh` `gH` | a sound on a new track; hear it; hear each as the cursor rests |
+| `go` `gh` `gH` | a sound on a new part; hear it; hear each as the cursor rests |
 | `g.` | show or hide files that start with a dot |
 | `za` `zR` `zM` | in the tree: open or close a folder, all, none |
 | `cw` `dd` `yy` `p` `o` | rename (or move, with a path); trash; copy; new file (`name/` a folder) |
@@ -440,16 +440,16 @@ A folder shows as lines to edit, and as a tree (`:Files`). The edits are those o
 | `]Q` `[Q` | last, first entry |
 | `]l` `[l` | next, previous entry of the window's location list |
 | `:copen` `:cclose` | the list's window along the bottom; in it `j` `k` move, `Enter` goes, `<Space>la` fixes, `q` closes |
-| `:cdo` `:cfdo` `:cfix` | a command on every entry, on every track of them; make every fix (each one undo step) |
+| `:cdo` `:cfdo` `:cfix` | a command on every entry, on every part of them; make every fix (each one undo step) |
 | `:colder` `:cnewer` `:cdiag` | the list before, after; a list of the diagnostics |
 
-## Other tracks in the piano roll
+## Other parts in the piano roll
 
-In the piano roll, the notes of the other tracks show behind, in their
-colors (as the visible tracks of REAPER). `]t` `[t` make the next or the
-previous of them the edited track. `<Tab>` `<S-Tab>` go round them. With no
-track shown, `<Tab>` is the next view. A click on a note behind makes its
-track the edited track.
+In the piano roll, the notes of the other parts show behind, in their
+colors (as the visible parts of REAPER). `]t` `[t` make the next or the
+previous of them the edited part. `<Tab>` `<S-Tab>` go round them. With no
+part shown, `<Tab>` is the next view. A click on a note behind makes its
+part the edited part.
 
 ## Keys of the extensions
 

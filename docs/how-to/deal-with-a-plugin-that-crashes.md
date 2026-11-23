@@ -7,11 +7,11 @@ in [Plugins](../reference/plugins.md#processes).
 
 ## A plugin stopped while you work
 
-1. Read the message. It names the plugin, the track and the reason, for
-   example `stopped working: it was killed`. The track plays on without
+1. Read the message. It names the plugin, the part and the reason, for
+   example `stopped working: it was killed`. The part plays on without
    the plugin, so an effect lets the sound through and an instrument is
    silent.
-2. Put the cursor on the track and press `<Space>dd` to show the device panel.
+2. Put the cursor on the part and press `<Space>dd` to show the device panel.
    Press `w` until the cursor is on the name of the plugin.
 3. Press `gR` to start the plugin again, and it gets the settings that the
    project has for it.

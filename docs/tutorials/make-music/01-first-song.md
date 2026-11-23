@@ -17,13 +17,13 @@ loop, and save it as a project.
 In normal mode, a key does an action at the cursor. A command starts with
 `:` and ends with Enter, and `<Esc>` cancels a command.
 
-## Make the drum track
+## Make the drum part
 
-1. Press `o` to add a track.
-   - A new track shows, and the cursor is on it.
+1. Press `o` to add a part.
+   - A new part shows, and the cursor is on it.
 2. Press `grn`, then `<C-u>` (Ctrl and u) to clear the name. Type `Drums`
    and press Enter.
-   - The track has the name Drums.
+   - The part has the name Drums.
 3. Press `a`, type `drums` and press Enter.
    - `a` opens the list of devices. paw adds the built-in drum kit and
      says `added Drums to Drums`.
@@ -31,7 +31,7 @@ In normal mode, a key does an action at the cursor. A command starts with
    - `i` starts insert mode in the arrange view, and `m` inserts an empty
      MIDI clip at the cursor. Enter opens the clip in the piano roll.
      `<Esc>` leaves insert mode, and the piano roll stays open below the
-     tracks.
+     parts.
 
 ## Write the beat
 
@@ -68,7 +68,7 @@ changes the project is one undo step.
 
 1. Press `o`. Press `grn` and `<C-u>`, type `Bass` and press Enter.
 2. Press `a`, type `synth` and press Enter.
-   - The bass track has the built-in synth.
+   - The bass part has the built-in synth.
 3. Press `0` to put the cursor at the start of the song.
 4. Press `i` and Enter. Then press `J` and `3-`.
    - `i` and Enter make a clip at the cursor and open it in the piano
@@ -99,15 +99,15 @@ changes the project is one undo step.
    - G: `c`, type `V`, Enter, `16l`. After this last chord, press `<Esc>`
      instead of Enter.
 6. Press `<C-w>p`.
-   - The Keys track has four chords, which are Am, F, C and G.
+   - The Keys part has four chords, which are Am, F, C and G.
 
 ## Play the loop
 
-1. Press `gg` (the first track) and `0` (the start). Press `gl4W`.
+1. Press `gg` (the first part) and `0` (the start). Press `gl4W`.
    - `gl` sets the loop over what the next keys select, and `4W` is four
      bars. The status line shows `loop 1–4`.
 2. Press `gs` to move the playhead to the start. Press `<Space><Space>` to play.
-   - The four bars play again and again, and the meters of the tracks
+   - The four bars play again and again, and the meters of the parts
      move.
 3. Press `<Space><Space>` to stop.
 

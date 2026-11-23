@@ -57,7 +57,7 @@ tutorial must work for every user, every time.
 - **Point things out in passing** ("Notice the `[+]` beside the name").
 - **One path, no choices or alternatives**, no options, no "you could also".
 - **Minimal explanation**: one clause and a link ("We use `V` because the
-  whole track should move; see [About visual mode](…)").
+  whole part should move; see [About visual mode](…)").
 - **Concrete and particular**: this project, these notes, this key.
 - **Repeatable and safe**: a practice project the learner can reopen;
   undo always gets them back.
@@ -79,7 +79,7 @@ Directions for an already-competent user with a real goal. Work, not study.
 - Open with one line: "This guide shows you how to…" and what it assumes.
 - **Action and only action**: no teaching, no digressions, no full option
   lists ("See [`:export`](…) for every option").
-- **Real-world forks**: conditional imperatives — "If the track has no
+- **Real-world forks**: conditional imperatives — "If the part has no
   input, press `I` first. To record several takes, …".
 - **Omit the unnecessary**; start and end at sensible points the reader
   joins to their own work. Order steps by necessity and by the user's flow.
@@ -212,7 +212,7 @@ Internal text is in ASD-STE100 Simplified Technical English (Issue 9).
   meaning ("follow" means "come after"; to obey a rule, write "obey").
 - No synonyms for one thing: pick one word and keep it (rule 9.4). paw's
   words are fixed in the glossary below.
-- Technical names (TN) are allowed for things: paw's names (track, clip,
+- Technical names (TN) are allowed for things: paw's names (part, clip,
   lane, device, view, buffer, pane, scene, role, register, quickfix list),
   and every code span (`:export`, `paw.qf`, `gU`, file names, option names)
   is a technical name and counts as one word. Do not use a technical name
@@ -227,8 +227,8 @@ Internal text is in ASD-STE100 Simplified Technical English (Issue 9).
 - American spelling (rule 1.14): color, behavior, center, license (noun
   and verb), gray. Code and file names keep their own spelling.
 
-**Noun clusters (2.x)**: not more than three nouns together ("track
-output routing menu" → "the menu of track outputs").
+**Noun clusters (2.x)**: not more than three nouns together ("part
+output routing menu" → "the menu of part outputs").
 
 **Verbs (3.x)**
 - Only: infinitive, imperative, simple present, simple past, simple future
@@ -258,7 +258,7 @@ output routing menu" → "the menu of track outputs").
 - One instruction per sentence, unless the actions are simultaneous
   ("Hold `Shift` and click the clip").
 - Imperative: "Press `R`." not "You should press `R`" or "`R` is pressed".
-- Put a condition or purpose first, with a comma: "If the track has no
+- Put a condition or purpose first, with a comma: "If the part has no
   input, press `I`." "To record a take, press `R`."
 - Notes give information, not instructions.
 
@@ -281,20 +281,20 @@ a colon counts as a full stop.
 the sentence again with a different construction. Write "for example" and
 "that is" (not "e.g.", "i.e."), "and other" (not "etc.").
 
-**paw glossary (one word for each thing, rule 9.4)**: track (not channel
-strip), clip (not item, region), note, lane (a row of a track: an
-automation, state or controller lane), device (instrument or effect on a track; a plugin is a device that
+**paw glossary (one word for each thing, rule 9.4)**: part (not channel
+strip), clip (not item, region), note, lane (a row of a part: an
+automation, state or controller lane), device (instrument or effect on a part; a plugin is a device that
 paw did not write), view (arrange view, piano roll, mixer, ...), window
 (a part of the screen that shows a view; "the window" alone is wrong — say
 "the graphical window" for paw-gui), project (not session, song file),
 command (`:name`), key, option (`paw.opt.name`), extension (not plugin, add-on),
 kernel, frontend (the terminal or the graphical window), buffer, register.
 
-The target design changes two words of the glossary. A **part** is the
-container that is a track today, and a part can hold other parts. A
-**lane** is a row of a part, of any kind, and source lanes are the
-truth. Design text uses "part". User pages and the code say "track"
-until one rename changes all of them.
+Two words of the glossary name the container. A **part** is the
+container (other programs call it a track), and a part can hold other
+parts. A **lane** is a row of a part, of any kind, and source lanes are
+the truth. The word track is not the container. It is a track of a
+MIDI file, of a video or of another program, or the verb.
 
 ### How to check
 

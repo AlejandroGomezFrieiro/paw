@@ -33,14 +33,14 @@ paw does not read a file again if it crashed the scan before, and a
 message at the start names the file. `:plugins.rescan` reads that file
 again too.
 
-## Add a plugin to a track
+## Add a plugin to a part
 
-1. Select the track and press `a`, and the list of devices opens.
+1. Select the part and press `a`, and the list of devices opens.
 2. Type a part of the name of the plugin, for example `surge`, and press
    `Enter`. The editor of the plugin opens.
 
 You can also type `:device.add surge`. To show the editor again later,
-press `ge` on the track.
+press `ge` on the part.
 
 ## Use Windows plugins through yabridge
 

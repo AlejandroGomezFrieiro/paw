@@ -142,7 +142,7 @@ paw.ui.view("pads", {
   render = function(self, buf, ctx)
     buf:mark("hit", 2, 1, 2, 1, { velocity = 100, hit = { kind = "pad", n = 1 } })
     buf:mark("fader", 6, 1, 3, 8, { at = 0.7, zero = 0.8, hit = { kind = "level" } })
-    buf:mark("meter", 10, 1, 2, 8, { levels = { l, r }, bind = "meter:" .. track })
+    buf:mark("meter", 10, 1, 2, 8, { levels = { l, r }, bind = "meter:" .. part })
     buf:mark("button", 0, 9, 6, 1, { text = "play", hit = { cmd = "play" } })
     buf:hit(0, 0, buf.width, 1, { kind = "title", hint = "the pads" })
     local left, right = buf:columns({ 12, "*" }, 1)   -- buffers side by side
@@ -279,17 +279,17 @@ A view keeps a window of its own size and time with `view:time_axis()` and `view
 
 ## Text buffers
 
-`paw.textbuf.kind` adds a list that you edit as text, as `paw://tracks` is (see "Lists edited as text" in [Lists edited as text](lists-edited-as-text.md)). First, the kind reads the project into items. Second, it writes each item as cells. Third, it reads a line back into fields. Fourth, it turns the differences into a plan.
+`paw.textbuf.kind` adds a list that you edit as text, as `paw://parts` is (see "Lists edited as text" in [Lists edited as text](lists-edited-as-text.md)). First, the kind reads the project into items. Second, it writes each item as cells. Third, it reads a line back into fields. Fourth, it turns the differences into a plan.
 
 The text core does the edits, the hidden ids, the comparison, the float that shows the plan, and the one undo step that applies the plan.
 
 ```lua
 paw.textbuf.kind("clips", {
-  pattern = "^paw://track/(%d+)/clips$",   -- the names it takes. The captures are ctx.args
-  title = function(ctx) return "Clips of track " .. ctx.args[1] end,
+  pattern = "^paw://part/(%d+)/clips$",   -- the names it takes. The captures are ctx.args
+  title = function(ctx) return "Clips of part " .. ctx.args[1] end,
   read = function(ctx)                      -- one item for each line, each with an id
     local out = {}
-    for i, clip in ipairs(paw.api.clip_list(paw.api.track_list()[tonumber(ctx.args[1])])) do
+    for i, clip in ipairs(paw.api.clip_list(paw.api.part_list()[tonumber(ctx.args[1])])) do
       out[i] = { id = clip.id, clip = clip }
     end
     return out
@@ -316,11 +316,11 @@ paw.textbuf.kind("clips", {
   end,
   keywords = { at = true },                 -- words drawn dim before a value. `if` skips them
   open = function(ctx, line, text) end,     -- Enter on a line
-  parent = function(ctx) return "paw://tracks" end,  -- `-`
+  parent = function(ctx) return "paw://parts" end,  -- `-`
 })
 ```
 
-`:e paw://track/1/clips` then shows the list.
+`:e paw://part/1/clips` then shows the list.
 
 The fields of `changes`:
 
@@ -362,13 +362,13 @@ The file manager is a kind of text buffer (`paw/views/files.lua`), with `paw.fil
 
 `paw.statusline.setup` and `paw.statusline.component` change and add to the status line, a winbar and the tab line. See "The status line" in [The status line](status-line.md).
 
-## The track column and the bar labels
+## The part column and the bar labels
 
-`paw.trackcolumn` adds, changes and removes the parts of the column at
-the left of the track headers: the numbers, the signs and the folds of
+`paw.partcolumn` adds, changes and removes the components of the column at
+the left of the part headers: the numbers, the signs and the folds of
 groups. `paw.ruler` does the same for the label of each bar on the ruler, and
 for the lanes of rows under it, as the lane of regions.
-See [The track column and the bar labels](trackcolumn.md).
+See [The part column and the bar labels](partcolumn.md).
 
 ## Help
 
@@ -410,7 +410,7 @@ The `help` field of a view names its topic for the bottom line.
 
 `paw.curves` reads and writes every curve the same way, by its address, and the points are `{ beat, value, shape, tension }`, in beats of the project.
 
-The addresses of curves are `paw://lane/9`, `paw://track/3/device/5/param/cutoff`, `paw://clip/7/control/cc/74`, `paw://clip/7/control/bend#key=60` and `paw://tempo`.
+The addresses of curves are `paw://lane/9`, `paw://part/3/device/5/param/cutoff`, `paw://clip/7/control/cc/74`, `paw://clip/7/control/bend#key=60` and `paw://tempo`.
 
 ```lua
 local c = paw.curves.target("paw://lane/9")    -- nil and the reason, for other addresses
@@ -445,7 +445,7 @@ A module draws over the grid of the piano roll in a layer, and the layers have a
 
 | Order | Layer |
 | --- | --- |
-| 10 | the notes of other tracks |
+| 10 | the notes of other parts |
 | 20 | the notes of the clip |
 | 30 | diagnostics |
 | 40 | an active snippet |
@@ -487,7 +487,7 @@ paw.ui.keybar.set("pianoroll.lint", "n", { { "<C-y>", "fix" } })     -- the key 
 Four more hooks tell the piano roll about an instrument whose keys are not only pitches (keyswitches, a range that it plays). Each hook has a name, and nil removes it.
 
 ```lua
-roll.rows("mine", function(pitch, track)       -- the edge of the keyboard and the shade of the row
+roll.rows("mine", function(pitch, part)       -- the edge of the keyboard and the shade of the row
   if pitch < 55 then return { shade = "RollOutside" } end
   if pitch == 24 then return { label = "sus", style = "PianoC" } end
 end)

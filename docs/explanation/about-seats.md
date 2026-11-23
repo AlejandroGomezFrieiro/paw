@@ -7,7 +7,7 @@ divides the state of a module between the seats and the project.
 
 ## One project seen from many places
 
-All seats edit one project, so they share one list of tracks, one set of
+All seats edit one project, so they share one list of parts, one set of
 notes and one undo tree. But each person looks at another part of the
 project. For example, one person edits the drums in the piano roll while
 another person moves the faders in the mixer. If the two seats shared one
@@ -16,7 +16,7 @@ cursor, each key of one person would move the view of the other person.
 paw therefore keeps two kinds of state:
 
 - All seats share the state of the project. It holds the notes,
-  clips, tracks, the lanes that the project saves and the diagnostics of the
+  clips, parts, the lanes that the project saves and the diagnostics of the
   project.
 - The state of a view belongs to one seat. It holds the focused view, the
   cursor, the mode, the selection, registers, marks and the scroll. It also

@@ -12,7 +12,7 @@ The manual is in paw, in the same way that the manual of Vim is in Vim. `:help` 
 | `:help :s`, `:help :helpgrep` | a command |
 | `:help 'timebind'` | an option |
 | `:help paw.qf`, `:help paw.qf.feed` | a Lua module or function |
-| `:help paw://tracks` | an address |
+| `:help paw://parts` | an address |
 | `:help key-rule`, `:help quickfix-list`, `:help motions` | a section of the manual |
 | `:help grammar`, `:help course-5`, `:help notation`, `:help notation-keys` | a page: of the manual, a lesson of the course, an extension (by its name), a section of an extension |
 

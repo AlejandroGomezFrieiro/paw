@@ -28,7 +28,7 @@ Playback and renders use one thread for each core.
 - When the audio thread has real-time priority, the worker threads get the same priority, and if the system refuses this priority, the engine uses only the audio thread.
 - A render is the same to the bit with any number of threads.
 - Live, the engine uses the worker threads only when one thread needs a quarter or more of the time of a block, so a small project plays on the audio thread only and the worker threads sleep. After a stop, the engine remembers how much work the song needed.
-- A render shares a group of tracks between the threads when that group has enough work, because less work finishes sooner on one thread.
+- A render shares a group of parts between the threads when that group has enough work, because less work finishes sooner on one thread.
 - Between blocks, the worker threads sleep.
 
 ## Devices at rest
@@ -65,18 +65,18 @@ A device at rest sleeps through silence, which means that the engine does not ru
 
 ## The engine at rest
 
-When the song is stopped and nothing sounds, the whole engine rests. It then writes silence for each block and does no other work: it does not clear the buffers of the tracks, add them up or measure them.
+When the song is stopped and nothing sounds, the whole engine rests. It then writes silence for each block and does no other work: it does not clear the buffers of the parts, add them up or measure them.
 
 The engine rests after 8 blocks in a row in which all of these are true:
 
 - The transport is stopped, and no count-in runs.
 - No clip of the clip launcher waits to start.
-- No track hears an audio input: no track is monitored or armed with an audio input.
+- No part hears an audio input: no part is monitored or armed with an audio input.
 - No sound file plays on its own (a preview or an audition).
 - Each device sleeps (see [Devices at rest](#devices-at-rest)), and the output is silent. A reverb that still rings, or a device that never sleeps, such as a `compressor` or a CLAP plugin that never says that it can sleep, keeps the engine awake.
-- The meters of the tracks have fallen below -100 dB, and the delay of each path (see [Delay compensation](#delay-compensation)) holds only silence.
+- The meters of the parts have fallen below -100 dB, and the delay of each path (see [Delay compensation](#delay-compensation)) holds only silence.
 
-A message from the kernel, such as a note that you play, a change of a parameter or the start of the transport, wakes the engine in the same block. A MIDI input event does the same. A plugin that asks paw to run it, for example after you move a knob in its own window or after it asks for a restart, wakes the engine in the next block, and so does a state or a preset that you load into a device. So the first sound comes in the same block as when the engine does not rest. When the engine starts to rest, it sets the meters of the tracks to zero.
+A message from the kernel, such as a note that you play, a change of a parameter or the start of the transport, wakes the engine in the same block. A MIDI input event does the same. A plugin that asks paw to run it, for example after you move a knob in its own window or after it asks for a restart, wakes the engine in the next block, and so does a state or a preset that you load into a device. So the first sound comes in the same block as when the engine does not rest. When the engine starts to rest, it sets the meters of the parts to zero.
 
 - `paw.api.engine_get().engine_rests` counts the blocks in which the engine rested. In these blocks each device sleeps, so `device_sleeps` counts them too.
 - `paw.opt.device_sleep = false` stops the rest too, because it is one switch for both.
@@ -93,7 +93,7 @@ A message from the kernel, such as a note that you play, a change of a parameter
 | `input_latency`, `output_latency` | The latencies, in ms (see [Audio devices](audio-devices.md#latency)). |
 | `latency` | How far the output is behind the transport, in ms, with delay compensation. |
 | `threads` | The number of threads in use. |
-| `shared_groups` | The groups of tracks that the engine shared between threads, since it started. |
+| `shared_groups` | The groups of parts that the engine shared between threads, since it started. |
 | `device_sleep` | True when devices at rest sleep (`paw.opt.device_sleep`). |
 | `device_runs`, `device_sleeps` | The blocks that devices ran, and the blocks that devices at rest slept through, since the engine started. |
 | `engine_rests` | The blocks in which the whole engine rested, since it started (see [The engine at rest](#the-engine-at-rest)). |
@@ -109,16 +109,16 @@ A message from the kernel, such as a note that you play, a change of a parameter
 - A device that looks ahead reports the delay of its output. CLAP, VST3 and LV2 plugins report it, and of the built-in devices the `limiter`, the `saturation`, and the `compressor` and `gate` with `lookahead` report it.
 - paw delays each other path to the same place by the difference, through buses and sends, so that all the sound arrives together.
 - A render removes the delay from the start of the file.
-- paw does not delay the clips of a track to match the sound that is routed into the track.
+- paw does not delay the clips of a part to match the sound that is routed into the part.
 
 ## The transport in a subproject
 
-The devices on the tracks of a subproject see the bars of the subproject in
+The devices on the parts of a subproject see the bars of the subproject in
 their transport. Bar 1, beat 0, is the start of the clip of the subproject
 that plays, and the tempo is the tempo of the song at that place. The
-devices on the tracks of the song see the bars of the song. For example, a
+devices on the parts of the song see the bars of the song. For example, a
 clip of a subproject at bar 33 of the song gives bar 1 to a delay inside
-the subproject, and bar 33 to a delay on a track of the song.
+the subproject, and bar 33 to a delay on a part of the song.
 
 - CLAP plugins get these bars in `clap_event_transport`, VST3 plugins in
   `ProcessContext`, LV2 plugins in their time position, and Lua devices
@@ -146,6 +146,6 @@ paw releases decoded audio that the project and the undo steps do not use, when 
 | Function | Effect |
 | --- | --- |
 | `paw.api.engine_restart(spec)` | Restart the engine. With no `backend` in `spec`, the engine keeps the backend that runs (see [Audio devices](audio-devices.md#test-backends)). |
-| `paw.api.engine_audible(ids)` | Play only these tracks, and what their sound goes through. `scope_rest=mute` uses it (see [Scopes](narrowing.md)). |
-| `paw.api.engine_hold(track, file)` | Play a file instead of a track. `scope_rest=frozen` uses it. |
+| `paw.api.engine_audible(ids)` | Play only these parts, and what their sound goes through. `scope_rest=mute` uses it (see [Scopes](narrowing.md)). |
+| `paw.api.engine_hold(part, file)` | Play a file instead of a part. `scope_rest=frozen` uses it. |
 | `paw.wait(ms)` | Let time pass, with timers and events. `paw.api.sleep` does not run timers or events. A script run with `-l` is otherwise one long turn. |

@@ -2,8 +2,8 @@
 <!-- tags: window gui paw-gui -->
 
 `paw-gui` is the graphical frontend of paw, and it shows the kernel's views
-for the mouse, which are the transport, the tracks, the clips on a
-timeline, the devices of the selected track, the mixer and the piano roll. The window page
+for the mouse, which are the transport, the parts, the clips on a
+timeline, the devices of the selected part, the mixer and the piano roll. The window page
 describes its command line, its parts and what each gesture does. For the
 reasons behind its design, see [About scenes](../explanation/about-scenes.md).
 For the Lua functions behind it, see [The graphical window in
@@ -170,10 +170,10 @@ The surfaces are neutral grays, and a color marks a state, as in the table below
 | Blue | The selection, the edit cursor, a switch that is on |
 | Amber | The playhead, the loop |
 | Green | Playback |
-| Red | Record, an armed track |
+| Red | Record, an armed part |
 | Orange | Mute |
 | Yellow | Solo |
-| The track's color | The track's stripe, its clips, its notes and its name plate in the mixer, and nothing else |
+| The part's color | The part's stripe, its clips, its notes and its name plate in the mixer, and nothing else |
 
 | Text | Font |
 | --- | --- |
@@ -196,10 +196,10 @@ From top to bottom, the window has the following parts.
 - the main area, with one pane for each window of the current tab
 - the status line.
 
-A pane of the arrange view shows the ruler, the track headers and the
+A pane of the arrange view shows the ruler, the part headers and the
 timeline, as the arrange view of the terminal does, drawn from its scene and
 laid out in cells of the window's monospace font. The ruler is its first
-row, a track is one to three rows tall, and the zoom is columns a beat.
+row, a part is one to three rows tall, and the zoom is columns a beat.
 The window paints the following parts as widgets, where they fall between cells.
 
 - the clips
@@ -243,7 +243,7 @@ window asks the same question. In Lua, the question is
 `paw.frontend.act.leave(how, "open:" .. path)`.
 
 Open… with a `.mid` file opens it as a new project. Import, and the import
-entry of the timeline menu, put its tracks below the track of the cursor,
+entry of the timeline menu, put its parts below the part of the cursor,
 starting at the cursor, and the tempo map does not change. See
 [MIDI](midi.md#midi-files) for what paw makes of a MIDI file.
 
@@ -254,8 +254,8 @@ The render dialog has the fields below.
 | File | The path of the rendered file. The `…` button opens a file dialog. |
 | Range | The song, the loop, the selection or a region. |
 | Format | WAV, FLAC. With ffmpeg installed, also MP3, Ogg and Opus. These have a quality (Low, Medium, High or Best) in place of the sample size and the dither. |
-| Sample size, tail, normalize, dither, mono, a file for each track | As `paw.render` takes them. |
-| Tags | Title, artist, album, track, year, genre, comment and cover. The project keeps them. |
+| Sample size, tail, normalize, dither, mono, a file for each part | As `paw.render` takes them. |
+| Tags | Title, artist, album, part, year, genre, comment and cover. The project keeps them. |
 
 The render runs in the background, and the status line shows its progress and
 a Cancel button.
@@ -335,10 +335,10 @@ ruler's second row, and a click on one goes to its start.
 | --- | --- |
 | Click on empty space | Puts the edit cursor there and clears the selection of clips. |
 | Double-click on empty space | Makes an empty MIDI clip, one bar long. |
-| Drag across empty lanes | Selects a range of time on those tracks. Then `Delete` deletes it. A right-click on it opens a menu to delete, copy, loop or mute it. |
+| Drag across empty lanes | Selects a range of time on those parts. Then `Delete` deletes it. A right-click on it opens a menu to delete, copy, loop or mute it. |
 | Right-drag | Draws a box. The clips that it touches become selected. With `Shift`, they are added. With `Ctrl`, each one changes state. |
 | Hold the middle button | Moves the view. |
-| Right-click | Opens a menu on release, if the pointer did not move: a new clip, paste, a new track. |
+| Right-click | Opens a menu on release, if the pointer did not move: a new clip, paste, a new part. |
 | Drag a clip onto another pane | The view of the pane takes the clip if it takes clips: a slot of the session view of the clip launcher copies it. |
 
 ## Clips
@@ -347,15 +347,15 @@ ruler's second row, and a click on one goes to its start.
 | --- | --- |
 | Click | Selects the clip. |
 | `Ctrl` and click | Adds the clip to the selection, or removes it. |
-| `Shift` and click | Selects the clips between this clip and the last clip selected. On one track, by time. Across tracks, the rectangle. |
-| Drag a selected clip | Moves all selected clips. They keep their positions to each other, also across tracks. They move in whole steps of the grid, so a clip off the grid keeps its distance to the grid. |
+| `Shift` and click | Selects the clips between this clip and the last clip selected. On one part, by time. Across parts, the rectangle. |
+| Drag a selected clip | Moves all selected clips. They keep their positions to each other, also across parts. They move in whole steps of the grid, so a clip off the grid keeps its distance to the grid. |
 | `Ctrl` and drag | Drops copies. |
 | `Shift` and drag | Moves off the grid. |
 | Drag an edge | Trims the clip, and the same edge of each selected clip. The start moves without a change to what plays: an audio clip starts later in its file, a MIDI clip hides the notes before its new start. When you drag the edge out again, the notes show again. |
 | `Alt` and drag an edge | Slips the contents inside the clip. |
 | `Alt`, `Shift` and drag the right edge of an audio clip | Stretches its sound to end there. See [Stretched and repeating clips](stretch.md). |
 | Drag the end of a looped clip | Makes it longer, and the loop repeats. |
-| Double-click | Opens the notes of the clip. A selection of several clips opens all of them, with the clicked one active. A clip of a kind of track with an `editor` opens in that editor. |
+| Double-click | Opens the notes of the clip. A selection of several clips opens all of them, with the clicked one active. A clip of a kind of part with an `editor` opens in that editor. |
 | Right-click | A menu: rename, split at the pointer or at the edit cursor, glue the selected clips, repeat, mute, stretch, shift, loop, delete, and the entries of extensions. |
 
 On an audio clip:
@@ -373,18 +373,18 @@ selection of visual mode, so `d`, `x`, `y`, `>`, `gc`, `J` (glue) and the
 other operators act on them, `S` splits them at the cursor, and `Esc` clears
 the selection. One clip selected with a click is the clip under the cursor.
 
-## Track headers
+## Part headers
 
-A track header is the terminal's header, with a stripe in the color of
-the track down its left, and it shows the following, line by line.
+A part header is the terminal's header, with a stripe in the color of
+the part down its left, and it shows the following, line by line.
 
-- the number and the name of the track, the letter of its automation mode
+- the number and the name of the part, the letter of its automation mode
   (`A`, `T`, `L`, `W`) and the switches `M`, `S`, `R` and the loudspeaker
   (`I` in the terminal, monitor). A switch that is on has its color.
 - the input button (the microphone, `in` in the terminal), the level of
-  the track with the place of its fader on it and its clip light, and the
+  the part with the place of its fader on it and its clip light, and the
   volume in dB
-- a knob for the pan, the devices of the track and the track it plays into
+- a knob for the pan, the devices of the part and the part it plays into
 - the sends, and the input with the level that arrives there.
 
 A shorter row shows less, and the shortest row shows only the first line. The
@@ -397,22 +397,22 @@ click the volume in dB.
 
 | Gesture | Effect |
 | --- | --- |
-| Click | Selects the track. |
+| Click | Selects the part. |
 | Double-click | Opens a prompt for a new name. |
-| Drag up or down | Moves the track. Drop it among the tracks of a group, or under its header, to put it in the group. Drop it outside the group to remove it from the group. |
+| Drag up or down | Moves the part. Drop it among the parts of a group, or under its header, to put it in the group. Drop it outside the group to remove it from the group. |
 | Click `M`, `S`, `R` or `I` | Changes the switch. |
-| Press `M`, `S` or `R` and move across other tracks | Sets the switch of each track as the first one was set. |
+| Press `M`, `S` or `R` and move across other parts | Sets the switch of each part as the first one was set. |
 | Drag the level sideways | Changes the volume, one dB a cell. Hold `Shift` for small steps. |
 | Double-click the level | Sets the volume to 0 dB. |
 | Drag the pan sideways | Changes the pan. A double-click sets the center. |
-| Click the microphone | Opens a menu of the audio inputs, MIDI ports and MIDI channels of the track. |
+| Click the microphone | Opens a menu of the audio inputs, MIDI ports and MIDI channels of the part. |
 | Click the volume in dB | Puts out the clip light. |
-| Drag the bottom edge (in the terminal, `Alt` and a drag on the header) | Changes the height of the track, in lines. The track keeps its height. |
-| Double-click the bottom edge | Gives the track the height of the other tracks. |
-| Right-click | A menu on release: color, duplicate, bounce to audio, a new track below, delete, the input, the groups, the VCAs, the take lanes, the automation, the templates, and the entries of extensions. |
+| Drag the bottom edge (in the terminal, `Alt` and a drag on the header) | Changes the height of the part, in lines. The part keeps its height. |
+| Double-click the bottom edge | Gives the part the height of the other parts. |
+| Right-click | A menu on release: color, duplicate, bounce to audio, a new part below, delete, the input, the groups, the VCAs, the take lanes, the automation, the templates, and the entries of extensions. |
 
-The menu of a track has three entries for groups. They are `New group
-with this track…`, `Move into a group…` and `Take out of its group`
+The menu of a part has three entries for groups. They are `New group
+with this part…`, `Move into a group…` and `Take out of its group`
 (`Dissolve the group` on a group). The members of
 a group show under it, one step in and in its color, and their sound goes
 through the group. The triangle beside the name of the group hides and
@@ -420,12 +420,12 @@ shows the members.
 
 ## Routing
 
-Under the devices of the selected track, in the device panel:
+Under the devices of the selected part, in the device panel:
 
 | Part | Effect |
 | --- | --- |
-| Output | Selects the track that this track plays into. |
-| + Send | Adds a send to another track. |
+| Output | Selects the part that this part plays into. |
+| + Send | Adds a send to another part. |
 | Level of a send | Drag it to change the level. |
 | `pre` | Takes the send before the fader. |
 | Cross | Removes the send. |
@@ -436,22 +436,22 @@ With the templates extension:
 
 | Menu | Entry | Effect |
 | --- | --- | --- |
-| A track's menu | Save as a template… | Saves the track. On a group, saves the whole group. |
-| A track's menu | Save its devices as a chain… | Saves the chain of devices. |
-| `Track`, and the timeline menu | From a template… | Makes a track from a template. |
-| A track's menu | Add devices from a template… | Puts a saved chain on the track. |
+| A part's menu | Save as a template… | Saves the part. On a group, saves the whole group. |
+| A part's menu | Save its devices as a chain… | Saves the chain of devices. |
+| `Part`, and the timeline menu | From a template… | Makes a part from a template. |
+| A part's menu | Add devices from a template… | Puts a saved chain on the part. |
 
 ## Record
 
 | Part | Effect |
 | --- | --- |
-| Record button | Starts a take on the armed tracks. With no track armed, it arms the selected track and tells so. A second click, or stop, ends the take. |
-| `R` on a track | Arms the track. |
-| The microphone on a track, or Input on its menu | A menu of the audio inputs, MIDI ports and MIDI channels of the track. The input (for example `UR22mkII · 1/2`) shows on the last line of the header, with the level that arrives there, armed or not. |
-| The loudspeaker on a track | Starts and stops input monitoring. |
+| Record button | Starts a take on the armed parts. With no part armed, it arms the selected part and tells so. A second click, or stop, ends the take. |
+| `R` on a part | Arms the part. |
+| The microphone on a part, or Input on its menu | A menu of the audio inputs, MIDI ports and MIDI channels of the part. The input (for example `UR22mkII · 1/2`) shows on the last line of the header, with the level that arrives there, armed or not. |
+| The loudspeaker on a part | Starts and stops input monitoring. |
 
-A track without an audio input records MIDI. The take shows in red on
-each armed track and grows longer while it records, and with punch on, it
+A part without an audio input records MIDI. The take shows in red on
+each armed part and grows longer while it records, and with punch on, it
 records only in the punch range. With a count-in, the clock shows `count 4`, `count 3` and
 so on, and the button blinks on the beats until the take starts. The
 timeline menu starts and stops the count-in, and a pre-roll of two bars
@@ -459,7 +459,7 @@ before a punch.
 
 ## Take lanes
 
-A track's menu, a clip's Takes menu or `zt` shows the takes of a track as
+A part's menu, a clip's Takes menu or `zt` shows the takes of a part as
 lanes under its clips.
 
 | Gesture | Effect |
@@ -472,8 +472,8 @@ The mouse of the terminal does the same (see [The mouse](mouse.md)).
 
 ## Automation
 
-Automation on the transport bar shows the lanes of the selected track as
-rows under its clips, or hides them (`:lane.rows`). The track with the
+Automation on the transport bar shows the lanes of the selected part as
+rows under its clips, or hides them (`:lane.rows`). The part with the
 cursor shows its volume curve over its empty lane.
 
 | Gesture | Effect |
@@ -483,14 +483,14 @@ cursor shows its volume curve over its empty lane.
 | Drag a point | Moves it. |
 | Right-click a point | Removes it. |
 | Right-click elsewhere | A menu to clear the lane or to stop it. |
-| Curve button beside a parameter of a device | Gives the parameter a lane and shows the lanes of the track as rows. |
+| Curve button beside a parameter of a device | Gives the parameter a lane and shows the lanes of the part as rows. |
 | Right-click the name of a parameter | A menu to automate it (a lane with a point at its value, at the cursor), or to edit its curve in the curve editor. The curve editor opens in a pane split from the pane that has the keyboard. |
 
-A track's menu has Automation ▸ Show or hide the lanes as rows, as the
-button does. Each lane of the track is then a row under its clips, always
+A part's menu has Automation ▸ Show or hide the lanes as rows, as the
+button does. Each lane of the part is then a row under its clips, always
 ready for points, with the gestures above. The clips above stay editable.
-A track with no lane gets a lane for its fader. The same menu sets the
-automation mode of the track, which the letter on the header shows.
+A part with no lane gets a lane for its fader. The same menu sets the
+automation mode of the part, which the letter on the header shows.
 
 ## Session view
 
@@ -501,11 +501,11 @@ window draws it from its scene, with the gestures of the terminal. See
 ## Mixer
 
 The mixer is the terminal's mixer, laid out in cells of the window's
-monospace font. Each track has a strip, the VCAs follow the tracks, and the
+monospace font. Each part has a strip, the VCAs follow the parts, and the
 master is the last strip, and a strip shows the following.
 
-- the name of the track on a plate in its color
-- the track it plays into
+- the name of the part on a plate in its color
+- the part it plays into
 - its first four devices and its sends, when the mixer is tall enough
 - the meters and the clip light, beside a fader with its scale
 - the peak, the level and the pan
@@ -530,10 +530,10 @@ regions of the terminal, in fractions of a cell, so a fader moves smoothly.
 | Drag a send | Changes its level. |
 | Click `M`, `S`, `R` or `I` | Changes the switch. |
 | Click the peak or the clip light | Clears the clip light. |
-| Right-click a strip | Opens the menu of the track. |
+| Right-click a strip | Opens the menu of the part. |
 
-The menus of a strip and of a track header have entries for VCAs. They
-make a VCA with the track, put the track under a VCA, or remove it from
+The menus of a strip and of a part header have entries for VCAs. They
+make a VCA with the part, put the part under a VCA, or remove it from
 its VCA.
 
 When the mixer has the keyboard, its strip shows the row of its cursor, as
@@ -567,7 +567,7 @@ the lane while the song plays, with no new scene from the kernel.
 
 The piano roll is the kernel's piano roll, drawn from the same scene as in
 the terminal, and its grid is a plane of beats and pitches. The window paints
-the notes where they are, between cells, in the colors of their tracks.
+the notes where they are, between cells, in the colors of their parts.
 The pointer uses the hit regions and gestures of the terminal's mouse, in
 fractions of a cell. The mouse works as in REAPER's MIDI editor.
 
@@ -638,18 +638,18 @@ the selection, or what insert mode draws. The tools are, in order, as follows.
 | step | Step input (`I`): notes played on a MIDI keyboard go in at the cursor. A click starts or stops it. |
 | list | The event list: each note and move of the clip as a row to change in place. See [The event list](midi.md#the-event-list). |
 | Suggest, and other switches of modules | Start and stop the suggestions of a completion source. |
-| tracks | `:roll.tracks`: each track near the roll, to show or hide its notes, and its clips, to edit them together. |
+| parts | `:roll.parts`: each part near the roll, to show or hide its notes, and its clips, to edit them together. |
 | zoom | A menu of zooms. |
 | Window | Moves the roll into a window of its own. |
 | x | Closes the roll. |
 
 Above the ruler, a row shows the names of the chords that sound over all
-pitched tracks (`paw.opt.chords` sets names, Roman numerals, both, or off). See
+pitched parts (`paw.opt.chords` sets names, Roman numerals, both, or off). See
 [Harmony](harmony.md). The ruler counts bars
 and beats, a dot on the keyboard shows the keys that sound at the cursor,
 and the title shows the name of the chord.
 
-Notes of the other clips of the track, and of other pitched tracks, show
+Notes of the other clips of the part, and of other pitched parts, show
 behind as dashed lines in their colors. The layers that extensions add
 show as in the terminal, and they include the articulations, the notes of a
 snippet, the ghosts of a suggestion and its badge, and the outline of the
@@ -659,11 +659,11 @@ Several clips:
 
 | Gesture | Effect |
 | --- | --- |
-| Click a note of another track | Makes its clip the active clip. New notes go there. |
-| `Ctrl` and click a note of another track | Adds its clip to the edited clips, or removes it. |
+| Click a note of another part | Makes its clip the active clip. New notes go there. |
+| `Ctrl` and click a note of another part | Adds its clip to the edited clips, or removes it. |
 | Double-click one of several selected clips in the timeline | Opens all of them, that one active. |
 
-With several clips edited, each clip's notes have the color of its track.
+With several clips edited, each clip's notes have the color of its part.
 A click, a box, a drag, `Delete`, the velocity strip and the keys reach the
 notes of all of them, each note stays in its clip, and each edit is one undo
 step.
@@ -685,19 +685,19 @@ Suggestions, with a completion source loaded (see
 | --- | --- |
 | Wheel | Scrolls. |
 | `Shift` and wheel | Scrolls sideways. |
-| `Ctrl` and wheel | Zooms in time at the pointer, in the timeline and in the piano roll. Over the track headers, it makes all tracks taller or shorter. |
-| `Alt` and wheel | Makes the rows taller or shorter: the tracks, or the keys of the piano roll. |
+| `Ctrl` and wheel | Zooms in time at the pointer, in the timeline and in the piano roll. Over the part headers, it makes all parts taller or shorter. |
+| `Alt` and wheel | Makes the rows taller or shorter: the parts, or the keys of the piano roll. |
 | `Ctrl =`, `Ctrl -`, `Ctrl 0` | The vertical zoom of the view that has the keyboard, the same as `z+`, `z-` and `z=` (see [The arrange view](arrange-view.md#vertical-zoom)). `zi` and `zo` zoom in time. |
 | `Ctrl ↑`, `Ctrl ↓` | Make the rows shorter or taller, as `Ctrl -` and `Ctrl =` do. |
 
-In the timeline, the wheel scrolls a track, or a bar with `Shift`. After a
+In the timeline, the wheel scrolls a part, or a bar with `Shift`. After a
 zoom, the window draws the waveforms again at their new width.
 
 ## Sound files and MIDI files
 
 | Gesture | Effect |
 | --- | --- |
-| `Track` → "From a sound file…", or "Import a sound or MIDI file…" in the timeline menu | Opens a list of files. Type to make the list shorter. `Enter` opens a directory. A wav, aiff, flac, mp3 or ogg file goes on a new track at the cursor. |
+| `Part` → "From a sound file…", or "Import a sound or MIDI file…" in the timeline menu | Opens a list of files. Type to make the list shorter. `Enter` opens a directory. A wav, aiff, flac, mp3 or ogg file goes on a new part at the cursor. |
 | `:import path` | Does the same. |
 | `paw-gui take.mp3` | Starts a project with the file. |
 
@@ -707,8 +707,8 @@ On X11, you can drag files from a file manager into the window:
 
 | File | Result |
 | --- | --- |
-| A sound file | A new track for each file, with the clip at the edit cursor. |
-| A MIDI file | Its tracks, as `:import` puts them. |
+| A sound file | A new part for each file, with the clip at the edit cursor. |
+| A MIDI file | Its parts, as `:import` puts them. |
 | A project (a project folder, its `project.toml`, or a `.json` file) | Opens it, after the question about changes that are not saved. |
 | Other files | The status line tells that it did not take them. |
 
@@ -769,7 +769,7 @@ its view needs.
 | --- | --- |
 | The arrange view, the mixer, the piano roll, the device panel, the drum grid | From the scene. The window paints the roles (clips, curves, faders, meters, switches, buttons, sliders, notes) as widgets. |
 | A view that paints (the notation, the vocal editor, the undo tree) | From the scene, as a picture. |
-| Any other buffer (a curve `paw://lane/3`, the quickfix list, a text buffer `paw://tracks`, an empty window) | From the scene, cell by cell in the monospace font, as the terminal draws it. |
+| Any other buffer (a curve `paw://lane/3`, the quickfix list, a text buffer `paw://parts`, an empty window) | From the scene, cell by cell in the monospace font, as the terminal draws it. |
 
 A pane drawn from its scene has the window's own title. Its buttons move
 the pane into a window of its own, or close it. The title row of the
@@ -781,7 +781,7 @@ of the window. An idle pane does no work.
 The keys and commands below do in the window what they do in the terminal.
 
 `:vs paw://lane/3`, `Enter` on a lane row, `:copen`, `:sp quickfix`,
-`:e paw://tracks`, `Ctrl-w` and its keys, `:q`, `:only`, `:tabnew mixer`,
+`:e paw://parts`, `Ctrl-w` and its keys, `:q`, `:only`, `:tabnew mixer`,
 `gt`, `:layout edit`.
 
 | Gesture | Effect |
@@ -808,7 +808,7 @@ configuration (`paw.ui.start_layout`) shows as it is.
 A window narrowed to a group (`:narrow Strings`, `znag`, see
 [Scopes](narrowing.md))
 gives the name of the group to its tab in the row of tabs. Its pane shows
-only the tracks of the group, because the timeline, the mixer and the device panel take
+only the parts of the group, because the timeline, the mixer and the device panel take
 their rows from `paw.groups.rows()`.
 
 ## Views in windows of their own

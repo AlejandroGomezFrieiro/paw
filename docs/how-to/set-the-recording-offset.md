@@ -8,9 +8,9 @@ corrects it. The rule is in
 
 1. Record the metronome through your interface:
    1. Plug an output of your interface into an input with a cable.
-   2. Select a track and set its input to that input channel with `I`.
+   2. Select a part and set its input to that input channel with `I`.
    3. Enable the metronome, and record some bars of the metronome on the
-      track.
+      part.
 2. Zoom in on the start of a bar, and measure the time from the bar line
    to the first click in the recording, in milliseconds.
 3. In `init.lua`, set the offset to that time:

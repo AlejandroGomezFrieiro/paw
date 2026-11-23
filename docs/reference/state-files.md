@@ -57,7 +57,7 @@ paw keeps your editing history across restarts, as Neovim does. The file
 and `0`. A register is kept when it holds plain data, such as notes, clips,
 text or keys, and is smaller than 1 MB. The `shada.json` in the folder of a
 project under `projects/` holds the marks, the jump list, the places of the
-last edits and the last cursor (track, beat and view). Nothing goes in the
+last edits and the last cursor (part, beat and view). Nothing goes in the
 project folder.
 
 paw reads the files at the start and when a project opens. It writes them

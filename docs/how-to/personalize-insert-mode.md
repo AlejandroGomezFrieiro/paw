@@ -47,8 +47,8 @@ paw.insert.add("M", {
 })
 ```
 
-On a track, press `i`, then `M` two times, and then `Esc`. Two drum clips
-are on the track, one after the other, and `u` removes both.
+On a part, press `i`, then `M` two times, and then `Esc`. Two drum clips
+are on the part, one after the other, and `u` removes both.
 
 ## Move a key, or remove it
 
@@ -74,5 +74,5 @@ are on the track, one after the other, and `u` removes both.
 
 - [Insert mode in the arrange view](../reference/insert-mode.md): the
   keys, and the fields of `paw.insert.add`.
-- [How to personalize the track column and the
-  ruler](personalize-the-track-column-and-the-ruler.md).
+- [How to personalize the part column and the
+  ruler](personalize-the-part-column-and-the-ruler.md).

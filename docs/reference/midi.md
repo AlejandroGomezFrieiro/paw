@@ -2,7 +2,7 @@
 
 <!-- tags: midi midi-2 controller-moves event-list midi-output midi-files mpe -->
 
-paw keeps MIDI at the resolution of MIDI 2.0. A MIDI clip holds notes and controller moves, and tracks take MIDI from ports and send MIDI to ports. For the reason that paw uses MIDI 2.0, see [About MIDI 2.0 in paw](../explanation/about-midi-2.md), and for MIDI controllers that move faders and parameters, see [MIDI controllers](learn.md).
+paw keeps MIDI at the resolution of MIDI 2.0. A MIDI clip holds notes and controller moves, and parts take MIDI from ports and send MIDI to ports. For the reason that paw uses MIDI 2.0, see [About MIDI 2.0 in paw](../explanation/about-midi-2.md), and for MIDI controllers that move faders and parameters, see [MIDI controllers](learn.md).
 
 ## Controller moves
 
@@ -15,7 +15,7 @@ clip:set_controls({
   { start = 2, type = "bend", key = "E4", value = 1 / 48 },   -- one note, a semitone up
   { start = 4, type = "program", program = 12, bank = 258 },
 })
-track:midi({ type = "cc", number = 1, value = 0.3 })           -- now, to the track's devices
+part:midi({ type = "cc", number = 1, value = 0.3 })           -- now, to the part's devices
 paw.on("midi.in", function(e) end)       -- everything that arrives at a port, for scripts; `e.port` names the port
 paw.midi.ump({ type = "cc", number = 74, value = 1 })   -- as a MIDI 2.0 packet: two words
 paw.midi.inject_ump({ 0x40903c00, 0xc0000000 })         -- and a packet, as if from a port
@@ -25,7 +25,7 @@ paw.midi.inject_ump({ 0x40903c00, 0xc0000000 })         -- and a packet, as if f
 | --- | --- |
 | `clip:controls()` | The controller moves of the clip. |
 | `clip:set_controls(list)` | Replace the controller moves. |
-| `track:midi(event)` | Send an event to the devices of the track now. |
+| `part:midi(event)` | Send an event to the devices of the part now. |
 | `paw.midi.ump(event)` | The event as a MIDI 2.0 packet: two words. |
 | `paw.midi.inject_ump(words)` | Inject a packet, as if from a port. |
 
@@ -45,7 +45,7 @@ paw.api.engine_midi_filter("step", nil)   -- removes the list of "step"
   channels.
 - Each name keeps its own list. The filter is all the lists together, not
   more than 256 rules.
-- The release of a key that a track holds always gets to the track. So no
+- The release of a key that a part holds always gets to the part. So no
   note continues to sound when the filter changes.
 
 - paw records the controller moves with the notes.
@@ -67,7 +67,7 @@ A note can have a MIDI 2.0 attribute, e.g., an articulation (`note.attr`, see [T
 
 - paw records the attribute from a MIDI 2.0 note-on, and the `midi.in` event gives it as `e.attr`.
 - paw sends the attribute in the note-ons of MIDI 2.0 ports, and it reaches CLAP plugins that prefer MIDI 2.0 notes, and Lua devices.
-- For other devices, the `attr_map` of a track changes the attribute into keyswitches and controllers.
+- For other devices, the `attr_map` of a part changes the attribute into keyswitches and controllers.
 
 ## Edit controller moves
 
@@ -122,8 +122,8 @@ Scripts use `paw.controls`: `rows`, `cells`, `edit`, `select_box`, `move`,
 ## MIDI input
 
 - paw reads MIDI from each ALSA sequencer port, which with PipeWire includes its MIDI devices, and from ports that appear later.
-- A track names its port in `midi_input` by name, so paw finds the port again when you connect the keyboard later, or on a different computer.
-- When a port goes away, paw releases the notes that were held on it, and it tells you when the port goes away and when it returns, with the tracks that use it. The tracks use the port again by its name.
+- A part names its port in `midi_input` by name, so paw finds the port again when you connect the keyboard later, or on a different computer.
+- When a port goes away, paw releases the notes that were held on it, and it tells you when the port goes away and when it returns, with the parts that use it. The parts use the port again by its name.
 - Step input enters notes from the keys of a port, one note or chord at a time, in the piano roll (see [Step input](piano-roll.md#step-input)).
 - paw opens the ports only with a real audio device, or with `paw.api.engine_restart({ midi = true })` (see [Audio devices](audio-devices.md#test-backends)).
 
@@ -133,7 +133,7 @@ Scripts use `paw.controls`: `rows`, `cells`, `edit`, `select_box`, `move`,
 | `:midi.select`, `paw.midi.select({ "Keystation" })` | Keep only some ports open, by id or a part of the name, and `nil` keeps all ports. |
 | `paw.midi.note_on("C4", 100)`, `paw.midi.note_off("C4")` | Play a note as if from a port (also on the null backend). |
 | `paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keys A" })` | Inject an event as if from a port. |
-| `paw.midi.open_port("Guitar")` | Make a port of paw that other programs send to. PipeWire and the sequencer show it as `paw: Guitar`, and paw lists it with the inputs, so a track takes it by that name. |
+| `paw.midi.open_port("Guitar")` | Make a port of paw that other programs send to. PipeWire and the sequencer show it as `paw: Guitar`, and paw lists it with the inputs, so a part takes it by that name. |
 | `paw.midi.close_port("Guitar")` | Remove that port. |
 
 Any program can send to a port of paw, and the [vinput](../../extensions/vinput) extension sends to such a port from a guitar.
@@ -144,19 +144,19 @@ paw opens the sequencer as a MIDI 2.0 client and reads Universal MIDI Packets, s
 
 ## MIDI output
 
-A track sends what it plays to a port, which means the notes and controllers of its clips and the MIDI input that passes through it, before its devices.
+A part sends what it plays to a port, which means the notes and controllers of its clips and the MIDI input that passes through it, before its devices.
 
 | Way | Example |
 | --- | --- |
-| Lua | `track.midi_output = { port = "UM-ONE: UM-ONE MIDI 1", channel = 2 }` (`channel` nil keeps the channel of each message) |
-| command | `:track.midi_out UM-ONE 2` (a part of the name is enough, `none` for no output) |
-| lists | the MIDI out entries of the input list (`I`), and of the input menu on the track header in the graphical window |
+| Lua | `part.midi_output = { port = "UM-ONE: UM-ONE MIDI 1", channel = 2 }` (`channel` nil keeps the channel of each message) |
+| command | `:part.midi_out UM-ONE 2` (some of the name is enough, `none` for no output) |
+| lists | the MIDI out entries of the input list (`I`), and of the input menu on the part header in the graphical window |
 
 `paw.midi.outputs()` lists the ports.
 
 ### Forms
 
-paw sends MIDI 2.0 where the port takes it, which means that the sequencer has MIDI 2.0 (`CONFIG_SND_SEQ_UMP`) and the program of the port speaks it. The notes, the bends and controllers of each note, and all values then go as Universal MIDI Packets with full resolution, and otherwise paw sends MIDI 1.0, in the form of the route. You set the form with `form` in `track.midi_output`, with `:track.midi_out UM-ONE 2 mpe`, or with the MIDI out form entries of the input list and the input menu.
+paw sends MIDI 2.0 where the port takes it, which means that the sequencer has MIDI 2.0 (`CONFIG_SND_SEQ_UMP`) and the program of the port speaks it. The notes, the bends and controllers of each note, and all values then go as Universal MIDI Packets with full resolution, and otherwise paw sends MIDI 1.0, in the form of the route. You set the form with `form` in `part.midi_output`, with `:part.midi_out UM-ONE 2 mpe`, or with the MIDI out form entries of the input list and the input menu.
 
 | Form | Output |
 | --- | --- |
@@ -175,16 +175,16 @@ With `mpe`:
 
 ### Timing
 
-- The audio thread puts a time stamp on each message, which is the time when the message is heard, with the latency of the output and the delay of the plugins. It gives the message through a lock-free queue to a thread that schedules it on an ALSA sequencer queue in real time, so a synth on the port sounds with the tracks.
-- A stop, a jump, and a turn of the loop end the notes that sound, with an All Notes Off on their channels, and a removed port or a removed track does the same.
+- The audio thread puts a time stamp on each message, which is the time when the message is heard, with the latency of the output and the delay of the plugins. It gives the message through a lock-free queue to a thread that schedules it on an ALSA sequencer queue in real time, so a synth on the port sounds with the parts.
+- A stop, a jump, and a turn of the loop end the notes that sound, with an All Notes Off on their channels, and a removed port or a removed part does the same.
 - Renders send nothing.
 - paw opens the ports when it opens MIDI input (with an audio device, or `engine_restart({ midi = true })`).
 
 ### Ports of paw
 
-`paw.midi.open_output("To Surge")` makes an output port of paw that other programs read from (`paw out: To Surge`), and a track that sends to `To Surge` plays them. `paw.midi.close_output` removes the port.
+`paw.midi.open_output("To Surge")` makes an output port of paw that other programs read from (`paw out: To Surge`), and a part that sends to `To Surge` plays them. `paw.midi.close_output` removes the port.
 
-Copies of a track send to the same port, and templates and project files keep the port by its name.
+Copies of a part send to the same port, and templates and project files keep the port by its name.
 
 On a kernel without `CONFIG_SND_SEQ_UMP`, only the MIDI 1.0 forms go through a sequencer. The MIDI 2.0 output uses the same packets as the plugins and the codec of the tests, but nobody has tried it through a sequencer.
 
@@ -195,22 +195,22 @@ paw opens `.mid`, `.midi`, `.smf` and `.kar` files in format 0, 1 and 2, with an
 | Command | Effect |
 | --- | --- |
 | `:open song.mid`, `:e song.mid` | Open the file as a new project. |
-| `:import song.mid` | Add the tracks of the file to the open project, below the track at the cursor, with the start of the file at the edit cursor, as one undo step. The tempo map of the project does not change. |
+| `:import song.mid` | Add the parts of the file to the open project, below the part at the cursor, with the start of the file at the edit cursor, as one undo step. The tempo map of the project does not change. |
 | `:import song.mid tempo=yes` | Do the same, and use the tempo map of the file from the cursor. |
-| `:clip.import riff.mid` | Put all the notes of the file in one clip on the track at the cursor. |
+| `:clip.import riff.mid` | Put all the notes of the file in one clip on the part at the cursor. |
 | `:export song.mid` | Write the project as a format 1 file, with its tempo map, time signatures and markers. |
 | `:export clip riff.mid` | Write the clip at the cursor. |
-| `:'<,'>export part.mid` | Write the selected tracks. |
+| `:'<,'>export part.mid` | Write the selected parts. |
 | `:export clip riff.midi2` | Write the clip at the cursor as a MIDI 2 clip file. |
 
 [Export](export.md#midi-files) gives the ranges and the words that MIDI files take.
 
 A file that opens as a project gives these results:
 
-- one track for each track of the file that has notes (paw splits a format 0 file by channel), with the name of the track, or "Channel N"
-- one clip on each track, over the bars that it plays, where the controllers, pitch bend, pressure and program changes become controller moves of the clip (the curve editor shows them at `paw://clip/C/control/cc/N`)
+- one part for each part of the file that has notes (paw splits a format 0 file by channel), with the name of the part, or "Channel N"
+- one clip on each part, over the bars that it plays, where the controllers, pitch bend, pressure and program changes become controller moves of the clip (the curve editor shows them at `paw://clip/C/control/cc/N`)
 - the tempo map, time signatures and markers of the file
 - the lyrics, on the notes where they start (`note.meta.lyric`)
-- the built-in drum kit on a track that plays only on channel 10, while the other tracks have no instrument, as a new track has none
+- the built-in drum kit on a part that plays only on channel 10, while the other parts have no instrument, as a new part has none
 
 The new project has no file, so `:w` asks for a path and never writes over the `.mid` file. paw does not import what has no place in paw (sysex, key signatures, text), and the message says how much it left out. In Lua, use `paw.midifile` (see [The Lua interface](scripting.md)).

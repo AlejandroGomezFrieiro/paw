@@ -80,10 +80,10 @@ that add to `paw.api` (`fs_api.rs`, `tempo_api.rs`, `luadev_api.rs`,
 a `// @param name T` line, and a `// @return T` line.
 
 A function with more than one form instead has a `// @type function(...)`
-line for each form, e.g., `track_set(id, patch)` and
-`track_set(id, key, nil)`. A form whose type follows from the value of an
-argument is not declared, so Lua can call `track_get(id, "name")`, and Teal
-calls `track_get(id).name`. The records of the data that crosses `paw.api`
+line for each form, e.g., `part_set(id, patch)` and
+`part_set(id, key, nil)`. A form whose type follows from the value of an
+argument is not declared, so Lua can call `part_get(id, "name")`, and Teal
+calls `part_get(id).name`. The records of the data that crosses `paw.api`
 are in `runtime/lua/paw/types.tl`, and each record agrees with the Rust
 code that makes or reads the table.
 
@@ -195,7 +195,7 @@ their own on the audio thread, without compat-5.3.
 ## The contracts
 
 An extension gives tables to paw, e.g., a view, a buffer type, a kind of
-text buffer, a kind of track, a role or a picker. A status line component,
+text buffer, a kind of part, a role or a picker. A status line component,
 a query field, a source of grep and a health check are tables too.
 
 The tables are the contracts between paw and the extensions.
@@ -208,7 +208,7 @@ before they move to Teal, and a module in Teal can require the contracts.
 In an extension, the contracts are `paw.contracts.View`,
 `paw.contracts.PickSource<T>` and the others. The functions that take a
 contract take it with its type. They are `paw.ui.view`, `paw.buftype`,
-`paw.textbuf.kind`, `paw.track_kinds.define`, `paw.clip_kinds.define`,
+`paw.textbuf.kind`, `paw.part_kinds.define`, `paw.clip_kinds.define`,
 `paw.roles.define`, `paw.statusline.component`, `paw.query.field`,
 `paw.grep.source`, `paw.health.register`, `paw.pick`, `paw.pick.sources`
 and `paw.ui.menu`. The checker therefore finds a field with a wrong name,
@@ -314,7 +314,7 @@ each other.
 | Done | Core services | `util`, `events`, `options`, `limit`, `hooks`, `seats`, `commands`, `lang`: 15 fewer `paw.Untyped` entries | 1,700 | none |
 | Done | File formats | `xml`, `zip`, `markdown`, `formats`, `midifile`: 2,356 lines of Teal, 5 fewer `paw.Untyped` entries | 1,800 | none |
 | Done | Kernel types | the `// @return` of `api/` and the other files that add to `paw.api`, and records in `types.tl`: 343 `any` of `paw.api` down to 20, and 5 in the records, each with its reason | 270 functions | none |
-| Done | Contracts, Rust side | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`track_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
+| Done | Contracts, Rust side | the events of the kernel as a Rust type, with a descriptor and a record for each; the setters take a table of changes (`part_set(id, patch)`), and `device_find_all` is separate from `device_find`; the props of the roles that the window paints as Rust types: 13 fewer `any` entries | 45 events, 7 functions, 21 roles | none |
 | Done | Contracts, Lua side | `contracts.tl`, the `@type` lines of the modules in Lua (`partial.d.tl`) and the types of the options (`opts.d.tl`): 880 lines of Teal, 12 fewer `paw.Untyped` entries | 10 functions that register | wave 1 |
 | Done | The project | `objects`, `cursor`, `edit`, `address`, `tempo`, `tempolane`, `markers`, `locators`: 4,408 lines of Teal, 24 fewer entries of `any-allowed.txt`, and no `any` or `paw.Untyped` in these modules | 3,100 | wave 1 |
 | Done | Music on the project | `harmony`, `structure`, `takes`, `groups`, `vca`, `lanes`, `curves`, `audition`: 3,859 lines of Teal, 42 fewer entries on the allow-list | 3,000 | wave 1 |
@@ -328,7 +328,7 @@ each other.
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
 | Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
 | Done | The piano roll | `views/pianoroll`, `views/pianoroll_mouse`, `views/pianoroll_strip`, `roll_clips`: 3,701 lines of Teal, 1 fewer entry on the allow-list, the 10 records that other modules kept of the piano roll gone, and no `any` or `paw.Untyped` in these modules | 2,430 | the keys |
-| Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_track`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
+| Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_part`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
 | 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
 | Done | Extensions: `plugstate` | the adapters, the library, the snapshots, the readers of the state of each framework and the client of TONE3000: 9,550 lines of Teal, no `any` or `paw.Untyped`, and no function over 50 lines | 6,400 | the modules of paw that it uses |
@@ -394,7 +394,7 @@ declares the parts that it calls.
 
 What the code does is the same after the contracts of the kernel. Two tests
 changed, because they used the forms that Teal does not see now
-(`track_get(id, key)`, `device_find` with `all = true`). The contracts
+(`part_get(id, key)`, `device_find` with `all = true`). The contracts
 found the following problems.
 
 The kernel sent the payload of `project.saved` in two shapes, with the
@@ -462,26 +462,26 @@ modules.
 In Teal, `value is integer` becomes a call of `math.type`, which LuaJIT
 does not have, so such a test stopped with an error when it ran. Now paw
 loads compat-5.3, which gives `math.type`, as
-[The standard library](#the-standard-library) explains. `paw.track` and
+[The standard library](#the-standard-library) explains. `paw.part` and
 `Lane:state_index` take a number or a text, and they test for a number, as
 the Lua did.
 
 A method of an object has the name of a field of the kernel, e.g.,
-`track:devices()`, `track:clips()`, `clip:track()` and `lane:states()`. The
+`part:devices()`, `part:clips()`, `clip:part()` and `lane:states()`. The
 method comes first, so the object does not give the field. The records
 leave out those fields, and `get` gives them.
 
 A setter takes a table of changes, and a table holds no nil, so an object
-sets a field to nil (`track.output = nil`) with the key form, as the Lua
+sets a field to nil (`part.output = nil`) with the key form, as the Lua
 did.
 
 `paw.address.resolve` gives a thing of the kind of its address, e.g., a
-track, a note, a parameter or an item of an extension. Teal has no union of
+part, a note, a parameter or an item of an extension. Teal has no union of
 several records, so the result is `paw.address.Thing`, and a caller casts
 it by the kind of the address.
 
-In Teal, `paw.Track` and the other objects are types and not values, so a
-test such as `getmetatable(value) == paw.Track` is for Lua.
+In Teal, `paw.Part` and the other objects are types and not values, so a
+test such as `getmetatable(value) == paw.Part` is for Lua.
 
 `paw.contracts.Selector` did not have `pitch` and `value`, which
 `paw.address` names and the locator of the piano roll gives, and it has
@@ -500,11 +500,11 @@ Now the kernel gives the Lua state a `math.type`, so the test works. The
 ports test for the table all the same, so where a lane is
 `integer | types.Lane`, the port tests `lane is types.Lane`.
 
-A table of changes cannot hold nil. When `paw.groups` sends a track to the
+A table of changes cannot hold nil. When `paw.groups` sends a part to the
 master, the output is nil, so the port uses the key form
-(`track_set(id, "output", nil)`) there.
+(`part_set(id, "output", nil)`) there.
 
-`paw.groups.rows` gives the tracks, or with `{ lanes = true }` also the
+`paw.groups.rows` gives the parts, or with `{ lanes = true }` also the
 rows of the lanes, which is two types for one function. Teal sees only the
 form without options, and it calls `paw.lanes.lines()` for the rows with
 lanes. Lua keeps both forms.
@@ -513,7 +513,7 @@ lanes. Lua keeps both forms.
 and Teal finds the extra argument. The ports keep the list in a variable
 first.
 
-`track_get(id, "meta")` and `project_get("edits")` give one entry and are
+`part_get(id, "meta")` and `project_get("edits")` give one entry and are
 quicker than the whole table, but Teal does not see those forms. The ports
 keep them with a cast of the function, because `paw.groups.rows` and
 `paw.harmony.fresh` run each time that paw draws.
@@ -525,7 +525,7 @@ The function that `paw.commands.define` gets must give a
 
 `paw.harmony.read` gives its types now (`read.Note`, `read.Chord`), and
 `read.Note` is an interface, so the notes of the song
-(`paw.harmony.notes`, with their track and clip) go to `read.chords` with
+(`paw.harmony.notes`, with their part and clip) go to `read.chords` with
 no cast. `tools/apidoc.lua` declares `paw.harmony.read` and
 `paw.harmony.voice` in the record of `paw.harmony`.
 
@@ -536,7 +536,7 @@ no cast. `tools/apidoc.lua` declares `paw.harmony.read` and
 
 The checker found no error that changed what the code does, and the tests
 pass with no change. A frame on the screen takes the same time as before,
-because `bench/redraw.lua` with 16 tracks gives the same median, in the
+because `bench/redraw.lua` with 16 parts gives the same median, in the
 spread of six runs of each. The checker found the following problems in
 the types.
 
@@ -593,8 +593,8 @@ The items, the fields of patterns and the views of ranges are contracts
 too (`ExItem`, `ExField`, `ExChange`, `ExView`), and `paw.query` uses them
 in place of records of its own.
 
-The piano roll told Ex its track with `clip.track`. On a `paw.Clip`,
-`track` is a method, so the piano roll gave a function and not a track, and
+The piano roll told Ex its part with `clip.part`. On a `paw.Clip`,
+`part` is a method, so the piano roll gave a function and not a part, and
 `:mute` with no range in the piano roll failed. It gives the id now, and a
 test types `:mute` there.
 
@@ -605,7 +605,7 @@ it, so the port reads the numbers only.
 not a whole number. It takes whole numbers only now.
 
 A place of a mark was `{string:number}` in `contracts.Grid`. The arrange
-view keeps `{ track, beat }`, and a text buffer keeps its row, its column
+view keeps `{ part, beat }`, and a text buffer keeps its row, its column
 and the name of the buffer, so `paw.contracts.GridMark` has them.
 
 `ctx.kind` of the functions and keys of a kind of text buffer had the type
@@ -659,7 +659,7 @@ The quickfix list uses the types of `paw.diagnostic`, and
 name the types of each other, so `paw.diagnostic` declares the part of
 `paw.qf` that it calls.
 
-The data of a node of a query is a record of its kind, e.g., a track, a
+The data of a node of a query is a record of its kind, e.g., a part, a
 clip, a note, a marker or a point. Teal has no union of several records, so
 a node holds `paw.contracts.QueryData`, and the port casts the data by the
 kind of the node. The root of the tree has the kind `project`, which
@@ -753,7 +753,7 @@ A picker's items are of its own type, so the sources are generic
 (`paw.contracts.PickSource<T>`). `paw.pick` keeps the items of the open
 picker as `paw.pick.Item` and gives them back to the functions of the
 picker. The sources of the runtime are pickers of records
-(`paw.pick.sources.TrackLine`, `paw.help.Tag`, `paw.query.Node`).
+(`paw.pick.sources.PartLine`, `paw.help.Tag`, `paw.query.Node`).
 
 The picker of the Lua API walks the `paw` global, whose tables also have
 number keys. The first port read each key as a name, and the search tests
@@ -798,7 +798,7 @@ call `paw.pick`. `paw.commands`, `paw.grep`, `paw.takes`, `paw.markers`,
 
 The checker found one error that changed what the code does, and the other
 tests pass with no change. The frontend is as fast as before. With 16
-tracks, the state that a window gets for each frame takes 16.4 µs before
+parts, the state that a window gets for each frame takes 16.4 µs before
 and 16.6 µs after, in the spread of six runs of each, and it makes 2.1 KB
 of garbage before and after. A key with its frame, `bench/redraw.lua` and
 the state after an edit give the same median, in the spread of the runs.
@@ -813,7 +813,7 @@ The checker also found the following problems and limits.
 
 `paw.frontend.state` is what the window reads, and it has records now,
 which are `paw.frontend.State`, with `Modal`, `ProjectState`,
-`TrackState`, `ClipState`, `DeviceState` and `Routing`. `paw.remote` sends
+`PartState`, `ClipState`, `DeviceState` and `Routing`. `paw.remote` sends
 the parts of the state by those records.
 
 The prompt of the modal state holds the candidates that show, but
@@ -922,13 +922,13 @@ now, and each gesture of the arrange view is a record that extends it. One
 gesture kept a number in the field where the others keep the last event of
 the drag, and it has a field of its own for that number now.
 
-The header of a track set the columns of its buttons on the view while it
+The header of a part set the columns of its buttons on the view while it
 drew them. The header now gives the columns back, and the view keeps them,
 so the drawing of a header changes nothing else. The drawing of a frame was
 one function of 352 lines and the header one of 208 lines. Each is now a
 short function that calls one function for each part, for example the
 ruler, the rows, the selection and the playhead. The header and the clips
-of one track are in `paw/views/arrange_track.tl`.
+of one part are in `paw/views/arrange_part.tl`.
 
 The widget roles (`label`, `button`, `switch`, `knob` and `playhead`) are
 still defined in Lua, and their props had no record. The contracts give one
@@ -968,12 +968,12 @@ playhead, the velocities, the cursor and the scroll bar.
 contract of a view said text. The contract now says text or a number.
 A change to text would change the files that save the layout.
 
-The picker of `:roll.tracks` read a third argument in its action for
+The picker of `:roll.parts` read a third argument in its action for
 Enter, to change the text of the line. The picker never gives that
 argument, so the line kept its old text after Enter. The port removed
 the code that could not run. Now an action of a picker can say
 `refresh = true`, and the picker makes the line of the item again after
-the action. `:roll.tracks` uses it, and a test checks the line.
+the action. `:roll.parts` uses it, and a test checks the line.
 
 `pianoroll.opened` and `roll_clips.changed` had a descriptor in the
 module that sends them and a second one in `paw.lsp`. `paw.lsp` now uses
@@ -1005,8 +1005,8 @@ code. They turn a number into text first, as REAPER writes it.
 `interop.db` used `paw.dsp`, which is Lua for the audio thread and has no
 types. It now does the same arithmetic itself, so it gives the same numbers.
 
-A merge kept the master of the file as `false` in the table of the tracks by
-their id. It is in a set of its own now, and the table holds track ids only.
+A merge kept the master of the file as `false` in the table of the parts by
+their id. It is in a set of its own now, and the table holds part ids only.
 
 The strict check of the test suite did not find the other modules of an
 extension, because only `tools/tlcheck.sh` put the `lua/` folder of each

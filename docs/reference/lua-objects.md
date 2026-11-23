@@ -1,6 +1,6 @@
 # Project objects in Lua
 
-The reference page describes the Lua objects of the project, which are tracks, devices, clips, notes, note attributes, the transport, the tempo map and automation. Units are in [The Lua interface](scripting.md#units).
+The reference page describes the Lua objects of the project, which are parts, devices, clips, notes, note attributes, the transport, the tempo map and automation. Units are in [The Lua interface](scripting.md#units).
 
 ## Objects are handles
 
@@ -8,7 +8,7 @@ An object is a handle, so when you read a field, Lua asks the kernel, and when y
 
 ```lua
 paw.project.tempo = 112
-local bass = paw.add_track({ name = "Bass", volume = -4 })
+local bass = paw.add_part({ name = "Bass", volume = -4 })
 local synth = bass:add_device("synth", { wave = 2, cutoff = 500 })
 synth:set("resonance", 0.3)
 synth.bypass = false
@@ -20,17 +20,17 @@ clip:add_notes({ { pitch = 45, start = 1 }, { pitch = 48, start = 2 } })
 local take = bass:add_clip({ start = 8, file = "take.flac" })
 take:peaks(64)                 -- 64 { min, max } pairs, to draw the waveform
 
-local bus, echo = paw.add_track({ name = "Bus" }), paw.add_track({ name = "Echo" })
-bass.output = bus              -- the output goes into another track
-bass:send(echo, -12)           -- a send to a third track, 12 dB down
+local bus, echo = paw.add_part({ name = "Bus" }), paw.add_part({ name = "Echo" })
+bass.output = bus              -- the output goes into another part
+bass:send(echo, -12)           -- a send to a third part, 12 dB down
 
-paw.tracks()   bass:devices()   bass:clips()   clip:notes()   bass:clip_at(2)
+paw.parts()   bass:devices()   bass:clips()   clip:notes()   bass:clip_at(2)
 paw.project.save("song")   paw.project.load("song")
 paw.render("mix.wav", { tail = 2 })
 ```
 
 `paw.device_types()` lists every kind of device, with its format and vendor.
-`track:snapshot()` and `paw.restore_track(snapshot, index)` copy a track
+`part:snapshot()` and `paw.restore_part(snapshot, index)` copy a part
 with its devices, clips and automation.
 
 ## Notes
@@ -56,16 +56,16 @@ A note also has an id, `note.id`, and the id stays with the note through every e
 clip:add_note({ pitch = 60, start = 0, meta = { lyric = "la" } })
 ```
 
-The project saves `project.meta` and `track.meta` too. See [About MIDI as the truth](../explanation/about-midi-as-the-truth.md).
+The project saves `project.meta` and `part.meta` too. See [About MIDI as the truth](../explanation/about-midi-as-the-truth.md).
 
 ## MIDI files
 
-`paw.midifile.read` gives the contents of a file in ticks, with `ppq` ticks to a beat, in the form `{ format, ppq, tracks = { { name, notes, controls } }, tempos, signatures, markers, skipped }`.
+`paw.midifile.read` gives the contents of a file in ticks, with `ppq` ticks to a beat, in the form `{ format, ppq, parts = { { name, notes, controls } }, tempos, signatures, markers, skipped }`.
 
 ```lua
 paw.open("song.mid")                                            -- a new project, as :open does
-paw.midifile.import("song.mid", { start = 16, tempo = true })   -- into this project; { track = t } makes one clip
-paw.midifile.export("out.mid", { clips = { clip.id } })         -- or { tracks = { ... } }, or all the project
+paw.midifile.import("song.mid", { start = 16, tempo = true })   -- into this project; { part = t } makes one clip
+paw.midifile.export("out.mid", { clips = { clip.id } })         -- or { parts = { ... } }, or all the project
 local file = paw.midifile.read("song.mid")                      -- parse(bytes) and encode(file) use bytes
 ```
 
@@ -75,7 +75,7 @@ local file = paw.midifile.read("song.mid")                      -- parse(bytes) 
 
 The attribute is MIDI, and the core keeps it through edits, copies, undo, project files and recordings from MIDI 2.0 input. In a MIDI file, it is a sequencer-specific event immediately before the note, and other programs ignore that event.
 
-The attribute goes to MIDI 2.0 ports, to CLAP plugins that prefer MIDI 2.0 notes, and to devices in Lua. MIDI 1.0 destinations do not get it, but a `track.attr_map` can send it to them as keyswitches.
+The attribute goes to MIDI 2.0 ports, to CLAP plugins that prefer MIDI 2.0 notes, and to devices in Lua. MIDI 1.0 destinations do not get it, but a `part.attr_map` can send it to them as keyswitches.
 
 ```lua
 clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
@@ -90,12 +90,12 @@ bass:play_note("C2", 100, 200, paw.attr.m2("11.0"))   -- live, after the events 
 
 The piano roll writes the tag on a note when the note is long enough, the graphical window gives the note a chip, and `K` shows the articulation. The core keeps only the numbers, and the [articulations extension](../../extensions/articulations/README.md) gives them names for each instrument.
 
-## `track.attr_map`
+## `part.attr_map`
 
-The map of a track changes the attributes of its notes into events for an instrument that takes only MIDI 1.0. The map is plain data, so the project keeps it and plays it with no extension loaded.
+The map of a part changes the attributes of its notes into events for an instrument that takes only MIDI 1.0. The map is plain data, so the project keeps it and plays it with no extension loaded.
 
 ```lua
-track.attr_map = {
+part.attr_map = {
   send = "change",                   -- "change": only when the articulation changes. "every": each note
   default = { out = "ks=C1" },       -- notes with no attribute. Or the code of an entry: default = "10.0"
   arts = { ["11.0"] = { out = "ks=D1" }, ["11.A"] = { out = "ks=E1 cc1=96", name = "pizz" } },
@@ -104,7 +104,7 @@ track.attr_map = {
   attribute = true,                  -- notes keep their attribute. false removes it. `attr` keeps it for one entry
   delay = 0,                         -- milliseconds, for each note whose entry has no `delay`
 }
-track.attr_map = nil                 -- no map
+part.attr_map = nil                 -- no map
 ```
 
 `out` is a list of events with spaces between them, and the table below names the events.
@@ -141,10 +141,10 @@ arts["11.0"] = { out = "ks=D1", delay = -80 }
 
 paw moves the start, the end and the keyswitch of each note 80 ms earlier, and `attr_map.delay` applies to each note whose entry has no `delay`.
 
-- The kernel moves the notes when it schedules the events of the track, and it uses the tempo map at each note. Playback, an offline render, a bounce and a freeze give the same result, and a tempo change moves the notes again.
+- The kernel moves the notes when it schedules the events of the part, and it uses the tempo map at each note. Playback, an offline render, a bounce and a freeze give the same result, and a tempo change moves the notes again.
 - A note that moves before the start of playback (the first beat, a seek, the start of the loop) starts at the start of playback.
 - Notes played live do not move.
-- `paw.attr.delay_of(track, attr)` gives the delay of a note, for a view.
+- `paw.attr.delay_of(part, attr)` gives the delay of a note, for a view.
 
 ## Transport
 
@@ -153,7 +153,7 @@ paw.transport.play()   paw.transport.stop()   paw.transport.seek(8)
 paw.transport.loop_start, paw.transport.loop_end = 0, 16
 paw.transport.loop_enabled = true
 bass:play_note("C2", 100, 200)     -- play a note now, outside the timeline
-paw.transport.record()             -- record the armed tracks
+paw.transport.record()             -- record the armed parts
 paw.transport.punch_start, paw.transport.punch_end = 16, 32   -- record only there
 paw.transport.punch_enabled = true
 paw.opt.count_in = 1               -- one bar before a take. transport.counting is the time that is left
@@ -180,7 +180,7 @@ Each edit goes through `paw.tempo` and is one undo step.
 
 ## Automation
 
-An automation lane moves the volume or the pan of a track, or one parameter of a device on the track. A lane is a list of points `{ beat, value }` in the units of its target, which are dB, -1 to 1, or the range of the parameter. Straight lines join the points, and the value does not change before the first point or after the last point.
+An automation lane moves the volume or the pan of a part, or one parameter of a device on the part. A lane is a list of points `{ beat, value }` in the units of its target, which are dB, -1 to 1, or the range of the parameter. Straight lines join the points, and the value does not change before the first point or after the last point.
 
 ```lua
 local fade = bass:automate("volume")            -- or "pan". It gives the lane that exists, if there is one
@@ -191,10 +191,10 @@ fade:points()   fade:value_at(4)   bass:lanes()   bass:value_at("volume", 4)   s
 ```
 
 - While the transport plays, an enabled lane sets its target at the start of each block, and offline renders do the same.
-- A lane has priority over the fader and over `device:set`, which change the value of the track or the device, and `track.volume` and `device.params` read that value.
+- A lane has priority over the fader and over `device:set`, which change the value of the part or the device, and `part.volume` and `device.params` read that value.
 - When playback stops, the target keeps the last value of the lane, and it changes again when you set it or when playback starts.
 - When you disable or remove a lane, the target gets its own value again.
-- When you remove a device, paw removes its lanes, and when you move a device to another track, its lanes move with it.
+- When you remove a device, paw removes its lanes, and when you move a device to another part, its lanes move with it.
 - The project saves the lanes, undo applies to them, and they send `lane.added`, `lane.changed` and `lane.removed`.
 
 ### Lanes in the arrange view
@@ -203,8 +203,8 @@ fade:points()   fade:value_at(4)   bass:lanes()   bass:value_at("volume", 4)   s
 
 | Function | Effect |
 | --- | --- |
-| `paw.lanes.open(track)`, `toggle`, `is_open` | show the lanes of a track |
-| `paw.lanes.lines()` | each row: `{ track = id }` or `{ track = id, lane = id }` |
+| `paw.lanes.open(part)`, `toggle`, `is_open` | show the lanes of a part |
+| `paw.lanes.lines()` | each row: `{ part = id }` or `{ part = id, lane = id }` |
 | `paw.lanes.name(lane)` | the name of a lane |
 | `paw.lanes.format(lane, value)` | a value as text |
 | `paw.lanes.value_at(lane, beat)` | the value at a beat |

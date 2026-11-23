@@ -35,8 +35,8 @@ PipeWire use a different size. `:audio` shows the size in use.
    plays, the CPU cannot make each block in time.
 2. Select the next larger block in `:audio`, first 256 and then 512
    frames.
-3. If one heavy track causes the problem, freeze it (see
-   [How to freeze a heavy track](freeze-a-heavy-track.md)).
+3. If one heavy part causes the problem, freeze it (see
+   [How to freeze a heavy part](freeze-a-heavy-part.md)).
 4. Close the editors of plugins that you do not use, because some editors
    use a large part of the CPU.
 

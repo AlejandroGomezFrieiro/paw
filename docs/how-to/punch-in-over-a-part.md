@@ -1,7 +1,7 @@
 # How to punch in over a part
 
 You can record again over some bars and keep the rest of the take. The
-steps assume that the track has an input and is armed, and the rules are
+steps assume that the part has an input and is armed, and the rules are
 in [Recording](../reference/recording.md#punch-in-and-out).
 
 1. Select the bars to record again in visual mode, and press `gI`. The

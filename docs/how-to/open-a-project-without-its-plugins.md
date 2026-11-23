@@ -10,7 +10,7 @@ by opening it with its plugins offline. Each way and flag is in
    - After a crash: `:recover`, and then select an entry with
      "(plugins offline)".
 
-   paw opens the project, each plugin shows as offline, and the tracks
+   paw opens the project, each plugin shows as offline, and the parts
    play without the plugins.
 2. To find the plugin with the problem, set the plugins online one at a
    time. In the device panel, select a device and press `o`. If a plugin

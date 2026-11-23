@@ -4,7 +4,7 @@
 
 A snippet is music with a name, made from the context at the cursor. For
 example, `dominant` before a C major chord writes G7 from the cursor to
-the C chord, in the range of the track and moving smoothly from the chord
+the C chord, in the range of the part and moving smoothly from the chord
 before it. The module is `paw.snippet`, and the snippets come from
 extensions, where `extensions/snippets` is the first set. For the steps to
 write one, see [How to write a snippet](../how-to/write-a-snippet.md).
@@ -76,7 +76,7 @@ link it into `<config>/extensions`.
 The first value of the `voicing` choice is `smooth`, which selects
 the chord position that moves least from the notes of the clip before
 the cursor, and into the notes after it. If the clip has no notes before
-the cursor, it moves least from the notes of other tracks in its range.
+the cursor, it moves least from the notes of other parts in its range.
 
 ## Where snippets are found
 
@@ -122,23 +122,23 @@ The result of `expand`:
 | --- | --- |
 | `at` | the cursor, in project beats |
 | `pitch` | the row of the cursor |
-| `clip`, `track` | objects |
-| `clip_id`, `track_id` | ids |
+| `clip`, `part` | objects |
+| `clip_id`, `part_id` | ids |
 | `start` | the start of the clip |
 | `notes` | the notes of the clip, in project beats |
 | `selection` | the selected notes, with their `place`, or nil |
 | `region` | `{ from, to }` |
 | `harmony` | the module `paw.harmony` |
 | `key` | the key at the cursor |
-| `range` | the range of the track |
+| `range` | the range of the part |
 | `grid`, `count`, `values`, `velocity`, `opt` | the grid, the count, the values of the choices, the velocity, the options |
 
 | Helper | Result |
 | --- | --- |
-| `ctx:voice(tones, opts)` | Pitches for a chord in the range of the track, led from the chord before `opts.from` (the cursor) and into the chord at `opts.to`. The `voicing` choice is its style. `prev`, `next` (pitches, or false), `bass`, `count`, `low`, `high` as in `paw.harmony.voice.voice`. |
+| `ctx:voice(tones, opts)` | Pitches for a chord in the range of the part, led from the chord before `opts.from` (the cursor) and into the chord at `opts.to`. The `voicing` choice is its style. `prev`, `next` (pitches, or false), `bass`, `count`, `low`, `high` as in `paw.harmony.voice.voice`. |
 | `ctx:chord(tones, from, to, opts)` | The same, as notes from `from` to `to`. |
 | `ctx:before(beat)`, `ctx:after(beat)` | The chord of this clip before a beat, and at it. |
-| `ctx:around(beat, before)` | What other tracks play at a beat, in the range of this track. |
+| `ctx:around(beat, before)` | What other parts play at a beat, in the range of this part. |
 | `ctx:until_next()` | The start of the next chord, else the end of the bar. |
 
 ## Lua

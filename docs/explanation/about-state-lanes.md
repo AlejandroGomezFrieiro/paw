@@ -125,7 +125,7 @@ the two.
 
 On one test machine, the helper process of one TONE3000 instance with a
 preset used 35 MB of memory. A render of 32 seconds with a second instance
-on a second track took 5 % longer (a median of 2.60 s for 2.47 s, under a
+on a second part took 5 % longer (a median of 2.60 s for 2.47 s, under a
 load of other work). paw does not do this yet, because a render is already
 exact, and as the song plays, a change of some milliseconds is difficult to
 hear in most music.

@@ -2,11 +2,11 @@
 
 <!-- tags: step-input-how-to -->
 
-You can enter notes one note or one chord at a time from a MIDI keyboard, with no need to play in time. The steps assume that paw sees the keyboard (see [How to connect a MIDI keyboard](connect-a-midi-keyboard.md)) and that the track has a MIDI clip. The rules are in [Step input](../reference/piano-roll.md#step-input).
+You can enter notes one note or one chord at a time from a MIDI keyboard, with no need to play in time. The steps assume that paw sees the keyboard (see [How to connect a MIDI keyboard](connect-a-midi-keyboard.md)) and that the part has a MIDI clip. The rules are in [Step input](../reference/piano-roll.md#step-input).
 
 ## Choose the keyboard
 
-1. Select the track and press `I`.
+1. Select the part and press `I`.
 2. Under MIDI, select the port of the keyboard and press `Enter`. If you do not choose a port, step input takes the notes of every port.
 
 ## Enter notes and chords

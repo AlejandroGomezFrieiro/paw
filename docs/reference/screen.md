@@ -25,7 +25,7 @@ A screen narrower than 80 columns shows the device panel as a float over
 the arrange view. A screen smaller than 60 × 16 shows only a message that
 the screen is too small.
 
-A project with no tracks shows a message about how to start.
+A project with no parts shows a message about how to start.
 
 ## The bottom line
 
@@ -40,14 +40,14 @@ An extension sets the keys of its view with
 
 ## Colors
 
-Each track has a color, and a new track gets the next of the twelve colors of
-the theme. The graphical window uses the same colors. `:track.color`
-sets the color of the track at the cursor to one of `coral`, `orange`, `gold`,
+Each part has a color, and a new part gets the next of the twelve colors of
+the theme. The graphical window uses the same colors. `:part.color`
+sets the color of the part at the cursor to one of `coral`, `orange`, `gold`,
 `lime`, `green`, `teal`, `sky`, `blue`, `violet`, `purple`, `pink`, `sand`,
 or `#rrggbb`. `grC` chooses the color from a list, in the arrange view and
 the mixer.
 
-paw draws what belongs to a track in shades of its color, including
+paw draws what belongs to a part in shades of its color, including
 its clips, its notes in the piano roll, and its name plate in the mixer.
 
 | Color | Use |
@@ -55,7 +55,7 @@ its clips, its notes in the piano roll, and its name plate in the mixer.
 | amber | focus, the playhead, keys to press |
 | the color of the mode | the mode pill and the cursor |
 | red | recording and errors |
-| the color of the track | the clips, notes and name plate of the track |
+| the color of the part | the clips, notes and name plate of the part |
 
 `paw.ui.hl(group, { fg = ..., bg = ... })` changes a highlight group. The
 groups are in `runtime/lua/paw/theme.tl`.
@@ -72,7 +72,7 @@ In a terminal that shows images, the views that paint show pixels. See
 ## Parts to draw views
 
 The views and the extensions draw with the same parts, in `paw.draw`.
-The parts include the colors of a track (`track_hue`), meters, sliders, the pan,
+The pieces include the colors of a part (`part_hue`), meters, sliders, the pan,
 the chips, the small pictures in clips, the ruler and grid of a roll, and
 curves.
 `paw.ui.titlebar(buf, opts)` draws the title bar of a panel. An extension

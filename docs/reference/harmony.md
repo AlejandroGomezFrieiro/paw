@@ -6,10 +6,10 @@
 
 ## What paw reads
 
-The reading uses the notes of each track, with the following exceptions.
+The reading uses the notes of each part, with the following exceptions.
 
-- Drum tracks, which means a track with a drum map (from the drums extension), a `drums` device, or a name that contains drum, perc, kit or beat.
-- Muted tracks.
+- Drum parts, which means a part with a drum map (from the drums extension), a `drums` device, or a name that contains drum, perc, kit or beat.
+- Muted parts.
 - Muted clips.
 
 ## Chords
@@ -130,8 +130,8 @@ paw.harmony.provide("my-analysis", nil)   -- removed
 
 ### Ranges
 
-`paw.harmony.range(track)` is the range of a part for the track, and it comes from the first of the following that applies.
+`paw.harmony.range(part)` is the range of the music for the part, and it comes from the first of the following that applies.
 
-1. `track.meta.range = { low, high }`, if it is set.
-2. A range from words in the names of the track and its devices, for example bass (E1 to G3), guitar, strings, voices by part, woodwinds and brass. These are the ranges of MIDI LSP, made smaller to where the instrument sounds well.
+1. `part.meta.range = { low, high }`, if it is set.
+2. A range from words in the names of the part and its devices, for example bass (E1 to G3), guitar, strings, voices by part, woodwinds and brass. These are the ranges of MIDI LSP, made smaller to where the instrument sounds well.
 3. C3 to C6.

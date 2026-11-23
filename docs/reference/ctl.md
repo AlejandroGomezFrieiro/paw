@@ -14,8 +14,8 @@ An instance of paw listens on a Unix socket, and `paw ctl` calls it.
 
 ```sh
 paw ctl eval 'paw.transport.position'
-paw ctl cmd track.add Bass device=synth
-paw ctl track_set 3 volume -6                 # any paw.api function
+paw ctl cmd part.add Bass device=synth
+paw ctl part_set 3 volume -6                 # any paw.api function
 paw ctl keys 'ggm'
 paw ctl eval 'paw.api.ui_snapshot(100, 30)'   # the screen as text
 ```
@@ -34,7 +34,7 @@ paw ctl eval 'paw.api.ui_snapshot(100, 30)'   # the screen as text
 ```sh
 paw ctl --json eval 'return paw.api.project_get()'
 paw ctl --json eval 'return paw.query("clip[name~=riff] > note[pitch>=c5]")'
-paw ctl --json track_add '{"name": "Bass"}'
+paw ctl --json part_add '{"name": "Bass"}'
 ```
 
 The socket carries one JSON object on each line, for example `{"id":1,"method":"eval","params":["..."]}`. A connection can also get the events that it subscribed to, the screen of the terminal UI, and the state that a frontend draws, which paw sends in parts when it changes. [The control protocol](protocol.md) describes all the messages.

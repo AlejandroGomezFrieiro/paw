@@ -103,11 +103,11 @@ skill in [diataxis-docs](../diataxis-docs/SKILL.md) gives the rule.
 
 ```sh
 . "$MAKE/rig.sh"
-SETUP="$TUI_DEMO paw.cursor.set_track(paw.tracks()[1]) paw.flush()"
+SETUP="$TUI_DEMO paw.cursor.set_part(paw.parts()[1]) paw.flush()"
 rig_start
 term_start
 rec_start tui-name
-cap "Move: j k over tracks, w b e over clips"
+cap "Move: j k over parts, w b e over clips"
 pause 2.0; keys 0.35 j j w w e b; pause 0.8
 rec_stop
 ```
@@ -199,8 +199,8 @@ terminal, but the colors of the clips of paw need 128.
 
 The screens of paw change often. Use these rules in each scene:
 
-- Go to a track with its number (`4G`), and to a bar with `5|`.
+- Go to a part with its number (`4G`), and to a bar with `5|`.
 - Find a clip by its name with `/`, not with a count of motions.
 - Write a comment for each number that depends on the rows of that time,
-  for example the track numbers and `CHANGES`.
+  for example the part numbers and `CHANGES`.
 - After a change of a view, make the GIF again and read its frames.

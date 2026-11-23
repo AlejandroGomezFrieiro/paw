@@ -86,7 +86,7 @@ In an attached terminal, `:detach` leaves and the instance continues to run,
 paw ctl eval 'return paw.transport.position'
 paw ctl cmd transport.toggle
 paw ctl --json eval 'return paw.project.tempo'
-paw ctl track_add '{"name": "Bass"}'
+paw ctl part_add '{"name": "Bass"}'
 paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
 ```
 

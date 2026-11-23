@@ -3,7 +3,7 @@
 You can see the saved state of a plugin, find where it keeps a setting,
 and change that setting from paw. The steps work for plugins made with
 JUCE, DPF, iPlug2, LSP, Dplug and nih-plug, and for LV2 plugins. They
-assume that the plugin is on a track and that the
+assume that the plugin is on a part and that the
 [plugstate](../../extensions/plugstate/README.md) extension is loaded
 (`:ext.load plugstate`).
 
@@ -41,7 +41,7 @@ changed on their own. An example is the size of the plugin's window.
 2. Type `:plugstate.preset_write ~/quiet`. paw writes the changes after the
    mark to `~/quiet.jucepreset`.
 3. Use the preset:
-   - To load the preset into the same plugin on another track, type
+   - To load the preset into the same plugin on another part, type
      `:plugstate.load ~/quiet.jucepreset`.
    - To change to the preset at a point of the song, put the cursor there
      and type `:plugstate.at ~/quiet.jucepreset`.

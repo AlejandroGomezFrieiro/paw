@@ -20,36 +20,36 @@ it in. paw also finds ports that appear later, while it runs.
 
 ## Play an instrument
 
-1. Press `o` to add a track.
+1. Press `o` to add a part.
 2. Press `a`, type `synth` and press `Enter`. You can also add a plugin
-   (see [How to add a track with a virtual instrument](add-an-instrument-track.md)).
-3. Play some keys. You hear the synth, and the meter of the track moves.
+   (see [How to add a part with a virtual instrument](add-an-instrument-part.md)).
+3. Play some keys. You hear the synth, and the meter of the part moves.
 
-The selected track plays the keyboard, so when you go to a different track
-with `j` or `k`, the keyboard plays that track instead.
+The selected part plays the keyboard, so when you go to a different part
+with `j` or `k`, the keyboard plays that part instead.
 
-When a track is armed (`r`), only the armed tracks play the keyboard. A
-track with its monitor on (`<A-i>`) also plays the keyboard. If you want
-only the armed and monitored tracks to play, type
+When a part is armed (`r`), only the armed parts play the keyboard. A
+part with its monitor on (`<A-i>`) also plays the keyboard. If you want
+only the armed and monitored parts to play, type
 `:set midi_follows_selection false`.
 
 ## Take one keyboard only
 
-By default, a track plays the notes from all MIDI ports and all channels.
-To take one keyboard only, give the track its port:
+By default, a part plays the notes from all MIDI ports and all channels.
+To take one keyboard only, give the part its port:
 
-1. Select the track and press `I`, and the list of the inputs opens.
+1. Select the part and press `I`, and the list of the inputs opens.
 2. Under MIDI, select the port of your keyboard and press `Enter`.
 3. To take one channel only, press `I` again and select the channel.
 
-You can also type `:track.midi Keystation ch=1`, with a part of the name
+You can also type `:part.midi Keystation ch=1`, with some of the name
 of the port.
 
 If you want paw to leave the other ports alone, type
 `:midi.select Keystation`, and paw opens only the ports with that name.
 
 To record what you play, see [How to record MIDI from a keyboard](record-midi-from-a-keyboard.md).
-The same steps record MIDI on a track that has no audio input.
+The same steps record MIDI on a part that has no audio input.
 
 To enter notes one at a time, with no need to play in time, see
 [How to enter notes from a MIDI keyboard](enter-notes-from-a-midi-keyboard.md).
@@ -61,4 +61,4 @@ To move faders and parameters with the knobs of the keyboard, see
 
 - [MIDI input](../reference/midi.md#midi-input): the ports, MIDI 2.0, ports that go away.
 - [Step input](../reference/piano-roll.md#step-input): notes from the keyboard, one at a time.
-- [Recording](../reference/recording.md#the-input-of-a-track): the input of a track.
+- [Recording](../reference/recording.md#the-input-of-a-part): the input of a part.

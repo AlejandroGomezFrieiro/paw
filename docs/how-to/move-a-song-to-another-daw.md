@@ -17,13 +17,13 @@ Type `:ext.load interop`. If you want it to load at each start, see
 1. In the other DAW, export the song as a DAWproject file, as the manual
    of that DAW explains.
 2. In paw, type `:e song.dawproject`, with the path of the file. The
-   tracks and the clips appear in the arrange view, and paw puts the audio
+   parts and the clips appear in the arrange view, and paw puts the audio
    files in a folder beside the file, `song media`.
 3. If a page opens, read it. It lists what paw could not bring across, for
    example plugins that paw does not have. Press `q` to close it.
 4. To keep the song, save it as a project of paw: `:w song`.
 
-To add the tracks of the file to the open project, type
+To add the parts of the file to the open project, type
 `:import song.dawproject`.
 
 ## Save a song for another DAW

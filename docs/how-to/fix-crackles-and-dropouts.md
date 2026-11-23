@@ -28,9 +28,9 @@ you mix, a large block is fine.
 
 ## Make the song lighter
 
-- Freeze a heavy instrument. Put the cursor on its track and type
-  `:freeze`, and paw renders the track to a file and plays the file. The
-  details are in [How to freeze a heavy track](freeze-a-heavy-track.md).
+- Freeze a heavy instrument. Put the cursor on its part and type
+  `:freeze`, and paw renders the part to a file and plays the file. The
+  details are in [How to freeze a heavy part](freeze-a-heavy-part.md).
 - Bypass the devices that you do not need now with `gcc` on a device in
   the device panel.
 - If the computer is busy with other work, use fewer threads for the

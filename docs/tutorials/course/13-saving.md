@@ -6,7 +6,7 @@
 
 In this lesson, we change a song, save it, and export it to a WAV file.
 
-A project is a folder that contains the whole song, e.g., the tracks, the devices and their settings, the clips and the notes. It also contains the automation and the loop, and each part is in a file of its own. Recordings are in the `media` folder of the project. To export, paw plays the whole song into a WAV file, which other programs can play.
+A project is a folder that contains the whole song, e.g., the parts, the devices and their settings, the clips and the notes. It also contains the automation and the loop, and each part is in a file of its own. Recordings are in the `media` folder of the project. To export, paw plays the whole song into a WAV file, which other programs can play.
 
 The practice project already has a folder of its own in the folder of the tutor, so `:w` saves it there. paw saves your own projects where you tell it to, e.g., `:w song`.
 

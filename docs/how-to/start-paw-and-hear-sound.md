@@ -52,16 +52,16 @@ In the graphical window, the doctor page has a button for each answer.
 
 <!-- paw-live: {"empty": true} -->
 
-1. Press `o`, and paw adds a track.
+1. Press `o`, and paw adds a part.
 2. Press `a`, type `synth` and press `Enter`. The built-in synth is now on
-   the track.
+   the part.
 3. Press `i` and `Enter`, then `4l`, and then `Esc`. paw writes a note of one beat into a new clip.
 4. Press `gs` to move the playhead to the start, and press
-   `<Space><Space>`. The note plays, and the meter of the track moves.
+   `<Space><Space>`. The note plays, and the meter of the part moves.
 
 ## See also
 
-- [How to add a track with a virtual instrument](add-an-instrument-track.md)
+- [How to add a part with a virtual instrument](add-an-instrument-part.md)
 - [How to lower the latency](lower-the-latency.md)
 - [The doctor](../../extensions/doctor/README.md): every check, and the report.
 - [Audio devices](../reference/audio-devices.md)

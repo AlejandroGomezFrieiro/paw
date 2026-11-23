@@ -101,7 +101,7 @@ An edge that cuts into a recording always gets a fade of three milliseconds, so 
 | `:clip.edits` | List the edit list of the clip. |
 | `:clip.edits.clear` | Take away the edit list of the clip. It plays its file again. |
 | `:clip.normalize -1` | Set the gain of the clip so that its loudest sample is at -1 dB. |
-| `:clip.glue` | Join the clip and the audio clips that touch or overlap it on its track into one clip. The new clip plays a new file of what they played together (gains, fades and overlaps, without the devices of the track). |
+| `:clip.glue` | Join the clip and the audio clips that touch or overlap it on its part into one clip. The new clip plays a new file of what they played together (gains, fades and overlaps, without the devices of the part). |
 
 No operation changes the original file. Each is one undo step.
 
@@ -125,6 +125,6 @@ An audio clip has two kinds of change that keep its file as it is.
 The edit list has more facts.
 
 - paw keeps a large version in the bake cache, `$XDG_CACHE_HOME/paw/bakes` (`paw.api.media_store` sets its size). The version comes again from the file and the list, so deleting the cache loses nothing.
-- In a project folder, the edit list is the file of the clip, `tracks/<track>/clips/<clip>.edits.json`, and `track.json` names it as `edits_file`.
+- In a project folder, the edit list is the file of the clip, `parts/<part>/clips/<clip>.edits.json`, and `part.json` names it as `edits_file`.
 
 For stretch, pitch and loops of clips, see [Stretched and repeating clips](stretch.md), and for import, see [Recording](recording.md#import-sound-files).

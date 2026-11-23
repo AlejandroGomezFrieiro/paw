@@ -38,9 +38,9 @@ name of the project before it removes a component.
 | `qf` | The entries of the quickfix list: `qf E2 W5`, or `qf 3/7 E2 W5` after you go to one. |
 | `pointer` | What is under the mouse pointer, and what a click there does. |
 | `grid` | The grid. |
-| `selection` | What a visual selection of the arrange view holds, the same in each visual mode: `bars 3–10 · 3 tracks`, or `2 tracks` for `V`. A selection that does not start and end on bar lines gives its two places, as in `3.2.00–4.1.00 · 1 track`. |
+| `selection` | What a visual selection of the arrange view holds, the same in each visual mode: `bars 3–10 · 3 parts`, or `2 parts` for `V`. A selection that does not start and end on bar lines gives its two places, as in `3.2.00–4.1.00 · 1 part`. |
 | `view` | The `status` of the view, buffer type or text buffer that has the keys. |
-| `cursor` | The track and the clip under the cursor. |
+| `cursor` | The part and the clip under the cursor. |
 | `buffer` | The text buffer that has the keys. |
 | `keys` | The keys typed until now. |
 | `workspace` | The name of the workspace that you are in: `mix` (see [Workspaces](windows.md#workspaces)). Nothing before you go to a workspace. |

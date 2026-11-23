@@ -23,7 +23,7 @@ The list below is the checklist.
 |---|---|---|
 | Runtime modules in Teal | `runtime/lua/paw/**/*.tl` | yes |
 | Kernel records (what crosses `paw.api`) | `runtime/lua/paw/types.tl` | yes, from the Rust that builds each table |
-| Contracts extensions implement (`View`, `Buftype`, `TrackKind`, Role, PickSource<T>, StatusComponent, QueryField, HealthCheck, Manifest…) | `runtime/lua/paw/contracts.tl` (`paw.contracts`) | yes |
+| Contracts extensions implement (`View`, `Buftype`, `PartKind`, Role, PickSource<T>, StatusComponent, QueryField, HealthCheck, Manifest…) | `runtime/lua/paw/contracts.tl` (`paw.contracts`) | yes |
 | Kernel event descriptors | `runtime/lua/paw/events/kernel.tl` | **no**: generated |
 | `paw` global, `paw.api`, Lua modules' records, options, role props | `runtime/types/paw.d.tl`, `paw/api.d.tl`, `paw/partial.d.tl`, `paw/opts.d.tl`, `paw/role_props.d.tl`, `paw/untyped.d.tl` | **no**: `tools/apidoc.lua` makes them |
 | The generator of the files above | `tools/apidoc/` (Teal): `read/` fills `model.tl`, one module in `write/` for each file; `tools/apidoc.lua` is the entry | yes: a new file is one writer, a new source is one reader |
@@ -128,12 +128,12 @@ local paw = (_G as {string:Paw}).paw
   name. paw logs a `paw.on` by text with a name that no module declares
   (`:checkhealth events`).
 - **Kernel setters** take a typed patch, one undo step:
-  `api.track_set(id, { name = "Bass", volume = -6 })`. A patch cannot carry
-  `nil`: to clear a field, keep the key form `api.track_set(id, "output", nil)`.
+  `api.part_set(id, { name = "Bass", volume = -6 })`. A patch cannot carry
+  `nil`: to clear a field, keep the key form `api.part_set(id, "output", nil)`.
 - **Options:** `paw.opt.x` is typed; an extension's own option:
   `local o = paw.option.define<number>(…)` then `o:get()`.
 - **`Untyped`** (the escape for Lua not yet ported): cast once at the
-  boundary (`x as types.Track`). Do not pass it on.
+  boundary (`x as types.Part`). Do not pass it on.
 
 ## No `any`
 
@@ -158,8 +158,8 @@ local paw = (_G as {string:Paw}).paw
 | Teal's library lacks LuaJIT's `unpack`, `table.maxn`, `loadstring`, `bit`, `ffi`, `jit` | prefer `table.unpack` and `load`; else cast `_G` once at the top of the file |
 | `setmetatable` needs a typed metatable | a separate metatable record, not the class table |
 | `integer` vs `number` inference in sums | annotate `: number` |
-| `paw.Track` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
-| A one-field kernel read (`track_get(id, "meta")`) is faster but has no type | keep it through one cast of the function when it is on a hot path |
+| `paw.Part` is a type in Teal, not a value | `getmetatable(x) == …` checks stay in Lua |
+| A one-field kernel read (`part_get(id, "meta")`) is faster but has no type | keep it through one cast of the function when it is on a hot path |
 | `commands.define` handlers must return `commands.Result` | annotate the handler's return |
 | Two modules that require each other's types get two copies of a type that do not agree ("`Buf` is not a `Buf`") | one side requires the other; the other puts its functions on it (paw/roles.tl sets `Buf.mark`) |
 | `f: function(x: A): R, y: B` in a parameter list reads `y` as a second result | a named function type (`local type Height = function(i: integer): number`) |

@@ -25,7 +25,7 @@ the project files do not change.
 ## The lane of regions
 
 The lane of regions has a row for each level of regions. A region is on
-the row under the region around it, as a track is under its group. The
+the row under the region around it, as a part is under its group. The
 markers are on the first row.
 
 - `paw.opt.regionlevels` (default 3) sets the number of rows. A deeper
@@ -42,7 +42,7 @@ markers are on the first row.
 - A click on a row takes the region of that row.
 
 The lane is the part `regions` of `paw.ruler` (see
-[The track column and the bar labels](trackcolumn.md#pawruleradd_lane)).
+[The part column and the bar labels](partcolumn.md#pawruleradd_lane)).
 An extension changes its glyphs and styles:
 
 ```lua
@@ -70,8 +70,8 @@ A marker named `key D minor` is a key change, and the harmony reading uses it fr
 | `gx` `<Space>rx`, `:marker.remove` | Remove the marker at the cursor, or the one named: `:marker.remove Chorus`. Regions stay. |
 | `gX` `<Space>rX`, `:region.remove` | Remove the region that the cursor is in, or the one named: `:region.remove Verse`. Its clips and the markers stay. The regions inside it move up one level. |
 | `:region.remove! Chorus 2` | Remove the region and the regions inside it. The clips and the markers stay. |
-| `dir` | Delete the clips in the innermost region that the cursor is in, on this track. The region stays. |
-| `dar` | Delete the clips in the innermost region that the cursor is in, on every track. The region stays. |
+| `dir` | Delete the clips in the innermost region that the cursor is in, on this part. The region stays. |
+| `dar` | Delete the clips in the innermost region that the cursor is in, on every part. The region stays. |
 | `d2ar` | Delete the clips in the region around that region (its parent). `3ar` is the next level out. |
 | `<Space>rl`, `:region.loop Verse` | Set the playback loop to the region that the cursor is in, or to the one named, and turn looping on. |
 | `<Space>er`, `:export regions` | Export each region to a file of its own in `renders/regions`: `01 Intro.wav`, and the next files. A region inside another region has the path in its name: `02 Chorus 2 - Verse A.wav`. `level=1` exports only the top level, `level=2` only the second level, and `level=leaves` the regions with no region inside (see [Export](export.md#regions)). |

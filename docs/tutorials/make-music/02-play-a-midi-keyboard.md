@@ -12,24 +12,24 @@ the notes on the grid.
 2. Start paw in your folder for songs. Type
    `:example make-music/2-midi-keyboard` and press Enter.
 
-   - paw opens the song of lesson 1, with the tracks Drums, Bass and Keys
+   - paw opens the song of lesson 1, with the parts Drums, Bass and Keys
      and the loop over four bars.
 
 ## Add the lead
 
-1. Press `G` to go to the last track, Keys.
+1. Press `G` to go to the last part, Keys.
 2. Press `o`. Press `grn` and `<C-u>`, type `Lead` and press Enter.
 3. Press `a`, type `synth` and press Enter.
-   - The Lead track has a synth.
+   - The Lead part has a synth.
 
 ## Choose the MIDI input
 
 1. Press `I`.
-   - A list of the inputs of the track opens, with the audio inputs, the
+   - A list of the inputs of the part opens, with the audio inputs, the
      MIDI ports and the MIDI channels.
 2. Type some letters of the name of your keyboard, for example `Keystation`.
    Press Enter.
-   - paw says `Lead ← MIDI · Keystation`. The track now plays only what
+   - paw says `Lead ← MIDI · Keystation`. The part now plays only what
      this keyboard sends.
 
 If the list has no MIDI port for your keyboard, press `<Esc>`. Then type
@@ -37,11 +37,11 @@ If the list has no MIDI port for your keyboard, press `<Esc>`. Then type
 
 ## Play live
 
-1. Press `r` to arm the track.
-   - The `R` in the header of the track is lit. An armed track plays the
+1. Press `r` to arm the part.
+   - The `R` in the header of the part is lit. An armed part plays the
      notes that come in.
 2. Play some notes on the keyboard.
-   - You hear the lead synth, and the meter of the track moves.
+   - You hear the lead synth, and the meter of the part moves.
 3. Press `<Space><Space>` to play the loop, and play along with it. Press
    `<Space><Space>` to stop.
 
@@ -51,7 +51,7 @@ If the list has no MIDI port for your keyboard, press `<Esc>`. Then type
 2. Press `R` to record from the cursor. Play a melody over the four bars.
 3. When the playhead returns to bar 1, press `R` to stop the recording.
    Then press `<Space><Space>` to stop the song.
-   - A clip with the name `take 1` shows on the Lead track, and it holds
+   - A clip with the name `take 1` shows on the Lead part, and it holds
      the notes that you played.
 
 If you continue to play past the middle of bar 2, paw keeps a second

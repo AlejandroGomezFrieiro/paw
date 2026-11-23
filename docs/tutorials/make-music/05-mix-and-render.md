@@ -18,13 +18,13 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 ## Set the levels and the pan
 
 1. Press `<Space>mm` (the space bar, then m two times).
-   - The mixer opens at the bottom, with one strip for each track. The
+   - The mixer opens at the bottom, with one strip for each part. The
      cursor is on the fader of Drums.
 2. Press `V` and `$`, then `6-`. Press `<Esc>`.
    - `V` selects strips, and `$` goes to the last strip. `6-` lowers each
      selected fader by 6 dB, so the mix now has room before it clips.
 3. Press `0` (the first strip) and `l` (Bass). Press `3-`.
-   - The bass is 3 dB lower than the other tracks.
+   - The bass is 3 dB lower than the other parts.
 4. Press `l` (Keys) and `j` to go to the pan row. Press `3-`.
    - The chords move to the left, and the title bar shows the pan.
 5. Press `2l` (Guitar) and `3+`.
@@ -50,8 +50,8 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 
 ## Send the chords and the lead to a reverb
 
-1. Press `G`. Type `:track.add Reverb` and press Enter.
-   - A track with the name Reverb shows at the bottom.
+1. Press `G`. Type `:part.add Reverb` and press Enter.
+   - A part with the name Reverb shows at the bottom.
 2. Press `<Space>dd`. Press `a`, type `reverb` and press Enter.
 3. Press `gg` and `c`. Type `on a send` and press Enter.
    - The preset `Plate on a send` gives a reverb with no dry sound.
@@ -61,7 +61,7 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 6. Type `/Lead` and press Enter. Type `:send Reverb -12` and press Enter.
 7. Press `gs` and `<Space><Space>`, and listen. Press `<Space><Space>` to stop.
    - The chords and the lead now have reverb, and the fader of the Reverb
-     track sets how much.
+     part sets how much.
 
 ## Make the lead come up at the chorus
 
@@ -70,7 +70,7 @@ render the song to a WAV file and an MP3 file, and listen to the file.
    - `A` adds a point of volume automation and asks for its value.
 3. Press `<C-u>`, type `-20` and press Enter.
 4. Press `W` to go to bar 6. Press `A`, `<C-u>`, type `0` and press Enter.
-   - The lane of the track shows a line from -20 dB up to 0 dB, so the
+   - The lane of the part shows a line from -20 dB up to 0 dB, so the
      lead comes up over the first bar of the chorus.
 
 ## Save and export
@@ -100,7 +100,7 @@ render the song to a WAV file and an MP3 file, and listen to the file.
 ## What we made
 
 We mixed the song with the faders, the pan and three built-in effects. We
-sent two tracks to a reverb and automated the volume of the lead. Then we
+sent two parts to a reverb and automated the volume of the lead. Then we
 exported the song to a WAV file and an MP3 file, which you can share. You
 now have a whole song, from the first note to the MP3 file.
 

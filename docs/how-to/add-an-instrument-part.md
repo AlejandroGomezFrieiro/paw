@@ -1,18 +1,18 @@
-# How to add a track with a virtual instrument
+# How to add a part with a virtual instrument
 
-<!-- tags: instrument-track -->
+<!-- tags: instrument-part -->
 
-You can add a track that plays a virtual instrument, either the built-in
+You can add a part that plays a virtual instrument, either the built-in
 synth or a plugin, and start from one of its presets. If you want to play
 the instrument from a keyboard, see
 [How to connect a MIDI keyboard](connect-a-midi-keyboard.md).
 
-## Add the track and the instrument
+## Add the part and the instrument
 
-1. In the arrange view, press `o`, and paw adds a track below the cursor.
+1. In the arrange view, press `o`, and paw adds a part below the cursor.
    Press `O` to add it above.
 2. Press `grn`, type a name, for example `Bass`, and press `Enter`.
-3. Press `a`, and the list of devices opens. On a track with no
+3. Press `a`, and the list of devices opens. On a part with no
    instrument, the instruments come first.
 4. Type a part of the name of the instrument, and press `Enter`:
    - `synth` for the built-in synth.
@@ -27,7 +27,7 @@ and press `Ctrl-Space`.
 
 ## Start from a preset
 
-1. Press `<Space>dd`, and the device panel shows the devices of the track.
+1. Press `<Space>dd`, and the device panel shows the devices of the part.
 2. Put the cursor on the row of the instrument, and press `c`. The list of
    presets opens.
 3. Type a part of the name, for example `pluck`, and press `Enter`.

@@ -2,25 +2,25 @@
 
 <!-- tags: roll-clips context-notes -->
 
-The piano roll can show the notes of other tracks and edit many clips
+The piano roll can show the notes of other parts and edit many clips
 at the same time, and the module that does so is `paw.roll_clips`.
 
 ## Context notes
 
 Behind the notes of the clip, the piano roll shows the notes of other
-tracks that sound at the same time, drawn fainter and each in the color of
-its track.
+parts that sound at the same time, drawn fainter and each in the color of
+its part.
 
-- Drum tracks (tracks with a drum map, see `extensions/drums`) do not
+- Drum parts (parts with a drum map, see `extensions/drums`) do not
   appear as context notes.
-- `paw.opt.roll_context` sets which tracks show: `"all"` (default),
-  `"group"` (the tracks of the group of the clip), `"none"`, or a list of
-  track ids.
-- `:roll.tracks` (terminal) or the side panel (graphical window, Tracks in
-  the toolbar) shows or hides each track.
+- `paw.opt.roll_context` sets which parts show: `"all"` (default),
+  `"group"` (the parts of the group of the clip), `"none"`, or a list of
+  part ids.
+- `:roll.parts` (terminal) or the side panel (graphical window, Parts in
+  the toolbar) shows or hides each part.
 - The piano roll shows at most `paw.opt.roll_context_max` notes (4000).
   paw finds them again only when those notes, the edited clips or the
-  shown tracks change. When you edit the notes of the clip, the notes
+  shown parts change. When you edit the notes of the clip, the notes
   behind them stay as they are.
 - The keyboard marks the keys that sound at the cursor, in each clip that
   shows. If `paw.harmony` is there, paw shows the name of their chord.
@@ -56,7 +56,7 @@ Rules:
 | Make the clip of a context note active | `ga` on the note | click the note |
 | Edit the clip of a note too, or stop | `gE` on the note | Ctrl and a click, or the box in the side panel |
 | Make the next or previous edited clip active | `gn` `gN` | a click on its name in the side panel |
-| Edit the next or previous shown track (its clip at the cursor) | `]t` `[t`, or `Tab` `Shift-Tab` to go round | click one of its notes |
+| Edit the next or previous shown part (its clip at the cursor) | `]t` `[t`, or `Tab` `Shift-Tab` to go round | click one of its notes |
 | Open several clips | select them in the arrange view, `Enter` | select them, double click one |
 | Edit one clip again | `:roll.only`, or open a clip | open a clip |
 
@@ -67,22 +67,22 @@ Rules:
 | `paw.roll_clips.ids()` | The ids of the edited clips. |
 | `paw.roll_clips.active()` | The id of the active clip. |
 | `paw.roll_clips.editable(id)` | True if the clip is edited. |
-| `paw.roll_clips.portions()` | `{ id, clip, offset, start, length, track, name }` for each edited clip, the active clip first. `offset` is the number of beats after the active clip where it starts. |
+| `paw.roll_clips.portions()` | `{ id, clip, offset, start, length, part, name }` for each edited clip, the active clip first. `offset` is the number of beats after the active clip where it starts. |
 | `paw.roll_clips.span()` | The range that the clips cover, in the beats of the roll. |
 | `paw.roll_clips.open(ids, active)` | Edit these clips. |
 | `paw.roll_clips.only()` | Edit the active clip only. |
 | `paw.roll_clips.activate(id)` | Make a clip active. |
 | `paw.roll_clips.toggle(id)` | Edit a clip too, or stop. |
 | `paw.roll_clips.cycle(n)` | Make the clip `n` places away active. |
-| `paw.roll_clips.visible()` | The tracks that the roll shows, in the order of the track list. |
-| `paw.roll_clips.step_track(n, wrap)` | Edit the track `n` places away (`]t`, `[t`, `Tab`). |
+| `paw.roll_clips.visible()` | The parts that the roll shows, in the order of the part list. |
+| `paw.roll_clips.step_part(n, wrap)` | Edit the part `n` places away (`]t`, `[t`, `Tab`). |
 | `paw.roll_clips.notes(range)` | The notes of each edited clip, in the beats of the roll. Each note has `clip` and `place` (its position in its clip, for `Clip:edit_notes`). |
 | `paw.roll_clips.note_at(pitch, beat)` | The note at a pitch and beat. |
-| `paw.roll_clips.tracks()`, `paw.roll_clips.show_track(id, on)` | The tracks near the roll; show or hide one. |
-| `paw.roll_clips.context()` | The context notes: `{ pitch, start, length, velocity, clip, track, color }`. |
+| `paw.roll_clips.parts()`, `paw.roll_clips.show_part(id, on)` | The parts near the roll; show or hide one. |
+| `paw.roll_clips.context()` | The context notes: `{ pitch, start, length, velocity, clip, part, color }`. |
 | `paw.roll_clips.context_at(pitch, beat)` | The context note at a pitch and beat. |
 | `paw.roll_clips.sounding(beat)` | The pitches that sound at a beat, and the name of their chord. |
-| `paw.roll_clips.rows()`, `paw.roll_clips.pick()` | The rows of the side panel; the list of `:roll.tracks`. |
+| `paw.roll_clips.rows()`, `paw.roll_clips.pick()` | The rows of the side panel; the list of `:roll.parts`. |
 
 - The event `roll_clips.changed` comes when the set of clips or the active
   clip changes.
@@ -99,7 +99,7 @@ The piano roll draws the layers below, from back to front.
 | Layer | Order |
 | --- | --- |
 | the grid | |
-| `context`: the notes of other tracks | 10 |
+| `context`: the notes of other parts | 10 |
 | `notes`: the notes of the clips | 20 |
 | diagnostics | 30 |
 | the marks of a snippet | 40 |

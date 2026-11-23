@@ -1,16 +1,16 @@
-# How to find a track, a clip or a marker by name
+# How to find a part, a clip or a marker by name
 
 <!-- tags: find-by-name -->
 
-You can move the cursor to a track, a clip or a marker by its name, and a
+You can move the cursor to a part, a clip or a marker by its name, and a
 part of the name is enough. In a large song, a search by name is faster
 than `j` and `k`.
 
 ## Find with `/`
 
 1. In the arrange view, press `/`.
-2. Type a part of the name of a clip or a track, for example `verse`, and
-   press `Enter`. The cursor goes to the next clip or track with that
+2. Type some of the name of a clip or a part, for example `verse`, and
+   press `Enter`. The cursor goes to the next clip or part with that
    name.
 3. Press `n` to go to the next match, and `N` to go to the match before.
 
@@ -21,7 +21,7 @@ press `*`.
 
 | To find | Keys |
 | --- | --- |
-| a track | `<Space>ft` |
+| a part | `<Space>ft` |
 | a clip | `<Space>fc` |
 | a marker | `<Space>fm` |
 | a region | `<Space>fr` |

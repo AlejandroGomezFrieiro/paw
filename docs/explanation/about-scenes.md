@@ -132,15 +132,15 @@ values in its status line.
 Most views come from scenes, e.g., the arrange view, the mixer, the piano
 roll, the device panel and the drum grid. The arrange view's timeline is a
 plane of beats along and the view's lines down. It uses lines and not
-tracks, because a take lane and an automation lane have heights of their
+parts, because a take lane and an automation lane have heights of their
 own, and because a drag of a clip goes across all of them in one domain.
 [Limits](../reference/limits.md) has the current list.
 
 ## Why the window looks as it does
 
 The surfaces of the window are neutral, and a color always tells a state.
-Blue is the selection, red is record, and the track's own color is only on
-what belongs to the track. When each color has one meaning, you find the
+Blue is the selection, red is record, and the part's own color is only on
+what belongs to the part. When each color has one meaning, you find the
 state of a project fast. The colors are in [The graphical
 window](../reference/window.md#colors-and-fonts).
 

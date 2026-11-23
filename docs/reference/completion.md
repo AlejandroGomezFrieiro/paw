@@ -8,7 +8,7 @@ A suggestion shows notes that you can add to the clip in the piano roll. The sug
 
 ## How a suggestion shows
 
-- A suggestion shows as ghost notes in the color of the track. In the terminal the ghost notes are dashed, and in the graphical window they are transparent with a bright edge.
+- A suggestion shows as ghost notes in the color of the part. In the terminal the ghost notes are dashed, and in the graphical window they are transparent with a bright edge.
 - A badge above the notes shows the alternative, the number of alternatives and the source, for example `1/4 continue: the bar again`.
 - paw writes nothing until you accept the suggestion, and the accept is one undo step.
 - In the graphical window, a row of chips is above the ghost notes. Each alternative has a numbered chip, and a click shows it. One more chip names the alternative that shows, and a click accepts it.
@@ -34,7 +34,7 @@ While a suggestion shows, the keys below work in normal and insert mode, and at 
 | `<C-n>` `<C-p>` | the next or previous alternative |
 | `<A-1>` … `<A-9>` | show that alternative |
 | `<C-e>`, `<Esc>` | dismiss the suggestion. In insert mode, `<Esc>` dismisses first, and leaves insert mode only when no suggestion shows. |
-| `gh` | play the suggestion through the track, from one bar before, with the notes of the clip (normal mode) |
+| `gh` | play the suggestion through the part, from one bar before, with the notes of the clip (normal mode) |
 
 The same keys work in the graphical window when the piano roll has the focus.
 
@@ -88,7 +88,7 @@ paw.complete.register({
 
 | Field of `ctx` | Value |
 | --- | --- |
-| `clip`, `track` | ids |
+| `clip`, `part` | ids |
 | `start`, `length` | the position of the clip, in project beats |
 | `at` | where the suggestion starts, in the beats of the clip |
 | `pitch` | the pitch of the cursor |

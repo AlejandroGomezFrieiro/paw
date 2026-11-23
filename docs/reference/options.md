@@ -74,14 +74,14 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.click_level` | `0` | The level of the metronome in dB, -60 to 12. `:click level=-6` sets it. |
 | `paw.opt.click_accent` | `true` | The metronome plays a higher click on the first beat of a bar. |
 | `paw.opt.click_output` | `0` | The first output channel of the pair that the metronome plays on, 1 to 63. `0` plays it with the song. |
-| `paw.opt.midi_follows_selection` | `true` | The selected track plays the MIDI keyboard when no track is armed. With `false`, only armed and monitored tracks play it. |
+| `paw.opt.midi_follows_selection` | `true` | The selected part plays the MIDI keyboard when no part is armed. With `false`, only armed and monitored parts play it. |
 | `paw.opt.play_from` | `"cursor"` | Where play and record start from a stop. `"cursor"` is the cursor of the view that has the keys, wherever the playhead is, and `"playhead"` is the old way, where `<Space><Space>` plays from the playhead and `<S-CR>` from the cursor. |
 | `paw.opt.midi_record` | `"new"` | What a MIDI take over a clip does. `"new"` makes a clip of its own, and `"merge"` joins its notes into the clip under it (overdub). |
-| `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
+| `paw.opt.threads` | `0` | The threads that process parts. `0` gives one for each core. |
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence, e.g., a reverb after its tail or a synth with no note that sounds, which saves processor time. When the song is stopped and nothing sounds, the whole engine rests (see [The engine at rest](engine.md#the-engine-at-rest)). The sound is the same with `false`. |
 | `paw.opt.quality` | `"full"` | `"edit"` lowers the costly settings of the built-in devices while paw plays live, for example the oversampling of a `saturation`, and the status line shows `edit q`. A render, an export, stems, a bounce and a freeze always play at `"full"`. See [Edit quality](engine.md#edit-quality). |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
-| `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
+| `paw.opt.scope_rest` | `"play"` | What the parts outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
 | `paw.opt.scopebars` | `"local"` | The bar numbers in a scope with time: `"local"` (from 1 at its start) or `"song"`. |
 | `paw.opt.scopeloop` | `true` | Loops the time of a scope while its window is in front. |
 
@@ -102,11 +102,11 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | --- | --- | --- |
 | `paw.opt.zoom` | `2` | The columns for each beat in the arrange view. |
 | `paw.opt.note_zoom` | `8` | The columns for each beat in the piano roll. |
-| `paw.opt.track_height` | `"auto"` | The rows for each track in the arrange view, 1 to 12. `"auto"` gives each track the most rows, from 1 to 3, that let every track fit on the screen. A song with more tracks than fit at 1 row scrolls. |
-| `paw.opt.header_width` | `"auto"` | The columns of the track headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. The track column at their left is not in these columns. |
-| `paw.opt.number` (`nu`) | `true` | Shows the number of each track in the track column of the arrange view. |
-| `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each track. The track of the cursor keeps its number. |
-| `paw.opt.trackcolumn` | `number,signs,fold` | The parts of the track column that show. See [The track column](trackcolumn.md). |
+| `paw.opt.part_height` | `"auto"` | The rows for each part in the arrange view, 1 to 12. `"auto"` gives each part the most rows, from 1 to 3, that let every part fit on the screen. A song with more parts than fit at 1 row scrolls. |
+| `paw.opt.header_width` | `"auto"` | The columns of the part headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. The part column at their left is not in these columns. |
+| `paw.opt.number` (`nu`) | `true` | Shows the number of each part in the part column of the arrange view. |
+| `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each part. The part of the cursor keeps its number. |
+| `paw.opt.partcolumn` | `number,signs,fold` | The components of the part column that show. See [The part column](partcolumn.md). |
 | `paw.opt.relativebar` (`rbar`) | `false` | Shows on the ruler how many `W` or `B` go to each bar. The bar of the cursor keeps its number. |
 | `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
 | `paw.opt.regionlevels` | `3` | The rows of the lane of regions under the ruler: a row for each level of regions. Deeper regions are on the last row. |
@@ -126,7 +126,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.mouse` | `true` | The terminal sends the pointer to paw, and with `false` the terminal keeps the pointer for its own selection. |
 | `paw.opt.chords` | `"names"` | The chord symbols over the piano roll: `"names"`, `"roman"`, `"both"` or `false`. |
 | `paw.opt.harmony_step` | `0.5` | In beats, and the shortest chord that the harmony reading finds is about two times this value. |
-| `paw.opt.roll_context` | `"all"` | The tracks whose notes show behind the clip in the piano roll: `"all"`, `"group"`, `"none"`, or a list of track ids. Drum tracks are not in `"all"` and `"group"`. |
+| `paw.opt.roll_context` | `"all"` | The parts whose notes show behind the clip in the piano roll: `"all"`, `"group"`, `"none"`, or a list of part ids. Drum parts are not in `"all"` and `"group"`. |
 | `paw.opt.roll_context_max` | `4000` | The maximum number of notes that show behind the clip. |
 | `paw.opt.native_dialogs` | `true` | The graphical window opens the file dialogs of the desktop, not the list of the kernel. |
 | `paw.opt.window_cache` | `"auto"` | The graphical window draws a frame again only where it changed, and shows no frame when nothing changed. With `false`, it draws each frame in full, and `"auto"` is the same as `true`. |
@@ -176,5 +176,5 @@ The curve glyphs are as follows.
 | `paw.opt.complete_auto` | `true` | paw asks the completion sources for a suggestion after a pause in the edits. |
 | `paw.opt.complete_idle_ms` | `1200` | The time in ms without an edit before paw asks. |
 | `paw.opt.complete_deadline_ms` | `300` | The time in ms that a request waits before it shows the suggestions that arrived. |
-| `paw.opt.complete_audition` | `false` | paw plays each alternative that it shows through the track. |
+| `paw.opt.complete_audition` | `false` | paw plays each alternative that it shows through the part. |
 | `paw.opt.lua_devices_watch` | `1000` | The time in ms between checks of the files of Lua devices. `0` gives no checks. |

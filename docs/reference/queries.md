@@ -7,7 +7,7 @@ Tree-sitter query or a CSS selector finds nodes in a tree.
 
 ```
 :select clip[name~=pizz] > note[pitch>=C5]     the high notes of the pizzicato clips
-:select group[name=Strings] clip               every clip of the tracks in the Strings group
+:select group[name=Strings] clip               every clip of the parts in the Strings group
 :query note[lyric^=la], note[art=staccato]     two kinds of note
 :query clip:has(note[vel>120])                 clips with a very loud note
 ```
@@ -24,8 +24,8 @@ After a query, `:cdo` acts on each thing it found (see [The quickfix list](quick
 
 ## The tree
 
-- The project holds its tracks, markers and regions. A group holds its members. In a window narrowed to a group (`:narrow`), the project holds only the tracks of that group.
-- A track holds its clips, devices and automation lanes.
+- The project holds its parts, markers and regions. A group holds its members. In a window narrowed to a group (`:narrow`), the project holds only the parts of that group.
+- A part holds its clips, devices and automation lanes.
 - A MIDI clip holds its notes and controller moves.
 - A lane holds its points.
 
@@ -33,7 +33,7 @@ After a query, `:cdo` acts on each thing it found (see [The quickfix list](quick
 
 | Syntax | Meaning |
 | --- | --- |
-| `track` `group` `clip` `note` `cc` `device` `lane` `point` `marker` `region` | A step: a kind of thing. |
+| `part` `group` `clip` `note` `cc` `device` `lane` `point` `marker` `region` | A step: a kind of thing. |
 | `*` | A step: any kind. |
 | `kind[test]` | The things of a kind that pass the test. |
 | `a > b` | A `b` directly in an `a`. |
@@ -54,7 +54,7 @@ A test is a field, an operator and a value.
 | `*=` | holds the words |
 
 - `pitch=c4|e4` is either value.
-- A field alone holds when it is set (`track[mute]`). `!field` holds when it is not set (`clip[!muted]`).
+- A field alone holds when it is set (`part[mute]`). `!field` holds when it is not set (`clip[!muted]`).
 - A pitch is `c4`, `c#4`, `60`, or `c` in any octave.
 - A length is in beats or a note value (`note[len<1/8]`).
 - Text compares without regard to case.
@@ -63,16 +63,16 @@ A test is a field, an operator and a value.
 
 The fields are those that `paw.api` gives for each kind (a note has
 `pitch` `velocity` `start` `length`, a clip `name` `start` `length` `kind`
-`file`, a track `name` `volume` `pan` `mute` `solo`). The fields below are
+`file`, a part `name` `volume` `pan` `mute` `solo`). The fields below are
 also available.
 
 | Kind | Fields |
 | --- | --- |
 | note | `vel` `len` `end` `at` (the beat in the song) `bar` `lyric` `art` (its articulations: any can match) `channel`, and the fields of `:s` and `:g` (`paw.ex.field`) |
-| clip | `end` `bar` `notes` (the count) `muted` `track` (the name of its track) |
-| track, group | `index` `group` `devices` (the count) |
+| clip | `end` `bar` `notes` (the count) `muted` `part` (the name of its part) |
+| part, group | `index` `group` `devices` (the count) |
 | marker, region | `name` `start` `end` `bar` |
-| device | `index` `track` |
+| device | `index` `part` |
 | lane | `name` `points` |
 | all | `comment` |
 
@@ -82,11 +82,11 @@ The keys below obey the key rule.
 
 | Keys | View | Effect |
 | --- | --- | --- |
-| `]c` `[c` | arrange | The next or the previous clip of the same kind on the track: the same name without a number or "copy" at its end (`pizz 2` is a `pizz`), and MIDI or audio as this clip. |
-| `]s` `[s` | arrange | The next or the previous track next to this track in its group (or at the top). |
-| `[{` `]}` | arrange | Up to the group of the track (as `[{` of Vim goes to the brace around). The last track of the group (if the cursor is there, the last track of the group around it). |
-| `]u` | arrange | Down into a group, to its first track. `[u` is the same as `[{`. |
-| `ig` `ag` | arrange | The tracks of the group of the cursor. With the group track. |
+| `]c` `[c` | arrange | The next or the previous clip of the same kind on the part: the same name without a number or "copy" at its end (`pizz 2` is a `pizz`), and MIDI or audio as this clip. |
+| `]s` `[s` | arrange | The next or the previous part next to this part in its group (or at the top). |
+| `[{` `]}` | arrange | Up to the group of the part (as `[{` of Vim goes to the brace around). The last part of the group (if the cursor is there, the last part of the group around it). |
+| `]u` | arrange | Down into a group, to its first part. `[u` is the same as `[{`. |
+| `ig` `ag` | arrange | The parts of the group of the cursor. With the group part. |
 | `]n` `[n` | piano roll | The next or the previous note of the same pitch. |
 | `]]` `[[` `]s` `[s` `[{` `]}` | notation, in a score | The next or the previous instrument. In its group. The first and the last of the group. See [Scores](../../extensions/notation/doc/reference.md#scores) in the reference of notation. |
 
@@ -101,7 +101,7 @@ on what a pattern finds.
 
 | Function | Effect |
 | --- | --- |
-| `paw.query(q)` | Gives the nodes: `{ kind, id, data, parent, track, clip, location }`. `data` is the thing as `paw.api` gives it. paw keeps the nodes of clips and notes from one query to the next, so read a node and don't change it. |
+| `paw.query(q)` | Gives the nodes: `{ kind, id, data, parent, part, clip, location }`. `data` is the thing as `paw.api` gives it. paw keeps the nodes of clips and notes from one query to the next, so read a node and don't change it. |
 | `paw.query.select(q)` | Does what `:select` does. |
 | `paw.query.field(kind, name, fn)` | Adds a field of your own. |
 

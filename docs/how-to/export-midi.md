@@ -7,8 +7,8 @@ as a notation program or a different DAW. The rules are in
 
 ## Export the whole song
 
-Type `:export /home/ana/Music/song.mid`, and paw writes each MIDI track as
-a track of the file. The file also gets the tempo map, the time signatures
+Type `:export /home/ana/Music/song.mid`, and paw writes each MIDI part as
+a part of the file. The file also gets the tempo map, the time signatures
 and the markers, and the message says how many notes paw wrote.
 
 ## Export one clip
@@ -16,17 +16,17 @@ and the markers, and the message says how many notes paw wrote.
 1. Put the cursor on the clip in the arrange view.
 2. Type `:export clip /home/ana/Music/riff.mid`.
 
-## Export some tracks
+## Export some parts
 
-1. Select the tracks in visual mode, for example `Vj` for the current
-   track and the next track.
+1. Select the parts in visual mode, for example `Vj` for the current
+   part and the next part.
 2. Type `:`, and paw types the range of the selection, `'<,'>`. Then type
    `export /home/ana/Music/part.mid`.
 
-## Export each track to a file of its own
+## Export each part to a file of its own
 
-Type `:export /home/ana/Music/{track}.mid each=track`, and paw writes
-`Bass.mid`, `Lead.mid` and a file for each other track.
+Type `:export /home/ana/Music/{part}.mid each=part`, and paw writes
+`Bass.mid`, `Lead.mid` and a file for each other part.
 
 paw writes a standard MIDI file of format 1, without the audio clips and
 the muted clips. If you want to send the sound, export it as

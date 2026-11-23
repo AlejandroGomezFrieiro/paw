@@ -2,19 +2,19 @@
 
 <!-- tags: recording input-and-recording inputs monitoring -->
 
-A track records audio from the input device, or MIDI from the MIDI ports.
+A part records audio from the input device, or MIDI from the MIDI ports.
 For the devices, see [Audio devices](audio-devices.md), for MIDI ports and
 MIDI files, see [MIDI](midi.md), and for the takes that recording makes, see
 [Takes](takes.md).
 
-## The input of a track
+## The input of a part
 
-A track takes audio from one channel, or from a pair of adjacent channels,
-of the input device. The input goes into the track before its devices, so a
-guitar goes through the amp simulator on its track.
+A part takes audio from one channel, or from a pair of adjacent channels,
+of the input device. The input goes into the part before its devices, so a
+guitar goes through the amp simulator on its part.
 
 ```lua
-local gtr = paw.add_track({ name = "Guitar" })
+local gtr = paw.add_part({ name = "Guitar" })
 gtr.input = "1/2"            -- or "1", "3", nil for none
 gtr.monitor = true           -- hear it without arming
 gtr.armed = true             -- record it
@@ -22,47 +22,47 @@ paw.transport.record()       -- recording on, and play
 paw.transport.stop()         -- the take becomes a clip where recording began, a moment later
 paw.transport.recording = false
 
-local keys = paw.add_track({ name = "Keys" })
+local keys = paw.add_part({ name = "Keys" })
 keys.midi_input = { port = "Keystation 49", channel = 1 }   -- MIDI from one port (and channel); nil for all
 ```
 
-| Field of a track | Value |
+| Field of a part | Value |
 | --- | --- |
 | `input` | `"1"`, `"1/2"`, `"3"`, or nil for no audio input. A pair is two adjacent channels, so `"1/3"` is an error. A project file with a bad input does not load. |
-| `monitor` | True: you hear the input, also when the track is not armed. |
-| `armed` | True: the track records. |
+| `monitor` | True: you hear the input, also when the part is not armed. |
+| `armed` | True: the part records. |
 | `midi_input` | `{ port, channel }`: MIDI from one port, and optionally one channel. Nil: all ports. |
 
 ### The input list
 
-`I` in the arrange view (or the input button on the track header in the
-graphical window) lists all the inputs of a track:
+`I` in the arrange view (or the input button on the part header in the
+graphical window) lists all the inputs of a part:
 
 | Heading | Entries |
 | --- | --- |
 | audio | no audio input, each channel, each adjacent pair, named with the device: `UR22mkII · 1`, `UR22mkII · 1/2` |
 | MIDI | all ports, or one port |
 | MIDI channel | all channels, or one channel |
-| MIDI out | the port and channel where the track sends MIDI (see [MIDI](midi.md#midi-output)) |
+| MIDI out | the port and channel where the part sends MIDI (see [MIDI](midi.md#midi-output)) |
 
 - A choice that is saved but not available now (a pair that the device
   does not have, a port that is disconnected) shows as selected, with the
   mark `missing`.
-- `paw.audio.choices(track)` gives the list, and
-  `paw.audio.choose(track, choice)` selects an entry.
+- `paw.audio.choices(part)` gives the list, and
+  `paw.audio.choose(part, choice)` selects an entry.
 
 | Command | Effect |
 | --- | --- |
-| `:track.input 1/2` | Set the audio input of the track. |
-| `:track.midi Keystation ch=1` | Set the MIDI input of the track: a port by a part of its name, and a channel. |
+| `:part.input 1/2` | Set the audio input of the part. |
+| `:part.midi Keystation ch=1` | Set the MIDI input of the part: a port by some of its name, and a channel. |
 
 `Tab` completes the port and the channel.
 
 ### The header
 
-- The track header shows the input (`UR22mkII · 1/2`) and the level at the
-  input, and the level shows even when the track is not armed or monitored.
-- While a track is armed or monitored, its meters, the master's meters
+- The part header shows the input (`UR22mkII · 1/2`) and the level at the
+  input, and the level shows even when the part is not armed or monitored.
+- While a part is armed or monitored, its meters, the master's meters
   and a tuner on it move with the input, even when the song is stopped.
 - In the terminal, `I` next to `M S R` on the header switches the monitor
   on or off. In the graphical window, the loudspeaker next to the input
@@ -70,27 +70,27 @@ graphical window) lists all the inputs of a track:
 
 ## Rules
 
-- **Monitor.** You hear the input of a track when the track is armed, or
-  when its monitor is on. An armed track always monitors, so what you hear
-  is what paw records. A track with no input ignores both. A track without
+- **Monitor.** You hear the input of a part when the part is armed, or
+  when its monitor is on. An armed part always monitors, so what you hear
+  is what paw records. A part with no input ignores both. A part without
   an audio input that is monitored plays MIDI input, and records nothing.
-- **The selected track plays the keyboard.** While no track is armed, the
-  track of the cursor plays MIDI input as if its monitor is on, and it
+- **The selected part plays the keyboard.** While no part is armed, the
+  part of the cursor plays MIDI input as if its monitor is on, and it
   records nothing. `paw.opt.midi_follows_selection = false` turns the
   behavior off, and the project does not change.
-- **A track that always plays the keyboard.** A script can give a track
+- **A part that always plays the keyboard.** A script can give a part
   to `paw.api.engine_follow_always`, and [step input](piano-roll.md#step-input)
-  gives it the track of the active clip while it's on. That track plays MIDI
-  input even while another track is armed, in place of the track of the
-  cursor, and it records nothing. The armed track still plays and records
+  gives it the part of the active clip while it's on. That part plays MIDI
+  input even while another part is armed, in place of the part of the
+  cursor, and it records nothing. The armed part still plays and records
   the input.
 - **Filtered controls.** A key or a controller in the input filter doesn't
-  sound on any track and isn't recorded (see [MIDI](midi.md)).
+  sound on any part and isn't recorded (see [MIDI](midi.md)).
 - **What records.** While `paw.transport.recording` is on and the
   transport plays:
-  - each armed track with an audio input records its dry input (before
+  - each armed part with an audio input records its dry input (before
     its devices) to a WAV file.
-  - each armed track without an audio input plays and records MIDI input:
+  - each armed part without an audio input plays and records MIDI input:
     from all ports, or from the port (and channel) of its `midi_input`.
 - **Where a take starts.** `R` (`:transport.record`) with the song
   stopped moves the playhead to the cursor and records from there, as
@@ -99,10 +99,10 @@ graphical window) lists all the inputs of a track:
   after that, `R` records from the playhead, and it also does so while the
   song plays. `paw.transport.record()` always records from the playhead. With `paw.opt.play_from = "playhead"`, `R` still records from
   the cursor, and `<Space><Space>` plays from the playhead.
-- **What you hear while you record.** An armed track with an audio input
+- **What you hear while you record.** An armed part with an audio input
   plays only its input while the take records, so its clips under the take
   are silent. With a punch, its clips play before
-  the punch in and after the punch out. Other tracks play as usual.
+  the punch in and after the punch out. Other parts play as usual.
 - **The end of a take.** A stop, or recording off, ends the take, and a seek
   starts a new take. `Esc` in normal mode, with nothing else to cancel,
   stops the song and keeps the take, and the message names the take. paw adds the clips of a take, audio and MIDI, as one
@@ -125,7 +125,7 @@ graphical window) lists all the inputs of a track:
     loop.
   - With the loop off, a take is one clip.
 - **Audio recorded over a clip.** When you record audio over an audio clip
-  on the same track, the new recording becomes the active take of that
+  on the same part, the new recording becomes the active take of that
   clip, and what the clip played before stays as a take that does not
   play. paw cuts the clip where the recording starts and ends, so the
   takes line up. A recording round the loop over a clip adds all its takes
@@ -264,10 +264,10 @@ report. See
   file to the disk, so a file that a crash or a power loss leaves is a
   valid WAV with all but its last seconds.
 - The safety copy contains the take from its start. After a crash,
-  `:recover` puts the take back as a clip where it started, on its track.
+  `:recover` puts the take back as a clip where it started, on its part.
 - If the `media` directory holds takes that no clip uses and that paw
   wrote after the last save, paw says so when the project opens.
-  `:recover` lists them so that you can add them on the track that recorded
+  `:recover` lists them so that you can add them on the part that recorded
   them, and it works even after you move the project folder.
 - If paw cannot write a file (the disk is full), recording stops. paw
   keeps what it wrote as a clip, and a message gives the reason.
@@ -279,8 +279,8 @@ report. See
 | Way | Effect |
 | --- | --- |
 | `:import take.mp3` | Import a sound file. With no name, it shows a list of files. |
-| `:clip.import` | Put a file on the track at the cursor. |
-| `paw.import_audio(path, { track = ..., start = ... })` | Import in Lua. |
+| `:clip.import` | Put a file on the part at the cursor. |
+| `paw.import_audio(path, { part = ..., start = ... })` | Import in Lua. |
 | a file name on the command line | Open the file where a project would open. |
 
 `paw.pick.file` is the list of files that extensions use.

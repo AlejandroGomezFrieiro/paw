@@ -5,7 +5,7 @@ Each command is in [Stretched and repeating clips](../reference/stretch.md).
 
 ## A loop at a known tempo
 
-1. Put the loop on a track, and move the cursor to it.
+1. Put the loop on a part, and move the cursor to it.
 2. Type `:clip.tempo 100`, with the tempo of the loop. The clip then plays
    at the tempo of the song, and it follows each tempo change.
 3. To repeat it, type `:clip.repeat`, and then drag the end of the clip out.

@@ -7,11 +7,11 @@ keyswitches, controllers, program changes or MIDI channels. Each field of
 a map is in the README of the
 [articulations extension](../../extensions/articulations/README.md).
 
-## Put a plugin with a map on a track
+## Put a plugin with a map on a part
 
 1. Type `:ext.load articulations`.
-2. Add the plugin to a track. When paw has a map for the plugin, it binds
-   the map to the track, and a message tells you so.
+2. Add the plugin to a part. When paw has a map for the plugin, it binds
+   the map to the part, and a message tells you so.
 3. If no map names the plugin, type `:art.maps`, and then bind a map by
    its name: `:art.map sine-cc`.
 
@@ -22,7 +22,7 @@ plugin. Read the top of the map file before you use it. For MODO BASS
 
 ## Give notes an articulation
 
-1. Open a clip of the track in the piano roll.
+1. Open a clip of the part in the piano roll.
 2. Put the cursor on a note, or select notes in visual mode.
 3. Press `\a`, choose an articulation and press Enter.
 
@@ -35,11 +35,11 @@ Some plugins let you move the keyswitches to other keys. If the
 keyswitches of the plugin are an octave lower than the keyswitches of the
 map, shift them:
 
-1. Put the cursor on the track.
+1. Put the cursor on the part.
 2. Type `:art.shift -1oct`. `:art.shift -2` moves them two keys down, and
    `:art.shift 0` puts them back.
 
-The track keeps the shift, and the keys that the notes play do not move.
+The part keeps the shift, and the keys that the notes play do not move.
 
 ## Make a map of your own for a plugin
 

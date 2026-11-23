@@ -27,15 +27,15 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 2. musicops adds musical operators under `gz`. Type `:tutor.try musicops` and `<CR>`, and press `j` to go to Keys. Then press `gzkic` to move each note of the clip one step up the scale.
    - ✓ The tune is now D E F A F E D, because it moved in C major. `gzh` humanizes, `gzs` strums, and `.` repeats them.
 3. sections gives names to the parts of a song. Type `:tutor.try sections` and `<CR>`, and then press `\Sa`, type `Verse` and press `<CR>` to mark a section at the cursor.
-   - ✓ Verse shows on the ruler, and `is` is now a text object. `yis` yanks the section on all tracks, and `]]` goes to the next section.
+   - ✓ Verse shows on the ruler, and `is` is now a text object. `yis` yanks the section on all parts, and `]]` goes to the next section.
 4. undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`, and press `<Space>pu` to open the undo tree. Look at the tree, and then press `q` to close it.
    - ✓ paw keeps each change that you undo, and `g-` and `g+` move through the states in order of time, across branches.
 5. mixdiag measures the mix and shows problems. Type `:tutor.try mixdiag` and `<CR>`, and then press `<Space>ma` to measure the song.
    - ✓ mixdiag measures in the background, and the message line shows the loudness when the measurement is complete. `<Space>mx` shows the problems that it found.
 6. interop opens and writes REAPER projects and DAWproject files. Type `:tutor.try interop` and `<CR>`, and then type `:export tutor-song.rpp` and `<CR>`. A list of the items that REAPER cannot use opens, and `q` closes it.
    - ✓ tutor-song.rpp is in the folder where you started paw. As the list said, the file does not contain the built-in devices.
-7. utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track.
-   - ✓ The track is a vocal track, and it sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). After that, `\Vt` adds a vocal track and asks for its singer in one step.
+7. utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a part. Then type `:utau.voice` and `<CR>` to make it a vocal part.
+   - ✓ The part is a vocal part, and it sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). After that, `\Vt` adds a vocal part and asks for its singer in one step.
 8. Listen to the pattern and the tune. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
    - ✓ You hear the drum pattern and the tune that musicops changed.
 

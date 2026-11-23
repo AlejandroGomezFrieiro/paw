@@ -8,13 +8,13 @@ can be a preset, an amp model or the full state of the plugin. You hear
 the change as the song plays, and a rendered file has it on the exact
 frame.
 
-The steps assume a track with the plugin on it.
+The steps assume a part with the plugin on it.
 
 ## Keep the first sound
 
-1. Put the cursor on the track and press `<Space>al`, and a list of what
+1. Put the cursor on the part and press `<Space>al`, and a list of what
    to automate opens. Type `state` and press `Enter`. A row for the state
-   lane of the plugin opens under the track, and the cursor is on it.
+   lane of the plugin opens under the part, and the cursor is on it.
 2. Set the plugin to the first sound, in its window, with its preset, or
    with the keys of the device panel.
 3. Press `0` to go to the start, and press `\s`. The lane keeps the sound

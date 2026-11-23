@@ -2,15 +2,15 @@
 
 <!-- tags: change-sound -->
 
-You can change the sound of an instrument or an effect on a track in
+You can change the sound of an instrument or an effect on a part in
 three ways. You can change its parameters in paw, choose a preset, or use
 the editor of the plugin. Each key is listed in
 [The device panel](../reference/device-panel.md).
 
 ## Change a parameter
 
-1. Put the cursor on the track, and press `<Space>dd`. The device panel shows
-   each device of the track, with its parameters under it.
+1. Put the cursor on the part, and press `<Space>dd`. The device panel shows
+   each device of the part, with its parameters under it.
 2. Press `j` and `k` to go to a parameter, for example `cutoff`.
 3. Change the value:
    - Press `+` or `-` to change it by one percent of its range. A count
@@ -43,7 +43,7 @@ projects.
 
 ## Use the editor of the plugin
 
-1. Press `ge` on the track, or on the device in the panel, and the editor
+1. Press `ge` on the part, or on the device in the panel, and the editor
    of the plugin opens in a window of its own.
 2. Change the sound in the editor. paw reads back each change, and the
    panel shows the new value.

@@ -4,11 +4,11 @@
 
 *The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor 8`.*
 
-In this lesson, we copy a short hook along a track and keep two bass clips in named registers. Then we record a macro that changes the hook.
+In this lesson, we copy a short hook along a part and keep two bass clips in named registers. Then we record a macro that changes the hook.
 
 A delete or a yank puts the items in a register, and a paste takes them from the register. Usually you use the register without a name, but the named registers (`"a` to `"z`) let you keep several items at the same time. You can undo each change, and with a count you undo more than one change. A macro records keys into a register, so that you can play the keys again.
 
-The Lead track has a short hook, and the Bass track has two clips, A and B.
+The Lead part has a short hook, and the Bass part has two clips, A and B.
 
 ## The idea
 
@@ -20,7 +20,7 @@ The Lead track has a short hook, and the Bass track has two clips, A and B.
 
 ## If you know Vim
 
-Registers, `"0`, `"_`, `qq`…`q`, `@q`, `@@` and `@:` come from Vim. A register contains clips, tracks, notes or a device instead of text. Pasted time replaces the items that were there, and `:lua paw.opt.ripple = true` moves the old items later instead.
+Registers, `"0`, `"_`, `qq`…`q`, `@q`, `@@` and `@:` come from Vim. A register contains clips, parts, notes or a device instead of text. Pasted time replaces the items that were there, and `:lua paw.opt.ripple = true` moves the old items later instead.
 
 ## Steps
 
@@ -46,7 +46,7 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. Now we record a macro. Press `k` to go up to Lead and `0` to go to its start. Then press `qq` to record keys into register q.
    - ✓ The status line shows `recording @q`.
 10. Type the change. `vic` selects the clip, and `12<C-a>` moves its notes up one octave. `w` goes to the next clip, and then `q` stops the recording.
-    - *Hint:* Without the selection, `<C-a>` on a track moves the fader. If the result is wrong, press `u` to undo the change, and `qq` to record again.
+    - *Hint:* Without the selection, `<C-a>` on a part moves the fader. If the result is wrong, press `u` to undo the change, and `qq` to record again.
     - ✓ The first hook went up one octave while you recorded, and register q contains `vic12<C-a>w`.
 11. `@q` plays the macro on the clip under the cursor, and `@@` plays it again. Press `@q`, then `@@`.
     - ✓ Three hooks are one octave higher, and the last hook did not change.

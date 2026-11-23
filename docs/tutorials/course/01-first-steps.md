@@ -6,7 +6,7 @@
 
 In this lesson, we play a short song, change its tempo and quit paw.
 
-You use paw from the keyboard, and each part of the screen is a view. The arrange view in the middle has one row for each track, and time goes to the right. The status line at the bottom shows the current mode, which is `NORMAL` now. Below the status line, you type commands and paw shows messages.
+You use paw from the keyboard, and each part of the screen is a view. The arrange view in the middle has one row for each part, and time goes to the right. The status line at the bottom shows the current mode, which is `NORMAL` now. Below the status line, you type commands and paw shows messages.
 
 The panel at the bottom is the tutor, which tells you what to do and checks each step when you do it.
 
@@ -20,13 +20,13 @@ If you do not know which mode you are in, press `<Esc>` to return to normal mode
 
 ## If you know Vim
 
-`:q`, `ZZ` and `ZQ` do the same as in Vim, and `:w` saves. The command line accepts commands by name, e.g., `:tempo 120`. It also accepts Ex commands over bars and tracks, e.g., `:5,8d` and `:%s/c4/d4/g`, and lesson 17 shows how to use them.
+`:q`, `ZZ` and `ZQ` do the same as in Vim, and `:w` saves. The command line accepts commands by name, e.g., `:tempo 120`. It also accepts Ex commands over bars and parts, e.g., `:5,8d` and `:%s/c4/d4/g`, and lesson 17 shows how to use them.
 
 ## Steps
 
 The tutor opens a practice project for the lesson, and it checks each step when you do it.
 
-1. The song has three tracks, which are Drums, Bass and Keys. Press `<Space><Space>` to play it.
+1. The song has three parts, which are Drums, Bass and Keys. Press `<Space><Space>` to play it.
    - *Hint:* `<Space>` is the space bar. Look at the ▶ in the status line and at the playhead, which moves across the clips.
    - ✓ The song plays again and again, because the loop is on. The status line shows `loop`.
 2. Press `<Space><Space>` again to stop.
@@ -34,7 +34,7 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 3. `gs` moves the playhead to the start. Press `g`, then `s`.
    - *Hint:* Press the two keys one after the other, not together.
    - ✓ The playhead is at the start. The clock in the status line shows 1.1.00 (bar 1, beat 1).
-4. The highlighted track header is the cursor. `j` moves it down one track and `k` moves it up. Press `j` two times to go to Keys.
+4. The highlighted part header is the cursor. `j` moves it down one part and `k` moves it up. Press `j` two times to go to Keys.
    - *Hint:* If the cursor is below Keys, press `k` to move it up.
    - ✓ The cursor is on Keys.
 5. `?` shows each key of the current view. Press `?`, and type `mute` to make the list shorter. Then press `<Esc>` to close the list.

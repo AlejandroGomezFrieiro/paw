@@ -4,14 +4,14 @@ You can record the notes that you play on a MIDI keyboard. The steps
 assume that the keyboard is plugged into the computer, and the rules are
 in [Recording](../reference/recording.md) and [MIDI](../reference/midi.md).
 
-## Prepare the track
+## Prepare the part
 
-1. Press `o` to add a track.
+1. Press `o` to add a part.
 2. Press `a` to add an instrument, type a part of its name, for example
    `Synth`, and press `Enter`.
 3. Press `I`, type a part of the name of the keyboard, and press `Enter`.
-   If you do not choose a port, the track takes MIDI from all the ports.
-4. Press `r` to arm the track, and play some keys. You hear the
+   If you do not choose a port, the part takes MIDI from all the ports.
+4. Press `r` to arm the part, and play some keys. You hear the
    instrument.
 
 If the list does not show the keyboard, type `:midi.inputs`. The page
@@ -22,7 +22,7 @@ shows each MIDI port that paw finds, and if it is open.
 1. Move the cursor to where the take starts.
 2. Press `R`, and play. The take starts at the cursor.
 3. Press `<Space><Space>` or `Esc` to stop, and the take is a new MIDI clip
-   on the track.
+   on the part.
 4. To edit the notes, press `Enter` on the clip, and the piano roll opens.
 
 Each take is a new clip. If you record again over a clip, the new clip is

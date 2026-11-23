@@ -9,8 +9,8 @@ swap:
   add-ons: extensions
   addon: extension
   addons: extensions
-  channel strip: track
-  channel strips: tracks
+  channel strip: part
+  channel strips: parts
   media item: clip
   media items: clips
   song file: project

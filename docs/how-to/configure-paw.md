@@ -16,8 +16,8 @@ again, and it does not change the project or stop the audio.
 
 ```lua
 paw.opt.zoom = 4
-paw.opt.track_height = 2      -- rows for each track in the arrange view
-paw.opt.header_width = 28     -- columns of the track headers
+paw.opt.part_height = 2      -- rows for each part in the arrange view
+paw.opt.header_width = 28     -- columns of the part headers
 ```
 
 Every option is listed in [Options](../reference/options.md). If you want
@@ -30,22 +30,22 @@ paw.ui.hl("Playhead", { bg = "#ff5555" })
 ```
 
 You can change each highlight group, and the groups and their colors are
-in `runtime/lua/paw/theme.tl`. To change the color of one track, type
-`:track.color teal` on the track.
+in `runtime/lua/paw/theme.tl`. To change the color of one part, type
+`:part.color teal` on the part.
 
 ## Add a command and a key
 
 ```lua
-paw.command("track.synth", function(ctx)
-  local track = paw.add_track({ name = ctx.args[1] or "Synth" })
-  track:add_device("synth", { cutoff = tonumber(ctx.args.cutoff) or 1800 })
-  paw.cursor.set_track(track)
-end, { desc = "Add a synth track: `track.synth Lead cutoff=900`" })
+paw.command("part.synth", function(ctx)
+  local part = paw.add_part({ name = ctx.args[1] or "Synth" })
+  part:add_device("synth", { cutoff = tonumber(ctx.args.cutoff) or 1800 })
+  paw.cursor.set_part(part)
+end, { desc = "Add a synth part: `part.synth Lead cutoff=900`" })
 
-paw.keymap.set("<leader>tn", "track.synth", { desc = "Add a synth track" })
+paw.keymap.set("<leader>tn", "part.synth", { desc = "Add a synth part" })
 ```
 
-With these lines, `:track.synth Lead cutoff=900` adds a track, and
+With these lines, `:part.synth Lead cutoff=900` adds a part, and
 `<Space>tn` does the same with the default values.
 
 If you map a key in one view, do not use a key of the global leader for

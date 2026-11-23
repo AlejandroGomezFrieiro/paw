@@ -1,12 +1,12 @@
-# How to duck a track under the kick
+# How to duck a part under the kick
 
 You can make a compressor on the bass react to the kick, which is called a
 side-chain. The rules are in
 [Routing](../reference/routing.md#side-chains).
 
-1. Select the bass track and type `:device.add compressor`. Then open the
+1. Select the bass part and type `:device.add compressor`. Then open the
    device panel and select the compressor.
-2. Type `:device.sidechain Kick`, or press `gS` and select the kick track.
+2. Type `:device.sidechain Kick`, or press `gS` and select the kick part.
    The device line shows `key Kick`.
 3. Set `threshold` and `ratio` until the bass ducks on each kick.
 4. If you want to hear what the detector hears, set `listen` on, and set

@@ -11,16 +11,16 @@ steps, see [How to recover lost work](../how-to/recover-lost-work.md).
 
 ```text
 song/
-├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, subprojects, transport, export presets
+├── project.toml            name, tempo, meter, tempo map, key, order of the parts, subprojects, transport, export presets
 ├── meta.json               the data of extensions (`paw.project.meta`), if there is some
 ├── screen.json             the tabs and windows that the project opens with
 ├── media.json              the hash, size and format of each file that the clips play
 ├── racks.json              the linked racks, if there are some
 ├── .gitattributes          *.midi2 diff=paw-midi2
-├── master/                 the master track, as a track folder
-├── tracks/
-│   └── Keys/               one folder for each track, with the name of the track
-│       ├── track.json      the track and its clips, without the notes, and its chain
+├── master/                 the master part, as a part folder
+├── parts/
+│   └── Keys/               one folder for each part, with the name of the part
+│       ├── part.json      the part and its clips, without the notes, and its chain
 │       ├── devices.json    the chain and its parameters
 │       ├── 1-synth.state   the state of a plugin, as the plugin gives it
 │       ├── 2-clap-….ara    a file of an attachment, beside the state (the ARA archive)
@@ -36,10 +36,10 @@ song/
 │   └── derived/            files that a kind of clip makes from other files
 ├── nests/
 │   └── Bridge/             one folder for each subproject that the song plays
-│       ├── nest.toml       its id, name, length, tempo, meter and the order of its tracks
+│       ├── nest.toml       its id, name, length, tempo, meter and the order of its parts
 │       ├── meta.json       its markers and the data of extensions, if there is some
-│       ├── master/         its master track, as a track folder
-│       └── tracks/Piano/   its tracks, as track folders
+│       ├── master/         its master part, as a part folder
+│       └── parts/Piano/   its parts, as part folders
 ├── renders/                the files that a render with no name writes (not saved, never moved)
 └── unused/                 files that the project does not use now
     └── nests/Bridge/       a subproject that no clip of the song places
@@ -47,26 +47,26 @@ song/
 
 - The project's file is `song/project.toml`. `:e song`, `:open song`
   and `paw song` open the folder.
-- A track folder and a clip file have the name of the track and of the
+- A part folder and a clip file have the name of the part and of the
   clip. Letters, digits, `-`, `_` and `.` stay as they are, and paw changes
   other characters to `-`. Two of the same name get `-2`, `-3`.
 - An automation file has the name of what it automates: `volume.json`
   or `pan.json`, or the device and the parameter, as in `1-synth-wave.json`.
 - The JSON files have their keys in alphabetical order.
-- `track.json` names each clip file by its path in the folder. It names a
+- `part.json` names each clip file by its path in the folder. It names a
   file outside the folder by its full path, or from the home folder as
   `~/…`.
 - Clips with the same notes, controller moves and length share one file.
-- Each clip of a link has `"link": "riff"` in `track.json`, and all the
+- Each clip of a link has `"link": "riff"` in `part.json`, and all the
   clips of the link name one file, `linked/riff.midi2`, wherever their
-  tracks are. The file holds the notes and the controller moves, and each
-  clip keeps its own start and length in `track.json`. Without its `link`,
+  parts are. The file holds the notes and the controller moves, and each
+  clip keeps its own start and length in `part.json`. Without its `link`,
   a clip is a plain MIDI clip with the notes of that file. paw refuses a
   project whose linked clips have different notes. See
   [Linked clips](arrange-view.md#linked-clips).
-- A track whose devices have a shape, with splits and branches, has that
-  chain as `"graph"` in `track.json`. The chain names each device of
-  `devices.json` by its id. A track with no `graph` plays its devices one
+- A part whose devices have a shape, with splits and branches, has that
+  chain as `"graph"` in `part.json`. The chain names each device of
+  `devices.json` by its id. A part with no `graph` plays its devices one
   after the other, in the order of `devices.json`. For now paw also plays
   the devices of a chain one after the other, in the order of the chain.
 - A split of a kind that an extension defined keeps its kind, its values
@@ -76,11 +76,11 @@ song/
   Each place of a linked rack in a chain names the rack by its id, and
   keeps the values that it changes on its own, by keys such as `"7.mix"`
   and `"12.params.gain"`.
-- A MIDI clip with overrides has them in its entry in `track.json`, for
+- A MIDI clip with overrides has them in its entry in `part.json`, for
   example `"overrides": { "transpose": 3 }`. They change how the clip plays,
   and its file keeps the notes as they are. See
   [Overrides of a clip](arrange-view.md#overrides-of-a-clip).
-- A custom clip is a clip of a kind that an extension defines. `track.json`
+- A custom clip is a clip of a kind that an extension defines. `part.json`
   keeps its kind, its version, its timeline, its offset, its media and the
   names of its files. Its data is a file of its own:
   `<clip>.<kind>.json` for a value and `<clip>.<kind>.<ext>` for text.
@@ -110,7 +110,7 @@ song/
 
 ## Subprojects
 
-A subproject is a set of tracks with a timeline of its own, which a clip
+A subproject is a set of parts with a timeline of its own, which a clip
 places in the song. In commands and in the files, a subproject is a
 "nest". Each subproject that the song plays has a folder in `nests/`.
 
@@ -118,11 +118,11 @@ places in the song. In commands and in the files, a subproject is a
   subprojects were made.
 - `nest.toml` has the subproject's id, name and length in beats. It also
   has its tempo and meter (`follow` the song's, or `own`) and the list
-  of its track folders in order.
-- A track folder of a subproject is the same as a track folder of the
-  song. A clip that places a subproject is a line in `track.json`, with
+  of its part folders in order.
+- A part folder of a subproject is the same as a part folder of the
+  song. A clip that places a subproject is a line in `part.json`, with
   the kind `nest`, the subproject's id and what it plays: `"master"` for
-  the mix, or `{ "track": id }` for one track.
+  the mix, or `{ "part": id }` for one part.
 - The folders are all in `nests/`, also for a subproject inside another
   subproject.
 - At a save, a subproject that no clip of the song places goes to
@@ -132,13 +132,13 @@ places in the song. In commands and in the files, a subproject is a
 - A subproject can be inside another one, at most 8 deep. paw does not
   open a project where a subproject is inside itself, and the message
   gives the path, for example `Bridge › Verse › Bridge`.
-- The tracks of a subproject send, output and take side-chains only to
-  and from tracks of the same subproject. Its master has no output and
+- The parts of a subproject send, output and take side-chains only to
+  and from parts of the same subproject. Its master has no output and
   no sends, because it plays into the song through the clips that place
   the subproject.
 - `:export project <folder>/` writes what the window shows as a project
   folder of its own: the song, a subproject or a view. The new folder
-  has a `project.toml`, a folder for each track and its own `media/`
+  has a `project.toml`, a folder for each part and its own `media/`
   with copies of the sound files, and its `nests/` has the subprojects
   inside what it writes. See
   [Write a subproject or a view as a project](subprojects.md#write-a-subproject-or-a-view-as-a-project).
@@ -159,7 +159,7 @@ places in the song. In commands and in the files, a subproject is a
 | --- | --- |
 | `:w song` | Save the project as the folder `song`. |
 | `:w song.json` | Also save the project as the folder `song`, and say so. |
-| `:w` | In the piano roll: write the file of the clip. In the device panel: write the files of the chain. Also the `track.json` and `project.toml` if they changed. Elsewhere: write all the files. |
+| `:w` | In the piano roll: write the file of the clip. In the device panel: write the files of the chain. Also the `part.json` and `project.toml` if they changed. Elsewhere: write all the files. |
 | `:wa`, `:wall` | Write all the files of the project. |
 | `:ls` | Also list the files of the project. `+` marks a file that is different from the file on the disk. |
 
@@ -177,7 +177,7 @@ places in the song. In commands and in the files, a subproject is a
   path. A file that is there already stays, and the new one gets `-2`.
   paw never deletes a file from `unused/`.
 - A file with the same bytes as a new file moves to the place of the new
-  file (a renamed track).
+  file (a renamed part).
 - The project is saved when no file is different from the disk. An undo
   back to the saved state makes the files the same again.
 - After a save of the whole project, paw writes the undo history to the
@@ -222,8 +222,8 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 | Command or function | Effect |
 | --- | --- |
 | `paw clip cat riff.midi2` | Print the clip as text, one note or controller move on each line. |
-| `:e riff.midi2`, `paw riff.midi2` | Open the clip alone, on a track with the synth, in the piano roll. `:w` writes it back to its file. |
-| `:import riff.midi2` | Put the clip on the track of the cursor, at the cursor. The clip refers to the file. |
+| `:e riff.midi2`, `paw riff.midi2` | Open the clip alone, on a part with the synth, in the piano roll. `:w` writes it back to its file. |
+| `:import riff.midi2` | Put the clip on the part of the cursor, at the cursor. The clip refers to the file. |
 | `paw.api.midi2_read(path)` | `{ notes, controls, length, skipped }` of a clip file. |
 | `paw.api.midi2_write(path, clip)` | Write `{ notes, controls, length }` as a clip file. |
 | `paw.api.midi2_text(path)` | The text that `paw clip cat` prints. |
@@ -247,36 +247,36 @@ git config --global diff.paw-midi2.textconv "paw clip cat"
 - A file that paw cannot find leaves the clip empty and offline. A save
   keeps its path.
 
-A whole track and a chain of devices can also come from outside the
+A whole part and a chain of devices can also come from outside the
 folder, with the same rules:
 
-- A track folder (a folder with a `track.json`, for example
-  `~/library/tracks/Lead` in a different project) gives a track that
+- A part folder (a folder with a `part.json`, for example
+  `~/library/parts/Lead` in a different project) gives a part that
   refers to the folder. `project.toml` names the folder in its list of
-  tracks, and a save writes nothing of the track. Its clips refer to
+  parts, and a save writes nothing of the part. Its clips refer to
   their files in the same way.
 - A chain file (a `devices.json`, with the `.state` files beside it)
-  gives the devices of a track that refers to the file. `track.json`
+  gives the devices of a part that refers to the file. `part.json`
   names the file as `devices_file`, and a save writes no `devices.json`.
-- The first edit of the track, or of the chain, makes it the project's
-  own, and paw says so once: "the track Lead is now this
-  project's own copy (was ~/library/tracks/Lead)". A track takes its
+- The first edit of the part, or of the chain, makes it the project's
+  own, and paw says so once: "the part Lead is now this
+  project's own copy (was ~/library/parts/Lead)". A part takes its
   clips from that folder with it.
 - A part from outside keeps its ids, and gets new ones only where the
-  project has them. A track from outside plays into the master, with no
+  project has them. A part from outside plays into the master, with no
   sends.
 - `K` and `:info` show the folder or the file, and where a copy came from.
 
 | Command | Effect |
 | --- | --- |
-| `:import ~/library/tracks/Lead` | Add the track of a track folder below the track of the cursor. The track refers to the folder. |
-| `:import ~/lib/Ballad` | Add a project folder as a subproject on a row of its own below the track of the cursor. The subproject refers to the folder (see [Subprojects](subprojects.md#bring-a-project-into-the-song-as-a-subproject)). |
-| `:import ~/chains/amp/devices.json` | Give the track of the cursor the devices of a chain file, in place of its devices. The track refers to the file. |
-| `:e devices.json`, `paw devices.json` | Open a chain file alone, on a track of its own, in the device panel. `:w` writes it back. |
-| `:collect` | Make every track, chain and clip from outside the project's own, and copy every sound file from outside into `media`. The next save writes their files into the folder. |
-| `paw.api.track_import_folder(folder, index)` | Add the track of a track folder, as `:import` does. |
-| `paw.api.track_chain_file(track, file, refer)` | Give a track the devices of a chain file. Without `refer`, they are the track's own at once. |
-| `paw.api.chain_write(track, file)` | Write the devices of a track as a chain file. |
+| `:import ~/library/parts/Lead` | Add the part of a part folder below the part of the cursor. The part refers to the folder. |
+| `:import ~/lib/Ballad` | Add a project folder as a subproject on a row of its own below the part of the cursor. The subproject refers to the folder (see [Subprojects](subprojects.md#bring-a-project-into-the-song-as-a-subproject)). |
+| `:import ~/chains/amp/devices.json` | Give the part of the cursor the devices of a chain file, in place of its devices. The part refers to the file. |
+| `:e devices.json`, `paw devices.json` | Open a chain file alone, on a part of its own, in the device panel. `:w` writes it back. |
+| `:collect` | Make every part, chain and clip from outside the project's own, and copy every sound file from outside into `media`. The next save writes their files into the folder. |
+| `paw.api.part_import_folder(folder, index)` | Add the part of a part folder, as `:import` does. |
+| `paw.api.part_chain_file(part, file, refer)` | Give a part the devices of a chain file. Without `refer`, they are the part's own at once. |
+| `paw.api.chain_write(part, file)` | Write the devices of a part as a chain file. |
 
 ## Changes from outside paw
 
@@ -301,7 +301,7 @@ the focus (mode 1004). paw acts as `paw.opt.on_external_change` says:
 | `paw.api.project_changed_files()` | The files that changed outside paw, not acted on yet. |
 | `paw.api.project_reload()` | Read the project folder again, as one undo step. |
 | `paw.api.project_keep_changes()` | Keep the version of paw. |
-| `paw.api.project_files()` | Each file of a project folder: `{ path, modified, what, track, clip }`. |
+| `paw.api.project_files()` | Each file of a project folder: `{ path, modified, what, part, clip }`. |
 | `paw.api.project_save_files(paths)` | Write these files, and the files that they name that are not on the disk. |
 
 ## A second paw on the same project
@@ -369,7 +369,7 @@ line, paw starts and shows that message.
 | `paw.api.project_unshelve()` | Close that project and bring back the first project as it was. |
 | `paw.api.project_shelved()` | True if a project is aside. |
 
-The shelf is for tools that need their own tracks without changing the
+The shelf is for tools that need their own parts without changing the
 person's work. The [doctor](../../extensions/doctor) extension uses
 it.
 

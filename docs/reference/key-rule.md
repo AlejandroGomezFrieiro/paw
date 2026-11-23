@@ -4,7 +4,7 @@
 
 Every view obeys one rule for its keys, which is that a key has the same meaning in each view. `tests/keys_constitution.lua` examines the mappings of every view, also those of the bundled extensions, and fails on a mapping that breaks the rule. `:lua =paw.keyrule.broken()` does the same check on your own mappings.
 
-Buffers of text (`:e paw://tracks`) keep the keys of Vim for text, so `Ctrl-a` adds to the number under the cursor there, and `-` goes up to the buffer above, as in oil.nvim. Their motions and operators obey the rule.
+Buffers of text (`:e paw://parts`) keep the keys of Vim for text, so `Ctrl-a` adds to the number under the cursor there, and `-` goes up to the buffer above, as in oil.nvim. Their motions and operators obey the rule.
 
 The rule is for normal mode, visual mode and the motions after an operator. In insert mode, keys insert, in the same way that letters insert text in Vim. In the arrange view, `m` inserts a MIDI clip (see [Insert mode](insert-mode.md)), and in the piano roll, `l` makes the note longer.
 
@@ -19,24 +19,24 @@ The rule is for normal mode, visual mode and the motions after an operator. In i
 | `]` `[` | The second value, up and down. They act at once, also when you press them fast: `]]` is two steps, unless the view has `]]` as a motion (the sections of the arrange view, the staffs of a score). A key that comes soon after and makes a longer mapping (`]g`, `]q`) takes back the step and does its own action. |
 | `>` `<` | The time operators: later and earlier (`>>`, `>ic`, `3>` on a selection). Never pan. |
 | `K` | Describes what is under the cursor. `gK` gives what the diagnostics and language servers say about it. |
-| `ge` | The plugin window of what is under the cursor (an insert in the mixer, a device in the panel), else of the track. |
-| `gc` | Mute: an operator over clips and tracks (`gcc` the track), and over strips in the mixer. A lane of automation off or on. A device bypassed (`gcc` in the panel). |
+| `ge` | The plugin window of what is under the cursor (an insert in the mixer, a device in the panel), else of the part. |
+| `gc` | Mute: an operator over clips and parts (`gcc` the part), and over strips in the mixer. A lane of automation off or on. A device bypassed (`gcc` in the panel). |
 | `gC` | Opens the curve of what is under the cursor: a lane row, a parameter, the fader or pan of the mixer, the strip of the piano roll. `Enter` does the same on a lane row and a parameter. `gX` opens the expression of the note. |
 | `Alt-h` `Alt-l`, `H` `L` | Shorter and longer. Earlier and later. For a clip, a note, a chord in the score. |
 | `Esc` | Cancels: a count, an operator, a selection, insert mode, a suggestion, the chosen notes, a check that runs. When nothing else is left to cancel, it ends a recording: it stops the song and keeps the take, as leaving insert mode keeps the text. During the count-in, it calls the take off. It never stops a song that only plays. It never leaves or closes a view. A second `Esc` says how to leave: `Ctrl-w p` returns to the window before, and `:q`, `ZZ`, `Ctrl-w c` or the key of the view (`<Space>mm` `<Space>dd` `<Space>vp`, `q` on a page) close it. Pickers, menus and floating lists are prompts, and close on `Esc`. |
-| `s` `M` `r` | Solo, mute, arm the track: in the arrange view, the mixer, the session view of the clip launcher (the track of the column) and the device panel (its track). |
-| `a` | Append: a device after the chain of the track (arrange view, mixer, device panel), notes after the note (piano roll, score), a drawing from the curve (curve editor). |
-| `A` | Automate the main value: a point at the cursor on the volume of the track, the parameter, the lane. |
+| `s` `M` `r` | Solo, mute, arm the part: in the arrange view, the mixer, the session view of the clip launcher (the part of the column) and the device panel (its part). |
+| `a` | Append: a device after the chain of the part (arrange view, mixer, device panel), notes after the note (piano roll, score), a drawing from the curve (curve editor). |
+| `A` | Automate the main value: a point at the cursor on the volume of the part, the parameter, the lane. |
 | `c` | Change what is under the cursor: an operator over clips and notes. On a lane point or a parameter, type its value. On a device, choose a preset. |
 | `~` | Switch a property of what is under the cursor: the mute of a clip, the shape of a part of a curve, the vibrato of a note. |
 | `]x` `[x` | The next and the previous item of a list: `]d` diagnostics, `]t` takes, `]p` presets (phonemes in the vocal editor), `]c` chords (piano roll) and clips of the same kind (arrange view), `]e` curves (vocal editor), `]'` markers, `]z` scopes (arrange view). `]g` `[g` change the grid. |
-| `Ctrl-d` `Ctrl-u` | A big step along `j` `k`: four tracks, an octave (piano roll, score, vocal editor), ten steps of a curve. |
+| `Ctrl-d` `Ctrl-u` | A big step along `j` `k`: four parts, an octave (piano roll, score, vocal editor), ten steps of a curve. |
 
 ## The main and the second value
 
 | View, under the cursor | Main: `+` `-` `Ctrl-a` `Ctrl-x` | Second: `]` `[` |
 | --- | --- | --- |
-| Arrange view, a track (and `V` over tracks) | the volume, a dB | the pan, a tenth |
+| Arrange view, a part (and `V` over parts) | the volume, a dB | the pan, a tenth |
 | Arrange view, a selection of clips (`v`, `Ctrl-v`) | the pitch of their notes, a semitone | |
 | Arrange view, a lane row | the value of the point | |
 | Mixer | the row: the fader or a send in dB, the pan in tenths, a switch on (`+`) or off (`-`), an insert on or bypassed | the pan of the strip |
@@ -59,11 +59,15 @@ A key of one view must not use a key of the global leader, or the leader alone. 
 
 When you set `paw.opt.leader` in `init.lua` or with `:set`, every key on the leader moves to the new leader, also the keys that paw mapped before. With `paw.opt.leader = ","`, the mixer is `,mm` and `,<Space>` plays.
 
-The keys of an extension for one view are on the local leader. In the arrange view, `\S` is sections, `\T` templates, `\t` patterns, `\k` drums, `\V` vocal tracks, `\i` virtual inputs and `\n` notation. The keys of an extension after the leader work from every view (`<Space>ma`, `<Space>pu`, `<Space>vs`), and `:lua =paw.keyrule.broken()` lists a key of an extension for one view that is on the leader.
+The keys of an extension for one view are on the local leader. In the arrange view, `\S` is sections, `\T` templates, `\t` patterns, `\k` drums, `\V` vocal parts, `\i` virtual inputs and `\n` notation. The keys of an extension after the leader work from every view (`<Space>ma`, `<Space>pu`, `<Space>vs`), and `:lua =paw.keyrule.broken()` lists a key of an extension for one view that is on the leader.
 
-After the leader, the first key is a domain, so `<Space>f` finds, `<Space>m` is the mix, and `<Space>t` the tracks. The second key is what to do or what to find, and [The leader keys](keys.md#the-leader-keys) lists the domains. An extension puts its keys in the domain of what they do, so mixdiag uses `<Space>m` and undotree uses `<Space>p` (project).
+After the leader, the first key is a domain, so `<Space>f` finds, `<Space>m` is the mix, and `<Space>t` the parts. The second key is what to do or what to find, and [The leader keys](keys.md#the-leader-keys) lists the domains. An extension puts its keys in the domain of what they do, so mixdiag uses `<Space>m` and undotree uses `<Space>p` (project).
 
-The core keeps some keys of its own views after the leader, on keys that no global mapping uses. In the arrange view, these are the automation (`<Space>a`), the tracks (`<Space>t`, for groups, VCAs, sends and outputs) and fades (`<Space>cf`). In the device panel, they are the presets (`<Space>dw` `<Space>dW`). `<Space>la` gives the fixes and actions in each view.
+The core keeps some keys of its own views after the leader, on keys that no global mapping uses. In the arrange view, these are the automation (`<Space>a`), the parts (`<Space>t`, for groups, VCAs, sends and outputs) and fades (`<Space>cf`). In the device panel, they are the presets (`<Space>dw` `<Space>dW`). `<Space>la` gives the fixes and actions in each view.
+
+## Keys and the word part
+
+Earlier versions of paw called a part a track. The keys kept their letters when the word changed, so `<Space>t` is still the domain of the parts. Only the words changed: the commands are `:part.*` (`:part.name`, `:part.midi`), the list of keys after `<Space>` names the domain `parts`, and the messages say part.
 
 ## The classic keys
 
@@ -77,7 +81,7 @@ The core keeps some keys of its own views after the leader, on keys that no glob
 | Lane row | `gc` the curve | `gC` or `Enter`. `gc` turns the lane off or on |
 | Mixer | `j` `k` the fader | `+` `-`. `j` `k` move along the strip |
 | Mixer | `<` `>` pan | `[` `]` |
-| Mixer | `gg` `G` first and last track | first and last row. `0` `$` first and last strip |
+| Mixer | `gg` `G` first and last part | first and last row. `0` `$` first and last strip |
 | Device panel | `h` `l`, `H` `L` the parameter | `+` `-`, with a count |
 | Device panel | `b` bypass | `gc` |
 | Device panel | `e`, `Enter` the plugin window | `ge`. `Enter` on a parameter opens its curve |

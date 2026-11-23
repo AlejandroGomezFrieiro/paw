@@ -38,28 +38,28 @@ groups below link the main ones.
 - [How to use your own plugins](how-to/use-your-own-plugins.md): CLAP, VST3, LV2, where paw looks, Windows plugins through yabridge
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
-- [How to personalize the track column and the ruler](how-to/personalize-the-track-column-and-the-ruler.md): glyphs, styles, signs and parts of your own, and two extensions to copy
+- [How to personalize the part column and the ruler](how-to/personalize-the-part-column-and-the-ruler.md): glyphs, styles, signs and components of your own, and two extensions to copy
 - [How to personalize insert mode](how-to/personalize-insert-mode.md): what the keys of insert mode insert, keys of your own for clips with notes in them
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
 
-### Tracks and instruments
+### Parts and instruments
 
-- [How to add a track with a virtual instrument](how-to/add-an-instrument-track.md): the built-in synth, a plugin, a preset
-- [How to add an audio track for a microphone or a guitar](how-to/add-an-audio-track.md): the input, the monitor, an amp
-- [How to name, color, reorder and group tracks](how-to/organize-tracks.md): groups are folders and buses
+- [How to add a part with a virtual instrument](how-to/add-an-instrument-part.md): the built-in synth, a plugin, a preset
+- [How to add an audio part for a microphone or a guitar](how-to/add-an-audio-part.md): the input, the monitor, an amp
+- [How to name, color, reorder and group parts](how-to/organize-parts.md): groups are folders and buses
 - [How to change the sound of an instrument](how-to/change-the-sound-of-an-instrument.md): parameters, presets, the editor of the plugin
 - [How to change a sound at a point in the song](how-to/change-a-sound-at-a-point-in-the-song.md): a state lane gives a plugin another preset, model or state from a point
 - [How to switch amp models and presets from paw](how-to/switch-amp-models-and-presets.md): TONE3000 and Soundshed Guitar, scenes, snapshots
 - [How to find and change a setting inside a plugin](how-to/find-and-change-a-setting-inside-a-plugin.md): the saved state of any plugin as a tree
 - [How to sign in to TONE3000 from paw](how-to/sign-in-to-tone3000.md): the `client_id`, the code, where the tokens go
-- [How to play a hardware synth from a track](how-to/play-a-hardware-synth.md)
+- [How to play a hardware synth from a part](how-to/play-a-hardware-synth.md)
 - [How to route the outputs of a drum plugin](how-to/route-the-outputs-of-a-drum-plugin.md)
-- [How to make a drum track](../extensions/drums/README.md#how-to-make-a-drum-track): a kit, a plugin or a folder of samples, and a grid
-- [How to add a sampler track](../extensions/sampler/README.md#how-to-add-a-sampler-track): SFZ and Decent Sampler instruments
+- [How to make a drum part](../extensions/drums/README.md#how-to-make-a-drum-part): a kit, a plugin or a folder of samples, and a grid
+- [How to add a sampler part](../extensions/sampler/README.md#how-to-add-a-sampler-part): SFZ and Decent Sampler instruments
 - [How to use articulations with a plugin instrument](how-to/use-articulations-with-a-plugin-instrument.md): MODO BASS 2, SINE Player, maps of your own
 - [How to give notes an articulation](../extensions/articulations/README.md#how-to-give-notes-an-articulation): staccato, legato and other articulations for each note
-- [How to type lyrics for a vocal track](../extensions/utau/README.md#how-to-type-lyrics): a voice that sings, with OpenUtau's voicebanks
+- [How to type lyrics for a vocal part](../extensions/utau/README.md#how-to-type-lyrics): a voice that sings, with OpenUtau's voicebanks
 - [How to play an instrument from the guitar](../extensions/vinput/README.md#how-to-play-an-instrument-from-the-guitar): a guitar heard as MIDI
 
 ### Write and edit music
@@ -91,7 +91,7 @@ groups below link the main ones.
 ### Find things
 
 - [How to find a command or a key you forgot](how-to/find-a-command-or-a-key.md)
-- [How to find a track, a clip or a marker by name](how-to/find-a-track-clip-or-marker.md)
+- [How to find a part, a clip or a marker by name](how-to/find-a-part-clip-or-marker.md)
 - [How to search the project and go through the results](how-to/search-the-project.md): `:vimgrep`, notes, queries, the quickfix list
 
 ### Record and play live
@@ -110,11 +110,11 @@ groups below link the main ones.
 
 - [How to set levels and pan, and keep the master out of the red](how-to/set-levels-and-pan.md)
 - [How to add an effect and change its settings](how-to/add-an-effect.md): EQ, compressor, reverb, delay, presets
-- [How to send several tracks to one reverb](how-to/send-several-tracks-to-one-reverb.md)
+- [How to send several parts to one reverb](how-to/send-several-parts-to-one-reverb.md)
 - [How to check the mix](how-to/check-the-mix.md): meters, loudness, mono
 - [How to check a mix before delivery](../extensions/mixdiag/README.md#how-to-check-a-mix-before-delivery): loudness, true peak, phase and the problems in the mix
-- [How to freeze a heavy track](how-to/freeze-a-heavy-track.md)
-- [How to duck a track under the kick](how-to/duck-a-track-under-the-kick.md)
+- [How to freeze a heavy part](how-to/freeze-a-heavy-part.md)
+- [How to duck a part under the kick](how-to/duck-a-part-under-the-kick.md)
 - [How to write automation with the faders](how-to/write-automation-with-the-faders.md)
 
 ### Render and share
@@ -132,7 +132,7 @@ groups below link the main ones.
 
 - [How to save, back up and open projects](how-to/save-and-open-projects.md): recent projects, safety copies
 - [How to import audio and MIDI files](how-to/import-audio-and-midi-files.md): commands, the file manager, a drop on the graphical window
-- [How to make and use track templates](how-to/use-track-templates.md)
+- [How to make and use part templates](how-to/use-part-templates.md)
 - [How to relink lost media](how-to/relink-missing-media.md)
 - [How to settle the conflicts of a git merge of a project](../extensions/projdiff/README.md#how-to-settle-the-conflicts-of-a-git-merge)
 - [How to work on paw from another computer](how-to/work-from-another-computer.md): attach over the network or SSH, send files, hear the sound
@@ -193,12 +193,12 @@ groups below link the main ones.
 - [The mixer](reference/mixer-view.md): its strips and keys
 - [The curve editor](reference/curve-editor.md): lanes, parameters, controllers and the tempo map as curves
 - [Windows, buffers and tabs](reference/windows.md): splits, tabs, layouts, scopes of windows
-- [Lists edited as text](reference/lists-edited-as-text.md): `paw://tracks`, `paw://sends`, devices, markers
+- [Lists edited as text](reference/lists-edited-as-text.md): `paw://parts`, `paw://sends`, devices, markers
 - [The file manager](reference/file-manager.md): folders as text and as a tree
 - [The terminal screen](reference/screen.md): the parts of the screen, the bottom line, colors
 - [Pictures in the terminal](reference/pictures.md): pixels in terminals that show images, strips, `paw.plot`
 - [The status line](reference/status-line.md): sections, components, `paw.statusline`
-- [The track column and the bar labels](reference/trackcolumn.md): numbers, signs, group folds and bar labels, `paw.trackcolumn`, `paw.ruler`
+- [The part column and the bar labels](reference/partcolumn.md): numbers, signs, group folds and bar labels, `paw.partcolumn`, `paw.ruler`
 - [The graphical window](reference/window.md): its command line, each gesture, the panes and the views in windows of their own
 
 ### Find
@@ -213,8 +213,8 @@ groups below link the main ones.
 
 - [Tempo and time signatures](reference/tempo.md): the tempo map, its commands, the timebase of audio clips
 - [Markers and regions](reference/markers.md): markers, regions, their keys and commands
-- [Subprojects](reference/subprojects.md): sections with tracks of their own, `:nest.new`, their time
-- [Recording](reference/recording.md): track inputs, monitoring, count-in, punch, pre-roll, files, import
+- [Subprojects](reference/subprojects.md): sections with parts of their own, `:nest.new`, their time
+- [Recording](reference/recording.md): part inputs, monitoring, count-in, punch, pre-roll, files, import
 - [Takes](reference/takes.md): takes, comping, take lanes
 - [MIDI](reference/midi.md): controller moves, the event list, MIDI input and output, MPE, MIDI files
 - [MIDI controllers](reference/learn.md): bind knobs, faders and pads to controls
@@ -227,7 +227,7 @@ groups below link the main ones.
 - [Routing: groups, VCAs, sends and side-chains](reference/routing.md): groups, linked faders, VCAs, outputs, sends, side-chains, output pairs
 - [Automation](reference/automation.md): automation modes, how the controls write automation
 - [Scopes](reference/narrowing.md): a window of one group or one region, the keys that move between scopes, the rest of the song
-- [Frozen tracks](reference/freezing.md): frozen and held tracks
+- [Frozen parts](reference/freezing.md): frozen and held parts
 - [Devices](reference/devices.md): the built-in devices, wet/dry and output gain, presets
 - [Device parameters](reference/device-parameters.md): the fields of each parameter, the ids of plugins, values as text
 - [Plugins](reference/plugins.md): formats, scan, editors, processes, status, offline devices
@@ -253,7 +253,7 @@ groups below link the main ones.
 ### Lua and extensions
 
 - [The Lua interface](reference/scripting.md): the `paw` module, its layers and units, and the pages below
-- [Project objects in Lua](reference/lua-objects.md): tracks, devices, clips, notes, attributes, the transport, tempo, automation
+- [Project objects in Lua](reference/lua-objects.md): parts, devices, clips, notes, attributes, the transport, tempo, automation
 - [Commands, keys and options in Lua](reference/lua-commands.md): `paw.command`, ranges, `paw.ex`, `paw.keymap`, `paw.option`
 - [Views and buffers in Lua](reference/lua-views.md): views, roles, buffer types, text buffers, the pointer, curves, layers
 - [Addresses, diagnostics and lists in Lua](reference/lua-addresses.md): `paw.address`, `paw.diagnostic`, `paw.qf`, `paw.lsp`, queries
@@ -277,7 +277,7 @@ groups below link the main ones.
 - [About the key rule](explanation/about-the-key-rule.md): why a key means the same in every view
 - [About scenes: one view, two frontends](explanation/about-scenes.md): why the graphical window has no views of its own
 - [About seats](explanation/about-seats.md): many frontends and people on one instance, the state of each, and a safe network connection
-- [About the look of paw](explanation/about-the-look.md): color for attention, the color of a track, cells first
+- [About the look of paw](explanation/about-the-look.md): color for attention, the color of a part, cells first
 - [About the audio engine](explanation/about-the-audio-engine.md): many cores and one result, delay compensation, failed devices, long files
 - [About the plugin sandbox](explanation/about-the-plugin-sandbox.md): one process for each plugin, and what it costs
 - [About ARA plugins](explanation/about-ara.md): plugins that read whole clips, how paw hosts them, and what Windows plugins need
@@ -285,7 +285,7 @@ groups below link the main ones.
 - [About time and tempo](explanation/about-time-and-tempo.md): the tempo map, and which clock each thing keeps
 - [About time stretch](explanation/about-stretching.md): the two methods, formants, why paw stretches a file one time
 - [About cues](explanation/about-cues.md): clips off the timeline played from a beat, and why a render plays only the timeline
-- [About groups and VCAs](explanation/about-groups-and-vcas.md): why groups and VCAs are usual tracks, narrowing, freezing
+- [About groups and VCAs](explanation/about-groups-and-vcas.md): why groups and VCAs are usual parts, narrowing, freezing
 - [About scopes](explanation/about-scopes.md): narrowing, folds and subprojects as one model, why a fold is not an undo step, why a scope never copies
 - [About MIDI 2.0 in paw](explanation/about-midi-2.md): fractions, controllers for each note, ports, MPE
 - [About the harmony reading](explanation/about-the-harmony-reading.md): how paw finds chords and keys, and why providers can replace it

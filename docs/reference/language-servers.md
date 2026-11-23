@@ -22,12 +22,12 @@ The terminal shows diagnostics first, and the graphical window shows the same di
 | Subject of the diagnostic | Terminal | Graphical window |
 | --- | --- | --- |
 | notes | a line under the notes in the piano roll, in the color of the severity, the message after the last note, a mark on the ruler | an outline around the notes, the message in the hint line |
-| a track | a sign before the name in the track header, and at the end of the name on the mixer strip | the same |
+| a part | a sign before the name in the part header, and at the end of the name on the mixer strip | the same |
 | a device or a parameter | a sign and the message after the device name in the device panel, a sign before the parameter name | the same |
 | a part of the song | a mark on the ruler of the arrange view | the same |
 | a render | a line under Renders in `:diagnostics`, with fixes that render again | the same |
 
-The severity colors are red (error), amber (warning), blue (information) and gray (hint). The status line counts the diagnostics (`E1 W2`) of the clip in the piano roll, or of the project when no clip is open, and a label of a server on a track shows on the peak row of the mixer strip.
+The severity colors are red (error), amber (warning), blue (information) and gray (hint). The status line counts the diagnostics (`E1 W2`) of the clip in the piano roll, or of the project when no clip is open, and a label of a server on a part shows on the peak row of the mixer strip.
 
 ## Keys and commands
 
@@ -51,10 +51,10 @@ Each thing in the project has an address, which is a URI made from ids, and an a
 | Address | Thing |
 | --- | --- |
 | `paw://project` | the project |
-| `paw://track/12` | a track (`paw://track/0` is the master) |
-| `paw://track/12/device/3` | a device |
-| `paw://track/12/device/3/param/cutoff` | a parameter |
-| `paw://track/12/send/5` | a send |
+| `paw://part/12` | a part (`paw://part/0` is the master) |
+| `paw://part/12/device/3` | a device |
+| `paw://part/12/device/3/param/cutoff` | a parameter |
+| `paw://part/12/send/5` | a send |
 | `paw://clip/7` | a clip |
 | `paw://clip/7/note/41` | a note |
 | `paw://lane/9` | an automation lane |
@@ -92,7 +92,7 @@ paw accepts these changes:
 
 - a note: pitch, start, length, velocity
 - a clip: insert notes
-- a track: volume, pan, mute, solo, name, output, insert a device
+- a part: volume, pan, mute, solo, name, output, insert a device
 - a device: bypass, parameters
 - a parameter: value
 - a send: level
@@ -104,10 +104,10 @@ A server gets subjects, and a subject is a part of the project as plain data, in
 
 | Subject | Document | Contents | With `focus` |
 | --- | --- | --- | --- |
-| `clip` | `paw://clip/7` | The notes in ticks (960 to the beat) with their ids, the track and its devices, the time signature and the bar where the clip starts, the tempo map over the clip, the key, the controller moves, and as `context` the notes of other tracks that sound with it. The format is the one that MIDI LSP uses. | the clips open in a piano roll |
-| `track` | `paw://track/3` | The fader, pan, mute, solo, output and sends, the devices with the values and ranges of their parameters, and the clips. | the track at a cursor |
-| `mix` | `paw://project#mix` | Each track as above with its address, the master, the tempo and time signatures, the sample rate, the loudness targets, the options of the last render. | |
-| `project` | `paw://project` | A summary: the tracks with their number of clips and devices, the markers, the tempo, the length. | |
+| `clip` | `paw://clip/7` | The notes in ticks (960 to the beat) with their ids, the part and its devices, the time signature and the bar where the clip starts, the tempo map over the clip, the key, the controller moves, and as `context` the notes of other parts that sound with it. The format is the one that MIDI LSP uses. | the clips open in a piano roll |
+| `part` | `paw://part/3` | The fader, pan, mute, solo, output and sends, the devices with the values and ranges of their parameters, and the clips. | the part at a cursor |
+| `mix` | `paw://project#mix` | Each part as above with its address, the master, the tempo and time signatures, the sample rate, the loudness targets, the options of the last render. | |
+| `project` | `paw://project` | A summary: the parts with their number of clips and devices, the markers, the tempo, the length. | |
 | `render` | `paw://render/...` | A rendered file: its path, format, rate, bits, channels, length, measured peak and loudness, its render options, the devices of the master. | |
 
 The loudness targets of the `mix` subject are `paw.opt.loudness_target`
@@ -118,12 +118,12 @@ paw sends a document when a server attaches to it, and it sends the document aga
 A server attaches to subjects by the first rule that applies in this list:
 
 1. by the `attach` field of its config:
-   `attach = { subjects = { "mix", "render" }, where = { focus = true, tracks = { "Flute*" }, drums = false } }`
+   `attach = { subjects = { "mix", "render" }, where = { focus = true, parts = { "Flute*" }, drums = false } }`
 2. otherwise, by the subjects that it asks for in its `initialize` answer
    (`capabilities.paw.subjects`)
 3. otherwise, to clips.
 
-With `focus = true`, the server gets only what a person looks at, which is the clip in the piano roll and the track at the cursor. Without it, a server of the mix or of renders gets the full subject at all times.
+With `focus = true`, the server gets only what a person looks at, which is the clip in the piano roll and the part at the cursor. Without it, a server of the mix or of renders gets the full subject at all times.
 
 ## Server config
 
@@ -189,9 +189,9 @@ A diagnostic, as the server publishes it:
 { "uri": "paw://project#mix",
   "diagnostics": [ { "severity": 2, "code": "hot-fader", "source": "mixcheck",
     "message": "Bass's fader is at +3.0 dB: it may clip",
-    "data": { "location": { "uri": "paw://track/4" },
+    "data": { "location": { "uri": "paw://part/4" },
               "fixes": [ { "title": "Bring Bass to 0 dB",
-                           "edit": [ { "uri": "paw://track/4", "set": { "volume": 0 } } ] } ] } } ] }
+                           "edit": [ { "uri": "paw://part/4", "set": { "volume": 0 } } ] } ] } } ] }
 ```
 
 Two complete examples are `tests/fixtures/mix_lint.py`, a server for the mix, and `tests/fixtures/range_lint.py`, a server for clips.
@@ -206,8 +206,8 @@ Any Lua code can publish diagnostics with `paw.diagnostic.set`, and the code doe
 
 ```lua
 paw.diagnostic.set("mylint", "mylint", {
-  { location = { uri = "paw://track/3" }, severity = "warning", message = "too loud",
-    fixes = { { title = "Lower it", edit = { { uri = "paw://track/3", set = { volume = -6 } } } } } },
+  { location = { uri = "paw://part/3" }, severity = "warning", message = "too loud",
+    fixes = { { title = "Lower it", edit = { { uri = "paw://part/3", set = { volume = -6 } } } } } },
 })
 ```
 
@@ -231,4 +231,4 @@ paw.diagnostic.set("mylint", clip, { { notes = { 3 }, message = "...", fixes = {
     - a limiter on the master that is bypassed (fix: enable it) or not last
 
     The messages of this server name the render dialog of REAPER, where paw has the render options.
-- mixdiag (`extensions/mixdiag`) is a server in Lua, and its results show as diagnostics on the tracks that they name. If a result gives the number of dB to lower a fader, the diagnostic has a fix, so the report of mixdiag and `:diagnostics` agree.
+- mixdiag (`extensions/mixdiag`) is a server in Lua, and its results show as diagnostics on the parts that they name. If a result gives the number of dB to lower a fader, the diagnostic has a fix, so the report of mixdiag and `:diagnostics` agree.

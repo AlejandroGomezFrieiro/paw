@@ -27,7 +27,7 @@ quits. Each day therefore also tests that the project opens from the disk
 in a new process, so nothing can live only in the memory of the process.
 
 A seed sets the details, e.g., the tempo, the notes, the names, the levels
-and the track that the person changes. The same seed gives the same days on
+and the part that the person changes. The same seed gives the same days on
 each machine, because the scenarios use their own number generator and not
 the one of LuaJIT. The scenarios follow the process of a person, and the
 music does not need to be good.
@@ -44,7 +44,7 @@ parts cannot cover.
 ### A reference model for the data of the project
 
 `tests/e2e/model.lua` is a small model of a project. It holds the tempo,
-the markers and the regions. For each track, it holds the name, color,
+the markers and the regions. For each part, it holds the name, color,
 volume, pan, mute, solo, devices, sends, clips, notes and the points of its
 automation lanes. Each action of a scenario gives two things:
 
@@ -54,7 +54,7 @@ automation lanes. Each action of a scenario gives two things:
 After each action, the test runner reads the state of paw through the
 public Lua objects, in the shape of the model, and it compares each field.
 The first fields that differ give the failure, e.g.,
-`project.tracks[Bass].volume: want 7, got 6`.
+`project.parts[Bass].volume: want 7, got 6`.
 
 The model must stay small enough to trust, so it follows these rules:
 
@@ -64,7 +64,7 @@ The model must stay small enough to trust, so it follows these rules:
 - It holds only what the person sees and relies on, and not ids, caches or
   the layout of the screen. A field that a scenario does not know is `ANY`,
   and the test runner does not compare it. For example, the layout of the
-  clips of an imported MIDI file is `ANY`, but the notes of each track are
+  clips of an imported MIDI file is `ANY`, but the notes of each part are
   always known, at their time in the song.
 - Each rule in it comes from the documentation. For example, the fader
   stops at +6 dB, because the reference of the mixer says so. When the
@@ -106,7 +106,7 @@ why the sound changed, e.g., a new synth or a fix of the gain, so that a
 review of the commit looks at the numbers that changed. A fingerprint that
 changes with no reason is a bug.
 
-The fingerprint is coarse on purpose. It finds a track that is silent, a
+The fingerprint is coarse on purpose. It finds a part that is silent, a
 send that doubles a level, or a part at the wrong time, but it does not
 find a small change of the tone.
 
@@ -139,15 +139,15 @@ The scenario `song` has 14 days:
 | --- | --- |
 | 1 | A sketch: a tempo, a lead and a bass drawn, a bar drawn and undone, a marker, the mixer and the help. |
 | 2 | Material from outside: a public-domain MIDI file and a CC0 sample, synths, names, colors, a repeated bar, levels. |
-| 3 | A first mix: a reverb track with sends, pan and level in the mixer, a faster tempo, exports as WAV and MIDI. |
+| 3 | A first mix: a reverb part with sends, pan and level in the mixer, a faster tempo, exports as WAV and MIDI. |
 | 4 | The piano roll: a transpose tried, undone and tried again, the velocity, a quantize, the bass an octave down. |
 | 5 | A take played on the test MIDI port of the null backend, recorded from bar 5 and quantized to the beat. |
 | 6 | Automation: volume points typed with `:lane.add` and `A`, a pan lane, a solo tried in the mixer. |
 | 7 | A time stretch of the sample, a region over a loop, a marker named when asked. |
 | 8 | A voice deleted and brought back with `u`, another deleted for good. |
-| 9 | The files buffer puts the sample on a new track. The pickers find a track and a marker. |
+| 9 | The files buffer puts the sample on a new part. The pickers find a part and a marker. |
 | 10 | The undo tree: two ideas on two branches, `g-` to the first. |
-| 11 | `:media.collect`, and a stem for each track. |
+| 11 | `:media.collect`, and a stem for each part. |
 | 12 | Rework: a new bass, a bar of lead deleted, a slower tempo. |
 | 13 | The lead's bar repeated, its last copy muted. |
 | 14 | The last levels, the help of `:export`, the final mix and a MIDI file. |

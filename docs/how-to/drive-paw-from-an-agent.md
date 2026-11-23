@@ -9,7 +9,7 @@ on the same machine.
 ## With a shell
 
 1. Start paw, or start `paw --headless` for an instance with no terminal.
-2. To read the state, call `project_get`, `track_list` and `clip_notes` with
+2. To read the state, call `project_get`, `part_list` and `clip_notes` with
    `paw ctl --json`:
 
    ```sh
@@ -26,7 +26,7 @@ on the same machine.
      `paw.harmony.key()` and `paw.harmony.step(key, pitch, n)`.
 4. To check the result without a person who listens, call `paw.render` and
    `paw.api.measure`. They give the loudness, the true peak, the clipped
-   samples and the level of each track.
+   samples and the level of each part.
 
 `--json` gives one line for each answer, and if the call fails, the exit
 status is 1. The details are in [Scripts and `paw ctl`](../reference/ctl.md).

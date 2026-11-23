@@ -1,31 +1,31 @@
 <!-- Made by extensions/tutor/make-docs.lua from the tutor's lessons. Do not edit: change the lesson and run it again. -->
 
-# Lesson 3: Tracks, clips and notes
+# Lesson 3: Parts, clips and notes
 
 *The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor 3`.*
 
-In this lesson, we add a track with a name and a synth, and we draw some notes with the keyboard. Then we listen to the notes with a drum beat.
+In this lesson, we add a part with a name and a synth, and we draw some notes with the keyboard. Then we listen to the notes with a drum beat.
 
-A track has clips on the timeline and a chain of devices. The first device is an instrument, which makes sound from notes, and effects come after it. A MIDI clip contains notes, and an audio clip contains a recording. A new track makes no sound until it has an instrument.
+A part has clips on the timeline and a chain of devices. The first device is an instrument, which makes sound from notes, and effects come after it. A MIDI clip contains notes, and an audio clip contains a recording. A new part makes no sound until it has an instrument.
 
 ## The idea
 
-In normal mode, lowercase letters do an action on the item under the cursor. For example, `o` opens a new track below, and `a` adds a device. Moreover, `i` inserts clips and notes, and `x` deletes the clip while `&` repeats it. `u` undoes and `<C-r>` redoes, so you can take back each change that you make here.
+In normal mode, lowercase letters do an action on the item under the cursor. For example, `o` opens a new part below, and `a` adds a device. Moreover, `i` inserts clips and notes, and `x` deletes the clip while `&` repeats it. `u` undoes and `<C-r>` redoes, so you can take back each change that you make here.
 
 ## If you know Vim
 
-`o` and `O` add a track below and above, as they add lines in Vim. `i` starts insert mode, where each key inserts an item, e.g., `m` a MIDI clip, `r` a region and `'` a marker. `<CR>` opens the clip in the piano roll in insert mode, where the cursor draws notes instead of text. `grn` renames.
+`o` and `O` add a part below and above, as they add lines in Vim. `i` starts insert mode, where each key inserts an item, e.g., `m` a MIDI clip, `r` a region and `'` a marker. `<CR>` opens the clip in the piano roll in insert mode, where the cursor draws notes instead of text. `grn` renames.
 
 ## Steps
 
 The tutor opens a practice project for the lesson, and it checks each step when you do it.
 
-1. `o` adds a track below the track of the cursor. Press `o`.
-   - ✓ A new empty track shows, and the cursor is on it.
-2. Give the track a name. Press `grn`, and press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.
+1. `o` adds a part below the part of the cursor. Press `o`.
+   - ✓ A new empty part shows, and the cursor is on it.
+2. Give the part a name. Press `grn`, and press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.
    - *Hint:* `grn` shows the old name on the command line. `<C-u>` is Ctrl and u. `<Esc>` cancels.
-   - ✓ The name of the track is Bass.
-3. A track makes no sound until it has an instrument. Press `a`, type `synth` and press `<CR>`.
+   - ✓ The name of the part is Bass.
+3. A part makes no sound until it has an instrument. Press `a`, type `synth` and press `<CR>`.
    - *Hint:* `a` opens a list of all the devices, and the text that you type makes the list shorter. `<CR>` selects the first item.
    - ✓ Bass has a synth.
 4. `i` starts insert mode. In insert mode, `m` inserts a MIDI clip at the cursor, and `<CR>` opens the clip in the piano roll, where you draw notes. Press `i`, `m` and `<CR>`.
@@ -39,17 +39,17 @@ The tutor opens a practice project for the lesson, and it checks each step when 
    - ✓ You heard the bass line that you wrote.
 8. `&` puts a copy of the clip immediately after it. Press `&` two times.
    - *Hint:* The cursor must be on the clip. `0` moves it to the start.
-   - ✓ The track has three copies of the clip, one after the other.
+   - ✓ The part has three copies of the clip, one after the other.
 9. `u` undoes the last change and `<C-r>` (Ctrl and r) redoes it. Press `u`, then `<C-r>`.
    - ✓ paw undid the change and did it again. Each key that changes the project is one undo step.
 10. `x` deletes the clip under the cursor. Press `x`.
     - ✓ paw deleted the clip, and `u` can bring it back.
 11. Listen to the result. Press `gs` to move to the start, `<Space><Space>` to play and `<Space><Space>` to stop.
-    - ✓ You have a bass line on a track that you made.
+    - ✓ You have a bass line on a part that you made.
 
 ## What we did
 
-We made a track and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change.
+We made a part and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change.
 
 - Previous: [Move the cursor, and keys that change meaning](02-moving.md)
 - Next: [The piano roll and insert mode](04-pianoroll.md)
