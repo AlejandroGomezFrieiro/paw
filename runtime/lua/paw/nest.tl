@@ -1076,9 +1076,9 @@ end
 --- song's bars (`@9`).
 local function shown_words(nest: integer): string
   local n = M.get(nest)
-  local count = #api.track_list({nest = nest})
+  local tracks = #api.track_list({nest = nest})
   local words = string.format(
-    "showing the %d track%s of ⧉%s under its row", count, count == 1 and "" or "s", n and n.name or "?"
+    "showing the %d track%s of ⧉%s under its row", tracks, tracks == 1 and "" or "s", n and n.name or "?"
   )
   local count = M.places(nest)
   if count < 2 then

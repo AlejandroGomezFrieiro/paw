@@ -30,6 +30,7 @@ local domains = {
   a = "automation",
   c = "clip",
   d = "devices",
+  e = "export",
   f = "find",
   g = "versions",
   h = "tutor",
