@@ -75,7 +75,9 @@ local function saved_limiter(kind, name)
   end
   fx:set(gain.key, gain.min)
   -- The plugin takes the value with its next block; its saved state after.
-  paw.wait(100)
+  -- A wait of schedule time does not run the plugin's blocks (they run on
+  -- the wall clock): wait for a block of the device itself.
+  T.next_block(1, fx.id)
   local path = paw.project.save(T.scratch .. "/" .. name .. ".json")
   return path, gain, saved_states(path)[2]
 end
