@@ -77,7 +77,7 @@ test("in the piano roll of a transposed copy, a note added at E4 is C#4 in the s
   eq(pitches(riff), "60 61 62 64 65", "and in the clip's, which it shares")
   local shown = {}
   for _, n in ipairs(T.roll_notes()) do
-    if n.props.key:find("note:" .. copy.id .. ":", 1, true) then shown[#shown + 1] = n.props.label end
+    if n.k:find("/note:" .. copy.id .. ":", 1, true) then shown[#shown + 1] = n.props.label end
   end
   eq(table.concat(shown, " "), "D#4 E4 F4 G4 G#4", "the roll shows each note at the pitch it plays")
 end)
@@ -102,6 +102,8 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   said = table.concat(said, "\n")
   eq(said:find("plays with transpose +3, velocity -10", 1, true) ~= nil, true, "K: " .. said)
   paw.ui.close()
+  -- Wide enough for the whole label on a clip of 4 beats.
+  paw.opt.zoom = 4
   eq(T.screen(100, 30):find("riff ≡ +3", 1, true) ~= nil, true, "the label of the copy")
   local dir = T.scratch .. "/overrides-song"
   keys(":w " .. dir .. "<CR>")

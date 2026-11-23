@@ -519,7 +519,7 @@ local function step_after(item: Item)
   cursor.set_beat(item.start + length)
 end
 
-local function placed(spec: Kind, item: Item)
+local function took(spec: Kind, item: Item)
   session.items[#session.items + 1] = item
   session.specs[#session.specs + 1] = spec
   step_after(item)
@@ -568,7 +568,7 @@ press = function(key: string)
       name = spec.name,
     }
     ctx.placed = function(item: Item)
-      placed(spec, item)
+      took(spec, item)
       paw.notify("inserted " .. item.text .. " at " .. paw.time.format(item.start))
     end
     local fn = spec.insert or builtin[spec.kind] or (paw.clip_kinds.spec(spec.kind) and custom_clip)
@@ -585,7 +585,7 @@ press = function(key: string)
       end
       break
     end
-    placed(spec, item)
+    took(spec, item)
     made_n, last = made_n + 1, item
   end
   if last then
