@@ -2661,6 +2661,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.now()`
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
+- `paw.api.plugins_dirs()`: The folders where paw looks for plugins, for each format, in the order that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`. They include the folders that `plugins_add_dir` added. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_remove_dir(dir, kinds)`: Stop to find plugins in a directory added with `plugins_add_dir`, and make no more devices of `kinds`, the kinds found there. Devices that exist continue to work.
 - `paw.api.plugins_rescan(name)`: Examine the plugin files again (all, or those that `name` matches). This includes the files that failed before. Returns notes on the files that paw cannot use, or nil without plugins.
 - `paw.api.preview_get()`

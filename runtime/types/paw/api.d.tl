@@ -212,6 +212,7 @@ local record api
    now: function(): number
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
+   plugins_dirs: function(): {string: {string}}
    plugins_remove_dir: function(dir: string, kinds: {string})
    plugins_rescan: function(name?: string): {string}
    preview_get: function(): types.Preview

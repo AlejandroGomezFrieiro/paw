@@ -240,6 +240,8 @@ local function fresh()
   -- project starts with none.
   local qf = paw.qf.stack()
   qf.lists, qf.at = {}, 0
+  -- An error of an earlier test would stay named on the key line.
+  require("paw.views.cmdline").read_errors()
   paw.flush()
 end
 

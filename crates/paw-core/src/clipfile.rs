@@ -856,14 +856,14 @@ mod tests {
     // past the largest number overflowed, and a dev build panicked.
     #[test]
     fn an_origin_or_a_length_past_the_largest_tick_reads_without_a_panic() {
+        // Past the range a clip holds (TASK-173): refused with a message.
         let far_origin = file_with(&format!("paw:{{\"origin\":{}}}", i64::MAX), &[utility(0x4, 1)]);
-        assert!(decode(&far_origin).is_ok());
+        assert!(decode(&far_origin).is_err());
 
         let mut note = vec![utility(0x4, 1)];
         flex_text(&mut note, &format!("paw:{{\"len\":{}}}", i64::MAX));
         note.extend([utility(0x4, 0), 0x2090_3C64]);
-        let clip = decode(&file_with("", &note)).unwrap();
-        assert_eq!(clip.notes.len(), 1, "{}", text(&clip));
+        assert!(decode(&file_with("", &note)).is_err());
     }
 }
 
