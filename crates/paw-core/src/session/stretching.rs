@@ -25,7 +25,7 @@ use crate::peaks;
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 use crate::bake::scheduler::{Busy, Priority, Status};
 use crate::events::{BakeProgress, KernelEvent as E};
-use crate::stretched::{Key, SETTLE};
+use crate::stretched::{Key, SETTLE, ViewRange};
 use crate::media::Sources;
 use crate::warp;
 
@@ -397,9 +397,21 @@ impl Session {
         Ok(clip.clone())
     }
 
+    /// What the windows on screen show now: the bakes of the clips there
+    /// start before the rest (`bake_wants`), at the next poll.
+    pub fn view_ranges_set(&mut self, ranges: Vec<ViewRange>) {
+        self.audio.upkeep.views = ranges;
+    }
+
+    /// What the windows on screen show, as they told it last.
+    pub fn view_ranges(&self) -> &[ViewRange] {
+        &self.audio.upkeep.views
+    }
+
     /// What the bakes of stretched clips are wanted for: those the
     /// playhead (or, stopped, the cursor) reaches in the next seconds
-    /// first, then those a running render waits for, then the rest.
+    /// first, then those a window shows, then those a running render
+    /// waits for, then the rest.
     fn bake_wants(&self) -> HashMap<Key, Priority> {
         let rate = self.engine.handle.sample_rate as u32;
         let map = self.project.tempo_map();
@@ -410,11 +422,19 @@ impl Session {
             let was = wants.entry(key).or_default();
             *was = (*was).max(priority);
         };
+        let views = &self.audio.upkeep.views;
         for track in self.project.all_tracks() {
             for clip in &track.clips {
                 if let Some(key) = Key::of(clip, rate, map, &self.sources) {
-                    let soon = clip.start < to && clip.start + clip.length > from;
-                    want(key, if soon { Priority::Playing } else { Priority::Background });
+                    let end = clip.start + clip.length;
+                    let priority = if clip.start < to && end > from {
+                        Priority::Playing
+                    } else if views.iter().any(|view| view.shows(track.id, clip.start, end)) {
+                        Priority::Visible
+                    } else {
+                        Priority::Background
+                    };
+                    want(key, priority);
                 }
             }
             // Clips off the timeline play when they are launched: any time.

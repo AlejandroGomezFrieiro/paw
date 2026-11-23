@@ -9,7 +9,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::grid::{self, Caps, Color, Grid, Highlight, Rect, Style, StyleId};
 
-use super::{LuaText, Shared, cell, to_lua};
+use super::{LuaText, Shared, cell, from_lua, to_lua};
 
 /// A terminal's capabilities as Lua reads them (`paw.api.ui_caps`).
 fn caps_lua(caps: &Caps) -> Value {
@@ -173,6 +173,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return integer
         fn ui_redraws(_, sh, () => ()) { Ok(sh.redraws.get()) }
+        // Tell paw which part of the song each window shows: a list of ranges of
+        // beats, each with the tracks shown (all tracks when `tracks` is nil). The
+        // stretched clips there bake before the others. paw.derived sends this
+        // after each frame.
+        // @param ranges {types.ViewRange}
+        // @return nil
+        fn view_ranges_set(lua, sh, ranges => LuaValue) {
+            sh.session.borrow_mut().view_ranges_set(from_lua(lua, ranges)?);
+            Ok(())
+        }
+        // The ranges that `view_ranges_set` gave last.
+        // @return {types.ViewRange}
+        fn view_ranges(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().view_ranges()) }
         // The prompt on the command line changed: draw its live parts again
         // (the line and the list), on the frame drawn last, and tell the
         // windows that show state that something moved. Cheaper than

@@ -24,6 +24,7 @@ end
 local api = paw.api
 local rpc = require("paw.lsp.rpc")
 local document = require("paw.lsp.document")
+local derived = require("paw.derived")
 
 local SERVER = "tests/fixtures/range_lint.py"
 
@@ -146,6 +147,33 @@ test("lsp: a clip becomes MIDI LSP's document, with what sounds with it", functi
   paw.flush()
   eq(document.key_of(clip.id) ~= before, true, "an edit changes the key")
   eq(document.clip_of(doc.uri), clip.id, "the URI names the clip again")
+end)
+
+test("lsp: an edit of a clip that does not overlap the document keeps its key, and lists no clips", function()
+  start()
+  local clip = flute()
+  local bass = paw.add_track({ name = "Bass" })
+  local under = bass:add_clip({ start = 2, length = 8, notes = { { pitch = 36, start = 3, length = 2 } } })
+  local far = bass:add_clip({ start = 32, length = 4, notes = { { pitch = 40, start = 0, length = 1 } } })
+  paw.flush()
+  local before = document.key_of(clip.id)
+  far:set_note(1, { pitch = 43 })
+  paw.flush()
+  -- The edit is taken in in slices, as after a pause of the keys.
+  derived.run()
+  local lists, clip_list = 0, api.clip_list
+  api.clip_list = function(...)
+    lists = lists + 1
+    return clip_list(...)
+  end
+  local ok, key = pcall(document.key_of, clip.id)
+  api.clip_list = clip_list
+  assert(ok, key)
+  eq(key, before, "the key is as it was")
+  eq(lists, 0, "no list of clips is read")
+  under:set_note(1, { pitch = 38 })
+  paw.flush()
+  eq(document.key_of(clip.id) ~= before, true, "an edit of a clip under it changes the key")
 end)
 
 -- A server of the tests' own -------------------------------------------------------

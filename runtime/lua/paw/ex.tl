@@ -337,8 +337,8 @@ local function view_clips(r?: Range): {integer}
   return a.clips and a.clips() or nil
 end
 
---- The tracks a range can name: those of the narrowed tab's group, in a
---- tab narrowed to one (`paw.scope`); `t1` is the first of them.
+--- The tracks a range can name: those of the scope of a narrowed window
+--- (`paw.scope`); `t1` is the first of them.
 local function scoped(): {integer}
   return paw.scope.tracks()
 end
@@ -1663,7 +1663,7 @@ local function copy_or_move(ctx: Context, move: boolean)
     if not n then
       fail("`%s`: tracks go below a track's number: `:t2 %s 5`, `0` for the top", text, name)
     end
-    -- In a narrowed tab N counts its tracks: below the Nth of them. The
+    -- In a narrowed window N counts its tracks: below the Nth of them. The
     -- place counts among the tracks of the song, or of the subproject.
     local nest = paw.scope.nest()
     local place = api.track_list({nest = nest and nest.id or nil})

@@ -92,6 +92,7 @@ local record ClipKey
   id: integer -- a clip with this content
   stamp: integer
   length: number
+  transpose: integer -- the clip's override: its notes sound this much higher
 end
 
 --- A clip that sounds, where it is: its content (the notes that sound,
@@ -186,16 +187,18 @@ local tracks_node = derived.node(tracks_node_spec)
 local clip_node_spec: derived.Spec<ClipKey, read.Run, boolean> = {
   name = "harmony.clip",
   kind = "family",
-  id = function(k: ClipKey): string return string.format("%s:%.17g", tostring(k.stamp), k.length) end,
-  -- The notes that a trim of the clip's edges hides are left out.
+  id = function(k: ClipKey): string return string.format("%s:%.17g:%d", tostring(k.stamp), k.length, k.transpose) end,
+  -- The notes that a trim of the clip's edges hides are left out, and those
+  -- that the transpose takes out of the MIDI range.
   make = function(_: derived.Ctx, k: ClipKey): read.Run
     local notes: {read.Note} = {}
     local list = api.clip_notes(k.id)
     for i_n = 1, #list do
       local n = list[i_n]
-      if n.start >= 0 and n.start < k.length then
+      local pitch = n.pitch + k.transpose
+      if n.start >= 0 and n.start < k.length and pitch >= 0 and pitch <= 127 then
         notes[#notes + 1] = {
-          pitch = n.pitch,
+          pitch = pitch,
           start = n.start,
           length = math.min(n.length, k.length - n.start),
           velocity = n.velocity,
@@ -223,7 +226,7 @@ local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
     v.pool = {}
     for _, c in ipairs(ctx:clips(id)) do
       if c.kind == "midi" and not c.muted then
-        local run = ctx:get(clip_node, {id = c.id, stamp = c.stamp, length = c.length})
+        local run = ctx:get(clip_node, {id = c.id, stamp = c.stamp, length = c.length, transpose = c.transpose or 0})
         local place = was[c.id]
         if not (place and place.run == run and place.start == c.start) then
           local reach: number = -math.huge

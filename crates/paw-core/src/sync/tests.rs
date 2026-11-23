@@ -438,6 +438,60 @@ fn an_edit_of_notes_that_copies_share_compiles_them_once() {
     assert_eq!((count, compiled(&map).len()), (2, 2));
 }
 
+/// An edit of one clip of a link of 10 reaches the other 9 as the same
+/// notes (`model/links.rs`): the sync compiles them one time.
+#[test]
+fn an_edit_of_a_link_of_ten_clips_compiles_once() {
+    let mut linked = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let source = Clip { link: Some("riff".into()), ..source_clip(384) };
+    let clips: Vec<Arc<Clip>> = (0..10)
+        .map(|k| Arc::new(Clip { id: 1000 + k, start: k as f64 * 32.0, ..source.clone() }))
+        .collect();
+    linked.track_mut(1).unwrap().clips = clips.into();
+    let mut edited = linked.clone();
+    let links = crate::model::Links::before(&edited);
+    let fourth = Arc::make_mut(&mut edited.track_mut(1).unwrap().clips[3]);
+    *fourth = bumped(fourth);
+    links.spread(&mut edited);
+    let (map, count) = compiles(&[&linked, &edited]);
+    assert_eq!(count, 1, "the piece of notes the edit changed, one time");
+    // Every clip of the link plays the edit, from one list of events.
+    let pitches: Vec<u8> = edited.track(1).unwrap().clips.iter().map(|clip| match &clip.content {
+        ClipContent::Midi { notes, .. } => notes[100].pitch,
+        _ => 0,
+    }).collect();
+    let bumped_pitch = pitches[3];
+    assert!(pitches.iter().all(|p| *p == bumped_pitch), "{pitches:?}");
+    assert_eq!(compiled(&map).len(), 2, "the controllers and the notes");
+}
+
+/// A copy with overrides (`model/overrides.rs`) plays its notes transposed
+/// and with the velocity change, as a copy whose notes were changed that
+/// way does, while the first copy, which shares the same notes, plays
+/// them as they are. A note that the transpose takes above 127 is silent.
+#[test]
+fn a_copy_with_overrides_plays_its_notes_changed() {
+    let note = |pitch: u64, velocity: u64| json!({ "start": 0.0, "length": 1.0, "pitch": pitch, "velocity": velocity });
+    let two_copies = |second: Value, overrides: Value| {
+        let mut p = with_clip(json!({ "kind": "midi", "notes": [note(60, 100), note(126, 100)] }), true);
+        let first = p.track(1).unwrap().clips[0].clone();
+        let mut copy: Clip = serde_json::from_value(json!({ "id": 8, "name": "", "start": 2.0, "length": 4.0,
+            "muted": false, "content": { "kind": "midi", "notes": second }, "overrides": overrides }))
+        .unwrap();
+        // The copy with overrides shares the first copy's notes, as a link does.
+        if overrides != json!({}) {
+            copy.content = first.content.clone();
+        }
+        p.track_mut(1).unwrap().clips = vec![first, Arc::new(copy)].into();
+        p
+    };
+    let notes = json!([note(60, 100), note(126, 100)]);
+    let overridden = played(&two_copies(notes, json!({ "transpose": 3, "velocity": -10 })));
+    let changed = played(&two_copies(json!([note(63, 90)]), json!({})));
+    assert!(overridden.iter().any(|s| *s != 0.0), "the copies sound");
+    assert!(overridden == changed, "the copy plays its notes as changed notes play");
+}
+
 /// The engine plays copies that share their events, looped, cut at the
 /// start of a window or short, as it plays every clip's events compiled
 /// where it is, in one list: the same samples.

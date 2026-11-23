@@ -143,6 +143,9 @@ impl Session {
         touched: Option<bool>,
     ) {
         project.refresh_tempo();
+        // The clips of a link read their notes each on their own from a
+        // project file: in memory they share them.
+        project.join_links();
         self.apply_open_opts(&mut project);
         // Another project: a trial of this one's is over with it.
         self.audition.trial = None;

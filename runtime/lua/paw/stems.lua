@@ -1,5 +1,5 @@
 -- Stems by group: one file for each group (or each track) of the song, or
--- of the group a narrowed tab shows, named after it. `:render stems` shows
+-- of the group a narrowed window shows, named after it. `:render stems` shows
 -- what it would write first, and renders on `y`.
 --
 --   paw.stems.plan({ dir = "out", format = "flac" })   -- what would be written
@@ -41,7 +41,7 @@ end
 --- order of the track list. `opts`: `dir` (where; `stems` in the renders
 --- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed tab, the parts of its group.
+--- (that group, or track, alone). In a narrowed window, the parts of its scope.
 function M.plan(opts)
   opts = opts or {}
   local scope = paw.scope.group()

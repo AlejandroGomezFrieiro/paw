@@ -83,7 +83,8 @@ groups below link the main ones.
 - [How to undo, and return to an earlier state](how-to/undo-and-return-to-an-earlier-state.md): the undo tree
 - [How to compare two versions by ear](../extensions/undotree/README.md#how-to-compare-two-versions-by-ear)
 - [How to work on one group of a large project](how-to/work-on-one-group.md)
-- [How to work on one section of a song](how-to/work-on-one-section-of-a-song.md): a region in a tab of its own, bars from 1
+- [How to work on one section of a song](how-to/work-on-one-section-of-a-song.md): a region in a narrowed window, bars from 1
+- [How to work on a section in another meter](how-to/work-on-a-section-in-another-meter.md): a bridge in 6/8 in a song in 4/4, entered and folded, or a subproject with its own meter
 - [How to arrange your screen: windows, tabs and layouts](how-to/arrange-your-screen.md): one view full screen, two clips side by side, a layout of your own
 
 ### Find things
@@ -279,6 +280,7 @@ groups below link the main ones.
 - [About time stretch](explanation/about-stretching.md): the two methods, formants, why paw stretches a file one time
 - [About cues](explanation/about-cues.md): clips off the timeline played from a beat, and why a render plays only the timeline
 - [About groups and VCAs](explanation/about-groups-and-vcas.md): why groups and VCAs are usual tracks, narrowing, freezing
+- [About scopes](explanation/about-scopes.md): narrowing, folds and subprojects as one model, why a fold is not an undo step, why a scope never copies
 - [About MIDI 2.0 in paw](explanation/about-midi-2.md): fractions, controllers for each note, ports, MPE
 - [About the harmony reading](explanation/about-the-harmony-reading.md): how paw finds chords and keys, and why providers can replace it
 - [About language servers](explanation/about-language-servers.md): the four layers, addresses with ids, subjects, LSP

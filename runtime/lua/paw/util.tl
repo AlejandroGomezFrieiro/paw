@@ -18,6 +18,13 @@ local record M
   --- Data as Lua holds it: text, a number, a boolean, or a table of them.
   type Data = string | number | boolean | {Data: Data}
 
+  --- An entry of a list that `by_order` sorts: its key and its place.
+  --- `paw.contracts.OwnedEntry` is one.
+  interface Ordered
+    key: string
+    order: integer
+  end
+
   FADER_MIN: number
   FADER_MAX: number
 end
@@ -166,6 +173,15 @@ function M.fit(text: string | number, width: integer): string
   end
   local ellipsis = paw.draw and paw.draw.g.ellipsis or "…"
   return table.concat(out) .. ellipsis .. string.rep(" ", width - used - 1)
+end
+
+--- The order of the entries that extensions add to a list of keys (the
+--- pencil's keys, the insert kinds): by `order`, then by key.
+function M.by_order(a: M.Ordered, b: M.Ordered): boolean
+  if a.order ~= b.order then
+    return a.order < b.order
+  end
+  return a.key < b.key
 end
 
 return M

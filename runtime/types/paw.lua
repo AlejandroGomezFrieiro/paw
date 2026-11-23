@@ -645,6 +645,14 @@ function paw.Clip:set_note(index, fields) end
 ---@param notes any
 function paw.Clip:set_notes(notes) end
 
+--- A handle on the same clip whose pitches are `semitones` above the
+--- stored ones. The notes that it reads, and the notes and pitches that it
+--- takes, are at those pitches. The piano roll edits a clip with a
+--- transpose through such a handle, so that it shows each note at the pitch
+--- it plays at.
+---@param semitones any
+function paw.Clip:shifted(semitones) end
+
 --- The clip as plain data, for `paw.restore_clip`.
 function paw.Clip:snapshot() end
 
@@ -3703,7 +3711,7 @@ function paw.groups.folded(group) end
 function paw.groups.gather(group) end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
---- (the group of a narrowed tab), only the groups inside it count. `top`
+--- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
 ---@param track any
 ---@param top any
@@ -4281,8 +4289,9 @@ function paw.hooks.turn() end
 function paw.hooks.views_shown() end
 
 --- Add a key, or put a new kind in place of the one on it. It goes into
---- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
----   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+--- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
+--- it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
 ---@param key any
 ---@param spec any
 function paw.insert.add(key, spec) end
@@ -5555,10 +5564,10 @@ function paw.lsp.sync() end
 function paw.lsp.document_module.beats(ticks) end
 
 --- The document for a clip, as `midi/didOpen` and `midi/didChange` send it,
---- under `hash` (from `key_of`). Nil when the clip is gone.
+--- under `key` (from `key_of`). Nil when the clip is gone.
 ---@param id any
----@param hash any
-function paw.lsp.document_module.build(id, hash) end
+---@param key any
+function paw.lsp.document_module.build(id, key) end
 
 --- The clip a URI names, or nil.
 ---@param uri any
@@ -5575,6 +5584,11 @@ function paw.lsp.document_module.key(beat) end
 --- the clip does not exist.
 ---@param id any
 function paw.lsp.document_module.key_of(id) end
+
+--- Stop updating the key of clip `id` after each edit, when no server
+--- has its document.
+---@param id any
+function paw.lsp.document_module.release(id) end
 
 --- Beats as ticks of `M.PPQ` a beat, the language server's unit.
 ---@param beats any
@@ -7073,7 +7087,8 @@ function paw.roll_clips.only() end
 function paw.roll_clips.open(ids, active) end
 
 --- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`).
+--- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- are those that the clip plays (`Clip:shifted`).
 function paw.roll_clips.parts() end
 
 --- `:roll.tracks`: a list of the tracks near the roll and of their clips.
@@ -7125,7 +7140,7 @@ function paw.roll_clips.target(beat, parts) end
 function paw.roll_clips.toggle(id) end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
+--- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
 --- track of the active clip. `{ id, name, color, drums, on }` each. `on`
 --- tells if its notes show.
 function paw.roll_clips.tracks() end
@@ -7237,8 +7252,10 @@ function paw.roll_draw.hidden(clip) end
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
---- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
----   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar
+--- shows it after the pencil's own keys, by `spec.order` (50 when not
+--- given), then by key.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
 ---@param lhs any
 ---@param spec any
 function paw.roll_draw.key(lhs, spec) end
@@ -7250,6 +7267,9 @@ function paw.roll_draw.label() end
 --- sets the notes being drawn that long at once.
 ---@param char any
 function paw.roll_draw.length_key(char) end
+
+--- The keys that extensions added to the pencil, by `order`, then by key.
+function paw.roll_draw.list() end
 
 --- Put a mark of the song at the pencil's start (`m` then its kind): `k`
 --- a key change, `t` a tempo, `s` a time signature from the bar, `'` a
@@ -8071,7 +8091,7 @@ function paw.stems.names_group(word) end
 --- order of the track list. `opts`: `dir` (where; `stems` in the renders
 --- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed tab, the parts of its group.
+--- (that group, or track, alone). In a narrowed window, the parts of its scope.
 ---@param opts any
 function paw.stems.plan(opts) end
 
@@ -9381,6 +9401,12 @@ function paw.ui.keybar.show(lhs) end
 ---@param path any
 function paw.undofile.dir(path) end
 
+--- The order of the entries that extensions add to a list of keys (the
+--- pencil's keys, the insert kinds): by `order`, then by key.
+---@param a any
+---@param b any
+function paw.util.by_order(a, b) end
+
 --- `v`, kept between `lo` and `hi`.
 ---@param v any
 ---@param lo any
@@ -9471,10 +9497,10 @@ function paw.vzoom.define(view, zoomer) end
 ---@param opts any
 function paw.vzoom.fit(opts) end
 
---- Rows per key in the piano roll: 1 unzoomed.
+--- Rows per key in the piano roll: 1 at no zoom.
 function paw.vzoom.key_rows() end
 
---- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+--- Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 function paw.vzoom.lane_rows() end
 
 --- The rows of a track of its own in the arrange view's window, or nil.
@@ -9711,6 +9737,14 @@ function paw.api.clip_kind_remove(name) end
 --- The kinds of clip that extensions defined, by name (sorted).
 function paw.api.clip_kinds() end
 
+--- Put a linked copy of a MIDI clip right after it, and return the
+--- id of the copy. The clips of a link share their notes and
+--- controller moves: an edit of one changes all of them. A clip that
+--- has no link yet starts one, named after the clip. `clip_get`
+--- gives a linked clip's `link` and `link_count`.
+---@param id integer
+function paw.api.clip_link(id) end
+
 --- --- clips ---
 --- The clips of a track, in timeline order. With `from` and `to`
 --- (beats), only those that overlap that stretch: a view that shows
@@ -9810,6 +9844,11 @@ function paw.api.clip_source_length(id) end
 ---@param id integer
 ---@param track integer
 function paw.api.clip_to_cues(id, track) end
+
+--- Take a clip out of its link. It keeps its notes, and edits of it no
+--- longer change the other clips.
+---@param id integer
+function paw.api.clip_unlink(id) end
 
 --- Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 ---@param id integer
@@ -11349,6 +11388,16 @@ function paw.api.undo_travel(seconds) end
 
 --- The undo tree and checkpoints: crate::history, session/undo.rs.
 function paw.api.undo_tree() end
+
+--- The ranges that `view_ranges_set` gave last.
+function paw.api.view_ranges() end
+
+--- Tell paw which part of the song each window shows: a list of ranges of
+--- beats, each with the tracks shown (all tracks when `tracks` is nil). The
+--- stretched clips there bake before the others. paw.derived sends this
+--- after each frame.
+---@param ranges any
+function paw.api.view_ranges_set(ranges) end
 
 --- Let `ms` milliseconds pass. Timers fire and events come, as between the
 --- key presses of a person. `sleep` stops all of that. A script that waits

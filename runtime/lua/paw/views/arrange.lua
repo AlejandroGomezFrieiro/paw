@@ -52,6 +52,7 @@ paw.seats.fields("arrange", view, {
 }, { scroll = 0, top = 1, flags = {} })
 
 local draw = paw.draw
+local derived = require("paw.derived")
 -- An empty list, to walk where there is none.
 local NONE = {}
 
@@ -753,6 +754,10 @@ function view.clip_props(clip, track, hue, kind, zoom, chosen, from, to, colour)
   -- mark first where the label does not fit).
   local badge = paw.takes.badge(clip)
   local label = clip.offline and ("offline · " .. clip.name) or clip.name
+  -- A linked clip: `riff ≡`; with overrides, `riff ≡ +3 v-10`.
+  if clip.link then label = label .. " " .. draw.g.link end
+  if (clip.transpose or 0) ~= 0 then label = label .. string.format(" %+d", clip.transpose) end
+  if (clip.velocity or 0) ~= 0 then label = label .. string.format(" v%+d", clip.velocity) end
   -- A block of a subproject: its name after `⧉`, in a frame.
   local block = clip.kind == "nest"
   if block then label = draw.g.nest .. label end
@@ -1502,6 +1507,14 @@ function view:render(buf, ctx)
   local function col(beat) return self:col(beat) end
   -- The beat at the right edge of the timeline.
   local last = self:beat(tw)
+  -- What this window shows, in the song's beats, comes first: the chord
+  -- reading there, and the bakes of the stretched clips there.
+  local origin = paw.time.origin()
+  local shown = { 0 }
+  for _, row in ipairs(L.rows) do
+    if row.kind == "track" then shown[#shown + 1] = row.id end
+  end
+  derived.visible(ctx.win and tostring(ctx.win.id) or "arrange", self.scroll + origin, last + origin, shown)
 
   -- All of it takes the pointer, in both frontends (paw/views/arrange_mouse.lua).
   buf:hit(0, 0, w, h, { kind = "arrange" })

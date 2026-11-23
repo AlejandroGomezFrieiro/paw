@@ -74,7 +74,10 @@ A stretched clip has a label before its name, in both frontends:
   the rhythm and not silence. A render never uses the preview.
 - paw makes the clips that the playhead plays in the next 10
   seconds first, or, when the song is stopped, the clips after the cursor.
-  Then it makes the clips that a render waits for, and then the rest.
+  Then it makes the clips that you see in a window of the arrange view,
+  then the clips that a render waits for, and then the rest.
+- When paw is busy with other clips, a clip that plays soon or that you
+  see takes the place of one of the rest, which starts again later.
 - paw makes the sound from its start, into space for all of it, and the
   clip plays it as far as it is ready. paw makes it many times faster than
   it plays, so a long file plays immediately.
