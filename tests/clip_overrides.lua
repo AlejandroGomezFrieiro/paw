@@ -95,11 +95,7 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   eq({ copy.transpose, copy.velocity }, { 0, 0 }, "u again takes both away in one step")
   keys("<C-r>")
   keys("K")
-  local said = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    said[#said + 1] = line.text
-  end
-  said = table.concat(said, "\n")
+  local said = T.hover_text()
   eq(said:find("plays with transpose +3, velocity -10", 1, true) ~= nil, true, "K: " .. said)
   paw.ui.close()
   -- Wide enough for the whole label on a clip of 4 beats.

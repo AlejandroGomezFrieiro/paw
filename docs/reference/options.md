@@ -101,7 +101,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | --- | --- | --- |
 | `paw.opt.zoom` | `2` | The columns for each beat in the arrange view. |
 | `paw.opt.note_zoom` | `8` | The columns for each beat in the piano roll. |
-| `paw.opt.track_height` | `"auto"` | The rows for each track in the arrange view, 1 to 12. `"auto"` gives 3 to 4 rows, to fit the tracks on the screen. |
+| `paw.opt.track_height` | `"auto"` | The rows for each track in the arrange view, 1 to 12. `"auto"` gives each track the most rows, from 1 to 3, that let every track fit on the screen. A song with more tracks than fit at 1 row scrolls. |
 | `paw.opt.header_width` | `"auto"` | The columns of the track headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. The track column at their left is not in these columns. |
 | `paw.opt.number` (`nu`) | `true` | Shows the number of each track in the track column of the arrange view. |
 | `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each track. The track of the cursor keeps its number. |

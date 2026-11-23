@@ -493,12 +493,39 @@ local function first_track(): objects.Track
   return paw.add_track()
 end
 
+--- A new return row named `name` where `o` on track `below` puts a track,
+--- among the tracks of `place` (the subproject the window shows, or the
+--- song): after `below`, and in the group that `o` puts it in, so it
+--- plays into that group. Returns the row and its group (nil at the top
+--- level).
+local function return_row(name: string, below: integer, place: ScopeModule.Scope): objects.Track, integer
+  local index: integer
+  for i, id in ipairs(api.track_list({nest = place and place.id or nil})) do
+    if id == below then
+      index = i + 1
+    end
+  end
+  local row = paw.add_track({name = name, index = index})
+  local group = index and paw.groups.home(below)
+  if group then
+    paw.groups.add(row.id, group)
+  end
+  return row, group
+end
+
+--- The words of a message on the group of a return row: ` in the group
+--- Keys`, or nothing at the top level.
+local function group_words(group: integer): string
+  return group and (" in the group " .. (api.track_get(group) as types.Track).name) or ""
+end
+
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` with one block, the meter in the song's map when one is
---- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`), or with the tracks that the `create` of its
---- kind (`o.kind`) makes. Call it in one undo step (a command is one).
+--- track `below` (in its group, as `o` puts a track) with one block, the
+--- meter in the song's map when one is given; then the window enters it,
+--- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
+--- command is one).
 function M.new(o: NewOptions): Made
   local from = o.from or paw.time.bar_floor(paw.cursor.beat)
   local to = o.to
@@ -570,15 +597,10 @@ function M.new(o: NewOptions): Made
   -- The words of the message: the song's bars, the meter written.
   local where = bars_text(from, to)
   local nest = api.nest_add({name = name, length = to - from, meter = meter, tempo = tempo, kind = o.kind})
-  -- The return row, below the track given (in the place the window shows).
+  -- The return row, below the track given (in the place the window
+  -- shows), where `o` puts a track: in its group, if it has one.
   local below = o.below or paw.cursor.track_id()
-  local index: integer
-  for i, id in ipairs(api.track_list({nest = place and place.id or nil})) do
-    if id == below then
-      index = i + 1
-    end
-  end
-  local row = paw.add_track({name = name, index = index})
+  local row, group = return_row(name, below, place)
   local clip = api.clip_add(row.id, {nest = nest, start = from} as types.ClipOptions)
   local track: integer
   if kind then
@@ -593,12 +615,13 @@ function M.new(o: NewOptions): Made
   paw.cursor.set_track(track)
   paw.cursor.set_beat(0)
   local message = string.format(
-    "added the subproject %s%s over %s%s%s, on its own row; inside it now: `zw` goes back",
+    "added the subproject %s%s over %s%s%s, on its own row%s; inside it now: `zw` goes back",
     name,
     kind and (" (" .. kind.title .. ")") or "",
     where,
     o.num and string.format(" in %d/%d", o.num, o.den) or "",
-    (o.polymeter and o.num) and " (the song's meter stays)" or ""
+    (o.polymeter and o.num) and " (the song's meter stays)" or "",
+    group_words(group)
   )
   if o.own_tempo then
     message = message .. string.format("; its own tempo, %g bpm", tempo.points[1].bpm)
@@ -746,33 +769,19 @@ function M.blocks(nest: integer): {Block}
   return out
 end
 
---- What tells one instance of a subproject from another: the stems of
---- one block start at the same beat, from the same beat of it.
-local function instance_key(c: types.Clip): string
+--- What tells one place of a subproject in the song from another: the
+--- stems of one block start at the same beat, from the same beat of it.
+local function place_key(c: types.Clip): string
   return string.format("%.9g:%.9g", c.start, c.offset or 0)
 end
 
---- How many times the song plays a subproject: its blocks, counting the
---- stems of one block once.
-local function instances(nest: integer): integer
-  local seen: {string: boolean} = {}
-  local n = 0
-  for _, b in ipairs(M.blocks(nest)) do
-    local key = instance_key(b.clip)
-    if not seen[key] then
-      seen[key], n = true, n + 1
-    end
-  end
-  return n
-end
-
---- The song's bars where the other instances of block `c`'s subproject
+--- The song's bars where the other places of block `c`'s subproject
 --- start, as a message names them: "bar 97", "bars 49 and 97".
 local function other_places(c: types.Clip): string
   local bars: {string} = {}
-  local seen: {string: boolean} = {[instance_key(c)] = true}
+  local seen: {string: boolean} = {[place_key(c)] = true}
   for _, b in ipairs(M.blocks(c.nest)) do
-    local key = instance_key(b.clip)
+    local key = place_key(b.clip)
     if not seen[key] then
       seen[key] = true
       bars[#bars + 1] = tostring(api.tempo_bar_of(b.clip.start) + 1)
@@ -843,13 +852,34 @@ local function kind_text(n: types.Nest): string
   return string.format(" (%s%s)", kind.title, words and (": " .. words) or "")
 end
 
---- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
---- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
---- block. `c` is the clip, in the window's time.
-function M.describe(c: types.Clip): string
+--- Where the song plays subproject `nest`, as `K` says it: `@9 (here),
+--- @25`. A place is a bar of the song where a block starts; the stems of
+--- one block count once. `here` is the block under the cursor.
+local function places(nest: integer, here: types.Clip): {string}
+  local out: {string} = {}
+  local seen: {string: boolean} = {}
+  for _, b in ipairs(M.blocks(nest)) do
+    local key = place_key(b.clip)
+    if not seen[key] then
+      seen[key] = true
+      local mine = key == place_key(here)
+      out[#out + 1] = "@" .. tostring(api.tempo_bar_of(b.clip.start) + 1) .. (mine and " (here)" or "")
+    end
+  end
+  return out
+end
+
+--- What `K` says of a block, in three lines. The first gives the
+--- subproject, its meter, its bars, its tempo and whether it is live or
+--- frozen, with the stem's name after it for a stem. The second gives its
+--- tracks, and the third gives the bars of the song where it plays, for
+--- example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`,
+--- `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
+--- `c` is the clip, in the window's time.
+function M.describe(c: types.Clip): {string}
   local n = M.get(c.nest)
   if not n then
-    return "a subproject that is gone"
+    return {"a subproject that is gone"}
   end
   local meter: string
   local bars: number
@@ -863,22 +893,28 @@ function M.describe(c: types.Clip): string
     meter = num .. "/" .. den .. " of the song"
     bars = paw.time.bar_of(zero + n.length - 1e-6) - paw.time.bar_of(zero) + 1
   end
-  local count = instances(c.nest)
-  return string.format(
-    "nest %s%s · %s · %g bar%s · %s · %d track%s · %d instance%s · %s%s",
-    n.name,
-    kind_text(n),
-    meter,
-    bars,
-    bars == 1 and "" or "s",
-    (n.tempo and n.tempo.mode == "own") and "own tempo" or "follows the tempo",
-    #n.tracks,
-    #n.tracks == 1 and "" or "s",
-    count,
-    count == 1 and "" or "s",
-    (c.meta and c.meta.frozen) and "frozen" or "live",
-    stem_of(c) and (" · the stem " .. name_of(stem_of(c))) or ""
-  )
+  local names: {string} = {}
+  for i, id in ipairs(n.tracks) do
+    names[i] = name_of(id)
+  end
+  local where = places(c.nest, c)
+  return {
+    string.format(
+      "subproject %s%s · %s · %g bar%s · %s · %s%s",
+      n.name,
+      kind_text(n),
+      meter,
+      bars,
+      bars == 1 and "" or "s",
+      (n.tempo and n.tempo.mode == "own") and "own tempo" or "follows the tempo",
+      (c.meta and c.meta.frozen) and "frozen" or "live",
+      stem_of(c) and (" · the stem " .. name_of(stem_of(c))) or ""
+    ),
+    string.format(
+      "%d track%s%s", #names, #names == 1 and "" or "s", #names > 0 and (": " .. table.concat(names, ", ")) or ""
+    ),
+    string.format("plays in %d place%s: %s", #where, #where == 1 and "" or "s", table.concat(where, ", ")),
+  }
 end
 
 -- In place: `za` on a return row -------------------------------------------------------
@@ -1884,24 +1920,17 @@ local tilde = util.tilde
 function M.import(folder: string): string
   local id = api.nest_import(util.expand_path(folder))
   local n = M.get(id)
-  local place = paw.scope.nest()
-  local below = paw.cursor.track_id()
-  local index: integer
-  for i, track in ipairs(api.track_list({nest = place and place.id or nil})) do
-    if track == below then
-      index = i + 1
-    end
-  end
   local from = paw.time.bar_floor(paw.cursor.beat)
-  local row = paw.add_track({name = n.name, index = index})
+  local row, group = return_row(n.name, paw.cursor.track_id(), paw.scope.nest())
   api.clip_add(row.id, {nest = id, start = from} as types.ClipOptions)
   paw.cursor.set_track(row.id)
   local tracks = #n.tracks
   local message = string.format(
-    "imported the subproject %s from %s at %s, on its own row: %d track%s; it refers to the folder until you edit it",
+    "imported the subproject %s from %s at %s, on its own row%s: %d track%s; it refers to the folder until you edit it",
     n.name,
     tilde(folder),
     bars_text(from, from + 1e-3),
+    group_words(group),
     tracks,
     tracks == 1 and "" or "s"
   )

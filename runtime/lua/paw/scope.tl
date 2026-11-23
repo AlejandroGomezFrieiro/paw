@@ -1752,7 +1752,7 @@ local function is_named(s: Scope): boolean
   return false
 end
 
---- A scope's bars, `bars 1-8 (song 17-24)`, and its meter at its start,
+--- A scope's bars, `bars 1-8 (song @17-24)`, and its meter at its start,
 --- `6/8`; nil for a scope with all the time of the song. Bars count from 1
 --- at the scope's start, as the ruler counts them by default (`scopebars=local`).
 local function bars_and_meter(s: Scope): string, string
@@ -1764,7 +1764,7 @@ local function bars_and_meter(s: Scope): string, string
   local first, last = time.bar_of(from), time.bar_of(math.max(from, to - 1e-6))
   local bars = string.format("bars 1-%d", last - first + 1)
   if first ~= 1 then
-    bars = bars .. string.format(" (song %d-%d)", first, last)
+    bars = bars .. string.format(" (song @%d-%d)", first, last)
   end
   local upper, lower = time.signature_at(from)
   return bars, string.format("%d/%d", upper, lower)
@@ -1772,7 +1772,7 @@ end
 
 --- What a scope (the current one by default) shows, in words: its path,
 --- its bars (its own, and the song's), its meter, its tracks, and whether
---- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
 --- 6/8 · 12 tracks · named`.
 function M.describe(s?: Scope, extra?: string): string
   s = s or M.current()
@@ -1806,11 +1806,21 @@ end
 local function under_cursor(): contracts.Description
   local fold = paw.folds.closed_at()
   if fold then
-    return {{text = "Fold  " .. paw.folds.name(fold), style = "Title"}, "  " .. M.describe_fold(fold), ""}
+    return {
+      {text = "Fold  " .. paw.folds.name(fold), style = "Title"},
+      "  " .. M.describe_fold(fold),
+      {text = "  za opens it · znn enters it · zd deletes it", style = "Dim"},
+      "",
+    }
   end
   local s = M.current()
   if s and not paw.cursor.clip() then
-    return {{text = "Scope  " .. s.name, style = "Title"}, "  " .. M.describe(s), ""}
+    return {
+      {text = "Scope  " .. s.name, style = "Title"},
+      "  " .. M.describe(s),
+      {text = "  zw up one level · zW the song · ]z the next scope", style = "Dim"},
+      "",
+    }
   end
 end
 local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
@@ -1897,7 +1907,13 @@ M.source = {
   title = "Scopes",
   empty = "No scope to enter: make a group, a region or a subproject, or name a scope with `:scope.name`.",
   items = items,
-  format = function(item: Item): string return string.format("%-7s %s", item.kind, item.label) end,
+  format = function(item: Item): string
+    -- A subproject in the words and the mark of the breadcrumb.
+    if item.kind == "nest" then
+      return "subproject ⧉" .. item.label
+    end
+    return string.format("%-10s %s", item.kind, item.label)
+  end,
   primary = function(item: Item): string return item.label end,
   search = function(item: Item): string return item.label end,
   -- What the entry is, in words (a fold as a scope inside the window's):

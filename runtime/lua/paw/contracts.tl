@@ -538,6 +538,9 @@ local record contracts
     grid: Grid
     status: function(self: View, ctx?: StatusContext): string | {Piece}
     describe: function(self: View): Description
+    --- The screen cell of the cursor at the last draw, or nil. `K`
+    --- opens its float next to it.
+    caret: ScreenRect
     --- The scopes of mappings that come before the view's own: one, or a
     --- list with the first first (`paw.keymap.scopes`).
     subscope: function(self: View): string | {string}
@@ -674,15 +677,26 @@ local record contracts
     width: integer
     height: integer
     top: boolean
+    near_cursor: boolean
     back: string
   end
 
-  --- What `paw.ui.open` takes.
+  --- What `paw.ui.open` takes. The float is in the middle of the screen,
+  --- at the top with `top`, and under or over the cursor of the focused
+  --- window with `near_cursor`.
   record FloatOptions
     title: string
     width: integer
     height: integer
     top: boolean
+    near_cursor: boolean
+  end
+
+  --- What `paw.ui.hover` shows: a small float next to the cursor that
+  --- does not take the keys. The next key closes it.
+  record Hover
+    title: string
+    lines: {PageLine}
   end
 
   -- Buffer types -----------------------------------------------------------------

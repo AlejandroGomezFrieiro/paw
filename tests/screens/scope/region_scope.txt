@@ -3,8 +3,8 @@
  1 ›█ Bass     │‹Bass                          ›▏   ▏   ▏   ▏   ▏   ▏
     █ ──── 0.0 │                                ▏   ▏   ▏   ▏   ▏   ▏
     █          │                                ▏   ▏   ▏   ▏   ▏   ▏
-    █          │                                ▏   ▏   ▏   ▏   ▏   ▏
       o new tra│
+               │
                │
                │
                │
@@ -13,4 +13,4 @@
     ▌ Master   │
     ▌ ▀▀▀▀ 0.0 │
  NOR  ■ 2.1.00 │ loop 1–8           Song › Verse 1.1 (9.1) │ ● untitled
-Song › Verse · bars 1-8 (song 9-16) · 4/4 · 1 track · `zw` goes back
+Song › Verse · bars 1-8 (song @9-16) · 4/4 · 1 track · `zw` goes back

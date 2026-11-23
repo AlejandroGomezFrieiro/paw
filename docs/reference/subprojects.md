@@ -30,7 +30,10 @@ entering a subproject and moving around in it, see
 
 1. It adds the subproject, named as you typed or `Subproject 1`.
 2. It adds the return row below the track of the cursor, with the same
-   name, and one block on it over the time of the subproject.
+   name, and one block on it over the time of the subproject. The row goes
+   where `o` puts a track. On a track of a group, the row goes into the
+   group and plays into it, and the message says
+   `on its own row in the group Keys`.
 3. With a meter, it writes the meter into the tempo map of the song at the
    start of the block, and the meter that was there back at its end. The
    bar numbers of the song then count the bars of the section, so that bar
@@ -176,7 +179,7 @@ window draws the same blocks.
 | Keys or command | Effect |
 | --- | --- |
 | `za` on a return row | Show the tracks of the subproject under the row, in the time of the song, or hide them again. On one of those tracks, `za` hides them and puts the cursor on the row. |
-| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. The count of instances is the number of places where the song plays the subproject. A kind of subproject adds its name and its own words after the name, for example `nest Groove (Drum pattern: 16 steps)`. |
+| `K` on a block | Describe the subproject in a float with `⧉` and its name on the border, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, then its tracks (`2 tracks: Piano, Strings`), then the places where the song plays it, as song bars (`plays in 2 places: @9 (here), @97`). A kind of subproject adds its name and its own words after the name, for example `subproject Groove (Drum pattern: 16 steps)`. The last line gives the keys `znn` and `<Space>zp`. |
 | `:nest.list` | Choose a subproject from a list of its blocks, with the subprojects that no block plays (`unused`), and go inside it. |
 | `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
 | `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |
@@ -202,7 +205,7 @@ A copy of a block plays the same subproject, so the song can play one
 section in several places. For example, `yic` on the block at bar 9 and
 `p` at bar 97 give a second block of the same subproject. An edit inside
 the subproject, through either block, changes what both blocks play, and
-`K` on either block says `2 instances`.
+`K` on either block says `plays in 2 places`.
 
 | Command | Effect |
 | --- | --- |
@@ -227,7 +230,7 @@ The rules are the rules of a frozen track, in
 | `:unfreeze` on a block | Play the subproject live again. One undo step. |
 
 `K` on a frozen block ends its first line with `frozen` in place of
-`live`, and the next line says if the file is up to date, for example
+`live`, and the line after the places says if the file is up to date, for example
 `frozen, stale: Ballad changed since: clips` after an edit inside the
 subproject. While a frozen block is stale, the status line says
 `stale: Ballad`.
@@ -342,7 +345,7 @@ song did not change`.
 
 | Keys or command | Effect |
 | --- | --- |
-| `:import <folder>` | Make a project folder a subproject of the song, with a return row below the track at the cursor and one block from the bar of the cursor. The subproject refers to the folder. |
+| `:import <folder>` | Make a project folder a subproject of the song, with a return row below the track at the cursor and one block from the bar of the cursor. The row goes where `o` puts a track, so on a track of a group it goes into the group. The subproject refers to the folder. |
 | `:nest.own` | Make the subproject at the cursor, which refers to a folder, the song's own copy now. Inside a subproject, that subproject. |
 | `:e <song>/nests/<name>` | Open the song and go inside its subproject `<name>`. When the song is open already, go inside the subproject. |
 

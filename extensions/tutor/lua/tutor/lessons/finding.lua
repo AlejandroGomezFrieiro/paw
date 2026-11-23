@@ -89,9 +89,9 @@ keeps a history, which `<Up>` shows.]],
       done = "The cursor is on Drums, and `<leader>fc` does the same for clips.",
     },
     {
-      say = "`K` gives data about the item under the cursor, which is the clip, the track and its devices. Press `K`, and then `q` to close the window.",
-      keys = { "K", "q" },
-      check = function(ctx, look) return look.ran(ctx, "info") and not look.float() end,
+      say = "`K` gives data about the item under the cursor, which is the clip, the track and its devices, in a small float under the cursor. Press `K`, and then `<Esc>` to close the float.",
+      keys = { "K", "<Esc>" },
+      check = function(ctx, look) return look.ran(ctx, "describe") and not look.float() and not paw.ui.hovered end,
       done = "With `K`, you can see the devices, sends and automation of a track with one key.",
     },
     {

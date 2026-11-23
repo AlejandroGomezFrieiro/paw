@@ -909,6 +909,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden, in the window a view shows (paw/folds.tl).
 - `paw.groups.gather(group)`: Put a group's members right under it, in the order they are in.
 - `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed window), only the groups inside it count. `top` itself is open there.
+- `paw.groups.home(track, above)`: The group that a new track goes into when it is added next to `track` (`o`, `O`, `:nest.new`): below an open group's own row, that group; else the group of `track`. Nil at the top level, and for a group in another place (a subproject) than `track`.
 - `paw.groups.is_group(track)`: True if a track is a group.
 - `paw.groups.link(group, on)`: Link the faders of a group's members, or let them go: `on` nil flips it.
 - `paw.groups.linked(group)`: True if the faders of the members of a group are linked. When one moves, the others move by the same number of dB. This is separate from the routing, which a group also has.
@@ -1514,7 +1515,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.content_key(c)`: A key that changes when what a block plays changes: the stamps of the clips of its subproject, and the block's own place in it.
 - `paw.nest.data(nest)`: The data of subproject `nest`'s kind: what its `create` gave, or what `paw.nest.set_data` stored last. Nil for a plain subproject.
 - `paw.nest.define_kind(name, spec)`: Define a kind of subproject that `:nest.new kind=<name>` makes, such as a drum pattern that opens in a step grid. `spec` gives `title`, `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each optional (`paw.contracts.NestKind`). The kind's data is in the subproject's `meta` under the kind's name: read it with `paw.nest.data(nest)`. Without the kind, the subproject plays and the arrange view edits it. Returns the spec.
-- `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen block. `c` is the clip, in the window's time.
+- `paw.nest.describe(c)`: What `K` says of a block, in three lines. The first gives the subproject, its meter, its bars, its tempo and whether it is live or frozen, with the stem's name after it for a stem. The second gives its tracks, and the third gives the bars of the song where it plays, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`. `c` is the clip, in the window's time.
 - `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder), as `:nest.export` does: its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
 - `paw.nest.flush`: the same as `paw.flush`.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
@@ -1523,7 +1524,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.kind(nest)`: The kind of subproject `nest` as defined, or nil: for a plain subproject, and for one whose kind no extension here defines.
 - `paw.nest.letter(nest)`: The letter of the kind of subproject `nest`, which its blocks show after `⧉`, or nil for a plain subproject.
 - `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
-- `paw.nest.new(o)`: Make a subproject with a row of its own, as `:nest.new` does (see the top): the subproject over the time given, a return row below the track `below` with one block, the meter in the song's map when one is given; then the window enters it, with one empty track (`paw.opt.nest_track`), or with the tracks that the `create` of its kind (`o.kind`) makes. Call it in one undo step (a command is one).
+- `paw.nest.new(o)`: Make a subproject with a row of its own, as `:nest.new` does (see the top): the subproject over the time given, a return row below the track `below` (in its group, as `o` puts a track) with one block, the meter in the song's map when one is given; then the window enters it, with one empty track (`paw.opt.nest_track`), or with the tracks that the `create` of its kind (`o.kind`) makes. Call it in one undo step (a command is one).
 - `paw.nest.notes(c, limit)`: The notes that a block plays, from its start, for the small picture inside it: { start, length, pitch } each, at most `limit`.
 - `paw.nest.open(path, opts)`: Open the song of `path`, a path inside a song (`song/nests/Bridge`, see `song_of`), and enter that subproject in the window, as `:e` of the path does. The song opens only when it is not open already; `opts` go to `paw.loading.open`. Returns the message.
 - `paw.nest.outputs(nest, row, how)`: Give a subproject one row of its own for each of its tracks (`stems`), or one stereo return again (`master`), on its return row `row`. Call it in one undo step. Returns the message.
@@ -2320,7 +2321,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   The options are `show(value)`, which writes the current value, `parse(text)`, which reads one absolute value, and `min` and `max`, the limits of the value.
 - `paw.ui.box(buf, title, style)`: Draw a box around a buffer's edge and return a buffer for the inside.
-- `paw.ui.close()`: Close the float that has the keys, or the window of a view.
+- `paw.ui.close()`: Close the float that has the keys, or the window of a view. With no float, close the hover (`paw.ui.hover`).
 - `paw.ui.dock(name, opts)`: Add a view to the layout along one side of the screen.
 
   ```lua
@@ -2337,6 +2338,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.go(location)`: Go to a location in the view that shows it best, and focus that view. The piano roll shows notes, the device panel shows devices and parameters, and the arrange view shows tracks and time.
 - `paw.ui.hide(name)`: Close the window of a view, in each tab. The view keeps its place for the next time. The last window of a tab does not close: it goes on showing the view, as `Ctrl-w c` leaves it.
 - `paw.ui.hl(name, def)`: Define a highlight group: a table of `fg`, `bg`, `bold`, `dim`, `italic`, `underline`, `reverse`, `strike`, or the name of a group to follow. Colors are `#rrggbb`, or a number for one of the 256 colors of the terminal. On a terminal without 24-bit color, each `#rrggbb` shows as the nearest of the 256.
+- `paw.ui.hover(title, lines)`: Show lines next to the cursor of the focused window, in a small float that leaves the keys where they are: the next key closes it and does what it does. Each line is a string or `{ text = ..., style = ... }`.
+
+  ```lua
+  paw.ui.hover("Piano", { "24 notes", { text = "muted", style = "Warn" } })
+  ```
+- `paw.ui.hover_close()`: Close the hover, if one is open.
+- `paw.ui.hover_enter()`: Put the keys in the hover: it becomes a page in the same place, as high as its lines while the screen has room, where `j` and `k` scroll and `q` or `Esc` close.
 - `paw.ui.input(opts, on_submit)`: Ask for a line of text on the command line.
 
   ```lua
@@ -2368,7 +2376,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
   ```
-- `paw.ui.page(title, lines, opts)`: Show lines of text in a float. Each line is a string or `{ text = ..., style = ... }`. With `opts.bottom`, it opens at the end. `opts.width` and `opts.height` give its size (100 by 30).
+- `paw.ui.page(title, lines, opts)`: Show lines of text in a float. Each line is a string or `{ text = ..., style = ... }`. With `opts.bottom`, it opens at the end. `opts.width` and `opts.height` give its size (100 by 30). With `opts.near_cursor`, it opens next to the cursor, not in the middle.
 - `paw.ui.paint(view, part, ctx)`: Draw the layers of a part of a view: views call this where the part is drawn.
 - `paw.ui.place(root, x, y, w, h)`: Lay a tree of windows out over a rectangle, as `arrange` lays out a tab's: in whatever unit its sizes are in (a graphical frontend's pixels).
 - `paw.ui.poke(ms)`: Keep the screen animated for some time, for example after paw plays a note.
@@ -2747,11 +2755,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_get(key)`: --- project --- The project as a table. With `key`, only that entry of the table: this is quicker (`edits`, which goes up with each change, is asked for on each key and each edit).
 - `paw.api.project_keep_changes()`: Keep the project as paw has it: forget the changes made outside.
 - `paw.api.project_load(path, opts)`: `opts.plugins_offline` opens it with all plugins offline. `opts.offline` is a list of devices (by id) to open offline.
+- `paw.api.project_mark_changed(...)`
 - `paw.api.project_mark_saved()`: Count the project as it is now as saved, for a script that wrote what it holds somewhere itself (a clip opened alone, written back to its file).
 - `paw.api.project_new()`
 - `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.
 - `paw.api.project_recover(path, opts)`: Open a file written by `project_backup` as the project it was a copy of: under that project's own file name, and as changed. `opts`: `as_path` opens it under that file name instead (for a `.bak`, which has no note), and what `project_load` takes.
 - `paw.api.project_reload()`: Read a project kept in a folder again, as one undo step.
+- `paw.api.project_replace(...)`
 - `paw.api.project_save(path)`
 - `paw.api.project_save_files(paths)`: Save only these files of a project kept in a folder, by their path in it. Returns the paths written.
 - `paw.api.project_screen()`: The tabs and windows that the project file keeps, as plain data, or nil. They are not part of the song: setting them is not an edit, and the next save writes them (paw/layout.tl).

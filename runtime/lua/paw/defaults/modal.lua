@@ -126,19 +126,23 @@ end, {
 command("delmarks!", function() remove_marks("", true) end, { desc = "Remove every lowercase mark" })
 command.alias("delm", "delmarks")
 command.alias("delm!", "delmarks!")
-command("info", function()
-  -- A view says what is under its own cursor first (`view:describe()`);
-  -- with `only` set, that is all there is to say.
+--- What is under the cursor, in lines: what the view says first
+--- (`view:describe()`: a fold or the scope in the arrange view), then the
+--- clip and the track. With the view's `only`, its lines alone. Nil with
+--- no track (`need_track` says why).
+local function under_cursor()
   local view = paw.ui.views:get(paw.ui.focused)
   local first = view and view.describe and view:describe() or nil
-  if first and first.only then return paw.ui.page(first.title or "Under the cursor", first) end
+  if first and first.only then return first end
   local track = need_track()
   if not track then return end
   local t, lines = track:get(), first or {}
   local clip = cursor.clip()
   if clip then
     local c = clip:get()
-    lines[#lines + 1] = { text = "Clip  " .. c.name, style = "Title" }
+    -- A block of a subproject is titled with its mark, as the arrange view draws it.
+    local title = c.kind == "nest" and paw.draw.g.nest .. c.name or "Clip  " .. c.name
+    lines[#lines + 1] = { text = title, style = "Title" }
     lines[#lines + 1] = string.format(
       "  %s to %s, %g beats%s",
       paw.time.format(c.start),
@@ -149,9 +153,12 @@ command("info", function()
     if c.kind == "nest" then
       -- A block of a subproject, and whether its frozen file is up to
       -- date (paw/freeze_block.tl).
-      lines[#lines + 1] = "  " .. paw.nest.describe(c)
+      for _, line in ipairs(paw.nest.describe(c)) do
+        lines[#lines + 1] = "  " .. line
+      end
       local frozen = paw.freeze_block.describe(c.id)
       if frozen then lines[#lines + 1] = "  " .. frozen end
+      lines[#lines + 1] = { text = "  znn enters it · <Space>zp makes its tracks the song's", style = "Dim" }
     elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
       if c.link then lines[#lines + 1] = string.format("  linked: %s, %d clips", c.link, c.link_count) end
@@ -222,8 +229,31 @@ command("info", function()
       lane.enabled and "" or ", off"
     )
   end
-  paw.ui.page("Under the cursor", lines)
-end, { desc = "Describe what is under the cursor: a fold or the scope, the clip, the track" })
+  return lines
+end
+command("info", function()
+  local lines = under_cursor()
+  if lines then paw.ui.page(lines.title or "Under the cursor", lines) end
+end, { desc = "Describe all that is under the cursor in a page: a fold or the scope, the clip, the track" })
+-- `K` says it in a float next to the cursor, with its first title on the
+-- border; `K` again puts the keys in the float.
+command("describe", function()
+  if paw.ui.hovered then return paw.ui.hover_enter() end
+  local lines = under_cursor()
+  if not lines then return end
+  local title, head = lines.title, lines[1]
+  if not title and type(head) == "table" and head.style == "Title" then
+    title = head.text
+    table.remove(lines, 1)
+  end
+  paw.ui.hover(title or "Under the cursor", lines)
+end, {
+  desc = "Describe what is under the cursor in a small float next to it; again, go into the float (`:info` shows a page)",
+})
+keymap.set("K", "describe", {
+  desc = "Describe what is under the cursor; K again goes into the float",
+  role = "describe",
+})
 command("wq", function(ctx)
   paw.commands.run("write", ctx.args)
   api.quit(0)

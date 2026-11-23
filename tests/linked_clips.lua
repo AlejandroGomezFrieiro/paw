@@ -107,11 +107,7 @@ test("K on a linked clip names the link and its clips, and the arrange view mark
   song()
   keys("<Space>cl")
   keys("K")
-  local said = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    said[#said + 1] = line.text
-  end
-  said = table.concat(said, "\n")
+  local said = T.hover_text()
   eq(said:find("linked: riff, 2 clips", 1, true) ~= nil, true, "K: " .. said)
   paw.ui.close()
   local screen = table.concat(api.ui_snapshot(100, 30), "\n")
