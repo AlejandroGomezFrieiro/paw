@@ -728,7 +728,7 @@ end)
 local function info()
   keys("K")
   local said = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     said[#said + 1] = line.text
   end
   paw.ui.close()

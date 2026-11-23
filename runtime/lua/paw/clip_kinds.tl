@@ -77,7 +77,7 @@ M.order = {}
 
 --- Keep `M.order` and the kernel's kinds as the kinds are: a kind that
 --- goes is no longer made, and the kind below it (if any) comes back.
-local function kept(name: string, spec: contracts.ClipKind<M.Data>)
+local function keep_order(name: string, spec: contracts.ClipKind<M.Data>)
   local at: integer
   for i, other in ipairs(M.order) do
     if other == name then
@@ -96,7 +96,7 @@ local function kept(name: string, spec: contracts.ClipKind<M.Data>)
     pcall(api.clip_kind_remove, name)
   end
 end
-M.kinds = registry.new("clip_kinds", "kinds of clip", {changed = kept})
+M.kinds = registry.new("clip_kinds", "kinds of clip", {changed = keep_order})
 
 local budget = options.define("clip_kind_limit", 50, {min = 0})
 
