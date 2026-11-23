@@ -7,7 +7,46 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
-## 2026-11-23: the first scope keys after TASK-184 (TASK-190)
+## 2026-11-23: the check of a frozen track after an edit (TASK-77.9)
+
+A frozen track keeps the key of what its file was made from
+(`paw/bake_state.tl`). Two nodes of `paw.derived` make the key again
+when `K` asks: `freeze.members` (the routing) and `freeze.key` (the
+clips, devices, automation and mix of the members, and the tempo). An
+edit marks the sources only. It does no work for the freeze.
+
+The project: `bench/profile/project.lua` (64 tracks, 2 000 MIDI clips,
+50 000 notes). Track 40 is frozen. Each round edits one note of the
+first clip of track 3 (outside the freeze), then one note of the first
+clip of track 40 (inside the freeze). Each edit is `clip_set_notes`,
+`paw.flush()` and `undo_checkpoint`. Then the branch calls
+`paw.freeze.describe` on track 40 (the check of `K`).
+
+The script is not in the repository. The times are the processor time of the kernel
+thread, the median of 15 rounds, with the smallest and largest value.
+`main` (the shared binary of d5127487 with its own runtime) and the
+branch (its dev runtime on the same binary) ran in turns, 5 pairs,
+under the measure lock on cores 16 to 23. The load average was 4.1 to
+9.6, measured under external load.
+
+| What | main | branch |
+| --- | ---: | ---: |
+| An edit outside the freeze (p50 of each run) | 0.22 to 0.26 ms | 0.26 to 0.33 ms |
+| An edit inside the freeze (p50 of each run) | 0.23 to 0.26 ms | 0.23 to 0.25 ms |
+| `K`'s check after the edit (p50 of each run) | none | 0.29 to 0.45 ms (one run 4.1 ms) |
+
+An edit inside the freeze shows no measurable difference: the cost of
+the check for each edit is below the spread, so it is less than 0.1 ms.
+The branch's edit outside the freeze is 0.03 to 0.1 ms more. That edit
+does not touch a node of the freeze. The likely cause is the slice of
+the `derived` job that the check before it scheduled, and the
+difference is in the spread of the runs.
+
+When `K` asks, the key is
+made again: `clip_list` of the track (0.04 ms), `device_get` (0.07 ms),
+and the hash of the text. The largest values (up to 9 ms) come when
+the read waits for the chord reading of the same job to end.
+
 
 TASK-184 found that `znn`, `]z` and `znag` cost more in the scenario
 `scope` with its branch (22 -> 40 ms, 30 -> 68 ms, 26 -> 40 ms), and that

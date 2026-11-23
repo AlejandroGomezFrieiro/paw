@@ -88,6 +88,7 @@ paw.curves
 paw.nest
 paw.render
 paw.stems
+paw.bake_state
 paw.freeze
 paw.audio
 paw.media

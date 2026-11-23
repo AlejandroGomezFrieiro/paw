@@ -780,8 +780,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.freeze
 
+- `paw.freeze.describe(track)`: What `K` says of a frozen track, or of a track held in one: "frozen, up to date", "frozen, stale: Drums changed since: devices", "held in Drums, which is frozen, up to date". Nil for a track that plays live.
 - `paw.freeze.freeze(track, opts)`: Freeze a track or a group: render it, and play the file from now on. `opts.tail` is the seconds rendered after the song's end (2). One undo step. Returns the file.
-- `paw.freeze.frozen(track)`: What a frozen track was frozen to, `{ file }`, or nil.
+- `paw.freeze.frozen(track)`: What a frozen track was frozen to, `{ file, key }`, or nil. The `key` says what the file was made from.
 - `paw.freeze.holder(track)`: The frozen track a track sounds through, if any: the one whose file holds its sound.
 - `paw.freeze.render_opts(track, opts)`: The render options of a freeze: the whole song from its start, the track alone before its fader, as 32-bit float. So the file plays what the track did.
 - `paw.freeze.state(track)`: "frozen", "held" (its sound is in a frozen track it feeds), or nil.

@@ -14,6 +14,8 @@ freezing its track. The rules are in
 
 If you edit a frozen track, paw asks if it must unfreeze the track.
 If you answer no, paw keeps the edit, and you hear it after `:unfreeze`.
+Press `K` on the track to see if its file is up to date, or which part
+changed since you froze it.
 
 If the sound has a long tail, add `tail=6` for six seconds after the end.
 
