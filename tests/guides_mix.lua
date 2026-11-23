@@ -24,7 +24,7 @@ local function timed(text)
   paw.opt.timeoutlen = 20
   paw.keymap.feed(text)
   -- Wait for the keys to time out, not for a time: a loaded machine is slow.
-  T.until_(function() return paw.keymap.pending() == "" end, "`" .. text .. "` to time out")
+  T.advance_until(function() return paw.keymap.pending() == "" end, "`" .. text .. "` to time out", 1000)
   paw.opt.timeoutlen = wait
   api.undo_checkpoint()
 end

@@ -101,10 +101,14 @@ test("lenses: a server for the mix marks a hot fader in every view, says what it
   paw.keymap.feed("<CR>")
   api.undo_checkpoint()
   eq(api.track_get(bass.id).volume, 0, "fixed")
-  until_(function() return #paw.diagnostic.get(A.track(bass.id)) == 0 end, "the warning to go once the server is told")
+  T.advance_until(
+    function() return #paw.diagnostic.get(A.track(bass.id)) == 0 end,
+    "the warning to go once the server is told",
+    5000
+  )
   paw.undo()
   eq(api.track_get(bass.id).volume, 3, "one undo takes it back")
-  until_(function() return #paw.diagnostic.get(A.track(bass.id)) == 1 end, "the warning back")
+  T.advance_until(function() return #paw.diagnostic.get(A.track(bass.id)) == 1 end, "the warning back", 5000)
   paw.cmd("diagnostics")
   until_(function() return paw.pick.state() end, "the list")
   eq(paw.pick.state().matches[1], "── Tracks", "listed under what they are about")
@@ -127,7 +131,7 @@ test("lenses: a one-shot server checks each render, and says when it fails", fun
   eq(paw.lsp.clients()[1].status, "ready", "a one-shot server is ready, with nothing running")
   local path = T.scratch .. "/lenses.wav"
   paw.render(path, { tail = 0 })
-  until_(function() return #paw.diagnostic.get(A.render(path)) == 1 end, "the check of the render")
+  T.advance_until(function() return #paw.diagnostic.get(A.render(path)) == 1 end, "the check of the render", 5000)
   local d = paw.diagnostic.get(A.render(path))[1]
   eq(paw.diagnostic.kind(d), "render", "about the render")
   has(d.message, "lenses.wav peaks at", "what the command printed")
@@ -138,7 +142,7 @@ test("lenses: a one-shot server checks each render, and says when it fails", fun
   -- A command that prints what is not JSON fails, and says so.
   paw.lsp.config("peaks", { cmd = { python(), "tests/fixtures/peak_check.py", "--garbage", "{input}" } })
   paw.render(path, { tail = 0 })
-  until_(function() return paw.lsp.clients()[1].status == "failed" end, "the failure")
+  T.advance_until(function() return paw.lsp.clients()[1].status == "failed" end, "the failure", 10000)
   has(paw.lsp.clients()[1].error, "not JSON", "why")
   local info = {}
   for _, l in ipairs(paw.lsp.info_lines()) do

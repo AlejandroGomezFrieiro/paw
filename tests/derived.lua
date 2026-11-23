@@ -322,7 +322,7 @@ test("derived: K on a note names its chord, and says the chord is being read aft
   roll.pitch = 60
   text = said()
   eq(text:find("the chord here: reading", 1, true) ~= nil, true, "until then, K says so:\n" .. text)
-  T.until_(function() return paw.harmony.fresh() end, "the reading")
+  T.advance_until(function() return paw.harmony.fresh() end, "the reading", 5000)
   text = said()
   eq(text:find("the chord here: C5", 1, true) ~= nil, true, "then K names the new chord:\n" .. text)
 end)

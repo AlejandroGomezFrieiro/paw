@@ -15,6 +15,11 @@ use super::{Shared, Timer};
 /// How often a wait on the wall clock looks after the plugins
 /// (`Session::idle`): their editors draw from there.
 const IDLE_PERIOD: Duration = Duration::from_millis(15);
+/// The turns at one instant of the manual clock before it moves on. A job
+/// that looks again at no delay (`paw.defer(fn, 0)`) for a state that a
+/// later timer makes is due at each turn: without this limit the clock
+/// never gets to that timer.
+const TURNS_AT_ONE_INSTANT: u32 = 1000;
 
 /// The functions of the timers that are due, with one-shot timers removed
 /// and repeating ones moved on.
@@ -125,13 +130,16 @@ impl Shared {
     /// timer fires in its order and sees its own time.
     fn advance(&self, lua: &Lua, clock: &ManualClock, by: Duration) -> mlua::Result<()> {
         let target = clock.now() + by;
+        let mut turns_here = 0;
         loop {
             self.turn(lua, true)?;
             let now = clock.now();
             // A turn can start a timer that is due at once (`paw.defer`).
-            if self.timers.borrow().iter().any(|t| t.due <= now) {
+            turns_here += 1;
+            if turns_here < TURNS_AT_ONE_INSTANT && self.timers.borrow().iter().any(|t| t.due <= now) {
                 continue;
             }
+            turns_here = 0;
             match self.next_due_after(now) {
                 Some(due) if due <= target => clock.advance_to(due),
                 _ => break,

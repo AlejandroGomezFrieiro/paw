@@ -130,7 +130,11 @@ test("adjust panel: j and - change the strength live, in one undo step", functio
   eq(paw.ui.float.title, "Quantize · 4 notes", "it says the command and its range")
   keys("j--")
   eq(panel_rows()[2]:find("strength%s+90") ~= nil, true, "the panel shows 90 at once: " .. panel_rows()[2])
-  T.until_(function() return paw.commands.adjusting() == "adjust grid=1/16 strength=90" end, "the command to run")
+  T.advance_until(
+    function() return paw.commands.adjusting() == "adjust grid=1/16 strength=90" end,
+    "the command to run",
+    1000
+  )
   near(starts(b)[2], 1.3 + (1.25 - 1.3) * 0.9, 1e-9, "the notes moved 90% of the way")
   eq(states(), before + 1, "one undo step for all of it")
   keys("<Esc>")
@@ -151,7 +155,7 @@ test("adjust panel: a count multiplies the step, and keys that come quickly run 
   keys("<Space>.j-----")
   keys("2-")
   eq(runs, 0, "nothing runs while the keys come")
-  T.until_(function() return runs > 0 end, "the command to run after the settle")
+  T.advance_until(function() return runs > 0 end, "the command to run after the settle", 1000)
   T.until_(function() return paw.commands.adjusting() == "adjust grid=1/16 strength=65" end, "the last value")
   eq(runs, 1, "the command ran once")
   paw.off(id)

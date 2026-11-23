@@ -418,7 +418,7 @@ test("a delayed note plays as early live as it renders", function()
   for i, pos in ipairs(onsets) do
     eq(pos >= 1.75 and pos < 1.97, true, "round " .. i .. " before its beat: " .. tostring(pos))
   end
-end)
+end, { live = "it reads the meter while the song plays in real time" })
 
 test("a note played live with an attribute is preceded by what the map sends", function()
   local t = keyswitched(MAP)

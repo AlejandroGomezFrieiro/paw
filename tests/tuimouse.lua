@@ -268,6 +268,22 @@ test("the volume on a header drags sideways a decibel a cell, and a double click
   near(a:get().volume, 0, 1e-6, "a double click: 0 dB")
 end)
 
+test("two clicks are a double click only when the second comes within the double click time", function()
+  local a = two_tracks()
+  local y = row_y(a.id) + 1
+  drag(10, y, 16, y)
+  apart()
+  click(10, y)
+  T.advance(paw.mouse.double_ms + 1)
+  click(10, y)
+  near(a:get().volume, 6, 1e-6, "a second click after the double click time: two clicks")
+  apart()
+  click(10, y)
+  T.advance(paw.mouse.double_ms)
+  click(10, y)
+  near(a:get().volume, 0, 1e-6, "a second click at the end of the double click time: 0 dB")
+end)
+
 test("dragging a track's header down puts the track in another place", function()
   local a, b = two_tracks()
   drag(6, row_y(a.id), 6, row_y(b.id) + 1)

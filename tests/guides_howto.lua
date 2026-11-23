@@ -44,11 +44,12 @@ local function shows(text, what) eq(screen():find(text, 1, true) ~= nil, true, w
 
 --- The loudest meter of a track over `ms`, while `fn` runs at each step.
 local function loudest(track, ms, fn)
-  local most, deadline = 0, api.now() + ms
-  while api.now() < deadline do
+  local most = 0
+  -- About 10 ms of sound each block.
+  for _ = 1, math.ceil(ms / 10) do
     if fn then fn() end
     most = math.max(most, track:meter())
-    paw.wait(10)
+    T.next_block(1)
   end
   return most
 end
@@ -165,9 +166,10 @@ test("guide: connect a MIDI keyboard", function()
   local t = paw.tracks()[1]
   local function play()
     -- The note before dies away first.
-    local quiet = api.now() + 3000
-    while t:meter() > 0.0005 and api.now() < quiet do
-      paw.wait(20)
+    -- At most about three seconds of sound, as the engine plays it.
+    for _ = 1, 300 do
+      if t:meter() <= 0.0005 then break end
+      T.next_block(1)
     end
     return loudest(
       t,

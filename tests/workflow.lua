@@ -872,7 +872,7 @@ test("a track's automation mode says what moving a control writes", function()
   paw.project.save(path)
   paw.project.load(path)
   eq(paw.tracks()[1].automation, "touch", "the mode is saved with the project")
-end)
+end, { live = "a control in touch mode is let go 600 ms of real time after its last move" })
 
 -- Long files played from the disk ---------------------------------------------------
 

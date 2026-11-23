@@ -43,10 +43,8 @@ extensions/pattern/tests.lua :meter( 1
 extensions/pattern/tests.lua api.now() 2
 extensions/pattern/tests.lua api.sleep( 1
 extensions/plugstate/tests.lua api.now() 2
-extensions/plugstate/tests.lua api.wait( 1
 extensions/plugstate/tests_frameworks.lua api.sleep( 1
 extensions/plugstate/tests_tone3000.lua api.now() 4
-extensions/plugstate/tests_tone3000.lua api.sleep( 1
 extensions/rulerplus/tests.lua paw.wait( 1
 extensions/sampler/tests.lua api.now() 2
 extensions/sampler/tests.lua paw.wait( 2
@@ -94,7 +92,7 @@ tests/core.lua api.sleep( 1
 tests/core.lua paw.wait( 4
 tests/cues.lua paw.wait( 1
 tests/curves.lua paw.wait( 1
-tests/devices.lua paw.wait( 5
+tests/devices.lua paw.wait( 3
 tests/export.lua api.now() 2
 tests/export.lua paw.wait( 2
 tests/extensions_api.lua paw.wait( 2
@@ -103,7 +101,7 @@ tests/files.lua paw.wait( 2
 tests/flow.lua api.now() 8
 tests/flow.lua api.wait( 1
 tests/flow.lua paw.wait( 2
-tests/frames.lua api.now() 4
+tests/frames.lua api.now() 2
 tests/frontend.lua paw.wait( 2
 tests/fx.lua paw.wait( 3
 tests/guides.lua :meter( 2
@@ -111,9 +109,9 @@ tests/guides.lua api.now() 14
 tests/guides.lua api.sleep( 1
 tests/guides.lua paw.wait( 6
 tests/guides_howto.lua :meter( 2
-tests/guides_howto.lua api.now() 8
+tests/guides_howto.lua api.now() 4
 tests/guides_howto.lua api.sleep( 1
-tests/guides_howto.lua paw.wait( 10
+tests/guides_howto.lua paw.wait( 8
 tests/guides_projects.lua api.now() 1
 tests/guides_render.lua api.now() 2
 tests/guides_render.lua paw.wait( 1
@@ -141,7 +139,6 @@ tests/offline.lua paw.wait( 10
 tests/pick.lua paw.wait( 2
 tests/plugin_state.lua api.now() 2
 tests/plugin_state.lua api.sleep( 2
-tests/plugin_state.lua api.wait( 5
 tests/plugin_state.lua paw.wait( 1
 tests/plugins.lua :meter( 1
 tests/plugins.lua paw.wait( 1

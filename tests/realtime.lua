@@ -44,7 +44,7 @@ test("the transport plays, seeks, loops and stops", function()
   local stopped = paw.transport.position
   next_block(5)
   eq(paw.transport.position, stopped, "holds still when stopped")
-end)
+end, { live = "it checks that the transport moves in real time" })
 
 test("the engine counts the blocks it ran, and the blocks each device ran", function()
   fresh()

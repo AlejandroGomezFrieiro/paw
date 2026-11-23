@@ -64,14 +64,15 @@ end
 -- or the slice is over. A step of LuaJIT gives true when it ended a cycle.
 local function step(ms: number): boolean
   restart()
-  local deadline = api.now() + ms
+  -- A budget of work: on the wall clock.
+  local deadline = api.real_ms() + ms
   repeat
     if collectgarbage("step", 0) as boolean then
       M.cycles = M.cycles + 1
       M.base = collectgarbage("count")
       return true
     end
-  until api.now() >= deadline
+  until api.real_ms() >= deadline
   if not past_pause() then
     collectgarbage("stop")
     stopped = true

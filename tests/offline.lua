@@ -478,7 +478,7 @@ test("a MIDI input that goes away and comes back is told of, and its tracks take
   T.stop()
   api.midi_test_ports({})
   paw.wait(250)
-end)
+end, { live = "the watch of the MIDI ports looks on the wall clock (session/watch.rs)" })
 
 -- Choosing the device ------------------------------------------------------------
 

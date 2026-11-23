@@ -661,7 +661,7 @@ test("time spent waiting in the kernel does not count against a callback", funct
   for i = before + 1, #paw.ui.messages do
     eq(paw.ui.messages[i].level ~= "error", true, "no error")
   end
-end)
+end, { live = "it spins in Lua to pass the time limit, which is on the wall clock" })
 
 test(":lua asked for by hand gets far longer than a callback", function()
   start()
@@ -679,7 +679,7 @@ test(":lua asked for by hand gets far longer than a callback", function()
   for i = before + 1, #paw.ui.messages do
     eq(paw.ui.messages[i].level ~= "error", true, "no error")
   end
-end)
+end, { live = "it spins in Lua to pass the time limit, which is on the wall clock" })
 
 -- A budget for each callback, and long work in slices ---------------------------
 
@@ -728,7 +728,7 @@ test("a key over paw.opt.budget_ms is named once in :messages, with its time", f
   paw.keymap.feed("gV")
   eq(#slow_since(before, "zz "), 1, "a second press and a quick key write nothing more")
   read_errors()
-end)
+end, { live = "it spins in Lua to pass the time limit, which is on the wall clock" })
 
 test("the budget names a slow timer and a slow event handler", function()
   start()
@@ -746,7 +746,7 @@ test("the budget names a slow timer and a slow event handler", function()
   has(timer[1].text, "slow: a timer (tests/flow.lua:", "named by where its function is")
   eq(#slow_since(before, "^slow: a timer %d"), 0, "and none for the call around it")
   read_errors()
-end)
+end, { live = "it spins in Lua to pass the time limit, which is on the wall clock" })
 
 test("a long job runs in slices of at most its time, and a key comes in between", function()
   start()
@@ -772,7 +772,7 @@ test("a long job runs in slices of at most its time, and a key comes in between"
   for _, job in ipairs(paw.slices.running()) do
     eq(job.name ~= "zz job", true, "the job is gone when it is over")
   end
-end)
+end, { live = "it spins in Lua to pass the time limit, which is on the wall clock" })
 
 test(
   "the garbage collector ends its cycles in the job collector between keys, and rests while the heap stays",

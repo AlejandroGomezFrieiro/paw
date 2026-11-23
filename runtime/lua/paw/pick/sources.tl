@@ -490,7 +490,8 @@ local function start_walk(root: string, limit: integer, depth: integer, skip: {s
   local w: Walk = {seen = 0}
   w.step = function(ms: number): {FileLine}, boolean
     local out: {FileLine} = {}
-    local deadline = api.now() + ms
+    -- A budget of work: on the wall clock.
+    local deadline = api.real_ms() + ms
     while head <= tail do
       local item = queue[head]
       queue[head] = nil
@@ -523,7 +524,7 @@ local function start_walk(root: string, limit: integer, depth: integer, skip: {s
           end
         end
       end
-      if api.now() >= deadline then
+      if api.real_ms() >= deadline then
         return out, false
       end
     end

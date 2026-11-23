@@ -151,7 +151,7 @@ test("ara: \\an makes a MIDI clip of the notes the plugin heard, as one undo ste
   paw.cursor.set_track(track.id)
   local tracks = #api.track_list()
   T.keys(paw.opt.localleader .. "an")
-  T.until_(function() return #api.track_list() > tracks end, "a track for the notes")
+  T.advance_until(function() return #api.track_list() > tracks end, "a track for the notes", 10000)
   local notes = paw.track("Vox notes")
   eq(notes ~= nil, true, "a track for the notes")
   local clip = notes:clips()[1]

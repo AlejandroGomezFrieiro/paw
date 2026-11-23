@@ -921,7 +921,7 @@ local function plays_past(beat, done)
   T.after(function() api.transport_stop() end)
   local deadline = api.now() + 4000
   while api.now() < deadline do
-    api.wait(20)
+    T.advance(20)
     if api.transport_get().position > beat and done() then
       api.transport_stop()
       return true

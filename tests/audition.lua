@@ -238,7 +238,7 @@ test("a sound file in the file picker plays on its own, with its outline in the 
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
   eq(screen:find("tone-mono-8k.wav", 1, true) ~= nil, true, "the pane names it")
   eq(screen:find("[▁▂▃▄▅▆▇█]") ~= nil, true, "and draws its outline")
-  eq(wait_for(function() return paw.audition.state().state == "ended" end), true, "it plays to its end")
+  T.until_(function() return paw.audition.state().state == "ended" end, "the file played to its end")
   keys("<Esc>")
   eq(paw.audition.state(), nil, "Escape stops it")
   eq(api.undo_current(), undo, "the project never knew")

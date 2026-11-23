@@ -355,7 +355,7 @@ test("unsaved work is copied aside, and offered again after a session that ended
   eq(#api.read_dir(dir), 0, "nothing is copied while it is turned off")
   paw.opt.autosave = 0.05
   local file = autosave.file()
-  until_(function() return io.open(file) end, "a changed project to be copied after a while")
+  T.advance_until(function() return io.open(file) end, "a changed project to be copied after a while", 60000)
   eq(api.project_get().path, nil, "without becoming the project's file")
   eq(paw.project.modified, true, "or counting as saved")
   local before = T.read_file(file)
@@ -378,11 +378,11 @@ test("unsaved work is copied aside, and offered again after a session that ended
   paw.tracks()[1].volume = -3
   api.undo_checkpoint()
   local mine = autosave.file()
-  until_(function()
+  T.advance_until(function()
     local f = io.open(mine)
     if f then f:close() end
     return f ~= nil
-  end, "the project to be copied again")
+  end, "the project to be copied again", 60000)
   -- An open question: a save at once after the copy was made has left
   -- the copy behind. The test waits as it did before.
   paw.wait(150)
@@ -408,7 +408,7 @@ test("scripts can wait while timers fire", function()
   paw.defer(function() once = true end, 30)
   api.sleep(60) -- real time is the point: sleeping holds timers up
   eq(fired .. tostring(once), "0false", "sleeping holds timers up")
-  until_(function() return fired >= 4 and once end, "waiting to let the timers run")
+  T.advance_until(function() return fired >= 4 and once end, "waiting to let the timers run", 1000)
   paw.cancel(every)
 end)
 
@@ -728,7 +728,7 @@ test("a track is bounced to audio, and takes MIDI messages by hand", function()
   -- The meter falls slowly after the sound has gone.
   until_(function() return select(1, t:meter()) < 0.005 end, "the sound to stop when the pedal comes up")
   T.fails(function() t:midi({ type = "bend", value = 3 }) end, "range", "a bend out of range")
-end)
+end, { live = "the release of the synth and the fall of the meter take real time" })
 
 for _, format in ipairs({ "clap", "vst3", "lv2" }) do
   test(format .. " instruments follow the pitch wheel", function()

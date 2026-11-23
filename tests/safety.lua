@@ -290,7 +290,7 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
   bad:set("fail", 0)
   bad:restart()
   eq(api.device_get(bad.id).stopped, nil, "restarted, it works again")
-end)
+end, { live = "the engine bypasses the device that panicked while it plays in real time" })
 
 test("a device that puts out NaN is silenced at its output and reported once", function()
   fresh()

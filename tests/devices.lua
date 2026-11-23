@@ -133,7 +133,8 @@ test("devices: a compressor's meters and curve are read from scripts", function(
   near(curve[1], -60, 0.01, "below the threshold nothing changes")
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(600)
+  -- Over half a second of sound at 512 frames a block.
+  T.next_block(60)
   local m = paw.params.read(c, "meters")
   paw.transport.stop()
   -- A -6 dB square: 14 dB over, 3:1 of it taken off at 4:1 → 10.5 dB of reduction.
@@ -159,7 +160,8 @@ test("devices: the meter and the tuner are read while the song plays", function(
   eq(paw.params.read(tuner, "pitch").note, "-", "and the tuner hears nothing")
   paw.transport.seek(0)
   paw.transport.play()
-  paw.wait(800)
+  -- Most of a second of sound at 512 frames a block.
+  T.next_block(80)
   local pitch = paw.params.read(tuner, "pitch")
   local m = paw.params.read(meter, "meters")
   paw.transport.stop()
