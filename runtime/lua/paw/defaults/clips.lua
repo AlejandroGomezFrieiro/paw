@@ -573,8 +573,9 @@ end, { desc = "Rename the clip" })
 command("clip.transpose", function(ctx)
   local clip, row = need_clip(), cursor.index()
   if not clip then return end
+  -- The clip at the cursor, whole: a selection goes through the visual keys.
   edit.arrange.transpose(
-    { kind = "char", r0 = row, r1 = row, c0 = clip.start, c1 = clip.start + clip.length },
+    { kind = "char", r0 = row, r1 = row, c0 = clip.start, c1 = clip.start + clip.length, clips = { [clip.id] = true } },
     (ctx.args.by or tonumber(ctx.args[1]) or 1) * (ctx.count or 1)
   )
 end, { desc = "Move the clip's notes by semitones: `clip.transpose 12`, `clip.transpose by=-1`" })

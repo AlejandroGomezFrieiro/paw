@@ -151,6 +151,93 @@ test("visual mode selects time, tracks, and what a text object names", function(
   paw.ui.focus("arrange")
 end)
 
+test("a transposition in the arrange view moves the notes of the selection only, and says what it moved", function()
+  fresh()
+  -- Two tracks with a clip of three bars each: C C# D D# in each bar.
+  local function riff(name, low)
+    local track = paw.add_track({ name = name })
+    local notes = {}
+    for beat = 0, 11 do
+      notes[#notes + 1] = { pitch = low + beat % 4, start = beat, length = 1 }
+    end
+    return track:add_clip({ name = name, start = 0, length = 12, notes = notes })
+  end
+  local keys_clip, bass_clip = riff("Keys", 60), riff("Bass", 36)
+  api.undo_checkpoint()
+  local function message() return paw.ui.messages[#paw.ui.messages].text end
+  local bar1, bar3 = "60@0+1 61@1+1 62@2+1 63@3+1", "60@8+1 61@9+1 62@10+1 63@11+1"
+  local untouched = bar1 .. " 60@4+1 61@5+1 62@6+1 63@7+1 " .. bar3
+  local bass = "36@0+1 37@1+1 38@2+1 39@3+1 36@4+1 37@5+1 38@6+1 39@7+1 36@8+1 37@9+1 38@10+1 39@11+1"
+  -- What each case types, from the Keys track at beat 4, and what it gives.
+  local cases = {
+    {
+      typed = "vib12<C-a>",
+      keys = bar1 .. " 72@4+1 73@5+1 74@6+1 75@7+1 " .. bar3,
+      said = "moved 4 notes up 12 semitones in Keys",
+      -- The clip draws the second bar an octave over the others, and the message line says it.
+      screen = "transpose_a_bar",
+    },
+    {
+      typed = "vib-",
+      keys = bar1 .. " 59@4+1 60@5+1 61@6+1 62@7+1 " .. bar3,
+      said = "moved 4 notes down 1 semitone in Keys",
+    },
+    {
+      typed = "vibj+",
+      keys = bar1 .. " 61@4+1 62@5+1 63@6+1 64@7+1 " .. bar3,
+      said = "moved 8 notes up 1 semitone in Keys and Bass",
+    },
+    {
+      typed = "vl3<C-x>",
+      keys = bar1 .. " 57@4+1 61@5+1 62@6+1 63@7+1 " .. bar3,
+      said = "moved 1 note down 3 semitones in Keys",
+    },
+  }
+  for _, case in ipairs(cases) do
+    paw.cursor.set_track(paw.tracks()[1])
+    paw.cursor.set_beat(4)
+    keys("<Esc>" .. case.typed)
+    eq(melody(keys_clip), case.keys, case.typed .. ": the notes of the selection only")
+    eq(message(), case.said, case.typed .. ": the message")
+    if case.screen then T.expect_screen(case.screen, 80, 18) end
+    keys("u")
+    eq(melody(keys_clip) .. " | " .. melody(bass_clip), untouched .. " | " .. bass, case.typed .. ": one u")
+  end
+
+  -- A selection with no notes in it says so.
+  paw.cursor.set_beat(16)
+  keys("vib<C-a>")
+  eq(message(), "no notes to move there", "a selection past the clips")
+
+  -- A looped clip plays one bar three times: a note moves when one of its repeats starts in the selection.
+  local loop = paw.add_track({ name = "Loop" }):add_clip({
+    name = "Loop",
+    start = 0,
+    length = 12,
+    loop = true,
+    loop_length = 4,
+    notes = { { pitch = 48, start = 0, length = 1 }, { pitch = 50, start = 2, length = 1 } },
+  })
+  paw.cursor.set_track(paw.tracks()[3])
+  paw.cursor.set_beat(6)
+  keys("<Esc>vl<C-a>")
+  eq(melody(loop), "48@0+1 51@2+1", "the repeat of the second note at beat 6 moves it")
+
+  -- Without a selection, the classic keys transpose the whole clip at the cursor.
+  local keys_option = paw.opt.keys
+  T.after(function() paw.opt.keys = keys_option end)
+  paw.opt.keys = "classic"
+  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_beat(4)
+  keys("<Esc><C-a>")
+  eq(melody(keys_clip):sub(1, 13), "61@0+1 62@1+1", "classic <C-a>: the whole clip a semitone up")
+  eq(message(), "moved 12 notes up 1 semitone in Keys", "and says so")
+  keys("12<C-a>")
+  eq(melody(keys_clip):sub(1, 13), "73@0+1 74@1+1", "a count moves it by that many")
+  eq(message(), "moved 12 notes up 12 semitones in Keys", "and says so")
+  eq(melody(bass_clip), bass, "the other track's clip stays")
+end)
+
 test("the other operators shift, quantize, loop and change", function()
   local t = three_clips()
   keys(">ic")

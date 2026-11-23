@@ -172,7 +172,7 @@ In visual mode, the same text object again takes in one more, so `vic` and then 
 | `x` `p` | delete it, replace it with the register |
 | `<CR>` | (A) edit the notes of the MIDI clips selected together in R |
 | `~` `J` | mute, join (A) |
-| `<C-a>` `<C-x>` `+` `-` | transpose; a count first is how much: `12<C-a>` (over whole tracks, `V`: the volume) |
+| `<C-a>` `<C-x>` `+` `-` | transpose the notes that start in the selection, and no others; a count first is how much: `vib12<C-a>` moves the notes of one bar up an octave. The message says how many notes moved, how far and in which clips (over whole tracks, `V`: the volume) |
 | `:` | a command for the selection: the line starts `:'<,'>` |
 | `<Esc>` | back to normal mode |
 
