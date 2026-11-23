@@ -812,12 +812,26 @@ local function float_rect(width: integer, height: integer): ScreenRect
   return { name = f.name, x = math.floor((width - w) / 2), y = y, w = w, h = h }
 end
 
+-- A style that turns off every attribute of a cell. A highlight group
+-- changes only what it names, so a fill with "Normal" keeps the bold of
+-- the text under it.
+local NO_ATTRIBUTES: types.CellStyle = {
+  bold = false,
+  dim = false,
+  italic = false,
+  underline = false,
+  reverse = false,
+  strike = false,
+}
+
 --- Draw a box around a buffer's edge and return a buffer for the inside.
 function M.box(buf: contracts.Buf, title?: string, style?: string): contracts.Buf
   local w, h = buf.width, buf.height
   style = style or "Border"
   local g = paw.draw.g
+  -- A box covers what is under it: its colors and its attributes.
   buf:fill(0, 0, w, h, " ", "Normal")
+  buf:fill(0, 0, w, h, nil, NO_ATTRIBUTES)
   buf:text(0, 0, g.tl .. string.rep(g.h, w - 2) .. g.tr, style)
   for row = 1, h - 2 do
     buf:text(0, row, g.v, style)
