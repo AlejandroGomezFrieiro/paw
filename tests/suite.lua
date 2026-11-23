@@ -363,14 +363,21 @@ end
 --- Wait until no meter of the engine shows a level: the master's and each
 --- track's are under the meters' floor (-60 dB). The engine lets a meter
 --- fall in its own blocks, which run on the wall clock, so the sound of a
---- test before can still fall when the next test draws a meter.
+--- test before can still fall when the next test draws a meter. Then put
+--- out the peaks that the screen holds for two seconds of the clock, and
+--- the clip lights.
 local function until_meters_at_rest()
+  local ids = api.track_list({ all = true })
+  ids[#ids + 1] = 0
   until_(function()
-    for _, id in ipairs(api.track_list({ all = true })) do
+    for _, id in ipairs(ids) do
       if math.max(api.track_meter(id)) >= 0.001 then return false end
     end
-    return math.max(api.track_meter(0)) < 0.001
+    return true
   end, "the meters of the engine at rest")
+  for _, id in ipairs(ids) do
+    paw.draw.clear_peak(id)
+  end
 end
 
 --- Let schedule time pass, from one due timer or delay to the next, until
