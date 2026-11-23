@@ -785,7 +785,15 @@ local function edits(): integer
 end
 
 local pending_opts: {string: RenderOptions} = {}
-events.on(render.before, function(e: render.Before) pending_opts[e.path] = e.opts as RenderOptions end)
+-- A measure of the sound also emits `render.before`, with no path: it writes no file.
+events.on(
+  render.before,
+  function(e: render.Before)
+    if e.path then
+      pending_opts[e.path] = e.opts as RenderOptions
+    end
+  end
+)
 local function rendered(info: types.RenderResult)
   if not (info is types.RenderResult) or not info.path then
     return
