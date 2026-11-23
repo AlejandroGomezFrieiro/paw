@@ -44,12 +44,12 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. Press `gv` and `~` again to unmute them.
    - ✓ `~` mutes and unmutes.
 10. Visual mode also works in the piano roll. Press `3G` to go to Keys, and press `<CR>` to open its first clip.
-   - ✓ The piano roll shows the A minor chord of `k1`.
+    - ✓ The piano roll shows the A minor chord of `k1`.
 11. `v` selects a range of time at all pitches. Press `v`, and then press `12<C-a>` to move all notes that start in the range up one octave.
-   - *Hint:* While the status line shows VISUAL, type 1, 2, and then Ctrl and a.
-   - ✓ The chord is one octave higher, because in visual mode a count gives the amount.
+    - *Hint:* While the status line shows VISUAL, type 1, 2, and then Ctrl and a.
+    - ✓ The chord is one octave higher, because in visual mode a count gives the amount.
 12. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop.
-   - ✓ The first chord sounds one octave higher.
+    - ✓ The first chord sounds one octave higher.
 
 ## What we did
 

@@ -98,6 +98,7 @@ the loaded extensions.]],
     {
       say = "utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track.",
       keys = { ":tutor.try utau", "<CR>", "o", ":utau.voice", "<CR>" },
+      browser_lacks = "native code for the engines of utau",
       check = function(_, look)
         for _, t in ipairs(paw.tracks()) do
           if look.device(t, "lua:utau") then return loaded("utau") end

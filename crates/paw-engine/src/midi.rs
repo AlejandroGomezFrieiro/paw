@@ -66,6 +66,10 @@ pub struct MidiInputs {
 }
 
 impl MidiInputs {
+    /// Whether this build reads MIDI ports. A build without them (in a
+    /// BrowserPod pod, for example) has no ports to tell the user about.
+    pub const SUPPORTED: bool = cfg!(feature = "midi");
+
     /// Start the thread, open to the ports matching `select` from the first
     /// moment, as [`select`](Self::select) takes it: `None` for every port,
     /// and an empty list for none but those of our own.

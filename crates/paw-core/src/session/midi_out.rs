@@ -39,6 +39,9 @@ pub fn parse(value: Value) -> Result<Option<MidiOutput>> {
 impl Session {
     /// Start sending MIDI to the ports, from the current engine.
     pub(super) fn connect_midi_out(&mut self) {
+        if !MidiOutputs::SUPPORTED {
+            return;
+        }
         if self.midi.out.is_none() {
             match MidiOutputs::start() {
                 Ok(out) => {

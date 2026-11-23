@@ -59,7 +59,7 @@ let
   src = lib.fileset.toSource {
     root = ../..;
     fileset = lib.fileset.unions [
-      ../../Cargo.toml ../../.cargo ../../crates ../../runtime
+      ../../Cargo.toml ../../.cargo ../../crates ../../runtime ../../fuzz
       ./Cargo.lock ./sjlj.c ./build-paw.sh
     ];
   };

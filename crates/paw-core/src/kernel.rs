@@ -33,6 +33,35 @@ use crate::watchdog::Watchdog;
 /// drawn from here, so this is also their frame rate.
 const IDLE_PERIOD: Duration = Duration::from_millis(16);
 
+/// The next message, if one comes within `wait`.
+#[cfg(not(target_vendor = "browserpod"))]
+fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
+    rx.recv_timeout(wait)
+}
+
+/// The next message, if one comes within `wait`. In a BrowserPod pod a
+/// wait with a timeout does not end at its time, only when a message comes,
+/// so the timers would fire only after a key. A short sleep does end: the
+/// loop asks the channel again after each one.
+#[cfg(target_vendor = "browserpod")]
+fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
+    use std::sync::mpsc::TryRecvError;
+    const STEP: Duration = Duration::from_millis(5);
+    let end = Instant::now() + wait;
+    loop {
+        match rx.try_recv() {
+            Ok(msg) => return Ok(msg),
+            Err(TryRecvError::Disconnected) => return Err(RecvTimeoutError::Disconnected),
+            Err(TryRecvError::Empty) => {}
+        }
+        let left = end.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(RecvTimeoutError::Timeout);
+        }
+        std::thread::sleep(left.min(STEP));
+    }
+}
+
 /// The request that first ends the turn of the terminal keys before it
 /// (`frontend.sync`).
 const SYNC_METHOD: &str = "frontend.sync";
@@ -687,7 +716,7 @@ impl Kernel {
                 .needs_idle()
                 .then(|| (last_idle + IDLE_PERIOD).saturating_duration_since(Instant::now()));
             let msg = match next_timer.into_iter().chain(next_idle).min() {
-                Some(wait) => match self.rx.recv_timeout(wait) {
+                Some(wait) => match recv_timeout(&self.rx, wait) {
                     Ok(msg) => Some(msg),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => {

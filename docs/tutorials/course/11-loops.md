@@ -46,7 +46,7 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. `gl` also accepts motions. Press `3|` to go to bar 3, and then press `gl2W` to loop two bars from there.
    - ✓ The loop is now over the first two bars of the verse.
 10. Press `gp` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
-   - ✓ Two bars of the verse play again and again.
+    - ✓ Two bars of the verse play again and again.
 
 ## What we did
 

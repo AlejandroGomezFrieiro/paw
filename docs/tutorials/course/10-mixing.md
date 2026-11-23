@@ -46,12 +46,12 @@ The tutor opens a practice project for the lesson, and it checks each step when 
    - *Hint:* `<Space>ts` does the same, but it asks for the track and sends at the default level.
    - ✓ Lead sends to Echo at -6 dB, so the melody now has an echo. The fader of Echo sets the level of the echo.
 10. Now we add automation. `A` adds a volume point at the cursor and asks for its value. Type `/Keys` and `<CR>` to return to Keys, and then press `0` and `A`. Press `<C-u>` to clear the value, type `-30` and press `<CR>`.
-   - *Hint:* The cursor must be on Keys. Type `/Keys` and `<CR>`.
-   - ✓ A point of -30 dB is at the start, and an `A` shows in the track header.
+    - *Hint:* The cursor must be on Keys. Type `/Keys` and `<CR>`.
+    - ✓ A point of -30 dB is at the start, and an `A` shows in the track header.
 11. Press `2W` to move two bars. Then press `A` and `<C-u>`, type `-10` and press `<CR>`, so that the chords fade in over two bars.
-   - ✓ The lane of the track shows the line between the points.
+    - ✓ The lane of the track shows the line between the points.
 12. Listen from the start. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
-   - ✓ The chords fade in through a bus, the melody has an echo, and the bass is on the right.
+    - ✓ The chords fade in through a bus, the melody has an echo, and the bass is on the right.
 
 ## What we did
 

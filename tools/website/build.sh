@@ -3,6 +3,7 @@
 #
 #   tools/website/build.sh <output-dir>          build into <output-dir>
 #   tools/website/build.sh <output-dir> serve    build, then serve and rebuild on change
+#   PAW_POD=<pod image> tools/website/build.sh <output-dir>   with paw for the browser in pod/
 #
 # The Markdown is not changed. The script copies README.md, docs/ and the
 # Markdown and pictures of extensions/ into a staging folder with the same
@@ -31,7 +32,7 @@ find extensions \( -name '*.md' -o -name '*.png' -o -name '*.gif' -o -name '*.sv
 find crates -name README.md -print0 | xargs -0 cp --no-preserve=mode --parents -t "$stage"
 chmod -R u+w "$stage"
 sed "s|@REPO_URL@|$REPO_URL|g" "$here/book.toml" > "$stage/book.toml"
-cp "$here/landing.css" "$stage/"
+cp "$here/landing.css" "$here/live.css" "$stage/"
 # The site opens on the landing page. It takes the place of README.md in the
 # staged tree only, and the README stays as GitHub shows it.
 cp "$here/landing.md" "$stage/README.md"
@@ -56,4 +57,15 @@ find "$out/site" -name '*.html' -print0 | xargs -0 sed -i 's|edit/main/\./|edit/
 for f in "$out/site/index.html" "$out/site/README.html"; do
   sed -i "s|edit/main/README.md|edit/main/tools/website/landing.md|" "$f"
 done
+# A page with a live paw loads pod/paw-live.js, and the service worker for
+# isolation is at the root, so that it can serve each page. PAW_POD is the
+# pod image (`nix build .#paw-pod`): without it, the button of such a page
+# says that paw for the browser is not on this copy.
+mkdir -p "$out/site/pod"
+if [ -n "${PAW_POD:-}" ]; then
+  cp -r --no-preserve=mode "$PAW_POD"/. "$out/site/pod/"
+else
+  cp --no-preserve=mode web/browserpod/site/paw-live.js "$out/site/pod/"
+fi
+cp --no-preserve=mode web/browserpod/site/coi-sw.js "$out/site/"
 "$lua" "$here/linkcheck.lua" "$stage" "$out/site" "$repo" "$REPO_URL"

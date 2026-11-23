@@ -43,9 +43,9 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 9. `u` undoes the last change and `<C-r>` (Ctrl and r) redoes it. Press `u`, then `<C-r>`.
    - ✓ paw undid the change and did it again. Each key that changes the project is one undo step.
 10. `x` deletes the clip under the cursor. Press `x`.
-   - ✓ paw deleted the clip, and `u` can bring it back.
+    - ✓ paw deleted the clip, and `u` can bring it back.
 11. Listen to the result. Press `gs` to move to the start, `<Space><Space>` to play and `<Space><Space>` to stop.
-   - ✓ You have a bass line on a track that you made.
+    - ✓ You have a bass line on a track that you made.
 
 ## What we did
 

@@ -175,6 +175,11 @@ Other fields:
 - `unchecked = "why"` in place of `check` marks a step that the tutor cannot
   see, and the panel tells the learner to press `<Space>hn` when done.
 - `on_quit = true` makes the step complete when you quit paw.
+- `browser_lacks = "sound input or MIDI keyboard"` on a lesson says what
+  the lesson needs that paw in a browser doesn't have. The course page in
+  the browser then gives no buttons for the lesson, and it tells the reader
+  to do the lesson in paw on their computer. On a step, it gives the step
+  a button that skips it, and it says why.
 - `test = { before = fn, after = fn }` on a lesson prepares the test run
   (an audio engine with a test input) and removes what it made (files
   written beside the program).
@@ -193,7 +198,15 @@ checks the following:
 A new lesson is tested when you add it, so you write nothing more.
 
 The text: `make-docs.lua` writes `docs/tutorials/course/` from the
-lessons, while a person writes `docs/reference/keys.md` by hand, and the tests check that
+lessons, with a page for each lesson and
+[the course in your browser](../../docs/tutorials/course/in-the-browser.md),
+which has every lesson on one page beside a live paw. On that page, the
+"Type it" button of a step types the step's `keys`. It waits a moment
+between two parts of the keys, so that you see each part happen, and a wait
+is two seconds at least, so that you can listen. A step with a `sim`
+function has no button, and the button of an `unchecked` step types
+`<Space>hn`.
+A person writes `docs/reference/keys.md` by hand, and the tests check that
 each key in its first column is a key of paw.
 
 ### Steps that the tests cannot do

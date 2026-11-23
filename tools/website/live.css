@@ -1,0 +1,36 @@
+/* A page with a live paw (web/browserpod/site/paw-live.js): the text on the
+   left, and paw on the right, where it stays while the text scrolls.
+   paw-live.js scales the terminal down to the width of its panel. The
+   terminal draws only while it shows, so the panel must stay in view. */
+.content:has(.paw-course) {
+  /* mdBook's `overflow-y: auto` makes .content the container of a sticky
+     element, and .content does not scroll: the page does. */
+  overflow: visible;
+}
+.content main:has(.paw-course) {
+  max-width: min(100%, 140rem);
+}
+.paw-course {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.paw-course-text {
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .paw-course {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+  }
+  .paw-course > .paw-live {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100rem;
+    position: sticky;
+    top: calc(var(--menu-bar-height, 50px) + 1rem);
+  }
+  .paw-course-text {
+    flex: 0 0 42rem;
+  }
+}

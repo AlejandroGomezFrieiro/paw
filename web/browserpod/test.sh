@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Test the pod image in headless Chromium, on a local server.
 #
-#   web/browserpod/test.sh SITE [OUT.json] [--no-headers]
+#   web/browserpod/test.sh SITE [OUT.json] [--no-headers] [--course | --site]
 #
-# SITE is the built image (`nix build .#paw-pod`, then ./result). The test
+# SITE is the built image (`nix build .#paw-pod`, then ./result). With
+# --course, SITE is the website with the pod (`nix build .#website-live`),
+# and test-course.mjs does each lesson of the course page with its
+# buttons. With --site, SITE is the same, and test-site.mjs tries the
+# landing page (its recorded session, Try paw, the sound) and two how-to
+# guides with a live paw. The test
 # loads BrowserPod's runtime and its base disk from BrowserPod's CDN, as
 # any visitor of the page does; nothing else leaves the machine. With
 # --no-headers the server sends no isolation headers, as GitHub Pages, and
@@ -14,7 +19,15 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 site="$(realpath "$1")"
 out="$(realpath -m "${2:-$repo/target/browserpod/test.json}")"
-extra="${3:-}"
+extra="" script=test.mjs page=demo.html
+for flag in "${@:3}"; do
+  case "$flag" in
+    --no-headers) extra=--no-headers ;;
+    --course) script=test-course.mjs page=docs/tutorials/course/in-the-browser.html ;;
+    --site) script=test-site.mjs page=index.html ;;
+    *) echo "unknown flag $flag" >&2; exit 2 ;;
+  esac
+done
 node_dir="$repo/target/browserpod/node"
 tool() { nix build --no-link --print-out-paths "nixpkgs#$1" | head -1; }
 node="$(tool nodejs)/bin"
@@ -24,7 +37,7 @@ if [ ! -d "$node_dir/node_modules/puppeteer-core" ]; then
   mkdir -p "$node_dir"
   (cd "$node_dir" && npm init -y >/dev/null && npm install --ignore-scripts --no-audit --no-fund puppeteer-core@24.43.1)
 fi
-cp "$here/test.mjs" "$node_dir/test.mjs"
+cp "$here/$script" "$node_dir/$script"
 port=$((20000 + RANDOM % 20000))
 served="$(mktemp)"
 PAW_SERVE_LOG="$served" python3 "$here/serve.py" "$site" "$port" $extra >/dev/null 2>&1 &
@@ -33,7 +46,7 @@ trap 'kill $server 2>/dev/null; wait $server 2>/dev/null; rm -f "$served"' EXIT
 sleep 0.5
 cd "$node_dir"
 code=0
-timeout 600 node test.mjs "http://127.0.0.1:$port/demo.html" "$out" || code=$?
+timeout 1800 node "$script" "http://127.0.0.1:$port/$page" "$out" || code=$?
 # What this site sent, by file (BrowserPod's own files come from its CDN).
 echo "bytes served by this site:"
 awk '{ n[$1] += $2; t += $2 } END { for (f in n) printf "  %-22s %10d\n", f, n[f]; printf "  %-22s %10d\n", "total", t }' "$served"
