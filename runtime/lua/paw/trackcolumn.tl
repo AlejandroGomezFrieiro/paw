@@ -76,7 +76,7 @@ local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 --- A component placed for one draw: where it starts and how wide it is.
-local record Part
+local record Portion
   component: Component
   x: integer
   width: integer
@@ -86,14 +86,14 @@ end
 --- width, how many of its columns the headers give (its parts with
 --- `from_header`), and the frame they were measured on.
 local record Layout
-  parts: {Part}
+  portions: {Portion}
   width: integer
   from_header: integer
   frame: Frame
 end
 
 local record M
-  type Part = Part
+  type Portion = Portion
   type Layout = Layout
   --- The components by name, with the extension that added or changed
   --- each one (`add`, `set`).
@@ -645,7 +645,7 @@ function M.layout(frame: Frame, room: integer, header_room: integer): Layout
     end
   end
   table.sort(list, by_order)
-  local out: Layout = {parts = {}, width = 0, from_header = 0, frame = frame}
+  local out: Layout = {portions = {}, width = 0, from_header = 0, frame = frame}
   -- The tree of this frame's rows, before any component draws: the
   -- number component reads the song's numbers from it, also when the
   -- fold component is not in the column.
@@ -664,7 +664,7 @@ function M.layout(frame: Frame, room: integer, header_room: integer): Layout
     -- asks for them and they have room, else the timeline.
     local of_header = c.from_header and out.from_header + w <= (header_room or 0)
     if w > 0 and (of_header or out.width - out.from_header + w <= room) then
-      out.parts[#out.parts + 1] = {component = c, x = out.width, width = w}
+      out.portions[#out.portions + 1] = {component = c, x = out.width, width = w}
       out.width = out.width + w
       if of_header then
         out.from_header = out.from_header + w
@@ -682,18 +682,18 @@ function M.draw(buf: contracts.Buf, L: Layout, y: integer, track: integer, ctx: 
   end
   buf:fill(0, y, L.width, 1, " ", ctx.cursor and "TrackColumnCursor" or "TrackColumn")
   ctx.g = paw.draw.g
-  for _, part in ipairs(L.parts) do
-    ctx.width = part.width
-    ctx.glyphs, ctx.styles = part.component.glyphs or NONE_GLYPHS, part.component.styles or NONE_STYLES
-    local ok, cells = pcall(part.component.render, track, ctx)
+  for _, portion in ipairs(L.portions) do
+    ctx.width = portion.width
+    ctx.glyphs, ctx.styles = portion.component.glyphs or NONE_GLYPHS, portion.component.styles or NONE_STYLES
+    local ok, cells = pcall(portion.component.render, track, ctx)
     if not ok then
-      buf:text(part.x, y, "!", "Error")
+      buf:text(portion.x, y, "!", "Error")
     elseif cells is string then
-      buf:text(part.x, y, util.fit(cells, part.width))
+      buf:text(portion.x, y, util.fit(cells, portion.width))
     elseif cells is {Piece} then
-      local x = part.x
+      local x = portion.x
       for _, piece in ipairs(cells) do
-        local room = part.x + part.width - x
+        local room = portion.x + portion.width - x
         if room <= 0 then
           break
         end
@@ -707,11 +707,11 @@ end
 --- A click at column `x` of the column on a line of `track`: the
 --- component there does what its `click` says. True if one had a `click`.
 function M.click(L: Layout, x: integer, track: integer, ctx: Context): boolean
-  for _, part in ipairs(L.parts) do
-    if x >= part.x and x < part.x + part.width and part.component.click then
-      ctx.width, ctx.x, ctx.g = part.width, x - part.x, paw.draw.g
-      ctx.glyphs, ctx.styles = part.component.glyphs or {}, part.component.styles or {}
-      part.component.click(track, ctx)
+  for _, portion in ipairs(L.portions) do
+    if x >= portion.x and x < portion.x + portion.width and portion.component.click then
+      ctx.width, ctx.x, ctx.g = portion.width, x - portion.x, paw.draw.g
+      ctx.glyphs, ctx.styles = portion.component.glyphs or {}, portion.component.styles or {}
+      portion.component.click(track, ctx)
       return true
     end
   end

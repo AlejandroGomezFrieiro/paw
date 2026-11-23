@@ -719,26 +719,26 @@ end
 
 --- What a range covers, in words: "bars 5 to 8 on 2 tracks".
 function M.describe(r: Range): string
-  local parts: {string} = {}
+  local portions: {string} = {}
   if r.from then
     local a, b = r.bars[1], r.bars[2]
     if math.abs(bar_span(a).from - r.from) < EPS and math.abs(bar_span(b).to - r.to) < EPS then
-      parts[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
+      portions[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
     else
-      parts[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
+      portions[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
     end
   end
   if r.tracks then
     if #r.tracks == 1 then
-      parts[#parts + 1] = (r.from and "on " or "") .. api.track_get(r.tracks[1]).name
+      portions[#portions + 1] = (r.from and "on " or "") .. api.track_get(r.tracks[1]).name
     else
-      parts[#parts + 1] = (r.from and "on " or "") .. plural(#r.tracks, "track")
+      portions[#portions + 1] = (r.from and "on " or "") .. plural(#r.tracks, "track")
     end
   end
   if r.items then
-    parts[#parts + 1] = plural(#r.items, "match")
+    portions[#portions + 1] = plural(#r.items, "match")
   end
-  return table.concat(parts, " ")
+  return table.concat(portions, " ")
 end
 
 -- Items: what a range holds -------------------------------------------------------
@@ -1230,11 +1230,11 @@ function M.pattern(text: string): Pattern
     local negated = word:sub(1, 1) == "!" and #word > 1
     local body = negated and word:sub(2) or word
     local alts: {Alternative} = {}
-    for part in (body .. "|"):gmatch("([^|]*)|") do
-      if part == "" then
+    for portion in (body .. "|"):gmatch("([^|]*)|") do
+      if portion == "" then
         fail("`%s`: an empty alternative", word)
       end
-      local alt = alternative(part, word)
+      local alt = alternative(portion, word)
       alts[#alts + 1] = alt
       if alt.level and (not level or LEVEL[alt.level] > LEVEL[level]) then
         level = alt.level
@@ -1335,9 +1335,9 @@ function M.change(item: Item, sets: {Set}, pattern: Pattern): Change
     local value: ExValue
     if spec.type == "text" then
       value = set.value as string
-      local part = set.op == ":" and pattern.names[set.field]
-      if part and part ~= "" then
-        local a, b = tostring(now):lower():find(part:lower(), 1, true)
+      local portion = set.op == ":" and pattern.names[set.field]
+      if portion and portion ~= "" then
+        local a, b = tostring(now):lower():find(portion:lower(), 1, true)
         if a then
           value = tostring(now):sub(1, a - 1) .. (set.value as string) .. tostring(now):sub(b + 1)
         end
@@ -2028,7 +2028,7 @@ local last: Last = {}
 
 --- Read `/pattern/replacement/flags` (any delimiter that is not a letter,
 --- a digit or a space; `\` before it keeps it in). Missing ends are empty.
-local function delimited(text: string, parts: integer): {string}, string
+local function delimited(text: string, portions: integer): {string}, string
   text = text:match("^%s*(.*)$")
   local delim = text:sub(1, 1)
   if delim == "" then
@@ -2043,7 +2043,7 @@ local function delimited(text: string, parts: integer): {string}, string
     local ch = text:sub(i, i)
     if ch == "\\" and text:sub(i + 1, i + 1) == delim then
       cur[#cur + 1], i = delim, i + 2
-    elseif ch == delim and #out < parts - 1 then
+    elseif ch == delim and #out < portions - 1 then
       out[#out + 1], cur, i = table.concat(cur), {}, i + 1
     else
       cur[#cur + 1], i = ch, i + 1
@@ -2104,9 +2104,9 @@ local function substitute_args(ctx: Context): string, string, string
     end
     return last.sub[1], last.sub[2], ctx.keep_flags and last.sub[3] or ""
   end
-  local parts = delimited(text, 3)
-  local pat = pattern_text(parts[1])
-  local rep, flags = parts[2] or "", parts[3] or ""
+  local portions = delimited(text, 3)
+  local pat = pattern_text(portions[1])
+  local rep, flags = portions[2] or "", portions[3] or ""
   local bad = flags:match("[^gcni&%s]")
   if bad then
     fail("`%s`: not a flag of :s (g every match, c confirm each, n only count)", bad)
@@ -2237,11 +2237,11 @@ end
 --- Run a command on every match of a pattern, or put the matches in the
 --- quickfix list when there is no command.
 local function global(ctx: Context, invert: boolean): Result
-  local parts = delimited(arg_text(ctx), 2)
-  if not parts then
+  local portions = delimited(arg_text(ctx), 2)
+  if not portions then
     fail("`g` needs a pattern: `:g/vel<20/d`")
   end
-  local pat = pattern_text(parts[1])
+  local pat = pattern_text(portions[1])
   local pattern = M.pattern(pat)
   local r = range_of(ctx, "%")
   local matches: {Item} = {}
@@ -2250,7 +2250,7 @@ local function global(ctx: Context, invert: boolean): Result
       matches[#matches + 1] = item
     end
   end
-  local cmd = (parts[2] or ""):match("^%s*(.-)%s*$")
+  local cmd = (portions[2] or ""):match("^%s*(.-)%s*$")
   local title = string.format(":%s/%s/", invert and "v" or "g", pat)
   -- Vim's `:g/pat/p` prints the lines: here the list of them is the print.
   local prints: {string: boolean} = {
@@ -2780,18 +2780,18 @@ local function preview_of(text: string): string, string
   end
   local base = name:gsub("!$", "")
   if base == "s" or base == "g" or base == "v" then
-    local parts = delimited(args or "", base == "s" and 3 or 2)
-    if not parts or (parts[1] == "" and not last.pattern) then
+    local portions = delimited(args or "", base == "s" and 3 or 2)
+    if not portions or (portions[1] == "" and not last.pattern) then
       return r and M.describe(r) or nil
     end
-    local pattern = M.pattern(parts[1] ~= "" and parts[1] or last.pattern)
+    local pattern = M.pattern(portions[1] ~= "" and portions[1] or last.pattern)
     local range = r or range_of({}, base == "s" and "." or "%")
     if not r then
       state.from, state.to = range.from, range.to
     end
     if base == "s" then
-      local replacement = parts[2] and M.replacement(parts[2], pattern) or nil
-      local items, chosen = M.substitution(range, pattern, replacement or {}, parts[3] or "")
+      local replacement = portions[2] and M.replacement(portions[2], pattern) or nil
+      local items, chosen = M.substitution(range, pattern, replacement or {}, portions[3] or "")
       for _, c in ipairs(chosen) do
         M.mark(state, c.item, replacement and c.change)
       end
@@ -2799,7 +2799,7 @@ local function preview_of(text: string): string, string
       if replacement and #chosen < #items then
         words = words .. string.format(", %d change (g: all)", #chosen)
       end
-      if replacement and #replacement == 0 and parts[3] then
+      if replacement and #replacement == 0 and portions[3] then
         words = words .. ", removed"
       end
       return words
@@ -2873,14 +2873,14 @@ local function paint_roll(p: RollLayer)
       p.ruler:fill(from, 0, w, 1, nil, "ExRange")
     end
   end
-  for _, part in ipairs(p.parts or {{id = p.clip.id, offset = 0}}) do
-    local marks = s.notes[part.id]
+  for _, portion in ipairs(p.portions or {{id = p.clip.id, offset = 0}}) do
+    local marks = s.notes[portion.id]
     if marks then
-      local offset = part.offset or 0
+      local offset = portion.offset or 0
       for key, m in pairs(marks) do
         local n = m.item.note
         local cur = s.current
-        local current = cur and cur.kind == "note" and cur.clip.id == part.id and (cur.note.id or cur.place) == key
+        local current = cur and cur.kind == "note" and cur.clip.id == portion.id and (cur.note.id or cur.place) == key
         local x0, x1 = p.x(n.start + offset), p.x(n.start + n.length + offset)
         local row = p.row(n.pitch)
         if row then

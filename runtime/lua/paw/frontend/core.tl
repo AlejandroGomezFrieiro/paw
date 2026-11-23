@@ -21,7 +21,7 @@ local type Message = host.Message
 local type Hint = host.Hint
 local type RangeChoice = host.RangeChoice
 local type Point = host.Point
-local type Part = host.Part
+local type Portion = host.Portion
 
 -- What the state holds -----------------------------------------------------------
 --- A device of the selected track, for its card (`state.devices`).
@@ -623,7 +623,7 @@ local record Act
 end
 
 local record M
-  type Part = Part
+  type Portion = Portion
   type Point = Point
   type Act = Act
   type ParamState = ParamState

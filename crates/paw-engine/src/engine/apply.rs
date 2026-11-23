@@ -11,7 +11,7 @@ use paw_types::{EventKind, TempoMap, automation::state_at, midi_form::Form};
 use rtrb::Producer;
 
 use crate::automation::Automation;
-use crate::clip::{ClipSet, PartEdit};
+use crate::clip::{ClipSet, PieceEdit};
 use crate::device::Device;
 use crate::host::HostPath;
 use crate::launch::{Launch, Slots};
@@ -307,7 +307,7 @@ impl Engine {
         }
     }
 
-    fn edit_clips(&mut self, track: TrackSlot, mut edit: Box<PartEdit>) {
+    fn edit_clips(&mut self, track: TrackSlot, mut edit: Box<PieceEdit>) {
         if let Some(t) = self.track_mut(track) {
             // The main thread keeps count of the room there is, so
             // an edit always fits.
@@ -317,7 +317,7 @@ impl Engine {
                 t.chase = true;
             }
         }
-        self.discard(Garbage::PartEdit(edit));
+        self.discard(Garbage::PieceEdit(edit));
     }
 
     fn set_automation(&mut self, track: TrackSlot, automation: Box<Automation>) {

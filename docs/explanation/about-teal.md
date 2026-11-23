@@ -950,8 +950,8 @@ view itself is still `paw.ui.views:get("pianoroll")`, and a module
 casts it to `PianoRoll`.
 
 `paw.roll_clips` gives the record of a clip that the piano roll edits as an
-interface, `paw.roll_clips.Part`. The frontend keeps more fields of a part,
-so it has a record of its own that is a `Part`.
+interface, `paw.roll_clips.Portion`. The frontend keeps more fields of a portion,
+so it has a record of its own that is a `Portion`.
 
 The piano roll loaded `paw.roll_draw` at its end, and `paw.roll_draw`
 names the types of the piano roll. In Teal that is a loop, so

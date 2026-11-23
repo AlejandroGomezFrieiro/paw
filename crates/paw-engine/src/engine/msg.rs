@@ -87,11 +87,11 @@ pub enum Msg {
         track: TrackSlot,
         clips: Box<ClipSet>,
     },
-    /// Take out and put in some of the parts of a track's clips (see
+    /// Take out and put in some of the pieces of a track's clips (see
     /// [`ClipSet::edit`]): what an edit of a few clips sends.
     EditClips {
         track: TrackSlot,
-        edit: Box<crate::clip::PartEdit>,
+        edit: Box<crate::clip::PieceEdit>,
     },
     /// While playing, the lanes set the track's fader, pan and device
     /// parameters at the start of each block, over whatever was set directly.
@@ -221,7 +221,7 @@ pub(super) enum Garbage {
     Schedule(#[allow(dead_code)] Box<Schedule>),
     Chain(#[allow(dead_code)] Box<[DeviceSlot]>),
     Clips(#[allow(dead_code)] Box<ClipSet>),
-    PartEdit(#[allow(dead_code)] Box<crate::clip::PartEdit>),
+    PieceEdit(#[allow(dead_code)] Box<crate::clip::PieceEdit>),
     Automation(#[allow(dead_code)] Box<Automation>),
     Take(#[allow(dead_code)] Box<Take>),
     Pool(#[allow(dead_code)] Box<Pool>),

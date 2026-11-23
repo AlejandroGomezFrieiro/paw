@@ -81,23 +81,23 @@ end
 --- many notes they play.
 local function add_parts(file, at, index, name)
   local tracks, notes = {}, 0
-  for i, part in ipairs(file.parts) do
-    local sc = part.score
+  for i, xpart in ipairs(file.parts) do
+    local sc = xpart.score
     local f = D.frame(sc)
     local origin = D.origin(sc)
-    local track = paw.add_track({ name = part.name, index = index and index + i or nil })
-    if part.drums then track:add_device("drums") end
+    local track = paw.add_track({ name = xpart.name, index = index and index + i or nil })
+    if xpart.drums then track:add_device("drums") end
     local meta = track.meta or {}
     meta.notation = util.merge(
       type(meta.notation) == "table" and meta.notation or {},
       { clef = #sc.staves == 2 and "grand" or sc.staves[1].clef }
     )
     track.meta = meta
-    local controls = part.program and { { start = 0, type = "program", program = part.program, value = 0 } } or nil
+    local controls = xpart.program and { { start = 0, type = "program", program = xpart.program, value = 0 } } or nil
     local clip = track:add_clip({
       start = at - origin / D.Q,
       length = math.max(1, (origin + f.finish) / D.Q),
-      name = #file.parts == 1 and name or part.name,
+      name = #file.parts == 1 and name or xpart.name,
       controls = controls,
     })
     view.store(clip, view.score_of(clip:get()), sc)

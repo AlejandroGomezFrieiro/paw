@@ -84,7 +84,7 @@ impl Job {
             .map_err(|_| anyhow!("the measuring thread panicked"))?;
         let elapsed = self.started.elapsed().as_secs_f64();
         let (engine, analysis, tracks) = match outcome {
-            Ok(parts) => parts,
+            Ok(done) => done,
             Err(err) => {
                 drop(self.live.take());
                 return Err(err);

@@ -35,7 +35,7 @@ pub mod wav;
 pub use automation::{AutoLane, AutoTarget, Automation, StateChange, StateLane};
 pub use backend::no_denormals;
 pub use bell::Bell;
-pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Part, PartEdit, Switch};
+pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Piece, PieceEdit, Switch};
 pub use device::{
     Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,
     ParamInfo, Ports, ProcessCtx, Quality, Registry, Rest,

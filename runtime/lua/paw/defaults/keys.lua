@@ -663,10 +663,10 @@ local noteobj = require("paw.note_objects")
 local function here()
   if not roll:clip() then return end
   local notes = roll:ordered()
-  local _, place, part = roll:note_at(roll.pitch, roll.beat)
+  local _, place, portion = roll:note_at(roll.pitch, roll.beat)
   if place then
     for _, n in ipairs(notes) do
-      if n.clip == part.id and n.place == place then return notes, n end
+      if n.clip == portion.id and n.place == place then return notes, n end
     end
   end
   return notes
@@ -947,8 +947,8 @@ end
 
 -- Piano roll: operators. They act on every clip the roll edits.
 local function editing()
-  local parts = roll:parts()
-  return #parts > 1 and parts or roll:clip()
+  local portions = roll:portions()
+  return #portions > 1 and portions or roll:clip()
 end
 local function pop(lhs, fn, desc)
   keymap.operator(lhs, function(region, ctx)
@@ -1013,9 +1013,9 @@ end, "Step input: notes played on a MIDI keyboard go in at the cursor")
 -- that would otherwise act on the note under the cursor.
 -- The first of them: its clip's id and its place there.
 local function chosen()
-  for _, part in ipairs(roll:parts()) do
-    local places = paw.frontend.chosen_notes(part.id)
-    if #places > 0 then return part.id, places[1] end
+  for _, portion in ipairs(roll:portions()) do
+    local places = paw.frontend.chosen_notes(portion.id)
+    if #places > 0 then return portion.id, places[1] end
   end
 end
 pmap("x", function()
@@ -1137,8 +1137,8 @@ pmap("<S-Tab>", function(ctx)
 end, "The track shown before becomes the one edited, round; else the view before")
 local function clip_here()
   -- The clip of the note under the cursor: one edited, or one shown behind.
-  local _, _, part = roll:note_at(roll.pitch, roll.beat)
-  if part then return part.id end
+  local _, _, portion = roll:note_at(roll.pitch, roll.beat)
+  if portion then return portion.id end
   local note = paw.roll_clips.context_at(roll.pitch, roll.beat)
   if note then return note.clip end
   paw.notify("no note under the cursor", "warn")

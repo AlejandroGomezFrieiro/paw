@@ -140,7 +140,7 @@ end
 local type PianoRoll = Roll.PianoRoll
 local type Layer = Roll.Layer
 local type NoteMark = Roll.NoteMark
-local type Part = RollClipsModule.Part
+local type Portion = RollClipsModule.Portion
 
 local record Frontend
   refresh: function()
@@ -325,14 +325,14 @@ M.controls_of = controls_of
 
 --- The note of a clip edited in the roll that `fits(start, finish)` on a
 --- pitch, in project beats, and its part. Notes the pencil holds are left out.
-local function find(pitch: integer, fits: function(start: number, finish: number): boolean): types.Note, Part
+local function find(pitch: integer, fits: function(start: number, finish: number): boolean): types.Note, Portion
   local held = taken()
-  for _, part in ipairs(clips().parts()) do
-    local notes = part.clip:notes({low = pitch, high = pitch})
+  for _, portion in ipairs(clips().portions()) do
+    local notes = portion.clip:notes({low = pitch, high = pitch})
     for _, n in ipairs(notes) do
-      local start = n.start + part.start
-      if not held[key_of(part.id, n.id)] and fits(start, start + n.length) then
-        return n, part
+      local start = n.start + portion.start
+      if not held[key_of(portion.id, n.id)] and fits(start, start + n.length) then
+        return n, portion
       end
     end
   end
@@ -344,15 +344,15 @@ local function fresh(pitch: integer, start: number): Drawn
 end
 
 --- A clip's note as the pencil holds it, with its bend.
-local function took(n: types.Note, part: Part): Drawn
-  local start = n.start + part.start
+local function took(n: types.Note, portion: Portion): Drawn
+  local start = n.start + portion.start
   return {
     pitch = n.pitch,
     start = start,
     length = n.length,
     velocity = n.velocity,
-    source = {clip = part.id, id = n.id, pitch = n.pitch, start = start, length = n.length},
-    bend = bend_in(controls_of(part.clip), n.pitch, n.start, n.length),
+    source = {clip = portion.id, id = n.id, pitch = n.pitch, start = start, length = n.length},
+    bend = bend_in(controls_of(portion.clip), n.pitch, n.start, n.length),
   }
 end
 
@@ -361,24 +361,24 @@ end
 --- under it or ending at the beat at its end (else a new one a step on),
 --- "next" a note that starts at the beat, at its start.
 local function take(beat: number, pitch: integer, how: string)
-  local n, part: types.Note, Part
+  local n, portion: types.Note, Portion
   if how ~= "next" then
-    n, part = find(pitch, function(s: number, f: number): boolean return s <= beat + EPS and f > beat + EPS end)
+    n, portion = find(pitch, function(s: number, f: number): boolean return s <= beat + EPS and f > beat + EPS end)
   end
   if n then
-    session.pen, session.edge = {took(n, part)}, how == "a" and "end" or "start"
+    session.pen, session.edge = {took(n, portion)}, how == "a" and "end" or "start"
     return
   end
   if how == "next" then
-    n, part = find(pitch, function(s: number): boolean return math.abs(s - beat) < EPS end)
+    n, portion = find(pitch, function(s: number): boolean return math.abs(s - beat) < EPS end)
     if n then
-      session.pen, session.edge = {took(n, part)}, "start"
+      session.pen, session.edge = {took(n, portion)}, "start"
       return
     end
   elseif how == "a" then
-    n, part = find(pitch, function(_: number, f: number): boolean return math.abs(f - beat) < EPS end)
+    n, portion = find(pitch, function(_: number, f: number): boolean return math.abs(f - beat) < EPS end)
     if n then
-      session.pen, session.edge = {took(n, part)}, "end"
+      session.pen, session.edge = {took(n, portion)}, "end"
       return
     end
   end
@@ -508,11 +508,11 @@ local function room(d: Drawn): number, number
     end
   end
   local held = taken()
-  for _, part in ipairs(clips().parts()) do
-    local notes = part.clip:notes({low = d.pitch, high = d.pitch})
+  for _, portion in ipairs(clips().portions()) do
+    local notes = portion.clip:notes({low = d.pitch, high = d.pitch})
     for _, n in ipairs(notes) do
-      if not held[key_of(part.id, n.id)] then
-        see(n.start + part.start, n.start + part.start + n.length)
+      if not held[key_of(portion.id, n.id)] then
+        see(n.start + portion.start, n.start + portion.start + n.length)
       end
     end
   end
@@ -616,9 +616,9 @@ end
 --- Hear the note under the cursor.
 local function audition()
   local at = origin()
-  local part = at and clips().target(session.pen[1].start - at)
-  if part then
-    part.clip:track():play_note(session.pen[1].pitch, opt.velocity, 180)
+  local portion = at and clips().target(session.pen[1].start - at)
+  if portion then
+    portion.clip:track():play_note(session.pen[1].pitch, opt.velocity, 180)
   end
 end
 
@@ -929,13 +929,13 @@ local function put_control(number: integer, value: integer)
     return
   end
   local d = session.pen[1]
-  local part = clips().target(d.start - at)
-  if not part then
+  local portion = clips().target(d.start - at)
+  if not portion then
     return
   end
-  local start = d.start - part.start
+  local start = d.start - portion.start
   local list: {types.Control} = {}
-  for _, c in ipairs(controls_of(part.clip)) do
+  for _, c in ipairs(controls_of(portion.clip)) do
     if not (c.type == "cc" and c.number == number and not c.key and math.abs(c.start - start) < EPS) then
       list[#list + 1] = c
     end
@@ -943,7 +943,7 @@ local function put_control(number: integer, value: integer)
   list[#list + 1] = {start = start, type = "cc", number = number, value = util.clamp(value, 0, 127) / 127}
   table.sort(list, function(a: types.Control, b: types.Control): boolean return a.start < b.start end)
   join()
-  part.clip:set_controls(list as {objects.ControlInput})
+  portion.clip:set_controls(list as {objects.ControlInput})
   paw.notify(string.format("CC %d at %d from %s", number, value, music.name(d.pitch)))
   changed()
 end
@@ -1207,11 +1207,11 @@ function M.tie()
   end
   local best = math.huge
   local held = taken()
-  for _, part in ipairs(clips().parts()) do
-    local all = part.clip:notes()
+  for _, portion in ipairs(clips().portions()) do
+    local all = portion.clip:notes()
     for _, n in ipairs(all) do
-      local start = n.start + part.start
-      if start > finish + EPS and start < best and not held[key_of(part.id, n.id)] then
+      local start = n.start + portion.start
+      if start > finish + EPS and start < best and not held[key_of(portion.id, n.id)] then
         best = start
       end
     end
@@ -1711,7 +1711,7 @@ end
 --- What one clip gets: the changes of its notes, the notes it gains and
 --- loses, and its own controllers to change.
 local record Edit
-  part: Part
+  portion: Portion
   clip: objects.Clip
   set: {types.NoteChange}
   add: {types.Note}
@@ -1734,17 +1734,17 @@ local function write(): string
   if #list == 0 and #session.removed == 0 then
     return nil
   end
-  local parts = clips().parts()
-  local by_id: {integer: Part} = {}
-  for _, p in ipairs(parts) do
+  local portions = clips().portions()
+  local by_id: {integer: Portion} = {}
+  for _, p in ipairs(portions) do
     by_id[p.id] = p
   end
   local edits: {integer: Edit} = {}
-  local function edit_of(part: Part): Edit
-    local e = edits[part.id]
+  local function edit_of(portion: Portion): Edit
+    local e = edits[portion.id]
     if not e then
-      e = {part = part, clip = part.clip, set = {}, add = {}, remove = {}, moves = {}, finish = 0}
-      edits[part.id] = e
+      e = {portion = portion, clip = portion.clip, set = {}, add = {}, remove = {}, moves = {}, finish = 0}
+      edits[portion.id] = e
     end
     return e
   end
@@ -1762,21 +1762,21 @@ local function write(): string
   end
   local added, changed_n, removed = 0, 0, 0
   for _, s in ipairs(session.removed) do
-    local part = by_id[s.clip]
-    local i = part and place_of(s.clip, s.id)
+    local portion = by_id[s.clip]
+    local i = portion and place_of(s.clip, s.id)
     if i then
-      local e = edit_of(part)
+      local e = edit_of(portion)
       e.remove[#e.remove + 1] = i
       e.moves[#e.moves + 1] = {pitch = s.pitch, start = s.start, length = 0, velocity = 0, source = s}
       removed = removed + 1
     end
   end
   for _, n in ipairs(list) do
-    local part = n.source and by_id[n.source.clip] or clips().target(n.start - at, parts)
-    local start = n.start - part.start
+    local portion = n.source and by_id[n.source.clip] or clips().target(n.start - at, portions)
+    local start = n.start - portion.start
     local i = n.source and place_of(n.source.clip, n.source.id)
-    if part and start > -EPS then
-      local e = edit_of(part)
+    if portion and start > -EPS then
+      local e = edit_of(portion)
       if i then
         local change: types.NoteChange = {
           index = i, pitch = n.pitch, start = start, length = n.length, velocity = n.velocity
@@ -1789,7 +1789,7 @@ local function write(): string
       else
         -- The roll's modules change the note (`entering`); the kernel takes it.
         local note = roll().new_note(
-          part.clip, {pitch = n.pitch, start = math.max(0, start), length = n.length, velocity = n.velocity}
+          portion.clip, {pitch = n.pitch, start = math.max(0, start), length = n.length, velocity = n.velocity}
         ) as types.Note
         if n.fields then
           if n.fields.attr then
@@ -1801,9 +1801,11 @@ local function write(): string
         end
         e.add[#e.add + 1] = note
         added = added + 1
-        local found, spots = part.clip:notes({from = start - EPS, to = start + 2 * EPS, low = n.pitch, high = n.pitch})
+        local found, spots = portion.clip:notes(
+          {from = start - EPS, to = start + 2 * EPS, low = n.pitch, high = n.pitch}
+        )
         for k, old in ipairs(found) do
-          if math.abs(old.start - start) < EPS and not taken()[key_of(part.id, old.id)] then
+          if math.abs(old.start - start) < EPS and not taken()[key_of(portion.id, old.id)] then
             e.remove[#e.remove + 1] = spots[k]
           end
         end
@@ -1817,8 +1819,8 @@ local function write(): string
   join()
   api.undo_label("Draw notes")
   for _, e in pairs(edits) do
-    if e.finish > e.part.length + EPS then
-      e.clip.length = paw.time.bar_ceil(e.part.start + e.finish - EPS) - e.part.start
+    if e.finish > e.portion.length + EPS then
+      e.clip.length = paw.time.bar_ceil(e.portion.start + e.finish - EPS) - e.portion.start
     end
     -- Through the part's handle: the pitches drawn are those the clip
     -- plays, and the handle stores them back without its transpose.
@@ -1829,9 +1831,9 @@ local function write(): string
     for _, n in ipairs(e.moves) do
       local s = n.source
       local shift = s and (n.start - s.start) or 0
-      local new_start, new_finish = n.start - e.part.start, n.start + n.length - e.part.start
-      local old_start = s and s.start - e.part.start
-      local old_finish = s and s.start + s.length - e.part.start
+      local new_start, new_finish = n.start - e.portion.start, n.start + n.length - e.portion.start
+      local old_start = s and s.start - e.portion.start
+      local old_finish = s and s.start + s.length - e.portion.start
       if s and (shift ~= 0 or s.pitch ~= n.pitch or n.length <= EPS) then
         local kept: {types.Control} = {}
         for _, c in ipairs(controls) do

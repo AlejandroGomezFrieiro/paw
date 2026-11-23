@@ -73,7 +73,7 @@ local function track_info(t)
   return mp.array(4) .. mp.str(t.id) .. mp.str(t.name or "") .. mp.bool(t.muted) .. config(t.config or {})
 end
 
-local function part_info(p)
+local function vpart_info(p)
   return mp.array(6)
     .. mp.str(p.id)
     .. mp.str(p.track)
@@ -101,13 +101,15 @@ local function sigs(list)
   return mp.list(list, function(s) return mp.array(3) .. mp.int(s.tick) .. mp.uint(s.num) .. mp.uint(s.den) end)
 end
 
-local function part_data(p) return mp.array(3) .. part_info(p) .. mp.list(p.notes, note_msg) .. mp.list(p.curves, curve) end
+local function vpart_data(p)
+  return mp.array(3) .. vpart_info(p) .. mp.list(p.notes, note_msg) .. mp.list(p.curves, curve)
+end
 
-local function part_ids(entry) return mp.array(2) .. mp.str(entry.part) .. mp.list(entry.ids, mp.uint) end
+local function vpart_ids(entry) return mp.array(2) .. mp.str(entry.vpart) .. mp.list(entry.ids, mp.uint) end
 
-local function part_notes(entry) return mp.array(2) .. mp.str(entry.part) .. mp.list(entry.notes, note_msg) end
+local function vpart_notes(entry) return mp.array(2) .. mp.str(entry.vpart) .. mp.list(entry.notes, note_msg) end
 
-local function part_curves(entry) return mp.array(2) .. mp.str(entry.part) .. mp.list(entry.curves, curve) end
+local function vpart_curves(entry) return mp.array(2) .. mp.str(entry.vpart) .. mp.list(entry.curves, curve) end
 
 local encode = {}
 M.encode = encode
@@ -135,7 +137,7 @@ function encode.sync_project(s)
       .. tempos(s.tempos)
       .. sigs(s.sigs)
       .. mp.list(s.tracks, track_info)
-      .. mp.list(s.parts, part_data)
+      .. mp.list(s.vparts, vpart_data)
   )
 end
 
@@ -151,11 +153,11 @@ function encode.apply_delta(d)
       .. sigs(d.sigs or {})
       .. mp.strs(d.remove_tracks or {})
       .. mp.list(d.upsert_tracks or {}, track_info)
-      .. mp.strs(d.remove_parts or {})
-      .. mp.list(d.upsert_parts or {}, part_info)
-      .. mp.list(d.remove_notes or {}, part_ids)
-      .. mp.list(d.upsert_notes or {}, part_notes)
-      .. mp.list(d.curves or {}, part_curves)
+      .. mp.strs(d.remove_vparts or {})
+      .. mp.list(d.upsert_vparts or {}, vpart_info)
+      .. mp.list(d.remove_notes or {}, vpart_ids)
+      .. mp.list(d.upsert_notes or {}, vpart_notes)
+      .. mp.list(d.curves or {}, vpart_curves)
   )
 end
 
@@ -181,7 +183,7 @@ function encode.run_batch_edit(b)
     mp.array(5)
       .. mp.uint(b.request)
       .. mp.str(b.name)
-      .. mp.strs(b.parts or {})
+      .. mp.strs(b.vparts or {})
       .. mp.list(b.notes or {}, mp.uint)
       .. mp.str(b.args or "")
   )
@@ -209,8 +211,8 @@ function encode.render_policy(p)
   )
 end
 
-function encode.invalidate(track_id, part_id)
-  return M.frame(T.Invalidate, mp.array(2) .. mp.str(track_id) .. mp.str(part_id or ""))
+function encode.invalidate(track_id, vpart_id)
+  return M.frame(T.Invalidate, mp.array(2) .. mp.str(track_id) .. mp.str(vpart_id or ""))
 end
 
 function encode.pong(nonce) return M.frame(T.Pong, mp.array(1) .. mp.uint(nonce)) end
@@ -255,7 +257,7 @@ decode[T.PhraseLayout] = function(a)
 end
 
 decode[T.Phonemes] = function(a)
-  local m = named({ "part", "seq", "notes" }, a)
+  local m = named({ "vpart", "seq", "notes" }, a)
   m.notes = each(m.notes, function(n)
     local note = named({ "id", "phonemes" }, n)
     note.phonemes = each(
@@ -268,7 +270,7 @@ decode[T.Phonemes] = function(a)
 end
 
 decode[T.RenderedPitch] = function(a)
-  local m = named({ "part", "seq", "step", "start", "cents" }, a)
+  local m = named({ "vpart", "seq", "step", "start", "cents" }, a)
   m.cents = mp.floats(m.cents or "")
   return m
 end

@@ -75,10 +75,10 @@ function M.add(project, opts)
     if next(config) then utau.configure(track, config) end
     if t.mute then api.track_set(track, "mute", true) end
     local lanes = {}
-    for _, part in ipairs(t.parts or {}) do
-      local start = offset + part.pos / resolution
+    for _, vpart in ipairs(t.parts or {}) do
+      local start = offset + vpart.pos / resolution
       local notes = {}
-      for _, n in ipairs(part.notes or {}) do
+      for _, n in ipairs(vpart.notes or {}) do
         local props = {}
         for _, key in ipairs({ "tu", "po", "vb", "pp", "ex", "ph" }) do
           props[key] = n[key]
@@ -92,12 +92,12 @@ function M.add(project, opts)
         }
       end
       api.clip_add(track, {
-        name = part.name ~= "" and part.name or t.name,
+        name = vpart.name ~= "" and vpart.name or t.name,
         start = start,
-        length = math.max(part.dur / resolution, 1 / resolution),
+        length = math.max(vpart.dur / resolution, 1 / resolution),
         notes = notes,
       })
-      for _, curve in ipairs(part.curves or {}) do
+      for _, curve in ipairs(vpart.curves or {}) do
         if CURVES[curve.abbr] then
           local points = lanes[curve.abbr] or {}
           lanes[curve.abbr] = points

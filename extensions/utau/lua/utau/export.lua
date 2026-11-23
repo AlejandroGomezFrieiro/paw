@@ -57,11 +57,11 @@ function M.describe(opts)
         mute = t.muted and true or false,
         parts = json.array(),
       }
-      for _, p in ipairs(snap.parts) do
+      for _, p in ipairs(snap.vparts) do
         if p.track == t.id and (not opts.clip or p.clip == opts.clip) then
-          local part = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
+          local vpart = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
           for _, n in ipairs(p.notes) do
-            part.notes[#part.notes + 1] = {
+            vpart.notes[#vpart.notes + 1] = {
               pos = n.pos,
               dur = n.dur,
               tone = n.tone,
@@ -74,10 +74,10 @@ function M.describe(opts)
               for i, k in ipairs(c.knots) do
                 knots[i] = { k[1], k[2], k[3] or 1, k[4] or 0 }
               end
-              part.curves[#part.curves + 1] = { abbr = c.abbr, knots = knots }
+              vpart.curves[#vpart.curves + 1] = { abbr = c.abbr, knots = knots }
             end
           end
-          track.parts[#track.parts + 1] = part
+          track.parts[#track.parts + 1] = vpart
         end
       end
       desc.tracks[#desc.tracks + 1] = track

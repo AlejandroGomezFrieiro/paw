@@ -60,7 +60,7 @@ end
 --- clip plays (`Clip:shifted`), where it starts in the roll's beats
 --- (`offset`) and in the song's, and its length, track and name. A
 --- module that keeps more of a part has a record of its own that is one.
-local interface Part
+local interface Portion
   id: integer
   clip: objects.Clip
   offset: number
@@ -131,7 +131,7 @@ local paw = (_G as {string: Paw}).paw
 
 local record M
   type Window = Window
-  type Part = Part
+  type Portion = Portion
   type Note = Note
   type Range = Range
   type Row = Row
@@ -252,12 +252,12 @@ end
 --- The editable clips, the active one first: `{ id, clip, offset, start,
 --- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
 --- are those that the clip plays (`Clip:shifted`).
-function M.parts(): {Part}
+function M.portions(): {Portion}
   local a = midi(M.active())
   if not a then
     return {}
   end
-  local out: {Part} = {}
+  local out: {Portion} = {}
   for _, id in ipairs(M.ids()) do
     local c = midi(id)
     out[#out + 1] = {
@@ -277,20 +277,20 @@ end
 --- with time, only its time, as the arrange view (`0` and `$` stop there).
 function M.span(): number, number
   local lo, hi: number, number = 0, 0
-  local parts = M.parts()
-  for i, part in ipairs(parts) do
+  local portions = M.portions()
+  for i, portion in ipairs(portions) do
     if i == 1 then
-      lo, hi = part.offset, part.offset + part.length
+      lo, hi = portion.offset, portion.offset + portion.length
     end
-    lo, hi = math.min(lo, part.offset), math.max(hi, part.offset + part.length)
+    lo, hi = math.min(lo, portion.offset), math.max(hi, portion.offset + portion.length)
   end
   local s = scope()
   local from, to: number, number
-  if s and parts[1] then
+  if s and portions[1] then
     from, to = s.span()
   end
   if from then
-    local start = parts[1].start
+    local start = portions[1].start
     local a, b = math.max(lo, from - start), math.min(hi, to - start)
     if b > a then
       lo, hi = a, b
@@ -301,15 +301,15 @@ end
 
 --- The editable clip a new note at `beat` goes into: the active one, unless
 --- the beat is outside it and inside another. Returns the part.
-function M.target(beat: number, parts?: {Part}): Part
-  parts = parts or M.parts()
-  local active = parts[1]
+function M.target(beat: number, portions?: {Portion}): Portion
+  portions = portions or M.portions()
+  local active = portions[1]
   if not active or (beat >= -EPS and beat < active.length - EPS) then
     return active
   end
-  for _, part in ipairs(parts) do
-    if beat >= part.offset - EPS and beat < part.offset + part.length - EPS then
-      return part
+  for _, portion in ipairs(portions) do
+    if beat >= portion.offset - EPS and beat < portion.offset + portion.length - EPS then
+      return portion
     end
   end
   return active
@@ -442,25 +442,25 @@ end
 --- `place` (its place among that clip's notes, for `edit_notes`) and
 --- `offset`. With one clip they are that clip's notes in its own order.
 --- `range` is as for `Clip:notes`, its beats the roll's.
-function M.notes(range?: Range, parts?: {Part}): {Note}
-  parts = parts or M.parts()
+function M.notes(range?: Range, portions?: {Portion}): {Note}
+  portions = portions or M.portions()
   local out: {Note} = {}
-  for _, part in ipairs(parts) do
+  for _, portion in ipairs(portions) do
     local mine: objects.NoteRangeInput = range
       and {
-        from = range.from and range.from - part.offset,
-        to = range.to and range.to - part.offset,
+        from = range.from and range.from - portion.offset,
+        to = range.to and range.to - portion.offset,
         low = range.low,
         high = range.high,
       }
-    local found, places = part.clip:notes(mine)
+    local found, places = portion.clip:notes(mine)
     for i, found_note in ipairs(found) do
       local n = found_note as Note
-      n.start, n.clip, n.place, n.offset = n.start + part.offset, part.id, places[i], part.offset
+      n.start, n.clip, n.place, n.offset = n.start + portion.offset, portion.id, places[i], portion.offset
       out[#out + 1] = n
     end
   end
-  if #parts > 1 then
+  if #portions > 1 then
     table.sort(
       out,
       function(a: Note, b: Note): boolean
@@ -480,14 +480,14 @@ end
 --- The note of an editable clip on `pitch` that sounds at roll beat `beat`,
 --- the active clip first. Returns the note (in the beats of the roll), its
 --- place and its part.
-function M.note_at(pitch: integer, beat: number, parts?: {Part}): types.Note, integer, Part
-  for _, part in ipairs(parts or M.parts()) do
-    local note, place = part.clip:note_at(pitch, beat - part.offset)
+function M.note_at(pitch: integer, beat: number, portions?: {Portion}): types.Note, integer, Portion
+  for _, portion in ipairs(portions or M.portions()) do
+    local note, place = portion.clip:note_at(pitch, beat - portion.offset)
     if note then
-      if part.offset ~= 0 then
-        note.start = note.start + part.offset
+      if portion.offset ~= 0 then
+        note.start = note.start + portion.offset
       end
-      return note, place, part
+      return note, place, portion
     end
   end
 end

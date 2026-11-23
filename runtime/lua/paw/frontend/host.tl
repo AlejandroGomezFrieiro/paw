@@ -83,7 +83,7 @@ local type Point = {number, number}
 --- its id, its handle, how far it starts after the clip named, its start
 --- and its length; with `notes` (by their places in the clip) and
 --- `places` once its chosen notes are taken.
-local record Part is RollClipsModule.Part
+local record Portion is RollClipsModule.Portion
   notes: {integer: types.Note}
   places: {integer}
 end
@@ -378,7 +378,7 @@ local record Host
   type Value = Value
   type RangeChoice = RangeChoice
   type Point = Point
-  type Part = Part
+  type Portion = Portion
   type Rect = Rect
   type Choice = Choice
   type MixerRows = MixerRows

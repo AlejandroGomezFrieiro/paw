@@ -94,16 +94,16 @@ function M.apply(view, region, fn, skip)
   if view == "arrange" then return M.apply_arrange(region, fn, skip) end
   -- The piano roll may edit several clips at once: each is done on its own,
   -- the region taken in its own beats, so that its notes stay in it.
-  local parts = view == "pianoroll" and paw.roll_clips and paw.roll_clips.parts() or {}
-  if #parts > 1 then
+  local portions = view == "pianoroll" and paw.roll_clips and paw.roll_clips.portions() or {}
+  if #portions > 1 then
     local count = 0
-    for i, part in ipairs(parts) do
-      if not (skip and skip(part.clip)) then
-        local mine = paw.util.merge(region, { c0 = region.c0 - part.offset, c1 = region.c1 - part.offset })
+    for i, portion in ipairs(portions) do
+      if not (skip and skip(portion.clip)) then
+        local mine = paw.util.merge(region, { c0 = region.c0 - portion.offset, c1 = region.c1 - portion.offset })
         count = count
           + M.apply_to_clip(
-            part.clip,
-            function(n) return edit.roll.inside(n, mine, part.clip.id) end,
+            portion.clip,
+            function(n) return edit.roll.inside(n, mine, portion.clip.id) end,
             function(notes) return fn(notes, i) end
           )
       end

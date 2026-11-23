@@ -51,8 +51,8 @@ fn project(clips: usize) -> Project {
 
 /// The events compiled for track 1, by where they are kept.
 fn compiled(map: &Mapper) -> HashMap<*const MidiEv, usize> {
-    let Some(parts) = map.parts.get(&1) else { return HashMap::new() };
-    let pieces = parts.clips.values().flat_map(|s| &s.pieces);
+    let Some(sent) = map.pieces.get(&1) else { return HashMap::new() };
+    let pieces = sent.clips.values().flat_map(|s| &s.pieces);
     pieces.map(|p| (p.as_ptr(), p.len())).collect()
 }
 

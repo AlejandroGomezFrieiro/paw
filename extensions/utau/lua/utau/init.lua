@@ -237,7 +237,7 @@ function M.snapshot()
     tempos = tempos,
     sigs = sigs,
     tracks = {},
-    parts = {},
+    vparts = {},
     tempo = key,
   }
   local default_lyric = paw.opt.utau_default_lyric
@@ -268,7 +268,7 @@ function M.snapshot()
     local sources = curve_sources(vocal.track, vocal.device, extra)
     for _, clip in ipairs(api.clip_list(vocal.track)) do
       if clip.kind == "midi" then
-        local part = {
+        local vpart = {
           id = tostring(clip.id),
           clip = clip.id,
           track = id,
@@ -283,8 +283,8 @@ function M.snapshot()
           local lyric = payload.lyric(note, default_lyric)
           if note.start >= 0 and note.start < clip.length and lyric ~= "R" and lyric ~= "r" then
             local pos = round(note.start * TICKS)
-            local stop = math.min(round((note.start + note.length) * TICKS), part.dur)
-            part.notes[#part.notes + 1] = {
+            local stop = math.min(round((note.start + note.length) * TICKS), vpart.dur)
+            vpart.notes[#vpart.notes + 1] = {
               id = index,
               pos = pos,
               dur = math.max(1, stop - pos),
@@ -295,9 +295,9 @@ function M.snapshot()
         end
         local curves, list = curves_for(clip, sources, extra)
         for _, item in ipairs(list) do
-          part.curves[#part.curves + 1] = { id = item.abbr, abbr = item.abbr, knots = curves[item.abbr] }
+          vpart.curves[#vpart.curves + 1] = { id = item.abbr, abbr = item.abbr, knots = curves[item.abbr] }
         end
-        snap.parts[#snap.parts + 1] = part
+        snap.vparts[#snap.vparts + 1] = vpart
       end
     end
     ::next_track::
@@ -308,11 +308,11 @@ end
 -- Sending it -------------------------------------------------------------------
 
 local function key_of(list, fn)
-  local parts = {}
+  local pieces = {}
   for i, item in ipairs(list) do
-    parts[i] = fn(item)
+    pieces[i] = fn(item)
   end
-  return table.concat(parts, "\0")
+  return table.concat(pieces, "\0")
 end
 
 local function note_key(n) return n.id .. ":" .. n.pos .. ":" .. n.dur .. ":" .. n.tone .. ":" .. n.payload end
@@ -339,7 +339,7 @@ end
 
 local function track_key(t) return table.concat({ t.name, tostring(t.muted), config_key(t.config) }, "\0") end
 
-local function part_key(p) return table.concat({ p.track, p.pos, p.dur, p.name, tostring(p.muted) }, "\0") end
+local function vpart_key(p) return table.concat({ p.track, p.pos, p.dur, p.name, tostring(p.muted) }, "\0") end
 
 local function index(list)
   local out = {}
@@ -351,8 +351,8 @@ end
 
 local function touch(track) expected[track] = seq end
 
-local function await_phonemes(part)
-  resent[part.clip] = #part.notes > 0 and { seq = seq, at = api.now(), track = part.track } or nil
+local function await_phonemes(vpart)
+  resent[vpart.clip] = #vpart.notes > 0 and { seq = seq, at = api.now(), track = vpart.track } or nil
 end
 
 --- Send the whole project.
@@ -362,7 +362,7 @@ local function send_full(snap)
     touch(t.id)
   end
   resent, fresh_after = {}, {}
-  for _, p in ipairs(snap.parts) do
+  for _, p in ipairs(snap.vparts) do
     await_phonemes(p)
   end
   engine.send(proto.encode.sync_project({
@@ -370,7 +370,7 @@ local function send_full(snap)
     tempos = snap.tempos,
     sigs = snap.sigs,
     tracks = snap.tracks,
-    parts = snap.parts,
+    vparts = snap.vparts,
   }))
   sent = snap
 end
@@ -380,15 +380,15 @@ local function send_delta(snap)
   local d = {
     remove_tracks = {},
     upsert_tracks = {},
-    remove_parts = {},
-    upsert_parts = {},
+    remove_vparts = {},
+    upsert_vparts = {},
     remove_notes = {},
     upsert_notes = {},
     curves = {},
   }
   local any = false
   local old_tracks, new_tracks = index(sent.tracks), index(snap.tracks)
-  local old_parts, new_parts = index(sent.parts), index(snap.parts)
+  local old_vparts, new_vparts = index(sent.vparts), index(snap.vparts)
   seq = seq + 1
   if snap.tempo ~= sent.tempo then
     d.tempos, d.sigs, any = snap.tempos, snap.sigs, true
@@ -412,18 +412,18 @@ local function send_delta(snap)
     end
     if old and config_key(old.config) ~= config_key(t.config) then voices[t.id] = true end
   end
-  for id, p in pairs(old_parts) do
-    if not new_parts[id] then resent[p.clip] = nil end
-    if not new_parts[id] and new_tracks[p.track] then
-      d.remove_parts[#d.remove_parts + 1] = id
+  for id, p in pairs(old_vparts) do
+    if not new_vparts[id] then resent[p.clip] = nil end
+    if not new_vparts[id] and new_tracks[p.track] then
+      d.remove_vparts[#d.remove_vparts + 1] = id
       touch(p.track)
       any = true
     end
   end
-  for _, p in ipairs(snap.parts) do
-    local old = old_parts[p.id]
-    if not old or part_key(old) ~= part_key(p) then
-      d.upsert_parts[#d.upsert_parts + 1] = p
+  for _, p in ipairs(snap.vparts) do
+    local old = old_vparts[p.id]
+    if not old or vpart_key(old) ~= vpart_key(p) then
+      d.upsert_vparts[#d.upsert_vparts + 1] = p
       touch(p.track)
       any = true
     end
@@ -436,9 +436,9 @@ local function send_delta(snap)
         for i, n in ipairs(old.notes) do
           ids[i] = n.id
         end
-        d.remove_notes[#d.remove_notes + 1] = { part = p.id, ids = ids }
+        d.remove_notes[#d.remove_notes + 1] = { vpart = p.id, ids = ids }
       end
-      d.upsert_notes[#d.upsert_notes + 1] = { part = p.id, notes = p.notes }
+      d.upsert_notes[#d.upsert_notes + 1] = { vpart = p.id, notes = p.notes }
       await_phonemes(p)
       touch(p.track)
       any = true
@@ -455,7 +455,7 @@ local function send_delta(snap)
       if not now_curves[abbr] and #c.knots > 0 then changed[#changed + 1] = { id = abbr, abbr = abbr, knots = {} } end
     end
     if #changed > 0 then
-      d.curves[#d.curves + 1] = { part = p.id, curves = changed }
+      d.curves[#d.curves + 1] = { vpart = p.id, curves = changed }
       touch(p.track)
       any = true
     end
@@ -604,7 +604,7 @@ engine.handlers.PhraseAudio = function(m, frame)
 end
 
 engine.handlers.Phonemes = function(m)
-  local clip = tonumber(m.part)
+  local clip = tonumber(m.vpart)
   if not clip then return end
   local notes = {}
   for _, n in ipairs(m.notes) do
@@ -622,7 +622,7 @@ engine.handlers.Phonemes = function(m)
 end
 
 engine.handlers.RenderedPitch = function(m)
-  local clip = tonumber(m.part)
+  local clip = tonumber(m.vpart)
   if not clip then return end
   local entry = M.pitch[clip]
   if not entry or entry.step ~= m.step then
@@ -710,11 +710,11 @@ end
 --- them: every note's phonemes are missing from the voicebank. Until the
 --- phonemes are in, a layout without phrases only means it is not done.
 function M.unsingable(track_key_str)
-  for _, part in ipairs(sent and sent.parts or {}) do
-    if part.track == track_key_str and #part.notes > 0 then
-      local got = M.phonemes[part.clip]
+  for _, vpart in ipairs(sent and sent.vparts or {}) do
+    if vpart.track == track_key_str and #vpart.notes > 0 then
+      local got = M.phonemes[vpart.clip]
       if not got then return false end
-      for _, n in ipairs(part.notes) do
+      for _, n in ipairs(vpart.notes) do
         local list = got.notes[n.id]
         if not list or #list == 0 then return false end
         for _, p in ipairs(list) do

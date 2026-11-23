@@ -967,7 +967,7 @@ end
 local g = function(): contracts.Glyphs return paw.draw.g end
 
 --- One clip's, `offset` beats from the roll's own.
-function M.paint_part(p: RollLayer, id: integer, offset: number)
+function M.paint_portion(p: RollLayer, id: integer, offset: number)
   local list = M.get(id)
   if #list == 0 then
     return
@@ -1021,8 +1021,8 @@ end
 --- The message comes after the last note while there is space, and a mark
 --- on the ruler shows where it starts.
 function M.paint_roll(p: RollLayer)
-  for _, part in ipairs(p.parts or {{id = p.clip.id, offset = 0}}) do
-    M.paint_part(p, part.id, part.offset or 0)
+  for _, portion in ipairs(p.portions or {{id = p.clip.id, offset = 0}}) do
+    M.paint_portion(p, portion.id, portion.offset or 0)
   end
 end
 

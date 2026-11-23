@@ -67,7 +67,7 @@ Rules:
 | `paw.roll_clips.ids()` | The ids of the edited clips. |
 | `paw.roll_clips.active()` | The id of the active clip. |
 | `paw.roll_clips.editable(id)` | True if the clip is edited. |
-| `paw.roll_clips.parts()` | `{ id, clip, offset, start, length, track, name }` for each edited clip, the active clip first. `offset` is the number of beats after the active clip where it starts. |
+| `paw.roll_clips.portions()` | `{ id, clip, offset, start, length, track, name }` for each edited clip, the active clip first. `offset` is the number of beats after the active clip where it starts. |
 | `paw.roll_clips.span()` | The range that the clips cover, in the beats of the roll. |
 | `paw.roll_clips.open(ids, active)` | Edit these clips. |
 | `paw.roll_clips.only()` | Edit the active clip only. |

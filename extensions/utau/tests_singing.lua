@@ -132,11 +132,11 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
   eq(notes.curve_at(track.id, device, "pitd", 1), 0, "only where it was bent")
   -- The engine sees all of it.
   local snap = utau.snapshot()
-  eq(#snap.parts, 1, "one part")
-  eq(snap.parts[1].notes[2].payload:find("ら", 1, true) ~= nil, true, "the lyric is in the payload")
-  eq(snap.parts[1].notes[1].payload:find("vb", 1, true) ~= nil, true, "and the vibrato")
+  eq(#snap.vparts, 1, "one part")
+  eq(snap.vparts[1].notes[2].payload:find("ら", 1, true) ~= nil, true, "the lyric is in the payload")
+  eq(snap.vparts[1].notes[1].payload:find("vb", 1, true) ~= nil, true, "and the vibrato")
   local pitd
-  for _, c in ipairs(snap.parts[1].curves) do
+  for _, c in ipairs(snap.vparts[1].curves) do
     if c.abbr == "pitd" then pitd = c end
   end
   local peak = 0

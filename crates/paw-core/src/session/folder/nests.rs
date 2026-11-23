@@ -215,7 +215,7 @@ pub(super) fn read_heads(
 /// refer to reads it: its sound files by their full path, since they are
 /// named from that folder. A folder that refers to subprojects deeper than
 /// a nest can be is refused: it refers to itself.
-pub(in crate::session) fn read_part(fs: &dyn ProjectFiles, home: &Home, folder: &Path, depth: usize) -> Result<Read> {
+pub(in crate::session) fn read_nested(fs: &dyn ProjectFiles, home: &Home, folder: &Path, depth: usize) -> Result<Read> {
     if depth >= crate::model::MAX_DEPTH {
         bail!("{} refers to subprojects more than {} deep: does it refer to itself?", folder.display(), crate::model::MAX_DEPTH);
     }
@@ -239,7 +239,7 @@ pub(super) fn adopt_references(
 ) -> Result<()> {
     for r in references {
         let folder = home.resolve(&r.source, dir);
-        let part = match read_part(fs, home, &folder, depth) {
+        let sub = match read_nested(fs, home, &folder, depth) {
             Ok(read) => {
                 problems.extend(read.problems.into_iter().map(|p| format!("the subproject {}: {p}", r.name)));
                 read.project
@@ -253,7 +253,7 @@ pub(super) fn adopt_references(
                 Project::default()
             }
         };
-        project.adopt(part, r.id, &r.name, &folder);
+        project.adopt(sub, r.id, &r.name, &folder);
     }
     Ok(())
 }

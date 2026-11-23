@@ -55,15 +55,15 @@ end)
 
 -- The tags and colours of the notes, over the roll's own notes.
 roll.layer("articulations", 22, function(L)
-  for _, part in ipairs(L.parts) do
-    local track = part.track
+  for _, portion in ipairs(L.portions) do
+    local track = portion.track
     local chosen = {}
-    for _, place in ipairs(paw.frontend.chosen_notes(part.id)) do
+    for _, place in ipairs(paw.frontend.chosen_notes(portion.id)) do
       chosen[place] = true
     end
-    local shown, places = part.clip:notes({
-      from = L.from - part.offset,
-      to = L.to - part.offset,
+    local shown, places = portion.clip:notes({
+      from = L.from - portion.offset,
+      to = L.to - portion.offset,
       low = math.max(0, L.top - L.rows + 1),
       high = L.top,
     })
@@ -72,9 +72,9 @@ roll.layer("articulations", 22, function(L)
       if attr then
         local tag, a = art.tag_of(track, note)
         local row = L.top - note.pitch
-        local x0, x1 = L.x(note.start + part.offset), L.x(note.start + part.offset + note.length)
+        local x0, x1 = L.x(note.start + portion.offset), L.x(note.start + portion.offset + note.length)
         local nw = math.max(1, x1 - x0)
-        local at_cursor = L.under_part and L.under_part.id == part.id and places[k] == L.under_place
+        local at_cursor = L.under_portion and L.under_portion.id == portion.id and places[k] == L.under_place
         local style
         if at_cursor then
           style = "NoteCursor"
@@ -153,8 +153,8 @@ roll.band("articulations", 10, {
 })
 
 -- `K` on a note.
-roll.describer("articulations", function(note, part)
-  local track = part and part.track
+roll.describer("articulations", function(note, portion)
+  local track = portion and portion.track
   if not track then return nil end
   local attr = art.attr_of(note)
   local map = art.map_of(track)

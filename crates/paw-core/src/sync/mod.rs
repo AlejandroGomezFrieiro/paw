@@ -45,7 +45,7 @@ pub(crate) use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
 use self::automation::{build_automation, release_targets, vca_volume_lane, vcas_of};
-use self::clips::{build_clips, build_cues, cue_rows, edit_parts, frozen_clips};
+use self::clips::{build_clips, build_cues, cue_rows, edit_pieces, frozen_clips};
 use self::devices::{add_device, update_device};
 use self::items::{TrackIndex, item_events};
 use self::mapper::{InputSent, MidiInSent, MidiOutSent, MixSent};
@@ -448,7 +448,7 @@ impl<'p> Pass<'p, '_, '_> {
             (Played::Live, Some(p))
                 if !pass.replayed && !pass.retimed_notes && p.attr_map == track.attr_map =>
             {
-                edit_parts(p, track, tempo, self.map, self.ctx)
+                edit_pieces(p, track, tempo, self.map, self.ctx)
             }
             _ => None,
         };
@@ -461,11 +461,11 @@ impl<'p> Pass<'p, '_, '_> {
                 let clips = match &pass.plays {
                     Played::Live => build_clips(track, tempo, self.map, self.ctx),
                     Played::Frozen(file) => {
-                        self.map.parts.remove(&track.id);
+                        self.map.pieces.remove(&track.id);
                         frozen_clips(file, tempo, self.ctx)
                     }
                     Played::Held => {
-                        self.map.parts.remove(&track.id);
+                        self.map.pieces.remove(&track.id);
                         ClipSet::default()
                     }
                 };
@@ -840,7 +840,7 @@ impl<'p> Pass<'p, '_, '_> {
             .collect();
         for id in gone {
             let map = &mut *self.map;
-            map.parts.remove(&id);
+            map.pieces.remove(&id);
             map.cue_rows.remove(&id);
             map.cue_events.remove(&id);
             if let Some(slot) = map.tracks.remove(&id) {

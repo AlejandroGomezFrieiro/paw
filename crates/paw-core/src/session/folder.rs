@@ -46,7 +46,7 @@ use crate::clipfile;
 use crate::model::{Chain, Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
 mod nests;
-pub(super) use nests::read_part;
+pub(super) use nests::read_nested;
 
 /// The file that makes a folder a project.
 pub(crate) const PROJECT_FILE: &str = "project.toml";
@@ -783,7 +783,7 @@ fn in_parallel<T: Sync>(
         let f = &f;
         let handles: Vec<_> = items
             .chunks(chunk)
-            .map(|part| s.spawn(move || part.iter().try_for_each(f)))
+            .map(|chunk| s.spawn(move || chunk.iter().try_for_each(f)))
             .collect();
         handles.into_iter().try_for_each(|h| {
             h.join()
@@ -1544,7 +1544,7 @@ fn read_clips(fs: &dyn ProjectFiles, paths: &[PathBuf]) -> Vec<Result<clipfile::
     std::thread::scope(|s| {
         let handles: Vec<_> = paths
             .chunks(chunk)
-            .map(|part| s.spawn(move || part.iter().map(one).collect::<Vec<_>>()))
+            .map(|chunk| s.spawn(move || chunk.iter().map(one).collect::<Vec<_>>()))
             .collect();
         handles
             .into_iter()

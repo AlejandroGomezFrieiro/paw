@@ -254,8 +254,8 @@ impl Session {
                     stay.push(c.clone());
                     continue;
                 }
-                let (parts, inside) = self.cut_clip(c, from, to);
-                stay.extend(parts);
+                let (pieces, inside) = self.cut_clip(c, from, to);
+                stay.extend(pieces);
                 moved.extend(inside);
             }
             stay.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
@@ -422,8 +422,8 @@ impl Session {
                         kept.push(c.clone());
                         continue;
                     }
-                    let (parts, inside) = self.cut_clip(c, from, to);
-                    kept.extend(parts);
+                    let (pieces, inside) = self.cut_clip(c, from, to);
+                    kept.extend(pieces);
                     moved.extend(inside);
                 }
                 kept.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));

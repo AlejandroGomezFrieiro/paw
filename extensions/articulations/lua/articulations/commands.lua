@@ -39,10 +39,10 @@ local function places_of(ctx)
     return out
   end
   if paw.ui.focused == "pianoroll" or roll:clip() then
-    local note, place, part = roll:note_at(roll.pitch, roll.beat)
+    local note, place, portion = roll:note_at(roll.pitch, roll.beat)
     if note then
-      local n = part.clip:notes()[place]
-      out[1] = { clip = part.id, place = place, note = n, track = part.track }
+      local n = portion.clip:notes()[place]
+      out[1] = { clip = portion.id, place = place, note = n, track = portion.track }
     end
   end
   return out
@@ -802,9 +802,9 @@ keymap.set("<localleader>A", function() M.popover({ mode = "mod" }) end, {
 local function run_region(around)
   local clip = roll:clip()
   if not clip then return end
-  local note, place, part = roll:note_at(roll.pitch, roll.beat)
+  local note, place, portion = roll:note_at(roll.pitch, roll.beat)
   if not note then return end
-  local notes = part.clip:notes()
+  local notes = portion.clip:notes()
   local want = art.attr_of(notes[place])
   local first, last = place, place
   while first > 1 and art.same(art.attr_of(notes[first - 1]), want) do
@@ -820,7 +820,7 @@ local function run_region(around)
     c0, c1 = math.min(c0, n.start), math.max(c1, n.start + n.length)
   end
   if around and notes[last + 1] then c1 = math.max(c1, notes[last + 1].start) end
-  return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0 + part.offset, c1 = c1 + part.offset }
+  return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0 + portion.offset, c1 = c1 + portion.offset }
 end
 
 keymap.textobject(

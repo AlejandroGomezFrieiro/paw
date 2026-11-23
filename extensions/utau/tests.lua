@@ -676,11 +676,11 @@ local function describe(clip)
   local out = {}
   for _, n in ipairs(clip:notes()) do
     local p = n.meta and n.meta.utau or {}
-    local parts = { n.pitch, n.start, n.length, n.meta and n.meta.lyric or "" }
-    if p.tu then parts[#parts + 1] = "tu" .. p.tu end
-    if p.vb then parts[#parts + 1] = "vb" .. table.concat(p.vb, ",") end
-    if p.ex then parts[#parts + 1] = "ex" .. p.ex[1][1] .. p.ex[1][2] end
-    out[#out + 1] = table.concat(parts, "/")
+    local pieces = { n.pitch, n.start, n.length, n.meta and n.meta.lyric or "" }
+    if p.tu then pieces[#pieces + 1] = "tu" .. p.tu end
+    if p.vb then pieces[#pieces + 1] = "vb" .. table.concat(p.vb, ",") end
+    if p.ex then pieces[#pieces + 1] = "ex" .. p.ex[1][1] .. p.ex[1][2] end
+    out[#out + 1] = table.concat(pieces, "/")
   end
   return table.concat(out, " ")
 end
@@ -1166,9 +1166,9 @@ test("utau: AI pitch, takes and the renderer's curves send what the protocol say
     eq(api.device_get(utau.device_of(track.id)).params.x2, 100, "starting at the curve's default")
     require("utau.notes").stroke(track.id, utau.device_of(track.id), "x1", { { 0, 40 }, { 2, -20 } })
     paw.flush()
-    local part = utau.snapshot().parts[1]
+    local vpart = utau.snapshot().vparts[1]
     local by = {}
-    for _, c in ipairs(part.curves) do
+    for _, c in ipairs(vpart.curves) do
       by[c.abbr] = c
     end
     eq(by.ene ~= nil and by.ene.knots[1][2], 40, "the engine gets the curve by its own name, in its units")

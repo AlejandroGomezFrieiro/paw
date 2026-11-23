@@ -764,14 +764,14 @@ fn the_audio_thread_never_allocates() {
         assert_eq!(
             run(&mut engine, 5, 1024 + 7, 2),
             0,
-            "replacing parts, round {round}"
+            "replacing pieces, round {round}"
         );
         handle.collect_garbage();
     }
 
-    // Clips sent as a part each, then edited a few at a time while playing:
-    // the parts taken out go to the garbage queue in the edit.
-    let part = |id: u64, order: u64| {
+    // Clips sent as a piece each, then edited a few at a time while playing:
+    // the pieces taken out go to the garbage queue in the edit.
+    let piece = |id: u64, order: u64| {
         let set = clips(&audio, 8 + id as usize % 5);
         let audio = set.audio.iter().take(2).map(|r| AudioRegion {
             start: r.start + id as f64,
@@ -787,26 +787,26 @@ fn the_audio_thread_never_allocates() {
             direction: Default::default(),
         });
         // Its events counted from where it plays them, as copies of a clip share them.
-        paw_engine::Part::new(id, order, set.midi.into(), audio.collect()).with_offset(id as f64)
+        paw_engine::Piece::new(id, order, set.midi.into(), audio.collect()).with_offset(id as f64)
     };
     for &slot in &tracks[..3] {
-        let parts = (0..40).map(|id| part(id, (id + 1) * 1000)).collect();
-        let set = Box::new(ClipSet::default().with_parts(parts, 64));
+        let pieces = (0..40).map(|id| piece(id, (id + 1) * 1000)).collect();
+        let set = Box::new(ClipSet::default().with_pieces(pieces, 64));
         send(&mut handle, Msg::SetClips { track: slot, clips: set });
     }
     send(&mut handle, Msg::Seek(2.0));
-    assert_eq!(run(&mut engine, 4, 512, 2), 0, "parts set");
+    assert_eq!(run(&mut engine, 4, 512, 2), 0, "pieces set");
     for round in 0..30u64 {
         for &slot in &tracks[..3] {
             let gone = round % 40;
-            let edit = paw_engine::PartEdit {
+            let edit = paw_engine::PieceEdit {
                 remove: vec![(gone, (gone + 1) * 1000 + round / 40), (1000 + round, 500 + round - 1)],
-                add: vec![part(gone, (gone + 1) * 1000 + round / 40 + 1), part(1000 + round + 1, 500 + round)],
+                add: vec![piece(gone, (gone + 1) * 1000 + round / 40 + 1), piece(1000 + round + 1, 500 + round)],
                 removed: Vec::with_capacity(2),
             };
             send(&mut handle, Msg::EditClips { track: slot, edit: Box::new(edit) });
         }
-        assert_eq!(run(&mut engine, 3, 512, 2), 0, "parts edited, round {round}");
+        assert_eq!(run(&mut engine, 3, 512, 2), 0, "pieces edited, round {round}");
         handle.collect_garbage();
     }
 
@@ -923,7 +923,7 @@ fn a_stepped_stream_never_allocates() {
 /// block edges and a loop, and edited while it plays: none of it allocates.
 /// Run from the test above.
 fn reversed_slices_never_allocate() {
-    use paw_engine::{Part, PartEdit};
+    use paw_engine::{Piece, PieceEdit};
     let (mut engine, mut handle) = Engine::new(SR);
     let tone: Vec<f32> = (0..44100).map(|i| (i as f32 * 0.05).sin()).collect();
     let data = Arc::new(AudioData {
@@ -952,9 +952,9 @@ fn reversed_slices_never_allocate() {
             })
             .rev()
             .collect();
-        Part::new(id, id, Arc::from([]), audio)
+        Piece::new(id, id, Arc::from([]), audio)
     };
-    let clips = ClipSet::default().with_parts(vec![slices(1)], 4);
+    let clips = ClipSet::default().with_pieces(vec![slices(1)], 4);
     for msg in [
         Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
         Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
@@ -973,7 +973,7 @@ fn reversed_slices_never_allocate() {
         send(&mut handle, msg);
     }
     assert_eq!(run(&mut engine, 200, 512 + 3, 0), 0, "reversed slices");
-    let edit = PartEdit { remove: vec![(1, 1)], add: vec![slices(2)], removed: Vec::with_capacity(1) };
+    let edit = PieceEdit { remove: vec![(1, 1)], add: vec![slices(2)], removed: Vec::with_capacity(1) };
     send(&mut handle, Msg::EditClips { track: TrackSlot(1), edit: Box::new(edit) });
     assert_eq!(run(&mut engine, 100, 512, 0), 0, "reversed slices replaced");
     handle.collect_garbage();

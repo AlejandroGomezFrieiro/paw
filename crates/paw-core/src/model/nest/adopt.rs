@@ -23,7 +23,7 @@ use crate::model::{Clip, ClipContent, Id, MASTER_ID, Project, SigChange, TempoCh
 /// meter.
 const EMPTY_BARS: i64 = 8;
 
-/// Every id that a part of `p` has: tracks, devices, clips, lanes, nests.
+/// Every id that a piece of `p` has: tracks, devices, clips, lanes, nests.
 fn ids_of(p: &Project) -> impl Iterator<Item = Id> + '_ {
     p.all_tracks()
         .flat_map(|t| {
@@ -99,15 +99,15 @@ fn shift_ids(p: &mut Project, by: Id) {
         .collect();
 }
 
-/// The links of `part`'s clips that a link of `song` has the name of,
+/// The links of `sub`'s clips that a link of `song` has the name of,
 /// renamed `<name>-<nest>`: two links of one name would share their notes.
-fn rename_links(part: &mut Project, song: &Project, nest: NestId) {
+fn rename_links(sub: &mut Project, song: &Project, nest: NestId) {
     let taken: HashSet<&str> = song
         .all_tracks()
         .flat_map(|t| t.clips.iter().chain(&t.cues))
         .filter_map(|c| c.link.as_deref())
         .collect();
-    for t in part.tracks.iter_mut() {
+    for t in sub.tracks.iter_mut() {
         if !t.clips.iter().chain(&t.cues).any(|c| c.link.as_deref().is_some_and(|l| taken.contains(l))) {
             continue;
         }
@@ -121,16 +121,16 @@ fn rename_links(part: &mut Project, song: &Project, nest: NestId) {
     }
 }
 
-/// How long a nest of `part` is: to the end of the bar where its last clip,
+/// How long a nest of `sub` is: to the end of the bar where its last clip,
 /// marker or region ends (an exported subproject keeps its regions), or 8
 /// bars when it has none.
-fn length_of(part: &Project) -> f64 {
-    let map = part.tempo_map();
-    let markers = part.meta.get("markers").and_then(Value::as_array).into_iter().flatten();
+fn length_of(sub: &Project) -> f64 {
+    let map = sub.tempo_map();
+    let markers = sub.meta.get("markers").and_then(Value::as_array).into_iter().flatten();
     let marked = markers
         .filter_map(|m| Some(m.get("beat")?.as_f64()? + m.get("length").and_then(Value::as_f64).unwrap_or(0.0)))
         .fold(0.0, f64::max);
-    let end = part.end().max(marked);
+    let end = sub.end().max(marked);
     if end <= 0.0 {
         return map.bar_start(EMPTY_BARS);
     }
@@ -139,20 +139,20 @@ fn length_of(part: &Project) -> f64 {
 }
 
 impl Project {
-    /// Make the project `part` (read from the folder `source`) nest `id`
+    /// Make the project `sub` (read from the folder `source`) nest `id`
     /// of this project, named `name`, as the module says: its tracks are
     /// the nest's, its master the nest's master, its markers, data and
     /// key the nest's. It follows the song's tempo and keeps its own in
     /// `kept`, and it keeps its own meter. Nothing places it yet. The
     /// caller checks the project after.
-    pub(crate) fn adopt(&mut self, mut part: Project, id: NestId, name: &str, source: &Path) {
-        part.refresh_tempo();
+    pub(crate) fn adopt(&mut self, mut sub: Project, id: NestId, name: &str, source: &Path) {
+        sub.refresh_tempo();
         // Its ids from the nest's on; past every id of the song when one
         // of those is taken (the folder has more parts than when it came),
         // and the song's stems of the nest follow.
         let natural = id.0 + 1;
         let used: BTreeSet<Id> = ids_of(self).collect();
-        let base = if ids_of(&part).any(|i| used.contains(&(i + natural))) {
+        let base = if ids_of(&sub).any(|i| used.contains(&(i + natural))) {
             used.last().copied().unwrap_or(0).max(id.0) + 1
         } else {
             natural
@@ -160,22 +160,22 @@ impl Project {
         if base != natural {
             self.move_stems(id, natural, base);
         }
-        shift_ids(&mut part, base);
-        rename_links(&mut part, self, id);
+        shift_ids(&mut sub, base);
+        rename_links(&mut sub, self, id);
         let master = base + MASTER_ID;
         let nest = Nest {
             id,
             name: name.to_string(),
-            length: length_of(&part),
+            length: length_of(&sub),
             tempo: NestTempo::Follow {
-                kept: part
+                kept: sub
                     .tempo_points()
                     .into_iter()
                     .map(|p| TempoChange { beat: p.beat, bpm: p.bpm, ramp: p.ramp })
                     .collect(),
             },
             meter: NestMeter::Own {
-                changes: part
+                changes: sub
                     .sig_points()
                     .into_iter()
                     .map(|s| SigChange { beat: s.beat, num: s.num, den: s.den })
@@ -184,9 +184,9 @@ impl Project {
             master,
             kind: None,
             meta: {
-                let mut meta = std::mem::take(&mut part.meta);
+                let mut meta = std::mem::take(&mut sub.meta);
                 // A subproject keeps its key in its meta; the song in `key`.
-                if let Some(key) = part.key.take().filter(|k| Some(k) != self.key.as_ref()) {
+                if let Some(key) = sub.key.take().filter(|k| Some(k) != self.key.as_ref()) {
                     meta.insert("key".into(), json!(key));
                 }
                 meta
@@ -194,7 +194,7 @@ impl Project {
             source: Some(source.to_path_buf()),
             origin: None,
         };
-        for t in part.tracks.iter_mut() {
+        for t in sub.tracks.iter_mut() {
             let t = Arc::make_mut(t);
             if t.nest.is_none() {
                 t.nest = Some(id);
@@ -202,13 +202,13 @@ impl Project {
                 t.output = t.output.filter(|o| *o != master);
             }
         }
-        let mut mix: Track = (*part.master).clone();
+        let mut mix: Track = (*sub.master).clone();
         mix.nest = Some(id);
         mix.output = None;
         mix.sends.clear();
-        self.tracks.extend(part.tracks);
+        self.tracks.extend(sub.tracks);
         self.tracks.push(Arc::new(mix));
-        for (inner, n) in part.nests {
+        for (inner, n) in sub.nests {
             let n = Nest { source: Some(source.to_path_buf()), origin: None, ..(*n).clone() };
             self.nests.insert(inner, Arc::new(n));
         }

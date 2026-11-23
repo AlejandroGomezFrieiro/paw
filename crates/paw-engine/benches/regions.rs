@@ -1,4 +1,4 @@
-//! What a block costs with many audio regions in one part against a few:
+//! What a block costs with many audio regions in one piece against a few:
 //! the same two regions sound under the playhead either way.
 //!
 //! `cargo bench -p paw-engine --bench regions -- <regions> [backward]`
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, Part, SchedEntry, Schedule,
+    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, Piece, SchedEntry, Schedule,
     TrackRt, TrackSlot,
 };
 
@@ -58,7 +58,7 @@ fn main() {
         // In the order a long glue of slices is laid out in: not sorted.
         .rev()
         .collect();
-    let set = ClipSet::default().with_parts(vec![Part::new(1, 1, Arc::from([]), regions)], 4);
+    let set = ClipSet::default().with_pieces(vec![Piece::new(1, 1, Arc::from([]), regions)], 4);
     let (mut engine, mut handle) = Engine::new(SR);
     for msg in [
         Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },

@@ -381,7 +381,7 @@ fn region_copy(r: &paw_engine::AudioRegion) -> paw_engine::AudioRegion {
     }
 }
 
-/// All of the clips in one list, as a track was sent them before there were parts.
+/// All of the clips in one list, as a track was sent them before there were pieces.
 fn as_list(clips: &[ClipSet]) -> ClipSet {
     let mut set = ClipSet::default();
     for clip in clips {
@@ -392,13 +392,13 @@ fn as_list(clips: &[ClipSet]) -> ClipSet {
     set
 }
 
-/// Clip `index` of `clips` as a part, `order` among them, its events
+/// Clip `index` of `clips` as a piece, `order` among them, its events
 /// counted from its first, as the sync sends them.
-fn part(clips: &[ClipSet], index: usize, order: u64) -> paw_engine::Part {
+fn piece(clips: &[ClipSet], index: usize, order: u64) -> paw_engine::Piece {
     let clip = &clips[index];
     let offset = clip.midi.first().map_or(0.0, |e| e.beat);
     let midi = clip.midi.iter().map(|e| paw_engine::MidiEv { beat: e.beat - offset, kind: e.kind });
-    paw_engine::Part::new(
+    paw_engine::Piece::new(
         index as u64 + 100,
         order,
         midi.collect(),
@@ -469,8 +469,8 @@ fn play_from(engine: &mut Engine, handle: &mut EngineHandle, from: f64, blocks: 
     out
 }
 
-fn clone_part(p: &paw_engine::Part) -> paw_engine::Part {
-    paw_engine::Part::new(p.id, p.order, p.midi.clone(), p.audio().iter().map(region_copy).collect())
+fn clone_piece(p: &paw_engine::Piece) -> paw_engine::Piece {
+    paw_engine::Piece::new(p.id, p.order, p.midi.clone(), p.audio().iter().map(region_copy).collect())
         .with_offset(p.offset())
 }
 
@@ -478,14 +478,14 @@ fn clone_part(p: &paw_engine::Part) -> paw_engine::Part {
 fn clips_sent_as_parts_play_as_the_same_clips_in_one_list() {
     let data = tone();
     let clips = overlapping_clips(&data, 24);
-    // The parts given in another order than the clips', which their orders put right.
-    let parts: Vec<_> = (0..clips.len())
+    // The pieces given in another order than the clips', which their orders put right.
+    let pieces: Vec<_> = (0..clips.len())
         .rev()
-        .map(|i| part(&clips, i, (i as u64 + 1) * 10))
+        .map(|i| piece(&clips, i, (i as u64 + 1) * 10))
         .collect();
     for from in [0.0, 3.3, 7.75] {
         let (mut a, mut ha, seen_a) = recording_engine(as_list(&clips));
-        let set = ClipSet::default().with_parts(parts.iter().map(clone_part).collect(), 64);
+        let set = ClipSet::default().with_pieces(pieces.iter().map(clone_piece).collect(), 64);
         let (mut b, mut hb, seen_b) = recording_engine(set);
         let out_a = play_from(&mut a, &mut ha, from, 300);
         let out_b = play_from(&mut b, &mut hb, from, 300);
@@ -499,7 +499,7 @@ fn clips_sent_as_parts_play_as_the_same_clips_in_one_list() {
 
 #[test]
 fn an_edit_of_some_parts_plays_as_the_clips_sent_whole() {
-    use paw_engine::PartEdit;
+    use paw_engine::PieceEdit;
     let data = tone();
     let clips = overlapping_clips(&data, 24);
     // Before: clips 0 to 19. After: 3 and 11 gone, 20 to 23 put in among them.
@@ -510,23 +510,23 @@ fn an_edit_of_some_parts_plays_as_the_clips_sent_whole() {
         23 => 5000,
         _ => (i as u64 + 1) * 100,
     };
-    let before = || (0..20).map(|i| part(&clips, i, order(i))).collect::<Vec<_>>();
+    let before = || (0..20).map(|i| piece(&clips, i, order(i))).collect::<Vec<_>>();
     let after: Vec<_> = (0..24)
         .filter(|i| ![3, 11].contains(i))
-        .map(|i| part(&clips, i, order(i)))
+        .map(|i| piece(&clips, i, order(i)))
         .collect();
     // Two engines play the same for a while; then one is sent the clips
-    // whole, the other only the parts that changed.
-    let (mut a, mut ha, seen_a) = recording_engine(ClipSet::default().with_parts(before(), 64));
-    let (mut b, mut hb, seen_b) = recording_engine(ClipSet::default().with_parts(before(), 64));
+    // whole, the other only the pieces that changed.
+    let (mut a, mut ha, seen_a) = recording_engine(ClipSet::default().with_pieces(before(), 64));
+    let (mut b, mut hb, seen_b) = recording_engine(ClipSet::default().with_pieces(before(), 64));
     let warm_a = play_from(&mut a, &mut ha, 0.0, 10);
     let warm_b = play_from(&mut b, &mut hb, 0.0, 10);
     assert!(warm_a == warm_b);
-    let whole = ClipSet::default().with_parts(after, 64);
+    let whole = ClipSet::default().with_pieces(after, 64);
     send(&mut ha, Msg::SetClips { track: TrackSlot(1), clips: Box::new(whole) });
-    let edit = PartEdit {
+    let edit = PieceEdit {
         remove: vec![(103, 400), (111, 1200), (999, 1)],
-        add: (20..24).map(|i| part(&clips, i, order(i))).collect(),
+        add: (20..24).map(|i| piece(&clips, i, order(i))).collect(),
         removed: Vec::with_capacity(3),
     };
     send(&mut hb, Msg::EditClips { track: TrackSlot(1), edit: Box::new(edit) });
@@ -543,7 +543,7 @@ fn an_edit_of_some_parts_plays_as_the_clips_sent_whole() {
     assert!(out_a == out_b, "the same sound to the bit");
 }
 
-/// Many regions of one part, given in any order, among them one long and
+/// Many regions of one piece, given in any order, among them one long and
 /// some backwards, play as the same regions in one list sorted by where
 /// they start, from wherever playing starts: also in the middle of the
 /// long one, which started far before.
@@ -568,12 +568,12 @@ fn many_regions_in_a_part_play_as_the_same_regions_in_one_list() {
         })
         .collect();
     regions.insert(17, paw_engine::AudioRegion { start: 1.03, end: 9.0, gain: 0.25, ..plain_region(data.clone(), 0.0) });
-    let part = || paw_engine::Part::new(1, 1, std::sync::Arc::from([]), regions.iter().rev().map(region_copy).collect());
+    let piece = || paw_engine::Piece::new(1, 1, std::sync::Arc::from([]), regions.iter().rev().map(region_copy).collect());
     for from in [0.0, 3.3, 7.75] {
         let mut list = ClipSet::default();
         list.audio = regions.iter().map(region_copy).collect();
         let (mut a, mut ha, _) = recording_engine(list);
-        let set = ClipSet::default().with_parts(vec![part()], 4);
+        let set = ClipSet::default().with_pieces(vec![piece()], 4);
         let (mut b, mut hb, _) = recording_engine(set);
         let out_a = play_from(&mut a, &mut ha, from, 200);
         let out_b = play_from(&mut b, &mut hb, from, 200);

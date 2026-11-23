@@ -81,14 +81,14 @@ impl Session {
             out.resize(frames, 0.0);
             out
         };
-        let part = AudioData {
+        let samples = AudioData {
             sample_rate: data.sample_rate,
             channels: [
                 take(&data.channels[0]).into(),
                 take(&data.channels[1]).into(),
             ],
         };
-        Ok((part, clip, gain))
+        Ok((samples, clip, gain))
     }
 
     /// A new file in the project's media directory, named after a clip.
@@ -103,7 +103,7 @@ impl Session {
 
     /// Play an audio clip backwards: a `reverse` in its edit list (or one
     /// taken away, when it was the last edit), and its offset where the same
-    /// part of the sound is. Its fades change ends too. Returns `{ edits }`,
+    /// samples of the sound is. Its fades change ends too. Returns `{ edits }`,
     /// how many edits the clip has.
     pub(crate) fn clip_reverse(&mut self, id: Id) -> Result<Value> {
         let (clip, file, offset, _) = self.audio_clip(id)?;
@@ -129,7 +129,7 @@ impl Session {
     }
 
     /// Add an edit to an audio clip's edit list, with its times counted from
-    /// where the clip starts in its sound: a gain on a part, or samples drawn
+    /// where the clip starts in its sound: a gain on a samples, or samples drawn
     /// over its own (a pencil fix). Returns how many edits it has.
     pub(crate) fn clip_edit_add(&mut self, id: Id, mut edit: AudioEdit) -> Result<usize> {
         let (_, _, offset, _) = self.audio_clip(id)?;
@@ -162,7 +162,7 @@ impl Session {
         if edits.is_empty() {
             return Ok(0);
         }
-        // Where the part it plays is in the file, with the reverses undone.
+        // Where the samples it plays is in the file, with the reverses undone.
         let reversed = edits.iter().filter(|e| **e == AudioEdit::Reverse).count() % 2 == 1;
         let back = if reversed {
             let length = self.audio.load(&file)?.seconds();
@@ -191,8 +191,8 @@ impl Session {
         if !level.is_finite() || level > 0.0 {
             bail!("normalize to a level in dB at or below 0, such as -1");
         }
-        let (part, _, _) = self.clip_samples(id)?;
-        let peak = part
+        let (samples, _, _) = self.clip_samples(id)?;
+        let peak = samples
             .channels
             .iter()
             .flatten()

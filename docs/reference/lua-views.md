@@ -480,7 +480,7 @@ paw.ui.keybar.set("pianoroll.lint", "n", { { "<C-y>", "fix" } })     -- the key 
 - A scope of keys that maps `<Esc>` gets the key before paw leaves insert or visual mode.
 - paw does not draw a layer that fails, and it draws the other layers.
 
-`paw.roll_clips.parts()` and `paw.roll_clips.open(ids, active)` give and set the clips that the piano roll edits (see [Several clips in the piano roll](roll-clips.md)).
+`paw.roll_clips.portions()` and `paw.roll_clips.open(ids, active)` give and set the clips that the piano roll edits (see [Several clips in the piano roll](roll-clips.md)).
 
 ### Hooks for an instrument
 

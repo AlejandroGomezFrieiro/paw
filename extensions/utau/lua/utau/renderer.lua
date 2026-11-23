@@ -91,7 +91,7 @@ function M.retake(clip_id, action, opts)
   local ok = engine.send(proto.encode.run_batch_edit({
     request = request,
     name = "retake",
-    parts = { tostring(clip_id) },
+    vparts = { tostring(clip_id) },
     notes = ids,
     args = json.encode(args),
   }))

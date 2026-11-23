@@ -37,8 +37,8 @@ local until_ = T.until_
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 140, h or 50), "\n") end
 
-local function has(text, part, what)
-  if not text:find(part, 1, true) then error(string.format("%s: %q is not in\n%s", what, part, text), 2) end
+local function has(text, portion, what)
+  if not text:find(portion, 1, true) then error(string.format("%s: %q is not in\n%s", what, portion, text), 2) end
 end
 
 local function start()
@@ -324,7 +324,7 @@ test(
       roll = cells,
       ruler = cells,
       clip = a,
-      parts = paw.roll_clips.parts(),
+      portions = paw.roll_clips.portions(),
       x = function(beat) return beat * 4 end,
       row = function(pitch) return 100 - pitch end,
     })

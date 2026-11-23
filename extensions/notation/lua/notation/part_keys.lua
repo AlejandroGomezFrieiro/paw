@@ -59,7 +59,7 @@ local function show(parts)
 end
 
 --- The track whose part is meant: the part shown, else the open clip's.
-local function part_track()
+local function shown_part()
   if view.parts and view.parts.kind == "part" then return view.parts.track end
   local clip = view:clip() or view.target()
   return clip and clip:get().track
@@ -138,7 +138,7 @@ command("part", function(ctx)
     return paw.notify("notation: the clip alone, to edit")
   end
   if not words or words == "" then
-    local id = part_track()
+    local id = shown_part()
     local list = P.instruments()
     for _, e in ipairs(list) do
       if e.id == id then return show_part(e) end
@@ -158,7 +158,7 @@ end, {
 local function step(by)
   local list = P.instruments()
   if #list == 0 then return paw.notify("no track has MIDI to make a part of", "warn") end
-  local id = part_track()
+  local id = shown_part()
   local at = 0
   for i, e in ipairs(list) do
     if e.id == id then at = i end
@@ -170,7 +170,7 @@ command("part.next", function() step(1) end, { desc = "Show the next instrument'
 command("part.prev", function() step(-1) end, { desc = "Show the previous instrument's part, in score order" })
 
 command("part.transpose", function(ctx)
-  local id = part_track()
+  local id = shown_part()
   if not id then return paw.notify("no track", "warn") end
   local spec = ctx.args[1]
   if not spec or spec == "" then
@@ -227,7 +227,7 @@ local function stretch(ctx)
 end
 
 command("part.cue", function(ctx)
-  local id = part_track()
+  local id = shown_part()
   if not id then return paw.notify("no track", "warn") end
   local words = ctx.args[1]
   local from, to = stretch(ctx)
@@ -327,7 +327,7 @@ command("part.bars-per-system", function(ctx)
 end, { desc = "In the part shown: that many bars to every system, or without a number as they fit" })
 
 command("part.name", function(ctx)
-  local id = part_track()
+  local id = shown_part()
   if not id then return paw.notify("no track", "warn") end
   local full, short = tostring(ctx.args[1] or ""):match("^%s*(.-)%s*|%s*(.-)%s*$")
   full = full or tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")
@@ -405,7 +405,7 @@ command("part.export", function(ctx)
   elseif what == "score" or (shown == "score" and what ~= "part") then
     jobs[1] = { score = true, path = path }
   else
-    jobs[1] = { track = part_track(), path = path }
+    jobs[1] = { track = shown_part(), path = path }
   end
   local wrote, pages = {}, 0
   for _, job in ipairs(jobs) do

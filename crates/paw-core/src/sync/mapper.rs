@@ -8,7 +8,7 @@ use std::sync::Arc;
 use paw_engine::{DeviceSlot, MAX_DEVICES, MAX_TRACKS, MidiEv, TrackSlot};
 use paw_types::midi_form::Form;
 
-use super::clips::{Compiled, Parts};
+use super::clips::{Compiled, Pieces};
 use super::routing::Routing;
 use crate::freeze::Played;
 use crate::model::{Clip, Id, MASTER_ID};
@@ -76,10 +76,10 @@ pub struct Mapper {
     pub(super) outs: HashMap<Id, Vec<usize>>,
     /// Frames by which the output is behind the transport, as last scheduled.
     pub latency: u32,
-    /// What the engine was sent of each track's clips, one part for each
-    /// (see [`Parts`]), so that an edit compiles and sends only the clips
+    /// What the engine was sent of each track's clips, one piece for each
+    /// (see [`Pieces`]), so that an edit compiles and sends only the clips
     /// it changed. Tracks whose clips are sent as one list have none.
-    pub(super) parts: HashMap<Id, Parts>,
+    pub(super) pieces: HashMap<Id, Pieces>,
     /// The events of every MIDI clip sent, by what they are compiled from:
     /// copies of a clip anywhere share them (see [`Compiled`]).
     pub(super) compiled: Compiled,
@@ -165,7 +165,7 @@ impl Mapper {
             keyed: HashSet::new(),
             outs: HashMap::new(),
             latency: 0,
-            parts: HashMap::new(),
+            pieces: HashMap::new(),
             compiled: Compiled::default(),
             host_latency: HashMap::new(),
             defer: false,

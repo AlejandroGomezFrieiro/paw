@@ -7,7 +7,7 @@
 --   harmony.place         a clip where it is: its content and its start
 --   harmony.drums         whether a track is drums, which the reading leaves out
 --   harmony.track         each track's clips that sound, with their starts
---   harmony.track_window  what one track sounds in one window (a `read.Part`)
+--   harmony.track_window  what one track sounds in one window (a `read.Portion`)
 --   harmony.group         what 8 tracks sound in one window: the sum of the above
 --   harmony.mix           what all tracks sound in one window: the sum of the groups
 --   harmony.beat          what sounds in one beat, for a window with one pitch alone
@@ -131,8 +131,8 @@ end
 --- What a window's scores are made from.
 local record WindowInputs
   length: number
-  mix: read.Part
-  beat: read.Part
+  mix: read.Portion
+  beat: read.Portion
 end
 
 --- What a track's bar is made from.
@@ -147,7 +147,7 @@ local record Span
   count: integer
 end
 
-local function same_part(a: read.Part, b: read.Part): boolean
+local function same_portion(a: read.Portion, b: read.Portion): boolean
   return a == b or same_list(a, b)
 end
 
@@ -160,7 +160,7 @@ local function same_weights(a: read.Weights, b: read.Weights): boolean
   return true
 end
 
-local function part_bytes(p: read.Part): integer
+local function portion_bytes(p: read.Portion): integer
   return 64 + 8 * #p
 end
 
@@ -253,7 +253,7 @@ local place_node_spec: derived.Spec<integer, Place, boolean> = {
     if old and old.run == run and old.start == c.start then
       return old
     end
-    -- Where the notes sound, added up as `read.part` adds them: a window
+    -- Where the notes sound, added up as `read.portion` adds them: a window
     -- that only touches a changed place is not read again (`touched`).
     local reach: number = -math.huge
     for k = 1, run.n do
@@ -379,7 +379,7 @@ local function window_span(i: integer): number, number
   return at, at + step_now
 end
 
-local track_window_spec: derived.Spec<integer, read.Part, Over> = {
+local track_window_spec: derived.Spec<integer, read.Portion, Over> = {
   name = "harmony.track_window",
   kind = "family",
   span = function(key: integer): number, number local _, i = unpack_key(key); return window_span(i) end,
@@ -399,22 +399,22 @@ local track_window_spec: derived.Spec<integer, read.Part, Over> = {
   end,
   same_inputs = function(a: Over, b: Over): boolean return a.step == b.step and same_list(a, b) end,
   undo = true,
-  make = function(_: derived.Ctx, key: integer, _: read.Part, places: Over): read.Part
+  make = function(_: derived.Ctx, key: integer, _: read.Portion, places: Over): read.Portion
     local _, i = unpack_key(key)
     local at = (i - 1) * places.step
     if #places == 1 then
       local p = places[1]
-      return read.part(p.run, p.start, at, at + places.step)
+      return read.portion(p.run, p.start, at, at + places.step)
     end
-    local parts: {read.Part} = {}
+    local portions: {read.Portion} = {}
     for k = 1, #places do
       local p = places[k]
-      parts[k] = read.part(p.run, p.start, at, at + places.step)
+      portions[k] = read.portion(p.run, p.start, at, at + places.step)
     end
-    return read.merge(parts)
+    return read.merge(portions)
   end,
-  same = same_part,
-  bytes = part_bytes,
+  same = same_portion,
+  bytes = portion_bytes,
   limit = 16 * 1048576,
 }
 local track_window = derived.node(track_window_spec)
@@ -423,51 +423,51 @@ local track_window = derived.node(track_window_spec)
 -- track adds up its group and the groups, not every track.
 local GROUP = 8
 
-local group_node_spec: derived.Spec<integer, read.Part, boolean> = {
+local group_node_spec: derived.Spec<integer, read.Portion, boolean> = {
   name = "harmony.group",
   kind = "join",
-  make = function(ctx: derived.Ctx, key: integer): read.Part
+  make = function(ctx: derived.Ctx, key: integer): read.Portion
     local g, i = unpack_key(key)
     local tracks = ctx:get(tracks_node, 0)
-    local parts: {read.Part} = {}
+    local portions: {read.Portion} = {}
     for k = g * GROUP + 1, math.min(#tracks, g * GROUP + GROUP) do
-      parts[#parts + 1] = ctx:get(track_window, pack(tracks[k], i))
+      portions[#portions + 1] = ctx:get(track_window, pack(tracks[k], i))
     end
-    return read.merge(parts)
+    return read.merge(portions)
   end,
-  same = same_part,
-  bytes = part_bytes,
+  same = same_portion,
+  bytes = portion_bytes,
   limit = 4 * 1048576,
 }
 local group_node = derived.node(group_node_spec)
 
-local mix_node_spec: derived.Spec<integer, read.Part, boolean> = {
+local mix_node_spec: derived.Spec<integer, read.Portion, boolean> = {
   name = "harmony.mix",
   kind = "join",
-  make = function(ctx: derived.Ctx, i: integer): read.Part
-    local parts: {read.Part} = {}
+  make = function(ctx: derived.Ctx, i: integer): read.Portion
+    local portions: {read.Portion} = {}
     for g = 0, (#ctx:get(tracks_node, 0) - 1) // GROUP do
-      parts[#parts + 1] = ctx:get(group_node, pack(g, i))
+      portions[#portions + 1] = ctx:get(group_node, pack(g, i))
     end
-    return read.merge(parts)
+    return read.merge(portions)
   end,
-  same = same_part,
-  bytes = part_bytes,
+  same = same_portion,
+  bytes = portion_bytes,
   limit = 4 * 1048576,
 }
 local mix_node = derived.node(mix_node_spec)
 
-local beat_node_spec: derived.Spec<integer, read.Part, boolean> = {
+local beat_node_spec: derived.Spec<integer, read.Portion, boolean> = {
   name = "harmony.beat",
   kind = "join",
-  make = function(ctx: derived.Ctx, b: integer): read.Part
+  make = function(ctx: derived.Ctx, b: integer): read.Portion
     local step = ctx:get(step_node, 0)
     local per = math.floor(1 / step + 0.5)
-    local parts: {read.Part} = {}
+    local portions: {read.Portion} = {}
     if math.abs(per * step - 1) < 1e-9 then
       -- The windows of the beat, side by side.
       for i = b * per + 1, b * per + per do
-        parts[#parts + 1] = ctx:get(mix_node, i)
+        portions[#portions + 1] = ctx:get(mix_node, i)
       end
     else
       -- Windows that do not fit a beat: the notes of every track over it.
@@ -478,14 +478,14 @@ local beat_node_spec: derived.Spec<integer, read.Part, boolean> = {
         over(ctx:get(track_node, track), b, b + 1, places)
         for i_p = 1, #places do
           local p = places[i_p]
-          parts[#parts + 1] = read.part(p.run, p.start, b, b + 1)
+          portions[#portions + 1] = read.portion(p.run, p.start, b, b + 1)
         end
       end
     end
-    return read.merge(parts)
+    return read.merge(portions)
   end,
-  same = same_part,
-  bytes = part_bytes,
+  same = same_portion,
+  bytes = portion_bytes,
   limit = 2 * 1048576,
 }
 local beat_node = derived.node(beat_node_spec)
@@ -515,7 +515,7 @@ local span_node = derived.node(span_node_spec)
 -- The window that `read.finish` may ask for its beat: no new function for each window.
 local beat_ctx: derived.Ctx
 local beat_at: number
-local function beat_of_window(): read.Part
+local function beat_of_window(): read.Portion
   return beat_ctx:get(beat_node, math.floor(beat_at + 1e-9))
 end
 
@@ -775,11 +775,11 @@ function M.whole(notes: {Note}, opts: Options): {read.Chord}, {read.Key}
     local at = (i - 1) * step
     local beat = math.floor(at + 1e-9)
     windows[i] = read.finish(
-      read.part(run, 0, at, at + step),
+      read.portion(run, 0, at, at + step),
       at,
       math.min(step, last - at),
       step,
-      function(): read.Part return read.part(run, 0, beat, beat + 1) end
+      function(): read.Portion return read.portion(run, 0, beat, beat + 1) end
     )
     i = i + 1
   end

@@ -324,13 +324,13 @@ impl Hold {
 }
 
 /// Everything one track plays. Built on the main thread and handed to the
-/// engine whole; the audio thread changes it only by the [`PartEdit`]s it
+/// engine whole; the audio thread changes it only by the [`PieceEdit`]s it
 /// is sent, without allocating.
 ///
 /// What it plays is in one list ([`ClipSet::midi`] and [`ClipSet::audio`]),
-/// or in [`Part`]s, one for each clip, or both: the list plays first on a
-/// beat, then the parts in their order. An edit of one clip then sends and
-/// changes only that clip's part.
+/// or in [`Piece`]s, one for each clip, or both: the list plays first on a
+/// beat, then the pieces in their order. An edit of one clip then sends and
+/// changes only that clip's piece.
 #[derive(Default)]
 pub struct ClipSet {
     /// Sorted by beat, with note-offs before note-ons on the same beat.
@@ -342,23 +342,23 @@ pub struct ClipSet {
     pub switches: Vec<Switch>,
     /// The events of each switch, `Switch::events` into this.
     pub switch_events: Vec<EventKind>,
-    /// Sorted by where they start, then by their order: see [`ClipSet::with_parts`].
-    parts: Vec<Part>,
-    /// The longest stretch a part has been seen to span, in beats: the
-    /// parts that can sound from a beat start at most this far before it.
+    /// Sorted by where they start, then by their order: see [`ClipSet::with_pieces`].
+    pieces: Vec<Piece>,
+    /// The longest stretch a piece has been seen to span, in beats: the
+    /// pieces that can sound from a beat start at most this far before it.
     reach: f64,
-    /// The parts that sound in the block being played, with how far into
-    /// each the block's events start: as long as `parts` can grow, so that
+    /// The pieces that sound in the block being played, with how far into
+    /// each the block's events start: as long as `pieces` can grow, so that
     /// it never has to grow on the audio thread.
     sounding: Vec<(u32, u32)>,
 }
 
 /// One clip's share of what a track plays.
-pub struct Part {
-    /// The clip's id: what an edit names the part by.
+pub struct Piece {
+    /// The clip's id: what an edit names the piece by.
     pub id: u64,
     /// Where its clip is among the track's clips, from 1: on the same beat,
-    /// what a part with a lower order plays comes first.
+    /// what a piece with a lower order plays comes first.
     pub order: u64,
     /// Sorted as [`ClipSet::midi`] is, counted from
     /// [`offset`](Self::offset): copies of a clip at many places share one
@@ -379,14 +379,14 @@ pub struct Part {
     to: f64,
 }
 
-impl Part {
-    /// A part of `midi` and of `audio` in any order.
+impl Piece {
+    /// A piece of `midi` and of `audio` in any order.
     pub fn new(id: u64, order: u64, midi: Arc<[MidiEv]>, mut audio: Vec<AudioRegion>) -> Self {
         let reach = audio.iter().map(|r| r.end - r.start).fold(0.0, f64::max);
         // Stable: regions on the same beat keep their order, and so the
         // order they are added up in.
         audio.sort_by(|a, b| a.start.total_cmp(&b.start));
-        let mut part = Self {
+        let mut piece = Self {
             id,
             order,
             midi,
@@ -396,11 +396,11 @@ impl Part {
             from: f64::INFINITY,
             to: f64::NEG_INFINITY,
         };
-        part.find_bounds();
-        part
+        piece.find_bounds();
+        piece
     }
 
-    /// The part with its events counted from `beats`: each plays on its
+    /// The piece with its events counted from `beats`: each plays on its
     /// beat plus `beats`, so that copies of a clip share one list of
     /// events and each plays it from its own start. Its regions stay
     /// where they are.
@@ -461,20 +461,20 @@ impl Part {
         &self.audio[first..last]
     }
 
-    /// Whether it plays nothing: no part is kept for it.
+    /// Whether it plays nothing: no piece is kept for it.
     pub fn is_empty(&self) -> bool {
         self.midi.is_empty() && self.audio.is_empty()
     }
 }
 
-/// Parts to take out of a [`ClipSet`] by id and order, and parts to put
-/// in, applied on the audio thread by [`ClipSet::edit`]. The parts taken
+/// Pieces to take out of a [`ClipSet`] by id and order, and pieces to put
+/// in, applied on the audio thread by [`ClipSet::edit`]. The pieces taken
 /// out are kept in it, to be freed on another thread.
 #[derive(Default)]
-pub struct PartEdit {
+pub struct PieceEdit {
     pub remove: Vec<(u64, u64)>,
-    pub add: Vec<Part>,
-    pub removed: Vec<Part>,
+    pub add: Vec<Piece>,
+    pub removed: Vec<Piece>,
 }
 
 /// On the same beat a note ends before a channel's controllers move, they
@@ -490,7 +490,7 @@ fn rank(e: &MidiEv) -> u8 {
 }
 
 /// Where an event is in the order a track plays its events in: by beat,
-/// rank, the order of its part (0 for the list) and its place there.
+/// rank, the order of its piece (0 for the list) and its place there.
 #[derive(Clone, Copy)]
 pub(crate) struct Stamp(f64, u8, u64, usize);
 
@@ -555,90 +555,90 @@ impl ClipSet {
             .sort_by(|a, b| a.beat.total_cmp(&b.beat).then(rank(a).cmp(&rank(b))));
     }
 
-    /// The parts of a track's clips, in any order, with room for `room`
-    /// parts in all before an edit has to send the set whole again.
-    pub fn with_parts(mut self, parts: Vec<Part>, room: usize) -> Self {
-        let room = room.max(parts.len());
-        self.parts = Vec::with_capacity(room);
+    /// The pieces of a track's clips, in any order, with room for `room`
+    /// pieces in all before an edit has to send the set whole again.
+    pub fn with_pieces(mut self, pieces: Vec<Piece>, room: usize) -> Self {
+        let room = room.max(pieces.len());
+        self.pieces = Vec::with_capacity(room);
         self.sounding = Vec::with_capacity(room + 1);
         self.reach = 0.0;
-        for part in parts.into_iter().filter(|p| !p.is_empty()) {
-            self.reach = self.reach.max(part.to - part.from);
-            self.parts.push(part);
+        for piece in pieces.into_iter().filter(|p| !p.is_empty()) {
+            self.reach = self.reach.max(piece.to - piece.from);
+            self.pieces.push(piece);
         }
-        self.parts
+        self.pieces
             .sort_by(|a, b| a.from.total_cmp(&b.from).then(a.order.cmp(&b.order)));
         self
     }
 
-    /// How many parts there are, and how many there is room for.
-    pub fn parts(&self) -> (usize, usize) {
-        (self.parts.len(), self.parts.capacity())
+    /// How many pieces there are, and how many there is room for.
+    pub fn pieces(&self) -> (usize, usize) {
+        (self.pieces.len(), self.pieces.capacity())
     }
 
-    /// Take out and put in the parts `edit` names. Allocates nothing as long
-    /// as there is room for the parts put in and for those taken out, which
+    /// Take out and put in the pieces `edit` names. Allocates nothing as long
+    /// as there is room for the pieces put in and for those taken out, which
     /// whoever sends the edit sees to: an edit for which there is no room
     /// is not applied, and false returned.
-    pub fn edit(&mut self, edit: &mut PartEdit) -> bool {
+    pub fn edit(&mut self, edit: &mut PieceEdit) -> bool {
         let adding = edit.add.iter().filter(|p| !p.is_empty()).count();
         if edit.removed.capacity() - edit.removed.len() < edit.remove.len()
-            || self.parts.len() + adding > self.parts.capacity()
+            || self.pieces.len() + adding > self.pieces.capacity()
         {
             return false;
         }
         for &(id, order) in &edit.remove {
-            if let Some(at) = self.parts.iter().position(|p| p.id == id && p.order == order) {
-                edit.removed.push(self.parts.remove(at));
+            if let Some(at) = self.pieces.iter().position(|p| p.id == id && p.order == order) {
+                edit.removed.push(self.pieces.remove(at));
             }
         }
-        for part in edit.add.drain(..).filter(|p| !p.is_empty()) {
-            let at = self.parts.partition_point(|p| {
-                p.from.total_cmp(&part.from).then(p.order.cmp(&part.order)).is_lt()
+        for piece in edit.add.drain(..).filter(|p| !p.is_empty()) {
+            let at = self.pieces.partition_point(|p| {
+                p.from.total_cmp(&piece.from).then(p.order.cmp(&piece.order)).is_lt()
             });
-            self.reach = self.reach.max(part.to - part.from);
-            self.parts.insert(at, part);
+            self.reach = self.reach.max(piece.to - piece.from);
+            self.pieces.insert(at, piece);
         }
         true
     }
 
-    /// Find the parts that may sound from `start` to `end`, in their order,
+    /// Find the pieces that may sound from `start` to `end`, in their order,
     /// for [`regions`](Self::regions) and [`events`](Self::events).
     pub fn find_sounding(&mut self, start: f64, end: f64) {
         self.sounding.clear();
-        if self.parts.is_empty() {
+        if self.pieces.is_empty() {
             return;
         }
-        let first = self.parts.partition_point(|p| p.from < start - self.reach);
-        for (i, part) in self.parts.iter().enumerate().skip(first) {
-            if part.from >= end {
+        let first = self.pieces.partition_point(|p| p.from < start - self.reach);
+        for (i, piece) in self.pieces.iter().enumerate().skip(first) {
+            if piece.from >= end {
                 break;
             }
-            if part.to >= start && self.sounding.len() < self.sounding.capacity() {
-                let at = part.midi.partition_point(|e| part.placed(e).beat < start);
+            if piece.to >= start && self.sounding.len() < self.sounding.capacity() {
+                let at = piece.midi.partition_point(|e| piece.placed(e).beat < start);
                 self.sounding.push((i as u32, at as u32));
             }
         }
-        let parts = &self.parts;
-        self.sounding.sort_unstable_by_key(|&(i, _)| parts[i as usize].order);
+        let pieces = &self.pieces;
+        self.sounding.sort_unstable_by_key(|&(i, _)| pieces[i as usize].order);
     }
 
-    /// The sound of the list, then of each part found by
+    /// The sound of the list, then of each piece found by
     /// [`find_sounding`](Self::find_sounding) for the same stretch, in
-    /// their order: of a part, only the regions that may sound from `start`
+    /// their order: of a piece, only the regions that may sound from `start`
     /// to before `end`.
     pub fn regions(&self, start: f64, end: f64) -> impl Iterator<Item = &AudioRegion> {
         self.audio.iter().chain(
             self.sounding
                 .iter()
-                .flat_map(move |&(i, _)| self.parts[i as usize].audio_in(start, end)),
+                .flat_map(move |&(i, _)| self.pieces[i as usize].audio_in(start, end)),
         )
     }
 
-    /// The events from `start` to before `end` of the list and of the parts
+    /// The events from `start` to before `end` of the list and of the pieces
     /// found by [`find_sounding`](Self::find_sounding) for the same stretch,
     /// in the order they play: as if all were in one list sorted by
-    /// [`finish`](Self::finish), the list first and each part after it in
+    /// [`finish`](Self::finish), the list first and each piece after it in
     /// their order.
     pub fn events(&mut self, start: f64, end: f64, mut each: impl FnMut(&MidiEv)) {
         let first = self.midi.partition_point(|e| e.beat < start);
@@ -650,17 +650,17 @@ impl ClipSet {
         }
         let mut list = first;
         loop {
-            // The next event of the list and of each part, the first of them played.
+            // The next event of the list and of each piece, the first of them played.
             let mut best: Option<(Stamp, Option<usize>)> = self
                 .midi
                 .get(list)
                 .filter(|e| e.beat < end)
                 .map(|e| (Stamp::of(e, 0, list), None));
             for (k, &(i, at)) in self.sounding.iter().enumerate() {
-                let part = &self.parts[i as usize];
-                let next = part.midi.get(at as usize).map(|e| part.placed(e));
+                let piece = &self.pieces[i as usize];
+                let next = piece.midi.get(at as usize).map(|e| piece.placed(e));
                 if let Some(e) = next.filter(|e| e.beat < end) {
-                    let stamp = Stamp::of(&e, part.order, at as usize);
+                    let stamp = Stamp::of(&e, piece.order, at as usize);
                     if best.as_ref().is_none_or(|(b, _)| b.after(&stamp)) {
                         best = Some((stamp, Some(k)));
                     }
@@ -674,24 +674,24 @@ impl ClipSet {
                 }
                 Some((_, Some(k))) => {
                     let (i, at) = self.sounding[k];
-                    let part = &self.parts[i as usize];
-                    each(&part.placed(&part.midi[at as usize]));
+                    let piece = &self.pieces[i as usize];
+                    each(&piece.placed(&piece.midi[at as usize]));
                     self.sounding[k].1 += 1;
                 }
             }
         }
     }
 
-    /// Every event before `before`, of the list and of every part, each
+    /// Every event before `before`, of the list and of every piece, each
     /// with where it is in the order the track plays them: for what a
     /// chase looks at, which is the last of them for each key and controller.
     pub(crate) fn each_before(&self, before: f64, mut each: impl FnMut(&MidiEv, Stamp)) {
         for (at, ev) in self.midi.iter().enumerate().take_while(|(_, e)| e.beat < before) {
             each(ev, Stamp::of(ev, 0, at));
         }
-        for part in self.parts.iter().take_while(|p| p.from < before) {
-            for (at, ev) in part.events().enumerate().take_while(|(_, e)| e.beat < before) {
-                each(&ev, Stamp::of(&ev, part.order, at));
+        for piece in self.pieces.iter().take_while(|p| p.from < before) {
+            for (at, ev) in piece.events().enumerate().take_while(|(_, e)| e.beat < before) {
+                each(&ev, Stamp::of(&ev, piece.order, at));
             }
         }
     }

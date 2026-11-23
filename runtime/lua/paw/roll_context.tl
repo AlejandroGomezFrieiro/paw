@@ -81,7 +81,7 @@ local record Note
 end
 
 --- A context clip, as the node compares them: what its notes are made of.
-local record Part
+local record Portion
   id: integer
   track: integer
   color: string
@@ -287,14 +287,14 @@ local track_clips = derived.node(clips_spec)
 
 --- The context clips: the MIDI clips of the active clip's track and of the
 --- shown tracks that sound in the span, but not the edited clips.
-local function parts(ctx: derived.Ctx, req: Request): {Part}
+local function portions(ctx: derived.Ctx, req: Request): {Portion}
   local a = req.active
   local own = look_of(ctx, a.track)
   local looked: {Track} = {{id = a.track, on = true, color = own and own.color or nil}}
   for _, t in ipairs(tracks(ctx, req, false)) do
     looked[#looked + 1] = t
   end
-  local out: {Part} = {}
+  local out: {Portion} = {}
   for _, t in ipairs(looked) do
     if t.on then
       for _, c in ipairs(ctx:get(track_clips, t.id)) do
@@ -315,7 +315,7 @@ local function parts(ctx: derived.Ctx, req: Request): {Part}
   return out
 end
 
-local function same_parts(a: {Part}, b: {Part}): boolean
+local function same_portions(a: {Portion}, b: {Portion}): boolean
   if #a ~= #b then
     return false
   end
@@ -337,7 +337,7 @@ end
 
 --- The notes of the context clips that sound in the span, at most
 --- `paw.opt.roll_context_max` of them.
-local function notes(req: Request, list: {Part}): {Note}
+local function notes(req: Request, list: {Portion}): {Note}
   local out: {Note} = {}
   local max = opt.roll_context_max
   local from, to = req.from, req.to
@@ -367,13 +367,13 @@ local function notes(req: Request, list: {Part}): {Note}
   return out
 end
 
-local spec: derived.Spec<Request, {Note}, {Part}> = {
+local spec: derived.Spec<Request, {Note}, {Portion}> = {
   name = "roll.context",
   kind = "memo",
   id = function(req: Request): string return req.id end,
-  inputs = function(ctx: derived.Ctx, req: Request): {Part} return parts(ctx, req) end,
-  same_inputs = same_parts,
-  make = function(_: derived.Ctx, req: Request, _: {Note}, list: {Part}): {Note} return notes(req, list) end,
+  inputs = function(ctx: derived.Ctx, req: Request): {Portion} return portions(ctx, req) end,
+  same_inputs = same_portions,
+  make = function(_: derived.Ctx, req: Request, _: {Note}, list: {Portion}): {Note} return notes(req, list) end,
   -- An undo of an edit of a context clip gives its notes back.
   undo = true,
   -- One value for each window of the roll, and a few more.

@@ -495,7 +495,7 @@ fn index<'p, T: 'p, I: IntoIterator<Item = &'p Arc<T>>>(
 
 /// A thing on a track that the diff matches by id between two projects:
 /// a device, a clip or an automation lane.
-trait Part {
+trait Member {
     /// Its count in the diff.
     fn count(d: &mut Diff) -> &mut Count;
     /// What a line calls it: "device synth", "clip verse", "pan automation".
@@ -507,7 +507,7 @@ trait Part {
     -> Option<Vec<String>>;
 }
 
-impl Part for DeviceInst {
+impl Member for DeviceInst {
     fn count(d: &mut Diff) -> &mut Count {
         &mut d.devices
     }
@@ -541,7 +541,7 @@ impl Part for DeviceInst {
     }
 }
 
-impl Part for Clip {
+impl Member for Clip {
     fn count(d: &mut Diff) -> &mut Count {
         &mut d.clips
     }
@@ -594,7 +594,7 @@ impl Part for Clip {
     }
 }
 
-impl Part for Lane {
+impl Member for Lane {
     fn count(d: &mut Diff) -> &mut Count {
         &mut d.lanes
     }
@@ -789,7 +789,7 @@ impl Diff {
     }
 
     /// The parts of one kind added and changed, by id, then those removed.
-    fn parts<T: Part>(&mut self, a: &Index<T>, b: &Index<T>) {
+    fn members<T: Member>(&mut self, a: &Index<T>, b: &Index<T>) {
         for (id, (track, now)) in sorted(b) {
             let line = match a.get(&id) {
                 None => {
@@ -843,9 +843,9 @@ pub(super) fn diff(a: &Project, b: &Project) -> Value {
     let mut d = Diff::default();
     d.project(a, b);
     d.tracks(a, b);
-    d.parts(&index(a, |t| &t.devices, |x| x.id), &index(b, |t| &t.devices, |x| x.id));
-    d.parts(&index(a, |t| &t.clips, |x| x.id), &index(b, |t| &t.clips, |x| x.id));
-    d.parts(&index(a, |t| &t.lanes, |x| x.id), &index(b, |t| &t.lanes, |x| x.id));
+    d.members(&index(a, |t| &t.devices, |x| x.id), &index(b, |t| &t.devices, |x| x.id));
+    d.members(&index(a, |t| &t.clips, |x| x.id), &index(b, |t| &t.clips, |x| x.id));
+    d.members(&index(a, |t| &t.lanes, |x| x.id), &index(b, |t| &t.lanes, |x| x.id));
     d.finish()
 }
 

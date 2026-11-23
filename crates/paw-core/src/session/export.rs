@@ -14,7 +14,7 @@
 use super::*;
 use crate::model::{NestId, Standalone};
 
-use super::folder::{PROJECT_FILE, commit, layout, read_part};
+use super::folder::{PROJECT_FILE, commit, layout, read_nested};
 use super::project_files::DiskFiles;
 use super::media::MEDIA_FILE;
 
@@ -131,7 +131,7 @@ impl Session {
         if !dir.join(PROJECT_FILE).is_file() {
             bail!("{} is not a project folder: it has no {PROJECT_FILE}", dir.display());
         }
-        let read = read_part(&DiskFiles, &self.home, &dir, 0)?;
+        let read = read_nested(&DiskFiles, &self.home, &dir, 0)?;
         let name = match read.project.name.trim() {
             "" => dir.file_name().map_or_else(|| "Subproject".into(), |n| n.to_string_lossy().into_owned()),
             name => name.to_string(),
