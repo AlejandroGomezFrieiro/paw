@@ -8700,12 +8700,38 @@ function paw.tempolane.range() end
 ---@param beat any
 function paw.tempolane.remove(beat) end
 
+--- Replace every tempo point of the window's time with `points`, beats of
+--- the window, as the curve editor of paw://tempo writes them. The map
+--- starts with a change at its start: when no point is there, one with the
+--- first point's tempo holds until it.
+---@param points any
+function paw.tempolane.set_points(points) end
+
 --- Show the row, or hide it (`on` false).
 ---@param on any
 function paw.tempolane.show(on) end
 
 --- True if the row shows.
 function paw.tempolane.shown() end
+
+--- Move the signature change at `beat` to beat `to`, both of the window's
+--- time; a change there goes. The one at the start does not move, and
+--- none moves onto it.
+---@param beat any
+---@param to any
+function paw.tempolane.signature_move(beat, to) end
+
+--- Remove the signature change at a beat of the window's time. You cannot
+--- remove the one at the start.
+---@param beat any
+function paw.tempolane.signature_remove(beat) end
+
+--- Start a bar of `num`/`den` at a beat of the window's time, or change
+--- the signature that starts there.
+---@param beat any
+---@param num any
+---@param den any
+function paw.tempolane.signature_set(beat, num, den) end
 
 --- Show the tempo lane, or hide it. Returns true if it shows.
 function paw.tempolane.toggle() end
