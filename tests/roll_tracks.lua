@@ -62,3 +62,19 @@ test("the piano roll: ]t [t and Tab make the next shown track the one edited, it
   eq(paw.ui.focused ~= "pianoroll", true, "Tab goes to the next view")
   paw.opt.roll_context = "all"
 end)
+
+test(":roll.tracks: Enter on a track or a clip shows its new state on its line", function()
+  three()
+  keys(":roll.tracks<CR>")
+  local function line(n) return paw.pick.state().matches[n] end
+  eq(line(3), "[x] Violin", "the violin's notes show behind")
+  eq(line(4), "      [    ] Violin", "the violin's clip is not edited")
+  keys("<Down><Down><CR>")
+  eq(line(3), "[ ] Violin", "Enter hides the violin's notes, and its line says so")
+  eq(paw.pick.state().selected, 3, "the selection stays on the line")
+  keys("<Down><CR>")
+  eq(line(4), "      [edit] Violin", "Enter edits the violin's clip, and its line says so")
+  keys("<Up><CR>")
+  eq(line(3), "[x] Violin", "a second Enter shows the notes again")
+  keys("<Esc>")
+end)

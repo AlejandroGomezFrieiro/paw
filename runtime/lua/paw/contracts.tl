@@ -1313,11 +1313,15 @@ local record contracts
     keep: function(item: T)
   end
 
-  --- An action of a picker on another key.
+  --- An action of a picker on another key. `desc` lists the key at the
+  --- bottom, `keep` keeps the picker open, and `refresh` makes the line
+  --- of the item again after `fn`, for an action that changes what the
+  --- line shows (a check box, say).
   record PickAction<T>
     fn: function(item: T, query: string)
     desc: string
     keep: boolean
+    refresh: boolean
   end
 
   --- What every picker has, whatever its items: what `paw.pick.sources`

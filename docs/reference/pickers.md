@@ -148,7 +148,7 @@ paw.pick({
 | --- | --- |
 | `query` | Text typed at the start. |
 | `preview(item, width, height)` | Lines for a pane next to the list: strings, or `{ text = ..., style = "Title" }`. It gets the size of the pane. |
-| `actions` | Other keys: `{ ["<C-e>"] = function(item, query) end }`, or `{ fn = ..., desc = "edit", keep = true }` to list the key at the bottom and keep the picker open. |
+| `actions` | Other keys: `{ ["<C-e>"] = function(item, query) end }`, or `{ fn = ..., desc = "edit", keep = true }` to list the key at the bottom and keep the picker open. Add `refresh = true` when the action changes what the line of the item shows: the picker then makes the line again with `format`. |
 | `multi` | `Tab` marks several lines. `on_choose_multi(items)` gets them, and otherwise paw calls `on_choose` for each. With `multi = false`, `Tab` does not mark. |
 | `empty` | The message when there is nothing to choose. |
 | `more(ms)` | For a picker with many items. paw calls it again and again after the picker opens, in slices between keys (the job `pick` of `paw.slices`). It reads for at most `ms` milliseconds and gives the next items, true when there are no more, and a note for the query line, for example `reading…`. paw filters and draws what it read at most every 100 ms and at the end. |

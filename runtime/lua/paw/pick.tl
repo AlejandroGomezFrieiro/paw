@@ -11,7 +11,8 @@
 -- Optional fields beyond those: `query` (typed in already), `prompt`,
 -- `preview(item)` returning lines (strings or `{ text, style }`) for a pane
 -- beside the list, `actions` mapping other keys to `function(item, query)`
--- (or `{ fn = ..., desc = ..., keep = true }` to leave the picker open),
+-- (or `{ fn = ..., desc = ..., keep = true }` to leave the picker open,
+-- with `refresh = true` to make the line of the item again after `fn`),
 -- `multi = true` to mark several with Tab and get them in
 -- `on_choose_multi(items)`, `width` and `height`, `top = true` to sit at the
 -- top of the screen (leaving what is below in view), `choose` (what Enter does,
@@ -601,22 +602,31 @@ end
 --- (lowered) when the picker says which part of a line counts first.
 --- `search(item)` gives the whole text that a query matches, when the line
 --- shows a part of it (a description cut to the width).
+--- Fill the texts of an entry from its item: the line, lowered, the
+--- primary part and the text a query matches. `entries_of` calls it for
+--- each item, and an action with `refresh` calls it again.
+local function describe(e: Entry, format?: ItemText, primary?: ItemText, search?: ItemText)
+  local item = e.item
+  local text: string | Item
+  if format then
+    text = format(item)
+  elseif item is Fields then
+    text = item.text or item.name or item[1]
+  end
+  local line = tostring(text == nil and item or text):gsub("[\r\n\t]", " ")
+  e.text, e.low = line, lower(line)
+  if primary then e.primary = tostring(primary(item) or "") end
+  if search then
+    local hay = tostring(search(item) or line):gsub("[\r\n\t]", " ")
+    e.hay, e.hay_low = hay, lower(hay)
+  end
+end
+
 local function entries_of(items: {Item}, format?: ItemText, primary?: ItemText, search?: ItemText): {Entry}
   local out: {Entry} = {}
   for i, item in ipairs(items) do
-    local text: string | Item
-    if format then
-      text = format(item)
-    elseif item is Fields then
-      text = item.text or item.name or item[1]
-    end
-    local line = tostring(text == nil and item or text):gsub("[\r\n\t]", " ")
-    out[i] = { item = item, text = line, low = lower(line), index = i }
-    if primary then out[i].primary = tostring(primary(item) or "") end
-    if search then
-      local hay = tostring(search(item) or line):gsub("[\r\n\t]", " ")
-      out[i].hay, out[i].hay_low = hay, lower(hay)
-    end
+    out[i] = { item = item, index = i }
+    describe(out[i], format, primary, search)
   end
   return out
 end
@@ -1138,7 +1148,7 @@ function view:on_key(key: string): boolean
   local action = action_of(p, key)
   local g = not action and generic_of(p, key) or nil
   if action or g then
-    local item = current(p)
+    local item, entry = current(p)
     local entries = g and chosen_entries(p, g.all)
     remember(p)
     if not (action and action.keep or g and g.keep) then
@@ -1146,6 +1156,12 @@ function view:on_key(key: string): boolean
       paw.audition.revert()
     end
     if action then action.fn(item, table.concat(p.query)) else g.fn(p, entries) end
+    -- The action changed what the line of its item shows. The entry is
+    -- the same table in `entries` and `matches`, so the list keeps its
+    -- order and selection, and the next query matches the new text.
+    if action and action.refresh and entry then
+      describe(entry, p.spec.format, p.spec.primary, p.spec.search)
+    end
     if active == p then follow(p) end
     api.ui_redraw()
     return true
