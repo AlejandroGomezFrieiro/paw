@@ -29,6 +29,7 @@ local function stamp_of(clip)
 end
 
 --- The places of the chosen moves of `clip`, in order.
+--- @type function(clip: integer): {integer}
 function M.chosen(clip)
   if chosen.clip ~= clip or chosen.stamp ~= stamp_of(clip) then return {} end
   local out = {}
@@ -49,11 +50,13 @@ local function choose(clip, places)
 end
 
 --- True if a move is of the kind of the strip.
+--- @type function(control: types.Control, kind: string, number: integer): boolean
 function M.is(control, kind, number)
   return control.type == kind and control.key == nil and (kind ~= "cc" or control.number == number)
 end
 
 --- A move's value as a height in the strip, and a height as a value.
+--- @type function(kind: string, value: number): number
 function M.fraction(kind, value) return kind == "bend" and (value + 1) / 2 or value end
 --- A height in the strip, from 0 to 1, as a move's value.
 function M.value(kind, fraction)

@@ -28,6 +28,8 @@ local type QfModule = require("paw.qf")
 local type TakesModule = require("paw.takes")
 local type TempolaneModule = require("paw.tempolane")
 local type VcaModule = require("paw.vca")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 local type MouseModule = require("paw.mouse")
 local type NestModule = require("paw.nest")
 
@@ -77,17 +79,10 @@ end
 --- A point of a gesture: a beat and a height (a fraction, or a pitch).
 local type Point = {number, number}
 
---- A clip of the piano roll as a gesture reaches it: its id, its handle,
---- how far it starts after the clip named, its start and its length; with
---- `notes` and `places` once its chosen notes are taken.
-local record Part
-  id: integer
-  clip: objects.Clip
-  offset: number
-  start: number
-  length: number
-  track: integer
-  name: string
+--- A clip of the piano roll as a gesture reaches it (paw/roll_clips.tl):
+--- its id, its handle, how far it starts after the clip named, its start
+--- and its length; with `notes` and `places` once its chosen notes are taken.
+local record Part is RollClipsModule.Part
   notes: {types.Note}
   places: {integer}
 end
@@ -107,20 +102,9 @@ local record DevicePanel
   row: integer
   rows: function(self: DevicePanel): {DeviceRow}
 end
---- The piano roll of paw/views/pianoroll.lua.
-local record Roll
-  fit_next: boolean
-  beat: number
-  pitch: integer
-  clip: function(self: Roll): objects.Clip
-  edit: function(self: Roll, clip: objects.Clip)
-  step_length: function(self: Roll): number
-  set_step: function(self: Roll, length: number)
-  new_note: function(clip: objects.Clip, note: objects.NoteInput): objects.NoteInput
-end
 local record Views
   devices: DevicePanel
-  pianoroll: Roll
+  pianoroll: Roll.PianoRoll
 end
 local record Rect
   name: string
@@ -227,26 +211,6 @@ local record Stretch
   warp_move: function(id: integer, index: integer, beat: number)
   warp_remove: function(id: integer, index: integer)
 end
-local record Behind
-  clip: integer
-end
-local record RollTrack
-  id: integer
-  on: boolean
-end
-local record RollClips
-  active: function(): integer
-  editable: function(clip: integer): boolean
-  parts: function(): {Part}
-  offset: function(clip: integer): number
-  target: function(beat: number): Part
-  context_at: function(pitch: integer, beat: number): Behind
-  activate: function(clip: integer)
-  toggle: function(clip: integer)
-  tracks: function(): {RollTrack}
-  show_track: function(track: integer, on: boolean)
-  open: function(ids: {integer}, active: integer)
-end
 local record Controls
   select: function(clip: integer, place: integer, mode: string)
   select_box: function(
@@ -322,7 +286,7 @@ local record Paw
   params: Params
   routes: Routes
   stretch: Stretch
-  roll_clips: RollClips
+  roll_clips: RollClipsModule
   controls: Controls
   ex: ExModule
   mouse: MouseModule

@@ -155,6 +155,11 @@ local paw = (_G as {string:Paw}).paw
 | A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
 | Callers read and change a field of a module as a live table (`paw.keymap.registers`), and each seat has its own | keep one table; the `keep` of the seat copies the contents out and in |
 | A module keeps its own copy of a contract record (`paw.edit` had its own `Region`) | use the contract: two copies give "Region is not a Region" |
+| `local type X = require(m)` of a module that returns a value (a view): "'require' did not return a type" | the module returns a record with `type` fields and the value as a field (`paw.views.pianoroll` gives `PianoRoll`, `Layer`, `view`) |
+| A module puts its own function in place of a method of another (the strip replaced `view:render`) | a function field of the other, which its method calls (`view.strip.draw`) |
+| A module requires at its end a module that names its types (`pianoroll` loaded `roll_draw`): a loop | the module that loads both requires the higher one after the lower one (paw/init.lua) |
+| `local paw = (_G as ...).paw` in a module that paw.d.tl does not name (`views/pianoroll_mouse`): the strict check counts a shadowed `paw` | use the typed global `paw` there |
+| Ten modules kept their own record of one view, and the records did not agree (`clip` and `data` of a layer) | the view's module exports the records; each other module names them |
 
 ## What stays Lua
 

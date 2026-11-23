@@ -17,17 +17,13 @@ local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type QueryModule = require("paw.query")
 local type KeymapModule = require("paw.keymap")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 
 local type Context = commands.Context
 
---- The piano roll, as far as its motions read it (paw/views/pianoroll.lua).
-local record Roll
-  pitch: integer
-  beat: number
-  clip: function(Roll): contracts.TrackHandle
-  ordered: function(Roll): {types.Note}
-  set: function(Roll, integer, number)
-end
+--- The piano roll, which its motions read (paw/views/pianoroll.tl).
+local type PianoRoll = Roll.PianoRoll
 
 --- A node that a query finds, and how `:select`, `:query` and `:lquery`
 --- run a query (`paw.query.select`).
@@ -248,16 +244,16 @@ end
 
 local function to_same_note(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
-    local roll = paw.ui.views.pianoroll as Roll
+    local roll = paw.ui.views.pianoroll as PianoRoll
     if not roll:clip() then
       return
     end
     local pitch = roll.pitch
     local beat = roll.beat
     local notes = roll:ordered()
-    local found: types.Note
+    local found: RollClipsModule.Note
     for _ = 1, ctx.count or 1 do
-      local step: types.Note
+      local step: RollClipsModule.Note
       for i = dir > 0 and 1 or #notes, dir > 0 and #notes or 1, dir do
         local n = notes[i]
         if n.pitch == pitch and (dir > 0 and n.start > beat + EPS or dir < 0 and n.start < beat - EPS) then

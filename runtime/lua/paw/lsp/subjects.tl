@@ -28,17 +28,12 @@ local type TempoModule = require("paw.tempo")
 local type CursorModule = require("paw.cursor")
 local type SeatsModule = require("paw.seats")
 local type MarkersModule = require("paw.markers")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 
---- The clips that the piano roll edits with the active one (paw/roll_clips.lua,
---- in Lua): what this module calls of it.
-local record RollClips
-  ids: function(): {integer}
-end
-
---- The piano roll's view (paw/views/pianoroll.lua, in Lua): what this module reads of it.
-local record PianoRoll
-  clip_id: integer
-end
+--- The piano roll's view (paw/views/pianoroll.tl), and the clips that it
+--- edits with the active one (paw/roll_clips.tl).
+local type PianoRoll = Roll.PianoRoll
 
 local record Paw is partial.Paw
   ui: UiModule
@@ -47,7 +42,7 @@ local record Paw is partial.Paw
   cursor: CursorModule
   seats: SeatsModule
   markers: MarkersModule
-  roll_clips: RollClips
+  roll_clips: RollClipsModule
 end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt

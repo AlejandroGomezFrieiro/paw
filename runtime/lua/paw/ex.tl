@@ -45,6 +45,8 @@ local type AttrModule = require("paw.attr")
 local type EditModule = require("paw.edit")
 local type GroupsModule = require("paw.groups")
 local type UiModule = require("paw.ui")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 
 local EPS = 1e-9
 local NEAR = 1e-6 -- how near a bar line a beat may be and still count as on it
@@ -127,28 +129,9 @@ local type FieldSpec = Field
 
 -- What this module reads of the modules that are still in Lua.
 
---- What the piano roll's layers get (paw/views/pianoroll.lua): the ruler
---- and the roll to draw in, the beat at a column and the row of a pitch,
---- and the clips it shows, each by how many beats after the first it starts.
-local record RollPart
-  id: integer
-  offset: number
-end
-local record RollLayer
-  ruler: contracts.Buf
-  roll: contracts.Buf
-  x: function(beat: number): number
-  row: function(pitch: integer): number
-  clip: objects.Clip
-  parts: {RollPart}
-end
-
---- The piano roll (paw/views/pianoroll.lua), as far as this module calls it.
-local record Roll
-  clip: function(self: Roll): objects.Clip
-  set: function(self: Roll, pitch: integer, beat: number)
-  layer: function(name: string, order: number, paint: function(RollLayer))
-end
+--- What the piano roll's layers get, and the roll (paw/views/pianoroll.tl).
+local type RollLayer = Roll.Layer
+local type PianoRoll = Roll.PianoRoll
 
 --- What a layer of the arrange view's ruler gets (paw/views/arrange.lua).
 local record ArrangeLayer
@@ -171,7 +154,7 @@ local record PartLayer
 end
 
 local record Views
-  pianoroll: Roll
+  pianoroll: PianoRoll
   arrange: Arrange
 end
 
@@ -184,9 +167,6 @@ local record Scope
   span: function(): number, number
   bar_offset: function(): integer
   nest: function(): ScopeLevel
-end
-local record RollClips
-  ids: function(): {integer}
 end
 
 --- paw/views/cmdline.lua, as far as this module calls it.
@@ -210,7 +190,7 @@ local record Paw is partial.Paw
   restore_track: function(snap: objects.TrackSnapshot, index?: integer): objects.Track
   restore_clip: function(snap: ClipSnapshot, track: integer | objects.Track): objects.Clip
   scope: Scope
-  roll_clips: RollClips
+  roll_clips: RollClipsModule
 end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
@@ -275,7 +255,7 @@ function M.view(name: string, spec: ExView)
   M.views[name] = spec
 end
 
-local function roll(): Roll
+local function roll(): PianoRoll
   return views().pianoroll
 end
 local function roll_start(): number

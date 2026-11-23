@@ -7194,7 +7194,8 @@ function paw.roll_clips.step_track(n, wrap) end
 function paw.roll_clips.target(beat, parts) end
 
 --- Add a clip to the editable set, or remove it. If you remove the active
---- clip, the next clip becomes active. The last clip stays.
+--- clip, the next clip becomes active. The last clip stays. Returns whether
+--- the clip is editable now, nil for a clip that is not MIDI.
 ---@param id any
 function paw.roll_clips.toggle(id) end
 
@@ -8017,7 +8018,7 @@ function paw.snippet.marks(clip_id) end
 function paw.snippet.offered(view) end
 
 --- Paint the snippet layer of the piano roll (order 40, see
---- `views/pianoroll.lua`). It marks the notes of the active snippet, and
+--- `views/pianoroll.tl`). It marks the notes of the active snippet, and
 --- shows its range along the bottom with the items of Tab and `<C-n>`. It
 --- shows the notes that the picker would write as ghosts.
 ---@param p any

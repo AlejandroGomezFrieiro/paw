@@ -495,7 +495,7 @@ local record contracts
     --- the fields swapped into the view's table.
     window_instances: boolean
     open_target: function(self: View, target: string): boolean, string
-    window_target: function(self: View): string
+    window_target: function(self: View): string | integer
     share: Share
     time_axis: function(self: View, ctx?: RenderContext): number, number, number
     set_time_axis: function(self: View, left: number, zoom: number, ctx?: RenderContext)

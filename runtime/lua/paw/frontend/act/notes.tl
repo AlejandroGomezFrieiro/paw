@@ -84,7 +84,7 @@ end
 local function parts_for(clip: integer): {Part}
   local rc = paw.roll_clips
   if rc.editable(clip) then
-    local parts = rc.parts()
+    local parts = rc.parts() as {Part}
     -- Offsets count from the clip named, which is the active one when the
     -- gesture gives beats.
     local base = rc.offset(clip)
@@ -228,7 +228,7 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
   end
   local part = parts_for(clip)[1]
   if rc.editable(clip) then
-    part = rc.target(start + rc.offset(clip))
+    part = rc.target(start + rc.offset(clip)) as Part
     start = start + rc.offset(clip) - part.offset
   end
   local c = part.clip
