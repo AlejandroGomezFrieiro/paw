@@ -297,6 +297,7 @@ local record api
    sock_listen: function(path: string): integer
    sock_read: function(id: integer, max?: integer): string
    sock_write: function(id: integer, data: string)
+   song_export: function(dir: string): types.NestExported
    sound_envelope: function(path: string): types.SoundEnvelope
    sound_write: function(path: string, opts: types.SoundWriteOptions, samples: string | function(frame: integer, count: integer): string): integer
    startup_enter: function()

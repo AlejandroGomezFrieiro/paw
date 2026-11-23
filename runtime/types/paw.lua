@@ -5968,7 +5968,7 @@ function paw.markers.parent(id) end
 function paw.markers.path(beat) end
 
 --- A region's names from the top down, joined by `/`: `Chorus 2/Verse A`.
---- `:render range=` and `paw.markers.region` take it when names repeat.
+--- `:export in=` and `paw.markers.region` take it when names repeat.
 ---@param region any
 function paw.markers.pathname(region) end
 
@@ -5996,16 +5996,6 @@ function paw.markers.regions() end
 ---@param id any
 ---@param with_inside any
 function paw.markers.remove(id, with_inside) end
-
---- Render every region to a file of its own in `dir`, named by its path:
---- `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav`
---- (each number is the place among its siblings). `opts` is as for
---- `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and
---- `level`: a number renders the regions of that level only (1 the top),
---- "leaves" the regions with no region inside. Returns the files.
----@param dir any
----@param opts any
-function paw.markers.render_regions(dir, opts) end
 
 --- Change a marker: `fields` may hold beat, name, length (false makes a
 --- region a marker again) and color.
@@ -6106,7 +6096,10 @@ function paw.midifile.encode(file) end
 
 --- Write a format 1 MIDI file with the tempo map, time signatures and
 --- markers. It contains the whole project, `opts.tracks` (tracks or ids),
---- or only `opts.clips` (ids). Returns the number of notes written.
+--- or only `opts.clips` (ids), with one track of the file for each track
+--- that has notes or moves. `opts.from` and `opts.to` keep the notes and
+--- moves that start in that time, at their place in the song. Returns the
+--- number of notes written.
 ---@param path any
 ---@param opts any
 function paw.midifile.export(path, opts) end
@@ -6377,10 +6370,10 @@ function paw.nest.define_kind(name, spec) end
 function paw.nest.describe(c) end
 
 --- Write subproject `nest` as a project folder of its own at `folder`
---- (`~/` is the home folder), as `:nest.export` does: its tracks, its
---- master, its markers and regions, its tempo and meter as its first
---- block plays them, and its media copied in (`paw.api.nest_export`). The
---- song does not change. Returns the message.
+--- (`~/` is the home folder): its tracks, its master, its markers and
+--- regions, its tempo and meter as its first block plays them, and its
+--- media copied in (`paw.api.nest_export`). The song does not change.
+--- Returns the message.
 ---@param nest any
 ---@param folder any
 function paw.nest.export(nest, folder) end
@@ -6552,13 +6545,14 @@ function paw.nest.unique(clip) end
 ---@param track any
 function paw.nest.windows(track) end
 
---- Write the window's view as a project folder of its own at `folder`
---- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
---- its tracks with their devices, their clips and lanes in its time, the
---- markers and regions inside, the tempo and meter of its time, and the
---- media copied in (`paw.api.scope_export`). Inside a subproject, the
---- subproject, as `paw.nest.export` writes it. The song does not change. Returns
---- the message.
+--- Write what the window shows as a project folder of its own at
+--- `folder` (`~/` is the home folder), as `:export project <folder>/`
+--- does. The whole song is a copy of the project with its media
+--- (`paw.api.song_export`). A subproject is as `paw.nest.export` writes
+--- it. A view is copies of its tracks with their devices, their clips and
+--- lanes in its time, the markers and regions inside, the tempo and meter
+--- of its time, and the media (`paw.api.scope_export`). The song does not
+--- change. Returns the message.
 ---@param folder any
 function paw.nest.write(folder) end
 
@@ -11667,6 +11661,13 @@ function paw.api.sock_read(id, max) end
 ---@param id integer
 ---@param data any
 function paw.api.sock_write(id, data) end
+
+--- Write the whole song as a project folder of its own at `dir`, a
+--- new or empty folder, with its media copied into `media/`. The
+--- song does not change, and its own folder stays the same. Returns
+--- what `nest_export` returns.
+---@param dir string
+function paw.api.song_export(dir) end
 
 --- The levels of a sound file, any format the engine plays: `{ rate,
 --- channels, frames, seconds, peaks, peak, onset, blocks }`, levels

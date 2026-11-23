@@ -1439,13 +1439,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.node(id)`: The node of a region by its id, or nil.
 - `paw.markers.parent(id)`: The region around a region (the smallest that holds it), or around a marker (the innermost at its beat). Nil at the top.
 - `paw.markers.path(beat)`: The regions around a beat, the outermost first. Where two siblings overlap, the one that starts later is taken.
-- `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:render range=` and `paw.markers.region` take it when names repeat.
+- `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:export in=` and `paw.markers.region` take it when names repeat.
 - `paw.markers.placed(m, time)`: Where a marker or region shows in the window, as the regions' lane draws it. `time` is the window's time: give it `paw.ruler.lane_time()`. Gives the start and end in the window's beats, or nil when it does not show.
 - `paw.markers.prev(beat)`: The last marker before a beat, or nil.
 - `paw.markers.region(which)`: A region by number, id, name or path of names (`Chorus 2/Verse A`).
 - `paw.markers.regions()`: The regions alone.
 - `paw.markers.remove(id, with_inside)`: Remove a marker by id. With `with_inside`, a region's regions inside it go too (never clips, nor markers); without, they move up one level.
-- `paw.markers.render_regions(dir, opts)`: Render every region to a file of its own in `dir`, named by its path: `01 Intro.wav`, and inside a region `03 Chorus 2 - 01 Verse A.wav` (each number is the place among its siblings). `opts` is as for `paw.render`, plus `format` ("wav", "flac", "mp3", "ogg" or "opus") and `level`: a number renders the regions of that level only (1 the top), "leaves" the regions with no region inside. Returns the files.
 - `paw.markers.set(id, fields)`: Change a marker: `fields` may hold beat, name, length (false makes a region a marker again) and color.
 - `paw.markers.tree()`: The regions as a tree: the top-level regions, each a node with `region`, `depth` (1 at the top), `place` (among its siblings), `parent` and `children`, in order of time. Flat regions are a tree of depth 1.
 - `paw.markers.walk()`: Every region's node in the order of the tree: each region, then the regions inside it.
@@ -1469,7 +1468,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.midifile
 
 - `paw.midifile.encode(file)`: The bytes of a Standard MIDI File from the shape that `parse` returns (`format` 0 or 1, `ppq`, `tracks`, and `tempos`, `signatures` and `markers`, which go in the first track). Ticks can be fractions. paw rounds them.
-- `paw.midifile.export(path, opts)`: Write a format 1 MIDI file with the tempo map, time signatures and markers. It contains the whole project, `opts.tracks` (tracks or ids), or only `opts.clips` (ids). Returns the number of notes written.
+- `paw.midifile.export(path, opts)`: Write a format 1 MIDI file with the tempo map, time signatures and markers. It contains the whole project, `opts.tracks` (tracks or ids), or only `opts.clips` (ids), with one track of the file for each track that has notes or moves. `opts.from` and `opts.to` keep the notes and moves that start in that time, at their place in the song. Returns the number of notes written.
 - `paw.midifile.import(path, opts)`: Import a MIDI file into the project. Its parts go on new tracks below the track of the cursor, at the cursor (or `opts.start`). With `opts.track`, all of it goes as one clip on that track. The tempo map does not change, unless `opts.tempo`. Then the tempo map of the file applies from its start. paw adds the markers of the file. Returns { tracks, clips, notes, skipped }.
 - `paw.midifile.import_clip(path, track, start)`: Bring a MIDI 2.0 clip file in as a clip that refers to it, on a track at a beat. The first edit makes it the project's own. Returns the clip.
 - `paw.midifile.is_clip_file(path)`: True if a path names a MIDI 2.0 clip file (`.midi2`), from its ending.
@@ -1539,7 +1538,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.data(nest)`: The data of subproject `nest`'s kind: what its `create` gave, or what `paw.nest.set_data` stored last. Nil for a plain subproject.
 - `paw.nest.define_kind(name, spec)`: Define a kind of subproject that `:nest.new kind=<name>` makes, such as a drum pattern that opens in a step grid. `spec` gives `title`, `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each optional (`paw.contracts.NestKind`). The kind's data is in the subproject's `meta` under the kind's name: read it with `paw.nest.data(nest)`. Without the kind, the subproject plays and the arrange view edits it. Returns the spec.
 - `paw.nest.describe(c)`: What `K` says of a block, in three lines. The first gives the subproject, its meter, its bars, its tempo and whether it is live or frozen, with the stem's name after it for a stem. The second gives its tracks, and the third gives the bars of the song where it plays, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`. `c` is the clip, in the window's time.
-- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder), as `:nest.export` does: its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
+- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder): its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
 - `paw.nest.flush`: the same as `paw.flush`.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.import(folder)`: Bring the project folder `folder` (`~/` is the home folder) into the song as a subproject, as `:import <folder>` does: a subproject that refers to the folder (`paw.api.nest_import`), on a row of its own below the cursor's track with one block from the cursor's bar. It plays at once. Its first edit, or `:nest.own`, makes it the song's own copy. Call it in one undo step (a command is one). Returns the message.
@@ -1566,7 +1565,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
 - `paw.nest.windows(track)`: For a track shown in place under its return row: each block of the row that plays the whole subproject, in order of time. The arrange view draws the track's clips in each of them, and nothing outside them. Nil for any other track.
-- `paw.nest.write(folder)`: Write the window's view as a project folder of its own at `folder` (`~/` is the home folder), as `:scope.write <folder>` does: copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media copied in (`paw.api.scope_export`). Inside a subproject, the subproject, as `paw.nest.export` writes it. The song does not change. Returns the message.
+- `paw.nest.write(folder)`: Write what the window shows as a project folder of its own at `folder` (`~/` is the home folder), as `:export project <folder>/` does. The whole song is a copy of the project with its media (`paw.api.song_export`). A subproject is as `paw.nest.export` writes it. A view is copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media (`paw.api.scope_export`). The song does not change. Returns the message.
 
 ## Module paw.notes
 
@@ -2840,6 +2839,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.sock_listen(path)`
 - `paw.api.sock_read(id, max)`: The bytes that came, "" when none came, nil after the peer closed.
 - `paw.api.sock_write(id, data)`
+- `paw.api.song_export(dir)`: Write the whole song as a project folder of its own at `dir`, a new or empty folder, with its media copied into `media/`. The song does not change, and its own folder stays the same. Returns what `nest_export` returns.
 - `paw.api.sound_envelope(path)`: The levels of a sound file, any format the engine plays: `{ rate, channels, frames, seconds, peaks, peak, onset, blocks }`, levels as linear gain. `peaks` holds the loudest sample of each channel, `peak` the loudest of all. `onset(level, from)` gives the time in seconds of the first frame, at `from` seconds or later, where a channel is louder than `level` (nil when none is). `blocks(from, to, ms)` gives the loudest sample of each block of `ms` milliseconds (default 1) between two times in seconds.
 - `paw.api.sound_write(path, opts, samples)`: Write a WAV file: `opts` is `{ rate, channels (2), bits (16, 24, or 32 for float) }`. `samples` is the interleaved samples as bytes of 32-bit floats in the order of the machine (`ffi.string` of a `float[?]`), or a function `(frame, count)` that gives them one piece at a time and nil at the end. Returns the number of frames.
 - `paw.api.startup_enter()`: Open an item of the start that `paw --startuptime` times: a module, an extension, the configuration. `startup_leave` closes it with its line. Nothing happens when the start is not timed.
