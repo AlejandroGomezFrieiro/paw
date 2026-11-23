@@ -40,16 +40,19 @@ audio input. The MIDI inputs are all ports, one port, or one MIDI channel.
 `<A-i>`, or the `I` in the header, monitors the input, so you hear the
 input, but paw does not record it.
 
-`r` arms the track, and `R` starts the recording from the cursor. `R` again
-stops the recording, but the song continues to play until you press
-`<leader><Space>`.
+`r` arms the track, and `R` starts the recording from the cursor. `<Esc>`
+stops the recording and the song, and keeps the take. `<Esc>` first cancels
+what you were doing, such as a selection, and it does not stop a song that
+only plays. `R` again stops only the recording, and the song continues to
+play until you press `<leader><Space>`.
 
 `:midi.inputs` shows the MIDI ports, and `:midi.select` selects some of
 them. `:audio` selects the input and output devices. Each take is one undo
 step.]],
   vim = [[
 In paw, `r` arms a track instead of replacing a character, and `R` records
-instead of starting replace mode.]],
+instead of starting replace mode. `<Esc>` ends the recording and keeps the
+take, as `<Esc>` ends replace mode in Vim and keeps the text.]],
   setup = function(look)
     paw.project.tempo = 100
     local drums = paw.add_track({ name = "Drums", volume = -6 })
@@ -83,14 +86,14 @@ instead of starting replace mode.]],
       done = "The track is armed, and you also hear the input of an armed track.",
     },
     {
-      say = "`R` starts the recording from the cursor, as `<leader><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `R` to stop the recording, and `<leader><Space>` to stop the song.",
-      keys = { "R", { advance = 1000 }, "R", "<leader><Space>" },
+      say = "`R` starts the recording from the cursor, as `<leader><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `<Esc>` to stop the recording and the song.",
+      keys = { "R", { advance = 1000 }, "<Esc>" },
       check = function(_, look)
         local clip = look.clips("Voice")[1]
         return clip and clip.kind == "audio" and not paw.transport.playing and not paw.transport.recording
       end,
-      hint = "Press `R` before `<leader><Space>`. If you press only `<leader><Space>`, record mode stays on, with `rec` lit in the status line, and the next `<leader><Space>` records again.",
-      done = "A new audio clip with your take shows where the recording started, and the clip shows its waveform.",
+      hint = "If the song still plays, `<Esc>` canceled something else first, such as a selection. Press `<Esc>` again.",
+      done = "The message line names the take. A new audio clip with your take shows where the recording started, and the clip shows its waveform.",
     },
     {
       say = "Now we record MIDI. Press `r` to disarm Voice, `j` to go to Keys, and `r` to arm Keys.",
@@ -100,8 +103,8 @@ instead of starting replace mode.]],
       hint = "`:midi.inputs` shows the MIDI ports that paw finds.",
     },
     {
-      say = "Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `R` and `<leader><Space>` to stop.",
-      keys = { "0", "R", { sim = play_three_notes, instead = {} }, "R", "<leader><Space>" },
+      say = "Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `<Esc>` to stop.",
+      keys = { "0", "R", { sim = play_three_notes, instead = {} }, "<Esc>" },
       check = function(_, look)
         local clip = look.clips("Keys")[1]
         return clip
@@ -119,5 +122,5 @@ instead of starting replace mode.]],
       done = "Your recordings play with the drums.",
     },
   },
-  outro = "We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<leader><Space>`, and we made an audio take and a MIDI take.",
+  outro = "We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Esc>`, and we made an audio take and a MIDI take.",
 }

@@ -21,8 +21,8 @@ shows each MIDI port that paw finds, and if it is open.
 
 1. Move the cursor to where the take starts.
 2. Press `R`, and play. The take starts at the cursor.
-3. Press `<Space><Space>` to stop, and the take is a new MIDI clip on the
-   track.
+3. Press `<Space><Space>` or `Esc` to stop, and the take is a new MIDI clip
+   on the track.
 4. To edit the notes, press `Enter` on the clip, and the piano roll opens.
 
 Each take is a new clip. If you record again over a clip, the new clip is

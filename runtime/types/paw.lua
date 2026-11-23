@@ -4782,7 +4782,6 @@ function paw.insert.set(key, patch) end
 function paw.insert.start() end
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
---- it for Ctrl-o, to return to insert mode after one command.
 ---@param fn any
 function paw.keymap.after_next(fn) end
 
@@ -4799,7 +4798,6 @@ function paw.keymap.all(view) end
 function paw.keymap.change(n) end
 
 --- Record a change that is not an edit of the project (the lines of a text
---- buffer). Then `.` repeats the command that made it.
 function paw.keymap.changed() end
 
 --- The places edits happened in a view, oldest first.
@@ -4828,7 +4826,6 @@ function paw.keymap.del(lhs, opts) end
 ---@param all any
 function paw.keymap.delmarks(spec, all) end
 
---- Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
 ---@param key any
 function paw.keymap.dispatch(key) end
 
@@ -4837,8 +4834,11 @@ function paw.keymap.dispatch(key) end
 ---@param fn any
 function paw.keymap.each(fn) end
 
---- After an Escape that had nothing to cancel: a second one within two
---- seconds outside the arrange view says how to leave.
+--- After an Escape that had nothing to cancel in the view: the listeners
+--- of the `escape` event end what goes on (a count-in, a take, a render,
+--- a snippet). When none of them ended anything, a second one within two
+--- seconds outside the arrange view says how to leave: `how`, or the keys
+--- that leave any view. A view that maps `<Esc>` calls it when it has
 function paw.keymap.escape_hint() end
 
 --- Every mapping in every mode and scope, sorted by scope, mode and keys.
@@ -4849,7 +4849,6 @@ function paw.keymap.every() end
 ---@param lhs any
 function paw.keymap.expand(lhs) end
 
---- Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
 ---@param keys any
 function paw.keymap.feed(keys) end
 
@@ -4878,7 +4877,6 @@ function paw.keymap.goto_mark(name) end
 ---@param opts any
 function paw.keymap.group(prefix, name, opts) end
 
---- The name given to a prefix with `group`, if any.
 ---@param keys any
 function paw.keymap.group_name(keys) end
 
@@ -4891,7 +4889,6 @@ function paw.keymap.groups() end
 function paw.keymap.has(mode, map) end
 
 --- The keys that can come after the typed keys, when the user stops to
---- type: a list of { key, desc }, and a title. Nil when there is nothing to show.
 function paw.keymap.hints() end
 
 --- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`,
@@ -4921,12 +4918,10 @@ function paw.keymap.mark(name) end
 function paw.keymap.marks(view) end
 
 --- Type keys from inside a mapping, as `:normal` does. The keys run as a
---- part of the current command, not as a separate command.
 ---@param keys any
 function paw.keymap.normal(keys) end
 
 --- Run `fn` once, before the next key is handled: for what waits until the
---- person is back at the keyboard (a file changed outside paw).
 ---@param fn any
 function paw.keymap.on_next_key(fn) end
 
@@ -4948,7 +4943,6 @@ function paw.keymap.operator(lhs, fn, opts) end
 ---@param lhs any
 function paw.keymap.parse(lhs) end
 
---- The keys typed for a command that is not complete, for display: `"a2d3`.
 function paw.keymap.pending() end
 
 --- Play the keys in a register `n` times. `@` as the name plays the last register again.
@@ -4978,11 +4972,9 @@ function paw.keymap.recording() end
 
 --- Make `.` repeat `keys` (a list of keys), not the keys typed for the
 --- command that runs now. `:adjust` does it, so that `.` does the adjusted
---- command again.
 ---@param keys any
 function paw.keymap.repeat_as(keys) end
 
---- Do the last change again, with `n` in place of its count if given.
 ---@param n any
 function paw.keymap.repeat_last(n) end
 
