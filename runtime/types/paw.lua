@@ -466,7 +466,8 @@ function paw.off(id) end
 
 --- Listen for an event: in Lua its name or a pattern as text, in Teal its
 --- descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name
---- as text that no part of paw declares goes in the log (`:checkhealth events`).
+--- or a pattern as text that matches no event that a part of paw declares
+--- goes in the log (`:checkhealth events`).
 ---@param event any
 ---@param fn any
 ---@param opts any
@@ -2766,8 +2767,9 @@ paw.events.once = paw.once
 ---@param pattern any
 function paw.events.pattern(pattern) end
 
---- The names of events that `paw.on` got as text and that no part of paw
---- declares, sorted. `:checkhealth events` lists them.
+--- The names and patterns (`undo.*`) of events that `paw.on` got as text
+--- and that match no event that a part of paw declares, sorted.
+--- `:checkhealth events` lists them.
 function paw.events.undeclared() end
 
 --- The address of an item, for the quickfix list and for going to it.

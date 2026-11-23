@@ -15,9 +15,10 @@
 --
 -- Each event has one owner: the module that sends it exports its
 -- descriptor, and the other modules use that one. `paw.events.event`
--- declares the name. A subscription by text to a name that no module
--- declared is a typo or an event that nobody sends: paw writes it once in
--- the log, and `:checkhealth events` lists it. tools/apidoc.lua writes the
+-- declares the name. A subscription by text to a name or a family
+-- (`undo.*`) that matches no declared event is a typo or an event that
+-- nobody sends: paw writes it once in the log, and `:checkhealth events`
+-- lists it. tools/apidoc.lua writes the
 -- rows of docs/reference/events.md from the descriptors that the modules
 -- export.
 --
@@ -108,14 +109,42 @@ end
 M.startup = M.event("startup")
 M.exit = M.event("exit")
 
--- Log a name that `M.on` got as text when no module declared it. A pattern
--- (`track.*`, `*`) is not the name of one event, so it is not checked.
+-- The family of an event, as `M.emit` finds the handlers of a pattern: the
+-- name before its last dot (`clip` of `clip.changed`). nil for a name
+-- without a dot.
+local function family_of(name: string): string
+  return name:match("^(.-)%.[^.]*$")
+end
+
+-- Whether `M.emit` can call a handler of `pattern` for a declared event.
+-- `*` gets every event. A family (`track.*`) needs one declared event of
+-- that family. Any other text is a name, which must be declared itself:
+-- this includes text with a `*` in another place (`undo*`), which
+-- `M.emit` never matches.
+local function matches_declared(pattern: string): boolean
+  if pattern == "*" or declared[pattern] then
+    return true
+  end
+  local family = pattern:match("^(.-)%.%*$")
+  if not family then
+    return false
+  end
+  for name in pairs(declared) do
+    if family_of(name) == family then
+      return true
+    end
+  end
+  return false
+end
+
+-- Log a name or a pattern that `M.on` got as text when it matches no
+-- declared event: one line for each text.
 local function check_name(name: string)
-  if declared[name] or logged[name] or name:find("*", 1, true) then
+  if logged[name] or matches_declared(name) then
     return
   end
   logged[name] = true
-  paw.api.log("paw.on: no module declares the event `" .. name .. "`: a typo, or an event that nobody sends")
+  paw.api.log("paw.on: `" .. name .. "` matches no event that a module declares: a typo, or an event that nobody sends")
 end
 
 --- Check the names of events that `paw.on` got as text. paw calls it when
@@ -130,13 +159,14 @@ function M.check_names()
   early = {}
 end
 
---- The names of events that `paw.on` got as text and that no part of paw
---- declares, sorted. `:checkhealth events` lists them.
+--- The names and patterns (`undo.*`) of events that `paw.on` got as text
+--- and that match no event that a part of paw declares, sorted.
+--- `:checkhealth events` lists them.
 function M.undeclared(): {string}
   local out: {string} = {}
   for name in pairs(logged) do
     -- An extension that loaded later can declare a name after its check.
-    if not declared[name] then
+    if not matches_declared(name) then
       out[#out + 1] = name
     end
   end
@@ -160,7 +190,8 @@ end
 
 --- Listen for an event: in Lua its name or a pattern as text, in Teal its
 --- descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name
---- as text that no part of paw declares goes in the log (`:checkhealth events`).
+--- or a pattern as text that matches no event that a part of paw declares
+--- goes in the log (`:checkhealth events`).
 function M.on<P>(event: M.Event<P>, fn: function(P, string), opts?: OnOptions): integer
   local given = event as string | M.Event<P>
   local pattern = name_of(given)
@@ -213,7 +244,7 @@ end
 --- True if a handler listens for `name` by its name or its family (not
 --- `*`). Use it for events that are expensive to make.
 function M.listened(name: string): boolean
-  local family = name:match("^(.-)%.[^.]*$")
+  local family = family_of(name)
   return (handlers[name] and #handlers[name] > 0)
     or (family and handlers[family .. ".*"] and #handlers[family .. ".*"] > 0)
     or false
@@ -254,7 +285,7 @@ function M.emit<P>(event: string | M.Event<P>, payload?: P): boolean, string
   local outer, outer_reason = refused, reason
   refused, reason = nil, nil
   run(handlers[name], name, data)
-  local family = name:match("^(.-)%.[^.]*$")
+  local family = family_of(name)
   if family then
     run(handlers[family .. ".*"], name, data)
   end

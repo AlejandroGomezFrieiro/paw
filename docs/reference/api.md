@@ -42,7 +42,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
 - `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
-- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name as text that no part of paw declares goes in the log (`:checkhealth events`).
+- `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name or a pattern as text that matches no event that a part of paw declares goes in the log (`:checkhealth events`).
 - `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
 - `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
 - `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
@@ -662,7 +662,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
 - `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
-- `paw.events.undeclared()`: The names of events that `paw.on` got as text and that no part of paw declares, sorted. `:checkhealth events` lists them.
+- `paw.events.undeclared()`: The names and patterns (`undo.*`) of events that `paw.on` got as text and that match no event that a part of paw declares, sorted. `:checkhealth events` lists them.
 
 ## Module paw.ex
 

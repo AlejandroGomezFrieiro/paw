@@ -160,7 +160,7 @@ test("checkhealth: the extensions check lists versions and requirements, and a f
 end)
 
 test(
-  "checkhealth: a handler that waits for an event by a misspelled name is in the log once and in the check",
+  "checkhealth: a handler that waits for an event by a misspelled name or family is in the log once and in the check",
   function()
     T.start()
     local function logged(name)
@@ -172,17 +172,23 @@ test(
     end
     local typo, real = paw.on("projct.saved", function() end), paw.on("project.saved", function() end)
     local again, option = paw.on("projct.saved", function() end), paw.on("option.changed", function() end)
+    -- Patterns: a family with no declared event in it, one with, and every event.
+    local empty, family, every =
+      paw.on("undo.*", function() end), paw.on("track.*", function() end), paw.on("*", function() end)
     T.after(function()
-      for _, id in ipairs({ typo, real, again, option }) do
+      for _, id in ipairs({ typo, real, again, option, empty, family, every }) do
         paw.off(id)
       end
     end)
     eq(logged("projct.saved"), 1, "the misspelled name, one time for two handlers")
+    eq(logged("undo.*"), 1, "the family that holds no event (the events are undo and redo)")
     eq(logged("project.saved") + logged("option.changed"), 0, "not the names that paw declares")
+    eq(logged("track.*") + logged("*"), 0, "not a family of declared events, or every event")
     T.keys(":checkhealth events<CR>")
     local text = pager_text()
     paw.ui.close()
     eq(text:find("- WARN a handler waits for `projct.saved`", 1, true) ~= nil, true, ":checkhealth events names it")
-    eq(text:find("project.saved", 1, true), nil, "and only the misspelled one")
+    eq(text:find("- WARN a handler waits for `undo.*`", 1, true) ~= nil, true, "and the empty family")
+    eq(text:find("project.saved", 1, true), nil, "and only the misspelled ones")
   end
 )

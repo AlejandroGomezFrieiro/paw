@@ -113,8 +113,9 @@ A module of paw that sends an event gives its descriptor too, for example
 [events](../reference/events.md) lists them.
 
 `paw.events.event` also declares the name of the event. When a handler in
-Lua waits for a name that no part of paw and no extension declares, paw
-writes the name in the log, and `:checkhealth events` lists it. So declare
+Lua waits for a name that no part of paw and no extension declares, or for
+a family with no declared event in it, paw writes the name in the log, and
+`:checkhealth events` lists it. So declare
 each event that your extension sends, also from Lua.
 
 For a family of events (`track.*`), use `paw.events.pattern("track.*")`.

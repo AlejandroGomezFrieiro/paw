@@ -311,10 +311,12 @@ end, { desc = "the types of the configuration and extensions written in Teal" })
 
 M.register("events", function(h)
   local names = paw.events.undeclared()
-  if #names == 0 then h.ok("paw or an extension declares each event that a handler waits for by its name") end
+  if #names == 0 then
+    h.ok("each event that a handler waits for by its name or its family is one that paw or an extension declares")
+  end
   for _, name in ipairs(names) do
     h.warn(
-      "a handler waits for `" .. name .. "`, an event that no part of paw and no extension declares",
+      "a handler waits for `" .. name .. "`, which matches no event that a part of paw or an extension declares",
       { "check the name for a typo", "an extension declares its own events with paw.events.event(name)" }
     )
   end

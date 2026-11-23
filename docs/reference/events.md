@@ -126,6 +126,8 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 
 paw writes a line in the log when a handler waits for an event by a name
 that no part of paw and no extension declares, for example
-`paw.on("projet.saved", fn)`. Such a handler never runs. `:checkhealth events`
-lists these names. An extension declares the events that it sends with
+`paw.on("projet.saved", fn)`. The same goes for a family that holds no
+declared event, for example `paw.on("undo.*", fn)`: the events of undo are
+`undo` and `redo`, so no event starts with `undo.`. Such a handler never
+runs. `:checkhealth events` lists these names. An extension declares the events that it sends with
 `paw.events.event("name")`.
