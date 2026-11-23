@@ -21,6 +21,7 @@ local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local Buf = require("paw.buf")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -264,8 +265,9 @@ local record M
   type Keybar = Keybar
   type Buf = Buf
 
-  --- The views, by name.
-  views: {string:View}
+  --- The views by name, with the extension that made each one.
+  --- `paw.ui.view` puts one.
+  views: registry.Registry<View>
   --- The view of the window with the keyboard.
   focused: string
   --- Every message so far, oldest first.
@@ -319,7 +321,7 @@ local record M
   keybar: Keybar
   --- A role (`paw.roles.define`) and every role.
   role: function<P is contracts.MarkProps>(name: string, spec: contracts.Role<P>)
-  roles: {string:contracts.Role<contracts.MarkProps>}
+  roles: registry.Registry<contracts.Role<contracts.MarkProps>>
   --- A menu at the pointer (paw/menu.tl), and what draws it.
   menu: function(items: {contracts.MenuEntry}, opts?: contracts.MenuOptions)
   draw_menu: function(buf: Buf)
@@ -340,7 +342,12 @@ local record M
   draw_hints: function(buf: Buf)
 end
 
-M.views = {}
+-- A change of a view draws the screen again. The view of a buffer type is
+-- listed as the buffer type.
+M.views = registry.new("views", "views", {
+  label = function(name: string, view: View): string return not view.buftype and name or nil end,
+  changed = function() api.ui_redraw() end,
+})
 M.stamp_misses = {}
 M.messages = {}
 M.rects = {}
@@ -404,8 +411,7 @@ function M.view<V is contracts.View>(name: string, def: V): V
   elseif def.window_state then
     L.window_fields(name, def as {string:L.Kept}, def.window_state, def.window_fresh)
   end
-  M.views[name] = def
-  api.ui_redraw()
+  M.views:put(name, def)
   return def
 end
 
@@ -425,7 +431,7 @@ function M.visible(name: string): boolean
 end
 
 local function focusable(name: string): boolean
-  local view = M.views[name]
+  local view = M.views:get(name)
   return view and view.focusable ~= false
 end
 
@@ -450,7 +456,7 @@ function M.hide(name: string)
   if node then
     node.hidden = true
   elseif L.conceal(name) then
-    local view = M.views[name]
+    local view = M.views:get(name)
     if view and view.on_hide then view:on_hide() end
   end
   if M.focused == name and not M.visible(name) then
@@ -496,7 +502,7 @@ end
 --- Give a view the keyboard, and show it first if it is hidden. The window
 --- that contains it gets the keys, and paw goes to the tab of that window.
 function M.focus(name: string)
-  if not M.views[name] then error("no view `" .. tostring(name) .. "`", 2) end
+  if not M.views:get(name) then error("no view `" .. tostring(name) .. "`", 2) end
   local win = L.reveal(name, true)
   if win then return L.enter(win) end
   if not (M.float and M.float.name == name) then
@@ -587,7 +593,7 @@ end
 local function share(node: Node, key: string): number
   local out: number
   for _, win in ipairs(node.view and { node } or L.windows(node)) do
-    local view = M.views[win.view]
+    local view = M.views:get(win.view)
     local v = view and view.share and (view.share as {string:number})[key]
     if v then out = out and (key == "most" and math.min(out, v) or math.max(out, v)) or v end
   end
@@ -903,7 +909,7 @@ local function too_small(buf: Buf)
   M.rects = {}
   for i, name in ipairs({ "status", "cmdline" }) do
     local y = h - 3 + i
-    local view = M.views[name]
+    local view = M.views:get(name)
     if view and y >= 0 then
       M.rects[#M.rects + 1] = { name = name, x = 0, y = y, w = w, h = 1 }
       buf:fill(0, y, w, 1, " ", backgrounds[name])
@@ -962,7 +968,7 @@ end
 --- strip, kept for the view's window, whose drawing is the view's `paint`.
 function M.surface(buf: Buf, x: number, y: number, w: number, h: number, name?: string): boolean
   name = name or M.drawing
-  local view = M.views[name]
+  local view = M.views:get(name)
   if not (view and view.paint) then return false end
   return M.strip(buf, x, y, w, h, { view = name, paint = true })
 end
@@ -1328,7 +1334,7 @@ function M.live_value(bind: string, props: contracts.MarkProps)
   else
     if not values.views then
       values.views = {}
-      for _, view in pairs(M.views) do
+      for _, view in pairs(M.views:entries()) do
         if type(view.live_values) == "function" then
           local ok, got = pcall(view.live_values) as (boolean, contracts.LiveValues)
           if ok and type(got) == "table" then values.views[#values.views + 1] = got end
@@ -1355,7 +1361,7 @@ end
 local rebound = false
 
 local function fits(name: string, win?: Node): boolean
-  local view = M.views[name]
+  local view = M.views:get(name)
   if not view then return true end
   if not (view.live_roles or view.still or view.live_part) then return false end
   if view.moving then
@@ -1373,7 +1379,7 @@ local function only_live(): boolean
   rebound = false
   local result = true
   for _, r in ipairs(M.rects) do
-    local view = M.views[r.name]
+    local view = M.views:get(r.name)
     -- The window is looked for only when its view asks `moving`.
     local win = r.win and view and view.moving and L.find_id(M.layout, r.win) or nil
     if not fits(r.name, win) then
@@ -1499,7 +1505,7 @@ function M.render_screen(buf: Buf)
   local resized: {integer} = {}
   local frame = frame_stamp()
   for _, r in ipairs(order) do
-    local view = M.views[r.name]
+    local view = M.views:get(r.name)
     if view and r.w > 0 and r.h > 0 then
       local win = r.win and L.find_id(M.layout, r.win)
       local focused = M.focused == r.name and (not win or win == current)
@@ -1567,13 +1573,13 @@ function M.render_screen(buf: Buf)
       end
     end)
   end
-  if M.float and M.views[M.float.name] then
+  if M.float and M.views:get(M.float.name) then
     local r = float_rect(buf.width, buf.height)
     local outer = buf:sub(r.x, r.y, r.w, r.h)
     local inner = M.box(outer, M.float.title, "BorderFocus") as Buf
     r.x, r.y, r.w, r.h = r.x + 1, r.y + 1, r.w - 2, r.h - 2
     M.rects[#M.rects + 1] = r
-    draw(M.views[r.name], inner, { focused = true, x = r.x, y = r.y })
+    draw(M.views:get(r.name), inner, { focused = true, x = r.x, y = r.y })
     -- The float's keys along its bottom border, as on the key line.
     local entries: {KeyHint} = {}
     if M.keybar and M.keybar.lines[r.name] then entries = M.keybar.entries() end
@@ -1599,7 +1605,7 @@ end
 --- because the font has no braille.
 function M.render_view(name: string, buf: Buf)
   M.screen = false
-  local view = M.views[name]
+  local view = M.views:get(name)
   buf:fill(0, 0, buf.width, buf.height, " ", backgrounds[name] or "Normal")
   if not view then return end
   local win = M.view_win
@@ -1624,7 +1630,7 @@ end
 --- pictures. A view that paints is one picture of the whole area. The kernel
 --- keeps the scene, and `paw.api.scene_end` tells what changed in it.
 function M.render_scene(name: string, w: number, h: number, cell: types.Size, win?: Node)
-  local view = M.views[name]
+  local view = M.views:get(name)
   api.scene_begin(w, h)
   if view and view.paint then
     local px = { w * cell.w, h * cell.h }
@@ -1691,7 +1697,7 @@ end
 --- until `paw.ui.close()`.
 ---   paw.ui.open("help", { title = "Keys", width = 80, height = 30 })
 function M.open(name: string, opts?: contracts.FloatOptions)
-  if not M.views[name] then error("no view `" .. tostring(name) .. "`", 2) end
+  if not M.views:get(name) then error("no view `" .. tostring(name) .. "`", 2) end
   opts = opts or {}
   M.float = { name = name, title = opts.title, width = opts.width, height = opts.height, top = opts.top, back = M.float and M.float.back or M.focused }
   M.focused = name
@@ -1761,7 +1767,7 @@ local function route(event: MouseEvent)
     return
   end
   if not target then return end
-  local view = M.views[target.name]
+  local view = M.views:get(target.name)
   if not view then return end
   if event.kind == "down" and focusable(target.name) and not M.float then
     local win = target.win and L.find_id(M.layout, target.win)
@@ -1892,7 +1898,7 @@ M.redraw = api.ui_redraw
 -- What modules draw over a view (diagnostics, annotations, a suggestion),
 -- each a layer of a part of it, drawn in order; and how a view says where
 -- things with an address are (paw/address.tl). The piano roll has layers
--- of its own (`paw.ui.views.pianoroll.layer`).
+-- of its own (`paw.ui.views:get("pianoroll").layer`).
 
 M.layers = {}  -- view -> part -> { { name, order, paint } }
 
@@ -1938,7 +1944,7 @@ end
 --- window that had it last, else in any window of the view. With no window,
 --- the view itself (its proxy). Nil for a view without `window_instances`.
 function M.instance(name: string): View
-  local view = M.views[name]
+  local view = M.views:get(name)
   if not (view and view.window_instances) then return nil end
   local win = L.find(M.layout, name)
   return win and M.instance_of(win) or view

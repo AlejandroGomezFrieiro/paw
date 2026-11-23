@@ -1653,7 +1653,7 @@ local function song_row(): boolean
   return opt.scopebars == "both" and M.span() ~= nil and (M.bar_offset() ~= 0 or M.song_offset() ~= 0)
 end
 
-local arrange = paw.ui.views.arrange as contracts.ArrangeView
+local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
 if arrange and arrange.layers then
   arrange.ruler2.scope_bars = song_row
   -- Under each bar's local number, its number in the song. Layers draw in

@@ -25,9 +25,9 @@ local function three()
   paw.flush()
   api.undo_checkpoint()
   keymap.set_mode("n")
-  paw.ui.views.pianoroll:edit(clips[2])
+  paw.ui.views:get("pianoroll"):edit(clips[2])
   paw.ui.focus("pianoroll")
-  return paw.ui.views.pianoroll, clips
+  return paw.ui.views:get("pianoroll"), clips
 end
 
 local function track_of(roll) return api.track_get(roll:clip():get().track).name end

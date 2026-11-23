@@ -135,7 +135,7 @@ end)
 --- The text of the page `:checkhealth` opened.
 local function page()
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     lines[#lines + 1] = line.text
   end
   return table.concat(lines, "\n")

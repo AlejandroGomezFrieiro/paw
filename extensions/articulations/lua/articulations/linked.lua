@@ -119,7 +119,7 @@ end)
 
 --- Open a linked lane of the roll's clip (the map's first, or by id) in the curve view.
 function M.open(id)
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local clip = roll:clip() or paw.cursor.clip()
   if not clip then error("no clip here", 0) end
   local c = clip:get()

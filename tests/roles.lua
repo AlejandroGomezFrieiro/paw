@@ -85,7 +85,7 @@ end)
 test("a role is defined with its cells, and marking one there is not is an error", function()
   eq(pcall(paw.ui.role, "roles_test_none", {}), false, "a role without cells")
   eq(
-    paw.ui.roles.fader ~= nil and paw.ui.roles.meter ~= nil and paw.ui.roles.switch ~= nil,
+    paw.ui.roles:get("fader") ~= nil and paw.ui.roles:get("meter") ~= nil and paw.ui.roles:get("switch") ~= nil,
     true,
     "the widgets are roles"
   )
@@ -118,15 +118,22 @@ test("a hit region takes a press in the terminal in cells and in a window in uni
   seen = {}
   local held = {}
   eq(
-    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 4.5, y = 1.25, button = "left" }, held),
+    paw.roles.input(
+      0,
+      "roles",
+      paw.ui.views:get("zz_roles"),
+      nil,
+      { kind = "down", x = 4.5, y = 1.25, button = "left" },
+      held
+    ),
     true
   )
   eq(
-    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "move", x = 4.5, y = 2.75 }, held),
+    paw.roles.input(0, "roles", paw.ui.views:get("zz_roles"), nil, { kind = "move", x = 4.5, y = 2.75 }, held),
     true,
     "the drag"
   )
-  eq(paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "up", x = 4.5, y = 2.75 }, held), true)
+  eq(paw.roles.input(0, "roles", paw.ui.views:get("zz_roles"), nil, { kind = "up", x = 4.5, y = 2.75 }, held), true)
   eq(#seen, 1, "the bar's gesture")
   eq(seen[1].fine and seen[1].x == 4.5 and seen[1].hit.n == 1, true, "in units, with the same action")
   eq(seen[1].rect.x == 2 and seen[1].rect.w == 10, true, "the region as the terminal has it")
@@ -134,7 +141,14 @@ test("a hit region takes a press in the terminal in cells and in a window in uni
   eq(seen.up ~= nil, true, "and let go")
   -- Off every region, the event is the view's own.
   eq(
-    paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 20.5, y = 4.5, button = "left" }, held),
+    paw.roles.input(
+      0,
+      "roles",
+      paw.ui.views:get("zz_roles"),
+      nil,
+      { kind = "down", x = 20.5, y = 4.5, button = "left" },
+      held
+    ),
     false
   )
   api.scene_forget(0)
@@ -144,9 +158,16 @@ test("a hit region with a command runs it on a click, and one with a hint says i
   fresh()
   scene("roles")
   local grid = paw.opt.grid
-  paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "down", x = 9.5, y = 3.5, button = "left" }, {})
+  paw.roles.input(
+    0,
+    "roles",
+    paw.ui.views:get("zz_roles"),
+    nil,
+    { kind = "down", x = 9.5, y = 3.5, button = "left" },
+    {}
+  )
   eq(paw.opt.grid, 0.5, "the command ran")
-  paw.roles.input(0, "roles", paw.ui.views.zz_roles, nil, { kind = "hover", x = 1.5, y = 3.5 }, {})
+  paw.roles.input(0, "roles", paw.ui.views:get("zz_roles"), nil, { kind = "hover", x = 1.5, y = 3.5 }, {})
   eq(paw.mouse.hint_text(), "a row to press", "the hint")
   paw.opt.grid = grid
   api.scene_forget(0)
@@ -159,8 +180,8 @@ test("the mixer's fader drags in a window's units as in the terminal's cells, an
   api.scene_forget(0)
   paw.ui.render_scene("mixer", 80, 24, { w = 8, h = 16 })
   api.scene_end(0, "mixer")
-  local s = paw.ui.views.mixer.geometry.strips[1]
-  local view = paw.ui.views.mixer
+  local s = paw.ui.views:get("mixer").geometry.strips[1]
+  local view = paw.ui.views:get("mixer")
   local x = s.x + math.floor(s.w / 2) + 1 + 0.5
   local y = 1 + s.fader + s.rows - 1.5
   local held = {}

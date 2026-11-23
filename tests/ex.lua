@@ -14,7 +14,7 @@ local function song()
   -- What a line opens to show a match (the piano roll) is closed again.
   T.after(function()
     paw.keymap.feed("<Esc><Esc>")
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
     paw.opt.gdefault = false
@@ -387,7 +387,7 @@ test("ex: in the piano roll a range is of its clip's notes, and '<,'> of the not
   run("mute")
   eq(api.track_get(t.id).mute, true, ":mute mutes the track of the clip it edits")
   paw.undo()
-  paw.ui.views.pianoroll:set(61, 1)
+  paw.ui.views:get("pianoroll"):set(61, 1)
   keys("<C-v>k5l<Esc>")
   run("'<,'>d")
   eq(pitches(t:clips()[2]), "60 63", "'<,'> takes the pitches and beats selected")
@@ -492,7 +492,7 @@ test("ex: an extension adds a pattern field and a command that takes a range", f
   paw.command("test.count", function(ctx) counted = #ex.items(ctx.range, "note") end, { range = true })
   run("t1 2,3test.count")
   eq(counted, 8, "a command with a range finds the notes in it")
-  ex.fields.lyric = nil
+  ex.fields:remove("lyric")
 end)
 
 test("ex: a clip whatever an extension keeps with it is MIDI, edited as any other", function()

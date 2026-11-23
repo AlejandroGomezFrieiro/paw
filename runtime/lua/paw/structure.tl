@@ -244,7 +244,7 @@ end
 
 local function to_same_note(dir: integer): function(contracts.KeyContext)
   return function(ctx: contracts.KeyContext)
-    local roll = paw.ui.views.pianoroll as PianoRoll
+    local roll = paw.ui.views:get("pianoroll") as PianoRoll
     if not roll:clip() then
       return
     end

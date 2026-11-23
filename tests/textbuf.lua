@@ -52,7 +52,7 @@ local function write()
   keys(":w<CR>")
   eq(paw.ui.focused, "textbuf.plan", "the plan is shown")
   local shown = {}
-  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do
+  for _, step in ipairs(paw.ui.views:get("textbuf.plan").shown) do
     shown[#shown + 1] = step.text
   end
   keys("y")
@@ -508,7 +508,7 @@ test("an extension adds a kind of text buffer of its own", function()
     end,
     keywords = { at = true },
   })
-  T.after(function() paw.textbuf.kinds.clips = nil end)
+  T.after(function() paw.textbuf.kinds:remove("clips") end)
   keys(":e paw://track/1/clips<CR>")
   eq(L.buf_of(L.current()).name, "paw://track/1/clips", "shown")
   eq(table.concat(lines(), "|"), "Fill   at 0|Break  at 8", "its lines")

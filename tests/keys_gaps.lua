@@ -61,7 +61,7 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   near(t.pan, 0, 1e-9, "and ] the same")
   paw.ui.hide("mixer")
   local c = t:add_clip({ start = 0, length = 8, notes = { { "C4", 0, 1 }, { "C4", 3, 1 } } })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(c)
   T.after(function()
     roll.clip_id = nil
@@ -89,7 +89,7 @@ test("[ and ] on a selection of notes act at once, as in normal mode", function(
   start()
   local t = paw.add_track({ name = "A" })
   local c = t:add_clip({ start = 0, length = 4, notes = { { "C4", 0, 1 }, { "E4", 1, 1 } } })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(c)
   T.after(function()
     roll.clip_id = nil
@@ -151,7 +151,7 @@ test("the device panel's cursor starts on the first device of another track, so 
     paw.ui.hide("devices")
     paw.ui.focus("arrange")
   end)
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   paw.keymap.feed("G")
   eq(panel.row > 1, true, "G goes down the chain of A")
   paw.cursor.set_track(b)
@@ -175,7 +175,7 @@ test("the device panel's cursor starts on the first device in another project", 
     paw.ui.hide("devices")
     paw.ui.focus("arrange")
   end)
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   paw.keymap.feed("G")
   eq(panel.row > 1, true, "G goes down the chain")
   paw.project.load(path)
@@ -216,7 +216,7 @@ test("the piano roll names the rows of a track with the drums device: kick, snar
   local t = paw.add_track({ name = "Drums" })
   t:add_device("drums")
   local c = t:add_clip({ start = 0, length = 4 })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(c)
   T.after(function()
     roll.clip_id = nil

@@ -210,19 +210,19 @@ test("lane rows, the device panel and the piano roll open their curves with gC",
   L.restore(initial)
   paw.cursor.set_track(t)
   paw.ui.focus("devices")
-  local devices = paw.ui.views.devices
+  local devices = paw.ui.views:get("devices")
   for i, row in ipairs(devices:rows()) do
     if row.param and row.param.key == "cutoff" then devices.row = i end
   end
   keys("gC")
   eq(paw.buf.current().name, paw.address.param(d.id, "cutoff"), "a parameter's curve")
   L.restore(initial)
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   keys("gC")
   eq(paw.buf.current().name, paw.address.clip(clip.id) .. "/control/cc/1", "the strip's controller")
   L.restore(initial)
-  paw.ui.views.pianoroll:edit(clip)
-  paw.ui.views.pianoroll.pitch, paw.ui.views.pianoroll.beat = 60, 0
+  paw.ui.views:get("pianoroll"):edit(clip)
+  paw.ui.views:get("pianoroll").pitch, paw.ui.views:get("pianoroll").beat = 60, 0
   keys("gX")
   eq(paw.buf.current().name, paw.address.clip(clip.id) .. "/control/cc/1#key=60", "the note's own")
   eq(editor.current().state.beat, 4, "the cursor where the roll's was, in the project's beats")
@@ -237,7 +237,7 @@ test("in the device panel A automates the parameter at its value, on the lane ro
   local value = d:get().params.cutoff
   api.undo_checkpoint()
   paw.ui.focus("devices")
-  local devices = paw.ui.views.devices
+  local devices = paw.ui.views:get("devices")
   for i, row in ipairs(devices:rows()) do
     if row.param and row.param.key == "cutoff" then devices.row = i end
   end

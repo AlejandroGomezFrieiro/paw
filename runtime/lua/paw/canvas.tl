@@ -54,6 +54,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type registry = require("paw.registry")
 local events = require("paw.events")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -102,7 +103,7 @@ end
 
 local record Layout
   per_window: function(name: string): boolean
-  types: {string: BufferType}
+  types: registry.Registry<BufferType>
   homes: {string: {string: string | number}}
   current: function(): Window
   find: function(root: Tree, name: string, shown?: boolean): Window
@@ -868,7 +869,7 @@ local function own_window(name: string): Window, Window
   end
   local L = (paw.layout as Layout)
   -- A view with one state, or a buffer type, needs none.
-  if not L.per_window(name) or L.types[name] then
+  if not L.per_window(name) or L.types:get(name) then
     return nil
   end
   local here = L.current()
@@ -883,7 +884,7 @@ end
 --- already in a separate window stays there. `opts`: `title`, `width`,
 --- `height` (the start size of a window), `window`.
 function M.open(name: string, opts?: OpenOptions)
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if not (view and view.paint) then
     error("no view `" .. tostring(name) .. "` that paints", 2)
   end
@@ -955,7 +956,7 @@ function M.leave(name: string, pane?: Window): integer
   end
   -- A type with a buffer for each target: the windows of the tab showing
   -- the buffer the window of its own shows close, as a view's do.
-  local def = L.types[name]
+  local def = L.types:get(name)
   local loose = def and def.window and def.window()
   if loose and loose.buf then
     for _, win in ipairs(L.windows(t.layout)) do
@@ -1013,7 +1014,7 @@ M.focus = focus
 ---   paw.canvas.open_view("undotree")
 function M.open_view(name?: string, opts?: OpenOptions)
   name = name or paw.ui.focused
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if not view then
     error("no view `" .. tostring(name) .. "`", 2)
   end
@@ -1067,9 +1068,9 @@ local not_windows: {string: boolean} = {
 --- of a view that has `paint`) is offered as that one.
 function M.openable(): {Openable}
   local out: {Openable} = {}
-  for name, view in pairs(paw.ui.views) do
+  for name, view in pairs(paw.ui.views:entries()) do
     if view.focusable ~= false and view.window ~= false and not not_windows[name] then
-      local twin = view.painted and paw.ui.views[view.painted]
+      local twin = view.painted and paw.ui.views:get(view.painted)
       out[#out + 1] = {name = twin and view.painted or name, title = view.title or name}
     end
   end
@@ -1096,7 +1097,7 @@ function M.close(name: string)
     M.inside = nil
   end
   M.open_views[name] = nil
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if view and view.on_close then
     view:on_close()
   end
@@ -1145,7 +1146,7 @@ function M.dock(name?: string)
     return (paw.ui as Ui).focus(name)
   end
   -- A type with a buffer for each target shows the buffer it showed.
-  local def = L.types[name]
+  local def = L.types:get(name)
   local loose = def and def.window and def.window()
   local win = L.split({view = name, buf = loose and loose.buf or nil})
   if not win then
@@ -1161,7 +1162,7 @@ end
 function M.windows(): {WindowInfo}
   local out: {WindowInfo} = {}
   for name, w in pairs(M.open_views) do
-    local view = paw.ui.views[name]
+    local view = paw.ui.views:get(name)
     if view and (view.paint or w.cells) then
       out[#out + 1] = {name = name, title = w.title, width = w.width, height = w.height, cells = w.cells or false}
     end
@@ -1385,7 +1386,7 @@ end
 --- `fg` and `bg`. A view that draws cells gives `{ same = true }` when
 --- nothing changes.
 function M.paint(name: string, width: number, height: number, opts?: PaintOptions): Drawing
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   local window = M.open_views[name]
   opts = opts or {}
   -- A terminal's cell is the surface's own: the window's stays as it measured it.
@@ -1559,7 +1560,7 @@ end
 --- keyboard. It goes to its `pointer` function in pixels. For a view in
 --- cells, it goes to its `on_mouse` function, as from the terminal.
 function M.pointer(name: string, event: PointerEvent)
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if not view then
     return
   end
@@ -1588,7 +1589,7 @@ end
 --- do (`view.window_keys`, for example Ctrl-A to select all notes). The
 --- terminal keeps the one rule of all views.
 function M.key(name: string, keys: string)
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if view then
     focus(name)
   end

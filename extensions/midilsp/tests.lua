@@ -14,7 +14,7 @@ local function test(name, fn)
     while paw.ui.float do
       paw.ui.close()
     end
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
     if not result[1] then error(result[2], 0) end
@@ -67,7 +67,7 @@ local function fifths()
     length = 4,
     notes = { { pitch = 65, start = 0, length = 1 }, { pitch = 67, start = 1, length = 1 } },
   })
-  paw.ui.views.pianoroll:edit(upper)
+  paw.ui.views:get("pianoroll"):edit(upper)
   return upper
 end
 
@@ -135,7 +135,7 @@ test("midilsp: any server speaking MIDI LSP's dialect works through its adapter"
     length = 4,
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } },
   })
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   paw.lsp.config("range-midi", { cmd = { python, "tests/fixtures/range_lint.py", "--midi" }, adapter = "midi-lsp" })
   paw.lsp.enable("range-midi")
   until_(function() return #paw.diagnostic.get(clip.id) == 1 end, "the range diagnostic")
@@ -242,7 +242,7 @@ test("midilsp: in the terminal, a parallel fifth is marked, gone to, explained a
   if skip then return skip end
   start()
   local clip = fifths()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   midilsp.start(true)
   until_(function() return #paw.diagnostic.get(clip.id, { namespace = "midi-lsp" }) > 0 end, "the engine's diagnostics")
   until_(function() return running("midi-lsp") and running("midi-lsp-suggest") and paw.lsp.settle() end, "both roles")

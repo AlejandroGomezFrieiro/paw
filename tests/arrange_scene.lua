@@ -7,7 +7,7 @@
 local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
-local view = paw.ui.views.arrange
+local view = paw.ui.views:get("arrange")
 
 local W, H, CELL = 160, 40, { w = 8, h = 17 }
 local ROLES = {

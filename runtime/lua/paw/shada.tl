@@ -14,6 +14,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local type registry = require("paw.registry")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
 local options = require("paw.options")
@@ -73,7 +74,7 @@ local record Loading
 end
 local record Ui
   focused: string
-  views: {string: boolean}
+  views: registry.Registry<{string: boolean}>
   focus: function(name: string)
 end
 local record Paw is partial.Paw
@@ -373,7 +374,7 @@ local function restore_cursor(place: Place)
   if type(place.beat) == "number" then
     cursor.set_beat(place.beat)
   end
-  if type(place.view) == "string" and paw.ui.views[place.view] and paw.ui.focused ~= place.view then
+  if type(place.view) == "string" and paw.ui.views:get(place.view) and paw.ui.focused ~= place.view then
     pcall(paw.ui.focus, place.view)
   end
 end

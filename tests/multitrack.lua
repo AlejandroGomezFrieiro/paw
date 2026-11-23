@@ -76,7 +76,7 @@ end
 
 test("the piano roll shows other pitched tracks' notes behind its own, in their beats", function()
   local s = song()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.keys)
   eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "bass and pad, the bass two beats in; no drums")
   eq(rc.context()[1].color, paw.draw.track_colour(api.track_get(s.tracks.bass.id)), "each in its track's colour")
@@ -110,7 +110,7 @@ test("an edit of the roll's own notes keeps the notes behind them, an edit of th
       if st.name == "roll.context" then return st.made end
     end
   end
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.keys)
   paw.ui.focus("pianoroll")
   eq(pitches(rc.context()), "36@2 40@4 43@3 72@0 76@4", "the bass and the pad behind")
@@ -132,7 +132,7 @@ end)
 -- roll, with its colours (`#rrggbb`), from the view drawn by itself.
 local function cells(width, height)
   local shot = api.ui_view_snapshot("pianoroll", width, height)
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local at = function(beat, pitch)
     local x = roll.geometry.keys + math.floor((beat - roll.scroll) * paw.opt.note_zoom + 0.5)
     -- Under the title, the chord row when it shows, and the ruler.
@@ -162,7 +162,7 @@ local function faint(colour) return paw.draw.mix(require("paw.theme").palette.bg
 
 test("the terminal's piano roll draws other tracks' notes dashed in their colours, its own solid and named", function()
   local s = song()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local zoom = paw.opt.note_zoom
   paw.opt.note_zoom = 8
   roll:edit(s.keys)
@@ -191,7 +191,7 @@ end)
 
 test("the terminal's piano roll draws every clip edited, says which is active and how many, and switches", function()
   local s = song()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local zoom = paw.opt.note_zoom
   paw.opt.note_zoom = 8
   rc.open({ s.keys.id, s.bass.id }, s.keys.id)
@@ -236,7 +236,7 @@ test(
   "several clips are edited at once, new notes go to the active one, the cursor keeps its place in the song",
   function()
     local s = song()
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     rc.open({ s.keys.id, s.bass.id }, s.keys.id)
     eq(rc.active() .. " " .. #rc.ids(), s.keys.id .. " 2", "keys active, two clips editable")
     eq(pitches(rc.context()), "72@0 76@4", "the bass is no longer context")
@@ -281,14 +281,14 @@ test(
       "ga makes the clip of the note under the cursor active, in the old one's place"
     )
     eq(rc.editable(s.bass.id) and not rc.editable(s.keys.id), true, "the others stay")
-    paw.ui.views.pianoroll:edit(s.keys)
+    paw.ui.views:get("pianoroll"):edit(s.keys)
     eq(#rc.ids(), 1, "opening a clip edits it alone")
   end
 )
 
 test("operators, yank and paste act on every clip edited, each note staying in its own, one undo step each", function()
   local s = song()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   rc.open({ s.keys.id, s.bass.id }, s.keys.id)
   roll:set(60, 1)
   keys("v")
@@ -388,7 +388,7 @@ end)
 test("a click on a note behind the roll's own edits its clip, Ctrl and a click edits it too", function()
   local s = song()
   local act = paw.frontend.act
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.keys)
   local before = #s.keys:notes()
   act.add_note(s.keys.id, 43, 3.2, 0)
@@ -435,7 +435,7 @@ test(
     local s = song()
     rc.open({ s.keys.id, s.bass.id }, s.keys.id)
     paw.ui.show("pianoroll")
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     roll.top, roll.scroll = 80, 0
     paw.frontend.act.select_notes_box(s.keys.id, 2.5, 30, 3.5, 70)
     api.scene_forget(0)
@@ -464,7 +464,7 @@ test(
 
 test("the layers of the piano roll draw back to front, the same for both frontends", function()
   local s = song()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(s.keys)
   local before = #roll.layers
   roll.layer("test-marks", 35, function(p) p.roll:text(0, 0, "over", "Bright") end)
@@ -489,7 +489,7 @@ test("musicops operators work on every clip the piano roll edits", function()
   local s = song()
   paw.ext.load("extensions/musicops")
   assert(paw.ext.loaded.musicops.ok, paw.ext.loaded.musicops.error)
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   rc.open({ s.keys.id, s.bass.id }, s.keys.id)
   roll:set(60, 0)
   paw.ui.focus("pianoroll")

@@ -580,7 +580,7 @@ local record contracts
     buftype: Buftype
   end
 
-  --- What each layer of the arrange view gets (`paw.ui.views.arrange.layers`):
+  --- What each layer of the arrange view gets (`paw.ui.views:get("arrange").layers`):
   --- `ruler`, the timeline's part of the ruler row; `ruler2`, its second
   --- row when `ruler2` asks for one (else nil); `lanes`, the timeline
   --- below, down to the master track; `x(beat)`, the column of a beat in

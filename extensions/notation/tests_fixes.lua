@@ -135,7 +135,7 @@ test("notation: the key bar names + and - for sharp and flat, as the manual does
   local line = table.concat(words, " · ")
   eq(line:find("+ sharp", 1, true) ~= nil and line:find("- flat", 1, true) ~= nil, true, "the key bar: " .. line)
   paw.keymap.feed("+")
-  eq(paw.ui.views.notation:clip():notes()[1].pitch, 61, "and + sharpens")
+  eq(paw.ui.views:get("notation"):clip():notes()[1].pitch, 61, "and + sharpens")
   paw.ui.focus("arrange")
 end)
 

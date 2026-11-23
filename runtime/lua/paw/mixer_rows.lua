@@ -7,7 +7,7 @@
 -- `gc` mutes, and a selection over strips does any of these to them all.
 local api, util = paw.api, paw.util
 local keymap = paw.keymap
-local view = paw.ui.views.mixer
+local view = paw.ui.views:get("mixer")
 local M = {}
 
 local TOGGLES = { mute = "Mute", solo = "Solo", armed = "Arm", monitor = "Monitor" }

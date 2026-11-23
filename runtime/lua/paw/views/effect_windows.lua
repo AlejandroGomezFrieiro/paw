@@ -39,7 +39,7 @@ end
 --- Show the device in the panel, with the keyboard on it, and its window.
 local function open(view, device, opts)
   M.device[view] = device.id
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   if panel then
     for i, row in ipairs(panel:rows()) do
       if row.device.id == device.id and not row.param and not row.picture then panel.row = i end
@@ -241,8 +241,8 @@ paw.ui.view("eq_window", {
 })
 
 -- The size the window was last painted at, for the pointer's arithmetic.
-local eq_paint = paw.ui.views.eq_window.paint
-paw.ui.views.eq_window.paint = function(self, g, ctx)
+local eq_paint = paw.ui.views:get("eq_window").paint
+paw.ui.views:get("eq_window").paint = function(self, g, ctx)
   eq.size = { ctx.width, ctx.height }
   return eq_paint(self, g, ctx)
 end

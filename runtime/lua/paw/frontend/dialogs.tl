@@ -43,7 +43,7 @@ function M.save_as(after?: function())
       prompt = "Save as (" .. dir .. "): ",
       text = name,
       complete = function(text: string): {{string: string}}
-        return commands.completers.projects(text) as {{string: string}}
+        return commands.completers:get("projects")(text) as {{string: string}}
       end,
     },
     function(typed: string)

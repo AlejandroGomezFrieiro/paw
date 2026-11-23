@@ -101,7 +101,7 @@ local function write()
   keys(":w<CR>")
   eq(paw.ui.focused, "textbuf.plan", "the plan is shown")
   local shown = {}
-  for _, step in ipairs(paw.ui.views["textbuf.plan"].shown) do
+  for _, step in ipairs(paw.ui.views:get("textbuf.plan").shown) do
     shown[#shown + 1] = step.text
   end
   keys("y")

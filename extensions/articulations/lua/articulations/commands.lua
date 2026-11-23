@@ -13,7 +13,7 @@ local keymap = paw.keymap
 local command = paw.command
 
 local M = {}
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local function fail(text) error(text, 0) end
 

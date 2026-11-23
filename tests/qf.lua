@@ -30,7 +30,7 @@ local function test(name, fn)
       paw.canvas.close(view)
     end
     L.restore(initial)
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.focus("arrange")
     if not result[1] then error(result[2], 0) end
     return result[2]
@@ -86,7 +86,7 @@ test("qf: ]q [q ]Q [Q go through a list from Lua, to each entry's place, stoppin
     "the first ]q goes to the first entry"
   )
   keys("]q")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   eq(
     paw.ui.focused .. " " .. tostring(roll.clip_id) .. " " .. roll.beat .. " " .. roll.pitch,
     "pianoroll " .. clip.id .. " 2 100",
@@ -161,7 +161,7 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
   )
   keys("j<CR>")
   eq(paw.ui.focused, "devices", "Enter on a parameter goes to the device panel")
-  local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
+  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
   eq(row.param and row.param.key, "cutoff", "on the parameter")
   eq(qf.current().idx, 2, "which becomes the current entry")
   ex("copen")
@@ -319,7 +319,7 @@ test("qf: location lists are each window's own: :ldiag, :lopen below it, :lnext"
   start()
   local _, _, clip = song()
   paw.diagnostic.set("range", clip, { { notes = { 2 }, severity = "error", message = "too high" } })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   paw.ui.focus("pianoroll")
   local win = L.current()
@@ -445,9 +445,9 @@ end)
 test("qf: ]q and [q do not take the piano roll's ] and [ away", function()
   start()
   local _, _, clip = song()
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   paw.ui.focus("pianoroll")
-  paw.ui.views.pianoroll:set(100, 2)
+  paw.ui.views:get("pianoroll"):set(100, 2)
   local before = clip:notes()[2].velocity
   keys("]")
   paw.wait(paw.opt.timeoutlen + 300)

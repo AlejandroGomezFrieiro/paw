@@ -60,7 +60,8 @@ code.
   `paw.x.y`. The owner is the longest prefix that is a module, or the
   module that sets the name in `paw` (`paw.notify = paw.ui.notify`
   belongs to `paw.ui`). A Teal cast, `(paw.x as T).y`, reads `paw.x.y`.
-- `paw.ui.views.<name>` is a reference to the module `paw.views.<name>`.
+- `paw.ui.views:get("<name>")` is a reference to the module
+  `paw.views.<name>`.
 - Comments and strings do not count.
 - The count of a pair of modules is the number of distinct names that
   one reads of the other. The name is the prefix of the owner and one more

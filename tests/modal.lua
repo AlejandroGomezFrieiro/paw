@@ -301,7 +301,7 @@ test("the piano roll has the same grammar for notes", function()
   })
   api.undo_checkpoint()
   keys("<CR>")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   eq(roll.pitch .. "@" .. roll.beat, "60@0", "the roll opens on the first note")
   keys("w")
   eq(roll.pitch .. "@" .. roll.beat, "64@0.5", "w goes to the next note, whatever its pitch")
@@ -350,7 +350,7 @@ test("devices are cut, yanked and pasted in the device panel", function()
   local other = paw.add_track({ name = "U" })
   api.undo_checkpoint()
   paw.ui.focus("devices")
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   panel.row = 1
   keys("yy")
   eq(paw.keymap.getreg().device.kind, "synth", "yy takes the device under the cursor")
@@ -377,7 +377,7 @@ test("views draw without errors at several sizes", function()
   for _, name in ipairs({ "mixer", "devices", "pianoroll" }) do
     paw.ui.show(name)
   end
-  paw.ui.views.pianoroll:edit(t:clips()[1])
+  paw.ui.views:get("pianoroll"):edit(t:clips()[1])
   for _, size in ipairs({ { 120, 40 }, { 80, 24 }, { 30, 8 }, { 4, 2 } }) do
     local rects = paw.ui.arrange(size[1], size[2])
     local total = 0
@@ -407,7 +407,7 @@ test("the screen draws what the project holds", function()
   eq(text:find("render failed", 1, true), nil, "no view failed to draw")
   paw.ui.show("devices")
   paw.ui.show("mixer")
-  paw.ui.views.pianoroll:edit(t:clips()[1])
+  paw.ui.views:get("pianoroll"):edit(t:clips()[1])
   text = screen(140, 50)
   eq(text:find("cutoff", 1, true) ~= nil, true, "device panel lists parameters")
   eq(text:find("A3", 1, true) ~= nil, true, "piano roll shows note names")

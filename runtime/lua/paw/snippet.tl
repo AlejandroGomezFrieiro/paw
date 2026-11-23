@@ -551,7 +551,7 @@ end
 --- `selection` (a region; the visual selection's when nil).
 function M.context(opts?: ContextOptions): Ctx, string
   opts = opts or {}
-  local roll = paw.ui.views.pianoroll as PianoRoll
+  local roll = paw.ui.views:get("pianoroll") as PianoRoll
   local clip = roll and roll:clip()
   if not clip then
     return nil, "open a MIDI clip in the piano roll"
@@ -849,7 +849,7 @@ function M.active(): Active
   if not active then
     return nil
   end
-  local roll = paw.ui.views.pianoroll as PianoRoll
+  local roll = paw.ui.views:get("pianoroll") as PianoRoll
   local clip = roll and roll:clip()
   local stale = project_edits("edits") ~= active.edits or not pcall(api.clip_get, active.clip)
   local away = not clip

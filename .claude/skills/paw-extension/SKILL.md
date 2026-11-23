@@ -149,9 +149,11 @@ paw.pick.sources:put("euclid", { desc = "Rhythms", items = … })  -- a picker: 
 ### Registries
 
 A module that takes entries from extensions keeps them in a registry
-(`paw.registry`, runtime/lua/paw/registry.tl). `paw.pick.sources` is the
-first one. The other kinds above are still tables that `paw.ext` copies
-before and after a load (`paw.ext.registries`).
+(`paw.registry`, runtime/lua/paw/registry.tl). The page "Extensions" of
+the reference lists the registries of paw. Commands, views, buffer types
+and kinds of track are registries, for example. Read an entry with `get`:
+`paw.ui.views:get("pianoroll")`. The other kinds above are still tables
+that `paw.ext` copies before and after a load (`paw.ext.registries`).
 
 - To add a registry to a module, make it once with
   `registry.new(kind, title, options)`. In Teal, give the type of the

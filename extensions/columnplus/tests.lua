@@ -78,10 +78,10 @@ test("columnplus: :ext.unload puts the column back as it was", function()
   T.fresh()
   local before = api.ui_snapshot(100, 24)
   local parts, signs = {}, {}
-  for k, v in pairs(paw.trackcolumn.components) do
+  for k, v in pairs(paw.trackcolumn.components:entries()) do
     parts[k] = v
   end
-  for k, v in pairs(paw.trackcolumn.signs) do
+  for k, v in pairs(paw.trackcolumn.signs:entries()) do
     signs[k] = v
   end
   local shown = table.concat(paw.opt.trackcolumn, ",")
@@ -89,12 +89,12 @@ test("columnplus: :ext.unload puts the column back as it was", function()
   paw.keymap.feed(":set columnplus_foldfirst=false<CR>:columnplus.folds plus<CR>")
   paw.keymap.feed(":ext.unload columnplus<CR>")
   for k, v in pairs(parts) do
-    eq(paw.trackcolumn.components[k], v, "the part " .. k)
+    eq(paw.trackcolumn.components:get(k), v, "the part " .. k)
   end
-  for k in pairs(paw.trackcolumn.components) do
+  for k in pairs(paw.trackcolumn.components:entries()) do
     eq(parts[k] ~= nil, true, "no part left: " .. k)
   end
-  for k in pairs(paw.trackcolumn.signs) do
+  for k in pairs(paw.trackcolumn.signs:entries()) do
     eq(signs[k] ~= nil, true, "no sign left: " .. k)
   end
   eq(table.concat(paw.opt.trackcolumn, ","), shown, "paw.opt.trackcolumn")

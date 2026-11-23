@@ -54,7 +54,7 @@ local function everything()
   ui.show("mixer")
   ui.show("devices")
   local clip = api.clip_list(api.track_list()[2])[1]
-  ui.views.pianoroll:edit(paw.clip(clip.id))
+  ui.views:get("pianoroll"):edit(paw.clip(clip.id))
 end
 
 measure("arrange", 150, 45, arrange_only)

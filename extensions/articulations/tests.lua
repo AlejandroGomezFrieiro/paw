@@ -54,7 +54,7 @@ local function strings(notes)
   paw.flush()
   art.bind(track.id, EXAMPLE)
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(67, 0)
   return track, clip, roll
@@ -163,7 +163,7 @@ test("articulations: a track with no map takes codes and the words libraries use
   local track = paw.add_track({ name = "Any" })
   local clip = track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.flush()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
   paw.commands.exec("art pizz")

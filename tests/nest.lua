@@ -314,7 +314,7 @@ test("K on a block: its meter, bars, tempo, tracks, instances", function()
   paw.cursor.set_beat(129)
   keys("K")
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     lines[#lines + 1] = line.text
   end
   local text = table.concat(lines, "\n")
@@ -942,7 +942,7 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
   paw.cursor.set_beat(129)
   keys("K")
   local said = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     said[#said + 1] = line.text
   end
   paw.ui.close()
@@ -1307,7 +1307,7 @@ test(
     paw.cursor.set_beat(33)
     keys("K")
     local said = {}
-    for _, line in ipairs(paw.ui.views.pager.lines) do
+    for _, line in ipairs(paw.ui.views:get("pager").lines) do
       said[#said + 1] = line.text
     end
     paw.ui.close()

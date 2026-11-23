@@ -936,7 +936,8 @@ one gave a layer the clip as `clip`, and another as `data`. Each module
 now names the types of the piano roll. The module
 `paw.views.pianoroll` gives the record of the view, `PianoRoll`, and the
 records of a layer, a tool, a band, a note mark and a hit region. The
-view itself is still `paw.ui.views.pianoroll`.
+view itself is still `paw.ui.views:get("pianoroll")`, and a module
+casts it to `PianoRoll`.
 
 `paw.roll_clips` gives the record of a clip that the piano roll edits as an
 interface, `paw.roll_clips.Part`. The frontend keeps more fields of a part,

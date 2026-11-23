@@ -8,7 +8,7 @@ local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
 local W, H = 120, 90
-local mixer = paw.ui.views.mixer
+local mixer = paw.ui.views:get("mixer")
 
 local function m(kind, x, y) paw.ui.mouse({ kind = kind, x = x, y = y, button = "left", mods = "" }) end
 local function click(x, y)
@@ -96,7 +96,7 @@ test("a mixer strip names four devices, the last counting those it has no room f
   s, at = shown(a, 30)
   click(at(s.x + 2, s.devices + 3))
   eq(paw.ui.focused, "devices", "a click on the fourth row picks the fourth device")
-  eq(paw.ui.views.devices:selected().id, a:get().devices[4], "in the device panel")
+  eq(paw.ui.views:get("devices"):selected().id, a:get().devices[4], "in the device panel")
   -- The keyboard's cursor on the sixth device: the fourth row names it.
   paw.ui.focus("mixer")
   paw.mixer_rows.to(6)
