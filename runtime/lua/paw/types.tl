@@ -391,14 +391,18 @@ local record types
 
   --- What `paw.api.nest_save` did (`session::save::Saved`): the `nest`,
   --- per track the `rows` that get a block, with a row of its own the
-  --- return `row`, the subproject's `tracks`, and the routes that changed
-  --- at the boundary, in words (`changes`).
+  --- return `row`, the subproject's `tracks`, the routes that changed
+  --- at the boundary, in words (`changes`), the song's `group` that the
+  --- return row is in, and the `buses` that no longer get the time when the
+  --- row plays into the master because the tracks played into several.
   record NestSaved
     nest: integer
     rows: {NestHostRow}
     row: integer
     tracks: {integer}
     changes: {string}
+    group: integer
+    buses: {integer}
   end
 
   --- What `paw.api.scope_export` takes (`session::export::ExportOpts`):
