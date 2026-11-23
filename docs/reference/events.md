@@ -62,7 +62,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `bake.progress` | `{ running, waiting, fraction }` | paw makes sound for clips (stretches) in the background: at most 4 times each second, and one time when all are done |
 | `media.missing` | `{ files, found }` | the sound files of a project are not at their paths |
 | `proc.output` | `{ id }` | a helper process wrote output (see [Timers, programs and other modules](lua-other.md#helper-programs)) |
-| `render.before` | `{ path, opts }` | a render will start |
+| `render.before` | `{ path, opts }` | a render will start. A mix measurement sends it too, with no `path` |
 | `render.progress` | `{ path, fraction, ... }` | a render in the background moved forward |
 | `render.done`, `render.failed`, `render.cancelled` | `{ path, ... }` | a render in the background stopped |
 | `render.finished` | render info | `paw.render` returned |

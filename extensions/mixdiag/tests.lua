@@ -408,6 +408,25 @@ test("mixdiag: measuring in the background, the loop and a selection", function(
   mixdiag.clear()
 end)
 
+-- A measurement writes no file: its `render.before` has no path, and no
+-- handler of that event may fail on it.
+test("mixdiag: <leader>ma measures the mix without an error message", function()
+  load()
+  T.start()
+  paw.ui.focus("arrange")
+  synth("Pad", 0, 8, { volume = -6 })
+  paw.flush()
+  local first = #paw.ui.messages + 1
+  T.keys("<leader>ma")
+  settle()
+  local errors = {}
+  for i = first, #paw.ui.messages do
+    if paw.ui.messages[i].level == "error" then errors[#errors + 1] = paw.ui.messages[i].text end
+  end
+  eq(table.concat(errors, "\n"), "", "no error message")
+  mixdiag.clear()
+end)
+
 --- A project with findings at known places: clipping from beat 8 (bar 3) on
 --- the Hot track, a passage out of phase at beat 20 (bar 6), silence from
 --- beat 26 and a muted clip at beat 28 on Keys.

@@ -26,7 +26,10 @@ function paw.failure(err)
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.
-    local internal = rest:match("^attempt to ") or rest:match("^bad argument") or rest:match("^stack overflow")
+    local internal = rest:match("^attempt to ")
+      or rest:match("^bad argument")
+      or rest:match("^stack overflow")
+      or rest:match("^table index is ")
     short = internal and string.format("%s (%s:%s)", rest, file, line) or rest
   end
   return short

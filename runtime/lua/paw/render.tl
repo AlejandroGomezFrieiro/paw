@@ -64,6 +64,7 @@ local record Status
 end
 
 --- The payload of `render.before`: the file, and the options as the kernel takes them.
+--- A mix measurement sends it too, with no `path`.
 local record Before
   path: string
   opts: types.RenderOptions
