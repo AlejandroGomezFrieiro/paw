@@ -107,6 +107,16 @@ function M.expand_path(path: string): string
   return path
 end
 
+--- A path with the home folder as `~` at its start, for a message: the
+--- other way of `expand_path`.
+function M.tilde(path: string): string
+  local home = os.getenv("HOME")
+  if home and path:sub(1, #home + 1) == home .. "/" then
+    return "~" .. path:sub(#home + 1)
+  end
+  return path
+end
+
 -- The travel of a fader and a send: -60 to +6 dB. A level typed
 -- (`grv`) can go past it, as far as the engine's own limits, -120 to
 -- +24 dB.

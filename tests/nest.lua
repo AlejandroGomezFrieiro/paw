@@ -728,6 +728,97 @@ test(
   end
 )
 
+-- Into the song: :import of a project folder ---------------------------------------------
+
+--- A project folder of its own: the 6/8 Ballad of `ballad_68` written
+--- with `:nest.export` to `<scratch>/<name>/Ballad`. Returns the folder
+--- and a render of it alone, 24 beats at 180 bpm.
+local function ballad_folder(name)
+  local b = ballad_68(true)
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(130)
+  local dir = T.scratch .. "/" .. name .. "/Ballad"
+  keys(":nest.export " .. dir .. "<CR>")
+  api.project_new()
+  api.project_load(dir)
+  paw.flush()
+  return dir, sound(0, 24)
+end
+
+--- The message line has `text` in it.
+local function said(text) eq(paw.ui.message.text:find(text, 1, true) ~= nil, true, paw.ui.message.text) end
+
+test(
+  ":import of a project folder plays it at once on a row of its own; its first edit makes it the song's own copy, said once",
+  function()
+    local dir, heard = ballad_folder("import")
+    metal()
+    keys(":import " .. dir .. "<CR>")
+    said(
+      "the subproject Ballad from "
+        .. dir
+        .. " at bar 1, on its own row: 2 tracks; it refers to the folder until you edit it"
+    )
+    local nest = api.nest_list()[1]
+    eq(api.nest_get(nest).source, dir, "it refers to the folder")
+    eq(apart(sound(0, 24), heard) <= 1, true, "it plays as the folder does alone")
+    local copies = 0
+    local handler = paw.on("nest.copied", function() copies = copies + 1 end)
+    T.after(function() paw.off(handler) end)
+    local piano = api.nest_get(nest).tracks[1]
+    for _, name in ipairs({ "Keys", "Organ" }) do
+      api.track_set(piano, { name = name })
+      paw.flush()
+      api.undo_checkpoint()
+    end
+    paw.flush()
+    eq(copies, 1, "the first edit is told, the next is not")
+    said("the subproject Ballad is now the song's own copy (was ")
+    local n = api.nest_get(nest)
+    eq({ n.source, n.origin }, { nil, dir }, "origin keeps the folder")
+  end
+)
+
+test(
+  ":nest.own makes the subproject at the cursor the song's own copy now; u makes it refer to the folder again",
+  function()
+    local dir = ballad_folder("own")
+    metal()
+    keys(":import " .. dir .. "<CR>")
+    local nest = api.nest_list()[1]
+    keys(":nest.own<CR>")
+    said("the subproject Ballad is now the song's own copy (was ")
+    local n = api.nest_get(nest)
+    eq({ n.source, n.origin }, { nil, dir }, "the copy keeps the folder in origin")
+    T.expect_error("is the song's own already")
+    keys(":nest.own<CR>")
+    keys("u")
+    n = api.nest_get(nest)
+    eq({ n.source, n.origin }, { dir, nil }, "u: it refers to the folder again")
+  end
+)
+
+test(":e of a subproject's folder in a song opens the song inside it; the song keeps a path, no copy", function()
+  local dir = ballad_folder("open")
+  metal()
+  keys(":import " .. dir .. "<CR>")
+  local song = T.scratch .. "/open/song"
+  keys(":w " .. song .. "<CR>")
+  eq(
+    T.read_file(song .. "/nests/Ballad/nest.toml"):find("\nsource = ", 1, true) ~= nil,
+    true,
+    "nest.toml names the folder"
+  )
+  eq(io.open(song .. "/nests/Ballad/master/track.json"), nil, "and the song has no copy of it")
+  api.project_new()
+  paw.flush()
+  keys(":e " .. song .. "/nests/Ballad<CR>")
+  local here = paw.scope.nest()
+  eq(here and api.nest_get(here.id).name, "Ballad", "the window is inside Ballad")
+  eq(api.nest_get(here.id).source, dir, "read from the folder")
+  eq(names(paw.scope.tracks()), "Piano Strings", "its tracks")
+end)
+
 test(". after <Space>zw saves the next view beside it", function()
   bridge()
   paw.markers.add(34, "Outro", { length = 12 })

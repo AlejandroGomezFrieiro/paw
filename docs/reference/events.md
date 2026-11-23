@@ -45,6 +45,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `clip.added`, `clip.changed`, `clip.removed` | `{ id, track, stamp }` | a clip. A MIDI clip has the `stamp` of its notes, as `clip_get` gives it, so a handler can see that the notes did not change |
 | `clip.copied` | `{ clip, name, origin }` | the first edit of a clip from a file outside the project made it the project's own |
 | `track.copied`, `chain.copied` | `{ track, name, origin }` | the first edit of a track from a track folder outside the project, or of a chain from a chain file outside it, made it the project's own |
+| `nest.copied` | `{ nest, name, origin }` | the first edit of a subproject from a project folder outside the song (`:import`) made it the song's own |
 | `lane.added`, `lane.changed`, `lane.removed` | `{ id, track }` | an automation lane |
 | `cue.changed` | `{ track }` | the clips off the timeline of a track, which cues play ([About cues](../explanation/about-cues.md)) |
 | `edit.before` | `{ changes }` | a turn edited the project, and the edit will become an undo step. `changes` is a list of `{ name, payload }`: the events above that make the edit. A handler can refuse: paw then puts the project back as the turn found it. Edits of a handler join the step |

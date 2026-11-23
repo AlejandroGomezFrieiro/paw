@@ -8,6 +8,7 @@ local commands = require("paw.commands")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
+local util = require("paw.util")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -277,14 +278,7 @@ commands.define(
   }
 )
 
---- A path with the home folder as `~`.
-local function tilde(path: string): string
-  local home = os.getenv("HOME")
-  if home and path:sub(1, #home + 1) == home .. "/" then
-    return "~" .. path:sub(#home + 1)
-  end
-  return path
-end
+local tilde = util.tilde
 
 -- The first edit of a clip that refers to a file outside the project.
 events.on(

@@ -1,13 +1,21 @@
-//! Write a subproject, or a view, as a project folder of its own
-//! (`:nest.export <folder>`, `:scope.write <folder>`; `nest.md` 3.6, 4.3).
-//! The model makes the project (`model/nest/standalone.rs`); this module
-//! writes it with its media copied in. The song does not change, and the
-//! session's project file stays the same.
+//! A subproject and a project folder of its own, both ways (`nest.md`
+//! 3.6, 4.3).
+//!
+//! Out: `:nest.export <folder>` and `:scope.write <folder>` write a
+//! subproject, or a view, as a project folder. The model makes the project
+//! (`model/nest/standalone.rs`); this module writes it with its media
+//! copied in. The song does not change, and the session's project file
+//! stays the same.
+//!
+//! In: `:import <folder>` makes a project folder a subproject that refers
+//! to the folder (`model/nest/adopt.rs`); the first edit of it, or
+//! `:nest.own`, makes it the song's own copy.
 
 use super::*;
 use crate::model::{NestId, Standalone};
 
-use super::folder::{PROJECT_FILE, commit, layout};
+use super::folder::{PROJECT_FILE, commit, layout, read_part};
+use super::project_files::DiskFiles;
 use super::media::MEDIA_FILE;
 
 /// What [`Session::scope_export`] takes: a view, as `paw.scope` gives it.
@@ -97,5 +105,55 @@ impl Session {
             missing,
             changes,
         })
+    }
+}
+
+impl Session {
+    /// Make the project folder `dir` a subproject of the song that refers
+    /// to the folder (see the module). Nothing places it yet: the caller
+    /// places it in the same undo step. Returns its id.
+    pub fn nest_import(&mut self, dir: &Path) -> Result<NestId> {
+        let dir = folder::tidy(&std::path::absolute(dir)?);
+        let dir = if dir.file_name().is_some_and(|n| n == PROJECT_FILE) {
+            dir.parent().map(Path::to_path_buf).unwrap_or_default()
+        } else {
+            dir
+        };
+        if !dir.join(PROJECT_FILE).is_file() {
+            bail!("{} is not a project folder: it has no {PROJECT_FILE}", dir.display());
+        }
+        let read = read_part(&DiskFiles, &self.home, &dir, 0)?;
+        let name = match read.project.name.trim() {
+            "" => dir.file_name().map_or_else(|| "Subproject".into(), |n| n.to_string_lossy().into_owned()),
+            name => name.to_string(),
+        };
+        let id = NestId(self.doc.new_id());
+        let mut candidate = self.doc.project.clone();
+        candidate.adopt(read.project, id, &name, &dir);
+        candidate.validate()?;
+        self.edit(|p| {
+            *p = candidate;
+            Ok(())
+        })?;
+        self.doc.next_id = self.doc.next_id.max(self.doc.project.max_id() + 1);
+        self.doc.warnings.extend(read.problems);
+        Ok(id)
+    }
+
+    /// Make subproject `nest`, which refers to a project folder, the
+    /// song's own copy now, with the subprojects that came with it: each
+    /// keeps the folder in `origin`. One undo step. Returns the folder.
+    pub fn nest_own(&mut self, nest: NestId) -> Result<PathBuf> {
+        let p = &self.doc.project;
+        let name = &p.nest(nest).with_context(|| format!("no subproject {nest}"))?.name;
+        let Some((top, group)) = p.references().into_iter().find(|(_, g)| g.contains(&nest)) else {
+            bail!("{name} is the song's own already: it refers to no folder");
+        };
+        let source = p.nest(top).and_then(|n| n.source.clone()).unwrap_or_default();
+        self.edit(|p| {
+            p.own_reference(&group);
+            Ok(())
+        })?;
+        Ok(source)
     }
 }

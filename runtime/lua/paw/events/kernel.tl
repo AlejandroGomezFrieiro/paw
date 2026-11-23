@@ -144,6 +144,14 @@ local record kernel
       origin: string
    end
 
+   --- A subproject that referred to a project folder and is now the
+   --- project's own copy (`origin`, the folder).
+   record NestCopied is Payload
+      nest: integer
+      name: string
+      origin: string
+   end
+
    --- How far a render is (`fraction`, 0 to 1), what it does now, and the
    --- seconds since it started.
    record RenderProgress is Payload
@@ -222,6 +230,7 @@ local record kernel
    clip_changed: events.Event<Item>
    clip_removed: events.Event<Item>
    clip_copied: events.Event<ClipCopied>
+   nest_copied: events.Event<NestCopied>
    lane_added: events.Event<Item>
    lane_changed: events.Event<Item>
    lane_removed: events.Event<Item>
@@ -269,6 +278,7 @@ kernel.clip_added = events.event("clip.added")
 kernel.clip_changed = events.event("clip.changed")
 kernel.clip_removed = events.event("clip.removed")
 kernel.clip_copied = events.event("clip.copied")
+kernel.nest_copied = events.event("nest.copied")
 kernel.lane_added = events.event("lane.added")
 kernel.lane_changed = events.event("lane.changed")
 kernel.lane_removed = events.event("lane.removed")
