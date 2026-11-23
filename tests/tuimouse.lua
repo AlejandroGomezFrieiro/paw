@@ -117,12 +117,12 @@ test("a click two bars after a time fold puts the cursor on the beat drawn there
   paw.folds.make({ kind = "range", from = 4, to = 20 })
   shot()
   -- The fold's column, then bars 6 and 7 of the song (beats 20 to 28).
-  local after = arrange.geometry.hw + arrange:col(20)
+  local after = arrange.geometry.hw + arrange.axis:x_of(20)
   eq(after < x_of(20), true, "the bars after the fold are drawn further left")
   click(after + 8 * arrange.geometry.zoom, row_y(b.id) + 1)
   eq(paw.cursor.beat, 28, "two bars after the fold: beat 28")
   apart()
-  click(arrange.geometry.hw + arrange:col(4) + 1, row_y(b.id) + 1)
+  click(arrange.geometry.hw + arrange.axis:x_of(4) + 1, row_y(b.id) + 1)
   eq(paw.cursor.beat, 4, "a click on the fold's column: its start")
 end)
 

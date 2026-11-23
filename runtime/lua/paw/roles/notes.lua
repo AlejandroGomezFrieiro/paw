@@ -91,7 +91,7 @@ role("keyboard", {
 })
 
 --- The playhead over a stretch of time (a roll's ruler and grid): a line
---- on the left edge of the cell of the song's beat `at`, with a cap on the
+--- in the cell that holds the song's beat `at`, with a cap on the
 --- first row, where the stretch (`from`, the song's beat at its left edge,
 --- `per` columns a beat) shows it, between `lo` and `hi`. Bound to
 --- `position`, a window moves it with `scene.live`, with no new scene.
@@ -129,7 +129,8 @@ role("playhead", {
       end
       at = on or p.at - cut
     end
-    local x = math.floor((at - p.from) * p.per + 0.5)
+    -- The cell that contains the beat, as each row places it (paw/axis.tl).
+    local x = paw.axis.cell((at - p.from) * p.per)
     if x < 0 or x >= buf.width or p.at < p.lo or p.at > p.hi then return end
     local spans = p.spans_at and p.spans_at(x) or p.spans
     if spans then

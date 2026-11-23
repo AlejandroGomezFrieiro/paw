@@ -21,6 +21,7 @@ local options = require("paw.options")
 local util = require("paw.util")
 local music = require("paw.music")
 local mouse = require("paw.mouse")
+local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
 local strip = require("paw.views.pianoroll_strip")
 local type contracts = require("paw.contracts")
@@ -37,9 +38,15 @@ local opt = options.opt
 local view = paw.ui.views:get("pianoroll") as PianoRoll
 local A = paw.frontend.act
 
---- The beat at a column of the roll.
+--- The roll's time axis at its scroll now (paw/axis.tl): the pointer reads
+--- beats and columns on it, as the roll drew them.
+local function axis_of(self: PianoRoll): axis.Axis
+  return axis.new(self.scroll, self.geometry.zoom)
+end
+
+--- The beat at a column of the roll: its left edge.
 local function beat_at(self: PianoRoll, tx: number): number
-  return mouse.beat(tx, self.scroll, self.geometry.zoom)
+  return axis_of(self):beat_of(tx)
 end
 
 --- The grid step a column falls in, or with `free` the column's own beat.
@@ -47,7 +54,7 @@ local function start_at(self: PianoRoll, tx: number, free: boolean): number
   if free then
     return beat_at(self, tx)
   end
-  return mouse.on_grid(tx, self.scroll, self.geometry.zoom, opt.note_grid)
+  return axis_of(self):step_at(math.floor(tx), opt.note_grid)
 end
 
 --- Where the grid step under the pointer ends: a drag to a column takes in
@@ -113,10 +120,11 @@ local function hit_of(self: PianoRoll, e: MouseEvent): Hit
   out.owner, out.place, out.pitch, out.part = n.clip, n.place, n.pitch, "body"
   -- Its ends: its first column and its last, as a terminal shows it; a
   -- column's worth of it in a window.
-  local x0, x1 = (n.start - self.scroll) * g.zoom, (n.start + n.length - self.scroll) * g.zoom
+  local ax = axis_of(self)
+  local x0, x1: number, number = ax:exact(n.start), ax:exact(n.start + n.length)
   if not e.fine then
-    x0 = math.floor(x0 + 0.5)
-    x1 = math.max(x0 + 1, math.floor(x1 + 0.5))
+    local first, after = ax:range(n.start, n.start + n.length)
+    x0, x1 = first, after
   end
   local into, nw = out.tx - x0, x1 - x0
   if nw >= 3 and into < 1 then
@@ -195,14 +203,14 @@ local function press_note(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.
   self:set(n.pitch, n.start)
   local free, copy = mouse.has(e, "S"), mouse.has(e, "C")
   local part = h.part
-  local zoom = self.geometry.zoom
+  local ax = axis_of(self)
   local grab: Grab = {
     roll = function(p: Roll.Layer)
       local d = last_drag()
       if not (d and d.moved) then
         return
       end
-      local dbeat, dpitch = d.dx / zoom, -rows_moved(d, self.geometry.per)
+      local dbeat, dpitch = ax:beats(d.dx), -rows_moved(d, self.geometry.per)
       for _, ref in ipairs(grabbed(id, place)) do
         local m = paw.clip(ref[1]):notes()[ref[2]]
         if m then
@@ -221,7 +229,7 @@ local function press_note(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.
     end,
     drag = function(d: MouseEvent)
       keep_drag(d)
-      local dbeat = d.dx / zoom
+      local dbeat = ax:beats(d.dx)
       local shown: Note = part == "start" and {pitch = n.pitch, start = n.start + dbeat, length = n.length - dbeat}
         or part == "end" and {pitch = n.pitch, start = n.start, length = n.length + dbeat}
         or {
@@ -238,7 +246,7 @@ local function press_note(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.
         end
         return
       end
-      local dbeat = u.dx / zoom
+      local dbeat = ax:beats(u.dx)
       if part == "start" then
         A.stretch_notes(id, place, dbeat, nil, free)
       elseif part == "end" then
@@ -393,9 +401,10 @@ local function press_velocity(self: PianoRoll, e: MouseEvent, clip: objects.Clip
   local top = g.head + g.lines
   -- A terminal's cell at its middle, a window's pointer where it is.
   local half = e.fine and 0 or 0.5
-  local reach = 0.5 / g.zoom
+  local ax = axis_of(self)
+  local reach = ax:beats(0.5)
   local function point(x: number, y: number): {number, number}
-    return {beat_at(self, x - g.keys) + half / g.zoom, util.clamp(1 - (y - top + half) / g.vel, 0, 1)}
+    return {ax:beat_of(x - g.keys + half), util.clamp(1 - (y - top + half) / g.vel, 0, 1)}
   end
   local stroke = {point(e.x, e.y)}
   mouse.grab(
@@ -429,7 +438,7 @@ local function wheel(self: PianoRoll, e: MouseEvent, h: Hit)
     local at = beat_at(self, tx)
     local zoom = util.clamp(opt.note_zoom * (step < 0 and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
     opt.note_zoom = zoom
-    self.scroll = math.max(leftmost(), at - tx / zoom)
+    self.scroll = math.max(leftmost(), at - axis.new(0, zoom):beats(tx))
   elseif mouse.has(e, "A") and not sideways then
     -- Taller or shorter keys: the vertical zoom (paw/vzoom.tl).
     return paw.vzoom.step(-step, {view = "pianoroll"})
@@ -491,12 +500,12 @@ end
 
 --- The middle button held pans.
 local function press_pan(self: PianoRoll, e: MouseEvent)
-  local scroll, top, zoom = self.scroll, self.top, self.geometry.zoom
+  local scroll, top, ax = self.scroll, self.top, axis_of(self)
   mouse.grab(
     e,
     {
       drag = function(d: MouseEvent)
-        self.scroll = math.max(leftmost(), scroll - d.dx / zoom)
+        self.scroll = math.max(leftmost(), scroll - ax:beats(d.dx))
         self.top = math.floor(util.clamp(top + rows_moved(d, self.geometry.per), self.geometry.rows - 1, 127))
         self:follow()
       end,

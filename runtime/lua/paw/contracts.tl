@@ -26,6 +26,8 @@ local type types = require("paw.types")
 local type objects = require("paw.objects")
 -- `util.Ordered`, the key and the place of an entry (`OwnedEntry`).
 local type util = require("paw.util")
+-- The time axis of a view (`axis.Axis`), which places the beats of a row.
+local type axis = require("paw.axis")
 
 local record contracts
   -- Drawing in cells ----------------------------------------------------------
@@ -587,14 +589,17 @@ local record contracts
   --- `ruler`, the timeline's part of the ruler row; `ruler2`, its second
   --- row when `ruler2` asks for one (else nil); `lanes`, the timeline
   --- below, down to the master track; `x(beat)`, the column of a beat in
-  --- any of them; `scroll` the beat at the left edge, `zoom` columns a
-  --- beat, `span` the beats shown; `top`, `rows` and `th`, the first track
-  --- shown, how many rows, and rows a track.
+  --- any of them, and `axis`, the view's time axis (paw/axis.tl), which
+  --- gives it and the cells of a stretch (`axis:range(a, b)`); `scroll` the
+  --- beat at the left edge, `zoom` columns a beat, `span` the beats shown;
+  --- `top`, `rows` and `th`, the first track shown, how many rows, and rows
+  --- a track.
   record ArrangeLayer
     ruler: Buf
     ruler2: Buf
     lanes: Buf
     x: function(beat: number): integer
+    axis: axis.Axis
     scroll: number
     zoom: number
     span: number
@@ -605,27 +610,30 @@ local record contracts
 
   --- Where the arrange view drew its parts last: the columns of the
   --- headers with the rule (`hw`), rows a track (`th`), how many rows,
-  --- columns a beat (`zoom`) and the beats the timeline shows (`span`).
+  --- columns a beat (`zoom`), the beats the timeline shows (`span`) and
+  --- the time axis that placed them (`axis`, paw/axis.tl).
   interface ArrangeGeometry
     hw: integer
     th: integer
     rows: integer
     zoom: number
     span: number
+    axis: axis.Axis
   end
 
   --- The arrange view (paw/views/arrange.tl), as other modules use it:
   --- what an extension draws on its timeline (`layers`, by name, in name
   --- order) and what asks for a second row of its ruler (`ruler2`, by
   --- name: true when it has something to show); its scroll, its
-  --- geometry, and the column of a beat (`col`).
+  --- geometry, and its time axis (`axis`, paw/axis.tl): the column of a
+  --- beat, and the beat of a column.
   interface ArrangeView is View
     scroll: number
     top: integer
     geometry: ArrangeGeometry
     layers: {string: function(view: ArrangeView, layer: ArrangeLayer)}
     ruler2: {string: function(view: ArrangeView): boolean}
-    col: function(self: ArrangeView, beat: number): integer
+    axis: axis.Axis
     center: function(self: ArrangeView)
     place: function(self: ArrangeView, right?: boolean)
     scroll_by: function(self: ArrangeView, bars: number)

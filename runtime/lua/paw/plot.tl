@@ -21,6 +21,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local theme = require("paw.theme")
+local axis = require("paw.axis")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -412,16 +413,13 @@ function M.curve_cells(buf: Buf, opts: CurveOptions)
   end
   local lo, hi = opts.lo or 0, opts.hi or 1
   local frac = opts.frac or function(v: number): number return (v - lo) / ((hi - lo) ~= 0 and (hi - lo) or 1) end
-  local from, zoom = opts.from or 0, opts.zoom or 1
+  local ax = axis.new(opts.from or 0, opts.zoom or 1)
   local value_at = paw.curves.value_at
   paw.draw.curve(
     buf,
     0,
     buf.height,
-    function(i: integer): number
-      local v = value_at(points, from + (i + 0.5) / (2 * zoom)) or opts.flat
-      return v and frac(v)
-    end,
+    function(i: integer): number local v = value_at(points, ax:half_beat(i)) or opts.flat; return v and frac(v) end,
     opts.style
   )
 end
@@ -430,9 +428,9 @@ end
 function M.bars_cells(buf: Buf, opts: BarsOptions)
   local eighths = paw.draw.g.eighths
   local rows = buf.height
-  local from, zoom = opts.from or 0, opts.zoom or 1
+  local ax = axis.new(opts.from or 0, opts.zoom or 1)
   for _, item in ipairs(opts.items or {}) do
-    local x = floor((item.beat - from) * zoom + 0.5)
+    local x = ax:x_of(item.beat)
     if x >= 0 and x < buf.width then
       local level = max(0, min(1, item.value)) * rows * 8
       local style = item.bright and "Bright" or item.style or opts.style

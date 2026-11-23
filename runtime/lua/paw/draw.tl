@@ -11,6 +11,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local theme = require("paw.theme")
+local axis = require("paw.axis")
 local options = require("paw.options")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -737,9 +738,11 @@ end
 
 --- Notes as a small piano roll of `rows` text rows, each `width` columns.
 --- A row holds two pitches, drawn with half blocks. `notes` have `start`,
---- `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
-function M.miniroll(notes: {types.Note}, width: integer, rows: integer, zoom: number, from?: number): {string}
-  from = from or 0
+--- `length` and `pitch`, in beats from the start of the box. The box
+--- begins `phase` of a cell into its first column on the axis `ax`
+--- (paw/axis.tl): each note takes the cells that the axis gives its time,
+--- so that it is under the ruler's beat.
+function M.miniroll(notes: {types.Note}, width: integer, rows: integer, ax: axis.Axis, phase: number): {string}
   local g = M.g
   local low, high = 127, 0
   for _, n in ipairs(notes) do
@@ -759,8 +762,9 @@ function M.miniroll(notes: {types.Note}, width: integer, rows: integer, zoom: nu
     lit[col] = {}
   end
   for _, n in ipairs(notes) do
-    local c0 = math.max(0, math.floor((n.start - from) * zoom + 1e-9))
-    local c1 = math.min(width - 1, math.ceil((n.start + n.length - from) * zoom - 1e-9) - 1)
+    local first = axis.cell(phase + ax:cells(n.start))
+    local c0 = math.max(0, first)
+    local c1 = math.min(width - 1, math.max(first, axis.cell(phase + ax:cells(n.start + n.length)) - 1))
     -- A lone pitch sits in the middle, not at the bottom.
     local level = span == 1 and math.floor(levels / 2) or math.floor((n.pitch - low) / span * levels)
     for col = c0, math.max(c0, c1) do
@@ -1076,37 +1080,40 @@ end
 --- false) is left to the caller, which scrolls just enough. A jump (it went
 --- into the jump list) to a target that is off screen, or in the last quarter
 --- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
---- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
---- beats shown, `zoom` the columns a beat.
-function M.jump_scroll(target: number, scroll: number, span: number, zoom: number, jumped: boolean): number
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `target` is a
+--- place in the beats of the view's axis `ax` (paw/axis.tl), whose left
+--- edge is `ax.left`; `span` is the beats shown. Gives the new left edge.
+function M.jump_scroll(ax: axis.Axis, target: number, span: number, jumped: boolean): number
   if not jumped then
     return nil
   end
+  local scroll = ax.left
   if target >= scroll and target < scroll + span * 0.75 then
     return nil
   end
-  local at = opt.jumpview == "center" and span / 2 or (opt.jumpmargin as number) / zoom
+  local at = opt.jumpview == "center" and span / 2 or ax:beats(opt.jumpmargin as number)
   return target - at
 end
 
---- Write the numbers of a ruler above a roll that shows `span` beats from
---- `scroll`, at `zoom` columns for each beat. Bars have the numbers of the
---- project (`origin` is the project beat of the beat 0 of the roll). Beats
---- between them are ticks. Returns the positions of the lines, as
+--- Write the numbers of a ruler above a roll that shows `span` beats on
+--- the axis `ax` (paw/axis.tl, from its `scroll`). Bars have the numbers of
+--- the project (`origin` is the project beat of the beat 0 of the roll).
+--- Beats between them are ticks. Returns the positions of the lines, as
 --- `{ x, bar }`, for the rows below.
-function M.beats(ruler: Buf, scroll: number, span: number, zoom: number, origin: number): {RulerLine}
+function M.beats(ruler: Buf, ax: axis.Axis, span: number, origin: number): {RulerLine}
   local g = M.g
   local lines: {RulerLine} = {}
-  local every = math.max(1, math.ceil(4 / (paw.time.bar(origin + scroll) * zoom)))
+  local scroll = ax.scroll
+  local every = math.max(1, math.ceil(4 / ax:cells(paw.time.bar(origin + scroll))))
   local free = 0
   for _, line in ipairs(M.bar_lines(origin + scroll, span)) do
-    local at = math.floor((line.beat - origin - scroll) * zoom + 0.5)
+    local at = ax:x_of(line.beat - origin)
     lines[#lines + 1] = {x = at, bar = line.bar ~= nil, beat = line.beat - origin}
     if line.bar then
       if (line.bar - 1) % every == 0 and at >= free then
         free = at + ruler:text(at, 0, tostring(line.bar), "RulerBar") + 1
       end
-    elseif zoom >= 2 and at >= free then
+    elseif ax:cells(1) >= 2 and at >= free then
       ruler:text(at, 0, g.tick, "RulerTick")
     end
   end

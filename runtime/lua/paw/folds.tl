@@ -16,8 +16,8 @@
 --   paw.folds.level(-1)     -- `zm`; `level(1)` is `zr`
 --
 -- The song plays through a time fold unchanged: only the views draw it.
--- `time_map` gives a view the map from beats to its columns, with the
--- folded spans in it.
+-- `time_spans` gives a view the folded spans, which its axis (paw/axis.tl)
+-- draws as narrow columns.
 --
 -- Folds are view state, as in Vim: each window keeps its own
 -- (`win.folds`), a split starts with those of the window it comes from,
@@ -33,6 +33,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local type axis = require("paw.axis")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type CursorModule = require("paw.cursor")
@@ -88,31 +89,16 @@ end
 local paw = (_G as {string: Paw}).paw
 
 --- A closed stretch of time in a view: its beats, the fold, its label,
---- and the columns it takes (`cells`, at least 3), which are `width`
---- beats of the view at its zoom.
-local record TimeSpan
-  from: number
-  to: number
+--- and the columns it takes (`cells`: its label and two more, from 3 to
+--- 24). A view's axis (paw/axis.tl) draws it as that many columns.
+local record TimeSpan is axis.Folded
   fold: Fold
   label: string
-  cells: integer
-  width: number
-end
-
---- The map from beats to the places of a view with time folds (`time_map`):
---- `view(beat)` is where a beat is drawn, in beats of the view (a beat
---- inside a folded span is drawn at its column's start), and `beat(v)` the
---- beat drawn at a place (the start of a folded span on its column).
-local record TimeMap
-  spans: {TimeSpan}
-  view: function(beat: number): number
-  beat: function(v: number): number
 end
 
 local record M
   type Fold = Fold
   type TimeSpan = TimeSpan
-  type TimeMap = TimeMap
   time_at: function(beat: number, win?: Window): TimeSpan
   --- One more each time a window's folds change: what caches of drawn
   --- rows are kept by.
@@ -376,7 +362,7 @@ function M.time_spans(win?: Window): {TimeSpan}
   local list: {TimeSpan} = {}
   local function add(f: Fold, from: number, to: number, name: string)
     if from and to > from then
-      list[#list + 1] = {from = from, to = to, fold = f, label = name .. " ▸ " .. bars(from, to)}
+      list[#list + 1] = {from = from, to = to, cells = 3, fold = f, label = name .. " ▸ " .. bars(from, to)}
     end
   end
   if w.foldlevel or w.folds then
@@ -418,54 +404,10 @@ function M.time_spans(win?: Window): {TimeSpan}
       out[#out + 1] = s
     end
   end
-  return out
-end
-
-local function identity(beat: number): number
-  return beat
-end
-
---- The map from beats to the places of a view at `zoom` columns a beat,
---- with the closed time folds of a window (the one a view shows by
---- default). Each folded span takes the columns of its label and two more.
-function M.time_map(zoom: number, win?: Window): TimeMap
-  local spans = M.time_spans(win)
-  if #spans == 0 then
-    return {spans = spans, view = identity, beat = identity}
-  end
-  for _, s in ipairs(spans) do
+  for _, s in ipairs(out) do
     s.cells = math.max(3, math.min(24, api.str_width(s.label) + 2))
-    s.width = s.cells / zoom
   end
-  local map: TimeMap = {spans = spans}
-  map.view = function(beat: number): number
-    local cut = 0.0
-    for _, s in ipairs(spans) do
-      if beat <= s.from then
-        break
-      end
-      if beat < s.to then
-        return s.from - cut
-      end
-      cut = cut + (s.to - s.from) - s.width
-    end
-    return beat - cut
-  end
-  map.beat = function(v: number): number
-    local cut = 0.0
-    for _, s in ipairs(spans) do
-      local at = s.from - cut
-      if v < at then
-        break
-      end
-      if v < at + s.width then
-        return s.from
-      end
-      cut = cut + (s.to - s.from) - s.width
-    end
-    return v + cut
-  end
-  return map
+  return out
 end
 
 --- The closed time fold that a beat is on (`from` up to `to`), in a window.

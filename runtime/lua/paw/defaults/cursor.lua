@@ -9,12 +9,12 @@ command("cursor.down", function(ctx) cursor.move_track(ctx.count or 1) end, { de
 command("cursor.up", function(ctx) cursor.move_track(-(ctx.count or 1)) end, { desc = "Previous track" })
 command(
   "cursor.right",
-  function(ctx) cursor.set_beat(cursor.beat + (ctx.count or 1) * paw.opt.grid) end,
+  function(ctx) cursor.set_beat(cursor.step(cursor.beat, ctx.count or 1)) end,
   { desc = "Move right one grid step" }
 )
 command(
   "cursor.left",
-  function(ctx) cursor.set_beat(cursor.beat - (ctx.count or 1) * paw.opt.grid) end,
+  function(ctx) cursor.set_beat(cursor.step(cursor.beat, -(ctx.count or 1))) end,
   { desc = "Move left one grid step" }
 )
 command(

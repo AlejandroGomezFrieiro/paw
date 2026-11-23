@@ -8,6 +8,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. The module
 -- gives the record of each role's props, which the view marks with.
 local api = require("paw.api")
+local axis = require("paw.axis")
 local type contracts = require("paw.contracts")
 local type Buf = require("paw.buf")
 
@@ -31,6 +32,7 @@ local record ClipProps is contracts.MarkProps
   offline: boolean
   length: number
   per: number
+  phase: number
   repeats: {number}
   warps: {number}
   moves: {number | boolean}
@@ -93,6 +95,7 @@ local record RecordingProps is contracts.MarkProps
   at: number
   to: number
   per: number
+  phase: number
   color: string
 end
 
@@ -142,14 +145,16 @@ local function title(p: ClipProps, room: integer): string
 end
 
 --- Where a beat falls in a role marked from beat `from`, `per` columns a
---- beat: the column a terminal shows it on.
+--- beat: the column a terminal shows it on, the one that contains it
+--- (paw/axis.tl).
 local function column(p: BeatsProps, beat: number): integer
-  return math.floor((beat - (p.from or 0)) * (p.per or 1) + 0.5)
+  return axis.cell((beat - (p.from or 0)) * (p.per or 1))
 end
 
---- The column of a place `at` beats into a clip.
+--- The column of a place `at` beats into a clip: the clip begins `phase`
+--- of a cell into its first column.
 local function into(p: ClipProps, at: number): integer
-  return math.floor(at * p.per + 0.5)
+  return axis.cell((p.phase or 0) + at * p.per)
 end
 
 --- A clip on the timeline: a row with its `label` (its name, how it is
@@ -161,7 +166,9 @@ end
 --- (`repeats`, the same) and a small curve of the controller that moves
 --- most in a MIDI clip (`moves`, its height from 0 to 1 in each column,
 --- false before its first move). `per` is
---- columns a beat. The terminal draws the row in `title_style` and the
+--- columns a beat, and `phase` how far into its first column the clip
+--- begins, from 0 up to 1: the terminal places the marks and the body by it,
+--- so that they are in the columns of the ruler (paw/axis.tl). The terminal draws the row in `title_style` and the
 --- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
 --- a waveform). A window paints it in `color` (its track's), lit when
 --- `current` (the cursor's) or `chosen`, faint when `muted`; its notes or
@@ -192,6 +199,7 @@ role(
       offline = "boolean",
       length = "beats",
       per = "columns a beat",
+      phase = "fraction of a column",
       repeats = "list of beats",
       warps = "list of beats",
       moves = "list of numbers 0..1 or false",
@@ -402,16 +410,24 @@ role(
 
 --- A take being recorded on an armed track, from `start` (a beat) to
 --- `at`, the playhead, in `color`; no further than `to` when it is
---- punched in. `per` is columns a beat. Bound to `position`, a window
+--- punched in. `per` is columns a beat, `phase` how far into its first
+--- column the take begins. Bound to `position`, a window
 --- makes it grow with the live values, with no new scene.
 role(
   "recording",
   {
-    props = {start = "beat", at = "beat", to = "beat", per = "columns a beat", color = "#rrggbb"},
+    props = {
+      start = "beat",
+      at = "beat",
+      to = "beat",
+      per = "columns a beat",
+      phase = "fraction of a column",
+      color = "#rrggbb",
+    },
     bound = {"at"},
     cells = function(buf: contracts.Buf, p: RecordingProps)
       local stop = math.min(p.at or p.start, p.to or math.huge)
-      local w = math.floor((stop - p.start) * p.per + 0.5)
+      local w = axis.cell((p.phase or 0) + (stop - p.start) * p.per)
       if w > 0 then
         buf:fill(0, 0, math.min(w, buf.width), buf.height, " ", "Armed")
       end

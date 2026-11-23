@@ -15,6 +15,7 @@ local seats = require("paw.seats")
 local util = require("paw.util")
 local theme = require("paw.theme")
 local mouse = require("paw.mouse")
+local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
 local type types = require("paw.types")
 local type objects = require("paw.objects")
@@ -205,8 +206,9 @@ local function draw(self: PianoRoll, buf: Buf)
   -- In cells: each column as high as the value that holds there.
   local at = 1
   local value: number = shown.kind == "bend" and 0 or nil
+  local ax = g.axis
   for x = 0, tw - 1 do
-    local from, to = self.scroll + x / g.zoom, self.scroll + (x + 1) / g.zoom
+    local from, to = ax:cell_span(x)
     -- Nothing plays past the clip's end.
     if from >= length then
       break
@@ -298,16 +300,17 @@ end
 --- of its bar, in the cell a terminal draws it in; within half a cell of
 --- it in a window.
 local function head_at(p: Press, e: MouseEvent): integer
-  local g, scroll = p.view.geometry, p.view.scroll
+  local g = p.view.geometry
+  local ax = axis.new(p.view.scroll, g.zoom)
   local tx = e.x - g.keys
   local function on_head(c: types.Control): boolean
-    local x = (c.start - scroll) * g.zoom
+    local x = ax:exact(c.start)
     local f = paw.controls.fraction(p.kind, c.value)
     if e.fine then
       return math.abs(tx - x) <= 0.5 and math.abs(e.y - (p.top + p.rows * (1 - f))) <= 0.5
     end
     local level = f * p.rows * 8
-    return math.floor(x + 0.5) == tx and e.y == p.top + p.rows - 1 - math.max(0, math.floor((level - 1) / 8))
+    return ax:x_of(c.start) == tx and e.y == p.top + p.rows - 1 - math.max(0, math.floor((level - 1) / 8))
   end
   for place, c in ipairs(p.clip:controls()) do
     if paw.controls.is(c, p.kind, p.number) and on_head(c) then
@@ -320,7 +323,7 @@ end
 --- A press on the head of a move: chooses it (Ctrl turns it over, Shift
 --- adds it), and a drag without either moves the chosen.
 local function press_head(p: Press, e: MouseEvent, place: integer)
-  local id, zoom = p.clip.id, p.view.geometry.zoom
+  local id, ax = p.clip.id, axis.new(p.view.scroll, p.view.geometry.zoom)
   local toggling = mouse.has(e, "C") or mouse.has(e, "S")
   if toggling then
     A.select_control(id, place, mouse.has(e, "C") and "toggle" or "add")
@@ -337,11 +340,11 @@ local function press_head(p: Press, e: MouseEvent, place: integer)
     e,
     {
       drag = function(d: MouseEvent)
-        mouse.hint(string.format("moving the chosen moves by %g beats", math.floor(d.dx / zoom * 100 + 0.5) / 100))
+        mouse.hint(string.format("moving the chosen moves by %g beats", math.floor(ax:beats(d.dx) * 100 + 0.5) / 100))
       end,
       up = function(u: MouseEvent)
         if u.moved and not toggling then
-          A.move_controls(id, u.dx / zoom, -u.dy / p.rows, mouse.has(u, "S"))
+          A.move_controls(id, ax:beats(u.dx), -u.dy / p.rows, mouse.has(u, "S"))
         end
       end,
     }
@@ -429,7 +432,7 @@ function M.press(self: PianoRoll, e: MouseEvent, clip: objects.Clip): boolean
     number = shown.number,
     top = top,
     rows = rows,
-    beat = function(x: number): number return mouse.beat(x - g.keys, self.scroll, g.zoom) end,
+    beat = function(x: number): number return axis.new(self.scroll, g.zoom):beat_of(x - g.keys) end,
     fraction = function(y: number): number return util.clamp(1 - (y - top + half) / rows, 0, 1) end,
   }
   if e.button == "right" then

@@ -118,6 +118,12 @@ Look for these signals in the code that you change:
   module, or a small change needs edits in files that are not related.
 - **Too many small files.** Do not split a small file that is about one
   thing, or a private flow that only one caller uses.
+- **A column of time that a view computes itself.** A view finds the
+  column of a beat only through the time axis (`paw.axis`, the file
+  `runtime/lua/paw/axis.tl`). The axis puts a beat in the cell that holds
+  it. A box starts in the cell of its first beat, and what is inside it
+  is placed with the box's `phase`. `tools/zoomlint.lua` refuses `* zoom`
+  and `/ zoom` outside the axis.
 - **A reference to a higher layer.** A module of the runtime reads only
   its own layer and the layers below it. [The layers](layers.md) gives
   the order, and `tools/layers.lua` checks it.

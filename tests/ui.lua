@@ -107,7 +107,7 @@ test("clips show their notes, and the piano roll its keyboard and velocities", f
   local text = screen()
   eq(text:find("riff", 1, true) ~= nil, true, "the clip's name")
   eq(text:find("▀", 1, true) ~= nil or text:find("▄", 1, true) ~= nil, true, "and its notes as a small roll")
-  local rows = paw.draw.miniroll(clip:notes(), 8, 2, 2)
+  local rows = paw.draw.miniroll(clip:notes(), 8, 2, paw.axis.new(0, 2), 0)
   eq(#rows, 2, "a roll of as many rows as asked for")
   eq(api.str_width(rows[1]), 8, "and as wide")
   eq(rows[2]:sub(1, 3) ~= "   ", true, "the low note at the bottom left")

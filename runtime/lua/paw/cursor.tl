@@ -326,6 +326,34 @@ function M.snap(beat: number): number
   return util.round(beat, options.opt.grid)
 end
 
+--- The `k`th line of a grid of `grid` beats, as exact as a float can be:
+--- with a whole number of lines a beat (a quarter, a triplet, a tenth),
+--- `k` divided by that number, which is the nearest float to the line.
+local function grid_line(k: integer, grid: number): number
+  local per = 1 / grid
+  local whole = math.floor(per + 0.5)
+  if math.abs(per - whole) < 1e-9 then
+    return k / whole
+  end
+  return k * grid
+end
+
+--- `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid
+--- when nil). paw counts the new place as a whole number of steps from 0,
+--- plus how far `beat` is after the grid line before it. So a long run of
+--- steps gives the exact beat, and a beat on a grid line stays on one. A
+--- place between two lines (the end of a take) keeps its distance from
+--- the line.
+function M.step(beat: number, n: integer, grid?: number): number
+  grid = grid or options.opt.grid
+  local line = math.floor(beat / grid + 1e-6)
+  local offset = beat - grid_line(line, grid)
+  if math.abs(offset) < grid * 1e-6 then
+    offset = 0
+  end
+  return grid_line(line + n, grid) + offset
+end
+
 --- A function that gives, for a track whose clips the window draws later
 --- than their beats, how much later at a beat of the window; or nil:
 --- paw/nest.tl sets it, for the tracks of a subproject open in place under

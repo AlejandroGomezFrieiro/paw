@@ -82,9 +82,17 @@ local function value_at(t, points, beat)
   return curves.value_at(points, beat) or (t.flat and t.flat()) or (t.lo + t.hi) / 2
 end
 
---- The point within half a column of a beat: its index and the point.
-local function point_at(points, beat, zoom)
-  local reach = 0.5 / zoom + EPS
+--- The time axis of a window's state (paw/axis.tl): where each beat is
+--- drawn, from its left edge `left` at its zoom.
+local function axis_of(s) return paw.axis.new(s.left, s.zoom) end
+
+--- Half a column of a window's state, in beats: how near the cursor a
+--- point is under it.
+local function half_cell(s) return axis_of(s):beats(0.5) end
+
+--- The point within `reach` beats of a beat: its index and the point.
+local function point_at(points, beat, reach)
+  reach = reach + EPS
   local best, at
   for i, q in ipairs(points) do
     local d = math.abs(q.beat - beat)
@@ -174,19 +182,21 @@ local function render(win, canvas, ctx)
   s.geo = { x = AXIS, y = top, w = pw, rows = rows }
   -- The cursor stays in sight, unless another window leads this one's time.
   if not ctx.follower then
-    local col = (s.beat - s.left) * s.zoom
+    local col = axis_of(s):exact(s.beat)
     if col < 0 then
       s.left = s.beat
     elseif col >= pw - 1 then
-      s.left = s.beat - (pw - 2) / s.zoom
+      s.left = s.beat - axis_of(s):beats(pw - 2)
     end
     s.left = math.max(0, s.left)
   end
-  local span = pw / s.zoom
+  -- The window's axis at its scroll now: each row of it draws on it.
+  local ax = axis_of(s)
+  local span = ax:beats(pw)
 
-  -- The ruler and the grid: bars and beats on the left edge of their cell.
+  -- The ruler and the grid: bars and beats in their cell.
   canvas:fill(0, 1, W, 1, " ", "Ruler")
-  local lines = paw.draw.beats(canvas:sub(AXIS, 1, pw, 1), s.left, span, s.zoom, 0)
+  local lines = paw.draw.beats(canvas:sub(AXIS, 1, pw, 1), ax, span, 0)
   local plot = canvas:sub(AXIS, top, pw, rows)
   plot:fill(0, 0, pw, rows, " ", "Lane")
   -- Where the terminal shows pictures, the grid and the curve are one under
@@ -206,7 +216,7 @@ local function render(win, canvas, ctx)
   })
   -- Beats only once they are far enough apart not to be noise, as in the arrange view.
   for _, line in ipairs(lines) do
-    if not pictured and line.x >= 0 and line.x < pw and (line.bar or s.zoom >= 4) then
+    if not pictured and line.x >= 0 and line.x < pw and (line.bar or ax:cells(1) >= 4) then
       plot:fill(line.x, 0, 1, rows, line.bar and g.bar or g.beat, line.bar and "LaneBar" or "LaneBeat")
     end
   end
@@ -215,8 +225,8 @@ local function render(win, canvas, ctx)
   local sel = ctx.focused and paw.keymap.selection()
   if sel and sel.view == "curve" then
     local from, to = span_of(sel)
-    local x0 = math.max(0, math.floor((from - s.left) * s.zoom))
-    local x1 = math.min(pw, math.floor((to - s.left) * s.zoom) + 1)
+    local x0 = math.max(0, ax:x_of(from))
+    local x1 = math.min(pw, ax:x_of(to) + 1)
     if x1 > x0 then plot:fill(x0, 0, x1 - x0, rows, " ", "Visual") end
   end
 
@@ -238,7 +248,7 @@ local function render(win, canvas, ctx)
   if have and not pictured then
     if kind == "line" then
       for cx = 0, pw - 1 do
-        local beat = s.left + (cx + 0.5) / s.zoom
+        local beat = ax:beat_of(cx + 0.5)
         local y = dot_y(value_at(t, points, beat))
         plot:text(cx, math.floor(y / sub), paw.opt.ascii and "*" or "─", hue.fg)
       end
@@ -246,7 +256,7 @@ local function render(win, canvas, ctx)
       local cells = paw.draw.trace(
         pw,
         pw * 2,
-        function(sx) return dot_y(value_at(t, points, s.left + (sx + 0.5) / (2 * s.zoom))) end,
+        function(sx) return dot_y(value_at(t, points, ax:half_beat(sx))) end,
         sub,
         kind
       )
@@ -261,7 +271,7 @@ local function render(win, canvas, ctx)
 
   -- The points, the chosen brighter.
   for _, q in ipairs(points) do
-    local x = math.floor((q.beat - s.left) * s.zoom + EPS)
+    local x = ax:x_of(q.beat)
     if x >= 0 and x < pw then
       local y = math.floor(dot_y(q.value) / sub)
       local style = sel and sel.view == "curve" and in_span(q, span_of(sel)) and "CursorVisual" or hue.note
@@ -271,12 +281,12 @@ local function render(win, canvas, ctx)
   end
 
   -- The playhead, then the cursor: a beat and a value.
-  local play = math.floor((paw.transport.position - s.left) * s.zoom + EPS)
+  local play = ax:x_of(paw.transport.position)
   if play >= 0 and play < pw then plot:fill(play, 0, 1, rows, g.playhead, "Playhead") end
-  local cx = math.floor((s.beat - s.left) * s.zoom + EPS)
+  local cx = ax:x_of(s.beat)
   if cx >= 0 and cx < pw then
     local cy = math.floor(dot_y(s.value) / sub)
-    local under = point_at(points, s.beat, s.zoom)
+    local under = point_at(points, s.beat, half_cell(s))
     plot:text(cx, cy, under and g.point or "┼", ctx.focused and (mode == "i" and "InsertCursor" or "Cursor") or "Dim")
   end
 
@@ -284,7 +294,7 @@ local function render(win, canvas, ctx)
   -- what is under way.
   local bottom = top + rows
   canvas:fill(0, bottom, W, 1, " ", "Ruler")
-  local at, q = point_at(points, s.beat, s.zoom)
+  local at, q = point_at(points, s.beat, half_cell(s))
   local text
   if gen and gen.win == win.id then
     text = M.gen_text()
@@ -326,7 +336,7 @@ local def = layout.buftype("curve", {
     get = function(win)
       if not win then return nil end
       local s = state(win)
-      return s.left, s.zoom, s.geo and s.geo.w / s.zoom
+      return s.left, s.zoom, s.geo and axis_of(s):beats(s.geo.w)
     end,
     set = function(win, left, zoom)
       if not win then return end
@@ -523,7 +533,7 @@ function M.add(on_curve)
   local win, t, s, points = here()
   if not win then return end
   local v = on_curve and value_at(t, points, s.beat) or s.value
-  local at = point_at(points, s.beat, math.huge)
+  local at = point_at(points, s.beat, 0)
   local q = { beat = s.beat, value = v, shape = "linear", tension = 0 }
   if at then
     points[at] = q
@@ -539,7 +549,7 @@ end
 function M.remove(n)
   local win, t, s, points = here()
   if not win then return end
-  local at = point_at(points, s.beat, s.zoom)
+  local at = point_at(points, s.beat, half_cell(s))
   if not at then return paw.notify("no point under the cursor", "warn") end
   for _ = 1, n or 1 do
     if points[at] then table.remove(points, at) end
@@ -551,7 +561,7 @@ end
 function M.nudge_point(n)
   local win, t, s, points = here()
   if not win then return end
-  local at, q = point_at(points, s.beat, s.zoom)
+  local at, q = point_at(points, s.beat, half_cell(s))
   if not at then return paw.notify("no point under the cursor: `o` adds one", "warn") end
   q.value = nudge(t, q.value, n)
   s.value = q.value
@@ -563,7 +573,7 @@ end
 function M.type_value()
   local win, t, s, points = here()
   if not win then return end
-  local at, q = point_at(points, s.beat, s.zoom)
+  local at, q = point_at(points, s.beat, half_cell(s))
   local now = q and q.value or s.value
   paw.ui.ask_value({
     label = t.name(),
@@ -627,7 +637,7 @@ end
 function M.cycle_shape()
   local win, t, s, points = here()
   if not win then return end
-  local at = point_at(points, s.beat, s.zoom)
+  local at = point_at(points, s.beat, half_cell(s))
   if not at then return paw.notify("no point under the cursor", "warn") end
   shape_points(t, points, { at }, nil)
 end
@@ -636,7 +646,7 @@ end
 function M.tension(by)
   local win, t, s, points = here()
   if not win then return end
-  local _, q = point_at(points, s.beat, s.zoom)
+  local _, q = point_at(points, s.beat, half_cell(s))
   if not (q and q.shape == "smooth") then return paw.notify("no smooth stretch from here: `~` makes one", "warn") end
   q.tension = util.clamp((q.tension or 0) + by, -1, 1)
   write(t, points, "Bend the curve")
@@ -999,7 +1009,7 @@ end
 local function at_cell(win, t, x, y)
   local s = state(win, t)
   local geo = s.geo
-  local beat = mouse.beat(x - geo.x, s.left, s.zoom)
+  local beat = axis_of(s):beat_of(x - geo.x)
   local f = 1 - (y - geo.y + 0.5) / geo.rows
   return math.max(0, beat), t.unfrac(util.clamp(f, 0, 1))
 end
@@ -1044,7 +1054,7 @@ end
 local function curve_menu(win, t, where)
   local s = state(win, t)
   local whole = { kind = "line", c0 = 0, c1 = 0, r0 = 0, r1 = 0 }
-  local visible = { kind = "char", c0 = s.left, c1 = s.left + s.geo.w / s.zoom, visual = true }
+  local visible = { kind = "char", c0 = s.left, c1 = axis_of(s):beat_of(s.geo.w), visual = true }
   return {
     { label = "Add a point here", run = function() M.add(false) end },
     { label = "Draw a wave over what shows…", run = function() wave_menu(visible.c0, visible.c1, where) end },
@@ -1069,7 +1079,7 @@ function def.on_mouse(win, e)
     if mouse.has(e, "C") then
       s.zoom = util.clamp(s.zoom * (step < 0 and 2 or 0.5), 0.125, 64)
     else
-      s.left = math.max(0, s.left + step * 4 / s.zoom)
+      s.left = math.max(0, s.left + axis_of(s):beats(step * 4))
     end
     return api.ui_redraw()
   end
@@ -1088,7 +1098,7 @@ function def.on_mouse(win, e)
   -- A point under the press: its column, and a row of either side of it.
   local at
   for i, q in ipairs(points) do
-    local x = geo.x + math.floor((q.beat - s.left) * s.zoom + EPS)
+    local x = geo.x + axis_of(s):x_of(q.beat)
     local y = geo.y + math.floor((1 - t.frac(q.value)) * (geo.rows - 0.01))
     if x == e.x and math.abs(y - e.y) <= 1 then at = i end
   end
@@ -1257,7 +1267,7 @@ command("curve.generate", function(ctx)
   local win, _, s = here()
   if not win then return end
   local sel = paw.keymap.selection()
-  local from, to = s.left, s.left + (s.geo and s.geo.w or 40) / s.zoom
+  local from, to = s.left, axis_of(s):beat_of(s.geo and s.geo.w or 40)
   if sel and sel.view == "curve" then
     from, to = sel.c0, sel.c1
   end
@@ -1334,7 +1344,7 @@ function M.ops.wave(region)
   if region.kind == "line" then
     local win, _, s = here()
     if not win then return end
-    return wave_menu(s.left, s.left + s.geo.w / s.zoom)
+    return wave_menu(s.left, axis_of(s):beat_of(s.geo.w))
   end
   wave_menu(region.c0, region.c1)
 end

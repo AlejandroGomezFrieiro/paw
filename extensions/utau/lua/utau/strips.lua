@@ -87,13 +87,14 @@ function M.written(list, tempo, pitd)
 end
 
 --- Where beats are across the roll, in pixels, so that the lines meet the
---- notes' edges: a note's cells start and end where its beats round to
---- (`floor(cells + 0.5)`), and the beats between are spread evenly over
+--- notes' edges: a note's cells start and end in the cells that hold its
+--- beats (paw/axis.tl), and the beats between are spread evenly over
 --- them. Returns `x(beat)` and `beat(x)`.
 function M.warp(list, scroll, zoom, cw)
   local knots = {}
+  local ax = paw.axis.new(scroll, zoom)
   local function put(beat)
-    local x = floor((beat - scroll) * zoom + 0.5) * cw
+    local x = ax:x_of(beat) * cw
     local last = knots[#knots]
     if not last or (beat > last[2] + 1e-9 and x >= last[1]) then knots[#knots + 1] = { x, beat } end
   end
