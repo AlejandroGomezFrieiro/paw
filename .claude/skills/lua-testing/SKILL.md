@@ -48,11 +48,12 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
 | `T.until_(cond, what)` | Settle, then check a state. While the state waits for the engine (a meter, a device that sleeps, the playhead), the engine plays block by block, and the clock moves with it. Fails with "nothing is left to do, and <what> is false" when no work is left, after about 2 s of blocks. While the song plays, it fails after 30 s of the song. |
-| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended. The clock does not move. A job that polls at no delay is not work. |
+| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended, and the files of stretched clips have a hash. The clock does not move. A job that polls at no delay is not work. |
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, the engine plays the blocks of that time, then the kernel settles. |
 | `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Play exactly `n` blocks (1 if not given), so that a change sent before is in effect. The clock moves by their time. With `device`, play until that device ran `n` blocks: a device that sleeps does not count them. |
 | `T.meter(track)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
+| `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
 | `T.stepped()` | True when the engine plays on the stepped backend. |
 | `T.until_beat(beat, rounds, ms)` | Play until the playhead is at `beat`, after `rounds` times round the loop. Fails after `ms` of the song (30 s if not given). |
 | `T.until_meters_at_rest()` | Wait until no meter of the engine shows a level. The engine lets a meter fall in its own blocks on the wall clock: the sound of a test before can still show. Then it puts out the held peaks and clip lights of the screen. Use it before a test draws or compares a meter. |
@@ -158,11 +159,14 @@ the owner's computer or folders. Mock what it needs.
   engine plays a block only when the clock gets to its end, so a meter
   is the same in each run, to the bit. Play with `T.next_block(n)`,
   `T.advance(ms)` or `T.until_beat`, then read the meter with
-  `T.meter(track)`. The lint counts each `:meter(` in a test: a live
-  test only reads one.
+  `T.meter(track)`, or wait for a level with `T.level(track)` in
+  `T.until_`. The lint counts each `:meter(` in a test: a live test only
+  reads one.
 - A test that starts the engine again on `null` stays stepped. The
   `test` backend (the device that a test unplugs) plays on the wall
   clock: read no meter there.
+- A live test that must read the clock goes in a file of live tests
+  (`tests/live_<area>.lua`, for example `tests/live_limits.lua`).
 - An extension's project must open and play without the extension.
   Test that too.
 

@@ -18,6 +18,9 @@ pub struct Work {
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
     pub bakes_waiting: usize,
+    /// Files of stretched clips that are being hashed, or whose hash the
+    /// bakes have not taken in yet: their bakes are asked for after.
+    pub hashing: usize,
     /// Plugins being made apart from the main loop, but for those that a
     /// test holds back (`sandbox.hold`).
     pub plugin_loads: usize,
@@ -96,10 +99,24 @@ impl Session {
         Work {
             bakes_running: bakes.running,
             bakes_waiting: bakes.waiting,
+            hashing: self.stretch_hashing(),
             plugin_loads: self.loads.in_flight(),
             renders: usize::from(self.rendering()),
             files: self.files_watch.waiting(),
             next_due,
         }
+    }
+
+    /// The files of stretched clips with no hash in the bakes yet that are
+    /// still on their way: the worker hashes them, or it has, and the next
+    /// poll of the bakes takes the hash in. A file that the worker could
+    /// not read is not on its way.
+    fn stretch_hashing(&self) -> usize {
+        self.audio
+            .upkeep
+            .unhashed
+            .iter()
+            .filter(|file| self.sources.is_hashing(file) || self.sources.record(file).is_some())
+            .count()
     }
 }

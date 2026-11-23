@@ -585,6 +585,9 @@ impl Session {
     /// recording). Called every turn.
     pub fn poll_media(&mut self) {
         let changed = self.sources.poll();
+        // A stretched clip waits for the hash of its file: its file goes
+        // to the worker now, not at the next look for new files.
+        self.sources.notice(self.audio.upkeep.unhashed.iter().map(PathBuf::as_path));
         if self.sources.due() {
             let used = sources_of(&self.doc.project);
             self.sources.notice(used.iter().map(PathBuf::as_path));

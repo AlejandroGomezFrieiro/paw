@@ -253,10 +253,12 @@ impl Session {
         let map = self.doc.project.tempo_map();
         let key = Key::of(clip, self.engine.handle.sample_rate as u32, map, &self.sources);
         if let Some(key) = key.as_ref() {
-            // A file with no hash yet waits for it, as a bake waits to start.
-            let status = match key.source {
-                None if self.audio.upkeep.unhashed.contains(&key.file) => Status::Waiting,
-                _ => self.audio.renders.status(key),
+            // A file with no hash in the bakes yet waits for it, as a bake
+            // waits to start: also when the hash came this turn, and the
+            // next poll of the bakes asks for the bake.
+            let status = match self.audio.renders.status(key) {
+                Status::Unknown if self.audio.upkeep.unhashed.contains(&key.file) => Status::Waiting,
+                status => status,
             };
             if matches!(status, Status::Waiting | Status::Running) {
                 // Played as far as it is made: how far that is.

@@ -51,19 +51,17 @@ local function same(a, b)
   return true
 end
 
---- Wait until no clip is being stretched any more.
+--- Let the bakes start and end: until no clip is being stretched any
+--- more.
 local function settled()
-  for _ = 1, 1500 do
-    local busy = false
+  T.advance_until(function()
     for _, t in ipairs(paw.tracks()) do
       for _, c in ipairs(api.clip_list(t.id)) do
-        busy = busy or c.stretching or false
+        if c.stretching then return false end
       end
     end
-    if not busy then return end
-    paw.wait(10)
-  end
-  error("the stretched clips were never made")
+    return true
+  end, "the stretched clips to be made", 60000)
 end
 
 -- Stretching and shifting ---------------------------------------------------------
@@ -91,10 +89,8 @@ test("a stretched clip renders at its new length with the pitch of its file", fu
   -- Played live, the stretched sound is heard.
   paw.transport.seek(4)
   paw.transport.play()
-  paw.wait(300)
-  local level = t:meter()
+  T.until_(function() return T.level(t) > 0.05 end, "the stretched sound to be heard while playing")
   T.stop()
-  eq(level > 0.05, true, "heard while playing")
 end)
 
 test("a stretch starts to be made 150 ms after it is asked for", function()
@@ -106,8 +102,11 @@ test("a stretch starts to be made 150 ms after it is asked for", function()
   paw.stretch.set(clip.id, 1.5)
   paw.flush()
   eq(clip.preview, true, "the preview at once")
-  -- The stretch is asked for once its file is read.
-  T.until_(function() return api.pending().bakes_waiting == 1 end, "the stretch to be asked for")
+  -- The stretch is asked for once its file is hashed. The hashing is work
+  -- in flight, so a settle waits for it.
+  local pending = T.settle()
+  eq(pending.hashing, 0, "the file is hashed")
+  eq(pending.bakes_waiting, 1, "and the stretch is asked for")
   T.advance(149)
   eq(api.pending().bakes_waiting, 1, "149 ms later the stretch still waits")
   T.advance(1)
@@ -115,24 +114,24 @@ test("a stretch starts to be made 150 ms after it is asked for", function()
 end)
 
 test("a clip plays a rough preview until its stretch is made, then the stretch", function()
-  local file = tone_file(16)
+  -- A sound of its own, as above.
+  local file = tone_file(16, 79)
   local t = paw.add_track({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.transport.seek(8)
   paw.stretch.set(clip.id, 1.5)
   paw.flush()
   paw.transport.play()
-  paw.wait(60)
-  local level = t:meter()
-  -- A bake starts 150 ms after it is asked for at the soonest.
+  -- The file is hashed, and the stretch is asked for. It starts to be made
+  -- 150 ms after that, and no time passes here: the bake is held.
+  T.settle()
+  eq(api.pending().bakes_waiting, 1, "the stretch waits")
   eq(clip.preview, true, "still the preview")
-  eq(level > 0.05, true, "the preview is heard, not silence")
+  eq(T.level(t) > 0.05, true, "the preview is heard, not silence")
   settled()
   eq(clip.preview, nil, "the stretch plays")
-  paw.wait(100)
-  level = t:meter()
+  T.until_(function() return T.level(t) > 0.05 end, "the stretch to be heard after the swap")
   T.stop()
-  eq(level > 0.05, true, "heard after the swap")
 end)
 
 test("a pitch shift moves the pitch and keeps the length", function()
@@ -446,14 +445,18 @@ test("the other takes of a stretched clip are stretched as it is", function()
 end)
 
 test("the terminal marks a stretched, shifted, following or looped clip in its label", function()
-  local file = tone_file(4)
+  -- A sound of its own: a bake of the same sound, made before, would play
+  -- at once.
+  local file = tone_file(4, 80)
   local clip = paw.add_track({ name = "audio" }):add_clip({ file = file, start = 0 })
   eq(paw.stretch.badge(clip:get()), nil, "nothing on a plain clip")
   paw.stretch.set(clip.id, 1.5)
   clip.pitch = 3
   paw.stretch.follow(clip.id)
   paw.stretch.loop(clip.id, true)
-  paw.flush()
+  -- The bake is held: it waits for its delay, and no time passes.
+  T.settle()
+  eq(api.pending().bakes_waiting, 1, "the stretch waits")
   eq(paw.stretch.badge(clip:get()), "stretching… ×1.5 +3st ♩ ↻", "while it is made")
   settled()
   eq(paw.stretch.badge(clip:get()), "×1.5 +3st ♩ ↻", "once it is made")
@@ -506,7 +509,9 @@ end)
 -- The window --------------------------------------------------------------------------
 
 test("in the window an end dragged with Alt and Shift stretches, and the menu fits a clip to the loop", function()
-  local file = tone_file(4)
+  -- A sound of its own: a bake of the same sound, made before, would play
+  -- at once.
+  local file = tone_file(4, 81)
   local t = paw.add_track({ name = "audio" })
   local clip = t:add_clip({ file = file, start = 0 })
   paw.frontend.act.trim_clips(clip.id, "end", 2.1, true, true)

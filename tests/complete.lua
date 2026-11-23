@@ -35,15 +35,6 @@ local function test(name, fn)
   end)
 end
 
---- Wait, letting timers fire, until `cond()` holds or `ms` have passed.
-local function wait_for(cond, ms)
-  local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do
-    paw.wait(10)
-  end
-  return cond()
-end
-
 local function n(pitch, start, length) return { pitch = pitch, start = start, length = length or 1 } end
 
 --- A source that answers at once with `items` (a list, or a function of the context).
@@ -271,10 +262,10 @@ test("a request shows what came by the deadline and adds late answers at the end
       complete.request()
       eq(complete.current(), nil, "nothing before the deadline while one source is still out")
       eq(complete.pending(), true, "the request waits")
-      eq(
-        wait_for(function() return complete.current() and #complete.current().items == 2 end),
-        true,
-        "the late answer arrives"
+      T.advance_until(
+        function() return complete.current() and #complete.current().items == 2 end,
+        "the late answer to arrive",
+        5000
       )
       eq(sizes[1], 1, "what came in time showed first")
       eq(sizes[#sizes], 2, "then the late one was added")
@@ -304,7 +295,7 @@ test("a source that never answers does not hold up the others", function()
   }
   with({ never, fixed("quick", next_bar) }, { complete_deadline_ms = 50 }, function()
     local id = complete.request()
-    eq(wait_for(function() return complete.current() ~= nil end), true, "the others show at the deadline")
+    T.advance_until(function() return complete.current() ~= nil end, "the others to show at the deadline", 5000)
     complete.dismiss()
     eq(log[#log], "never cancelled " .. id, "dismissing cancels what is still owed")
   end)
@@ -317,8 +308,8 @@ test("a newer request cancels the older one and its late answer is dropped", fun
     local first = complete.request()
     local second = complete.request()
     eq(log[#log - 1], "late cancelled " .. first, "the older one is cancelled")
-    eq(wait_for(function() return complete.current() ~= nil end), true, "the newer one shows")
-    paw.wait(300)
+    T.advance_until(function() return complete.current() ~= nil end, "the newer one to show", 5000)
+    T.advance(300)
     eq(#complete.current().items, 1, "the older answer never joins it")
     eq(complete.current().item.label, "for " .. second, "it is the newer answer that shows")
   end)
@@ -337,7 +328,7 @@ test("an edit of the clip dismisses the suggestion and cancels the request", fun
     clip:add_note(n(74, 0))
     paw.flush()
     eq(log[#log], "late cancelled " .. id, "and cancels what is owed")
-    paw.wait(400)
+    T.advance(400)
     eq(complete.current(), nil, "whose answer is dropped")
   end)
 end)
@@ -394,19 +385,18 @@ test("suggestions come by themselves after an idle pause, never while playing or
   api.engine_restart({ backend = "null" })
   with({ fixed("fixed", next_bar) }, { complete_idle_ms = 30 }, function()
     complete.poke()
-    paw.wait(150)
+    T.advance(150)
     eq(complete.current(), nil, "not while automatic suggestions are off")
     paw.opt.complete_auto = true
     paw.transport.play()
     clip:add_note(n(72, 0))
-    paw.flush()
-    paw.wait(200)
+    T.advance(200)
     eq(complete.current(), nil, "not while playing")
     eq(#log, 0, "the sources are not even asked")
     paw.transport.stop()
     paw.flush()
     complete.poke()
-    eq(wait_for(function() return complete.current() ~= nil end), true, "after a pause when stopped")
+    T.advance_until(function() return complete.current() ~= nil end, "a suggestion after a pause when stopped", 5000)
     eq(log[1], "fixed asked auto", "asked as an automatic request")
     paw.transport.play()
     paw.flush()
@@ -424,7 +414,7 @@ test("a source that only answers keys is not asked by itself", function()
   with({ manual }, { complete_idle_ms = 20 }, function()
     paw.opt.complete_auto = true
     complete.poke()
-    paw.wait(150)
+    T.advance(150)
     eq(#log, 0, "not after a pause")
     complete.request()
     eq(complete.current() ~= nil, true, "but when asked")
@@ -484,7 +474,7 @@ test("hearing a suggestion changes nothing in the project", function()
     complete.request()
     local edits, before = api.project_get().edits, T.melody(clip)
     paw.keymap.feed("gh")
-    paw.wait(300)
+    T.advance(300)
     eq(T.melody(clip), before, "the clip is as it was")
     eq(api.project_get().edits, edits, "nothing was edited")
     eq(complete.current() ~= nil, true, "and the suggestion still shows")
@@ -543,19 +533,15 @@ T.test(
       roll:edit(upper)
       roll:set(77, 4)
       midilsp.start(true)
-      eq(
-        wait_for(function()
-          for _, c in ipairs(paw.lsp.clients()) do
-            if c.name == "midi-lsp-suggest" and c.status == "running" then return paw.lsp.settle() end
-          end
-        end, 30000),
-        true,
-        "the engine's suggestion role is running"
-      )
+      T.advance_until(function()
+        for _, c in ipairs(paw.lsp.clients()) do
+          if c.name == "midi-lsp-suggest" and c.status == "running" then return paw.lsp.settle() end
+        end
+      end, "the engine's suggestion role to run", 30000)
       eq(complete.sources.lsp ~= nil, true, "paw.lsp is a completion source")
       paw.opt.complete_deadline_ms = 3000
       paw.keymap.feed("<C-Space>")
-      eq(wait_for(function() return complete.current() ~= nil end, 30000), true, "the engine answered")
+      T.advance_until(function() return complete.current() ~= nil end, "the engine to answer", 30000)
       local cur = complete.current()
       eq(cur.item.source, "midi-lsp-suggest", "from the engine")
       eq(cur.item.notes[1].start >= 4 - 1e-6, true, "starting where it was asked, in the clip's beats")

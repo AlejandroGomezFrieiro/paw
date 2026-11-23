@@ -30,8 +30,6 @@ crates/paw-tui/tests/safety.rs thread::sleep 3
 extensions/articulations/tests.lua paw.wait( 1
 extensions/continue/tests.lua api.now() 4
 extensions/continue/tests.lua paw.wait( 2
-extensions/doctor/tests.lua api.now() 6
-extensions/doctor/tests.lua paw.wait( 4
 extensions/drums/tests.lua :meter( 2
 extensions/drums/tests.lua paw.wait( 2
 extensions/launcher/tests.lua api.now() 2
@@ -76,17 +74,6 @@ extensions/utau/tests_singing.lua api.sleep( 1
 extensions/vinput/tests.lua :meter( 2
 extensions/vinput/tests.lua api.now() 2
 extensions/vinput/tests.lua paw.wait( 1
-tests/attr.lua :meter( 4
-tests/attr.lua api.now() 4
-tests/attr.lua paw.wait( 3
-tests/complete.lua api.now() 2
-tests/complete.lua paw.wait( 7
-tests/core.lua :meter( 11
-tests/core.lua api.sleep( 1
-tests/core.lua paw.wait( 4
-tests/flow.lua api.now() 8
-tests/flow.lua api.wait( 1
-tests/flow.lua paw.wait( 2
 tests/guides.lua :meter( 2
 tests/guides.lua api.now() 14
 tests/guides.lua api.sleep( 1
@@ -98,16 +85,10 @@ tests/guides_howto.lua paw.wait( 8
 tests/guides_projects.lua api.now() 1
 tests/guides_render.lua api.now() 2
 tests/guides_render.lua paw.wait( 1
-tests/input.lua :meter( 7
-tests/input.lua api.sleep( 6
 # Live: the transport moves in real time, a one-sided check (not faster).
 tests/realtime.lua :meter( 1
 tests/realtime.lua api.now() 3
-tests/scope.lua :meter( 4
-tests/scope.lua paw.wait( 6
 # Live: the profiler samples a Lua loop of 50 ms on the wall clock.
 tests/startuptime.lua api.now() 2
-tests/stretch.lua :meter( 3
-tests/stretch.lua paw.wait( 4
-tests/warp.lua :meter( 2
-tests/warp.lua paw.wait( 4
+tests/live_limits.lua api.now() 8
+tests/live_limits.lua api.wait( 1

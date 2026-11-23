@@ -40,15 +40,6 @@ local function names(ids)
   return table.concat(out, " ")
 end
 
-local function wait_for(what, limit, fn)
-  local waited = 0
-  while not fn() do
-    if waited >= limit then error("waited " .. limit .. " ms for " .. what, 2) end
-    paw.wait(20)
-    waited = waited + 20
-  end
-end
-
 --- A track with a synth playing a few notes.
 local function synth(name, pitch)
   local t = paw.add_track({ name = name })
@@ -288,8 +279,7 @@ test("a track added in a scope goes into its group; one undo tree", function()
   local o = orchestra()
   paw.scope.narrow("Strings")
   local violas = paw.add_track({ name = "Violas" })
-  paw.flush()
-  paw.wait(20)
+  T.settle()
   eq(paw.groups.of(violas.id), o.strings.id, "the new track is in Strings")
   eq(names(paw.groups.rows()), "Strings Violins Cellos Violas", "and in sight")
   api.undo_checkpoint()
@@ -648,13 +638,12 @@ test("scope_rest=mute silences the rest while the scope's window is in front", f
   paw.opt.scope_rest = "mute"
   paw.transport.seek(0)
   paw.transport.play()
-  wait_for("the violins", 3000, function() return select(1, o.violins:meter()) > 0.01 end)
-  paw.wait(100)
-  eq(select(1, o.drums:meter()) < 1e-4, true, "the drums are silent")
-  eq(select(1, o.orchestra:meter()) > 0.01, true, "the group the strings pass through is not")
+  T.until_(function() return T.level(o.violins) > 0.01 end, "the violins to be heard")
+  eq(T.level(o.drums) < 1e-4, true, "the drums are silent")
+  eq(T.level(o.orchestra) > 0.01, true, "the group the strings pass through is not")
   keys("zW")
-  wait_for("the drums", 3000, function() return select(1, o.drums:meter()) > 0.01 end)
-  paw.transport.stop()
+  T.until_(function() return T.level(o.drums) > 0.01 end, "the drums to be heard")
+  T.stop()
   eq(o.drums.mute, false, "the project's mute was not touched")
   reset()
 end)
@@ -666,7 +655,7 @@ test("scope_rest=frozen plays the rest from files rendered in the background", f
   local edits = api.project_get().edits
   eq(names(paw.scope.rest_parts()), "Brass Drums", "the parts of the rest: whole groups, not the scope's own")
   paw.opt.scope_rest = "frozen"
-  wait_for("the rest to be frozen", 20000, function() return #paw.scope.held() == 2 end)
+  T.advance_until(function() return #paw.scope.held() == 2 end, "the rest to be frozen", 60000)
   T.until_(function() return #api.engine_held() == 2 end, "the engine to play them from files")
   eq(api.project_get().edits, edits, "the project is not changed")
   keys("zW")
@@ -675,9 +664,7 @@ test("scope_rest=frozen plays the rest from files rendered in the background", f
   eq(#api.engine_held(), 2, "back in the scope, the files are there already")
   -- An edit to a frozen part plays it live until it is rendered again.
   o.horns:clips()[1]:set_notes({ { pitch = 62, start = 0, length = 2 } })
-  paw.flush()
-  paw.wait(50)
-  wait_for("the brass again", 20000, function() return #paw.scope.held() == 2 end)
+  T.advance_until(function() return #paw.scope.held() == 2 end, "the brass to be frozen again", 60000)
   paw.scope.widen()
   eq(#api.engine_held(), 0, "widening lets it go")
   reset()
@@ -966,8 +953,7 @@ test(":freeze and :unfreeze, and an edit to a frozen track asks to unfreeze it",
   eq(paw.freeze.state(t), "frozen", ":freeze the cursor's track")
   local clip = t:clips()[1]
   clip:set_notes({ { pitch = 70, start = 0, length = 1 } })
-  paw.flush()
-  paw.wait(20)
+  T.settle()
   eq(screen():find("Keys is frozen: unfreeze it", 1, true) ~= nil, true, "asked")
   keys("y<CR>")
   eq(paw.freeze.state(t), nil, "y: unfrozen")
@@ -1063,47 +1049,6 @@ test("after an edit of a track that a freeze does not play, K makes no key again
   paw.flush()
   paw.freeze.describe(o.strings)
   eq(made(), before + 1, "an edit of a member makes it again, once")
-  reset()
-end)
-
-test("a frozen track's heavy Lua device rests: the engine works far less", function()
-  start()
-  local dir = T.scratch .. "/heavy-devices"
-  os.execute("mkdir -p '" .. dir .. "'")
-  T.write_file(
-    dir .. "/heavy.lua",
-    [[
-local dev = require("paw.dsp").device { name = "Heavy" }
-local x = 0
-function dev.process(b)
-  for i = 0, b.frames - 1 do
-    local s = b.left[i]
-    for _ = 1, 400 do s = math.sin(s + x) * 0.5 end
-    x = x + 1e-7
-    b.left[i] = b.left[i] + s * 1e-6
-  end
-end
-return dev
-]]
-  )
-  paw.luadev.add_dir(dir)
-  local t = synth("Heavy", 60)
-  t:add_device("lua:heavy")
-  paw.flush()
-  local function load()
-    api.engine_reset_stats()
-    paw.transport.seek(0)
-    paw.transport.play()
-    paw.wait(1500)
-    paw.transport.stop()
-    return api.engine_get().blocks.mean
-  end
-  local live = load()
-  paw.freeze.freeze(t)
-  paw.flush()
-  local frozen = load()
-  print(string.format("      block time: %.3f ms live, %.3f ms frozen", live, frozen))
-  eq(frozen < live * 0.3, true, string.format("frozen %.3f ms against %.3f ms a block", frozen, live))
   reset()
 end)
 

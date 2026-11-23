@@ -359,7 +359,7 @@ test("unsaved work is copied aside, and offered again after a session that ended
   eq(api.project_get().path, nil, "without becoming the project's file")
   eq(paw.project.modified, true, "or counting as saved")
   local before = T.read_file(file)
-  paw.wait(150) -- real time is the point: three times the autosave interval
+  T.advance(150) -- three times the autosave interval
   eq(T.read_file(file), before, "and not copied again until it changes")
   eq(#autosave.left_behind(), 0, "a running session's copy is not offered")
 
@@ -385,7 +385,7 @@ test("unsaved work is copied aside, and offered again after a session that ended
   end, "the project to be copied again", 60000)
   -- An open question: a save at once after the copy was made has left
   -- the copy behind. The test waits as it did before.
-  paw.wait(150)
+  T.advance(150)
   paw.project.save(T.scratch .. "/kept.json")
   paw.flush()
   eq(io.open(mine), nil, "and removed once saved")
@@ -406,8 +406,8 @@ test("scripts can wait while timers fire", function()
   local every = paw.every(10, function() fired = fired + 1 end)
   local once = false
   paw.defer(function() once = true end, 30)
-  api.sleep(60) -- real time is the point: sleeping holds timers up
-  eq(fired .. tostring(once), "0false", "sleeping holds timers up")
+  T.settle()
+  eq(fired .. tostring(once), "0false", "a timer waits for its time")
   T.advance_until(function() return fired >= 4 and once end, "waiting to let the timers run", 1000)
   paw.cancel(every)
 end)
@@ -726,15 +726,15 @@ test("a track is bounced to audio, and takes MIDI messages by hand", function()
   t.mute = false
   bounced:remove()
   t:note_on("A3", 100)
-  until_(function() return select(1, t:meter()) > 0.01 end, "a note played by hand to sound")
+  until_(function() return T.level(t) > 0.01 end, "a note played by hand to sound")
   t:midi({ type = "bend", value = 1 })
   t:midi({ type = "cc", number = 64, value = 1 })
   t:note_off("A3")
-  paw.wait(400) -- real time is the point: longer than the synth's release
-  eq(select(1, t:meter()) > 0.01, true, "and the pedal, pressed by hand, holds it after the key is let go")
+  next_block(40) -- longer than the synth's release
+  eq(T.level(t) > 0.01, true, "and the pedal, pressed by hand, holds it after the key is let go")
   t:midi({ type = "cc", number = 64, value = 0 })
   -- The meter falls slowly after the sound has gone.
-  until_(function() return select(1, t:meter()) < 0.005 end, "the sound to stop when the pedal comes up")
+  until_(function() return T.level(t) < 0.005 end, "the sound to stop when the pedal comes up")
   T.fails(function() t:midi({ type = "bend", value = 3 }) end, "range", "a bend out of range")
 end, { live = "the release of the synth and the fall of the meter take real time" })
 
@@ -921,7 +921,7 @@ test("devices at rest sleep through silence, and sound the same", function()
   -- The live engine follows the option.
   eq(api.engine_get().device_sleep, true, "devices sleep unless told not to")
   paw.opt.device_sleep = false
-  paw.wait(0) -- the option's handler tells the engine
+  T.settle() -- the option's handler tells the engine
   next_block(2)
   eq(api.engine_get().device_sleep, false, "the option turns it off")
   local before = api.engine_get().device_sleeps
@@ -975,7 +975,7 @@ test("each input channel is metered whether or not a track hears it", function()
     eq(#levels, 2, "a level for each channel of the device")
     near(levels[1], test_level, 0.01, "channel 1 arrives")
     near(paw.audio.level(t:get()), test_level, 0.01, "the track's input level, not armed and not monitored")
-    eq(select(1, t:meter()), 0, "while the track itself is silent")
+    eq(T.level(t), 0, "while the track itself is silent")
     local state = paw.frontend.state(-1)
     near(state.inputs[1], test_level, 0.01, "the frontend is told it with the meters")
     eq(state.tracks[1].input_label, "test signal · 2", "and what the track takes in, in words")
@@ -1000,15 +1000,15 @@ test("a track takes MIDI from one port and channel, playing and recording", func
     eq(a.midi_input.port .. "/" .. a.midi_input.channel, "Keys A/2", "the choice reads back")
     paw.flush()
     paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100, port = "Keys B", channel = 2 })
-    until_(function() return select(1, any:meter()) > 0.01 end, "a track that takes every port to hear another port")
-    eq(select(1, a:meter()), 0, "another port is not heard")
+    until_(function() return T.level(any) > 0.01 end, "a track that takes every port to hear another port")
+    eq(T.level(a), 0, "another port is not heard")
     paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys B", channel = 2 })
     paw.midi.inject({ type = "note_on", pitch = 62, velocity = 100, port = "Keys A", channel = 1 })
     next_block(10)
-    eq(select(1, a:meter()), 0, "nor another channel")
+    eq(T.level(a), 0, "nor another channel")
     paw.midi.inject({ type = "note_off", pitch = 62, port = "Keys A", channel = 1 })
     paw.midi.inject({ type = "note_on", pitch = 64, velocity = 100, port = "Keys A", channel = 2 })
-    until_(function() return select(1, a:meter()) > 0.01 end, "the port and channel chosen to be heard")
+    until_(function() return T.level(a) > 0.01 end, "the port and channel chosen to be heard")
     paw.midi.inject({ type = "note_off", pitch = 64, port = "Keys A", channel = 2 })
 
     paw.transport.record()
@@ -1057,7 +1057,7 @@ test("a whole first session: input, monitoring, an effect, a take that plays bac
     paw.flush()
     -- The meter falls slowly from where it was.
     until_(
-      function() return math.abs(select(1, gtr:meter()) - test_level / 2) < 0.01 end,
+      function() return math.abs(T.level(gtr) - test_level / 2) < 0.01 end,
       "the input to be heard through the effect"
     )
     gtr.armed = true
@@ -1167,10 +1167,10 @@ test("a MIDI port of the program's own is one more input for a track to take", f
   paw.flush()
   paw.midi.inject({ type = "note_on", pitch = 60, velocity = 100 })
   next_block(10)
-  eq(select(1, track:meter()), 0, "what other ports send is not heard")
+  eq(T.level(track), 0, "what other ports send is not heard")
   paw.midi.inject({ type = "note_off", pitch = 60 })
   paw.midi.inject({ type = "note_on", pitch = 64, velocity = 100, port = "Guitar to MIDI" })
-  until_(function() return select(1, track:meter()) > 0.01 end, "what arrives at the port to be heard")
+  until_(function() return T.level(track) > 0.01 end, "what arrives at the port to be heard")
   paw.midi.inject({ type = "note_off", pitch = 64, port = "Guitar to MIDI" })
   eq(paw.midi.close_port("Guitar to MIDI"), true, "the port is taken away")
   eq(paw.midi.close_port("Guitar to MIDI"), false, "once")

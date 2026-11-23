@@ -46,10 +46,10 @@ test("input is heard through the track's devices when armed or monitored", funct
     t.input = 1
     eq(t.input, "1", "inputs read back as text")
     next_block(10)
-    eq(select(1, t:meter()), 0, "not heard while neither armed nor monitored")
+    eq(T.level(t), 0, "not heard while neither armed nor monitored")
     -- The meters fall slowly: wait until each settles at its new level.
     local function settles(want, what, side)
-      until_(function() return math.abs(select(side or 1, t:meter()) - want) < 0.01 end, what)
+      until_(function() return math.abs(T.level(t, side) - want) < 0.01 end, what)
     end
     t.monitor = true
     settles(level, "monitoring to reach the meter at the input's level")
@@ -62,9 +62,9 @@ test("input is heard through the track's devices when armed or monitored", funct
     t.armed = true
     paw.flush()
     next_block(10)
-    near(select(1, t:meter()), level / 2, 0.01, "armed tracks are heard")
+    near(T.level(t), level / 2, 0.01, "armed tracks are heard")
     t.armed = false
-    until_(function() return select(1, t:meter()) < 0.005 end, "a disarmed track to be silent")
+    until_(function() return T.level(t) < 0.005 end, "a disarmed track to be silent")
     fails(function() t.input = "1/3" end, "1/3", "a pair must be neighbours")
     fails(function() paw.master.input = "1" end, "master", "the master has no input")
   end)
@@ -86,7 +86,7 @@ test("recording the input makes a clip where recording began", function()
     eq(paw.transport.recording, true, "record mode")
     -- Takes are counted over the session: the number is the next one.
     eq(type(paw.transport.take), "number", "a take is under way")
-    api.sleep(1000) -- real time is the point: a take of about a second
+    T.until_beat(paw.transport.position + 2) -- a take of about a second
     T.stop()
     local stopped = paw.transport.position
     paw.flush()
@@ -122,7 +122,7 @@ test("recordings of an unsaved project move beside it when it is saved", functio
     local t = paw.add_track({ name = "draft" })
     t.input, t.armed = "1", true
     paw.transport.record()
-    api.sleep(300) -- real time is the point: a short take
+    T.until_beat(paw.transport.position + 0.6) -- a short take
     T.stop()
     local before = t:clips()[1].file
     eq(before:find("/paw/recordings/", 1, true) ~= nil, true, "unsaved takes go to the data directory, got " .. before)
@@ -149,26 +149,26 @@ test("MIDI input plays armed tracks and records into a clip", function()
     paw.flush()
 
     paw.midi.note_on("A3", 100)
-    until_(function() return select(1, keys:meter()) > 0.01 end, "an armed track to play the note")
-    eq(select(1, other:meter()), 0, "an unarmed one does not")
+    until_(function() return T.level(keys) > 0.01 end, "an armed track to play the note")
+    eq(T.level(other), 0, "an unarmed one does not")
     keys.armed = false
-    until_(function() return select(1, keys:meter()) < 0.005 end, "disarming to release held notes")
+    until_(function() return T.level(keys) < 0.005 end, "disarming to release held notes")
     keys.armed = true
 
     paw.transport.seek(8)
     api.undo_checkpoint()
     paw.transport.record()
-    -- Real time is the point: notes played at times that are read back.
-    api.sleep(250)
+    -- Notes played at beats that are read back.
+    T.until_beat(8.5)
     local c4 = paw.transport.position
     paw.midi.note_on("C4", 90)
-    api.sleep(500)
+    T.until_beat(c4 + 1)
     local c4_off = paw.transport.position
     paw.midi.note_off("C4")
-    api.sleep(100)
+    T.until_beat(c4_off + 0.2)
     local e4 = paw.transport.position
     paw.midi.inject({ type = "note_on", pitch = 64, velocity = 80, channel = 2 })
-    api.sleep(250)
+    T.until_beat(e4 + 0.5)
     T.stop()
     local stopped = paw.transport.position
 

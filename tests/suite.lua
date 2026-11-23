@@ -185,7 +185,7 @@ local function stepped() return MANUAL and api.engine_get().stepped == true end
 -- again: its timer is not work left.
 local function working(p)
   local idle = paw.slices.job("collector") and 1 or 0
-  return math.max(0, p.timers_due - idle) + p.bakes_running + p.plugin_loads + p.renders + p.midi > 0
+  return math.max(0, p.timers_due - idle) + p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi > 0
 end
 
 --- Whether the engine plays: the song plays or records, a take is being
@@ -223,7 +223,7 @@ local function settle()
     api.step()
     local p = api.pending()
     if not working(p) then return p end
-    if p.bakes_running + p.plugin_loads + p.renders + p.midi == 0 then
+    if p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi == 0 then
       only_timers = only_timers + 1
       if only_timers >= POLL_TURNS then return p end
     else
@@ -463,6 +463,15 @@ local function meter(thing)
     error("a meter is read on the stepped backend (or in a live test), not on " .. api.engine_get().backend, 2)
   end
   return thing:meter()
+end
+
+--- The peak level of `track` once the engine ran one more block
+--- (`next_block`): the left side, or the right with `side` 2. A test reads
+--- a level only after a block, never after a time: in a wait,
+--- `T.until_(function() return T.level(t) > 0.01 end, what)`.
+local function level(track, side)
+  next_block(1)
+  return (select(side or 1, meter(track)))
 end
 
 --- Let the song play until the playhead, after it went round the loop
@@ -791,6 +800,7 @@ local T = {
   next_block = next_block,
   stepped = stepped,
   meter = meter,
+  level = level,
   until_beat = until_beat,
   until_recorded = until_recorded,
   stop = stop,

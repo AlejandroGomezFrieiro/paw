@@ -58,19 +58,17 @@ local function onsets(info, level)
   return out
 end
 
---- Wait until no clip is being stretched any more.
+--- Let the bakes start and end: until no clip is being stretched any
+--- more.
 local function settled()
-  for _ = 1, 3000 do
-    local busy = false
+  T.advance_until(function()
     for _, t in ipairs(paw.tracks()) do
       for _, c in ipairs(api.clip_list(t.id)) do
-        busy = busy or c.stretching or false
+        if c.stretching then return false end
       end
     end
-    if not busy then return end
-    paw.wait(10)
-  end
-  error("the stretched clips were never made")
+    return true
+  end, "the stretched clips to be made", 60000)
 end
 
 -- Made as it plays ----------------------------------------------------------------
@@ -83,36 +81,20 @@ test("a long stretched clip is heard at once, while its sound is still being mad
   paw.stretch.set(clip.id, 2)
   paw.transport.seek(0)
   paw.transport.play()
-  local heard
-  for _ = 1, 1000 do
-    paw.wait(10)
-    if t:meter() > 0.05 then
-      heard = api.clip_get(clip.id)
-      break
-    end
-  end
-  paw.transport.stop()
-  eq(heard ~= nil, true, "heard")
+  -- The file is hashed, and the stretch is asked for. It starts to be made
+  -- 150 ms after that, and no time passes here: the bake is held.
+  T.settle()
+  eq(T.level(t) > 0.05, true, "heard at once")
+  local heard = api.clip_get(clip.id)
   eq(heard.stretching, true, "while it is being made")
-  -- The rough preview first, then what is made.
-  eq(heard.made < 1, true, "before all of it is made: " .. tostring(heard.made))
-  -- The playhead far past what is made: silent there, not broken.
-  paw.transport.seek(400)
-  paw.transport.play()
-  paw.wait(100)
-  paw.transport.stop()
+  eq(heard.preview, true, "the rough preview first")
+  T.stop()
   settled()
   eq(clip.stretching, nil, "made in the end")
   paw.transport.seek(400)
   paw.transport.play()
-  local level = 0
-  for _ = 1, 100 do
-    paw.wait(10)
-    level = math.max(level, t:meter())
-    if level > 0.05 then break end
-  end
-  paw.transport.stop()
-  eq(level > 0.05, true, "and heard there once it is made")
+  T.until_(function() return T.level(t) > 0.05 end, "the clip to be heard there once it is made")
+  T.stop()
 end)
 
 test("a render made while a stretch is being made waits for it, and is the same on any number of threads", function()
