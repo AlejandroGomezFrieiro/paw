@@ -1092,6 +1092,10 @@ local function lane(self, buf, row, track, selected, cursor_clip, lanes, hue, ma
   return spans
 end
 
+-- The fewest columns for the descriptions beside the keys of the welcome
+-- page. With fewer, each description goes on the rows under its key.
+local WELCOME_MIN_TEXT = 20
+
 --- What a new project shows in place of tracks: how to begin.
 local function welcome(buf)
   local lines = {
@@ -1106,12 +1110,47 @@ local function welcome(buf)
     { ":help", "the manual, inside the program" },
   }
   if paw.commands.get("tutor") then lines[#lines + 1] = { ":tutor", "take the course, ten minutes a lesson" } end
-  local x, y = math.max(2, math.floor((buf.width - 52) / 2)), math.max(1, math.floor((buf.height - #lines - 3) / 2))
+  local intro = "Everything is driven from the keyboard. To begin:"
+  -- The key column is as wide as the widest key: a key comes from the
+  -- user's mappings (the leader, for example), so it has no fixed width.
+  local key_width, text_width = 0, 0
+  for _, line in ipairs(lines) do
+    key_width = math.max(key_width, api.str_width(line[1]))
+    text_width = math.max(text_width, api.str_width(line[2]))
+  end
+  -- The block is in the middle when it fits, else at the left edge.
+  local gap = 3
+  local block = math.max(api.str_width(intro), 2 + key_width + gap + text_width)
+  local x = math.max(1, math.floor((buf.width - block) / 2))
+  local text_x = x + 2 + key_width + gap
+  -- Too little room right of the keys: each description goes under its key.
+  local beside = buf.width - 1 - text_x >= WELCOME_MIN_TEXT
+  if not beside then text_x = x + 6 end
+  local room = math.max(1, buf.width - 1 - text_x)
+
+  -- The rows: { key, text } for the first row of a line, { nil, text } for
+  -- each row that a long description wraps to.
+  local rows = {}
+  for _, line in ipairs(lines) do
+    if not beside then rows[#rows + 1] = { line[1] } end
+    for i, part in ipairs(util.wrap(line[2], room)) do
+      rows[#rows + 1] = { beside and i == 1 and line[1] or nil, part }
+    end
+  end
+  local intro_rows = util.wrap(intro, math.max(1, buf.width - 1 - x))
+
+  -- One plain ground, so that the rule between the track headers and the
+  -- lanes does not cut through the text.
+  buf:fill(0, 0, buf.width, buf.height, " ", "Normal")
+  local y = math.max(1, math.floor((buf.height - #rows - #intro_rows - 2) / 2))
   buf:text(x, y, "A new project", "WelcomeTitle")
-  buf:text(x, y + 1, "Everything is driven from the keyboard. To begin:", "Dim")
-  for i, line in ipairs(lines) do
-    buf:text(x + 2, y + 2 + i, line[1], "HintKey")
-    buf:text(x + 13, y + 2 + i, line[2], "Welcome")
+  for i, part in ipairs(intro_rows) do
+    buf:text(x, y + i, part, "Dim")
+  end
+  y = y + #intro_rows + 2
+  for i, row in ipairs(rows) do
+    if row[1] then buf:text(x + 2, y + i - 1, row[1], "HintKey") end
+    if row[2] then buf:text(text_x, y + i - 1, row[2], "Welcome") end
   end
 end
 
