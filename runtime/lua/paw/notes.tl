@@ -38,30 +38,39 @@ local function copy(note: types.Note): types.Note
   return out as types.Note
 end
 
+--- The start that `quantize` gives a note that starts at `start`, with
+--- the same options (`lengths` changes no start). It makes no copy of a
+--- note, for code that snaps thousands of notes and keeps only their
+--- starts.
+function M.snap(start: number, opts?: M.QuantizeOptions): number
+  opts = opts or {}
+  local grid, strength, swing, offset = opts.grid or 0.25, opts.strength or 1, opts.swing or 0, opts.offset or 0
+  -- The nearest grid line on the song's time, with its swing.
+  local line = math.floor((start + offset) / grid + 0.5)
+  local target = line * grid + (line % 2 == 1 and swing * grid or 0) - offset
+  -- All the way lands on the line exactly, with no error of rounding.
+  local at = strength == 1 and target or start + (target - start) * strength
+  if opts.within then
+    at = math.min(at, opts.within - grid)
+  end
+  return math.max(0, at)
+end
+
 --- Snap the starts of the notes to a grid. `opts.strength` says how far a
 --- note moves, `opts.swing` moves every second grid line later, and
 --- `opts.lengths` snaps the lengths too. With `opts.within`, a note stays
 --- inside a clip of that length. No start goes below 0.
 function M.quantize(notes: {types.Note}, opts?: M.QuantizeOptions): {types.Note}
   opts = opts or {}
-  local grid, strength, swing = opts.grid or 0.25, opts.strength or 1, opts.swing or 0
-  local offset, within = opts.offset or 0, opts.within
+  local grid, strength, within = opts.grid or 0.25, opts.strength or 1, opts.within
   local out: {types.Note} = {}
   for i, note in ipairs(notes) do
     local n = copy(note)
-    -- The nearest grid line on the song's time, with its swing.
-    local line = math.floor((n.start + offset) / grid + 0.5)
-    local target = line * grid + (line % 2 == 1 and swing * grid or 0) - offset
-    -- All the way lands on the line exactly, with no error of rounding.
-    n.start = strength == 1 and target or n.start + (target - n.start) * strength
+    n.start = M.snap(n.start, opts)
     if opts.lengths then
       local want = math.max(grid, math.floor(n.length / grid + 0.5) * grid)
       n.length = n.length + (want - n.length) * strength
     end
-    if within then
-      n.start = math.min(n.start, within - grid)
-    end
-    n.start = math.max(0, n.start)
     if within then
       n.length = math.min(n.length, within - n.start)
     end
