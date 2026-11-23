@@ -317,10 +317,21 @@ end
 -- later on makes. A poll is not work left.
 local POLL_TURNS = 1000
 
+-- The schedule time that one test may take on the manual clock, ten
+-- minutes: each wait of `T` has its own limit, and this one stops a test
+-- that waits again and again without end. It is measured on the clock,
+-- not on the wall.
+local TEST_CLOCK_MS = 600000
+-- The clock when the test that runs began (nil between tests).
+local test_began
+
 --- Turn the loop until nothing is ready and no work is in flight: the
 --- timers that are due fired, and the bakes, plugin loads and renders
 --- ended. No schedule time passes. Gives what `api.pending()` gives then.
 local function settle()
+  if MANUAL and test_began and api.now() - test_began > TEST_CLOCK_MS then
+    error(string.format("the test ran more than %d ms of the clock", TEST_CLOCK_MS), 2)
+  end
   local guard = api.real_ms() + STALL_MS
   local only_timers = 0
   while true do
@@ -1479,7 +1490,9 @@ end
 local function run(t)
   -- An error that came between two tests is of no test.
   reported, expected = {}, {}
+  test_began = api.now()
   local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
+  test_began = nil
   for j = #cleanups, 1, -1 do
     pcall(cleanups[j])
     cleanups[j] = nil

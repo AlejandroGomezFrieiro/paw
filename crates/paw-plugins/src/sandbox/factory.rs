@@ -4,7 +4,7 @@ use std::os::fd::{AsRawFd, BorrowedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -109,6 +109,7 @@ impl RemoteFactory {
             shm,
             dead: AtomicBool::new(false),
             late: AtomicU32::new(0),
+            late_ns: AtomicU64::new(0),
             answered: AtomicU32::new(0),
             wake: AtomicBool::new(false),
         });
@@ -127,7 +128,7 @@ impl RemoteFactory {
             ended: None,
             late_seen: 0,
             answered_seen: 0,
-            stalled_since: None,
+            stall: None,
             reread: None,
             engine: None,
         };

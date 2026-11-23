@@ -254,7 +254,9 @@ T.check_keys(
   a test moves them, and `paw.wait(ms)` in a test is `T.advance(ms)`.
   Work on other threads and helper processes still takes wall time. The
   one limit of wall time is the stall guard of the runner (30 s for each
-  wait), which fails with "stalled".
+  wait), which fails with "stalled". A test has a limit on the clock
+  too: after ten minutes of schedule time its next wait fails with "the
+  test ran more than 600000 ms of the clock".
 - A test that needs real time is live: `T.test(name, fn, { live = "why" })`.
   The suite runs the live tests after the others, in a second paw on the
   wall clock (`PAW_TEST_LIVE=1`). Keep them few (about 3 % of the tests),

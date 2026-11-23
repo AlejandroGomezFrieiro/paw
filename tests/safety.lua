@@ -340,13 +340,13 @@ test(
     local handler = paw.on("device.stopped", function(e)
       if e.device == fx.id then stopped = e end
     end)
+    T.after(function() paw.off(handler) end)
     -- It hangs until the test ends it, and so do the instances that a
     -- render makes of it, for which the render waits one millisecond.
     api.device_call(fx.id, "sandbox.hang")
     api.device_call(fx.id, "sandbox.deadline", "1")
     paw.transport.play()
     T.until_(function() return stopped end, "the plugin that hangs to be reported")
-    paw.off(handler)
     eq(stopped.device, fx.id, "the plugin is reported")
     eq(stopped.reason:find("stopped answering", 1, true) ~= nil, true, "as not answering: " .. stopped.reason)
     eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")

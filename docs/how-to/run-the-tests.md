@@ -299,6 +299,10 @@ A wait for work on another thread has one limit of real time, the same for
 all tests. A wait that gets to the limit fails with `stalled`, and it shows
 a fault.
 
+A test also has a limit of ten minutes on the clock. A test that waits
+again and again past it fails with `the test ran more than 600000 ms of
+the clock`.
+
 A test that needs real time is a live test. Mark it with a third argument,
 for example `T.test(name, fn, { live = "it plays in real time" })`. After
 the other tests, `tests/tools/suite.sh` runs the live tests in a second
