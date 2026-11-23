@@ -127,7 +127,7 @@ impl Session {
         // The row's devices and lanes move to the group, or are copied when
         // the row stays.
         let (row_devices, row_lanes) = if b.keep_row {
-            self.copy_devices_and_lanes(&row, &Default::default())
+            self.doc.copy_devices_and_lanes(&row, &Default::default())
         } else {
             (row.devices.clone(), row.lanes.clone())
         };

@@ -22,6 +22,8 @@ use crate::sync::ModelEvent;
 mod clips;
 pub(super) use clips::{ClipField, check_clip_track};
 mod links;
+mod nests;
+pub use nests::NestOpts;
 pub mod notes;
 mod tempo;
 mod tracks;
