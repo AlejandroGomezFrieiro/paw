@@ -112,12 +112,15 @@ end
 
 --- A track as the reading sees it: its clips that sound, in the order of
 --- their start and by where their notes start (with the latest end so far,
---- for a look-up), and the end of its last note.
+--- for a look-up), the end of its last note, and the length of a window
+--- (`paw.opt.harmony_step`). Its windows read the length here and not from
+--- `harmony.step`: one entry read less for each window that is made again.
 local record TrackValue
   list: {Place}
   by_from: {Place}
   reach: {number}
   last: number
+  step: number
 end
 
 --- The clips of a track over a stretch, and the length of a window.
@@ -250,9 +253,11 @@ local place_node_spec: derived.Spec<integer, Place, boolean> = {
     if old and old.run == run and old.start == c.start then
       return old
     end
+    -- Where the notes sound, added up as `read.part` adds them: a window
+    -- that only touches a changed place is not read again (`touched`).
     local reach: number = -math.huge
     for k = 1, run.n do
-      reach = math.max(reach, run.start[k] + run.length[k])
+      reach = math.max(reach, (c.start + run.start[k]) + run.length[k])
     end
     return {
       id = id,
@@ -261,7 +266,7 @@ local place_node_spec: derived.Spec<integer, Place, boolean> = {
       length = c.length,
       run = run,
       from = c.start + run.start[1],
-      to = c.start + reach,
+      to = reach,
     }
   end,
   same = function(a: Place, b: Place): boolean return a == b end,
@@ -277,17 +282,24 @@ local function by_from(a: Place, b: Place): boolean
   return a.from < b.from
 end
 
+-- One field of a track: quicker than the whole track, which lists its
+-- devices and lanes too. They fail when the track is gone.
+local track_mute = api.track_get as function(integer, string): boolean
+local track_clips = api.track_get as function(integer, string): {integer}
+
 local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
   name = "harmony.track",
   eager = true,
   kind = "family",
   make = function(ctx: derived.Ctx, id: integer): TrackValue
-    local t = ctx:track(id, {"mute", "clips"})
-    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0}
-    if not t or t.mute or ctx:get(drums_node, id) then
+    ctx:source("track:" .. id .. ":mute")
+    ctx:source("track:" .. id .. ":clips")
+    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0, step = ctx:get(step_node, 0)}
+    local ok, mute = pcall(track_mute, id, "mute")
+    if not ok or mute or ctx:get(drums_node, id) then
       return v
     end
-    local clips = t.clips
+    local clips = track_clips(id, "clips")
     for i = 1, #clips do
       local place = ctx:get(place_node, clips[i])
       if place ~= SILENT then
@@ -306,9 +318,13 @@ local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
     end
     return v
   end,
-  same = function(a: TrackValue, b: TrackValue): boolean return same_list(a.list, b.list) end,
-  -- The clips that came or went, or moved: where their notes sound.
+  same = function(a: TrackValue, b: TrackValue): boolean return a.step == b.step and same_list(a.list, b.list) end,
+  -- The clips that came or went, or moved: where their notes sound. A new
+  -- length of the windows touches all of them.
   touched = function(a: TrackValue, b: TrackValue): number, number
+    if a.step ~= b.step then
+      return -math.huge, math.huge
+    end
     local from, to = math.huge, -math.huge
     local function add(list: {Place}, other: {Place})
       local kept: {Place: boolean} = {}
@@ -325,7 +341,7 @@ local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
     end
     add(a.list, b.list)
     add(b.list, a.list)
-    return from - 1e-6, to + 1e-6
+    return from, to
   end,
 }
 local track_node = derived.node(track_node_spec)
@@ -356,19 +372,24 @@ end
 
 local last_over: Over -- the inputs the last track window was given
 
+--- Where window `i` is, as its `make` has it: the same sums give the same
+--- edges, so that a note that ends where the window starts is not in it.
+local function window_span(i: integer): number, number
+  local at = (i - 1) * step_now
+  return at, at + step_now
+end
+
 local track_window_spec: derived.Spec<integer, read.Part, Over> = {
   name = "harmony.track_window",
   kind = "family",
-  span = function(key: integer): number, number
-    local _, i = unpack_key(key)
-    return (i - 1) * step_now, i * step_now
-  end,
+  span = function(key: integer): number, number local _, i = unpack_key(key); return window_span(i) end,
   inputs = function(ctx: derived.Ctx, key: integer): Over
     local track, i = unpack_key(key)
-    local step = ctx:get(step_node, 0)
+    local value = ctx:get(track_node, track)
+    local step = value.step
     local at = (i - 1) * step
     local out: Over = {step = step}
-    over(ctx:get(track_node, track), at, at + step, out)
+    over(value, at, at + step, out)
     -- The windows of one clip have the same inputs: they share them.
     if last_over and last_over.step == step and same_list(last_over, out) then
       return last_over
@@ -501,7 +522,7 @@ end
 local window_node_spec: derived.Spec<integer, read.Window, WindowInputs> = {
   name = "harmony.window",
   kind = "family",
-  span = function(i: integer): number, number return (i - 1) * step_now, i * step_now end,
+  span = window_span,
   inputs = function(ctx: derived.Ctx, i: integer, old: read.Window): WindowInputs
     local step = ctx:get(step_node, 0)
     local at = (i - 1) * step

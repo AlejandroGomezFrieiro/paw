@@ -154,11 +154,13 @@ local record M
     --- The key as a number or a text, when it is not one already.
     id: function(key: K): string
     --- Where in the song the value is, in beats: for its priority, and
-    --- for `touched`.
+    --- for `touched`. The graph keeps it from the last make: it may change
+    --- only with what the entry reads.
     span: function(key: K): number, number
     --- Where in the song a new value differs from the old one, in beats:
-    --- of the entries that read it, those with a `span` elsewhere stay
-    --- as they are. Nil: everywhere.
+    --- of the entries that read it, those with a `span` that does not
+    --- overlap it stay as they are. A span that only ends where it starts,
+    --- or starts where it ends, does not overlap it. Nil: everywhere.
     touched: function(old: V, new: V): number, number
     --- Make a stale entry again first, before the entries that read it
     --- know: they are marked stale only when its value changed (and with
@@ -226,6 +228,10 @@ local record Entry
   prev_value: Value
   wanted: boolean -- kept fresh (`node:want`)
   raised: boolean -- read while stale: it is wanted soon
+  -- Where in the song the value is (`spec.span`), as of its last make:
+  -- `push_over` reads it for each entry that reads a changed one.
+  from: number
+  to: number
 end
 
 local cores: {Core} = {}
@@ -312,8 +318,35 @@ local function forget(e: Entry)
   end
 end
 
+-- Lists of entries read, emptied, for the next make: a make reads about
+-- the same entries as the one before, and its old list goes.
+local spare: {{Entry}} = {}
+
+local function new_deps(): {Entry}
+  local n = #spare
+  if n == 0 then
+    return {}
+  end
+  local list = spare[n]
+  spare[n] = nil
+  return list
+end
+
+local function same_names(a: {string}, b: {string}): boolean
+  if #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    if a[i] ~= b[i] then
+      return false
+    end
+  end
+  return true
+end
+
 --- `e` was made again, and read `e.deps` and `e.sources`: forget what it
---- read before (`deps`, `sources`) and does not read now.
+--- read before (`deps`, `sources`) and does not read now. `deps` goes to
+--- the spare lists.
 local function settle(e: Entry, deps: {Entry}, sources: {string})
   local now = e.deps
   local same = #deps == #now
@@ -338,7 +371,13 @@ local function settle(e: Entry, deps: {Entry}, sources: {string})
       end
     end
   end
-  if sources then
+  for i = #deps, 1, -1 do
+    deps[i] = nil
+  end
+  spare[#spare + 1] = deps
+  -- The sources it read before and does not read now: the same list is the
+  -- most usual case.
+  if sources and not (e.sources and same_names(sources, e.sources)) then
     local read: {string: boolean} = {}
     for _, name in ipairs(e.sources or {}) do
       read[name] = true
@@ -480,18 +519,15 @@ local function push(u: Entry)
   end
 end
 
---- Push the entries that read `e` and whose `span` meets `from` to `to`,
---- and those that have none.
+--- Push the entries that read `e` and whose span overlaps `from` to
+--- `to`, and those that have none.
 local function push_over(e: Entry, from: number, to: number)
   local function near(u: Entry)
-    local span = u.core.spec.span
-    if not span then
+    -- No span: a node with none, or an entry never made (which `push`
+    -- leaves as it is).
+    local a = u.from
+    if a == nil or (a < to and u.to > from) then
       push(u)
-    else
-      local a, b = span(u.key)
-      if a <= to and b >= from then
-        push(u)
-      end
     end
   end
   if e.user then
@@ -512,9 +548,12 @@ local function remake(e: Entry)
   ctx:pause()
   local core = e.core
   local spec = core.spec
+  if spec.span then
+    e.from, e.to = spec.span(e.key)
+  end
   local saved = current
   local deps, sources = e.deps, e.sources
-  e.deps, e.sources = {}, nil
+  e.deps, e.sources = new_deps(), nil
   current = e
   local inputs: Value
   if spec.inputs then
