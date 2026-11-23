@@ -72,7 +72,8 @@ paw.keymap.set("<leader>tS", "track.add Strings device=synth", { desc = "A strin
 
 The MIDI notes of a clip are what plays, and each view edits the same
 notes. A score, the piano roll and Ex are views of one set of notes, so a
-project opens and plays without any extension. See
+project opens and plays without any extension. A kind of clip from an
+extension saves what it makes, so its clips play without it too. See
 [About MIDI as the truth](docs/explanation/about-midi-as-the-truth.md).
 
 ### Files that paw never deletes

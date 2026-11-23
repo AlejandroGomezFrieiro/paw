@@ -37,10 +37,17 @@ take out what your extension adds. An extension's README follows
 
 ## Rules that are not optional
 
-1. **MIDI and the project are the truth.** An extension never owns clip data.
+1. **Lanes are the truth.** Source lanes hold the data. A derived lane is a
+   recipe plus its kept result. A project opens and plays without the
+   extension or program that made a derived lane. An extension never owns
+   the data of a source lane (today: the notes and clips of a track).
    Keep extension data in `meta` (note/clip/track/project) or files; the
    project must open, play and edit without the extension (notation and
-   articulations are the models: notation is a *view* over MIDI).
+   articulations are the models: notation is a *view* over MIDI). A kind
+   of clip saves what it compiles, so its clips play without it. Lanes of
+   each kind do not exist yet: the target design is in the skill
+   `architecture`, where the container is a *part*. The API still says
+   *track*; use the API names.
 2. **The key rule.** `h j k l w b e 0 ^ $ gg G` only move; `+ -` and
    `Ctrl-a`/`Ctrl-x` change the main value, `[ ]` the second; `< >` are time;
    `K` describes; `Esc` cancels and stays. A view's own keys go on
