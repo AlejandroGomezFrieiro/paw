@@ -1,8 +1,8 @@
 //! A CLAP plugin of the tests' own (examples/stub_clap.rs), found in a
 //! directory added while the program runs, given notes with attributes as
-//! MIDI 2.0, and asked what it calls its keys.
+//! MIDI 2.0, asked what it calls its keys, and told when a render is offline.
 
-use paw_engine::{Attr, Event, EventBuf, EventKind, Io, ProcessCtx, Registry};
+use paw_engine::{Attr, Event, EventBuf, EventKind, Instance, Io, ProcessCtx, Registry};
 use paw_plugins::PluginDirs;
 use tempfile::TempDir;
 
@@ -131,4 +131,48 @@ fn a_plugin_in_an_added_directory_takes_the_attribute_and_names_its_keys() {
         names,
         serde_json::json!({ "24": "Sustain", "26": "Staccato" })
     );
+}
+
+/// The modes that the stub tells (`stub.render`): the render mode of its
+/// first block, and the render mode that it has now.
+fn render_modes(instance: &mut Instance) -> String {
+    let controller = instance.controller.as_mut().unwrap();
+    String::from_utf8(controller.call("stub.render", &[]).unwrap()).unwrap()
+}
+
+#[test]
+fn a_plugin_set_offline_renders_offline_until_it_is_set_back() {
+    let dir = stub_dir();
+    let mut registry = Registry::default();
+    let mut dirs = PluginDirs::default();
+    paw_plugins::add_dir(&mut registry, None, &mut dirs, dir.path());
+    let mut instance = registry
+        .get("clap:dev.paw.stub")
+        .unwrap()
+        .create(48000.0, 256)
+        .unwrap();
+    assert_eq!(render_modes(&mut instance), "no-block none");
+
+    instance.controller.as_mut().unwrap().set_offline(true);
+    let mut events = EventBuf::with_capacity(4);
+    let (mut left, mut right) = (vec![0.0; 256], vec![0.0; 256]);
+    let ctx = ProcessCtx::at(48000.0, 120.0, 4, 4, true);
+    instance.device.process(
+        &ctx,
+        &mut Io {
+            left: &mut left,
+            right: &mut right,
+            events: &mut events,
+            sidechain: None,
+            outputs: &mut [],
+        },
+    );
+    assert_eq!(
+        render_modes(&mut instance),
+        "offline offline",
+        "clap.render set(OFFLINE) came before the first block"
+    );
+
+    instance.controller.as_mut().unwrap().set_offline(false);
+    assert_eq!(render_modes(&mut instance), "offline realtime");
 }

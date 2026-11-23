@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use paw_engine::{Engine, EngineHandle, MidiEv, Msg, ParamInfo, Registry};
+use paw_engine::{
+    Controller, Device, DeviceFactory, DeviceInfo, Engine, EngineHandle, Instance, Io, MidiEv, Msg, ParamInfo,
+    ProcessCtx, Registry,
+};
 use serde_json::{Value, json};
 
 use super::*;
@@ -948,4 +951,104 @@ fn one_project_rendered_two_ways_nulls() {
         assert!(!a_way.sleep || a.slept > 0, "{name}: devices sleep through the rest");
         assert_eq!(a.first_difference(&b), None, "{name}: the first frame that differs");
     }
+}
+
+/// What a plugin hears of the host, in order: "offline" or "realtime"
+/// when its controller is told the render mode, "block" when it runs a
+/// block.
+type Heard = Arc<std::sync::Mutex<Vec<&'static str>>>;
+
+/// A plugin that records what it hears (a spy).
+struct Spy {
+    info: DeviceInfo,
+    heard: Heard,
+}
+
+struct SpyDevice(Heard);
+
+impl Device for SpyDevice {
+    fn process(&mut self, _ctx: &ProcessCtx, _io: &mut Io) {
+        self.0.lock().unwrap().push("block");
+    }
+    fn set_param(&mut self, _index: u32, _value: f32) {}
+}
+
+struct SpyController(Heard);
+
+impl Controller for SpyController {
+    fn params(&self) -> Vec<ParamInfo> {
+        Vec::new()
+    }
+    fn value(&self, _index: usize) -> Option<f64> {
+        None
+    }
+    fn save_state(&mut self) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(None)
+    }
+    fn load_state(&mut self, _state: &[u8]) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn set_offline(&mut self, offline: bool) {
+        self.0.lock().unwrap().push(if offline { "offline" } else { "realtime" });
+    }
+}
+
+impl DeviceFactory for Spy {
+    fn info(&self) -> &DeviceInfo {
+        &self.info
+    }
+    fn create(&self, _sample_rate: f32, _max_block: usize) -> anyhow::Result<Instance> {
+        Ok(Instance {
+            device: Box::new(SpyDevice(self.heard.clone())),
+            controller: Some(Box::new(SpyController(self.heard.clone()))),
+        })
+    }
+}
+
+/// What a plugin on a track hears up to the end of its first block, when
+/// the sync makes it for a render (`offline`) or to play live.
+fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
+    let heard = Heard::default();
+    let mut registry = Registry::with_builtins();
+    let info = DeviceInfo { kind: "spy".into(), ..Default::default() };
+    registry.register(std::rc::Rc::new(Spy { info, heard: heard.clone() }));
+    let spy = json!([{ "id": 2, "kind": "spy", "bypass": false, "params": {} }]);
+    let project: Project = serde_json::from_value(json!({
+        "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+        "master": track_json(0, "Master", None, json!([]), json!([])),
+        "tracks": [track_json(1, "T", None, spy, json!([]))],
+    }))
+    .unwrap();
+    let (mut engine, mut handle) = Engine::new(48000.0);
+    engine.set_sleep(false);
+    let sources = crate::media::Sources::default();
+    let (mut audio, mut live, mut warnings) = (AudioCache::default(), LiveDevices::new(), Vec::new());
+    let mut ctx = SyncCtx {
+        registry: &registry,
+        sources: &sources,
+        audio: &mut audio,
+        live: &mut live,
+        sample_rate: 48000.0,
+        warnings: &mut warnings,
+        offline,
+        waker: Default::default(),
+    };
+    let mut sent = Vec::new();
+    sync(&Project::default(), &project, &mut Mapper::new(), &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());
+    assert_eq!(warnings, Vec::<String>::new(), "the spy is made");
+    for msg in sent {
+        handle.send_while(msg, &mut engine);
+    }
+    engine.process(&mut [0.0; 512], &mut [0.0; 512]);
+    heard.lock().unwrap().clone()
+}
+
+/// A plugin made for a render (a render, an export, stems, a freeze) is
+/// told that the render is offline before its first block. A plugin made
+/// to play live is never told: a render makes instances of its own, so no
+/// live instance has to go back to realtime after a render.
+#[test]
+fn a_plugin_made_for_a_render_is_set_offline_before_its_first_block() {
+    assert_eq!(heard_to_the_first_block(true), ["offline", "block"]);
+    assert_eq!(heard_to_the_first_block(false), ["block"]);
 }
