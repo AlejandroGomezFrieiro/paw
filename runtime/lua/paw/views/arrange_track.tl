@@ -38,6 +38,7 @@ local record M
     column_width: integer
   ): Flags
   level_glyph: function(level: number): string
+  notes_line: function(clip: Clip, width: integer, zoom: number): string
   clip_props: function(
     clip: Clip,
     track: Track,
@@ -595,6 +596,17 @@ local function preview(clip: Clip, width: integer, rows: integer, zoom: number):
     runs = runs,
   }
   return out, runs
+end
+
+--- A clip's notes in one line `width` cells wide (its waveform for an
+--- audio clip), as its body draws them, for an overview of its track
+--- (a member of a folded group). Nil for a clip with nothing to draw in
+--- one line: no notes, or a block of a subproject.
+function M.notes_line(clip: Clip, width: integer, zoom: number): string
+  if clip.kind == "nest" or (clip.kind == "midi" and clip.note_count == 0) then
+    return nil
+  end
+  return (preview(clip, width, 1, zoom))[1]
 end
 
 --- Style names for the runs of a waveform that `draw.waveform` marks.

@@ -1014,6 +1014,9 @@ local record contracts
     move_down: string
     remove: string
     editor: string
+    --- Where a track that a row stands for has clips: on a group's row,
+    --- a folded group's, and in a closed block fold.
+    overview: string
     --- A cell filled from the bottom, one eighth to eight.
     eighths: {string}
   end

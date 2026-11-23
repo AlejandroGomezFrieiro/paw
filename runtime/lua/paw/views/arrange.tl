@@ -1649,6 +1649,117 @@ local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   end
 end
 
+-- Overviews -------------------------------------------------------------------------
+
+--- The columns where a track has clips in view, between the beats `from`
+--- and `to` when they are given: one span for each piece of a clip that
+--- the time folds leave.
+local function clip_columns(self: Arrange, id: integer, w: integer, from?: number, to?: number): {Span}
+  local first, last = self.scroll, self:beat(w)
+  if from then
+    first = math.max(first, from)
+  end
+  if to then
+    last = math.min(last, to)
+  end
+  local out: {Span} = {}
+  if last <= first then
+    return out
+  end
+  for _, clip in ipairs(api.clip_list(id, first, last)) do
+    local a, b = math.max(clip.start, first), math.min(clip.start + clip.length, last)
+    for _, piece in ipairs(self:unfolded(a, b)) do
+      local x0, x1 = math.max(0, self:col(piece[1])), math.min(w, self:col(piece[2]))
+      if x1 > x0 then
+        out[#out + 1] = {x0, x1}
+      end
+    end
+  end
+  return out
+end
+
+--- Every track inside a group, at any depth.
+local function inside(group: integer, out?: {integer}): {integer}
+  out = out or {}
+  for _, id in ipairs(paw.groups.members(group)) do
+    out[#out + 1] = id
+    if paw.groups.is_group(id) then
+      inside(id, out)
+    end
+  end
+  return out
+end
+
+--- The overview `━` on line `y` over spans of columns.
+local function overview(buf: Buf, y: integer, spans: {Span}, style: string)
+  local glyph = draw.g.overview
+  for _, span in ipairs(spans) do
+    buf:text(span[1], y, glyph:rep(span[2] - span[1]), style)
+  end
+end
+
+--- The columns where any track inside a group has clips in view.
+local function group_columns(self: Arrange, group: integer, w: integer): {Span}
+  local spans: {Span} = {}
+  for _, id in ipairs(inside(group)) do
+    for _, span in ipairs(clip_columns(self, id, w)) do
+      spans[#spans + 1] = span
+    end
+  end
+  return spans
+end
+
+--- A line of a folded group for one of its members: the member's name,
+--- then its clips. A clip that is all in one stretch of the view shows
+--- its notes in one line; a clip that a time fold cuts, and a group
+--- inside the group, show the overview.
+local function member_line(self: Arrange, buf: Buf, y: integer, id: integer)
+  local w = buf.width
+  local hue = draw.track_hue(api.track_get(id))
+  if paw.groups.is_group(id) then
+    overview(buf, y, group_columns(self, id, w), hue.fg)
+  else
+    for _, clip in ipairs(api.clip_list(id, self.scroll, self:beat(w))) do
+      local finish = clip.start + clip.length
+      local x0, x1 = self:col(clip.start), self:col(finish)
+      local whole = x1 > x0 and #self:unfolded(clip.start, finish) == 1
+      local line = whole and track_parts.notes_line(clip, x1 - x0, self.geometry.zoom)
+      if line then
+        buf:text(x0, y, line, hue.fg)
+      else
+        overview(buf, y, clip_columns(self, id, w, clip.start, finish), hue.fg)
+      end
+    end
+  end
+  -- From the second column, as a clip's name: the first is where the
+  -- playhead and a clip's start stand.
+  buf:text(1, y, track_name(id, "name") .. " ", hue.title)
+end
+
+--- What a group's row shows of its tracks: on its first line, the
+--- overview where any of them has a clip. A folded group lists its
+--- members on its other lines, one a line; when they do not fit, the
+--- last line says how many more there are.
+local function group_overview(self: Arrange, F: Frame, row: Row, hue: Hue)
+  local members = paw.groups.members(row.id)
+  if #members == 0 then
+    return
+  end
+  local buf = F.lanes
+  overview(buf, row.y, group_columns(self, row.id, buf.width), hue.fg)
+  if not paw.groups.folded(row.id) then
+    return
+  end
+  local lines = row.h - 1
+  local shown = #members > lines and lines - 1 or #members
+  for i = 1, shown do
+    member_line(self, buf, row.y + i, members[i])
+  end
+  if shown < #members and lines > 0 then
+    buf:text(1, row.y + lines, "+" .. (#members - shown) .. " more", "Faint")
+  end
+end
+
 --- The rows of the timeline: lanes and takes first, then each track's
 --- header and clips, and the cursor on its track. The timeline under the
 --- ruler is a plane, beats along and the view's lines down: a window
@@ -1718,6 +1829,9 @@ local function draw_rows(self: Arrange, F: Frame)
           chosen = chosen,
         }
       )
+      if paw.groups.is_group(row.id) then
+        group_overview(self, F, row, hue)
+      end
       if on_track then
         cursor_cell(self, F, row.y, row.h)
       end
@@ -1791,11 +1905,44 @@ local function draw_time_folds(self: Arrange, F: Frame)
   end
 end
 
---- Each block fold: one cell over the rows of its tracks and its time,
---- with its name on its first row (paw/folds.tl). The other tracks show
---- that time as usual. The cursor on it marks its row.
+--- The top edge of a closed block fold, `width` cells wide: `╭▸`, its
+--- name, its bars and its tracks, then `─` to its end. Where it does not
+--- fit, the tracks go first (their names, then how many), then the bars;
+--- the name stays. A name made of the tracks (the default, `Piano, Pad
+--- 9-24`) does not name them again.
+local function block_top(f: FoldsModule.Fold, width: integer): string
+  local g = draw.g
+  local head = g.tl .. g.closed .. " "
+  local sep = " " .. g.dot .. " "
+  local name = paw.folds.name(f)
+  local n = paw.folds.bars(f)
+  local bars = n .. (n == 1 and " bar" or " bars")
+  local names = paw.folds.track_names(f)
+  local choices: {string} = {}
+  if name:sub(1, #names) ~= names then
+    local count = paw.folds.count(f)
+    choices[#choices + 1] = name .. sep .. bars .. sep .. names
+    choices[#choices + 1] = name .. sep .. bars .. sep .. count .. (count == 1 and " track" or " tracks")
+  end
+  choices[#choices + 1] = name .. sep .. bars
+  for _, text in ipairs(choices) do
+    local line = head .. text .. " "
+    local used = api.str_width(line)
+    if used <= width then
+      return line .. g.h:rep(width - used)
+    end
+  end
+  return util.fit(head .. name, width)
+end
+
+--- Each closed block fold: a frame over the rows of its tracks and its
+--- time (paw/folds.tl). The top edge has its name, its bars and its
+--- tracks; each track has a line of overview `━` where it has clips; the
+--- bottom edge has the keys, when the block is more than one track high.
+--- The other tracks show that time as usual. The cursor on the block
+--- marks its top edge: the block is one row and one step for the cursor.
 local function draw_block_folds(self: Arrange, F: Frame)
-  local L, cursor = F.L, paw.cursor
+  local L, cursor, g = F.L, paw.cursor, draw.g
   for _, f in ipairs(paw.folds.blocks()) do
     local x0 = math.max(0, self:col(f.from))
     local x1 = math.min(L.tw, self:col(f.to))
@@ -1804,19 +1951,44 @@ local function draw_block_folds(self: Arrange, F: Frame)
       for _, id in ipairs(f.tracks) do
         member[id] = true
       end
-      local label = util.fit(paw.folds.name(f), math.max(1, x1 - x0 - 1))
-      local first = true
+      -- Its rows, and the line of overview of each of its tracks: the
+      -- first line of the track's row, or the next one under the top edge.
+      local top, bottom: integer, integer
+      local lines: {integer: integer} = {}
       for _, row in ipairs(L.rows) do
         if member[row.id] then
           F.lanes:fill(x0, row.y, x1 - x0, row.h, " ", "TimeFoldBody")
-          if first then
-            F.lanes:text(x0 + 1, row.y, label, "TimeFold")
-            first = false
+          top = top or row.y
+          bottom = row.y + row.h - 1
+          if row.kind == "track" then
+            local y = row.y == top and row.y + 1 or row.y
+            if y < row.y + row.h then
+              lines[y] = row.id
+            end
           end
-          local here = cursor.beat >= f.from - 1e-9 and cursor.beat < f.to - 1e-9
-          if here and row.kind == "track" and row.id == F.cursor_track then
-            F.lanes:fill(x0, row.y, x1 - x0, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+        end
+      end
+      if top then
+        local inner = x0 + 1
+        for y, id in pairs(lines) do
+          local spans = clip_columns(self, id, x1, f.from, f.to)
+          for _, span in ipairs(spans) do
+            span[1] = math.max(span[1], inner)
           end
+          overview(F.lanes, y, spans, "TimeFoldBody")
+        end
+        for y = top + 1, bottom do
+          F.lanes:text(x0, y, g.v, "TimeFold")
+        end
+        F.lanes:text(x0, top, block_top(f, x1 - x0), "TimeFold")
+        if bottom > top and not lines[bottom] then
+          local hint = #f.tracks > 1 and (" za opens " .. g.dot .. " znn enters ") or ""
+          local edge = g.bl .. g.h .. hint
+          F.lanes:text(x0, bottom, edge .. g.h:rep(math.max(0, x1 - x0 - api.str_width(edge))), "TimeFold")
+        end
+        local here = cursor.beat >= f.from - 1e-9 and cursor.beat < f.to - 1e-9
+        if here and member[F.cursor_track] then
+          F.lanes:fill(x0, top, x1 - x0, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
         end
       end
     end

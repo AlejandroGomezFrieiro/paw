@@ -307,6 +307,7 @@ local unicode: Glyphs = {
   move_down = "↓",
   remove = "×",
   editor = "⧉",
+  overview = "━",
   eighths = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"},
 }
 local ascii: Glyphs = {
@@ -372,6 +373,7 @@ local ascii: Glyphs = {
   move_down = "v",
   remove = "x",
   editor = "#",
+  overview = "=",
   eighths = {".", ".", "-", "-", "=", "=", "#", "#"},
 }
 
