@@ -23,6 +23,17 @@ use paw_engine::backend::{BackendChoice, BackendOptions};
 use paw_tui::keys;
 use serde_json::Value;
 
+/// The allocator of the native binary. Lua's collector frees many small
+/// blocks (mlua gives LuaJIT the global allocator), and glibc's malloc
+/// then merges its free lists when a large block comes: a slice of the
+/// help index spent half of its time in `malloc_consolidate`
+/// (bench/RESULTS.md). The audio thread allocates nothing, so this changes
+/// the kernel thread and the workers only. A BrowserPod pod and a
+/// WebAssembly build keep the system allocator.
+#[cfg(not(any(target_family = "wasm", target_vendor = "browserpod")))]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 /// The user's home folder (`HOME`). The program reads it here only, and
 /// gives it to the parts that name files from it (`~/`).
 fn home_dir() -> Option<PathBuf> {

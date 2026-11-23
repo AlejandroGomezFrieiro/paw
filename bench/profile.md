@@ -36,8 +36,10 @@ what paw writes between the start and the end of a synchronized update.
 
 The driver gives paw the variables `PAW_RUNTIME` and `LD_PRELOAD` of its
 own environment. Use `PAW_RUNTIME` to measure the Lua of a checkout with
-a binary of main (`tools/dev-runtime.sh`). Use `LD_PRELOAD` to measure
-another allocator.
+a binary of main (`tools/dev-runtime.sh`). The native binary links
+mimalloc as its global allocator, so `LD_PRELOAD` changes the allocator
+of the C code only. To compare two allocators, build two binaries and use
+`allocator.sh`.
 
 The first run makes the large project with
 [profile/project.lua](profile/project.lua). It has 64 tracks with a synth
@@ -128,7 +130,8 @@ Two tools in paw itself give the same view without `drive.py`:
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
 | [profile/frame.lua](profile/frame.lua) `<project> [rounds] [keys] [size]` | The time of a full frame of the arrange view after each key (`j,k` by default), with no terminal. With `PAW_FRAME_PROF=<file>`, the folded Lua stacks of the frames, for `top.py`. Under `perf stat`, run it with 0 rounds and with N: the difference divided by N is the instructions of a key and its frame. The frame is drawn as the terminal draws it (`paw.api.ui_snapshot`), and it is not written to a terminal. Run it with [profile/headless.py](profile/headless.py). |
 | [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
-| [profile/help.lua](profile/help.lua) `[project] [alloc]` | The slices of the help index that paw makes at idle (the job `help`): their number, the longest slice, the mean slice and the time of the build. With `alloc`, the collector is stopped, and it also gives the MB that one build allocates. Each run makes the index once, as at the start: run it a few times for the spread. Run it with [profile/headless.py](profile/headless.py). |
+| [profile/allocator.sh](profile/allocator.sh) `<paw glibc> <paw mimalloc> [pairs]` | Two binaries that differ in the allocator, in turns, under the lock and on the cores of `run.sh`: `help.lua` with no project, then `compare.py` with `repeat --keys j --times 20 --budget 5` on the large project. It checks that only the second binary has mimalloc, and gives the load at the start and at the end. |
+| [profile/help.lua](profile/help.lua) `[project] [alloc]` | The slices of the help index that paw makes at idle (the job `help`): their number, the slices over 5 ms (the slow-key warnings), the longest slice, the mean slice and the time of the build. With `alloc`, the collector is stopped, and it also gives the MB that one build allocates. Each run makes the index once, as at the start: run it a few times for the spread. Run it with [profile/headless.py](profile/headless.py). |
 
 ## Numbers on a shared machine
 

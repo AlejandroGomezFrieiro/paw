@@ -1,6 +1,7 @@
--- Tests of narrowing to a group (paw.scope), freezing tracks and groups
--- (paw.freeze, crates/paw-core/src/freeze.rs) and stems by group
--- (paw.stems). Loaded by tests/suite.lua with its helpers.
+-- Tests of narrowing to a group (paw.scope), freezing tracks, groups and
+-- blocks of subprojects (paw.freeze, paw.freeze_block,
+-- crates/paw-core/src/freeze.rs) and stems by group (paw.stems). Loaded by
+-- tests/suite.lua with its helpers.
 local T = ...
 local test, eq, near, fails, fresh = T.test, T.eq, T.near, T.fails, T.fresh
 local api = paw.api
@@ -853,6 +854,105 @@ return dev
   local frozen = load()
   print(string.format("      block time: %.3f ms live, %.3f ms frozen", live, frozen))
   eq(frozen < live * 0.3, true, string.format("frozen %.3f ms against %.3f ms a block", frozen, live))
+  reset()
+end)
+
+-- Freezing a block of a subproject --------------------------------------------------------
+
+--- A return row Ballad with a block at beat 32 of the subproject Ballad (8
+--- beats), whose track Keys has a synth, a delay and a few notes; the cursor
+--- on the block.
+local function ballad()
+  local row = paw.add_track({ name = "Ballad" })
+  local nest = api.nest_add({ name = "Ballad", length = 8 })
+  local inside = api.track_add({ name = "Keys", nest = nest })
+  paw.track(inside):add_device("synth", { attack = 0.001, release = 0.05 })
+  paw.track(inside):add_device("delay", {})
+  api.clip_add(inside, {
+    start = 0,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 67, start = 2, length = 2 } },
+  })
+  local clip = api.clip_add(row.id, { nest = nest, start = 32 })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(row)
+  paw.cursor.set_beat(33)
+  return { row = row.id, nest = nest, keys = inside, clip = clip }
+end
+
+local function frozen_file(clip)
+  local frozen = paw.freeze_block.frozen(clip)
+  return frozen and frozen.file
+end
+
+test("a frozen block renders as it did live; :unfreeze plays it live again, and u undoes each", function()
+  start()
+  local b = ballad()
+  local live = render()
+  keys(":freeze<CR>")
+  local file = frozen_file(b.clip)
+  eq(file ~= nil, true, ":freeze on the block")
+  -- Muted inside, the subproject plays nothing: what sounds is the file.
+  api.track_set(b.keys, { mute = true })
+  paw.flush()
+  api.undo_checkpoint()
+  local worst, peak = difference(live, render())
+  eq(peak > 0.05, true, "it sounds")
+  eq(worst < 1e-5, true, "the same sound, frozen as live: " .. worst)
+  keys(":unfreeze<CR>")
+  eq(frozen_file(b.clip), nil, ":unfreeze")
+  eq(render().peak < 1e-6, true, "live again: the muted track is silent")
+  keys("u")
+  eq(frozen_file(b.clip), file, "u: frozen again")
+  keys("u")
+  eq(api.track_get(b.keys, "mute"), false, "u: the mute undone")
+  keys("u")
+  eq(frozen_file(b.clip), nil, "u: the freeze undone")
+  keys("<C-r>")
+  eq(frozen_file(b.clip), file, "<C-r>: frozen again")
+  reset()
+end)
+
+test("an edit inside a frozen block makes K and the status line say stale; :freeze makes it current", function()
+  start()
+  local b = ballad()
+  keys(":freeze<CR>")
+  local said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze: " .. said)
+  paw.track(b.keys):clips()[1]:set_notes({ { pitch = 64, start = 0, length = 1 } })
+  paw.flush()
+  api.undo_checkpoint()
+  said = info()
+  eq(said:find("frozen, stale: Ballad changed since: clips", 1, true) ~= nil, true, "K after an edit inside: " .. said)
+  eq(screen():find("stale: Ballad", 1, true) ~= nil, true, "the status line says so")
+  keys(":freeze<CR>")
+  said = info()
+  eq(said:find("frozen, up to date", 1, true) ~= nil, true, "K after :freeze again: " .. said)
+  eq(screen():find("stale: Ballad", 1, true), nil, "the status line says nothing")
+  reset()
+end)
+
+test("two blocks at places with the same tempo use one bake file", function()
+  start()
+  local b = ballad()
+  local same = api.clip_add(b.row, { nest = b.nest, start = 48 })
+  api.tempo_set(64, 90)
+  local slower = api.clip_add(b.row, { nest = b.nest, start = 64 })
+  local dir = T.scratch .. "/frozen-blocks"
+  os.execute("rm -rf '" .. dir .. "' && mkdir -p '" .. dir .. "'")
+  paw.cmd("write", { dir .. "/song" })
+  for _, beat in ipairs({ 33, 49, 65 }) do
+    paw.cursor.set_beat(beat)
+    keys(":freeze<CR>")
+  end
+  local files = {}
+  for _, entry in ipairs(api.read_dir(dir .. "/song/media/baked")) do
+    files[#files + 1] = entry.name
+  end
+  eq(#files, 2, "one file for the places with the same tempo, one for the other: " .. table.concat(files, " "))
+  eq(frozen_file(same), frozen_file(b.clip), "the two blocks play one file")
+  eq(frozen_file(slower) ~= frozen_file(b.clip), true, "the slower block has its own")
   reset()
 end)
 

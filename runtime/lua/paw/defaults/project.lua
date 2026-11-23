@@ -8,6 +8,18 @@ local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
 local need_track, plain_folder = common.need_track, common.plain_folder
 
+-- The status line: the subprojects with a frozen block that is stale. It
+-- looks again only after a change to the project.
+paw.statusline.component("frozen", {
+  rank = 5,
+  key = function() return api.project_get("edits") end,
+  fn = function()
+    local stale = paw.freeze_block.stale()
+    if #stale == 0 then return nil end
+    return { { "stale: " .. table.concat(stale, ", "), "StatusWarn" } }
+  end,
+})
+
 --- What made the state the project is in now, as the undo tree names it.
 local function step_name()
   local ok, tree = pcall(api.undo_tree)

@@ -230,6 +230,13 @@ impl<'p> Pass<'p, '_, '_> {
         // Frozen tracks play a file, and what feeds them is held.
         let new = self.new;
         let mut played = crate::freeze::played(new, &self.map.held_files);
+        // A nest that only frozen blocks place rests, as what feeds a
+        // frozen track does.
+        for nest in self.placed.resting() {
+            for t in new.nest_tracks(nest) {
+                played.entry(t.id).or_insert(Played::Held);
+            }
+        }
         let (shown, old_shown) = (self.shown, self.old_shown);
         for track in new.all_tracks() {
             let plays = played.remove(&track.id);

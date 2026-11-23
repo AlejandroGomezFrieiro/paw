@@ -11,7 +11,8 @@ The measures: for startup the time to the first frame; for keys the
 kernel's processor time and the time to the first frame of each key; for
 idle, play and record the processor share of the kernel thread and its
 instructions (perf stat, when --perf is given); for repeat the kernel's
-processor time per round and the time from each key to its first frame.
+processor time per round, the time from each key to its first frame, and
+(with --budget) the callbacks over the budget: the slow-key warnings.
 """
 import json
 import os
@@ -37,6 +38,8 @@ def measures(rec):
             out["kernel Ginstructions/s"] = kernel["instructions:u"] / 1e9 / rec["seconds"]
     elif s == "repeat":
         out["kernel ms per round"] = rec["kernel_cpu_ms_per_round"]
+        if "slow" in rec:
+            out["callbacks over the budget"] = sum(times for _, times, _ in rec["slow"])
         for k, v in rec.items():
             if k.startswith("first_frame_ms "):
                 out[k[len("first_frame_ms "):] + ": first frame ms (median of the rounds)"] = v[0]

@@ -8,6 +8,7 @@ use std::sync::atomic::Ordering;
 use anyhow::Result;
 use paw_engine::device::Change;
 use paw_engine::{Controller, ParamInfo, Ports};
+use vst3::ComPtr;
 use vst3::Steinberg::Vst::*;
 
 use super::editor::Editor;
@@ -58,29 +59,16 @@ impl Controller for Vst3Controller {
     }
 
     fn set_offline(&mut self, offline: bool) {
-        // The mode is part of the processing setup, which can only be
-        // changed while the processor is stopped.
         crate::debug_assert_main_thread();
         let shared = &self.shared;
         // The audio thread waits at most one block for the lock, and then
         // leaves the blocks alone until it is let go.
         let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
-        // SAFETY: The calls are on the main thread, and `shared.run` is held, so the audio thread is
-        // not in `process` while the processor is stopped, set up and started again, as VST3 wants.
-        unsafe {
-            shared.processor.setProcessing(0);
-            shared.component.setActive(0);
-            let mut setup = ProcessSetup {
-                processMode: if offline { OFFLINE } else { REALTIME },
-                symbolicSampleSize: SAMPLE_32,
-                maxSamplesPerBlock: shared.max_block,
-                sampleRate: shared.sample_rate,
-            };
-            if shared.processor.setupProcessing(&mut setup) == OK {
-                shared.offline.store(offline, Ordering::Relaxed);
-            }
-            shared.component.setActive(1);
-            shared.processor.setProcessing(1);
+        let (block, rate) = (shared.max_block, shared.sample_rate);
+        // SAFETY: The call is on the main thread with the plugin's live objects, and `shared.run` is
+        // held, so the audio thread is not in `process` while the processor is set up again.
+        if unsafe { set_up_again(&shared.component, &shared.processor, block, rate, offline) } {
+            shared.offline.store(offline, Ordering::Relaxed);
         }
     }
 
@@ -244,5 +232,186 @@ impl Controller for Vst3Controller {
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         self.load_plugin_state(state)
+    }
+}
+
+/// Set the processor up again for blocks of at most `max_block` frames at
+/// `sample_rate`, in the mode of `offline` (`kOffline` for a render, else
+/// `kRealtime`), and give whether the plugin took the setup. VST3 changes a processing setup only while the processor is
+/// stopped and the component is inactive, so this stops both first and
+/// starts them again after, also when the plugin refuses the setup.
+///
+/// # Safety
+/// Call it on the main thread, with live objects of one plugin, while the
+/// audio thread is not in `process` (hold `Shared::run`).
+unsafe fn set_up_again(
+    component: &ComPtr<IComponent>,
+    processor: &ComPtr<IAudioProcessor>,
+    max_block: i32,
+    sample_rate: f64,
+    offline: bool,
+) -> bool {
+    let mut setup = ProcessSetup {
+        processMode: if offline { OFFLINE } else { REALTIME },
+        symbolicSampleSize: SAMPLE_32,
+        maxSamplesPerBlock: max_block,
+        sampleRate: sample_rate,
+    };
+    // SAFETY: The caller keeps the contract above; `setup` lives through the call.
+    unsafe {
+        processor.setProcessing(0);
+        component.setActive(0);
+        let took = processor.setupProcessing(&mut setup) == OK;
+        component.setActive(1);
+        processor.setProcessing(1);
+        took
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use vst3::Steinberg::Vst::ProcessModes_::{kOffline, kRealtime};
+    use vst3::Steinberg::*;
+    use vst3::{Class, ComWrapper};
+
+    use super::*;
+
+    /// A call of the host to the fake plugin.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Call {
+        Processing(bool),
+        Active(bool),
+        Setup(i32),
+    }
+
+    /// A plugin that records the calls that set up its processing (a spy),
+    /// and does not implement the other calls.
+    #[derive(Default)]
+    struct Spy {
+        calls: RefCell<Vec<Call>>,
+    }
+
+    impl Spy {
+        fn push(&self, call: Call) -> tresult {
+            self.calls.borrow_mut().push(call);
+            OK
+        }
+    }
+
+    impl Class for Spy {
+        type Interfaces = (IComponent, IAudioProcessor);
+    }
+
+    impl IPluginBaseTrait for Spy {
+        unsafe fn initialize(&self, _context: *mut FUnknown) -> tresult {
+            OK
+        }
+        unsafe fn terminate(&self) -> tresult {
+            OK
+        }
+    }
+
+    impl IComponentTrait for Spy {
+        unsafe fn getControllerClassId(&self, _class_id: *mut TUID) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn setIoMode(&self, _mode: IoMode) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn getBusCount(&self, _kind: MediaType, _dir: BusDirection) -> int32 {
+            0
+        }
+        unsafe fn getBusInfo(
+            &self,
+            _kind: MediaType,
+            _dir: BusDirection,
+            _index: int32,
+            _bus: *mut BusInfo,
+        ) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn getRoutingInfo(&self, _in: *mut RoutingInfo, _out: *mut RoutingInfo) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn activateBus(
+            &self,
+            _kind: MediaType,
+            _dir: BusDirection,
+            _index: int32,
+            _state: TBool,
+        ) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn setActive(&self, state: TBool) -> tresult {
+            self.push(Call::Active(state != 0))
+        }
+        unsafe fn setState(&self, _state: *mut IBStream) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn getState(&self, _state: *mut IBStream) -> tresult {
+            kNotImplemented
+        }
+    }
+
+    impl IAudioProcessorTrait for Spy {
+        unsafe fn setBusArrangements(
+            &self,
+            _inputs: *mut SpeakerArrangement,
+            _ins: int32,
+            _outputs: *mut SpeakerArrangement,
+            _outs: int32,
+        ) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn getBusArrangement(
+            &self,
+            _dir: BusDirection,
+            _index: int32,
+            _arrangement: *mut SpeakerArrangement,
+        ) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn canProcessSampleSize(&self, _size: int32) -> tresult {
+            OK
+        }
+        unsafe fn getLatencySamples(&self) -> uint32 {
+            0
+        }
+        unsafe fn setupProcessing(&self, setup: *mut ProcessSetup) -> tresult {
+            // SAFETY: The host gives a live setup for the length of the call.
+            self.push(Call::Setup(unsafe { (*setup).processMode }))
+        }
+        unsafe fn setProcessing(&self, state: TBool) -> tresult {
+            self.push(Call::Processing(state != 0))
+        }
+        unsafe fn process(&self, _data: *mut ProcessData) -> tresult {
+            kNotImplemented
+        }
+        unsafe fn getTailSamples(&self) -> uint32 {
+            0
+        }
+    }
+
+    /// The calls that a plugin gets when `Vst3Controller::set_offline`
+    /// sets it up for `offline`.
+    fn calls_to_set_up(offline: bool) -> Vec<Call> {
+        let spy = ComWrapper::new(Spy::default());
+        let component = spy.to_com_ptr::<IComponent>().unwrap();
+        let processor = spy.to_com_ptr::<IAudioProcessor>().unwrap();
+        // SAFETY: The test thread is the only thread, and the objects are live.
+        assert!(unsafe { set_up_again(&component, &processor, 512, 48000.0, offline) });
+        spy.calls.take()
+    }
+
+    #[test]
+    fn a_render_sets_the_processor_up_offline_and_then_realtime_again() {
+        let stop = [Call::Processing(false), Call::Active(false)];
+        let start = [Call::Active(true), Call::Processing(true)];
+        for (offline, mode) in [(true, kOffline), (false, kRealtime)] {
+            let want = [&stop[..], &[Call::Setup(mode as i32)], &start[..]].concat();
+            assert_eq!(calls_to_set_up(offline), want, "set up with offline = {offline}");
+        }
     }
 }

@@ -76,6 +76,40 @@ end
 
 local function first_line(text) return (tostring(text):match("^[^\n]*")) end
 
+-- paw runs the tests in the checkout. A call that can resolve a path
+-- against the current folder (an empty path) runs with a folder under
+-- T.scratch as the current folder: a wrong binary writes there, never
+-- into the checkout.
+local ffi = require("ffi")
+for _, decl in ipairs({
+  "int chdir(const char *path);",
+  "char *getcwd(char *buf, size_t size);",
+  "int setenv(const char *name, const char *value, int overwrite);",
+}) do
+  pcall(ffi.cdef, decl)
+end
+
+local function current_folder()
+  local buf = ffi.new("char[?]", 4096)
+  assert(ffi.C.getcwd(buf, 4096) ~= nil, "cannot read the current folder")
+  return ffi.string(buf)
+end
+
+local function change_folder(dir, pwd)
+  assert(ffi.C.chdir(dir) == 0, "cannot change the current folder to " .. dir)
+  ffi.C.setenv("PWD", pwd, 1)
+end
+
+-- pcall(fn, ...) with `dir` as the current folder, and the folder put back.
+local function pcall_in(dir, fn, ...)
+  api.fs_mkdir(dir)
+  local back, pwd = current_folder(), os.getenv("PWD") or "/"
+  change_folder(dir, dir)
+  local result = { pcall(fn, ...) }
+  change_folder(back, pwd)
+  return unpack(result, 1, table.maxn(result))
+end
+
 -- The fixture: one of each thing that an id names, and the ids of things
 -- that were there and are deleted.
 local function fixture()
@@ -208,7 +242,7 @@ end
 local function check(name, args, n)
   api.undo_checkpoint()
   local before, step = fingerprint(), api.undo_current()
-  local ok, result = pcall(api[name], unpack(args, 1, n))
+  local ok, result = pcall_in(T.scratch .. "/boundary-cwd", api[name], unpack(args, 1, n))
   if fingerprint() ~= before and not api.undo_pending() and api.undo_current() == step then
     return "changed the project without an undo step", ok, result
   end
@@ -307,8 +341,16 @@ end)
 
 T.test("saving the project to an empty path is refused, and writes nothing in the current folder", function()
   fixture()
-  T.fails(function() api.project_save("") end, "a project needs a path to save to, not an empty one", 'save to ""')
+  local away = T.scratch .. "/empty-save-cwd"
+  local ok, err = pcall_in(away, api.project_save, "")
+  T.eq(ok, false, 'save to "" fails')
+  T.eq(
+    tostring(err):find("a project needs a path to save to, not an empty one", 1, true) ~= nil,
+    true,
+    "the message: " .. tostring(err)
+  )
   T.eq(api.project_get("path"), nil, "the project has no file still")
+  T.eq(api.read_dir(away), {}, "what the call wrote in its current folder")
 end)
 
 T.test("the functions that the paw.api walk does not call or restores are functions of paw.api", function()

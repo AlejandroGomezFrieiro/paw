@@ -481,6 +481,94 @@ test("projdiff: :Pdiff compares with the saved file, an undo state and a snapsho
   eq(#paw.qf.current().entries, 1, "the added clip, in quickfix")
 end)
 
+-- Subprojects --------------------------------------------------------------------
+
+--- A song whose row Bridge places the subproject Bridge, whose track Inner
+--- places the subproject Verse; Keys of Bridge and Strings of Verse have a
+--- clip of one note each. Saved as `name`; returns the path and the ids.
+local function nested(name)
+  fresh()
+  local row = paw.add_track({ name = "Bridge" })
+  local bridge = api.nest_add({ name = "Bridge", length = 16 })
+  local verse = api.nest_add({ name = "Verse", length = 8 })
+  local keys = api.track_add({ name = "Keys", nest = bridge })
+  local inner = api.track_add({ name = "Inner", nest = bridge })
+  local strings = api.track_add({ name = "Strings", nest = verse })
+  local ids = {
+    bridge = bridge,
+    verse = verse,
+    keys = keys,
+    strings = strings,
+    keys_clip = api.clip_add(
+      keys,
+      { name = "chords", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } }
+    ),
+    strings_clip = api.clip_add(
+      strings,
+      { name = "pad", start = 0, length = 4, notes = { { pitch = 64, start = 0, length = 1 } } }
+    ),
+  }
+  api.clip_add(inner, { nest = verse, start = 0 })
+  api.clip_add(row.id, { nest = bridge, start = 0 })
+  api.undo_checkpoint()
+  local path = scratch .. "/" .. name .. ".json"
+  api.project_save(path)
+  return path, ids
+end
+
+test("projdiff: <Space>gd shows an edit inside a subproject under the subproject's name", function()
+  start()
+  local path, ids = nested("nest-edit")
+  api.project_load(path)
+  api.clip_add_notes(ids.keys_clip, { { pitch = 67, start = 2, length = 1 } })
+  api.track_set(paw.nest.get(ids.bridge).master, { volume = -6 })
+  T.keys("<Space>gd")
+  local view = require("projdiff.view")
+  T.after(function() paw.ui.close() end)
+  eq(view.title_text:find("saved → now: 2 changes", 1, true) ~= nil, true, view.title_text)
+  local text = table.concat(projdiff.diff.lines(view.tree), "\n")
+  eq(
+    text,
+    table.concat({
+      ('~ subproject %d "Bridge"'):format(ids.bridge),
+      "  ~ master",
+      "    ~ volume: 0 -> -6",
+      ('  ~ track %d "Keys"'):format(ids.keys),
+      ('    ~ clip %d "chords"'):format(ids.keys_clip),
+      "      ~ notes +1",
+      "        + note 2 G4 at 2, 1 long, velocity 100",
+    }, "\n"),
+    "the edits, under Bridge, with its master track named so"
+  )
+end)
+
+test("projdiff: an edit inside a subproject of a subproject shows under both names", function()
+  load()
+  local path, ids = nested("nest-deep")
+  local before = decode(path)
+  api.clip_add_notes(ids.strings_clip, { { pitch = 71, start = 1, length = 1 } })
+  local now = projdiff.state(nil)
+  eq(
+    lines(before, now),
+    table.concat({
+      ('~ subproject %d "Bridge"'):format(ids.bridge),
+      ('  ~ subproject %d "Verse"'):format(ids.verse),
+      ('    ~ track %d "Strings"'):format(ids.strings),
+      ('      ~ clip %d "pad"'):format(ids.strings_clip),
+      "        ~ notes +1",
+      "          + note 2 B4 at 1, 1 long, velocity 100",
+    }, "\n"),
+    "the edit, under Bridge and Verse"
+  )
+  local entries = projdiff.diff.entries(projdiff.diff.diff(before.project, now.project))
+  local trail = ('subproject %d "Bridge" › subproject %d "Verse" › track %d "Strings"'):format(
+    ids.bridge,
+    ids.verse,
+    ids.strings
+  )
+  eq(entries[1].text:sub(1, #trail), trail, "the quickfix entry names both subprojects")
+end)
+
 -- Git ----------------------------------------------------------------------------
 
 local function run(command)
