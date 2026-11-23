@@ -10,3 +10,5 @@ third_party/
 /fuzz/corpus/
 /fuzz/artifacts/
 /fuzz/coverage/
+# The bytecode of Python (bench/profile).
+__pycache__/
