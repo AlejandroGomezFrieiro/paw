@@ -3,10 +3,13 @@
 -- fold by itself, folded into its own row. A time fold draws a region or
 -- a range of bars as one narrow column with its name and its bars
 -- (`Bridge ▸ 8`); every region is a fold by itself, closed by its level
--- (`zm`, `zr`, as the `foldlevel` option of Vim).
+-- (`zm`, `zr`, as the `foldlevel` option of Vim). A block fold (some
+-- tracks for some bars, from a visual block) draws one cell over its rows
+-- and its time; the other tracks show that time as usual.
 --
 --   paw.folds.make({ kind = "tracks", tracks = { 3, 4, 5 } })  -- `Vjjzf`: "Fold 1"
 --   paw.folds.make({ kind = "region", id = 7 })               -- `zfar`
+--   paw.folds.make({ kind = "range", tracks = { 3, 4 }, from = 0, to = 16 })  -- a block
 --   paw.folds.toggle()      -- `za` at the cursor
 --   paw.folds.delete()      -- `zd`: the fold goes, never a track
 --   paw.folds.all(true)     -- `zM`; `all(false)` is `zR`
@@ -164,8 +167,15 @@ end
 
 -- Time folds ----------------------------------------------------------------------------
 
+--- A fold of time takes every track: a region, or a range of bars with
+--- no list of tracks. A range with a list of tracks is a block.
 local function is_time(f: Fold): boolean
-  return f.kind == "region" or f.kind == "range"
+  return f.kind == "region" or (f.kind == "range" and f.tracks == nil)
+end
+
+--- A block fold: some tracks for some bars, one cell over them.
+local function is_block(f: Fold): boolean
+  return f.kind == "range" and f.tracks ~= nil
 end
 
 local function region_entry(folds: {Fold}, id: integer): Fold, integer
@@ -250,17 +260,22 @@ local function size(f: Fold): integer
   return n
 end
 
---- Whether a fold of tracks holds every track of the scope a window
---- shows: then it is open there, as the window shows its inside.
+--- Whether a fold of tracks or a block holds every track of the scope a
+--- window shows, and a block all its time too: then it is open there, as
+--- the window shows its inside.
 local function is_whole_scope(f: Fold, win?: Window): boolean
   local s = paw.scope.current(win)
-  if not (s and f.kind == "tracks" and paw.scope.limits_tracks(s)) then
+  if not (s and (f.kind == "tracks" or is_block(f)) and paw.scope.limits_tracks(s)) then
     return false
   end
   for _, id in ipairs(paw.scope.tracks(s)) do
     if not holds(f, id) then
       return false
     end
+  end
+  if is_block(f) then
+    local from, to = paw.scope.span(s)
+    return from ~= nil and f.from <= from + 1e-9 and f.to >= to - 1e-9
   end
   return true
 end
@@ -330,15 +345,17 @@ function M.name(f: Fold): string
   return "Fold"
 end
 
---- What a fold holds, in words: `3 tracks`, `8 bars`.
+--- What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
 function M.describe(f: Fold): string
-  if is_time(f) then
-    local from, to = span_of(f)
-    local n = from and bars(from, to) or 0
-    return string.format("%d bar%s", n, n == 1 and "" or "s")
-  end
   local n = size(f)
-  return string.format("%d track%s", n, n == 1 and "" or "s")
+  local tracks = string.format("%d track%s", n, n == 1 and "" or "s")
+  if is_time(f) or is_block(f) then
+    local from, to = span_of(f)
+    local b = from and bars(from, to) or 0
+    local time = string.format("%d bar%s", b, b == 1 and "" or "s")
+    return is_block(f) and (tracks .. ", " .. time) or time
+  end
+  return tracks
 end
 
 --- How many tracks of a fold are there.
@@ -371,7 +388,7 @@ function M.time_spans(win?: Window): {TimeSpan}
     end
   end
   for _, f in ipairs(w.folds or {}) do
-    if f.kind == "range" and f.closed then
+    if f.kind == "range" and not is_block(f) and f.closed then
       add(f, f.from, f.to, f.name or "Fold")
     end
   end
@@ -459,6 +476,44 @@ function M.time_at(beat: number, win?: Window): TimeSpan
   end
 end
 
+-- Block folds ---------------------------------------------------------------------------
+
+--- The closed block folds that a window draws (the one a view shows by
+--- default), in the order they were made: each draws one cell over the
+--- rows of its tracks and its time. A block that holds all of the scope
+--- the window shows is open there.
+function M.blocks(win?: Window): {Fold}
+  local out: {Fold} = {}
+  for _, f in ipairs(M.list(win)) do
+    if is_block(f) and f.closed and not is_whole_scope(f, win) then
+      out[#out + 1] = f
+    end
+  end
+  return out
+end
+
+--- The block fold at a track and a beat in a window, open or closed (a
+--- closed one first), or nil.
+local function block_at(id: integer, beat: number, win?: Window): Fold
+  local found: Fold
+  for _, f in ipairs(M.list(win)) do
+    if is_block(f) and holds(f, id) and beat >= f.from - 1e-9 and beat < f.to - 1e-9 and not is_whole_scope(f, win) then
+      if f.closed then
+        return f
+      end
+      found = found or f
+    end
+  end
+  return found
+end
+
+--- The closed block fold at the cursor in a window, or nil.
+function M.block_at_cursor(win?: Window): Fold
+  local id = paw.cursor.track_id()
+  local f = id and id ~= 0 and block_at(id, paw.cursor.beat, win)
+  return f and f.closed and f or nil
+end
+
 --- Where the cursor goes when it moves from beat `old` to `new`: a beat
 --- inside a closed time fold is its start, or its end when the cursor
 --- moves on from its start, so that a motion takes a fold as one step.
@@ -512,13 +567,19 @@ end
 
 --- The fold at a track (the cursor's by default), in a window: the
 --- largest closed one, which its row stands for, else the smallest. Nil
---- when the track is in none.
+--- when the track is in none. At the cursor, a closed time fold or a
+--- block that the cursor is in comes first.
 function M.at(id?: integer, win?: Window): Fold
   if not id then
-    -- At the cursor: a closed time fold it is on comes first.
+    -- At the cursor: a closed time fold it is on comes first, then a block.
     local s = M.time_at(paw.cursor.beat, win)
     if s then
       return s.fold
+    end
+    local track = paw.cursor.track_id()
+    local block = track and track ~= 0 and block_at(track, paw.cursor.beat, win)
+    if block then
+      return block
     end
   end
   id = id or paw.cursor.track_id()
@@ -536,8 +597,8 @@ function M.at(id?: integer, win?: Window): Fold
 end
 
 --- The closed fold at the cursor, in a window: the time fold that the
---- cursor is in, else the fold that the cursor's row stands for. Nil when
---- the cursor is on no closed fold.
+--- cursor is in, else the closed block that it is in, else the fold that
+--- the cursor's row stands for. Nil when the cursor is on no closed fold.
 function M.closed_at(win?: Window): Fold
   local s = M.time_at(paw.cursor.beat, win)
   if s then
@@ -637,6 +698,14 @@ end
 --- Close the fold at the cursor, as `zc`; on a closed fold, the one
 --- around it. Returns it, or nil and the reason.
 function M.close(id?: integer, win?: Window): Fold, string
+  -- An open block at the cursor closes first.
+  if not id then
+    local block = M.at(nil, win)
+    if block and is_block(block) and not block.closed then
+      set(block, true, win)
+      return block
+    end
+  end
   id = id or paw.cursor.track_id()
   local list = id and around(id, win) or {}
   for _, f in ipairs(list) do
@@ -682,7 +751,9 @@ end
 
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
 --- window: a group folds into its row (`zfag`), tracks into one row named
---- `Fold 1` (`Vjjzf`). Returns it, or nil and the reason.
+--- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
+--- (`zfar`), and some tracks for some bars into one cell (a visual block,
+--- then `zf`). Returns it, or nil and the reason.
 function M.make(spec: contracts.Scope, win?: Window): Fold, string
   if not spec then
     return nil, "nothing to fold"
@@ -721,13 +792,16 @@ function M.make(spec: contracts.Scope, win?: Window): Fold, string
     return (region_entry(folds, spec.id))
   end
   if spec.kind == "range" and spec.from and spec.to and spec.to > spec.from then
-    -- Time on every track of the window: a time fold. On some tracks only,
-    -- a block, which does not fold yet.
+    -- Time on every track of the window: a time fold. On some tracks only:
+    -- a block, which keeps its list of tracks.
     local all = paw.scope.tracks(paw.scope.current(paw.scope.holder(win)))
-    if spec.tracks and #spec.tracks < #all then
-      return nil, "a fold of time takes every track: `ggVG` and the bars, or `zfar`"
-    end
     local f: Fold = {kind = "range", from = spec.from, to = spec.to, name = spec.name or new_name(folds)}
+    if spec.tracks and #spec.tracks < #all then
+      f.tracks = {}
+      for i, id in ipairs(spec.tracks) do
+        f.tracks[i] = id
+      end
+    end
     folds[#folds + 1] = f
     set(f, true, win)
     return f

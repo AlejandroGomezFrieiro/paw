@@ -35,7 +35,8 @@ same scope:
   start, and the loop is its time.
 - Folded: the window shows the scope in place, closed. A group folds
   into one row, and a region folds into one narrow column with its name
-  and its bars, for example `Bridge ▸ 8`.
+  and its bars, for example `Bridge ▸ 8`. A block of some tracks in some
+  bars folds into one cell over them.
 - Open: the window shows the scope in place, as usual.
 
 Because a fold and a scope are the same thing, you can go from one form
