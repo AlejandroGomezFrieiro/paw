@@ -284,15 +284,32 @@ end, {
   end,
 })
 -- `:render`, `:render.cancel` and `:stems` are in paw/render.tl.
-command("track.bounce", function()
-  local track = need_track()
-  if not track then return end
-  -- What the track sounds like, devices and all, as one audio clip on a new
-  -- track below it; the original is muted, not removed.
-  local bounced = paw.bounce(track)
+-- `:bounce` renders tracks into the project as a new audio track
+-- (paw/bounce.tl): the tracks of a range (`:t2,t4bounce`), else of the
+-- selection, else of the cursor. A range of time (`:5,8bounce`,
+-- `:'<,'>bounce`) bounces that time only.
+command("bounce", function(ctx)
+  local range = ctx.range or {}
+  local tracks = range.tracks or common.chosen_tracks()
+  if #tracks == 0 then return paw.notify("no track to bounce", "warn") end
+  local bounced = paw.bounce.tracks(tracks, {
+    tap = ctx.args.tap,
+    tail = tonumber(ctx.args.tail),
+    start = range.from,
+    ["end"] = range.to,
+  })
   if not bounced then return paw.notify("nothing on the track to bounce", "warn") end
+  if keymap.mode == "x" then keymap.set_mode("n") end
   cursor.set_track(bounced)
-end, { desc = "Render the track with its devices to audio on a new track, and mute the original" })
+  local muted = #tracks == 1 and api.track_get(tracks[1], "name") or (#tracks .. " tracks")
+  paw.notify(string.format("bounced to “%s”; %s muted · u undoes it", bounced.name, muted))
+end, {
+  range = true,
+  label = "Bounce to audio",
+  desc = "Render the track, or the tracks of a range or the selection, to a new audio track below, and mute them: "
+    .. "`:bounce`, `:t2,t4bounce`, `:'<,'>bounce` (that time only), `:bounce tap=pre` (the fader stays live)",
+  complete = function() return { "tap=post", "tap=pre", "tail=" } end,
+})
 command(
   "lane.write",
   function(ctx)

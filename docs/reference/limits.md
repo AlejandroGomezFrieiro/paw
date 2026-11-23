@@ -317,7 +317,7 @@ The limits page lists what paw does not do, and the known limits of what it does
   - An edit in the window of the plugin is not an undo step of paw.
   - Attachments take CLAP plugins only.
 - A freeze after the fader: paw takes a freeze before the fader, so the
-  mix stays live (`:track.bounce` also renders the fader).
+  mix stays live (`:bounce` also renders the fader).
   - A send from a track inside a frozen group to a track outside it is not
     heard while the group is frozen.
   - paw does not render a frozen track again when the tempo changes.

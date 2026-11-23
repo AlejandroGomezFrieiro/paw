@@ -24,5 +24,5 @@ does not render the file again by itself.
 
 To freeze several tracks, give a range: `:t2,t4freeze`.
 
-If you also want to render the fader and the pan, use `:track.bounce`
+If you also want to render the fader and the pan, use `:bounce`
 instead. It makes a new audio track and mutes the original track.

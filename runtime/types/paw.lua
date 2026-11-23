@@ -35,6 +35,9 @@ paw.audition = {}
 ---@class paw.autosave
 paw.autosave = {}
 
+---@class paw.bounce
+paw.bounce = {}
+
 ---@class paw.bytes
 paw.bytes = {}
 
@@ -349,18 +352,6 @@ paw.api.version = "1.0.0"
 --- `opts.nest` says another.
 ---@param opts any
 function paw.add_track(opts) end
-
---- Render a track with its devices to audio, as one clip on a new track
---- immediately below it, and mute the original. The new track sends its
---- sound where the original sent it. The render has the track's fader and
---- pan but not the master's devices and fader, because the new track plays
---- through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track
---- ("<name> (bounced)" by default). `opts.tail` is the seconds rendered
---- after its last clip (2). Returns the new track, or nil when the track
---- has no clips.
----@param track any
----@param opts any
-function paw.bounce(track, opts) end
 
 --- Make a buffer type. See `docs/reference/lua-views.md`.
 ---   paw.buftype("notes", { create = function(target) return {} end, render = function(win, canvas, ctx) end })
@@ -1326,6 +1317,31 @@ function paw.autosave.orphan_takes() end
 ---@param file any
 ---@param opts any
 function paw.autosave.recover(file, opts) end
+
+--- Render a track (its id, or the track) to audio, as one clip on a new
+--- track below it, and mute it. `paw.bounce(track, opts)` is the same. The
+--- new track plays its sound where the old one sends it. `opts.tap` is where the
+--- render listens: `"post"` (the default) holds the track's devices, fader
+--- and pan, but not its groups or the master, and the new track's fader
+--- starts at 0 dB. `"pre"` is before the fader: the new track gets the
+--- volume, pan and sends of the old one, and the automation of its volume
+--- and pan. `opts.start` and `opts["end"]` are the beats to render (from
+--- the first clip to the end of the last by default), and `opts.tail` the
+--- seconds after the end (2). `opts.name` names the new track ("<name>
+--- (bounced)" by default). It uses `paw.render`, so `render.before` runs.
+--- Returns the new track, or nil when there is nothing to render.
+---@param track any
+---@param opts any
+function paw.bounce.track(track, opts) end
+
+--- Render the tracks of `ids` to audio, as one clip on a new track below
+--- the last of them, and mute them. The new track plays its sound where the
+--- first track sends its sound. `opts` is as for `paw.bounce.track`, and
+--- `opts.tap = "pre"` takes one track only. Returns the new track, or nil
+--- when there is nothing to render.
+---@param ids any
+---@param opts any
+function paw.bounce.tracks(ids, opts) end
 
 paw.bytes.base64 = paw.api.base64_encode
 
@@ -7145,7 +7161,8 @@ function paw.render.default_path() end
 ---   tail        seconds after the end, for reverbs and delays to ring out (1)
 ---   sample_rate (or rate) Hz; the engine's by default
 ---   bits        16, 24 or 32 (float; WAV only); 24 by default
----   channels    2 (or "stereo") or 1 (or "mono")
+---   channels    "stereo" (the default), "mono" (one channel: (left + right) / 2) or
+---               "auto" (one channel when the two sides are equal to the bit, else two)
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number

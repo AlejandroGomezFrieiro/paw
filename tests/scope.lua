@@ -1,7 +1,7 @@
 -- Tests of narrowing to a group (paw.scope), freezing tracks, groups and
 -- blocks of subprojects (paw.freeze, paw.freeze_block,
--- crates/paw-core/src/freeze.rs) and stems by group (paw.stems). Loaded by
--- tests/suite.lua with its helpers.
+-- crates/paw-core/src/freeze.rs), bounces (paw.bounce) and stems by group
+-- (paw.stems). Loaded by tests/suite.lua with its helpers.
 local T = ...
 local test, eq, near, fails, fresh = T.test, T.eq, T.near, T.fails, T.fresh
 local api = paw.api
@@ -710,22 +710,136 @@ test("a frozen track renders as it did live, and its fader stays live", function
   reset()
 end)
 
-test("a bounced track sounds through the master as the original did", function()
+-- Bounce ---------------------------------------------------------------------------
+
+--- The place of each track in the song's list.
+local function places()
+  local out = {}
+  for i, id in ipairs(api.track_list()) do
+    out[id] = i
+  end
+  return out
+end
+
+test(
+  "a bounce renders after the fader, below the track, and sounds the same through the groups and the master",
+  function()
+    start()
+    local o = orchestra()
+    o.violins.volume, o.violins.pan = -6, 0.5
+    o.strings:add_device("gain", { gain = -6 })
+    paw.master:add_device("gain", { gain = -6 })
+    paw.flush()
+    api.undo_checkpoint()
+    local live = render()
+    local count = #api.track_list()
+    paw.cursor.set_track(o.violins)
+    keys(":bounce<CR>")
+    local bounced = paw.cursor.track()
+    local file = bounced:clips()[1].file
+    eq(
+      bounced.name .. " " .. tostring(o.violins.mute),
+      "Violins (bounced) true",
+      "a new track beside the muted original"
+    )
+    eq(said(), "bounced to “Violins (bounced)”; Violins muted · u undoes it", "the message names the new track")
+    eq(places()[bounced.id], places()[o.violins.id] + 1, "right below it")
+    eq(bounced.output, o.strings.id, "into the group of the original")
+    eq(bounced.volume .. " " .. bounced.pan, "0 0", "its fader at 0 dB in the center")
+    -- The group's gain, the master's gain and the track's fader are each heard once.
+    local worst, peak = difference(live, render())
+    eq(peak > 0.05, true, "it sounds")
+    eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
+    keys("u")
+    eq(#api.track_list() .. " " .. tostring(o.violins.mute), count .. " false", "one u takes the bounce back")
+    os.remove(file)
+    reset()
+  end
+)
+
+test("a bounce takes a range of tracks to one new track, and a range of time to that time only", function()
   start()
-  local t = synth("Lead", 60)
-  t.volume = -6
-  paw.master:add_device("gain", { gain = -6 })
+  local a, b, c = synth("A", 60), synth("B", 64), synth("C", 67)
   paw.flush()
+  api.undo_checkpoint()
   local live = render()
-  paw.cursor.set_track(t)
-  keys(":track.bounce<CR>")
+  local count, at = #api.track_list(), places()
+  local files = {}
+  local function bounced()
+    local t = paw.cursor.track()
+    files[#files + 1] = t:clips()[1].file
+    return t
+  end
+  local function muted() return tostring(a.mute) .. " " .. tostring(b.mute) .. " " .. tostring(c.mute) end
+
+  keys(string.format(":t%d,t%dbounce<CR>", at[a.id], at[b.id]))
+  local t = bounced()
+  eq(t.name .. " " .. #t:clips(), "A + 1 (bounced) 1", "one new track with one clip for both")
+  eq(#api.track_list() .. " " .. muted(), (count + 1) .. " true true false", "and both tracks muted")
+  eq(places()[t.id], at[b.id] + 1, "below the last of them")
+  local worst = difference(live, render())
+  eq(worst < 1e-5, true, "the song sounds the same: " .. worst)
+  keys("u")
+
+  paw.cursor.set_track(b)
+  keys("Vj<Esc>")
+  keys(":t'<,'>bounce<CR>")
+  t = bounced()
+  eq(t.name .. " " .. muted(), "B + 1 (bounced) false true true", "the tracks of the selection")
+  keys("u")
+  paw.cursor.set_track(b)
+  keys("Vj<Space>tb")
+  t = bounced()
+  eq(t.name .. " " .. paw.keymap.mode, "B + 1 (bounced) n", "<Space>tb in visual mode: the same, and visual mode ends")
+  keys("u")
+  paw.cursor.set_track(b)
+  keys("<Space>tb")
+  eq(bounced().name, "B (bounced)", "<Space>tb in normal mode: the track at the cursor")
+  keys("u")
+
+  paw.cursor.set_track(a)
+  paw.cursor.set_beat(1)
+  keys("vll<Esc>")
+  keys(":'<,'>bounce<CR>")
+  t = bounced()
+  local selection, clip = paw.keymap.last_selection(), t:clips()[1]
+  eq(t.name, "A (bounced)", "the track of the selection")
+  near(clip.start, selection.c0, 1e-9, "the clip starts where the selection starts")
+  -- At 120 bpm the tail of 2 seconds is 4 beats.
+  near(clip.length, selection.c1 - selection.c0 + 4, 1e-3, "and holds its time and the tail")
+  keys("u")
+  for _, file in ipairs(files) do
+    os.remove(file)
+  end
+  reset()
+end)
+
+test("a bounce before the fader gives the new track the fader, pan and sends of the old one", function()
+  start()
+  local pad = synth("Pad", 60)
+  local echo = paw.add_track({ name = "Echo" })
+  echo:add_device("delay", {})
+  pad.volume, pad.pan = -6, -0.5
+  pad:send(echo, -9)
+  paw.flush()
+  api.undo_checkpoint()
+  local live = render()
+  paw.cursor.set_track(pad)
+  keys(":bounce tap=pre<CR>")
   local bounced = paw.cursor.track()
-  eq(bounced.name .. " " .. tostring(t.mute), "Lead (bounced) true", "a new track beside the muted original")
-  -- The master's gain and the track's fader are each heard once.
+  local send = api.track_get(bounced.id).sends[1]
+  eq(
+    string.format("%s %g %g %s %g", bounced.name, bounced.volume, bounced.pan, send.target == echo.id, send.level),
+    "Pad (bounced) -6 -0.5 true -9",
+    "the fader, the pan and the send"
+  )
   local worst, peak = difference(live, render())
   eq(peak > 0.05, true, "it sounds")
-  eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
+  eq(worst < 1e-5, true, "the same sound, with the fader live: " .. worst)
   os.remove(bounced:clips()[1].file)
+  keys("u")
+  fails(function() paw.commands.exec("t*bounce tap=pre") end, "one track at a time", "tap=pre of two tracks")
+  fails(function() paw.commands.exec("bounce tap=master") end, "tap=post or tap=pre", "a tap that plays twice")
   reset()
 end)
 

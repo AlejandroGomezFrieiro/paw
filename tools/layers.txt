@@ -92,6 +92,7 @@ paw.stems
 paw.bake_state
 paw.freeze_block
 paw.freeze
+paw.bounce
 paw.audio
 paw.media
 paw.audition

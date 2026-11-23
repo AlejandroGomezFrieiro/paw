@@ -16,7 +16,7 @@ the steps, see [How to export a song as WAV, FLAC or MP3](../how-to/export-a-son
 | `:render stems` | Render one file for each group (see Stems). |
 | `:render.regions out` | Render each region to a file of its own (see Regions). |
 | `:stems out` | Render one file for each track into `out` (default: `renders/stems`), as `paw.render_stems`. |
-| `:track.bounce` | Render a track to a new audio track (see Bounce). |
+| `:bounce` | Render tracks to a new audio track (see Bounce). |
 
 ## `:render`
 
@@ -58,7 +58,7 @@ The options are words after the file name, and `<Tab>` completes them.
 | `tail=2` | seconds after the end, for reverbs (default: 1) |
 | `rate=44100` | the sample rate |
 | `bits=` | `16`, `24` (default) or `32` (float, WAV only) |
-| `channels=` | `mono` or `stereo`. Mono mixes the two sides at half level each. |
+| `channels=` | `stereo` (default), `mono` or `auto` (see [Mono and stereo](#mono-and-stereo)) |
 | `quality=` | `low`, `medium`, `high` (default) or `best` (MP3, Ogg and Opus) |
 | `bitrate=192` | kbit/s, instead of `quality` (MP3, Ogg and Opus) |
 | `dither=true` | dither |
@@ -160,11 +160,36 @@ it).
 `ffmpeg` writes the tags of the last three formats, and paw gives it the tags
 in a file and not on its command line.
 
+## Mono and stereo
+
+paw mixes in stereo, and `channels=` says how many channels the file has.
+
+| `channels=` | The file |
+| --- | --- |
+| `stereo` | Two channels, as you hear the song. This is the default. |
+| `mono` | One channel, the sum of the two sides at half level each: (left + right) / 2. |
+| `auto` | One channel when the two sides are the same in each sample of the file, and two channels when they differ. |
+
+A sound that is the same on both sides, such as a mono recording panned to
+the center, keeps its level in a mono file. Where the sides differ, the
+mono file is quieter, and sound that is in opposite phase on the two sides
+cancels out. A mono render of the song is how it sounds on a mono speaker.
+
+The pan stays in the sound. paw pans with equal power, so a mono source
+panned hard left is 3 dB louder on the left than in the center and silent
+on the right, and its mono file is 3 dB quieter than in the center. To
+render a track without its pan, render it with `tap=pre`.
+
+`auto` looks at the rendered sound, not at the files on the track. A mono
+recording in the center gives a mono file. The same recording panned off
+center, or through a stereo device such as a reverb, gives a stereo file.
+The result of the render says how many channels the file has.
+
 ## Lua
 
 `paw.render(path, opts)` accepts the options as a table. The fields are
 `range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
-`channels` (1, 2, `"mono"`, `"stereo"`), `quality`, `bitrate`, `ffmpeg`,
+`channels` (`"stereo"`, `"mono"`, `"auto"`), `quality`, `bitrate`, `ffmpeg`,
 `dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `tap`, `master`,
 `threads`, `sleep`, `tags` and `freeze`.
 
@@ -241,11 +266,31 @@ group, into `renders/stems`:
 
 ## Bounce
 
-`:track.bounce` renders a track with its devices to audio, on a new track,
-and mutes the original track. The new track has the fader and pan of the
-original track in its sound. It does not have the devices and fader of the
-master, because the new track plays through the master. In Lua: `paw.bounce(track, { name = ... })`,
-which returns the new track.
+`:bounce` renders the track at the cursor to audio, as one clip on a new
+track below it, and mutes the old track. The new track plays into the same
+track as the old one, and the message names it. One `u` undoes the bounce.
+
+| Command | Effect |
+| --- | --- |
+| `:bounce`, `<Space>tb` | Bounce the track at the cursor. In visual mode, `<Space>tb` bounces the selected tracks. |
+| `:t2,t4bounce`, `:t'<,'>bounce` | Bounce those tracks to one new track, and mute each of them. |
+| `:5,8bounce`, `:'<,'>bounce` | Bounce bars 5 to 8, or the time of the selection, and not the rest of the track. |
+| `:bounce tap=pre` | Bounce before the fader (see below). |
+| `:bounce tail=4` | Render 4 seconds after the end (default: 2). |
+
+`tap=` is where the render listens (see [Lua](#lua)):
+
+- `tap=post` is the default. The file has the devices, fader and pan of
+  each track, but not its groups or the master. The new track starts at 0
+  dB in the center, so the song sounds the same through the groups and the
+  master.
+- `tap=pre` renders before the fader. The new track gets the volume, pan
+  and sends of the old track, and the automation of its volume and pan, so
+  the fader stays live. It takes one track.
+
+In Lua, `paw.bounce(track, { tap = "pre", tail = 2, name = "Pad" })`
+bounces one track, and `paw.bounce.tracks({ id, ... }, opts)` bounces
+several, with `start` and `end` in beats. Both return the new track.
 
 ## Regions
 

@@ -331,6 +331,11 @@ amap("<leader>tx", "vca.dissolve", "Take the VCA at the cursor away")
 amap("<leader>tl", "group.link", "Link the faders of the group's members")
 amap("<leader>ts", "send", "Send the track's sound to another as well")
 amap("<leader>to", "track.output", "Choose where the track's sound goes")
+map("<leader>tb", "bounce", {
+  view = "arrange",
+  mode = nx,
+  desc = "Bounce the track, or the selected tracks, to a new audio track and mute them",
+})
 amap("zM", "fold.closeall", "Fold every group and fold of this window")
 amap("zR", "fold.openall", "Open every group and fold of this window")
 amap("zl", function(ctx) paw.ui.views:get("arrange"):scroll_by(ctx.count or 1) end, "Scroll a bar later")
