@@ -6,7 +6,7 @@ local here = debug.getinfo(1, "S").source:match("^@(.*/)") or "./"
 dofile(here .. "2-midi-keyboard.lua")
 
 -- The lead of lesson 2, as a person played it and `=ie` put it on the grid.
-local lead = paw.add_track({ name = "Lead" })
+local lead = paw.add_part({ name = "Lead" })
 lead:add_device("synth")
 local melody = {}
 for _, n in ipairs({
@@ -25,4 +25,4 @@ for _, n in ipairs({
   melody[#melody + 1] = { pitch = n[1], start = n[2], length = n[3], velocity = 96 }
 end
 lead:add_clip({ name = "lead", start = 0, length = 16, notes = melody })
-paw.cursor.set_track(paw.track("Drums"))
+paw.cursor.set_part(paw.part("Drums"))

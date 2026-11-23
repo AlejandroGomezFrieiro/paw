@@ -8,7 +8,7 @@
 local here = debug.getinfo(1, "S").source:match("^@(.*/)") or "./"
 dofile(here .. "3-guitar.lua")
 
-local guitar = paw.add_track({ name = "Guitar" })
+local guitar = paw.add_part({ name = "Guitar" })
 guitar:add_device("synth")
 paw.params.apply(guitar:devices()[1], "Pluck")
 guitar:add_device("saturation", { drive = 10, curve = 1 })
@@ -23,4 +23,4 @@ for bar, chord in ipairs({ { "A3", "E4", "A4" }, { "F3", "C4", "F4" } }) do
   end
 end
 guitar:add_clip({ name = "riff", start = 0, length = 8, notes = riff })
-paw.cursor.set_track(paw.track("Drums"))
+paw.cursor.set_part(paw.part("Drums"))

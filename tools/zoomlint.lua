@@ -68,7 +68,7 @@ end
 
 --- The uses of `* zoom` and `/ zoom` in a text: the line of each. A name
 --- counts when its last part is `zoom` or ends in `_zoom` (`paw.opt.zoom`,
---- `g.zoom`, `note_zoom`); `vzoom` (the rows of a track) does not. What
+--- `g.zoom`, `note_zoom`); `vzoom` (the rows of a part) does not. What
 --- follows `--` on a line is a comment, and is left out.
 function M.uses(text)
   local out = {}
@@ -98,12 +98,14 @@ end
 --- The problems under `root` of a lint: each a line of text, empty when
 --- all is well. `lint` gives `allowed` (the path of its allow-list), `own`
 --- (the files that own what it looks for), `uses(text)` (the line of each
---- use in a text) and `what` and `fix` (the words of a problem).
+--- use in a text) and `what` and `fix` (the words of a problem). A lint
+--- that looks outside the code of the runtime and of the extensions gives
+--- `files(root)`, the files that it checks.
 function M.scan(root, lint)
   local allowed = M.read_allowed(root .. "/" .. lint.allowed)
   local problems = {}
   local seen = {}
-  for _, path in ipairs(M.files(root, lint.own)) do
+  for _, path in ipairs(lint.files and lint.files(root) or M.files(root, lint.own)) do
     local uses = lint.uses(read(root .. "/" .. path) or "")
     local allow = allowed[path]
     seen[path] = true
@@ -136,7 +138,7 @@ end
 --- The uses of a lint today, as lines of its allow-list (with no reason).
 function M.scan_counts(root, lint)
   local out = {}
-  for _, path in ipairs(M.files(root, lint.own)) do
+  for _, path in ipairs(lint.files and lint.files(root) or M.files(root, lint.own)) do
     local uses = lint.uses(read(root .. "/" .. path) or "")
     if #uses > 0 then out[#out + 1] = path .. " " .. #uses end
   end

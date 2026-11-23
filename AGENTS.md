@@ -95,11 +95,13 @@ contract. A contract is a trait, a saved type, a file format, a
   the owner accepts it.
 - A change of a contract updates the architecture documentation in the
   same work.
-- The target design calls the container a **part**, and a row inside a
-  part a **lane**. Use these words in design text. The code, the API
-  and the user pages say "track" until one rename changes all of them.
-  Do not use the word "part" for the container in a name of the code or
-  on a user page before that rename.
+- The container is a **part**, and a row inside a part is a **lane**.
+  The code, the API, the files and the user pages use these words. Do
+  not use the word "track" for the container. The word "track" stays
+  only in its other senses: a track of a MIDI file, the sound track of
+  a video, a track of another program or file format, and to track a
+  value. `tools/partlint.lua` checks this, and its allow-list
+  `tools/partlint-allowed.txt` gives the reason for each exception.
 
 ## Documentation standards
 
@@ -193,6 +195,7 @@ nix develop -c luacheck .                       # unused and undefined names in 
 nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
 nix develop -c luajit tools/layers.lua          # no module of the runtime reads a higher layer (the suite does it too)
 nix develop -c luajit tools/zoomlint.lua        # beats go to columns only through paw/axis.tl (the suite does it too)
+nix develop -c luajit tools/partlint.lua        # no name or page calls the container a track (the suite does it too)
 nix develop -c tools/vale.sh                   # the docs
 nix build .#website                            # the manual as a static site (tools/website/build.sh)
 nix develop -c cargo check -p paw-fuzz          # the fuzz targets compile (tools/fuzz.sh runs them, CI only)
