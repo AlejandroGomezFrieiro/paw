@@ -18,6 +18,14 @@ use paw_engine::{
 
 const RATE: f64 = 48_000.0;
 
+/// What a track sends to end what it plays, on channel 10: its notes, the
+/// pedal and the wheel.
+const RESET: [EventKind; 3] = [
+    EventKind::AllNotesOff,
+    EventKind::Control { ctl: Ctl::Cc(64), value: 0.0, ch: 9 },
+    EventKind::Control { ctl: Ctl::Bend, value: 0.0, ch: 9 },
+];
+
 /// A track that sends to `port` on channel 10 a note held from the first
 /// beat and another from the second, at 120 BPM; and what the engine
 /// sends out, read where the MIDI output thread reads it.
@@ -74,31 +82,23 @@ fn an_engine_stamps_what_a_track_plays_and_ends_it_when_stopped() {
         played.iter().chain(&stopped).all(|m| m.port == port && m.form == Form::Auto),
         "all to the track's port, in its form"
     );
+    // New clips reset what the track plays first: its first block sends
+    // the reset, then both notes on the track's channel.
     let kinds: Vec<EventKind> = played.iter().map(|m| m.kind).collect();
-    assert_eq!(
-        kinds,
-        [
-            EventKind::NoteOn { key: 50, vel: 0.5, ch: 9, attr: Attr::NONE },
-            EventKind::NoteOn { key: 52, vel: 0.5, ch: 9, attr: Attr::NONE },
-        ],
-        "both notes, on the track's channel"
-    );
+    let mut want = RESET.to_vec();
+    want.extend([
+        EventKind::NoteOn { key: 50, vel: 0.5, ch: 9, attr: Attr::NONE },
+        EventKind::NoteOn { key: 52, vel: 0.5, ch: 9, attr: Attr::NONE },
+    ]);
+    assert_eq!(kinds, want, "the reset, then both notes on the track's channel");
     // A beat at 120 BPM is 500 ms. A frame turned into nanoseconds is
     // rounded down, so the stamps may be some nanoseconds off, never a
     // frame (20 833 ns at 48 kHz).
-    let apart = played[1].at - played[0].at;
+    let apart = played[4].at - played[3].at;
     assert!(apart.abs_diff(500_000_000) < 1_000, "a beat apart: {apart} ns");
     // Stopped: the held notes end, and the pedal and the wheel go back.
     let kinds: Vec<EventKind> = stopped.iter().map(|m| m.kind).collect();
-    assert_eq!(
-        kinds,
-        [
-            EventKind::AllNotesOff,
-            EventKind::Control { ctl: Ctl::Cc(64), value: 0.0, ch: 9 },
-            EventKind::Control { ctl: Ctl::Bend, value: 0.0, ch: 9 },
-        ],
-        "the notes ended when the track stopped"
-    );
+    assert_eq!(kinds, RESET, "the notes ended when the track stopped");
 }
 
 /// Through the sequencer, to a port of our own MIDI input.
