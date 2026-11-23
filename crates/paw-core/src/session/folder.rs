@@ -2101,6 +2101,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The export presets of a project are in `project.toml`, not in
+    /// `meta.json`, and they come back as they were saved.
+    #[test]
+    fn export_presets_are_in_project_toml_and_come_back() {
+        let dir = scratch("presets");
+        let mut p = project(1, 1);
+        let presets = json!({ "mine": "stems format=flac", "delivery": ["mix format=flac", "stems"] });
+        p.export.insert("presets".into(), presets.clone());
+        let layout = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap();
+        let text = String::from_utf8(layout.files[Path::new(PROJECT_FILE)].clone()).unwrap();
+        assert!(text.contains("[export.presets]"), "{text}");
+        assert!(text.contains("mine = \"stems format=flac\""), "{text}");
+        assert!(!layout.files.contains_key(Path::new("meta.json")));
+        commit(&dir, &layout, None).unwrap();
+        let read = read(&Home::default(), &dir).unwrap();
+        assert_eq!(read.project.export.get("presets"), Some(&presets));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// The project as canonical text, its notes named as an open names them.
     fn canonical(project: &Project) -> String {
         let mut named = project.clone();

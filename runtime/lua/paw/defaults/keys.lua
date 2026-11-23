@@ -151,8 +151,8 @@ map("<leader>rn", "region.new", { mode = nx, desc = "Make a region over the sele
 map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
 map("<leader>rl", "region.loop", { desc = "Set the playback loop to the region the cursor is in" })
--- Export (paw/export.tl): the mix, the stems, the tracks, the regions, and
--- the last export again. In visual mode, for the time and tracks of the
+-- Export (paw/export.tl): the mix, the stems, the tracks, the regions, a
+-- preset from a list, and the last export again. In visual mode, for the time and tracks of the
 -- selection, as `:'<,'>export` is.
 local function export_with(words)
   return function()
@@ -165,6 +165,11 @@ map("<leader>em", export_with(""), { mode = nx, desc = "Export the mix: the song
 map("<leader>es", export_with("stems"), { mode = nx, desc = "Export the stems: one file for each group" })
 map("<leader>et", export_with("tracks"), { mode = nx, desc = "Export the tracks: one file for each track" })
 map("<leader>er", export_with("regions"), { mode = nx, desc = "Export the regions: one file for each region" })
+map("<leader>ep", function()
+  local from_visual = keymap.mode == "x" and keymap.selection() ~= nil
+  if from_visual then keymap.set_mode("n") end
+  paw.export.pick(from_visual and "'<,'>" or nil)
+end, { mode = nx, desc = "Pick an export preset: its plan shows, Enter exports" })
 map("<leader>ee", function()
   if not paw.export.again() then paw.notify("no export yet: <Space>em exports the mix", "warn") end
 end, { desc = "Export again, with the words of the last export" })

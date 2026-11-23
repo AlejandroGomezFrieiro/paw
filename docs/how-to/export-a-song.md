@@ -52,6 +52,8 @@ If `:export song.mp3` fails because there is no `ffmpeg`, install
 - For a loudness target, add `loudness=-14`. To also keep the peaks below
   a level, add `normalize=-1`.
 
+To export the same way each time, save the words as a preset: see
+[How to reuse your export settings](reuse-export-settings.md).
 To export one part of the song, see
 [How to export part of the song or a loop](export-part-of-the-song.md).
 To export each track, see [How to export stems](export-stems.md).

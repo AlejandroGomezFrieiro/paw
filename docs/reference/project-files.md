@@ -11,7 +11,7 @@ steps, see [How to recover lost work](../how-to/recover-lost-work.md).
 
 ```text
 song/
-├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, subprojects, transport
+├── project.toml            name, tempo, meter, tempo map, key, order of the tracks, subprojects, transport, export presets
 ├── meta.json               the data of extensions (`paw.project.meta`), if there is some
 ├── screen.json             the tabs and windows that the project opens with
 ├── media.json              the hash, size and format of each file that the clips play

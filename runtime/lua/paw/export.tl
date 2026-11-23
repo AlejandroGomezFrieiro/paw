@@ -37,6 +37,7 @@ local type UiModule = require("paw.ui")
 local type CursorModule = require("paw.cursor")
 local type MidifileModule = require("paw.midifile")
 local type NestModule = require("paw.nest")
+local type ExModule = require("paw.ex")
 
 --- `paw.files` (paw/views/files.lua): a path from the folder `:cd` set.
 local record Files
@@ -53,6 +54,7 @@ local record Paw is partial.Paw
   cursor: CursorModule
   midifile: MidifileModule
   nest: NestModule
+  ex: ExModule
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -72,11 +74,47 @@ local enum Each
 end
 
 --- A preset: a name for a set of export words. `target` names the files,
---- relative to the renders folder; `words` are the other words.
-local record Preset
+--- relative to the renders folder; `words` are the other words. A preset
+--- with items in its list is a list of exports, each the words of one
+--- `:export` as text (`{ "mix format=flac", "stems" }`): one plan, one
+--- confirm and one queue for all of them.
+local record Preset is {string}
   desc: string
   target: string
   words: {string: string}
+end
+
+--- What a name of a preset can hold, in init.lua or in the project: the
+--- words of `:export` as text (`"stems format=flac"`), a list of such texts,
+--- or a table with `target` and `words`.
+local type PresetValue = string | Preset
+
+--- Where a preset comes from. paw looks in this order, and the first one
+--- found wins.
+local enum Source
+  "project"
+  "init.lua"
+  "built-in"
+end
+
+--- A preset found by its name, and where it comes from. `text` holds a
+--- preset that is the words of `:export` as text; `preset` the others.
+local record Found
+  name: string
+  source: Source
+  text: string
+  preset: Preset
+end
+
+--- The gain of a set of files that play at the same time with
+--- `normalize=` or `loudness=`: paw renders their mix first, and its gain
+--- goes to each file of the set, so the files still add up to the mix.
+local record GainSet
+  --- The tracks of all the files of the set. The files have the same
+  --- time, tap and words.
+  tracks: {integer}
+  --- The gain in dB, when the mix is rendered.
+  gain: number
 end
 
 --- One file of a plan, and what paw renders into it.
@@ -99,6 +137,10 @@ local record Render
   title: string
   --- True when the file is there and is not in the renders folder.
   replaces: boolean
+  --- The words of the file: tail, bits, tags and the others.
+  options: render.Options
+  --- The set whose mix gives the gain of this file, or nil.
+  set: GainSet
 end
 
 --- A plan of files to write. `paw.export.run` writes it.
@@ -108,8 +150,6 @@ local record Plan
   left_out: {string}
   --- What the user should know: "the master has a compressor: ...".
   notes: {string}
-  --- The words of the file that are the same for each render (tail, bits, tags).
-  options: render.Options
   --- True when the plan is to be shown before paw writes it: more than one
   --- file, or a file outside the renders folder that is there.
   confirm: boolean
@@ -140,16 +180,26 @@ local record M
   type Plan = Plan
   type Render = Render
   type Preset = Preset
+  type PresetValue = PresetValue
+  type Found = Found
+  type Source = Source
   type Last = Last
   type Channels = Channels
   type Each = Each
-  --- The presets by name: `:export stems` takes the words of `stems`.
-  --- `paw.export.presets.mine = { target = "mine/{track}.flac", words = { each = "track" } }`
-  --- adds one.
-  presets: {string: Preset}
+  --- Your presets by name, which init.lua sets: `:export mine` takes the
+  --- words of `mine`. A preset is the words of `:export` as text
+  --- (`paw.export.presets.mine = "stems format=flac"`), a list of such
+  --- texts for several exports (`{ "mix format=flac", "stems" }`), or a
+  --- table (`{ target = "mine/{track}.flac", words = { each = "track" } }`).
+  --- A preset of the project of the same name comes first, and these
+  --- come before paw's own presets.
+  presets: {string: PresetValue}
+  --- paw's own presets: mix, review, stems, tracks, regions and project.
+  builtin: {string: Preset}
   --- The words that `:export` takes, for its completion: `{ key, values, what }`.
   words: {{string | {string}}}
   is_dynamics: function(device: types.Device): boolean
+  find: function(name: string, after?: Source): Found
   preset_names: function(): {string}
   plan_args: function(args: commands.Args, range?: contracts.CommandRange): Plan
   plan: function(words?: string, range?: contracts.CommandRange): Plan
@@ -160,14 +210,16 @@ local record M
   lines: function(plan: Plan): {string}
   confirm: function(plan: Plan)
   again: function(): boolean
+  pick: function(range?: string)
 end
 
-M.presets = {
+M.presets = {}
+M.builtin = {
   mix = {desc = "the song, through the master", target = "{project}.wav", words = {}},
   review = {
     desc = "an MP3 to listen to or send",
     target = "{project}.mp3",
-    words = {quality = "high", loudness = "-14"},
+    words = {format = "mp3", quality = "high", loudness = "-14"},
   },
   stems = {
     desc = "one file for each group, for a mastering engineer",
@@ -180,6 +232,11 @@ M.presets = {
     words = {each = "track", tap = "post", channels = "auto"},
   },
   regions = {desc = "one file for each region", target = "regions/{n} {region}.wav", words = {each = "region"}},
+  project = {
+    desc = "what the window shows, as a project folder",
+    target = "{project}-export/",
+    words = {format = "project"},
+  },
 }
 
 M.words = {
@@ -187,7 +244,7 @@ M.words = {
   {"tap=", {"master", "groups", "post", "pre"}, "where in the sound the render listens"},
   {"channels=", {"stereo", "mono", "auto"}, "auto: mono when both sides are equal"},
   {"in=", {"loop"}, "the loop, or a region by name"},
-  {"format=", {"wav", "flac", "mp3", "ogg", "opus"}, "the format, when the target has no ending"},
+  {"format=", {"wav", "flac", "mp3", "ogg", "opus", "project"}, "the format, when the target has no ending"},
   {"tail=", {"0", "1", "2", "4"}, "seconds after the end"},
   {"rate=", {"44100", "48000", "96000"}, "sample rate"},
   {"bits=", {"16", "24", "32"}, "sample size; 32 is float"},
@@ -244,6 +301,14 @@ local function sound_endings(): {string: boolean}
   return out
 end
 
+--- A word of the command line as text, or nil.
+local function text_of(v: commands.Arg): string
+  if v == nil then
+    return nil
+  end
+  return tostring(v)
+end
+
 --- The ending of a file name, in lower case, or nil.
 local function ending(name: string): string
   local e = name:match("%.([%w]+)$")
@@ -257,12 +322,94 @@ local function other_format(word: string): boolean
   return e ~= nil and not sound_endings()[e] and paw.formats.for_path(word, "export") ~= nil
 end
 
---- A word of the command line as text, or nil.
-local function text_of(v: commands.Arg): string
-  if v == nil then
-    return nil
+--- The kinds of MIDI file that `:export` writes, by the ending of the
+--- target: a Standard MIDI file, or a MIDI 2 clip file as the project
+--- keeps a clip.
+local enum MidiKind
+  "smf"
+  "midi2"
+end
+
+--- The kind of MIDI file that a target names, or nil.
+local function midi_kind(word: string): MidiKind
+  local e = word and ending(word)
+  if e == "midi2" then
+    return "midi2"
   end
-  return tostring(v)
+  for _, x in ipairs(paw.midifile.extensions) do
+    if e == x then
+      return "smf"
+    end
+  end
+  return nil
+end
+
+--- What a line of `:export` writes: sound files, MIDI files, a project
+--- folder, or a file of another program.
+local enum Kind
+  "sound"
+  "midi"
+  "project"
+  "other"
+end
+
+--- Each kind of export in words, for a message.
+local KIND_WORDS: {Kind: string} = {
+  sound = "sound files",
+  midi = "MIDI",
+  project = "a project folder",
+  other = "a file of another program",
+}
+
+--- The target that the words of `:export` name, after `expand`: the word
+--- after a preset or `clip`, else the first word. Nil when there is none.
+local function typed_target(args: Args, found: Found): string
+  local first = text_of(args[1])
+  if (found and found.preset) or first == "clip" then
+    return text_of(args[2])
+  end
+  return first
+end
+
+--- What the words of `:export` write, after `expand`: `format=project`
+--- writes a project folder, else the ending of the target says it.
+local function kind_of(args: Args, found: Found): Kind
+  local preset = found and found.preset
+  local format = args["format"] ~= nil and tostring(args["format"]) or (preset and preset.words and preset.words.format)
+  if format == "project" then
+    return "project"
+  end
+  local target = typed_target(args, found) or (preset and preset.target)
+  if target and midi_kind(target) then
+    return "midi"
+  elseif target and other_format(target) then
+    return "other"
+  end
+  return "sound"
+end
+
+--- The words of a command as text again: `stems format=flac`. A word with
+--- a space in it is in quotes.
+local function unparse(args: Args): string
+  local function quoted(v: commands.Arg): string
+    local text = tostring(v)
+    return text:find("%s") and ('"' .. text .. '"') or text
+  end
+  local out: {string} = {}
+  for _, v in ipairs(args) do
+    out[#out + 1] = quoted(v)
+  end
+  local keys: {string} = {}
+  for k in pairs(args as {string | integer: commands.Arg}) do
+    if k is string then
+      keys[#keys + 1] = k
+    end
+  end
+  table.sort(keys)
+  for _, k in ipairs(keys) do
+    out[#out + 1] = k .. "=" .. quoted(args[k])
+  end
+  return table.concat(out, " ")
 end
 
 -- The tracks ---------------------------------------------------------------------------
@@ -673,40 +820,148 @@ local function dynamics_notes(renders: {Render}): {string}
   return notes
 end
 
---- The positional words: the preset (if the first word names one) and the
---- target.
-local function preset_and_target(args: Args): Preset, string
-  local first, second = text_of(args[1]), text_of(args[2])
-  if args[3] ~= nil then
-    error("`" .. tostring(args[3]) .. "`: one target only; words take a value: tail=2", 0)
+-- The presets ---------------------------------------------------------------------------
+
+--- The places of presets, in the order that paw looks in them.
+local SOURCES: {Source} = {"project", "init.lua", "built-in"}
+
+--- One field of the project (`paw.api.project_get` with a key): the whole
+--- project with its length and meta costs more.
+local project_field = api.project_get as function(key: string): types.ProjectExport
+
+--- What the project keeps of `:export`: `[export]` in project.toml.
+local function project_export_settings(): types.ProjectExport
+  return project_field("export") or {}
+end
+
+--- The presets of the project, by name: `[export.presets]` in project.toml.
+local function project_presets(): {string: PresetValue}
+  return (project_export_settings().presets or {}) as {string: PresetValue}
+end
+
+--- The preset of a name in one place, or nil.
+local function value_in(source: Source, name: string): PresetValue
+  if source == "project" then
+    return project_presets()[name]
+  elseif source == "init.lua" then
+    return M.presets[name]
   end
-  -- `./stems` is a path, `stems` the preset.
-  local preset = first and M.presets[first]
-  if preset then
-    return preset, second
+  return M.builtin[name]
+end
+
+--- The preset of a name: the project's, then init.lua's, then paw's. With
+--- `after`, only the places after that one: a preset of the project named
+--- `stems` can say `"stems format=flac"`, and that `stems` is paw's. Nil
+--- when no preset has the name.
+function M.find(name: string, after?: Source): Found
+  if not name then
+    return nil
   end
-  if second then
-    error(
-      string.format("`%s`: no preset of that name; the presets are %s", first, table.concat(M.preset_names(), ", ")), 0
-    )
+  local looking = after == nil
+  for _, source in ipairs(SOURCES) do
+    if looking then
+      local value = value_in(source, name)
+      if value is string then
+        return {name = name, source = source, text = value}
+      elseif value is Preset then
+        return {name = name, source = source, preset = value}
+      end
+    end
+    looking = looking or source == after
   end
-  return nil, first
+  return nil
 end
 
 --- The names of the presets, in order.
 function M.preset_names(): {string}
+  local seen: {string: boolean} = {}
   local out: {string} = {}
-  for name in pairs(M.presets) do
-    out[#out + 1] = name
+  for _, source in ipairs(SOURCES) do
+    local names = source == "project" and project_presets()
+      or source == "init.lua" and M.presets
+      or M.builtin as {string: PresetValue}
+    for name in pairs(names) do
+      if not seen[name] then
+        seen[name] = true
+        out[#out + 1] = name
+      end
+    end
   end
   table.sort(out)
   return out
 end
 
---- The words of `:export`: the preset's, then the words typed, which win.
---- Gives the preset, the target that the user typed, and the words.
-local function read_words(args: Args): Preset, string, {string: string}
-  local preset, typed = preset_and_target(args)
+--- True when a preset is a list of exports.
+local function is_list(found: Found): boolean
+  return found ~= nil and found.preset ~= nil and #found.preset > 0
+end
+
+--- The words of `:export` with each preset that is text put in its place,
+--- and the preset that is left at their start (a table or a list), or nil.
+--- `:export mine out/` with `mine = "stems format=flac"` is `:export stems
+--- out/ format=flac`: a target typed after the name takes the place of the
+--- preset's target, and a word typed after it wins. `after` holds, for
+--- each name put in place, the place of its preset, so that the same name
+--- in its words is a preset of a later place.
+local function expand(args: Args, after: {string: Source}): Args, Found
+  local first = text_of(args[1])
+  local found = first and M.find(first, after[first])
+  if not (found and found.text) then
+    return args, found
+  end
+  after[found.name] = found.source
+  local _, inner = commands.parse("export " .. found.text)
+  local out: Args = {}
+  for _, words in ipairs({inner, args}) do
+    for k, v in pairs(words as {string | integer: commands.Arg}) do
+      if k is string then
+        out[k] = v
+      end
+    end
+  end
+  -- The first word of the preset's words: another preset, `clip`, or a target.
+  local head = text_of(inner[1])
+  local named = head ~= nil and (head == "clip" or M.find(head, after[head]) ~= nil)
+  local positional: {commands.Arg} = {}
+  if named then
+    positional[1] = inner[1]
+  end
+  local target = args[2]
+  if target == nil then
+    target = inner[named and 2 or 1]
+  end
+  positional[#positional + 1] = target
+  -- More words than a target: they stay, for the message of `read_words`.
+  for i = (named and 3 or 2), #inner do
+    positional[#positional + 1] = inner[i]
+  end
+  for i = 3, #args do
+    positional[#positional + 1] = args[i]
+  end
+  for i, v in ipairs(positional) do
+    out[i] = v
+  end
+  return expand(out, after)
+end
+
+--- The words of `:export`, after `expand`: the preset's, then the words
+--- typed, which win. Gives the preset, the target that the user typed,
+--- and the words.
+local function read_words(args: Args, found: Found): Preset, string, {string: string}
+  local preset = found and found.preset
+  if args[3] ~= nil then
+    error("`" .. tostring(args[3]) .. "`: one target only; words take a value: tail=2", 0)
+  end
+  -- `./stems` is a path, `stems` the preset.
+  if preset == nil and args[2] ~= nil then
+    error(
+      string.format(
+        "`%s`: no preset of that name; the presets are %s", text_of(args[1]), table.concat(M.preset_names(), ", ")
+      ),
+      0
+    )
+  end
+  local typed = typed_target(args, found)
   local words: {string: string} = {}
   for k, v in pairs(preset and preset.words or {}) do
     words[k] = v
@@ -856,10 +1111,56 @@ local function joined_names(ids: {integer}): string
   return table.concat(names, "+")
 end
 
---- The plan of the words of `:export`, as `commands.parse` gives them, and
---- a range. See `M.plan`.
-function M.plan_args(args: Args, range?: Range): Plan
-  local preset, typed, words = read_words(args)
+--- With `normalize=` or `loudness=`, the files that play at the same time
+--- (the stems of one stretch of time) get one gain, from their mix, so
+--- that they still add up to it. A file alone keeps its own gain. Gives
+--- how many sets there are.
+local function gain_sets(renders: {Render}): integer
+  local by: {string: {Render}} = {}
+  local order: {string} = {}
+  for _, r in ipairs(renders) do
+    local levels = r.options.normalize ~= nil or r.options.loudness ~= nil
+    if r.tracks and levels then
+      local key = tostring(r.from) .. ":" .. tostring(r.to) .. ":" .. r.tap
+      if not by[key] then
+        by[key] = {}
+        order[#order + 1] = key
+      end
+      table.insert(by[key], r)
+    end
+  end
+  local sets = 0
+  for _, key in ipairs(order) do
+    local list = by[key]
+    if #list > 1 then
+      local set: GainSet = {tracks = {}}
+      for _, r in ipairs(list) do
+        for _, id in ipairs(r.tracks) do
+          set.tracks[#set.tracks + 1] = id
+        end
+        r.set = set
+      end
+      sets = sets + 1
+    end
+  end
+  return sets
+end
+
+--- The note of a plan with sets of one gain: which words set the level.
+local function gain_note(words: {string: string}): string
+  local given: {string} = {}
+  for _, key in ipairs({"normalize", "loudness"}) do
+    if words[key] then
+      given[#given + 1] = key .. "=" .. words[key]
+    end
+  end
+  return table.concat(given, " and ") .. ": one gain from the mix for the files that play together"
+end
+
+--- The plan of sound files of the words of `:export`, after `expand`, and
+--- a range.
+local function sound_plan(args: Args, found: Found, range: Range): Plan
+  local preset, typed, words = read_words(args, found)
   local left_out: {string} = {}
   -- WHAT, WHEN, WHERE in the signal, HOW the file is, HOW MANY files.
   local given = heard(range, left_out)
@@ -883,6 +1184,7 @@ function M.plan_args(args: Args, range?: Range): Plan
   end
   local items, nth = items_and_numbers(kinds, given, span, words.level, left_out)
   local target, ext = target_of(typed, preset, given, words, kinds)
+  local options_of_files = file_options(words)
 
   -- One render for each item, with its file.
   local renders: {Render} = {}
@@ -926,25 +1228,99 @@ function M.plan_args(args: Args, range?: Range): Plan
       channels = channels,
       title = item.unit and item.unit.name or nil,
       replaces = io.open(file) ~= nil and not in_renders(file),
+      options = options_of_files,
     }
   end
   local confirm = #renders > 1
   for _, r in ipairs(renders) do
     confirm = confirm or r.replaces
   end
-  return {
-    renders = renders,
-    left_out = left_out,
-    notes = #renders > 1 and dynamics_notes(renders) or {},
-    options = file_options(words),
-    confirm = confirm,
-    wait = words.wait == "true",
-  }
+  local notes = #renders > 1 and dynamics_notes(renders) or {}
+  if gain_sets(renders) > 0 then
+    notes[#notes + 1] = gain_note(words)
+  end
+  return {renders = renders, left_out = left_out, notes = notes, confirm = confirm, wait = words.wait == "true"}
+end
+
+--- One plan of the plans of a list of exports: their files in order, two
+--- files of one name with a number each, and what each leaves out and
+--- notes, once.
+local function joined(plans: {Plan}): Plan
+  local out: Plan = {renders = {}, left_out = {}, notes = {}, confirm = false, wait = false}
+  local used: {string: integer} = {}
+  local seen: {string: boolean} = {}
+  for _, plan in ipairs(plans) do
+    for _, r in ipairs(plan.renders) do
+      used[r.file] = (used[r.file] or 0) + 1
+      if used[r.file] > 1 then
+        local stem, ext = r.file:match("^(.*)(%.[^./]+)$")
+        r.file = (stem or r.file) .. " " .. used[r.file] .. (ext or "")
+      end
+      out.renders[#out.renders + 1] = r
+      out.confirm = out.confirm or r.replaces
+    end
+    for _, list in ipairs({"left_out", "notes"}) do
+      for _, text in ipairs((plan as {string: {string}})[list]) do
+        if not seen[text] then
+          seen[text] = true
+          table.insert((out as {string: {string}})[list], text)
+        end
+      end
+    end
+    out.wait = out.wait or plan.wait
+  end
+  out.confirm = out.confirm or #out.renders > 1
+  return out
+end
+
+--- The plan of a preset that is a list of exports: one plan of all their
+--- files. The words typed after the name go to each export.
+local function list_plan(found: Found, args: Args, range: Range): Plan
+  if args[2] ~= nil then
+    error(string.format("%s is a list of exports: it takes words, not a target", found.name), 0)
+  end
+  local plans: {Plan} = {}
+  for _, line in ipairs(found.preset) do
+    if not (line is string) then
+      error(
+        string.format(
+          "%s: each export of a list is the words of :export as text, such as \"stems format=flac\"", found.name
+        ),
+        0
+      )
+    end
+    local _, item = commands.parse("export " .. line)
+    for k, v in pairs(args as {string | integer: commands.Arg}) do
+      if k is string then
+        item[k] = v
+      end
+    end
+    local words, inner = expand(item, {[found.name] = found.source})
+    if is_list(inner) or kind_of(words, inner) ~= "sound" then
+      error(string.format("%s: a list of exports holds sound files; `%s` is not one", found.name, line), 0)
+    end
+    plans[#plans + 1] = sound_plan(words, inner, range)
+  end
+  return joined(plans)
+end
+
+--- The plan of the words of `:export`, as `commands.parse` gives them, and
+--- a range. See `M.plan`.
+function M.plan_args(args: Args, range?: Range): Plan
+  local words, found = expand(args, {})
+  if is_list(found) then
+    return list_plan(found, words, range)
+  end
+  local kind = kind_of(words, found)
+  if kind ~= "sound" then
+    error(string.format("export %s writes %s, which has no plan of files", unparse(args), KIND_WORDS[kind]), 0)
+  end
+  return sound_plan(words, found, range)
 end
 
 --- The plan of an export: the words as typed after `:export`, and the
 --- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
---- nil for the song). Gives `{ renders, left_out, notes, options, confirm }`.
+--- nil for the song). Gives `{ renders, left_out, notes, confirm }`.
 --- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
 --- `when`, `tap` and `channels`. A plan that cannot be is an error with a
 --- clear message.
@@ -955,10 +1331,13 @@ end
 
 -- The queue ----------------------------------------------------------------------------
 
---- A file of the queue, with the plan that it comes from.
+--- A file of the queue, with the plan that it comes from. A step that
+--- `measures` a set renders the mix of the set for its gain, and paw
+--- removes its file after.
 local record Step
   plan: Plan
   render: Render
+  measures: GainSet
 end
 
 --- The export that runs: its first plan, the files of the queue (an export
@@ -975,14 +1354,18 @@ end
 local job: Job
 local last: Last
 
---- The options of `paw.render` for one render of a plan.
-local function render_options(plan: Plan, r: Render): render.Options
+--- The options of `paw.render` for one render of a plan. A file of a set
+--- takes the gain of the mix of the set in place of its own levels.
+local function render_options(r: Render): render.Options
   local opts: render.Options = {}
-  for k, v in pairs(plan.options as {string: util.Data}) do
+  for k, v in pairs(r.options as {string: util.Data}) do
     (opts as {string: util.Data})[k] = v
   end
   opts.start, opts["end"] = r.from, r.to
   opts.tracks, opts.tap, opts.channels = r.tracks, r.tap, r.channels
+  if r.set then
+    opts.normalize, opts.loudness, opts.gain = nil, nil, r.set.gain
+  end
   -- A lossy file of one stem has its name as its title, unless the words say another.
   local e = ending(r.file)
   if r.title and e ~= "wav" and e ~= "flac" then
@@ -990,6 +1373,42 @@ local function render_options(plan: Plan, r: Render): render.Options
     opts.tags = tags as types.RenderTags
   end
   return opts
+end
+
+--- What the status line says while paw renders the mix of a set.
+local MEASURING = "the mix, for the gain of its files"
+
+--- The render of the mix of a set, with the time and tap of a file of the
+--- set: its tracks together, in a WAV file that paw removes when it has
+--- the gain. It keeps the words that change the sound (the tail, the rate
+--- and the levels), and not those of the file (its format, quality and
+--- tags).
+local function mix_of(set: GainSet, r: Render): Render
+  local o = r.options
+  return {
+    file = place(".mix for the gain.wav", false),
+    tracks = set.tracks,
+    from = r.from,
+    to = r.to,
+    tap = r.tap,
+    channels = "stereo",
+    options = {tail = o.tail, rate = o.rate, normalize = o.normalize, loudness = o.loudness, bits = 32},
+  }
+end
+
+--- The steps of a plan: its files in order, each set of one gain after the
+--- render of its mix.
+local function steps_of(plan: Plan): {Step}
+  local steps: {Step} = {}
+  local measured: {GainSet: boolean} = {}
+  for _, r in ipairs(plan.renders) do
+    if r.set and not measured[r.set] then
+      measured[r.set] = true
+      steps[#steps + 1] = {plan = plan, render = mix_of(r.set, r), measures = r.set}
+    end
+    steps[#steps + 1] = {plan = plan, render = r}
+  end
+  return steps
 end
 
 --- Render one file of a plan, in the folder that its name gives, which
@@ -1031,7 +1450,7 @@ local function summary(done: Last): string, string
   local how: string
   if n == 1 then
     local r = results[1]
-    local lufs = done.plan.options.loudness and r.loudness and string.format(", %.1f LUFS", r.loudness) or ""
+    local lufs = done.plan.renders[1].options.loudness and r.loudness and string.format(", %.1f LUFS", r.loudness) or ""
     how = string.format("wrote %s (%s%s, peak %+.1f dB)", shown(r.path), length(r.seconds), lufs, db)
   elseif n > 1 then
     local dir = shown(results[1].path):match("^(.*)/[^/]+$") or "."
@@ -1071,9 +1490,13 @@ end
 local function finish()
   local done = job
   job, render.batch = nil, nil
+  local total = 0
+  for _, step in ipairs(done.queue) do
+    total = total + (step.measures and 0 or 1)
+  end
   last = {
     plan = done.plan,
-    total = #done.queue,
+    total = total,
     results = done.results,
     failed = done.failed,
     cancelled = done.cancelled,
@@ -1098,13 +1521,28 @@ local function start_next()
     return finish()
   end
   local r = step.render
-  render.batch = {index = job.index, total = #job.queue}
-  local opts = render_options(step.plan, r)
+  if r.set and not r.set.gain then
+    job.failed[#job.failed + 1] = {file = r.file, error = "no gain: the mix of its set was not rendered"}
+    return start_next()
+  end
+  render.batch = {index = job.index, total = #job.queue, label = step.measures and MEASURING or nil}
+  local opts = render_options(r)
   opts.background, opts.quiet = true, true
   local ok, err = pcall(write, r.file, opts) as (boolean, string)
   if not ok then
     job.failed[#job.failed + 1] = {file = r.file, error = tostring(err)}
     return start_next()
+  end
+end
+
+--- What a render of the queue came to: the file of a mix gives the gain
+--- of its set and goes; the others are results.
+local function took(step: Step, info: types.RenderResult)
+  if step.measures then
+    step.measures.gain = info.gain
+    os.remove(info.path)
+  else
+    job.results[#job.results + 1] = info
   end
 end
 
@@ -1118,7 +1556,7 @@ events.on(
   kernel.render_done,
   function(info: types.RenderResult)
     if ours(info.path) then
-      job.results[#job.results + 1] = info
+      took(job.queue[job.index], info)
       start_next()
     end
   end
@@ -1150,10 +1588,7 @@ function M.run(plan: Plan)
   if #plan.renders == 0 then
     error("nothing to export", 0)
   end
-  local steps: {Step} = {}
-  for i, r in ipairs(plan.renders) do
-    steps[i] = {plan = plan, render = r}
-  end
+  local steps = steps_of(plan)
   if job then
     for _, step in ipairs(steps) do
       job.queue[#job.queue + 1] = step
@@ -1172,11 +1607,12 @@ function M.run(plan: Plan)
     )
     return start_next()
   end
-  for i, r in ipairs(plan.renders) do
-    render.batch = {index = i, total = #plan.renders}
-    local ok, info = pcall(write, r.file, render_options(plan, r)) as (boolean, types.RenderResult)
+  for i, step in ipairs(steps) do
+    local r = step.render
+    render.batch = {index = i, total = #steps, label = step.measures and MEASURING or nil}
+    local ok, info = pcall(write, r.file, render_options(r)) as (boolean, types.RenderResult)
     if ok then
-      job.results[#job.results + 1] = info
+      took(step, info)
     else
       job.failed[#job.failed + 1] = {file = r.file, error = tostring(info)}
     end
@@ -1323,28 +1759,6 @@ function M.confirm(plan: Plan)
 end
 
 -- MIDI files ---------------------------------------------------------------------------
-
---- The kinds of MIDI file that `:export` writes, by the ending of the
---- target: a Standard MIDI file, or a MIDI 2 clip file as the project
---- keeps a clip.
-local enum MidiKind
-  "smf"
-  "midi2"
-end
-
---- The kind of MIDI file that a target names, or nil.
-local function midi_kind(word: string): MidiKind
-  local e = word and ending(word)
-  if e == "midi2" then
-    return "midi2"
-  end
-  for _, x in ipairs(paw.midifile.extensions) do
-    if e == x then
-      return "smf"
-    end
-  end
-  return nil
-end
 
 --- The words that a MIDI file takes. The others are for sound.
 local MIDI_WORDS: {string: boolean} = {each = true, ["in"] = true}
@@ -1515,10 +1929,10 @@ end
 --- Write the MIDI files of the words of `:export`: Standard MIDI files of
 --- type 1 with one track for each track, or MIDI 2 clip files. A file
 --- outside the renders folder that is there is replaced with `!` only.
-local function midi_export(args: Args, range: Range, bang: boolean): commands.Result
+local function midi_export(args: Args, range: Range, bang: boolean, found: Found): commands.Result
   local first = text_of(args[1])
   local clip_word = first == "clip"
-  if M.presets[first] then
+  if found and found.preset then
     error(string.format("%s is a preset of sound files; %s is MIDI", first, text_of(args[2])), 0)
   end
   local target = text_of(args[clip_word and 2 or 1])
@@ -1562,51 +1976,39 @@ end
 
 -- Project folders ----------------------------------------------------------------------
 
---- `:export project <folder>/`: what the window shows (the song, a view or
---- a subproject) as a project folder of its own (`paw.nest.write`).
-local function project_export(args: Args, range: Range): commands.Result
+--- `:export project <folder>/` (the preset `project`, or `format=project`):
+--- what the window shows (the song, a view or a subproject) as a project
+--- folder of its own (`paw.nest.write`). With no folder, the preset's
+--- target names it, in the renders folder.
+local function project_export(args: Args, found: Found, range: Range): commands.Result
   if range then
     error(
       "a range does not go with export project: it writes what the window shows; show a part first, for example with `znar` on a region",
       0
     )
   end
-  local folder = text_of(args[2])
-  if not folder or folder == "" then
-    error("export project needs a folder: `:export project ~/lib/Ballad/`", 0)
-  end
+  local preset = found and found.preset
+  local folder = text_of(args[preset and 2 or 1])
   for k in pairs(args as {string | integer: commands.Arg}) do
-    if k ~= 1 and k ~= 2 then
+    if (k is string and k ~= "format") or (k is integer and k > (preset and 2 or 1)) then
       error("export project takes a folder only: `:export project ~/lib/Ballad/`", 0)
     end
+  end
+  if not folder and preset and preset.target then
+    folder = place(fill(preset.target, {project = project_name(), date = os.date("%Y-%m-%d") as string}), false)
+  end
+  if not folder or folder == "" then
+    error("export project needs a folder: `:export project ~/lib/Ballad/`", 0)
   end
   paw.notify(paw.nest.write(folder))
 end
 
 -- The command ----------------------------------------------------------------------------
 
---- The words of a command as text again: `stems format=flac`.
-local function unparse(args: Args): string
-  local out: {string} = {}
-  for _, v in ipairs(args) do
-    out[#out + 1] = tostring(v)
-  end
-  local keys: {string} = {}
-  for k in pairs(args as {string | integer: commands.Arg}) do
-    if k is string then
-      keys[#keys + 1] = k
-    end
-  end
-  table.sort(keys)
-  for _, k in ipairs(keys) do
-    local v = tostring(args[k])
-    out[#out + 1] = k .. "=" .. (v:find("%s") and ('"' .. v .. '"') or v)
-  end
-  return table.concat(out, " ")
-end
-
---- The last `:export` line, which `<leader>ee` runs again.
+--- The last `:export` line, which `<leader>ee` runs again, and its words,
+--- which `:export.preset` saves.
 local last_line: string
+local last_args: Args
 
 --- Run `:export` again as it was last typed. Returns false when there was none.
 function M.again(): boolean
@@ -1618,39 +2020,40 @@ function M.again(): boolean
 end
 
 local function export(ctx: commands.Context, bang: boolean): commands.Result
-  local args = ctx.args
   local range = ctx.range
+  local args, found = expand(ctx.args, {})
+  local kind: Kind = is_list(found) and "sound" or kind_of(args, found)
+  if kind == "project" then
+    return project_export(args, found, range)
+  end
+  last_args = ctx.args
+  last_line = (range and range.text or "") .. "export" .. (bang and "! " or " ") .. unparse(ctx.args)
+  if kind == "midi" then
+    return midi_export(args, range, bang, found)
+  end
   local first = text_of(args[1])
-  if first == "project" then
-    return project_export(args, range)
-  end
-  last_line = (range and range.text or "") .. "export" .. (bang and "! " or " ") .. unparse(args)
-  -- The target: after a preset or `clip`, else the first word.
-  local target = (M.presets[first or ""] or first == "clip") and text_of(args[2]) or first
-  if target and midi_kind(target) then
-    return midi_export(args, range, bang)
-  end
   if first == "clip" then
     error("`clip` is for MIDI files: `:export clip riff.mid`; for sound files, each=clip", 0)
   end
   -- A file of another program (a project of REAPER): its format writes it.
-  if target and other_format(target) then
+  if kind == "other" then
+    local target = typed_target(args, found)
     if range then
       error(target .. " holds the whole project: a range is for sound and MIDI files", 0)
     end
     return paw.formats.export((paw.files as Files).path(target), {args = args as {string | integer: commands.Arg}})
       as commands.Result
   end
-  local plan = M.plan_args(args, range)
+  local plan = M.plan_args(ctx.args, range)
   if plan.confirm and not bang then
     return M.confirm(plan)
   end
   M.run(plan)
 end
 
---- Complete the words of `:export`: the presets, `clip`, `project` and
---- the files of other programs, a file after `clip` and a folder after
---- `project`, then the words and their values.
+--- Complete the words of `:export`: the presets (`project` is one),
+--- `clip` and the files of other programs, a file after `clip` and a
+--- folder after `project`, then the words and their values.
 local function complete(rest: string): {string}
   local before, word = rest:match("^(.-)(%S*)$")
   local out: {string} = {}
@@ -1669,7 +2072,6 @@ local function complete(rest: string): {string}
         out[#out + 1] = name
       end
       out[#out + 1] = "clip"
-      out[#out + 1] = "project"
     end
     local files = commands.completers:get("exportable")
     for _, item in ipairs(files and files(word) or {}) do
@@ -1738,6 +2140,186 @@ commands.define(
       .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
   }
 )
+
+-- Presets of the project ---------------------------------------------------------------
+
+--- A preset in a few words: its words, its list, or what it is for.
+local function describe(found: Found): string
+  if found.text then
+    return found.text
+  elseif is_list(found) then
+    local lines: {string} = {}
+    for i, line in ipairs(found.preset) do
+      lines[i] = tostring(line)
+    end
+    return table.concat(lines, "; ")
+  end
+  return found.preset.desc or unparse(found.preset.words as Args)
+end
+
+--- True when a text can be the name of a preset: one word of letters,
+--- digits, `-` and `_`, so that it is never a file, and not `clip`.
+local function preset_name_ok(name: string): boolean
+  return name:match("^[%w_%-]+$") ~= nil and name ~= "clip"
+end
+
+--- Save the words of the last `:export` as a preset of the project, as
+--- one undo step. `replace` replaces a preset of the project of that name.
+--- The presets that are text in those words are put in place, so that a
+--- preset never names itself.
+local function save_preset(name: string, replace: boolean)
+  if not preset_name_ok(name) then
+    error(string.format("`%s`: the name of a preset is one word of letters, digits, - and _", name), 0)
+  end
+  if not last_args then
+    error("no export yet: `:export.preset " .. name .. "` saves the words of the last :export", 0)
+  end
+  local presets: {string: PresetValue} = {}
+  for k, v in pairs(project_presets()) do
+    presets[k] = v
+  end
+  if presets[name] ~= nil and not replace then
+    error(string.format("the project has a preset %s: `:export.preset! %s` replaces it", name, name), 0)
+  end
+  local words, found = expand(last_args, {})
+  if is_list(found) and found.name == name and found.source == "project" then
+    error(string.format("the last export was the preset %s itself: nothing to save", name), 0)
+  end
+  -- `wait=` is how a script runs an export, not a word of the files.
+  local kept: Args = {}
+  for k, v in pairs(words as {string | integer: commands.Arg}) do
+    if k ~= "wait" then
+      (kept as {string | integer: commands.Arg})[k] = v
+    end
+  end
+  local text = unparse(kept)
+  presets[name] = text
+  local settings = util.merge(project_export_settings() as {string: util.Data}, {} as {string: util.Data})
+    as types.ProjectExport
+  settings.presets = presets as {string: string | {string}}
+  api.project_set({export = settings})
+  local under = M.find(name, "project")
+  paw.notify(
+    string.format("%s the preset %s in the project: %s", replace and "replaced" or "saved", name, text)
+      .. (under and string.format("; it comes before the %s preset %s", under.source, name) or "")
+  )
+end
+
+--- The presets in the order that a list shows them: those of the project,
+--- then those of init.lua, then paw's, each by name. Also gives the width
+--- of the longest name.
+local function presets_in_order(): {Found}, integer
+  local found: {Found} = {}
+  local width = 0
+  for _, name in ipairs(M.preset_names()) do
+    found[#found + 1] = M.find(name)
+    width = math.max(width, api.str_width(name))
+  end
+  local order: {Source: integer} = {}
+  for i, source in ipairs(SOURCES) do
+    order[source] = i
+  end
+  table.sort(
+    found,
+    function(a: Found, b: Found): boolean
+      if a.source ~= b.source then
+        return order[a.source] < order[b.source]
+      end
+      return a.name < b.name
+    end
+  )
+  return found, width
+end
+
+--- The line of a preset in a list: its name, where it comes from, and its
+--- words, and the preset of the same name that it hides.
+local function preset_row(f: Found, width: integer): string
+  local under = M.find(f.name, f.source)
+  return string.format(
+    "%s%s  %-8s  %s%s",
+    f.name,
+    string.rep(" ", width - api.str_width(f.name)),
+    f.source,
+    describe(f),
+    under and string.format(" (before the %s one)", under.source) or ""
+  )
+end
+
+--- Show the presets in a float, with where each comes from.
+local function show_presets()
+  local found, width = presets_in_order()
+  local lines: {string | contracts.PageLine} = {
+    {text = string.format("%-" .. width .. "s  %-8s  %s", "preset", "from", "words"), style = "Dim"},
+  }
+  local widest = 0
+  for _, f in ipairs(found) do
+    local row = preset_row(f, width)
+    lines[#lines + 1] = row
+    widest = math.max(widest, api.str_width(row))
+  end
+  lines[#lines + 1] = {text = "The first one found wins: the project, then init.lua, then paw.", style = "Dim"}
+  paw.ui.page("Export presets", lines, {width = math.min(math.max(widest, 64) + 4, 120), height = #lines + 2})
+end
+
+for _, bang in ipairs({"", "!"}) do
+  commands.define(
+    "export.preset" .. bang,
+    function(ctx: commands.Context): commands.Result
+      local name = text_of(ctx.args[1])
+      if not name then
+        return show_presets()
+      end
+      save_preset(name, bang == "!")
+    end,
+    {
+      desc = bang == ""
+        and "Save the words of the last export as a preset of the project: `export.preset mine`; alone, list the presets and where each comes from" or "Save the words of the last export as a preset of the project, and replace the one of that name: `export.preset! mine`",
+      complete = function(): {string} return M.preset_names() end,
+    }
+  )
+end
+
+-- The picker of presets ------------------------------------------------------------------
+
+--- An item of the picker of presets.
+local record PresetItem
+  name: string
+  text: string
+end
+
+--- `paw.pick` (paw/pick.tl), the part of it that this module calls.
+local record Pick
+  metamethod __call: function<T>(self: Pick, spec: contracts.PickSource<T>)
+end
+
+--- Pick a preset from a list: the preview shows its plan, and Enter exports
+--- it as `:export <name>` does. `range` is the Ex range of the export, such
+--- as `'<,'>`, or nil for the song.
+function M.pick(range?: string)
+  local items: {PresetItem} = {}
+  local found, width = presets_in_order()
+  for _, f in ipairs(found) do
+    items[#items + 1] = {name = f.name, text = preset_row(f, width)}
+  end
+  local ex_range = range and paw.ex.range(range)
+  local pick = (paw as {string: Pick}).pick
+  pick(
+    {
+      title = "Export presets",
+      items = items,
+      primary = function(item: PresetItem): string return item.name end,
+      preview = function(item: PresetItem): {string}
+        local ok, plan = pcall(M.plan, item.name, ex_range) as (boolean, Plan)
+        if not ok then
+          -- A preset of MIDI, or of a project folder, has no plan of sound files.
+          return {tostring(plan)}
+        end
+        return M.lines(plan)
+      end,
+      on_choose = function(item: PresetItem) commands.exec((range or "") .. "export " .. item.name) end,
+    } as contracts.PickSource<PresetItem>
+  )
+end
 
 -- `Esc` in normal mode stops a render (paw/render.tl): the kernel then says
 -- that the render was cancelled, and the export ends with it.

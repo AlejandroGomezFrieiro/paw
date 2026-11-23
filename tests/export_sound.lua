@@ -120,15 +120,6 @@ test("export plan: the range, in= and each= give the files, their time, tap and 
       "two each= joined: the region matrix",
     },
     {
-      "stems",
-      nil,
-      {
-        "renders/stems/Drums.wav | Kick, Snare | song | nil-nil | master | auto",
-        "renders/stems/Bass.wav | Bass | song | nil-nil | master | auto",
-      },
-      "a preset",
-    },
-    {
       "tracks format=flac channels=stereo tap=groups",
       nil,
       {
@@ -338,6 +329,184 @@ test("<Space>e exports the mix, stems, tracks and regions, and again; in visual 
   keys("V<Space>em")
   done = exported(done)
   eq(done.results[1].path, s.dir .. "/renders/Bass.wav", "visual <Space>em: the selected track")
+end)
+
+-- Presets ------------------------------------------------------------------------------
+
+--- Set the presets of the project, as `[export.presets]` of project.toml holds them.
+local function project_presets(presets) paw.api.project_set({ export = { presets = presets } }) end
+
+test("export presets: paw's have their words, by the plan of each", function()
+  local s = song()
+  local rows = {
+    { "mix", { "renders/song.wav | the mix | song | nil-nil | master | stereo" }, {} },
+    {
+      "review",
+      { "renders/song.mp3 | the mix | song | nil-nil | master | stereo" },
+      { quality = "high", loudness = -14 },
+    },
+    {
+      "stems",
+      {
+        "renders/stems/Drums.wav | Kick, Snare | song | nil-nil | master | auto",
+        "renders/stems/Bass.wav | Bass | song | nil-nil | master | auto",
+      },
+      {},
+    },
+    {
+      "tracks",
+      {
+        "renders/tracks/Kick.wav | Kick | song | nil-nil | post | auto",
+        "renders/tracks/Snare.wav | Snare | song | nil-nil | post | auto",
+        "renders/tracks/Bass.wav | Bass | song | nil-nil | post | auto",
+      },
+      {},
+    },
+    {
+      "regions",
+      {
+        "renders/regions/01 Verse.wav | the mix | Verse | 0-4 | master | stereo",
+        "renders/regions/02 Chorus.wav | the mix | Chorus | 4-8 | master | stereo",
+      },
+      {},
+    },
+  }
+  for _, row in ipairs(rows) do
+    local name, want, words = row[1], row[2], row[3]
+    local p = plan(name)
+    eq(shown(p, s), want, name)
+    for key, value in pairs(words) do
+      eq(p.renders[1].options[key], value, name .. " " .. key)
+    end
+  end
+  local project = paw.export.find("project")
+  eq({ project.source, project.preset.target, project.preset.words }, {
+    "built-in",
+    "{project}-export/",
+    { format = "project" },
+  }, "project: a project folder")
+  T.fails(function() plan("project") end, "writes a project folder, which has no plan", "it has no plan of files")
+  keys(":export project<CR>")
+  eq(io.open(s.dir .. "/renders/song-export/project.toml") ~= nil, true, ":export project writes it in renders/")
+end)
+
+test("export presets: the project's wins, then the one of init.lua, then paw's", function()
+  local s = song()
+  T.after(function() paw.export.presets.stems = nil end)
+  local function files(words)
+    local out = {}
+    for i, r in ipairs(plan(words).renders) do
+      out[i] = r.file:sub(#s.dir + 2)
+    end
+    return table.concat(out, ", ")
+  end
+  eq(files("stems"), "renders/stems/Drums.wav, renders/stems/Bass.wav", "paw's")
+  paw.export.presets.stems = { target = "mine/{group}.wav", words = { each = "group" } }
+  eq(files("stems"), "renders/mine/Drums.wav, renders/mine/Bass.wav", "init.lua's comes before paw's")
+  eq(paw.export.find("stems").source, "init.lua", "and says where it comes from")
+  -- The project's preset names `stems`: that one is the next one, of init.lua.
+  project_presets({ stems = "stems format=flac" })
+  eq(files("stems"), "renders/mine/Drums.flac, renders/mine/Bass.flac", "the project's comes first")
+  eq(files("stems out/"), "out/Drums.flac, out/Bass.flac", "a target typed after it takes the place of the preset's")
+  eq(paw.export.find("stems").source, "project", "and says where it comes from")
+  paw.export.presets.stems = nil
+  eq(files("stems"), "renders/stems/Drums.flac, renders/stems/Bass.flac", "then paw's under it")
+end)
+
+test(":export.preset saves the words of the last export in the project, ! replaces, alone lists, u undoes", function()
+  local s = song()
+  local function saved() return (paw.api.project_get().export.presets or {}).mine end
+  keys(":export stems format=flac<CR><Esc>")
+  keys(":export.preset mine<CR>")
+  eq(saved(), "stems format=flac", ":export.preset saves the words")
+  eq(paw.ui.messages[#paw.ui.messages].text, "saved the preset mine in the project: stems format=flac", "and says so")
+  T.expect_error("the project has a preset mine")
+  keys(":export.preset mine<CR>")
+  eq(saved(), "stems format=flac", "a preset of that name stays")
+  keys(":export tracks<CR><Esc>:export.preset! mine<CR>")
+  eq(saved(), "tracks", "! replaces it")
+  keys(":export.preset<CR>")
+  T.expect_screen("preset_list", 90, 24, { styles = false, rows = { 7, 17 }, cols = { 10, 81 } })
+  keys("q")
+  keys("u")
+  eq(saved(), "stems format=flac", "u takes the replace back")
+  keys("u")
+  eq(saved(), nil, "and the save")
+  keys(":export.preset mine<CR>:w<CR>")
+  local toml = T.read_file(s.dir .. "/project.toml")
+  eq(toml:find('[export.presets]\nmine = "tracks"', 1, true) ~= nil, true, "project.toml keeps it: " .. toml)
+end)
+
+test("a preset that is a list of exports gives one plan, one confirm and one queue", function()
+  local s = song()
+  project_presets({ delivery = { "mix format=flac", "stems channels=stereo" } })
+  eq(shown(plan("delivery tail=0"), s), {
+    "renders/song.flac | the mix | song | nil-nil | master | stereo",
+    "renders/stems/Drums.wav | Kick, Snare | song | nil-nil | master | stereo",
+    "renders/stems/Bass.wav | Bass | song | nil-nil | master | stereo",
+  }, "one plan of the files of each export")
+  local before = paw.export.last()
+  keys(":export delivery tail=0<CR>")
+  eq(paw.ui.float and paw.ui.float.name, "export.plan", "one plan to confirm")
+  eq(T.screen(120, 30):find("Export 3 files", 1, true) ~= nil, true, "of the three files")
+  keys("y")
+  local done = exported(before)
+  eq(#done.results, 3, "one queue writes them all")
+  eq(done.message:match("^wrote 3 files %(0:04 each, peak [-+]%d+%.%d dB%)$") ~= nil, true, done.message)
+  T.fails(
+    function() plan("delivery out/") end,
+    "delivery is a list of exports: it takes words, not a target",
+    "a target"
+  )
+end)
+
+test("<Space>ep picks a preset, shows its plan, and exports it", function()
+  local s = song()
+  local before = paw.export.last()
+  keys("<Space>ep")
+  keys("stems")
+  T.expect_screen("preset_picker", 80, 24, { styles = false, rows = { 3, 22 } })
+  keys("<CR>")
+  eq(paw.ui.float and paw.ui.float.name, "export.plan", "Enter shows the plan of its files")
+  keys("y")
+  local done = exported(before)
+  eq(done.results[1].path, s.dir .. "/renders/stems/Drums.wav", "and y exports them")
+end)
+
+--- The samples of a 32-bit float WAV file.
+local function samples(path)
+  local ffi = require("ffi")
+  local data = T.read_file(path)
+  local at = data:find("data", 1, true) + 8
+  local n = math.floor((#data - at + 1) / 4)
+  local buf = ffi.new("float[?]", n)
+  ffi.copy(buf, data:sub(at, at + n * 4 - 1), n * 4)
+  return buf, n
+end
+
+test("normalize= on stems gives each file the gain of the mix, so they still add up to the mix", function()
+  local s = song()
+  local before = paw.export.last()
+  keys(":export stems channels=stereo bits=32 tail=0 normalize=-1 wait=true<CR>")
+  T.expect_screen("stems_gain_plan", 90, 24, { styles = false, rows = { 9, 16 } })
+  keys("y")
+  local done = exported(before)
+  local mix = T.render({ bits = 32, tail = 0, normalize = -1 })
+  eq(#done.results, 2, "the two stems, and no file of the mix")
+  eq(io.open(s.dir .. "/renders/.mix for the gain.wav"), nil, "paw removes the mix that it measured")
+  for _, r in ipairs(done.results) do
+    T.near(r.gain, mix.gain, 1e-4, r.path:match("[^/]+$") .. " has the gain of the mix")
+  end
+  local m, n = samples(mix.path)
+  local x, k = samples(done.results[1].path)
+  local y = samples(done.results[2].path)
+  local worst = 0
+  for i = 0, math.min(n, k) - 1 do
+    worst = math.max(worst, math.abs(x[i] + y[i] - m[i]))
+  end
+  eq(worst < 1e-5, true, "the stems add up to the normalized mix: " .. worst)
+  eq(plan("stems loudness=-14").renders[2].set ~= nil, true, "loudness= makes a set too")
+  eq(plan("in=Verse normalize=-1").renders[1].set, nil, "one file keeps its own gain")
 end)
 
 test("<Space>tf freezes the track at the cursor and <Space>tF unfreezes it, one undo step each", function()

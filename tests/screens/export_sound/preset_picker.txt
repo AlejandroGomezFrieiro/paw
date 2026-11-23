@@ -1,0 +1,20 @@
+ 1╭─ Export presets ─────────────────────────────────────────────────────────╮
+  │> stems                                                                2/6│
+  │──────────────────────────────────────────────────────────────────────────│
+ 2│▶ stems    built-in  one file for each gro… │ file                     ho…│
+  │  mix      built-in  the song, through the… │ renders/stems/Drums.wav  Ki…│
+  │                                            │ renders/stems/Bass.wav   Ba…│
+ 3│                                            │ left out: Keys, muted       │
+  │                                            │                             │
+  │                                            │                             │
+ 4│                                            │                             │
+  │                                            │                             │
+  │                                            │                             │
+ 5│                                            │                             │
+  │                                            │                             │
+  │                                            │                             │
+  │                                            │                             │
+  │                                            │                             │
+  │                                            │                             │
+  │Enter choose  Esc cancel  C-n/C-p move  Tab mark  C-q quickfix  C-r mode  │
+  ╰─ Enter choose · Esc close ───────────────────────────────────────────────╯

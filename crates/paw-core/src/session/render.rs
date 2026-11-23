@@ -187,6 +187,14 @@ fn check_render_target(opts: &RenderOpts, path: &Path) -> Result<()> {
     {
         bail!("loudness is a level in LUFS between -70 and 0, such as -14");
     }
+    if let Some(gain) = opts.gain {
+        if !gain.is_finite() {
+            bail!("gain is a number of dB, such as -3.5");
+        }
+        if opts.normalize.is_some() || opts.loudness.is_some() {
+            bail!("gain is a fixed level: it does not go with normalize or loudness");
+        }
+    }
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty())
         && !dir.is_dir()
     {
@@ -395,6 +403,9 @@ struct Plan {
     peak: Option<f64>,
     /// Bring the integrated loudness to this level in LUFS.
     loudness: Option<f64>,
+    /// A fixed gain for each sample, as a factor: 1 when none is given.
+    /// [`check_render_target`] refuses it with `peak` or `loudness`.
+    gain: f32,
     progress: Arc<Progress>,
     /// For a lossy format: how ffmpeg is to make the file from the WAV
     /// that is rendered first.
@@ -539,6 +550,7 @@ impl Session {
             dither: opts.dither && format.lossy().is_none(),
             peak: opts.normalize,
             loudness: opts.loudness,
+            gain: opts.gain.map_or(1.0, paw_engine::db_to_gain),
             progress: progress.clone(),
             encode: format.lossy().map(|lossy| Encode {
                 format: lossy,
@@ -1090,7 +1102,7 @@ fn write(engine: Engine, plan: &Plan, part: &Path, raw: &Path) -> Result<Value> 
         )?;
         out.flush()?;
         drop(out);
-        let mut gain = 1.0f32;
+        let mut gain = plan.gain;
         if let Some(level) = plan.peak
             && pass.peak > 0.0
             && pass.peak.is_finite()
@@ -1133,11 +1145,12 @@ fn write(engine: Engine, plan: &Plan, part: &Path, raw: &Path) -> Result<Value> 
     } else {
         let channels = plan.channels.most();
         let mut encoder = Encoder::create(plan, channels, part)?;
+        let gain = plan.gain;
         let pass = play(engine, plan, false, (0.0, 1.0), &mut |l, r| {
-            encoder.frame(l, r)
+            encoder.frame(l * gain, r * gain)
         })?;
         encoder.finish()?;
-        (pass, 1.0, channels)
+        (pass, gain, channels)
     };
     plan.progress.set(1.0);
     let seconds = plan.frames as f64 / plan.sample_rate as f64;

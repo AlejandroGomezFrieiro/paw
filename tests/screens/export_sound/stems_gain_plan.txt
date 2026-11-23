@@ -1,0 +1,8 @@
+ 3 ╰▌ ╭─ Export 2 files ───────────────────────────────────────────────────────────╮ ▏
+    ▌i│ file                     holds        when  tap     channels               │ ▏
+    ▌ │ renders/stems/Drums.wav  Kick, Snare  song  master  stereo                 │ ▏
+ 4  ▌ │ renders/stems/Bass.wav   Bass         song  master  stereo                 │ ▏
+    ▌i│ left out: Keys, muted                                                      │ ▏
+    ▌ │ note: normalize=-1: one gain from the mix for the files that play together │ ▏
+ 5  ▌ │ y or Enter: export · n or Esc: back · j k: scroll                          │ ▏
+    ▌i╰────────────────────────────────────────────────────────────────────────────╯ ▏

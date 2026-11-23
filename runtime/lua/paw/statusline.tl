@@ -612,6 +612,7 @@ spec(
       local count = ""
       if batch then
         verb = "exporting"
+        file = batch.label or file
         count = batch.total > 1 and (batch.index .. "/" .. batch.total .. " ") or ""
       end
       local text = width >= 120 and (verb .. " " .. count .. file .. " " .. pct .. " · Esc cancels")

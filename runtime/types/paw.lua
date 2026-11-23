@@ -2958,6 +2958,14 @@ function paw.export.cancel() end
 ---@param plan any
 function paw.export.confirm(plan) end
 
+--- The preset of a name: the project's, then init.lua's, then paw's. With
+--- `after`, only the places after that one: a preset of the project named
+--- `stems` can say `"stems format=flac"`, and that `stems` is paw's. Nil
+--- when no preset has the name.
+---@param name any
+---@param after any
+function paw.export.find(name, after) end
+
 --- True for a device that changes its level by the level that it hears: a
 --- compressor, a limiter or a gate, built in or a plugin with such a name.
 --- Such a device on a group or on the master that several files of an
@@ -2977,9 +2985,15 @@ function paw.export.last() end
 ---@param plan any
 function paw.export.lines(plan) end
 
+--- Pick a preset from a list: the preview shows its plan, and Enter exports
+--- it as `:export <name>` does. `range` is the Ex range of the export, such
+--- as `'<,'>`, or nil for the song.
+---@param range any
+function paw.export.pick(range) end
+
 --- The plan of an export: the words as typed after `:export`, and the
 --- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
---- nil for the song). Gives `{ renders, left_out, notes, options, confirm }`.
+--- nil for the song). Gives `{ renders, left_out, notes, confirm }`.
 --- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
 --- `when`, `tap` and `channels`. A plan that cannot be is an error with a
 --- clear message.
@@ -7304,6 +7318,8 @@ function paw.render.default_path() end
 ---   normalize   bring the loudest sample to this level in dB, such as -1
 ---   loudness    bring the integrated loudness to this level in LUFS, such as -14;
 ---               with `normalize` too, the peak level is a ceiling
+---   gain        raise or lower the whole file by this many dB, such as -3.5; not with
+---               `normalize` or `loudness` (an export of stems gives each stem the gain of the mix)
 ---   tracks      { id, ... }: only these, with what they pass through (a stem)
 ---   tap         where in the sound of the tracks the render listens:
 ---               "pre"     their clips and devices, without the fader, pan or mute

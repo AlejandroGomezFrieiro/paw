@@ -15,6 +15,9 @@ files, MIDI files, or a project folder. For the steps, see
 | `:export` | Export the song, a part of it, or its tracks to sound files or MIDI files (see `:export`). |
 | `:export!` | The same, with no plan first, and it replaces files. |
 | `:export project out/` | Write what the window shows as a project folder (see Project folders). |
+| `:export.preset mine` | Save the words of the last export as the preset `mine` of the project (see Presets). |
+| `:export.preset! mine` | The same, and replace the preset `mine` of the project. |
+| `:export.preset` | List the presets, and where each one comes from. |
 | `:export.cancel` | Stop the export and the files that wait after it. |
 | `:export.tags` | Show or set the tags of the project (see Tags). |
 | `:bounce` | Render tracks to a new audio track (see Bounce). |
@@ -47,6 +50,7 @@ the time, as it does for each command that takes a range (see
 | `:export song.mid` | the song as a MIDI file (see MIDI files) |
 | `:export clip riff.mid` | the clip at the cursor as a MIDI file |
 | `:export project ~/lib/Ballad/` | what the window shows, as a project folder |
+| `:export delivery` | the files of each export of the preset `delivery`, a list (see Presets) |
 
 The ending of the target sets the format. `.mid` and `.midi2` write MIDI
 files (see MIDI files). An ending of another program's file, such as
@@ -61,7 +65,7 @@ files (see MIDI files). An ending of another program's file, such as
 | `tap=` | `pre`, `post`, `groups`, `master` (see the table of `tap` under Lua) | `master` |
 | `channels=` | `stereo`, `mono`, or `auto` (one channel when both sides are equal) | `stereo` |
 | `in=` | `loop`, or the name of a region | the song |
-| `format=` | `wav`, `flac`, `mp3`, `ogg`, `opus`, when the target has no ending | `wav` |
+| `format=` | `wav`, `flac`, `mp3`, `ogg`, `opus`, when the target has no ending, or `project` for a project folder | `wav` |
 | `level=` | with `each=region`: a level from 1, or `leaves` | every region |
 | `wait=true` | export in the foreground | |
 | `tail=`, `rate=`, `bits=`, `dither=`, `quality=`, `bitrate=`, `normalize=`, `loudness=`, and the tags | see Sound files | `tail=2` |
@@ -78,16 +82,62 @@ files (see MIDI files). An ending of another program's file, such as
 
 ### Presets
 
+A preset is a name for a set of words of `:export`. `:export stems` takes
+the words of the preset `stems`. A word that you type after the name wins,
+as in `:export stems format=flac`, and a target that you type after it
+takes the place of the target of the preset, as in `:export stems out/`.
+
+paw looks for a preset in three places, and the first one that it finds
+wins:
+
+1. The project. `project.toml` keeps the presets of the project under
+   `[export.presets]`, so they go with the song to another computer.
+   `:export.preset` saves one there, and `u` takes the save back.
+2. Your `init.lua`, in `paw.export.presets`.
+3. The presets of paw, in the table below.
+
 | Preset | Words | Files |
 | --- | --- | --- |
 | `mix` | none | `{project}.wav` |
-| `review` | `quality=high loudness=-14` | `{project}.mp3` |
+| `review` | `format=mp3 quality=high loudness=-14` | `{project}.mp3` |
 | `stems` | `each=group tap=master channels=auto` | `stems/{group}.wav` |
 | `tracks` | `each=track tap=post channels=auto` | `tracks/{track}.wav` |
 | `regions` | `each=region` | `regions/{n} {region}.wav` |
+| `project` | `format=project` | `{project}-export/`, a project folder (see Project folders) |
 
-`paw.export.presets.<name> = { target = "...", words = { ... } }` in
-`init.lua` adds a preset.
+A preset in the project is the words of `:export` as text, or a list of
+such texts for several exports:
+
+```toml
+[export.presets]
+mine = "stems format=flac"
+delivery = ["mix format=flac", "stems"]
+```
+
+A preset in `init.lua` is the same text or list, or a table with a target
+and words:
+
+```lua
+paw.export.presets.mine = "stems format=flac"
+paw.export.presets.delivery = { "mix format=flac", "stems" }
+paw.export.presets.club = { target = "club/{group}.wav", words = { each = "group", bits = "16" } }
+```
+
+- The words of a preset can name a preset of the same name, and that name
+  is then the preset of the next place. For example, `stems = "stems
+  format=flac"` in the project changes the format of the stems of paw.
+- A preset that is a list of exports gives one plan, one confirm and one
+  queue for all of their files. The words that you type after its name go
+  to each export, and it takes no target. Each export of a list writes
+  sound files.
+- `:export.preset mine` saves the words of the last `:export` as they
+  were typed, with the presets of the project and of `init.lua` in them
+  put in place. It does not save the range. To export a part with a
+  preset, type the range before it: `:t/Drums/export mine`.
+- The name of a preset is one word of letters, digits, `-` and `_`.
+- `:export.preset` alone shows the presets in a float, with where each
+  one comes from and its words. A preset that hides another of the same
+  name says so. `q` closes the float.
 
 ### Names and folders
 
@@ -144,10 +194,11 @@ renders/stems (3:21 each, peak -0.8 dB)`. `:messages` keeps it.
 | `<Space>es` | `:export stems` |
 | `<Space>et` | `:export tracks` |
 | `<Space>er` | `:export regions` |
+| `<Space>ep` | pick a preset from a list: the preview shows its plan, and `Enter` exports it |
 | `<Space>ee` | the last export again |
 
-In visual mode, `<Space>em`, `<Space>es`, `<Space>et` and `<Space>er`
-export the tracks and the time of the selection.
+In visual mode, `<Space>em`, `<Space>es`, `<Space>et`, `<Space>er` and
+`<Space>ep` export the tracks and the time of the selection.
 
 ### Lua
 
@@ -157,6 +208,10 @@ export the tracks and the time of the selection.
 | `paw.export.run(plan)` | Write the files of a plan. |
 | `paw.export.last()` | What the last export wrote: `{ results, failed, cancelled, message }`. |
 | `paw.export.cancel()` | Stop the export. |
+| `paw.export.presets` | Your presets by name, from `init.lua` (see Presets). |
+| `paw.export.builtin` | The presets of paw by name. |
+| `paw.export.find(name)` | The preset that `:export name` takes: `{ name, source, text }` or `{ name, source, preset }`. `source` is `"project"`, `"init.lua"` or `"built-in"`. |
+| `paw.export.pick(range)` | Pick a preset from a list, as `<Space>ep` does. `range` is an Ex range such as `"'<,'>"`, or nil. |
 
 ## Sound files
 
@@ -205,6 +260,15 @@ them.
 
 For normalization, paw renders the song once into a temporary file,
 measures it, and encodes from there.
+
+With `normalize=` or `loudness=`, the files of an export that play at the
+same time, such as the stems of `:export stems`, get one gain. paw first
+renders their mix, measures it, and gives each file the gain that brings
+the mix to the level, so the files still add up to the mix at that level.
+The plan says so in a note, and the status line shows the render of the
+mix. A file that plays alone gets its own gain, so each region of
+`:export regions` has its own level, and the stems of each region of
+`each=region,group` share one gain.
 
 ### Formats
 
@@ -302,6 +366,8 @@ change, and its folder stays the same. The folder must be new or empty.
   an audio clip, is an error that names the clip.
 - A range does not go with `:export project`. To write a part, show it in
   the window first.
+- `:export project` with no folder writes `renders/<project>-export/`, as
+  the preset `project` says.
 - `:import <folder>` brings a project folder back as a subproject (see
   [Subprojects](subprojects.md)).
 
@@ -396,6 +462,8 @@ those the files differ a little from the mix, and the plan says so.
   group.
 - The words of `:export` apply (`format=flac`, `tail=`, `bits=`, `tap=`,
   and the others).
+- `:export stems normalize=-1` gives each stem the gain of the mix, so the
+  stems still add up to the mix at that level (see Words of sound).
 - In Lua, `paw.export.plan("stems")` gives the plan, and
   `paw.export.run(plan)` writes it.
 
@@ -455,9 +523,10 @@ regions with no region inside.
 `paw.render(path, opts)` renders one file, with the options as a table. The fields are
 `range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
 `channels` (`"stereo"`, `"mono"`, `"auto"`), `quality`, `bitrate`, `ffmpeg`,
-`dither`, `normalize`, `loudness`, `tracks = { id, ... }`, `tap`, `master`,
+`dither`, `normalize`, `loudness`, `gain`, `tracks = { id, ... }`, `tap`, `master`,
 `threads`, `sleep`, `tags` and `freeze`. `range` is `"song"`, `"loop"`,
-`"selection"` or the name of a region.
+`"selection"` or the name of a region. `gain` raises or lowers the whole
+file by that many dB, and it does not go with `normalize` or `loudness`.
 
 `tap` is the point in the sound of the tracks where the render listens.
 Each point holds all the points before it.

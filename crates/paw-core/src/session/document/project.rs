@@ -1,4 +1,5 @@
-//! The project's own fields: its name, tempo, signature, key and meta.
+//! The project's own fields: its name, tempo, signature, key, meta and
+//! export settings.
 //! Opening and saving the project is the session's, in
 //! `session/project.rs`.
 
@@ -18,7 +19,7 @@ impl Document {
         json!({
             "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
             "tempo_ramp": p.tempo_ramp, "tempo_changes": p.tempo_changes, "sig_changes": p.sig_changes,
-            "key": p.key, "path": path, "length": p.end(), "meta": p.meta,
+            "key": p.key, "path": path, "length": p.end(), "meta": p.meta, "export": p.export,
             "modified": self.undo.touched || !self.undo.history.at_saved(),
             // Goes up with every change: compare two readings to see whether
             // something in between edited the project.
@@ -40,6 +41,7 @@ impl Document {
             "sig_num" => json!(p.sig_num),
             "sig_den" => json!(p.sig_den),
             "key" => json!(p.key),
+            "export" => json!(p.export),
             "path" => json!(path),
             "modified" => json!(self.undo.touched || !self.undo.history.at_saved()),
             _ => self.project_view(path).get(key).cloned().unwrap_or(Value::Null),
@@ -82,6 +84,7 @@ impl Document {
                 }
                 ProjectField::Key => p.key = de(key, value)?,
                 ProjectField::Meta => p.meta = de_meta(key, value)?,
+                ProjectField::Export => p.export = de_meta(key, value)?,
             }
             Ok(())
         })
@@ -98,6 +101,7 @@ enum ProjectField {
     SigDen,
     Key,
     Meta,
+    Export,
 }
 
 impl std::str::FromStr for ProjectField {
@@ -111,6 +115,7 @@ impl std::str::FromStr for ProjectField {
             "sig_den" => Self::SigDen,
             "key" => Self::Key,
             "meta" => Self::Meta,
+            "export" => Self::Export,
             _ => bail!("project has no settable field `{key}`"),
         })
     }
