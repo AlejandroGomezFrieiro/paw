@@ -179,8 +179,9 @@ end
 
 --- Render a track with its devices to audio, as one clip on a new track
 --- immediately below it, and mute the original. The new track sends its
---- sound where the original sent it. It uses `paw.render`, so
---- `render.before` runs. `opts.name` is the name of the new track
+--- sound where the original sent it. The render has the track's fader and
+--- pan but not the master's devices and fader, because the new track plays
+--- through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track
 --- ("<name> (bounced)" by default). `opts.tail` is the seconds rendered
 --- after its last clip (2). Returns the new track, or nil when the track
 --- has no clips.
@@ -195,7 +196,11 @@ function paw.bounce(track, opts)
   local dir = api.media_dir()
   pcall(paw.api.fs_mkdir, dir)
   local path = string.format("%s/%s-bounce-%d-%d.wav", dir, track.name:gsub("[^%w%-_]", "_"), os.time(), track.id)
-  paw.render(path, { tracks = { track.id }, start = 0, ["end"] = finish, tail = opts.tail or 2, bits = 32 })
+  -- Without the master: the new track goes through it when it plays.
+  paw.render(
+    path,
+    { tracks = { track.id }, start = 0, ["end"] = finish, tail = opts.tail or 2, bits = 32, master = false }
+  )
   local index = 0
   for i, id in ipairs(api.track_list()) do
     if id == track.id then index = i end

@@ -352,8 +352,9 @@ function paw.add_track(opts) end
 
 --- Render a track with its devices to audio, as one clip on a new track
 --- immediately below it, and mute the original. The new track sends its
---- sound where the original sent it. It uses `paw.render`, so
---- `render.before` runs. `opts.name` is the name of the new track
+--- sound where the original sent it. The render has the track's fader and
+--- pan but not the master's devices and fader, because the new track plays
+--- through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track
 --- ("<name> (bounced)" by default). `opts.tail` is the seconds rendered
 --- after its last clip (2). Returns the new track, or nil when the track
 --- has no clips.
