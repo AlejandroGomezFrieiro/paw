@@ -57,6 +57,11 @@ local record M
   record Made
   end
 
+  --- The entries of a registry as `save` found them, with their owners,
+  --- for `restore`.
+  record Saved
+  end
+
   --- What paw.ext reads of each registry, whatever the type of its entries.
   interface Owned
     --- The name of the registry in `paw.ext.provides` (`pickers`).
@@ -91,6 +96,14 @@ local record M
     --- The entry that `owner` put at `key`, and the entry below it: the
     --- one that it replaced. Nil when `owner` put none there.
     put_by: function(self: Registry<T>, key: string, owner: string): T, T
+    --- The entries as they are now, each with its owner and the entries
+    --- below it. A test that takes entries away gives this to `restore`
+    --- after it: a `put` from the code of an extension would make that
+    --- extension the owner of an entry of the core.
+    save: function(self: Registry<T>): M.Saved
+    --- Put back the entries that `save` gave, with their owners, in place
+    --- of the entries now.
+    restore: function(self: Registry<T>, saved: M.Saved)
   end
 
   --- The extension whose code calls, or nil: paw.ext sets it to
@@ -123,6 +136,14 @@ function M.all(): {M.Owned}
     out[i] = registry
   end
   return out
+end
+
+--- A copy of the stack of entries that starts at `slot`.
+local function copy<T>(slot: Slot<T>): Slot<T>
+  if not slot then
+    return nil
+  end
+  return {value = slot.value, owner = slot.owner, below = copy(slot.below)}
 end
 
 --- The entry that `owner` put in the stack that starts at `slot`, or nil.
@@ -266,6 +287,35 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
       end
     end
     return count
+  end
+
+  function registry.save(_: M.Registry<T>): M.Saved
+    local out: {string: Slot<T>} = {}
+    for key, slot in pairs(slots) do
+      out[key] = copy(slot)
+    end
+    return out as M.Saved
+  end
+
+  function registry.restore(_: M.Registry<T>, saved: M.Saved)
+    local wanted = saved as {string: Slot<T>}
+    -- Each key whose entry on top differs: the key of an entry that went,
+    -- and the key of an entry that comes back.
+    local keys: {string: boolean} = {}
+    for key in pairs(slots) do
+      keys[key] = true
+    end
+    for key in pairs(wanted) do
+      keys[key] = true
+    end
+    for key in pairs(keys) do
+      local top, back = slots[key], copy(wanted[key])
+      slots[key] = back
+      local old, value = top and top.value, back and back.value
+      if changed and old ~= value then
+        changed(key, value, old)
+      end
+    end
   end
 
   made[#made + 1] = registry

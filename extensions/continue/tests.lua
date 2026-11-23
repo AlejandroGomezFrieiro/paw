@@ -24,12 +24,13 @@ end
 local function with_bar(fn)
   local continue = ext()
   -- Only this source suggests: the snippets of an earlier test are a
-  -- source too.
+  -- source too. The sources come back with their owners: a register from
+  -- this file would make the core's snippets a source of this extension,
+  -- which its unload takes away.
+  local saved = paw.complete.sources:save()
+  T.after(function() paw.complete.sources:restore(saved) end)
   for _, source in ipairs(paw.complete.list()) do
-    if source.name ~= "continue" then
-      paw.complete.unregister(source.name)
-      T.after(function() paw.complete.register(source) end)
-    end
+    if source.name ~= "continue" then paw.complete.unregister(source.name) end
   end
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
