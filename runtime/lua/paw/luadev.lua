@@ -47,15 +47,22 @@ local function report(found)
   end
 end
 
---- The directories looked in besides the user's, by path: `{ dir, rank }`.
---- An extension's go when it is unloaded (paw/ext.lua).
-M.dirs = {}
+--- The directories looked in besides the user's, by path: `{ dir, rank }`,
+--- with the extension that added each one. A directory that goes
+--- (`remove_dir`, or the unload of its extension) is looked in no more.
+-- The kinds that the last directory that went had (`remove_dir` gives them).
+local removed = {}
+M.dirs = require("paw.registry").new("device_dirs", "devices written in Lua", {
+  changed = function(dir, value)
+    if not value then removed = api.lua_devices_remove(dir) end
+  end,
+})
 
 --- Look for devices in `dir` too. `rank` (default `M.RANK_EXTENSION`) says
 --- whose script wins where two directories have one of the same name.
 function M.add_dir(dir, rank)
   local found = api.lua_devices_add(dir, rank or M.RANK_EXTENSION)
-  M.dirs[dir] = M.dirs[dir] or { dir = dir, rank = rank or M.RANK_EXTENSION }
+  if not M.dirs:get(dir) then M.dirs:put(dir, { dir = dir, rank = rank or M.RANK_EXTENSION }) end
   report(found)
   M.watch()
   return found
@@ -75,8 +82,9 @@ end
 --- place). The devices that exist continue to work. Returns the kinds of
 --- the scripts that were there.
 function M.remove_dir(dir)
-  M.dirs[dir] = nil
-  return api.lua_devices_remove(dir)
+  if not M.dirs:get(dir) then return api.lua_devices_remove(dir) end
+  M.dirs:remove(dir)
+  return removed
 end
 
 --- Look at every script again: those that changed are loaded, and the

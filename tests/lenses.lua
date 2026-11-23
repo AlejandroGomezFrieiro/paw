@@ -223,7 +223,7 @@ test("lenses: an extension's addresses and subject, and a Lua server in this pro
     info[#info + 1] = type(l) == "table" and l.text or l
   end
   has(table.concat(info, "\n"), "in-process Lua", ":lsp info says how it runs")
-  A.schemes.lyric = nil
+  A.schemes:remove("lyric")
   paw.lsp.subjects.lyrics = nil
 end)
 

@@ -29,6 +29,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
 local type Untyped = require("paw.untyped")
+local registry = require("paw.registry")
 
 -- The `paw` global, for its parts still written in Lua. This module is a
 -- part of the global's types, so it takes the global as `Untyped`.
@@ -82,14 +83,12 @@ local record M
     export: function(path: string, opts: Options): Result
   end
 
-  --- The formats, by name.
-  registry: {string: Format}
+  --- The formats, by name, with the extension that registered each one.
+  registry: registry.Registry<Format>
 end
 
 local type Format = M.Format
 local type Options = M.Options
-
-M.registry = {}
 
 local function lower(list: {string}): {string}
   local out: {string} = {}
@@ -111,6 +110,8 @@ local function help_changed()
   end
 end
 
+M.registry = registry.new("formats", "file formats", {changed = help_changed})
+
 --- Register a format of files (see the top of paw/formats.tl). A format
 --- of the same name is replaced. Returns the name.
 function M.register(spec: Format): string
@@ -125,26 +126,24 @@ function M.register(spec: Format): string
     import = spec.import,
     export = spec.export,
   }
-  M.registry[spec.name] = f
-  help_changed()
+  M.registry:put(spec.name, f)
   return spec.name
 end
 
 --- Take a format away again.
 function M.unregister(name: string)
-  M.registry[name] = nil
-  help_changed()
+  M.registry:remove(name)
 end
 
 --- The format of a name, or nil.
 function M.get(name: string): Format
-  return M.registry[name]
+  return M.registry:get(name)
 end
 
 --- The formats, by name: `{ name, desc, extensions, project, import, export }` each.
 function M.list(): {Format}
   local out: {Format} = {}
-  for _, f in pairs(M.registry) do
+  for _, f in pairs(M.registry:entries()) do
     out[#out + 1] = f
   end
   table.sort(out, function(a: Format, b: Format): boolean return a.name < b.name end)

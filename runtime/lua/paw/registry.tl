@@ -17,7 +17,8 @@
 -- only its own entry, so the entry on top stays.
 --
 -- This module is in a low layer (tools/layers.txt). It does not read
--- paw.ext: paw.ext sets `registry.owner` and `registry.replaced`.
+-- paw.ext: paw.ext sets `registry.owner`, `registry.maker` and
+-- `registry.replaced`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
@@ -36,8 +37,18 @@ local record M
     --- Nil leaves the entry out of the list, for an entry that another
     --- registry lists (the view of a buffer type).
     label: function(key: string, value: T): string
-    --- Runs after the entry that `get(key)` gives changed (nil: it went).
-    changed: function(key: string, value: T)
+    --- Runs after the entry that `get(key)` gives changed: `value` is the
+    --- new entry (nil: it went), and `old` the entry before.
+    changed: function(key: string, value: T, old: T)
+    --- True: the owner of an entry is the extension whose files made it
+    --- (`registry.maker`), not the extension whose code calls `put`. A
+    --- timer that the core starts again while an extension loads stays the
+    --- core's.
+    made: boolean
+  end
+
+  --- An entry as `registry.maker` reads it: a function, or a table.
+  record Made
   end
 
   --- What paw.ext reads of each registry, whatever the type of its entries.
@@ -69,11 +80,20 @@ local record M
     entries: function(self: Registry<T>): {string: T}
     --- The keys of the entries that `owner` put, sorted.
     owned_by: function(self: Registry<T>, owner: string): {string}
+    --- The entry in a few words, as `:extensions` shows it.
+    label: function(self: Registry<T>, key: string, value: T): string
+    --- The entry that `owner` put at `key`, and the entry below it: the
+    --- one that it replaced. Nil when `owner` put none there.
+    put_by: function(self: Registry<T>, key: string, owner: string): T, T
   end
 
   --- The extension whose code calls, or nil: paw.ext sets it to
   --- `paw.ext.caller`. Nil until then, so the entries have no owner.
   owner: function(): string
+  --- The extension whose files made `value` (a function of its files, or
+  --- a table with one among its fields), or nil: paw.ext sets it. A
+  --- registry with `made` reads it in place of `owner`.
+  maker: function(value: M.Made): string
   --- Runs when the extension `owner` puts an entry over an entry of the
   --- extension `previous`: paw.ext keeps it for `:checkhealth extensions`.
   replaced: function(registry: M.Owned, what: string, owner: string, previous: string)
@@ -105,7 +125,8 @@ end
 --- A new registry: entries by key, each with the extension that put it
 --- there. `kind` names it in `paw.ext.provides` and `title` in
 --- `:extensions`. Its functions are `put(key, value)`, `get(key)`,
---- `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes
+--- `remove(key)`, `entries()`, `owned_by(name)`, `put_by(key, name)` and
+--- `label(key, value)`. `paw.ext.unload` takes
 --- away the entries of an extension, and an entry that one of them
 --- replaced comes back.
 function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Registry<T>
@@ -114,15 +135,19 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
   local slots: {string: Slot<T>} = {}
   local label = options and options.label or function(key: string, _: T): string return key end
   local changed = options and options.changed
+  local by_maker = options and options.made
 
   local registry: M.Registry<T> = {kind = kind, title = title}
 
   function registry.put(_: M.Registry<T>, key: string, value: T, owner?: string)
     assert(value ~= nil, "usage: put(key, value): remove(key) takes an entry away")
-    if owner == nil and M.owner then
+    if owner == nil and by_maker then
+      owner = M.maker and M.maker(value as M.Made)
+    elseif owner == nil and M.owner then
       owner = M.owner()
     end
     local top = slots[key]
+    local old = top and top.value
     if top and top.owner == owner then
       top.value = value
     else
@@ -135,7 +160,7 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
       end
     end
     if changed then
-      changed(key, value)
+      changed(key, value, old)
     end
   end
 
@@ -146,7 +171,7 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
     end
     slots[key] = top.below
     if changed then
-      changed(key, top.below and top.below.value)
+      changed(key, top.below and top.below.value, top.value)
     end
     return top.value
   end
@@ -173,6 +198,18 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
     end
     table.sort(out)
     return out
+  end
+
+  function registry.label(_: M.Registry<T>, key: string, value: T): string
+    return label(key, value)
+  end
+
+  function registry.put_by(_: M.Registry<T>, key: string, owner: string): T, T
+    local slot = holds(slots[key], owner)
+    if not slot then
+      return nil
+    end
+    return slot.value, slot.below and slot.below.value
   end
 
   function registry.labels(_: M.Registry<T>, owner: string): {string}
@@ -207,7 +244,7 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
       end
       slots[key] = kept
       if changed and kept ~= top then
-        changed(key, kept and kept.value)
+        changed(key, kept and kept.value, top.value)
       end
     end
     return count

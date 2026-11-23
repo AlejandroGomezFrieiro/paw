@@ -78,12 +78,12 @@ test("midilsp: the engine is found from the option, then the environment", funct
   eq(table.concat(midilsp.engine(), " "), "/opt/engine --rules /r", "the option, as words")
   midilsp.configure()
   eq(
-    table.concat(paw.lsp.configs["midi-lsp"].cmd(), " "),
+    table.concat(paw.lsp.configs:get("midi-lsp").cmd(), " "),
     "/opt/engine --rules /r --stdio",
     "the language role on stdio"
   )
   eq(
-    table.concat(paw.lsp.configs["midi-lsp-suggest"].cmd(), " "),
+    table.concat(paw.lsp.configs:get("midi-lsp-suggest").cmd(), " "),
     "/opt/engine --rules /r --role suggest --stdio",
     "and the suggestion role"
   )
@@ -99,7 +99,7 @@ test("midilsp: settings are kept with the project and sent as the engine takes t
   start()
   midilsp.set_rule("parallel-perfect", false)
   eq(api.project_get().meta.midilsp.rules["parallel-perfect"], false, "kept in the project")
-  local s = paw.lsp.configs["midi-lsp"].settings
+  local s = paw.lsp.configs:get("midi-lsp").settings
   eq(s.preset .. " " .. tostring(s.rules["parallel-perfect"].enabled), "default false", "as the engine's configuration")
   midilsp.set_preset("strict-counterpoint")
   eq(midilsp.settings().preset, "strict-counterpoint", "a preset")

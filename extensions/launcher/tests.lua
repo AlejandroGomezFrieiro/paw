@@ -433,7 +433,7 @@ test("launcher: the launcher unloads and loads again, and the project keeps its 
   eq(ok, true, "unloaded: " .. tostring(err))
   eq(paw.commands.get("launch"), nil, "its commands are gone")
   eq(paw.ui.views:get("session"), nil, "and its view")
-  eq(paw.learn.triggers.launch, nil, "and its controller buttons")
+  eq(paw.learn.triggers:get("launch"), nil, "and its controller buttons")
   eq(#api.cue_list(t.id), 1, "the clip stays in the project")
   local path = T.scratch .. "/launcher-without.paw"
   api.project_save(path)

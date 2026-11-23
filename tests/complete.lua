@@ -17,7 +17,7 @@ local log = {}
 local function test(name, fn)
   T.test(name, function()
     local others = {}
-    for source_name, spec in pairs(complete.sources) do
+    for source_name, spec in pairs(complete.sources:entries()) do
       others[source_name] = spec
     end
     for source_name in pairs(others) do
@@ -552,7 +552,7 @@ T.test(
         true,
         "the engine's suggestion role is running"
       )
-      eq(complete.sources.lsp ~= nil, true, "paw.lsp is a completion source")
+      eq(complete.sources:get("lsp") ~= nil, true, "paw.lsp is a completion source")
       paw.opt.complete_deadline_ms = 3000
       paw.keymap.feed("<C-Space>")
       eq(wait_for(function() return complete.current() ~= nil end, 30000), true, "the engine answered")

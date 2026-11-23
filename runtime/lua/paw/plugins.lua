@@ -15,8 +15,18 @@ local M = {}
 M.from = {}
 
 --- The directories added, by path: `{ dir, kinds, ext }`, the device kinds
---- found there and the extension that added it.
-M.dirs = {}
+--- found there and the extension that added it. A directory that goes
+--- (`remove_dir`, or the unload of its extension) is searched no more, and
+--- its device kinds are offered no more.
+M.dirs = require("paw.registry").new("plugin_dirs", "plugin directories", {
+  changed = function(_, dir, old)
+    if dir or not old then return end
+    for _, kind in ipairs(old.kinds) do
+      M.from[kind] = nil
+    end
+    api.plugins_remove_dir(old.dir, old.kinds)
+  end,
+})
 
 --- How long a device's key names are kept before it is asked again, in
 --- milliseconds: an instrument may load another sound and name its keys anew.
@@ -41,7 +51,7 @@ function M.add_dir(dir, name)
     M.from[kind] = name
     added[kind] = true
   end
-  M.dirs[dir] = { dir = dir, kinds = found.kinds, ext = by }
+  M.dirs:put(dir, { dir = dir, kinds = found.kinds, ext = by })
   for _, note in ipairs(found.notes) do
     api.log("plugin scan: " .. note)
   end
@@ -73,15 +83,7 @@ M.attached = {}
 
 --- Stop to find plugins in `dir`, and stop to offer the devices found
 --- there. The devices that exist continue to work.
-function M.remove_dir(dir)
-  local known = M.dirs[tostring(dir)]
-  if not known then return end
-  M.dirs[known.dir] = nil
-  for _, kind in ipairs(known.kinds) do
-    M.from[kind] = nil
-  end
-  api.plugins_remove_dir(known.dir, known.kinds)
-end
+function M.remove_dir(dir) M.dirs:remove(tostring(dir)) end
 
 local names = {}
 
