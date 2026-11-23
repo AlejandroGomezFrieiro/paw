@@ -161,6 +161,10 @@ impl Session {
             self.undo_file_swap(Default::default());
         }
         self.undo.touched = touched.unwrap_or(false);
+        // Another project is a change: what Lua keeps by the count of edits
+        // (paw/groups.tl, paw/scope.tl) reads the new project at once, not at
+        // the end of the turn when `project.loaded` is sent.
+        self.undo.edits += 1;
         self.dirty = true;
         self.undo.restoring = true;
         // The count-in is the user's, not the project's.

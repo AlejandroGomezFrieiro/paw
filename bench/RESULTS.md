@@ -7,6 +7,64 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
+
+The scenario `scope` of `bench/profile/drive.py`, with the Lua of the
+TASK-6.7 branch (c210bbc2, "before") and of this branch ("after") in turns
+on the shared binary of main, 6 pairs, under the measure lock on cores 16
+to 23. The binary changed from 07a06cd3 to bc16df6d during the first 3
+pairs; the last 3 pairs ran on bc16df6d. All values were measured under
+external load (load average 2.9 to 18.8). A frame is the processor time of
+`paw.api.ui_snapshot` (40 frames after `j` or `k` in each run): the median
+of the 6 run medians, then the smallest and largest frame of all runs. A key
+is the processor time of the kernel thread from the key until the screen is
+quiet for 250 ms, as in TASK-6.7.
+
+In `jit.profile` samples of 40 rounds of `j` and `k` in the song,
+`trackcolumn.tree_of` took 40 % and `groups.meta` 31 % of the samples
+before, and 0.9 % and 1.9 % after. Two causes:
+
+- The fold part of the track column worked out the tree of groups again for
+  most lines of each frame. Its key held `paw.folds.list()`, which is a new
+  table for each call in a window with no folds. Now the tree is kept while
+  the tracks drawn, the window, the change count of the folds and the edits
+  of the project are the same (`runtime/lua/paw/trackcolumn.tl`).
+- Each question to `paw.groups` (`of`, `is_group`, `hidden`, `rows`) read
+  the track's `meta` from the kernel. Now the marks and the group of each
+  track are kept until the project or an event changes, with the key of
+  `paw.scope`'s regions (`runtime/lua/paw/groups.tl`).
+
+| Measurement | before | after |
+| --- | ---: | ---: |
+| A frame of the song | 11.1 ms (7.6 to 139) | 5.5 ms (3.4 to 29) |
+| A frame in the region | 11.7 ms (7.8 to 111) | 5.9 ms (3.5 to 41) |
+| A frame in the group (16 tracks) | 7.8 ms (5.6 to 66) | 7.6 ms (5.4 to 86) |
+| `j` in the region | 10.2 ms (8.7 to 21) | 6.2 ms (5.0 to 8.6) |
+| `k` in the region | 11.8 ms (9.1 to 27) | 6.2 ms (4.7 to 9.6) |
+| `w` in the region | 15.4 ms (11.4 to 72) | 5.8 ms (4.8 to 16) |
+| `b` in the region | 11.5 ms (9.3 to 56) | 7.1 ms (4.9 to 12) |
+| `zm` | 27.3 ms (21.5 to 56) | 31.4 ms (23.2 to 60) |
+| `znn` | 21.8 ms (18.5 to 25) | 40.5 ms (23.9 to 60) |
+| `]z` | 30.3 ms (25.8 to 40) | 67.7 ms (31.4 to 90) |
+| `znag` | 26.4 ms (24.4 to 29) | 40.4 ms (32.9 to 104) |
+| `j` in the group | 11.6 ms (9.0 to 42) | 9.7 ms (8.1 to 60) |
+
+A frame of the song or of a region costs half of what it cost. A frame in
+the group costs the same: it draws 16 tracks, not 64.
+
+The keys that change the scope (`znn`, `]z`, `znag`) cost more in the
+scenario, where each runs once. The time is before the first frame, not in
+the drawing. With the `repeat` scenario and the same keys in the same order
+(`znar,zfar,zm,zr,znn,zw,]z,zW`, 8 rounds, under `jit.profile`), the two
+branches cost the same: 167 against 172 ms for each round, and the median
+first frame of `]z` is 9.2 against 7.7 ms. The cause of the difference in
+the scenario is not known.
+
+The first version of this change worked out the tree in each layout. That
+made `zm` cost 42 ms (41.9 to 50.5) against 27 ms: in a window with folds,
+`paw.folds.row` looks at each fold for each track. The kept tree removed
+that cost.
+
 ## 2026-11-23: keys in a scope (TASK-6.7)
 
 The scenario `scope` of `bench/profile/drive.py` ([profile.md](profile.md)).

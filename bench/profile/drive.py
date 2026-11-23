@@ -505,7 +505,9 @@ KEYS = [
     ("x", b"x", None), ("u", b"u", None),
     ("dd", b"dd", None), ("u", b"u", None),
     ("open piano roll (CR)", b"\r", None), ("j in roll", b"j", None), ("l in roll", b"l", None),
-    ("close (Esc :q)", ESC + b":q\r", None),
+    # Two writes: in one, paw joins the Esc to the `:` after it and reads the
+    # `q` that is left as the start of a macro.
+    ("close (Esc, :q)", [ESC, b":q\r"], None),
     ("mixer <leader>mm", b" mm", None), ("j in mixer", b"j", None), ("mixer off", b" mm", None),
     ("picker <leader>ff", b" ff", None), ("type in picker", b"tra", None), ("picker Esc", ESC, None),
     ("picker <leader>fg", b" fg", None), ("picker Esc", ESC, None),
@@ -540,11 +542,23 @@ def slow_since(paw, before):
     return [[name, t - before.get(name, [0])[0], ms] for name, (t, ms) in now.items() if t > before.get(name, [0])[0]]
 
 
+# Longer than paw waits for the rest of a sequence after a lone Esc
+# (15 ms, crates/paw-tui/src/keys.rs), so that each write is its own key.
+APART_S = 0.1
+
+
 def measure_key(paw, name, data, quiet_ms=250):
-    frames0 = paw.screen.count()
+    """The cost of a key: `data` is the bytes of one write, or a list of
+    writes that paw must read apart (Esc, then a command). The processor
+    time counts all the writes; the frames are those after the last."""
     k0 = paw.kernel_ns()
+    writes = data if isinstance(data, list) else [data]
+    for part in writes[:-1]:
+        paw.key(part)
+        time.sleep(APART_S)
+    frames0 = paw.screen.count()
     t0 = now_ms()
-    paw.key(data)
+    paw.key(writes[-1])
     got = paw.screen.wait_frames(frames0 + 1, 10)
     paw.screen.wait_quiet(quiet_ms, 10)
     k1 = paw.kernel_ns()
