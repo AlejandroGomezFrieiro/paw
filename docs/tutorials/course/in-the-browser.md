@@ -53,7 +53,7 @@ The keys have the names that Vim gives them. For example, `j` is the j key, `J` 
 6. `:` opens the command line at the bottom. Type `:tempo 130` and press `<CR>` (Enter). The song becomes faster. <span data-paw-keys='[":tempo 130",400,"&lt;CR&gt;"]' data-paw-state='{"lesson":1,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - *Hint:* Type the colon too. `<Esc>` cancels a command line. `<BS>` on an empty command line closes it.
    - ✓ The tempo is 130 beats per minute. The status line shows it.
-7. Press `<Space><Space>` to hear the faster song. Then press `<Space><Space>` to stop it. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":1,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+7. Press `<Space><Space>` to hear the faster song. Then press `<Space><Space>` to stop it.
    - ✓ The song plays faster now.
 8. To quit paw, type `:q` and `<CR>`. `ZQ` also quits, and `ZZ` saves before it quits. Quit now. The tutor keeps your place, so `:tutor` starts lesson 2 the next time. <span data-paw-keys='[":q&lt;CR&gt;"]' data-paw-state='{"lesson":1,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - *Hint:* If you do not want to quit now, press `<Space>hn` to start lesson 2.
@@ -102,7 +102,7 @@ A key can have a different meaning in a different mode, e.g., normal, visual or 
     - ✓ The piano roll now gets the keys.
 13. In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one track. Press `k` two times, and you hear each pitch. <span data-paw-keys='["k",400,"k"]' data-paw-state='{"lesson":2,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ The key is the same as in the arrange view, and it still moves up, but in the piano roll it moves by pitch.
-14. `<Esc>` does not leave the current window in any view, and `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space><Space>` to play and `<Space><Space>` to stop. <span data-paw-keys='["&lt;C-w&gt;p",400,"gp",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":2,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+14. `<Esc>` does not leave the current window in any view, and `<C-w>p` returns to the previous window. Press `<C-w>p`. Then press `gp` to move the playhead to the cursor. Press `<Space><Space>` to play and `<Space><Space>` to stop.
     - *Hint:* `<Space><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.
     - ✓ The song played from bar 5, where the melody starts.
 
@@ -133,7 +133,7 @@ A track has clips on the timeline and a chain of devices. The first device is an
    - ✓ The clip has three notes, C, D and E, and paw wrote them when you left insert mode.
 6. Press `<C-w>p` to return to the arrange view, which is the previous window. `<Esc>` does not leave the piano roll, and the same is true in every view. <span data-paw-keys='["&lt;C-w&gt;p"]' data-paw-state='{"lesson":3,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The arrange view gets the keys again, in NORMAL mode.
-7. Press `<Space><Space>` to hear your notes with the drums. Press `<Space><Space>` again to stop. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":3,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+7. Press `<Space><Space>` to hear your notes with the drums. Press `<Space><Space>` again to stop.
    - ✓ You heard the bass line that you wrote.
 8. `&` puts a copy of the clip immediately after it. Press `&` two times. <span data-paw-keys='["&amp;",400,"&amp;"]' data-paw-state='{"lesson":3,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - *Hint:* The cursor must be on the clip. `0` moves it to the start.
@@ -142,7 +142,7 @@ A track has clips on the timeline and a chain of devices. The first device is an
    - ✓ paw undid the change and did it again. Each key that changes the project is one undo step.
 10. `x` deletes the clip under the cursor. Press `x`. <span data-paw-keys='["x"]' data-paw-state='{"lesson":3,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ paw deleted the clip, and `u` can bring it back.
-11. Listen to the result. Press `gs` to move to the start, `<Space><Space>` to play and `<Space><Space>` to stop. <span data-paw-keys='["gs",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":3,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+11. Listen to the result. Press `gs` to move to the start, `<Space><Space>` to play and `<Space><Space>` to stop.
     - ✓ You have a bass line on a track that you made.
 
 We made a track and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change.
@@ -192,7 +192,7 @@ The clip `tune` has three notes in its second bar.
     - ✓ The title row shows `STEP`, and a caret shows where the next note goes. With no keyboard, a list of inputs opens, and step input stays on. `<Space>` rests one step, and `=` and a value sets the step.
 14. `<Esc>` writes the notes that you played and leaves insert mode. Press `<Esc>`, and press it again if a list of inputs is open. <span data-paw-keys='["&lt;Esc&gt;",400,"&lt;Esc&gt;"]' data-paw-state='{"lesson":4,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ Step input is off, and one undo step takes back all the notes that you played.
-15. In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen, and `<Space><Space>` again to stop. <span data-paw-keys='["&lt;C-w&gt;p",400,"gs",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":4,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+15. In normal mode, `<Esc>` stays in the piano roll, and the same is true in every view. `<C-w>p` returns to the previous window. Press `<C-w>p`, then `gs` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
     - ✓ Your tune plays over the drums.
 
 We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode, and met step input from a MIDI keyboard.
@@ -236,7 +236,7 @@ In the practice project, the Beat track has four clips, which are kick, snare, f
     - ✓ Bass is back, with its synth and its clip, so a delete is also a cut.
 12. `gl` is the loop operator. Press `k` to go up to Beat, and press `0` and `w` to put the cursor on `snare`. Then press `glic`. <span data-paw-keys='["k",400,"0",400,"w",400,"glic"]' data-paw-state='{"lesson":5,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ The loop is now over the snare clip, and the ruler shows the loop.
-13. Press `gcic` to unmute `snare`. Press `<Space><Space>` to hear the loop, and `<Space><Space>` again to stop. <span data-paw-keys='["gcic",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":5,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+13. Press `gcic` to unmute `snare`. Press `<Space><Space>` to hear the loop, and `<Space><Space>` again to stop.
     - ✓ The snare bar and the bass play again and again.
 
 We used operators with motions (`dw`, `d2W`) and with text objects (`dic`, `gcic`, `glic`), `dd` for tracks, and `.` to repeat.
@@ -274,7 +274,7 @@ The clip `riff` is open in the piano roll. Its notes are C, D, E, G, E, D and C,
    - ✓ The riff now starts on G.
 8. `/` finds a pitch, so `/d4` and `<CR>` go to the next D4. Then `dd` deletes all the notes of the pitch. Press `/d4`, `<CR>` and `dd`. <span data-paw-keys='["/d4",400,"&lt;CR&gt;",400,"dd"]' data-paw-state='{"lesson":6,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The clip now has no D4.
-9. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop. <span data-paw-keys='["&lt;C-w&gt;p",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":6,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+9. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop.
    - ✓ Your changed riff plays.
 
 We used the grammar of lesson 5 on notes: `dw`, `.`, `>in`, `yie` `p`, `cin`, `dd` and `/`.
@@ -315,7 +315,7 @@ Visual mode lets you see the items before you change them, because it changes th
 11. `v` selects a range of time at all pitches. Press `v`, and then press `12<C-a>` to move all notes that start in the range up one octave. <span data-paw-keys='["v",400,"12&lt;C-a&gt;"]' data-paw-state='{"lesson":7,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - *Hint:* While the status line shows VISUAL, type 1, 2, and then Ctrl and a.
     - ✓ The chord is one octave higher, because in visual mode a count gives the amount.
-12. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop. <span data-paw-keys='["&lt;C-w&gt;p",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":7,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+12. Press `<C-w>p` to return to the arrange view. Press `<Space><Space>` to listen, and `<Space><Space>` to stop.
     - ✓ The first chord sounds one octave higher.
 
 We selected with `v`, `V` and motions, and then used `x`, `y`, `~`, or a count and `<C-a>`. We also used `gv` to select again, and we used visual mode in the piano roll.
@@ -356,7 +356,7 @@ The Lead track has a short hook, and the Bass track has two clips, A and B.
     - ✓ The first hook went up one octave while you recorded, and register q contains `vic12<C-a>w`.
 11. `@q` plays the macro on the clip under the cursor, and `@@` plays it again. Press `@q`, then `@@`. <span data-paw-keys='["@q",400,"@@"]' data-paw-state='{"lesson":8,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ Three hooks are one octave higher, and the last hook did not change.
-12. Listen to the result. Press `gs` and `<Space><Space>`, and press `<Space><Space>` again to stop. <span data-paw-keys='["gs",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":8,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+12. Listen to the result. Press `gs` and `<Space><Space>`, and press `<Space><Space>` again to stop.
     - ✓ The hook goes up and then comes down again.
 
 We used `yic` and `p` with counts, and we used named registers, `:registers` and `2u`. Then we recorded a macro with `qq` and played it with `@q` and `@@`.
@@ -380,7 +380,7 @@ The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. Th
    - ✓ `cutoff` is selected.
 3. `+` increases the parameter by one step, and `-` decreases it. A count before them gives the number of steps. Press `10+` three times. <span data-paw-keys='["10+",400,"10+",400,"10+"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The sound is brighter, and the bar and the number show the new value.
-4. Listen while you change the value. Press `<Space><Space>`, and then press `-` some times to make the sound darker. Press `<Space><Space>` to stop. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"-",400,"-",400,"-",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+4. Listen while you change the value. Press `<Space><Space>`, and then press `-` some times to make the sound darker. Press `<Space><Space>` to stop.
    - ✓ You can change parameters while the song plays.
 5. `a` adds a device after the instrument. Press `a`, type `delay` and press `<CR>`. <span data-paw-keys='["a",400,"delay",400,"&lt;CR&gt;"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ An echo now comes after the synth.
@@ -395,7 +395,7 @@ The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. Th
    - *The tutor cannot check this step* (The installed plugins are different on each computer, and a plugin window needs a desktop). `<Space>hn` moves to the next step.
 10. `<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`. <span data-paw-keys='["&lt;C-w&gt;c"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ The panel is closed, and `<Space>dd` shows it again.
-11. Listen to the line with its echo. Press `<Space><Space>`, and `<Space><Space>` to stop. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+11. Listen to the line with its echo. Press `<Space><Space>`, and `<Space><Space>` to stop.
     - ✓ You hear a synth and a delay that you adjusted by ear.
 
 We used the device panel to select and change parameters. We added and bypassed a device, and we found where plugin windows open.
@@ -418,7 +418,7 @@ Automation changes a fader, or a parameter, over time. The mixer shows one strip
    - ✓ Bass is at -7 dB, which is 3 dB lower than before. `3-` or `3<C-x>` does the same in one step.
 3. `]` and `[` pan the strip to the right and to the left, at each row of the strip. Press `]` three times. <span data-paw-keys='["]",400,"]",400,"]"]' data-paw-state='{"lesson":10,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ Bass is a little to the right.
-4. `s` solos a track, so you hear only the soloed tracks. Press `<Space><Space>` to play and `s` to hear Bass alone. Press `s` again to hear all tracks, and `<Space><Space>` to stop. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",400,"s",2000,"s",400,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":10,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+4. `s` solos a track, so you hear only the soloed tracks. Press `<Space><Space>` to play and `s` to hear Bass alone. Press `s` again to hear all tracks, and `<Space><Space>` to stop.
    - ✓ With solo, you can listen to one track closely, and solo does not change the mix.
 5. `M` mutes a track. Press `l` to go to Keys, and `M` to mute it. <span data-paw-keys='["l",400,"M"]' data-paw-state='{"lesson":10,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ Keys is muted, and its `M` is lit.
@@ -436,7 +436,7 @@ Automation changes a fader, or a parameter, over time. The mixer shows one strip
     - ✓ A point of -30 dB is at the start, and an `A` shows in the track header.
 11. Press `2W` to move two bars. Then press `A` and `<C-u>`, type `-10` and press `<CR>`, so that the chords fade in over two bars. <span data-paw-keys='["2W",400,"A",400,"&lt;C-u&gt;",400,"-10",400,"&lt;CR&gt;"]' data-paw-state='{"lesson":10,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
     - ✓ The lane of the track shows the line between the points.
-12. Listen from the start. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop. <span data-paw-keys='["gs",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":10,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+12. Listen from the start. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
     - ✓ The chords fade in through a bus, the melody has an echo, and the bass is on the right.
 
 We used the faders, pan, solo and mute of the mixer. We made a bus with `:track.output`, and we added a send and volume automation with `A`.
@@ -461,7 +461,7 @@ The song in the practice project has an intro, a verse and a chorus.
    - ✓ The cursor is on the chorus, and `n` goes to the next match, which is the chorus of Bass.
 3. `gl` is the loop operator. Press `glic` to loop the clip under the cursor. <span data-paw-keys='["glic"]' data-paw-state='{"lesson":11,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The loop is now over the chorus.
-4. `gm` enables the metronome (the click). Press `gm`, and then press `gp` to move the playhead to the cursor and `<Space><Space>` to play. Press `<Space><Space>` again to stop. <span data-paw-keys='["gm",400,"gp",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":11,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+4. `gm` enables the metronome (the click). Press `gm`, and then press `gp` to move the playhead to the cursor and `<Space><Space>` to play. Press `<Space><Space>` again to stop.
    - ✓ The chorus played with a click.
 5. Press `gm` to disable the click. <span data-paw-keys='["gm"]' data-paw-state='{"lesson":11,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The click is off.
@@ -474,7 +474,7 @@ The song in the practice project has an intro, a verse and a chorus.
    - ✓ The cursor is at the start of Lead, where it was before `'a`. `''` again returns to the chorus, and `<C-o>` goes further back.
 9. `gl` also accepts motions. Press `3|` to go to bar 3, and then press `gl2W` to loop two bars from there. <span data-paw-keys='["3|",400,"gl2W"]' data-paw-state='{"lesson":11,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The loop is now over the first two bars of the verse.
-10. Press `gp` and `<Space><Space>` to listen, and `<Space><Space>` again to stop. <span data-paw-keys='["gp",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":11,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+10. Press `gp` and `<Space><Space>` to listen, and `<Space><Space>` again to stop.
     - ✓ Two bars of the verse play again and again.
 
 We set the loop with `gL`, `glic` and `gl2W`, and the click with `gm`. We used `/` to find clips, and `ma`, `'a` and `''` to jump.
@@ -530,7 +530,7 @@ The practice project already has a folder of its own in the folder of the tutor,
    - ✓ tutor-song.wav is in the folder `renders` of the practice project, and the message line shows its length and peak level.
 4. `:messages` shows the messages that you missed. Type `:messages` and `<CR>`, and then press `q` to close the list. <span data-paw-keys='[":messages",400,"&lt;CR&gt;",400,"q"]' data-paw-state='{"lesson":13,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ The list showed all the messages since paw started, with the saves and the export.
-5. You can play the rendered file in a different player. In paw, press `<Space><Space>` to play the song, and `<Space><Space>` again to stop. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":13,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+5. You can play the rendered file in a different player. In paw, press `<Space><Space>` to play the song, and `<Space><Space>` again to stop.
    - ✓ The song is saved and exported.
 
 We saved with `:w`, and we saw `[+]` for changes that are not saved. Then we exported with `:export name.wav tail=2` and read `:messages`.
@@ -547,7 +547,7 @@ Each key runs a command with a name, so you can type the name of each action tha
 
 <span data-paw-open='{"lesson":14,"keys":"&lt;Esc&gt;"}' data-paw-label='Open lesson 14 in paw'></span>
 
-1. Press `g` and wait. After half a second, a box shows all the keys that can come after `g`, and then you can press `<Esc>` to close the box. <span data-paw-keys='["g",2000,"&lt;Esc&gt;"]' data-paw-state='{"lesson":14,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+1. Press `g` and wait. After half a second, a box shows all the keys that can come after `g`, and then you can press `<Esc>` to close the box.
    - *Hint:* Do not press a key until the box shows.
    - ✓ Each key sequence that is not complete shows what can come next. Later, try `<Space>`, `d` or `"`.
 2. `:commands` shows each command and what it does. Type `:commands` and `<CR>`, look at the list, and then press `q` to close it. <span data-paw-keys='[":commands",400,"&lt;CR&gt;",400,"q"]' data-paw-state='{"lesson":14,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
@@ -562,7 +562,7 @@ Each key runs a command with a name, so you can type the name of each action tha
    - ✓ The cursor is on Drums, and `<Space>fc` does the same for clips.
 7. `K` gives data about the item under the cursor, which is the clip, the track and its devices, in a small float under the cursor. Press `K`, and then `<Esc>` to close the float. <span data-paw-keys='["K",400,"&lt;Esc&gt;"]' data-paw-state='{"lesson":14,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ With `K`, you can see the devices, sends and automation of a track with one key.
-8. Listen with the click. Press `<Space><Space>`, and then `<Space><Space>` to stop and `gm` to disable the click. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;",400,"gm"]' data-paw-state='{"lesson":14,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+8. Listen with the click. Press `<Space><Space>`, and then `<Space><Space>` to stop and `gm` to disable the click.
    - ✓ The bass is quieter, and the click came from a command that you found by its name.
 
 We used key hints, `?`, `:commands`, Tab on the command line, the `<Space>f` pickers and `K`.
@@ -589,7 +589,7 @@ Each key that you used is a usual mapping, and each command is a usual Lua funct
 4. To keep the option, the mapping and the command, open `~/.config/paw/init.lua` in your text editor. Add the same three lines without `:lua`, and save the file. Then type `:reload` in paw. <span data-paw-keys='["&lt;leader&gt;hn"]' data-paw-state='{"lesson":15,"keys":"&lt;Esc&gt;"}' data-paw-label='Next step'></span>
    - *Hint:* In init.lua, each line is usual Lua, for example `paw.opt.grid = 0.5`. If there is an error, `:extensions` and `:messages` show it.
    - *The tutor cannot check this step* (The tutor does not read or write your configuration). `<Space>hn` moves to the next step.
-5. Listen with your click. Press `<Space><Space>`, and then `<Space><Space>` to stop and `<Space>k` to disable the click. <span data-paw-keys='["&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;",400,"&lt;leader&gt;k"]' data-paw-state='{"lesson":15,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+5. Listen with your click. Press `<Space><Space>`, and then `<Space><Space>` to stop and `<Space>k` to disable the click.
    - ✓ The key that you mapped works.
 
 We set an option, made a mapping and a command with `:lua`, and found where to keep them.
@@ -620,7 +620,7 @@ The README.md of each extension describes all that it does. Each extension has i
    - ✓ tutor-song.rpp is in the folder where you started paw. As the list said, the file does not contain the built-in devices.
 7. utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track. In the browser, paw has no native code for the engines of utau, so skip the step. <span data-paw-keys='["&lt;leader&gt;hn"]' data-paw-state='{"lesson":16,"keys":"&lt;Esc&gt;"}' data-paw-label='Next step'></span>
    - ✓ The track is a vocal track, and it sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). After that, `\Vt` adds a vocal track and asks for its singer in one step.
-8. Listen to the pattern and the tune. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop. <span data-paw-keys='["gs",400,"&lt;leader&gt;&lt;Space&gt;",2000,"&lt;leader&gt;&lt;Space&gt;"]' data-paw-state='{"lesson":16,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+8. Listen to the pattern and the tune. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
    - ✓ You hear the drum pattern and the tune that musicops changed.
 
 We tried one feature of each of pattern, musicops, sections, undotree, mixdiag, interop and utau, and their READMEs describe the rest.
