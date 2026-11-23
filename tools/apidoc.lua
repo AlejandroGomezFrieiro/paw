@@ -1298,14 +1298,17 @@ local function field_teal(rust, structs)
   return RUST_FIELD[rust]
 end
 
---- The `pub struct`s of a Rust file, in order: `{ name, doc, fields }`, each
+--- The `pub struct`s of a Rust file (also `pub(crate)`), in order: `{ name, doc, fields }`, each
 --- field `{ name, rust, doc, type }`; and the variants of its `pub enum`s:
 --- `{ name, rust, doc, type, serde }`, by the enum's name.
 function M.rust_records(path)
   local structs, enums, order = {}, {}, {}
   local doc, serde, derive = {}, nil, ""
   local current, enum
-  for _, line in ipairs(lines_of(path) or {}) do
+  for _, raw in ipairs(lines_of(path) or {}) do
+    -- An item private to the crate (`pub(crate)`, `pub(super)`) crosses to
+    -- Lua as a `pub` item does.
+    local line = raw:gsub("^(%s*)pub%(%w+%) ", "%1pub ")
     local comment = line:match("^%s*///%s?(.*)$")
     if comment then
       doc[#doc + 1] = comment
