@@ -46,7 +46,7 @@ impl Session {
         if tempos == self.doc.project.tempo_points() && sigs == self.doc.project.sig_points() {
             return Ok(());
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.retime(TempoMap::new(&tempos, &sigs));
             Ok(())
         })

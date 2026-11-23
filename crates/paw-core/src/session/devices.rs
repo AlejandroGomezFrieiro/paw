@@ -212,7 +212,7 @@ impl Session {
             .map(|f| f.info())
             .filter(|info| info.format != DeviceFormat::Builtin)
             .map(|info| info.name.clone());
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let t = p
                 .track_mut(track)
                 .with_context(|| format!("no track {track}"))?;
@@ -263,7 +263,7 @@ impl Session {
     }
 
     pub fn device_remove(&mut self, id: Id) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let (track, index) = p
                 .find_device(id)
                 .with_context(|| format!("no device {id}"))?;
@@ -276,7 +276,7 @@ impl Session {
 
     /// Move a device to `index` in the chain of `track`.
     pub fn device_move(&mut self, id: Id, track: Id, index: usize) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let (from, at) = p
                 .find_device(id)
                 .with_context(|| format!("no device {id}"))?;
@@ -399,7 +399,7 @@ impl Session {
             self.touch(track, target, before.unwrap_or(value), value);
         }
         let name = format!("param {id} {key}");
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.device_mut(id).unwrap().params.insert(key, value);
             Ok(())
         })?;
@@ -546,7 +546,7 @@ impl Session {
         // The plugin already holds the new state when it loaded one of its
         // own presets or answered a call.
         let already = load.factory.is_some() || load.call.is_some();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let d = p.device_mut(id).unwrap();
             d.state = state;
             d.params = load.params;
@@ -859,7 +859,7 @@ impl Session {
     }
 
     pub fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if key == "sidechain" {
                 let (track, _) = p
                     .find_device(id)

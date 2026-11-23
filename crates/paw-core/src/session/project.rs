@@ -42,7 +42,7 @@ impl Session {
             return Ok(());
         }
         let field: ProjectField = key.parse()?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             match field {
                 ProjectField::Name => p.name = de(key, value)?,
                 ProjectField::Tempo => {

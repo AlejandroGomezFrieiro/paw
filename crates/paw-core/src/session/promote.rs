@@ -172,7 +172,7 @@ impl Session {
         }
         let tracks: Vec<Id> = members.iter().map(|t| t.id).collect();
         let at = p.tracks.iter().position(|t| t.id == b.row).context("no row")? + usize::from(b.keep_row);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let gone: HashSet<Id> = p
                 .nest_tracks(b.nest)
                 .map(|t| t.id)
@@ -300,7 +300,7 @@ impl Session {
         p.tracks.retain(|t| t.nest != Some(b.nest));
         p.nests.remove(&b.nest);
         p.validate()?;
-        self.edit(|project| {
+        self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;

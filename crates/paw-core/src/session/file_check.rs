@@ -8,9 +8,10 @@
 //! answer for each path is kept for at most [`FRESH`], and then the file is
 //! looked at again. Each change paw makes (an edit, an undo, a load) and
 //! each file event forgets every answer, so that what paw does itself shows
-//! at once.
+//! at once. An edit of the document is seen by its count of changes
+//! ([`FileCheck::after`]), so that an edit need not tell the check.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -23,9 +24,25 @@ pub(super) const FRESH: Duration = Duration::from_secs(1);
 #[derive(Default)]
 pub(super) struct FileCheck {
     seen: RefCell<HashMap<PathBuf, (Instant, bool)>>,
+    /// The document's count of changes ([`Document::changes`]) when the
+    /// answers in `seen` were taken.
+    ///
+    /// [`Document::changes`]: super::Document::changes
+    changes: Cell<u64>,
 }
 
 impl FileCheck {
+    /// The check, its answers forgotten first when the document changed
+    /// since they were taken. `changes` is [`Document::changes`].
+    ///
+    /// [`Document::changes`]: super::Document::changes
+    pub(super) fn after(&self, changes: u64) -> &Self {
+        if self.changes.replace(changes) != changes {
+            self.forget();
+        }
+        self
+    }
+
     /// Whether `path` is a file, as it was at most [`FRESH`] ago.
     pub(super) fn is_file(&self, path: &Path) -> bool {
         self.is_file_at(path, Instant::now())
@@ -67,7 +84,7 @@ mod tests {
             "asked again soon: the answer kept, the disk not looked at"
         );
         assert!(!check.is_file_at(&file, t0 + FRESH), "after FRESH the file is looked at again: missing");
-        check.forget();
+        check.after(1);
         std::fs::rename(dir.path().join("moved"), dir.path().join("media")).unwrap();
         assert!(check.is_file_at(&file, t0 + FRESH), "a change paw made forgets the answers at once");
     }

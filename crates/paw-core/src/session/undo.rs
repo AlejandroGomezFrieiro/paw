@@ -510,7 +510,7 @@ impl Session {
         self.doc.undo.history
             .label(Some(format!("checkpoint.restore {}", file.name)));
         self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = project;
             Ok(())
         })?;

@@ -709,7 +709,7 @@ impl Session {
         {
             bail!("{}", other_sound(from, &to));
         }
-        let clips = self.edit(|p| Ok(map_files(p, |f| (f == from).then(|| to.clone()))))?;
+        let clips = self.doc.edit(|p| Ok(map_files(p, |f| (f == from).then(|| to.clone()))))?;
         let dir = to.parent().map(Path::to_path_buf).unwrap_or_default();
         let mut result = self.media_search(&dir)?;
         result["clips"] = json!(clips);
@@ -732,7 +732,7 @@ impl Session {
         self.report_refused(&found);
         if !found.moved.is_empty() {
             let moved: HashMap<PathBuf, PathBuf> = found.moved.iter().cloned().collect();
-            self.edit(|p| Ok(map_files(p, |f| moved.get(f).cloned())))?;
+            self.doc.edit(|p| Ok(map_files(p, |f| moved.get(f).cloned())))?;
         }
         Ok(json!({
             "found": found.moved.len(),
@@ -784,7 +784,7 @@ impl Session {
             copies.insert(file.clone(), copy);
         }
         if !copies.is_empty() {
-            self.edit(|p| Ok(map_files(p, |f| copies.get(f).cloned())))?;
+            self.doc.edit(|p| Ok(map_files(p, |f| copies.get(f).cloned())))?;
         }
         Ok(json!({ "copied": copies.len() - same, "same": same, "missing": missing, "dir": media }))
     }

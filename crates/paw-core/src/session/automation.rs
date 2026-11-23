@@ -151,7 +151,7 @@ impl Session {
             // there is something to return to when the lane is turned off.
             let value = self.device_view(*device)?["params"][param].as_f64();
             let key = param.clone();
-            self.edit(|p| {
+            self.doc.edit(|p| {
                 let params = &mut p.device_mut(*device).unwrap().params;
                 params.insert(key, value.unwrap_or_default());
                 Ok(())
@@ -159,7 +159,7 @@ impl Session {
         }
         let points = self.clean_points(&target, states.len(), opts.points)?;
         let id = self.doc.new_id();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.track_mut(track).unwrap().lanes.push(Arc::new(Lane {
                 id,
                 target,
@@ -173,7 +173,7 @@ impl Session {
     }
 
     pub fn lane_remove(&mut self, id: Id) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let (track, index) = p.find_lane(id).with_context(|| format!("no lane {id}"))?;
             p.track_mut(track).unwrap().lanes.remove(index);
             Ok(())
@@ -184,7 +184,7 @@ impl Session {
         if holds(&self.lane_view(id), key, &value) {
             return Ok(());
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let l = p.lane_mut(id).with_context(|| format!("no lane {id}"))?;
             match key {
                 "enabled" => l.enabled = de(key, value)?,
@@ -217,7 +217,7 @@ impl Session {
             all.append(&mut points);
             points = self.clean_points(&lane.target, states, all)?;
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let lane = p.lane_mut(id).unwrap();
             // A shape stays with a point that stays where it was.
             lane.shapes.retain(|s| points.iter().any(|q| q.0 == s.beat));
@@ -254,7 +254,7 @@ impl Session {
             }
         }
         kept.sort_by(|a, b| a.beat.total_cmp(&b.beat));
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.lane_mut(id).unwrap().shapes = kept;
             Ok(())
         })
@@ -329,7 +329,7 @@ impl Session {
         } else {
             self.clean_points(&lane.target, states.len(), lane.points.clone())?
         };
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let lane = p.lane_mut(id).unwrap();
             lane.states = states;
             lane.points = points;

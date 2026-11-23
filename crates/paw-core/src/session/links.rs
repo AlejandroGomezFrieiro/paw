@@ -31,7 +31,7 @@ impl Session {
         copy.link = Some(link.clone());
         copy.id = self.doc.new_id();
         let copy_id = copy.id;
-        self.edit_named(|p| {
+        self.doc.edit_named(|p| {
             let clip = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
             if clip.link.is_none() {
                 clip.link = Some(link);
@@ -51,7 +51,7 @@ impl Session {
         if clip.link.is_none() {
             bail!("clip {id} is not linked");
         }
-        self.edit_named(|p| {
+        self.doc.edit_named(|p| {
             p.clip_mut(id).with_context(|| format!("no clip {id}"))?.link = None;
             Ok(())
         })

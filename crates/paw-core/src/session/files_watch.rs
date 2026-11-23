@@ -402,7 +402,7 @@ impl super::Session {
             };
             self.send_transport();
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = project;
             Ok(())
         })?;

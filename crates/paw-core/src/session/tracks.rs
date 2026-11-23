@@ -64,7 +64,7 @@ impl Session {
         let volume = finite("volume", opts.volume.unwrap_or(0.0))?.clamp(-120.0, 24.0);
         let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
         let id = self.doc.new_id();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if let Some(nest) = opts.nest
                 && p.nest(nest).is_none()
             {
@@ -100,7 +100,7 @@ impl Session {
     }
 
     pub fn track_remove(&mut self, id: Id) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if id == MASTER_ID {
                 bail!("the master track cannot be removed");
             }
@@ -156,7 +156,7 @@ impl Session {
     /// Move a track to `index` (from 0) among the tracks of its place: the
     /// song, or its subproject.
     pub fn track_move(&mut self, id: Id, index: usize) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let from = p
                 .tracks
                 .iter()
@@ -183,7 +183,7 @@ impl Session {
             };
             self.touch(id, target, before, to);
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if p.track(id).is_none() {
                 bail!("no track {id}");
             }

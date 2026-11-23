@@ -113,6 +113,13 @@ impl Document {
         }
     }
 
+    /// Counts every change to the project, undo and redo included: a
+    /// cache of what the project names (the files that clips read) is
+    /// stale when the count moved.
+    pub fn changes(&self) -> u64 {
+        self.undo.edits
+    }
+
     pub(super) fn new_id(&mut self) -> Id {
         let id = self.next_id;
         self.next_id += 1;

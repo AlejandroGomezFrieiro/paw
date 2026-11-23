@@ -242,7 +242,7 @@ impl Session {
         p.tracks.extend(made);
         p.nests.insert(id, Arc::new(nest));
         p.validate()?;
-        self.edit(|project| {
+        self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;
@@ -544,7 +544,7 @@ impl Session {
         p.tracks = list;
         p.nests.insert(id, Arc::new(nest));
         p.validate()?;
-        self.edit(|project| {
+        self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;

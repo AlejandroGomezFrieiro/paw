@@ -90,7 +90,7 @@ impl Session {
         candidate.tracks.push(Arc::new(track));
         candidate.nests.insert(id, Arc::new(nest));
         crate::model::check_nest(&candidate, id, &candidate.nests[&id])?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = candidate;
             Ok(id)
         })
@@ -156,7 +156,7 @@ impl Session {
         let mut nest = (*was).clone();
         field.set(&mut nest, key, value)?;
         crate::model::check_nest(&self.doc.project, id, &nest)?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             p.nests.insert(id, Arc::new(nest));
             if field == NestField::Tempo {
                 p.fit_blocks(id, &was);
@@ -248,7 +248,7 @@ impl Session {
             }
         }
         candidate.validate()?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = candidate;
             Ok(id)
         })

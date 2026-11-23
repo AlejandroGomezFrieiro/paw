@@ -79,7 +79,7 @@ impl Session {
         Ok(t.cues
             .iter()
             .map(|c| {
-                let mut view = super::clip_json(c, track, &self.files_there);
+                let mut view = super::clip_json(c, track, self.files_there.after(self.doc.changes()));
                 view.cue = Some(true);
                 view
             })
@@ -97,7 +97,7 @@ impl Session {
         copy.start = 0.0;
         copy.id = self.doc.new_id();
         let copy_id = copy.id;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if track == MASTER_ID {
                 bail!("the master track has no clips: put them on a track");
             }

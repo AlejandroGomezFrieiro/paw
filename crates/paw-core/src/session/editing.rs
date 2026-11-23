@@ -1,29 +1,9 @@
-//! Editing the project: the edit wrapper, flushing to the engine, undo steps.
+//! Editing the project: flushing to the engine, undo steps. The edits
+//! themselves are [`Document::edit`](super::Document::edit)'s.
 
 use super::*;
 
 impl Session {
-    /// Change the project ([`Document::edit`](super::Document::edit)). The
-    /// engine catches up at the next [`flush`](Self::flush). An edit that
-    /// did not fail also forgets which files are there.
-    pub fn edit<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
-        let result = self.doc.edit(f);
-        if result.is_ok() {
-            self.files_there.forget();
-        }
-        result
-    }
-
-    /// [`Document::edit_named`](super::Document::edit_named), as
-    /// [`edit`](Self::edit) is to [`Document::edit`](super::Document::edit).
-    pub fn edit_named<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
-        let result = self.doc.edit_named(f);
-        if result.is_ok() {
-            self.files_there.forget();
-        }
-        result
-    }
-
     /// Send pending edits to the engine and queue their change events.
     pub fn flush(&mut self) {
         self.engine.handle.collect_garbage();

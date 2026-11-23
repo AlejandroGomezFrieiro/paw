@@ -6,7 +6,7 @@ use crate::model::Overrides;
 impl Session {
     pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
         if let Some((track, index)) = self.doc.project.find_cue_clip(id) {
-            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, &self.files_there);
+            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, self.files_there.after(self.doc.changes()));
             view.cue = Some(true);
             return Ok(view);
         }
@@ -15,7 +15,7 @@ impl Session {
             .find_clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let clip = self.doc.project.clip(id).unwrap();
-        let mut view = clip_json(clip, track, &self.files_there);
+        let mut view = clip_json(clip, track, self.files_there.after(self.doc.changes()));
         self.note_stretching(clip, &mut view);
         view.link_count = clip.link.as_deref().map(|name| self.doc.project.link_count(name));
         Ok(view)
@@ -42,7 +42,7 @@ impl Session {
         Ok(clips
             .into_iter()
             .map(|c| {
-                let mut view = clip_json(c, track, &self.files_there);
+                let mut view = clip_json(c, track, self.files_there.after(self.doc.changes()));
                 self.note_stretching(c, &mut view);
                 view
             })
@@ -72,7 +72,7 @@ impl Session {
         Self::check_clip_opts(playing.clone(), &opts, length)?;
         let id = self.doc.new_id();
         let cue = opts.cue;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let t = p
                 .track_mut(track)
                 .with_context(|| format!("no track {track}"))?;
@@ -376,7 +376,7 @@ impl Session {
     }
 
     pub fn clip_remove(&mut self, id: Id) -> Result<()> {
-        self.edit(|p| {
+        self.doc.edit(|p| {
             if let Some((track, index)) = p.find_cue_clip(id) {
                 p.track_mut(track).unwrap().cues.remove(index);
                 return Ok(());
@@ -424,7 +424,7 @@ impl Session {
         if let Some(done) = self.clip_set_playing(id, key, &value) {
             return done;
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             // A clip off the timeline has no `start` there.
             let cue = p.find_cue_clip(id).is_some();
             match field {
@@ -519,7 +519,7 @@ impl Session {
             bail!("a clip's offset is a number");
         }
         let signals = check_signals(set.signals)?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let clip = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
             let ClipContent::Custom(custom) = &mut clip.content else {
                 bail!("clip {id} is a {} clip, not a custom one", clip.content.kind());
@@ -564,7 +564,7 @@ impl Session {
 
     pub fn clip_set_controls(&mut self, id: Id, new: Vec<Control>) -> Result<()> {
         let new = check_controls(new)?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             match &mut p
                 .clip_mut(id)
                 .with_context(|| format!("no clip {id}"))?
@@ -583,7 +583,7 @@ impl Session {
     /// Replace a MIDI clip's notes, or add to them when `append` is set.
     pub fn clip_set_notes(&mut self, id: Id, new: Vec<Note>, append: bool) -> Result<()> {
         check_notes(&new)?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             match &mut p
                 .clip_mut(id)
                 .with_context(|| format!("no clip {id}"))?

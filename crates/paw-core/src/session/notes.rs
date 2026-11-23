@@ -269,7 +269,7 @@ impl Session {
         if note.id == 0 || taken {
             note.id = last + 1;
         }
-        self.edit_named(|p| Ok(insert(notes_mut(p, id)?, note)))
+        self.doc.edit_named(|p| Ok(insert(notes_mut(p, id)?, note)))
     }
 
     /// Change one note, and say where it is afterwards: a note that starts
@@ -283,7 +283,7 @@ impl Session {
         change.apply(&mut note);
         let stays = order(before, &note) == Ordering::Equal;
         check_notes(std::slice::from_ref(&note))?;
-        self.edit_named(|p| {
+        self.doc.edit_named(|p| {
             let notes = notes_mut(p, id)?;
             if stays {
                 notes[index] = note;
@@ -300,7 +300,7 @@ impl Session {
         if index >= count {
             return Err(no_note(id, index, count));
         }
-        self.edit_named(|p| {
+        self.doc.edit_named(|p| {
             notes_mut(p, id)?.remove(index);
             Ok(())
         })
@@ -329,7 +329,7 @@ impl Session {
         for (_, note) in &changed {
             check_notes(std::slice::from_ref(note))?;
         }
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let notes = notes_mut(p, id)?;
             for (index, note) in changed {
                 notes[index] = note;
@@ -356,7 +356,7 @@ impl Session {
         let changes = columns.changes(&self.doc.project)?;
         let moves = columns.moves();
         // No note is added, and each changed note keeps its id.
-        self.edit_named(|p| write_changes(p, changes, moves))
+        self.doc.edit_named(|p| write_changes(p, changes, moves))
     }
 
     /// The first note on `pitch` sounding at `beat`, and its place.
