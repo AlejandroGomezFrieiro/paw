@@ -12,6 +12,12 @@
 //! └── unused/nests/<name>/    a nest that no clip places, as at save
 //! ```
 //!
+//! A nest that refers to a project folder outside (`:import`) has a
+//! `nest.toml` with its id, its name and the folder (`source`), and no
+//! other file: the folder is read again when the song opens
+//! (`model/nest/adopt.rs`). The nests that came with it are in the folder,
+//! so the song does not list them.
+//!
 //! Nests are flat under `nests/`, also a nest inside a nest: moving a nest
 //! clip changes one line. A nest that the song does not play (no clip
 //! places it, or only clips of such nests) is written to `unused/nests/`
@@ -19,7 +25,7 @@
 //! another nest is left as it is, and the nest takes the next free name.
 
 use super::*;
-use crate::model::Nest;
+use crate::model::{Nest, NestId};
 
 /// The file that makes a folder a nest.
 pub(super) const NEST_FILE: &str = "nest.toml";
@@ -30,10 +36,25 @@ impl Writer<'_> {
     /// `project.toml` lists them.
     pub(super) fn nests(&mut self, project: &Project) -> Result<Vec<String>> {
         let used = project.nests_in_use();
+        let references = project.references();
+        let came_along: BTreeSet<NestId> = references
+            .iter()
+            .flat_map(|(top, group)| group.iter().filter(move |n| *n != top))
+            .copied()
+            .collect();
         let mut names = BTreeSet::new();
         let mut unused_names = BTreeSet::new();
         let mut listed = Vec::new();
         for nest in project.nests.values() {
+            if used.contains(&nest.id) && references.contains_key(&nest.id) {
+                let name = unique(&mut names, &file_name(&nest.name), "");
+                self.reference(nest, &Path::new("nests").join(&name))?;
+                listed.push(name);
+                continue;
+            }
+            if used.contains(&nest.id) && came_along.contains(&nest.id) {
+                continue;
+            }
             let root = if used.contains(&nest.id) {
                 let name = unique(&mut names, &file_name(&nest.name), "");
                 let root = Path::new("nests").join(&name);
@@ -45,6 +66,20 @@ impl Writer<'_> {
             self.nest(project, nest, &root)?;
         }
         Ok(listed)
+    }
+
+    /// The folder of a nest that refers to a project folder: a `nest.toml`
+    /// with its id, its name and the folder.
+    fn reference(&mut self, nest: &Nest, root: &Path) -> Result<()> {
+        let source = nest.source.as_deref().context("a subproject that refers to no folder")?;
+        let mut head = toml::Table::new();
+        head.insert("id".into(), toml::Value::Integer(i64::try_from(nest.id.0)?));
+        head.insert("name".into(), toml::Value::String(nest.name.clone()));
+        let source = self.home.outside_name(source, self.dir);
+        head.insert("source".into(), toml::Value::String(source.to_string_lossy().into_owned()));
+        let text = toml::to_string_pretty(&head).context("writing nest.toml")?;
+        self.layout.files.insert(root.join(NEST_FILE), text.into_bytes());
+        Ok(())
     }
 
     /// One nest's folder: `nest.toml`, `meta.json`, `master/`, `tracks/`.
@@ -111,14 +146,25 @@ fn id_in(folder: &Path) -> Option<u64> {
     head.get("id")?.as_integer()?.try_into().ok()
 }
 
+/// A nest that refers to a project folder, as its `nest.toml` names it.
+pub(super) struct Reference {
+    pub id: NestId,
+    pub name: String,
+    /// The folder, as the file has it: `~/lib/bridge`, or relative to the
+    /// song's folder.
+    pub source: PathBuf,
+}
+
 /// Read the `nest.toml` and `meta.json` of each nest that `project.toml`
 /// lists, as the project's JSON has a nest, and add the entries of its
-/// tracks, then of its master, to `entries`.
+/// tracks, then of its master, to `entries`. A nest that refers to a
+/// project folder goes to `references`.
 pub(super) fn read_heads(
     fs: &dyn ProjectFiles,
     dir: &Path,
     names: &[String],
     entries: &mut Vec<TrackEntry>,
+    references: &mut Vec<Reference>,
 ) -> Result<Vec<Value>> {
     let mut out = Vec::new();
     for name in names {
@@ -136,6 +182,11 @@ pub(super) fn read_heads(
             .get("id")
             .and_then(Value::as_u64)
             .with_context(|| format!("{} has no id", path.display()))?;
+        if let Some(source) = map.get("source").and_then(Value::as_str) {
+            let name = map.get("name").and_then(Value::as_str).unwrap_or(name);
+            references.push(Reference { id: NestId(id), name: name.to_string(), source: source.into() });
+            continue;
+        }
         let order: Vec<String> = match map.remove("tracks") {
             Some(v) => serde_json::from_value(v)
                 .with_context(|| format!("{}: tracks is a list of folder names", path.display()))?,
@@ -158,6 +209,53 @@ pub(super) fn read_heads(
         out.push(head);
     }
     Ok(out)
+}
+
+/// The project of the folder `folder` as a subproject that `depth` songs
+/// refer to reads it: its sound files by their full path, since they are
+/// named from that folder. A folder that refers to subprojects deeper than
+/// a nest can be is refused: it refers to itself.
+pub(in crate::session) fn read_part(fs: &dyn ProjectFiles, home: &Home, folder: &Path, depth: usize) -> Result<Read> {
+    if depth >= crate::model::MAX_DEPTH {
+        bail!("{} refers to subprojects more than {} deep: does it refer to itself?", folder.display(), crate::model::MAX_DEPTH);
+    }
+    let mut read = read_at(fs, home, folder, &folder.join(PROJECT_FILE), depth + 1)?;
+    crate::session::media::map_files(&mut read.project, |file| file.is_relative().then(|| tidy(&folder.join(file))));
+    Ok(read)
+}
+
+/// Make each nest of `references` the project folder it refers to, read
+/// again (`model/nest/adopt.rs`). A folder that cannot be read is told,
+/// and its nest plays nothing but keeps the folder, so that the song
+/// opens and a save keeps the reference.
+pub(super) fn adopt_references(
+    fs: &dyn ProjectFiles,
+    home: &Home,
+    dir: &Path,
+    project: &mut Project,
+    references: Vec<Reference>,
+    problems: &mut Vec<String>,
+    depth: usize,
+) -> Result<()> {
+    for r in references {
+        let folder = home.resolve(&r.source, dir);
+        let part = match read_part(fs, home, &folder, depth) {
+            Ok(read) => {
+                problems.extend(read.problems.into_iter().map(|p| format!("the subproject {}: {p}", r.name)));
+                read.project
+            }
+            Err(e) => {
+                problems.push(format!(
+                    "the subproject {} refers to {}, which cannot be read ({e:#}): it plays nothing until it is there",
+                    r.name,
+                    folder.display()
+                ));
+                Project::default()
+            }
+        };
+        project.adopt(part, r.id, &r.name, &folder);
+    }
+    Ok(())
 }
 
 /// Tag each track read for a nest with it, and give each nest the id of
@@ -281,6 +379,49 @@ mod tests {
         let head: toml::Value = toml::from_str(&std::fs::read_to_string(dir.join(PROJECT_FILE)).expect("project.toml"))
             .expect("TOML");
         assert_eq!(head["nests"], toml::Value::Array(vec!["Bridge".into(), "Fill".into()]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_nest_from_a_folder_is_saved_as_the_path_and_read_from_the_folder_again() {
+        let (lib, dir) = (scratch("lib"), scratch("song"));
+        // The folder: a song with a subproject of its own.
+        save(&ballad(), &lib);
+        let mut p = song(100);
+        p.adopt(read(&Home::default(), &lib).expect("the folder").project, NestId(100), "Lib", &lib);
+        p.validate().expect("a valid song");
+        let first = save(&p, &dir);
+        let head = std::fs::read_to_string(dir.join("nests/Lib/nest.toml")).expect("nest.toml");
+        assert_eq!(head, format!("id = 100\nname = \"Lib\"\nsource = \"{}\"\n", lib.display()));
+        assert_eq!(first.files.keys().filter(|f| f.starts_with("nests")).count(), 1, "no copy of it or of the nest inside");
+        let back = read(&Home::default(), &dir).expect("read back").project;
+        back.validate().expect("valid when read back");
+        assert_eq!(layout(&back, &Value::Null, None, &dir, &Home::default()).expect("a layout").files, first.files);
+        assert_eq!(back.track(113).map(|t| (t.name.as_str(), t.nest)), Some(("Keys", Some(NestId(111)))), "with the folder's ids from its own");
+        // The folder changes: the song plays what it has now.
+        let mut changed = ballad();
+        changed.track_mut(12).expect("Keys").name = "Piano".into();
+        save(&changed, &lib);
+        let again = read(&Home::default(), &dir).expect("read again").project;
+        assert_eq!(again.track(113).map(|t| t.name.as_str()), Some("Piano"));
+        for d in [lib, dir] {
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+
+    #[test]
+    fn a_song_whose_subproject_folder_is_gone_opens_and_keeps_the_path() {
+        let (lib, dir) = (scratch("gone-lib"), scratch("gone-song"));
+        save(&ballad(), &lib);
+        let mut p = song(100);
+        p.adopt(read(&Home::default(), &lib).expect("the folder").project, NestId(100), "Lib", &lib);
+        let first = save(&p, &dir);
+        let _ = std::fs::remove_dir_all(&lib);
+        let back = read(&Home::default(), &dir).expect("the song opens");
+        back.project.validate().expect("valid");
+        assert!(back.problems.iter().any(|p| p.contains("it plays nothing until it is there")), "{:?}", back.problems);
+        let again = layout(&back.project, &Value::Null, None, &dir, &Home::default()).expect("a layout");
+        assert_eq!(again.files.get(Path::new("nests/Lib/nest.toml")), first.files.get(Path::new("nests/Lib/nest.toml")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

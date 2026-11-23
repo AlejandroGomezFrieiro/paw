@@ -195,6 +195,16 @@ pub struct ClipCopied {
     pub origin: Option<PathBuf>,
 }
 
+/// A subproject that referred to a project folder and is now the
+/// project's own copy (`origin`, the folder).
+#[derive(Debug, Clone, Serialize)]
+pub struct NestCopied {
+    pub nest: u64,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<PathBuf>,
+}
+
 /// How far a render is (`fraction`, 0 to 1), what it does now, and the
 /// seconds since it started.
 #[derive(Debug, Clone, Serialize)]
@@ -298,6 +308,8 @@ pub enum KernelEvent {
     ClipRemoved(Item),
     #[serde(rename = "clip.copied")]
     ClipCopied(ClipCopied),
+    #[serde(rename = "nest.copied")]
+    NestCopied(NestCopied),
     #[serde(rename = "lane.added")]
     LaneAdded(Item),
     #[serde(rename = "lane.changed")]

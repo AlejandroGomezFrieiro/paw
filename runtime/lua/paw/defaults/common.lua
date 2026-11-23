@@ -30,7 +30,11 @@ end
 --- Whether a path is a folder that is not a project: it opens as a list
 --- of its files to edit (`paw.files`), not as a project.
 function M.plain_folder(path)
-  return path ~= nil and path ~= "" and paw.files.is_dir(path) and not paw.project.is_folder(path)
+  return path ~= nil
+    and path ~= ""
+    and paw.files.is_dir(path)
+    and not paw.project.is_folder(path)
+    and not paw.nest.song_of(paw.files.path(path))
 end
 
 --- Pan as it is shown, L30 C R25, read back into -100..100.

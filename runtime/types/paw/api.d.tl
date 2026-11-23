@@ -190,7 +190,9 @@ local record api
    nest_beat: function(clip: integer, beat: number): number
    nest_export: function(id: integer, dir: string): types.NestExported
    nest_get: function(id: integer): types.Nest
+   nest_import: function(dir: string): integer
    nest_list: function(): {integer}
+   nest_own: function(id: integer): string
    nest_own_tempo: function(clip: integer): boolean
    nest_promote: function(clip: integer): types.NestPromoted
    nest_save: function(opts: types.NestSaveOptions): types.NestSaved

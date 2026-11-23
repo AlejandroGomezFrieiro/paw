@@ -17,6 +17,8 @@
 local api = require("paw.api")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local events = require("paw.events")
+local kernel = require("paw.events.kernel")
 local util = require("paw.util")
 local events = require("paw.events")
 local registry = require("paw.registry")
@@ -35,12 +37,18 @@ local record TrackKinds
   add: function(name: string, opts: {string: string}): objects.Track
 end
 
+--- `paw.loading` (paw/loading.lua), the part this module calls.
+local record Loading
+  open: function(path: string, opts?: {string: boolean})
+end
+
 local record Paw is partial.Paw
   cursor: CursorModule
   markers: MarkersModule
   scope: ScopeModule
   groups: GroupsModule
   time: objects.Time
+  loading: Loading
   add_track: function(opts?: objects.TrackInput): objects.Track
 end
 local paw = (_G as {string: Paw}).paw
@@ -1859,6 +1867,132 @@ for _, bang in ipairs({"", "!"}) do
         and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`); with a path, write it as a project folder of its own and change nothing (`scope.write ~/lib/bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
     }
   )
+end
+
+-- Into the song: a project folder as a subproject -----------------------------------------
+
+local tilde = util.tilde
+
+--- Bring the project folder `folder` (`~/` is the home folder) into the
+--- song as a subproject, as `:import <folder>` does: a subproject that
+--- refers to the folder (`paw.api.nest_import`), on a row of its own below
+--- the cursor's track with one block from the cursor's bar. It plays at
+--- once. Its first edit, or `:nest.own`, makes it the song's own copy.
+--- Call it in one undo step (a command is one). Returns the message.
+function M.import(folder: string): string
+  local id = api.nest_import(util.expand_path(folder))
+  local n = M.get(id)
+  local place = paw.scope.nest()
+  local below = paw.cursor.track_id()
+  local index: integer
+  for i, track in ipairs(api.track_list({nest = place and place.id or nil})) do
+    if track == below then
+      index = i + 1
+    end
+  end
+  local from = paw.time.bar_floor(paw.cursor.beat)
+  local row = paw.add_track({name = n.name, index = index})
+  api.clip_add(row.id, {nest = id, start = from} as types.ClipOptions)
+  paw.cursor.set_track(row.id)
+  local tracks = #n.tracks
+  local message = string.format(
+    "imported the subproject %s from %s at %s, on its own row: %d track%s; it refers to the folder until you edit it",
+    n.name,
+    tilde(folder),
+    bars_text(from, from + 1e-3),
+    tracks,
+    tracks == 1 and "" or "s"
+  )
+  -- It follows the song's tempo: say so when the folder's was another.
+  local kept = n.tempo.kept
+  local bpm = kept and kept[1] and kept[1].bpm
+  if bpm and math.abs(bpm - api.tempo_at(paw.time.song_beat(from))) > 1e-6 then
+    message = message
+      .. string.format("; it plays at the song's tempo, `:nest.time own %g` gives it its own %g bpm", bpm, bpm)
+  end
+  return message
+end
+
+--- Make subproject `nest`, which refers to a project folder, the song's own
+--- copy now, as `:nest.own` does: the subprojects that came with it too.
+--- One undo step: `u` makes it refer to the folder again. Returns the
+--- message.
+function M.own(nest: integer): string
+  local n = M.get(nest)
+  if not n then
+    error("no subproject " .. tostring(nest), 0)
+  end
+  local folder = api.nest_own(nest)
+  return string.format("the subproject %s is now the song's own copy (was %s)", n.name, tilde(folder))
+end
+
+commands.define(
+  "nest.own",
+  function(): contracts.CommandResult paw.notify(M.own(nest_here())) end,
+  {
+    label = "Make the subproject the song's own copy",
+    desc = "Make the subproject at the cursor, which refers to a project folder (`import ~/lib/Ballad`), the song's own copy now; its first edit does it too",
+  }
+)
+
+-- The first edit of a subproject that refers to a project folder.
+events.on(
+  kernel.nest_copied,
+  function(e: kernel.NestCopied)
+    paw.notify(
+      string.format("the subproject %s is now the song's own copy (was %s)", e.name, tilde(tostring(e.origin)))
+    )
+  end
+)
+
+--- The song and the subproject that a path inside a song names
+--- (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the
+--- subproject's id. Nil for any other path.
+function M.song_of(path: string): string, integer
+  local folder = (path:gsub("/nest%.toml$", ""):gsub("/+$", ""))
+  local song = folder:match("^(.*)/nests/[^/]+$")
+  if not song then
+    return nil
+  end
+  local head = io.open(song .. "/project.toml")
+  if not head then
+    return nil
+  end
+  head:close()
+  local file = io.open(folder .. "/nest.toml")
+  if not file then
+    return nil
+  end
+  local text = file:read("*a") as string
+  file:close()
+  local id = math.tointeger(tonumber(text:match("^id%s*=%s*(%d+)") or text:match("\nid%s*=%s*(%d+)")))
+  if not id then
+    return nil
+  end
+  return song, id
+end
+
+--- Open the song of `path`, a path inside a song (`song/nests/Bridge`, see
+--- `song_of`), and enter that subproject in the window, as `:e` of the path
+--- does. The song opens only when it is not open already; `opts` go to
+--- `paw.loading.open`. Returns the message.
+function M.open(path: string, opts?: {string: boolean}): string
+  local song, id = M.song_of(path)
+  if not song then
+    error(path .. " is no subproject of a song", 0)
+  end
+  local current = api.project_get().path
+  if not (current and (current:gsub("/project%.toml$", ""):gsub("/+$", "")) == song) then
+    paw.loading.open(song, opts)
+  end
+  local n = M.get(id)
+  if not n then
+    error(string.format("%s has no subproject %s: the song does not play it", song, path:match("([^/]+)/?$")), 0)
+  end
+  local first = M.blocks(id)[1]
+  paw.scope.widen(true)
+  paw.scope.enter({kind = "nest", id = id, clip = first and first.clip.id or nil})
+  return string.format("opened %s inside the subproject %s: `zw` goes up to the song", tilde(song), n.name)
 end
 
 -- The rows in place: the arrange view and the cursor ask here.

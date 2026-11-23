@@ -103,6 +103,8 @@ end)
 --- files, a sound file as a new track, anything else as a project, with
 --- plugins offline as `opts` says (see `paw.loading.open`).
 function paw.open(path, opts)
+  -- A subproject's folder in a song (`song/nests/Bridge`): the song, inside it.
+  if paw.nest.song_of(path) then return paw.notify(paw.nest.open(path, opts)) end
   if plain_folder(path) then return paw.files.open(path, { here = true }) end
   if paw.is_audio_file(path) then return paw.import_audio(path, { start = 0 }) end
   if paw.is_chain_file(path) then return paw.open_chain(path) end
@@ -161,6 +163,15 @@ paw.formats.register({
 command("import", function(ctx)
   local args
   local function bring(path)
+    -- A project folder: a subproject that refers to it, on its own row.
+    local project = path:gsub("/+$", ""):gsub("/project%.toml$", "")
+    if paw.files.is_dir(project) and paw.project.is_folder(project) then
+      local ok, message = pcall(paw.nest.import, project)
+      if not ok then
+        return paw.notify("could not import " .. path .. ": " .. tostring(message):gsub("^[^:]*:%d+: ", ""), "error")
+      end
+      return paw.notify(message)
+    end
     -- A track folder (one with a track.json): a track that refers to it.
     local folder = path:gsub("/+$", ""):gsub("/track%.json$", "")
     if paw.files.is_dir(folder) and io.open(folder .. "/track.json") then

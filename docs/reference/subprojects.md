@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.export :nest.time :nest.meter :nest.unique kind= -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.export :nest.own :nest.time :nest.meter :nest.unique kind= -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -326,6 +326,49 @@ the new folder, one copy for each set of equal bytes, and write their
 says how many. The message names the folder and what it has, for example
 `wrote the subproject Ballad to ~/lib/Ballad: 2 tracks, 1 media file; the
 song did not change`.
+
+## Bring a project into the song as a subproject
+
+| Keys or command | Effect |
+| --- | --- |
+| `:import <folder>` | Make a project folder a subproject of the song, with a return row below the track at the cursor and one block from the bar of the cursor. The subproject refers to the folder. |
+| `:nest.own` | Make the subproject at the cursor, which refers to a folder, the song's own copy now. Inside a subproject, that subproject. |
+| `:e <song>/nests/<name>` | Open the song and go inside its subproject `<name>`. When the song is open already, go inside the subproject. |
+
+`:import` takes a project folder, or its `project.toml`, for example
+`:import ~/lib/Ballad`, which `:nest.export` wrote. The subproject plays
+at once, and the command with its row and block is one undo step. The
+message names the folder and the number of tracks, for example
+`imported the subproject Ballad from ~/lib/Ballad at bar 1, on its own
+row: 2 tracks; it refers to the folder until you edit it`. The
+subproject gets the project's parts in these ways:
+
+- The tracks of the project become the tracks of the subproject, and the
+  master track of the project becomes its master. The subprojects inside
+  the project come with it.
+- Its markers, regions and data come from the project, and so does its
+  key when the key is not the song's.
+- It keeps the meter of the project as its own. It plays at the tempo of
+  the song, and keeps the tempo of the project for `:nest.time own`. When
+  the two tempos are not the same, the message says so and gives the
+  command, for example `:nest.time own 90`.
+- Its length goes to the end of the bar where the last clip, marker or
+  region of the project ends.
+
+A subproject that refers to a folder has no copy in the song. paw reads
+the folder again each time it opens the song, so a change in the folder
+comes into the song. When the folder is not there, the song opens, the
+subproject plays nothing, and a message says which folder is missing.
+
+The first edit inside the subproject makes it the song's own copy, with
+the subprojects that came with it, in the same undo step as the edit.
+paw says so once, for example `the subproject Ballad is now the song's
+own copy (was ~/lib/Ballad)`, and the subproject keeps the folder as its
+`origin`. To move the block, to change the return row or to play the
+subproject is no edit of it. `:nest.own` makes the copy at once, as one
+undo step, so `u` makes the subproject refer to the folder again.
+`:nest.own` on a subproject that is the song's own already gives an
+error.
 
 ## Promote a subproject to a view
 

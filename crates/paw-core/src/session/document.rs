@@ -20,7 +20,7 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::undo::{self, SWEEP_GAP};
-use crate::events::{ClipCopied, KernelEvent as E, TrackCopied};
+use crate::events::{ClipCopied, KernelEvent as E, NestCopied, TrackCopied};
 use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
@@ -294,6 +294,52 @@ impl Document {
     pub(super) fn own_edited_references(&mut self) {
         self.own_edited_clips();
         self.own_edited_tracks();
+        self.own_edited_nests();
+    }
+
+    /// A nest that refers to a project folder outside (`:import`), with
+    /// the nests that came with it, that this step changed is now the
+    /// project's own, as a track is: `nest.copied`, once for the
+    /// reference. A change is one of a nest of the reference, or of a
+    /// track of one: its fields, its tracks, their devices (not a plugin's
+    /// state, read again at each save), clips and lanes.
+    fn own_edited_nests(&mut self) {
+        let references = self.undo.checkpoint.references();
+        for (top, group) in references {
+            let (old, new) = (&self.undo.checkpoint, &self.project);
+            let source = old.nest(top).and_then(|n| n.source.clone());
+            // `:nest.own` in this step, or the nest went: nothing to own.
+            if new.nest(top).is_none_or(|n| n.source != source) {
+                continue;
+            }
+            let nest_changed = group.iter().any(|id| match (old.nest(*id), new.nest(*id)) {
+                (Some(a), Some(b)) => !Arc::ptr_eq(a, b) && a != b,
+                _ => true,
+            });
+            let ours = |p: &Project| -> HashMap<Id, Arc<Track>> {
+                p.tracks
+                    .iter()
+                    .filter(|t| t.nest.is_some_and(|n| group.contains(&n)))
+                    .map(|t| (t.id, t.clone()))
+                    .collect()
+            };
+            let (before, now) = (ours(old), ours(new));
+            let tracks_changed = before.len() != now.len()
+                || now.iter().any(|(id, t)| {
+                    before
+                        .get(id)
+                        .is_none_or(|b| !Arc::ptr_eq(b, t) && without_states(b) != without_states(t))
+                });
+            if !(nest_changed || tracks_changed) {
+                continue;
+            }
+            self.project.own_reference(&group);
+            let Some(nest) = self.project.nest(top) else {
+                continue;
+            };
+            let copied = NestCopied { nest: top.0, name: nest.name.clone(), origin: nest.origin.clone() };
+            self.emit(E::NestCopied(copied));
+        }
     }
 
     /// A track read from a folder outside the project, or a chain read from
@@ -311,24 +357,6 @@ impl Document {
         if before.is_empty() {
             return;
         }
-        // A plugin's state is read again at each save: that is not an edit.
-        let stateless = |devices: &[Arc<DeviceInst>]| -> Vec<Value> {
-            devices
-                .iter()
-                .map(|d| {
-                    let mut v = serde_json::to_value(&**d).unwrap_or_default();
-                    v.as_object_mut().map(|o| o.remove("state"));
-                    v
-                })
-                .collect()
-        };
-        let whole = |t: &Track| -> Value {
-            let mut v = serde_json::to_value(t).unwrap_or_default();
-            if let Some(o) = v.as_object_mut() {
-                o.insert("devices".into(), Value::Array(stateless(&t.devices)));
-            }
-            v
-        };
         let (mut tracks, mut chains) = (Vec::new(), Vec::new());
         for t in &self.project.tracks {
             let Some(old) = before.get(&t.id) else {
@@ -337,7 +365,7 @@ impl Document {
             if Arc::ptr_eq(old, t) {
                 continue;
             }
-            if t.source.is_some() && t.source == old.source && whole(old) != whole(t) {
+            if t.source.is_some() && t.source == old.source && without_states(old) != without_states(t) {
                 tracks.push(t.id);
             } else if t.chain_source.is_some()
                 && t.chain_source == old.chain_source
@@ -440,6 +468,29 @@ impl Document {
     }
 }
 
+/// A track's devices as JSON without a plugin's state: a plugin's state is
+/// read again at each save, and that is not an edit.
+fn stateless(devices: &[Arc<DeviceInst>]) -> Vec<Value> {
+    devices
+        .iter()
+        .map(|d| {
+            let mut v = serde_json::to_value(&**d).unwrap_or_default();
+            v.as_object_mut().map(|o| o.remove("state"));
+            v
+        })
+        .collect()
+}
+
+/// A track as JSON, its devices [`stateless`]: two tracks that differ only
+/// in a plugin's state give the same value.
+fn without_states(t: &Track) -> Value {
+    let mut v = serde_json::to_value(t).unwrap_or_default();
+    if let Some(o) = v.as_object_mut() {
+        o.insert("devices".into(), Value::Array(stateless(&t.devices)));
+    }
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -461,6 +512,50 @@ mod tests {
         let tracks: Vec<Id> = doc.project.tracks.iter().map(|t| t.id).collect();
         assert_eq!(tracks, [id], "the redo gives the track back");
         assert!(!doc.redo(), "nothing is left to redo");
+    }
+
+    #[test]
+    fn the_first_edit_inside_a_nest_from_a_folder_makes_it_the_projects_own_in_the_same_step() {
+        use crate::model::NestId;
+        use std::path::Path;
+        let mut doc = Document::default();
+        let mut part = Project::default();
+        let mut keys = Track::new(1);
+        keys.name = "Keys".into();
+        part.tracks.push(Arc::new(keys));
+        let mut song = Track::new(2);
+        song.name = "Guitar".into();
+        doc.edit(|p| {
+            p.tracks.push(Arc::new(song));
+            p.adopt(part, NestId(10), "Bridge", Path::new("/lib/bridge"));
+            Ok(())
+        })
+        .unwrap();
+        doc.checkpoint();
+        let source = |doc: &Document| doc.project.nest(NestId(10)).and_then(|n| n.source.clone());
+        let copied = |doc: &Document| {
+            doc.events.iter().filter(|e| matches!(e.event, E::NestCopied(_))).count()
+        };
+        let rename = |doc: &mut Document, id: Id, name: &str| {
+            doc.edit(|p| {
+                p.track_mut(id).unwrap().name = name.into();
+                Ok(())
+            })
+            .unwrap();
+            doc.checkpoint();
+        };
+        rename(&mut doc, 2, "Lead");
+        assert!(source(&doc).is_some(), "an edit of the song leaves the reference");
+        rename(&mut doc, 12, "Piano");
+        assert_eq!(source(&doc), None, "an edit of its track makes it the project's own");
+        let nest = doc.project.nest(NestId(10)).unwrap();
+        assert_eq!(nest.origin.as_deref(), Some(Path::new("/lib/bridge")), "it keeps where it came from");
+        assert_eq!(copied(&doc), 1, "said once");
+        rename(&mut doc, 12, "Organ");
+        assert_eq!(copied(&doc), 1, "and not again");
+        doc.undo();
+        doc.undo();
+        assert_eq!(source(&doc).as_deref(), Some(Path::new("/lib/bridge")), "one undo step with the edit");
     }
 
     #[test]

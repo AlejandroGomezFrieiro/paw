@@ -34,6 +34,7 @@ use serde_json::{Map, Value};
 
 use super::{Clip, ClipContent, Control, Id, Lane, MASTER_ID, Note, Notes, Project, SigChange, TempoChange, Track};
 
+mod adopt;
 mod standalone;
 mod time;
 pub use standalone::Standalone;

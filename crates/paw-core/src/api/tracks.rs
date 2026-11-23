@@ -153,6 +153,26 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let saved = sh.session.borrow_mut().nest_save(options(lua, opts)?).lua()?;
             to_lua(lua, &serde_json::to_value(saved).map_err(mlua::Error::external)?)
         }
+        // Make the project folder `dir` a subproject, as one undo step with
+        // the block that places it. The subproject refers to the folder: the
+        // song keeps no copy and reads the folder again when it opens. Its
+        // tracks, its master and the subprojects inside come from the folder.
+        // It follows the song's tempo (its own is kept, for `nest.time own`)
+        // and keeps the meter of the folder. Its first edit, or `nest_own`,
+        // makes it the song's own copy. Nothing places it yet: add a block.
+        // Returns its id.
+        // @return integer
+        fn nest_import(_, sh, dir => String) {
+            sh.session.borrow_mut().nest_import(Path::new(&dir)).map(|n| n.0).lua()
+        }
+        // Make subproject `id`, which refers to a project folder, the song's
+        // own copy now, as one undo step, with the subprojects that came with
+        // it. Returns the folder it referred to, which it keeps as `origin`.
+        // @return string
+        fn nest_own(_, sh, id => u64) {
+            let folder = sh.session.borrow_mut().nest_own(NestId(id)).lua()?;
+            Ok(folder.to_string_lossy().into_owned())
+        }
         // Write a subproject as a project folder of its own at `dir`, a new
         // or empty folder. Its tracks become the project's tracks and its
         // master the master. A subproject that follows the song's tempo or

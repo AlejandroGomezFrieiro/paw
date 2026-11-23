@@ -129,6 +129,16 @@ places in the song. In commands and in the files, a subproject is a
   with copies of the sound files, and its `nests/` has the subprojects
   inside what it writes. See
   [Write a subproject or a view as a project](subprojects.md#write-a-subproject-or-a-view-as-a-project).
+- A subproject that `:import <folder>` made from a project folder refers
+  to the folder. Its folder in `nests/` has only a `nest.toml` with its
+  `id`, its `name` and the folder as `source`, and paw reads the project
+  folder again when it opens the song. The subprojects inside that
+  project are not in the song's `nests/`. After its first edit, or
+  `:nest.own`, the next save writes the subproject's folder as for any
+  other subproject. See
+  [Bring a project into the song as a subproject](subprojects.md#bring-a-project-into-the-song-as-a-subproject).
+- `:e song/nests/Bridge` opens the song and goes inside its subproject
+  Bridge.
 
 ## Save
 
@@ -247,6 +257,7 @@ folder, with the same rules:
 | Command | Effect |
 | --- | --- |
 | `:import ~/library/tracks/Lead` | Add the track of a track folder below the track of the cursor. The track refers to the folder. |
+| `:import ~/lib/Ballad` | Add a project folder as a subproject on a row of its own below the track of the cursor. The subproject refers to the folder (see [Subprojects](subprojects.md#bring-a-project-into-the-song-as-a-subproject)). |
 | `:import ~/chains/amp/devices.json` | Give the track of the cursor the devices of a chain file, in place of its devices. The track refers to the file. |
 | `:e devices.json`, `paw devices.json` | Open a chain file alone, on a track of its own, in the device panel. `:w` writes it back. |
 | `:collect` | Make every track, chain and clip from outside the project's own, and copy every sound file from outside into `media`. The next save writes their files into the folder. |

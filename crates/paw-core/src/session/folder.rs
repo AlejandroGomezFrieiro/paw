@@ -45,6 +45,7 @@ use crate::clipfile;
 use crate::model::{Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
 mod nests;
+pub(super) use nests::read_part;
 
 /// The file that makes a folder a project.
 pub const PROJECT_FILE: &str = "project.toml";
@@ -1226,11 +1227,18 @@ pub fn read_from(fs: &dyn ProjectFiles, home: &Home, dir: &Path) -> Result<Read>
 /// Read a project folder with `head_path` in place of its `project.toml`
 /// (its `.bak`, for one that is damaged).
 pub fn read_with(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path) -> Result<Read> {
+    read_at(fs, home, dir, head_path, 0)
+}
+
+/// [`read_with`] for a project folder that `depth` songs refer to as a
+/// subproject (`nests::adopt_references`).
+fn read_at(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path, depth: usize) -> Result<Read> {
     let (mut head, order, nest_names, transport) = read_head(fs, head_path)?;
     let mut problems = Vec::new();
     let mut files = Vec::new();
     let mut entries: Vec<TrackEntry> = order.iter().map(|name| TrackEntry::of(name, Path::new(""), None)).collect();
-    let mut nests = nests::read_heads(fs, dir, &nest_names, &mut entries)?;
+    let mut references = Vec::new();
+    let mut nests = nests::read_heads(fs, dir, &nest_names, &mut entries, &mut references)?;
     let (mut tracks, master) = read_all_tracks(fs, home, dir, &entries, &mut files, &mut problems)?;
     nests::tag_tracks(&mut nests, &entries, &mut tracks)?;
     let map = head
@@ -1251,6 +1259,7 @@ pub fn read_with(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Pat
     let mut project: Project =
         serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
     let clip_files = fill_clips(fs, &mut project, &files, &mut problems, dir);
+    nests::adopt_references(fs, home, dir, &mut project, references, &mut problems, depth)?;
     Ok(Read {
         project,
         transport,
