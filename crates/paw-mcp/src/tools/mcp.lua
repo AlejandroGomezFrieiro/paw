@@ -917,6 +917,36 @@ local function loudness_of(path)
   return out
 end
 
+--- Each track on its own into the folder `dir`, one file for each track named
+--- after it, in the foreground so that the answer can measure the files. A
+--- track plays through what it passes through to the master, as when it is
+--- soloed, so the stems add up to the mix. Without `ids`, the tracks that are
+--- not muted and have clips.
+local function render_stems(dir, ids, opts, format)
+  dir = paw.util.expand_path(dir)
+  pcall(api.fs_mkdir, dir)
+  if not ids then
+    ids = {}
+    for _, track in ipairs(paw.tracks()) do
+      if not track.mute and #track:clips() > 0 then ids[#ids + 1] = track.id end
+    end
+  end
+  local ext = format or "wav"
+  local files, used = {}, {}
+  for _, id in ipairs(ids) do
+    local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
+    -- Two tracks of one name get a number each.
+    used[name] = (used[name] or 0) + 1
+    if used[name] > 1 then name = name .. " " .. used[name] end
+    local path = string.format("%s/%s.%s", dir, name, ext)
+    -- A lossy stem is titled after its track.
+    local lossy = ext ~= "wav" and ext ~= "flac"
+    paw.render(path, paw.util.merge(opts, { tracks = { id }, tags = lossy and { title = name } or nil }))
+    files[#files + 1] = path
+  end
+  return files
+end
+
 function T.render(a)
   local p = api.project_get()
   local opts = {
@@ -943,8 +973,7 @@ function T.render(a)
   end
   local start, finish = opts.start or 0, opts["end"] or p.length
   if a.stems then
-    opts.tracks = ids
-    local files = require("paw.render").stems(a.path, paw.util.merge(opts, { format = a.format }))
+    local files = render_stems(a.path, ids, opts, a.format)
     return {
       render = {
         stems = files,
