@@ -276,13 +276,26 @@ fn cell(v: f64) -> i32 {
 /// A time in milliseconds from Lua as a `Duration`. A negative time or NaN
 /// is none, and a time is at most a century, so that `Instant::now()` plus
 /// it does not overflow.
+///
+/// It counts in whole nanoseconds, rounded: a whole number of milliseconds
+/// gives exactly that many, so a wait of 300 ms on the manual clock lands on
+/// a whole millisecond, and `as_ms` gives 300 back.
 pub(crate) fn millis(ms: f64) -> Duration {
-    const CENTURY: f64 = 100.0 * 365.25 * 24.0 * 3600.0;
-    let seconds = ms / 1000.0;
-    if seconds.is_nan() || seconds <= 0.0 {
+    const CENTURY_MS: f64 = 100.0 * 365.25 * 24.0 * 3600.0 * 1000.0;
+    if ms.is_nan() || ms <= 0.0 {
         return Duration::ZERO;
     }
-    Duration::from_secs_f64(seconds.min(CENTURY))
+    // At most a century of nanoseconds is far below u64::MAX.
+    Duration::from_nanos((ms.min(CENTURY_MS) * 1e6).round() as u64)
+}
+
+/// A `Duration` in milliseconds for Lua. The nanoseconds are divided once,
+/// so a whole number of milliseconds is exact: a check such as
+/// `now - last >= 50` holds at 50 ms, whatever the time since the start.
+/// (`as_secs_f64() * 1000.0` rounds twice and gives 32500.999999999996 for
+/// 32501 ms.)
+pub(crate) fn as_ms(d: Duration) -> f64 {
+    d.as_nanos() as f64 / 1e6
 }
 
 // --- The guard of each function -----------------------------------------------
@@ -505,5 +518,16 @@ mod tests {
         assert_eq!(cell(-1e300), -(i32::MAX / 4));
         assert_eq!(cell(f64::NAN), 0);
         assert_eq!(cell(2.7), 2);
+    }
+
+    #[test]
+    fn whole_milliseconds_stay_whole_both_ways() {
+        // A throttle of 50 ms checks `now - last < 50` at 32451 and 32501 ms:
+        // both must be exact, or the second note is not heard.
+        for ms in [300u64, 1001, 32_451, 32_501] {
+            assert_eq!(millis(ms as f64), Duration::from_millis(ms), "{ms} ms to a duration");
+            assert_eq!(as_ms(Duration::from_millis(ms)), ms as f64, "{ms} ms from a duration");
+        }
+        assert_eq!(as_ms(Duration::from_millis(32_501)) - as_ms(Duration::from_millis(32_451)), 50.0);
     }
 }

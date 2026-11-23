@@ -106,7 +106,7 @@ impl Shared {
         Pending {
             timers_due,
             timers,
-            next_ms: self.next_due_after(now).map(|due| (due - now).as_secs_f64() * 1000.0),
+            next_ms: self.next_due_after(now).map(|due| super::as_ms(due - now)),
             bakes_running: work.bakes_running,
             bakes_waiting: work.bakes_waiting,
             plugin_loads: work.plugin_loads,
@@ -192,12 +192,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // with `paw --clock manual`, it moves only when the test waits. To
         // measure how long work takes, use `real_ms`.
         // @return number
-        fn now(_, sh, () => ()) { Ok(sh.clock.now().as_secs_f64() * 1000.0) }
+        fn now(_, sh, () => ()) { Ok(super::as_ms(sh.clock.now())) }
         // The time on the wall in milliseconds since paw started, for a
         // budget of work or a deadline for another process. It moves also
         // in a test. For a delay or a throttle, use `now`.
         // @return number
-        fn real_ms(_, sh, () => ()) { Ok(sh.started.elapsed().as_secs_f64() * 1000.0) }
+        fn real_ms(_, sh, () => ()) { Ok(super::as_ms(sh.started.elapsed())) }
         // The time limit on Lua (`paw.limit`). The arguments are the function to
         // call when a callback runs too long, and the time when the current
         // callback must return (on the clock of `real_ms`, nil when it returned).
