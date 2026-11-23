@@ -1,6 +1,7 @@
 -- Media files and rendering: formats a render can write, media paths kept
 -- relative to the project, relinking what went missing.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
 local api = paw.api
@@ -99,10 +100,10 @@ test("a clip whose file's folder gets a new name is offline within a second", fu
   local function offline() return api.clip_list(t.id)[1].offline end
   eq(offline(), nil, "the file is there")
   os.rename(root .. "/takes", root .. "/takes-old")
-  api.sleep(1050)
+  advance(1050)
   eq(offline(), true, "a second after the folder got a new name, the clip is offline")
   os.rename(root .. "/takes-old", root .. "/takes")
-  api.sleep(1050)
+  advance(1050)
   eq(api.clip_get(id).offline, nil, "and online again when it is back")
 end)
 
@@ -411,11 +412,7 @@ end)
 
 --- Wait for the background render to end, gathering its events.
 local function finish()
-  for _ = 1, 3000 do
-    if not paw.render_status() then return end
-    paw.wait(10)
-  end
-  error("the render did not end")
+  T.until_(function() return not paw.render_status() end, "the render to end")
 end
 
 test("a render in the background reports progress, can be cancelled, and leaves no partial file", function()
@@ -435,7 +432,7 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   t.volume = -60
   paw.flush()
   T.fails(function() paw.render(T.scratch .. "/other.wav", {}) end, "being rendered", "one render at a time")
-  paw.wait(300)
+  advance(300)
   eq(paw.frontend.state(-1).modal.render ~= nil, true, "the window is told")
   paw.cmd("export.cancel")
   finish()

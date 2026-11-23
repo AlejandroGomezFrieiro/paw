@@ -1,5 +1,6 @@
 -- The fuzzy picker, `paw.pick`: the matcher, the view, and every source.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local pick = paw.pick
@@ -326,7 +327,7 @@ test("pick: files opens projects and imports audio", function()
   t = paw.add_track({ name = "Import" })
   paw.pick("files")
   while pick.state().note do
-    paw.wait(5)
+    advance(5)
   end
   paw.cursor.set_track(t)
   paw.cursor.set_beat(4)
@@ -366,7 +367,7 @@ test("pick: files reads in slices, skips build folders and says when it stops", 
   eq(pick.state() ~= nil, true, "the picker is open before the walk is done")
   local waited = 0
   while pick.state().note and not pick.state().note:find("stopped") and waited < 2000 do
-    paw.wait(5)
+    advance(5)
     waited = waited + 5
   end
   eq(pick.state().note, "stopped at 100 entries (files_limit)", "the picker says it stopped at the limit")

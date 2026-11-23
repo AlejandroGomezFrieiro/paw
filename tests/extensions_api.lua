@@ -1,6 +1,7 @@
 -- The extension API: manifests and versions, what an extension owns and
 -- taking it away again. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq = T.test, T.eq
 local api = paw.api
 
@@ -454,7 +455,7 @@ end)
     eq(offered("lua:laterfx"), true, "its device is offered")
     eq(provided("later", "device_dirs"), root .. "/devices", "and listed as its own")
     paw.opt.later_size = 5
-    paw.wait(60)
+    advance(60)
     eq(_G.later_ticks > 0, true, "its timer runs")
     paw.cmd("later.arm")
     eq(paw.commands.get("later.made") ~= nil, true, "a command made from its own command")
@@ -488,7 +489,7 @@ end)
     eq(_G.later_heard, nil, "the hook added later no longer runs")
     eq(paw.timers[_G.later_timer], nil, "its timer waiting is cancelled")
     local ticks = _G.later_ticks
-    paw.wait(60)
+    advance(60)
     eq(_G.later_ticks, ticks, "the repeating one stopped")
     eq(paw.opt.later_size, nil, "its option is gone, with the value set")
     eq(paw.option.definitions().later_size, nil, "and its definition")

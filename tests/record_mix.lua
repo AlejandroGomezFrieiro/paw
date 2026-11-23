@@ -319,14 +319,14 @@ end
 --- Whether the track sounds when a key is played on the keyboard.
 local function plays(track)
   -- What it played before dies away first.
-  until_(function() return track:meter() <= 0.005 end, "what " .. track.name .. " played before to die away")
+  until_(function() return T.meter(track) <= 0.005 end, "what " .. track.name .. " played before to die away")
   paw.midi.inject({ type = "note_on", pitch = 60, velocity = 110, port = "Keys A", channel = 1 })
   -- Heard within 50 blocks of the engine (about half a second of sound),
   -- however slowly the machine runs them.
   local heard = false
   for _ = 1, 50 do
     T.next_block(1)
-    if track:meter() > 0.02 then
+    if T.meter(track) > 0.02 then
       heard = true
       break
     end

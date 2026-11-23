@@ -13,13 +13,7 @@ pcall(ffi.cdef, "int getpid(void);")
 local LOOP = "Loop" .. ffi.C.getpid()
 
 --- Wait, with the session looked after, until `ready()` or `ms` pass.
-local function wait_for(ready, ms)
-  local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do
-    paw.wait(10)
-  end
-  return ready()
-end
+local LIVE = "MIDI goes out and comes back through the system's sequencer, in real time"
 
 local function output_named(name)
   for _, port in ipairs(paw.midi.outputs()) do
@@ -37,7 +31,7 @@ local function with_loop(fn)
   api.engine_restart({ backend = "null", midi = true })
   paw.midi.open_port(LOOP)
   local ok, err
-  if wait_for(function() return output_named("paw: " .. LOOP) end, 4000) then
+  if pcall(T.until_, function() return output_named("paw: " .. LOOP) end, "our port", 4000) then
     ok, err = xpcall(fn, debug.traceback)
   else
     ok, err = true, "skipped: no ALSA sequencer to send MIDI through"
@@ -73,7 +67,7 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
     keys.armed = true
     paw.transport.record_offset = 0
     paw.transport.record()
-    wait_for(function() return paw.transport.position >= 8.2 end, 15000)
+    T.until_(function() return paw.transport.position >= 8.2 end, "the playhead", 15000)
     T.stop()
     local clip = keys:clips()[1]
     eq(clip ~= nil, true, "what the track sent came back on its channel")
@@ -90,7 +84,7 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
     end
     near(notes[3].length, 0.5, 0.12, "a note's end goes out in time too")
   end)
-end)
+end, { live = LIVE })
 
 test("removing a track that sends MIDI ends the notes it left sounding", function()
   fresh()
@@ -104,15 +98,15 @@ test("removing a track that sends MIDI ends the notes it left sounding", functio
     keys.armed = true
     paw.transport.record_offset = 0
     paw.transport.record()
-    wait_for(function() return paw.transport.position >= 2 end, 10000)
+    T.until_(function() return paw.transport.position >= 2 end, "the playhead", 10000)
     t:remove()
-    wait_for(function() return paw.transport.position >= 4 end, 10000)
+    T.until_(function() return paw.transport.position >= 4 end, "the playhead", 10000)
     T.stop()
     local clip = keys:clips()[1]
     eq(clip ~= nil and #clip:notes(), 1, "the note came back")
     near(clip:notes()[1].length, 2, 0.3, "and ended when its track went, not when the song stopped")
   end)
-end)
+end, { live = LIVE })
 
 test("MIDI output: a track's port and channel are checked, saved and taken away with it", function()
   fresh()
@@ -151,7 +145,7 @@ test("the terminal and the window choose a track's MIDI output", function()
   return with_loop(function()
     paw.midi.open_output("To synth")
     eq(
-      wait_for(function() return output_named("To synth") end, 4000) ~= nil,
+      T.until_(function() return output_named("To synth") end, "the port to be listed", 4000) ~= nil,
       true,
       "a port of ours for others to read is listed"
     )
@@ -180,7 +174,7 @@ test("the terminal and the window choose a track's MIDI output", function()
     eq(t.midi_output, nil, "None takes it away")
     paw.midi.close_output("To synth")
   end)
-end)
+end, { live = LIVE })
 
 test("a script that waits hears what is played into a port", function()
   fresh()
@@ -201,10 +195,10 @@ test("a script that waits hears what is played into a port", function()
     })
     t.midi_output = { port = "paw: " .. LOOP }
     paw.transport.play()
-    local got = wait_for(function() return #heard >= 2 end, 8000)
+    local got = T.until_(function() return #heard >= 2 end, "what was sent to come back", 8000)
     T.stop()
     paw.off(handler)
     eq(got, true, "the notes arrived while the script waited")
     eq(table.concat(heard, " "), ("60@%s 64@%s"):format(LOOP, LOOP), "as events that name the port they came in on")
   end)
-end)
+end, { live = LIVE })

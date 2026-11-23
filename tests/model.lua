@@ -1,5 +1,6 @@
 -- Model tests.
 local T = ...
+local meter = T.meter
 local test, eq, fails, fresh, render, tone = T.test, T.eq, T.fails, T.fresh, T.render, T.tone
 local until_, scratch, read_file, write_file = T.until_, T.scratch, T.read_file, T.write_file
 local paw = require("paw")
@@ -441,7 +442,7 @@ test("a track the engine had no room for sounds once there is room", function()
   local last = paw.track(tracks[1030])
   last:add_device("synth")
   last:note_on(60, 100)
-  until_(function() return last:meter() > 0 end, "the last track to play")
+  until_(function() return meter(last) > 0 end, "the last track to play")
   last:note_off(60)
   fresh()
 end)

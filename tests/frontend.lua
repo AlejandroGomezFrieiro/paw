@@ -1,6 +1,7 @@
 -- What a graphical frontend is told, and what its pointer does: the same
 -- for every frontend, so it is tested here and not in one of them.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local paw = require("paw")
 local api = paw.api
@@ -287,14 +288,14 @@ test("the record button arms the selected track, and stopping ends record mode",
   eq(b.armed, true, "with no track armed, the selected one is")
   eq(paw.transport.recording, true, "recording is on")
   eq(paw.transport.playing, true, "and the transport plays")
-  paw.wait(400)
+  advance(400)
   act.record()
   eq(paw.transport.playing, false, "pressed again, it stops")
   eq(paw.transport.recording, false, "and record mode is over")
   T.until_recorded()
   eq(#b:clips(), 1, "leaving the take as a clip")
   paw.transport.record()
-  paw.wait(200)
+  advance(200)
   T.stop()
   eq(paw.transport.recording, false, "stopping any take ends record mode")
   paw.flush()

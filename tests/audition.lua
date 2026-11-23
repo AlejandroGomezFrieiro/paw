@@ -3,6 +3,7 @@
 -- and that cancelling leaves the project and its undo history as they
 -- were. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, fresh, after = T.test, T.eq, T.fresh, T.after
 local api = paw.api
 
@@ -19,15 +20,6 @@ local function start()
   for _, key in ipairs({ "presets", "devices", "files", "drums.beat", "snippets", "Sounds" }) do
     paw.state["pick.audition." .. key] = nil
   end
-end
-
---- Wait, letting timers fire, until `cond()` holds or `ms` have passed.
-local function wait_for(cond, ms)
-  local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do
-    paw.wait(10)
-  end
-  return cond()
 end
 
 local keys = T.keys
@@ -79,8 +71,8 @@ test("a picker hears the item the selection rests on, once, after the delay", fu
   eq(#calls, 0, "nothing is heard before the selection has rested")
   keys("<C-n><C-n>")
   eq(#calls, 0, "moving on before the delay hears nothing")
-  eq(wait_for(function() return #calls > 0 end), true, "then it is heard")
-  paw.wait(paw.opt.audition_delay + 100)
+  T.advance_until(function() return #calls > 0 end, "then it is heard", 5000)
+  advance(paw.opt.audition_delay + 100)
   eq(table.concat(calls, " "), "three", "only the item rested on")
   eq(heard().label, "hearing three", "the label the pane shows")
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
@@ -102,7 +94,7 @@ test("Ctrl-Space turns hearing off and on, and the picker remembers it", functio
   keys("<C-Space>")
   eq(heard().on, false, "off")
   keys("<C-n>")
-  paw.wait(paw.opt.audition_delay + 100)
+  advance(paw.opt.audition_delay + 100)
   eq(calls, 0, "nothing is heard while it is off")
   eq(
     table.concat(api.ui_snapshot(120, 30), "\n"):find("off · Ctrl-Space hears", 1, true) ~= nil,
@@ -113,7 +105,7 @@ test("Ctrl-Space turns hearing off and on, and the picker remembers it", functio
   paw.pick(spec)
   eq(heard().on, false, "still off when opened again")
   keys("<C-Space>")
-  eq(wait_for(function() return calls == 1 end), true, "on again, it hears the item under the selection")
+  T.advance_until(function() return calls == 1 end, "on again, it hears the item under the selection", 5000)
   keys("<Esc>")
 end)
 
@@ -127,13 +119,13 @@ test("a preset is heard as a trial over the track's own bar, and Escape leaves n
   local undo = api.undo_current()
   paw.fx.pick(device)
   keys("Pluck")
-  eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
+  T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   eq(api.device_get(device.id).params.cutoff, 3000, "the preset is loaded")
   eq(api.trial_active(), true, "as a trial")
   local now = paw.audition.state()
   eq(now.kind .. " " .. pitches(now.notes), "phrase C4 E4 G4", "the track's bar plays")
   eq(heard().label, "Pluck · loop bar 1", "and the pane says so")
-  eq(wait_for(function() return #paw.audition.heard >= 3 end), true, "its notes reach the track")
+  T.advance_until(function() return #paw.audition.heard >= 3 end, "its notes reach the track", 5000)
   eq(paw.audition.heard[1].track, t.id, "through the track")
   keys("<Esc>")
   eq(api.device_get(device.id).params.cutoff, before, "Escape puts the device back")
@@ -149,7 +141,7 @@ test("choosing the preset heard keeps it as one undo step", function()
   local before = api.device_get(device.id).params.cutoff
   paw.fx.pick(device)
   keys("Sub bass")
-  wait_for(function() return heard() and heard().item ~= nil end)
+  T.advance_until(function() return heard() and heard().item ~= nil end, "the selection to be heard", 5000)
   keys("<CR>")
   eq(api.device_get(device.id).params.cutoff, 400, "the preset stays")
   eq(api.trial_active(), false, "the trial is over")
@@ -163,13 +155,13 @@ test("moving through presets keeps the bar going and swaps only the sound", func
   local device = t:devices()[1]
   paw.fx.pick(device)
   keys("Pluck")
-  wait_for(function() return heard() and heard().item ~= nil end)
+  T.advance_until(function() return heard() and heard().item ~= nil end, "the selection to be heard", 5000)
   local first = paw.audition.state()
   keys("<C-u>Saw")
-  eq(
-    wait_for(function() return heard() and heard().label == "Saw bass · loop bar 1" end),
-    true,
-    "the next preset is heard"
+  T.advance_until(
+    function() return heard() and heard().label == "Saw bass · loop bar 1" end,
+    "the next preset is heard",
+    5000
   )
   eq(api.device_get(device.id).params.cutoff, 900, "and loaded")
   eq(paw.audition.state().notes == first.notes, true, "over the same phrase, not started again")
@@ -186,7 +178,7 @@ test("an instrument tried from the device picker plays a phrase, and is gone aga
   paw.cursor.set_track(t)
   local undo = api.undo_current()
   paw.pick("devices", { query = "synth @instrument" })
-  eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
+  T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   eq(#t:devices(), 1, "the instrument is on the track while it is heard")
   local now = paw.audition.state()
   eq(now.kind, "phrase", "a phrase plays")
@@ -204,7 +196,7 @@ test("choosing the instrument heard keeps that one, as one undo step", function(
   api.undo_checkpoint()
   paw.cursor.set_track(t)
   paw.pick("devices", { query = "synth @instrument" })
-  wait_for(function() return heard() and heard().item ~= nil end)
+  T.advance_until(function() return heard() and heard().item ~= nil end, "the selection to be heard", 5000)
   local id = t:devices()[1].id
   keys("<CR>")
   eq(#t:devices(), 1, "one instrument")
@@ -222,14 +214,10 @@ test("a sound file in the file picker plays on its own, with its outline in the 
   paw.opt.audition_level = -6
   paw.pick.file({ dir = "tests/fixtures", extensions = { "wav" }, on_choose = function() end })
   keys("tone-mono-8k")
-  eq(
-    wait_for(function()
-      local s = paw.audition.state()
-      return s and s.kind == "file" and s.state ~= "loading"
-    end),
-    true,
-    "it is read and played"
-  )
+  T.advance_until(function()
+    local s = paw.audition.state()
+    return s and s.kind == "file" and s.state ~= "loading"
+  end, "it is read and played", 5000)
   local s = paw.audition.state()
   eq(s.file:match("[^/]*$"), "tone-mono-8k.wav", "that file")
   eq(s.level, -6, "at the audition level")
@@ -264,7 +252,7 @@ test("a MIDI file in the file picker plays its first bars through an instrument 
   local undo = api.undo_current()
   paw.pick.file({ dir = T.scratch, extensions = { "mid" }, on_choose = function() end })
   keys("audition-tune")
-  eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
+  T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   local now = paw.audition.state()
   eq(pitches(now.notes), "C4 D4", "its first two bars")
   eq(heard().label, "first 2 bars at 120 BPM", "the pane says so")
@@ -293,7 +281,7 @@ test("a beat is written into the clip as a trial and its first bar played; Escap
   local undo = api.undo_current()
   paw.commands.exec("drums.beat")
   keys("rock")
-  eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
+  T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   eq(#clip:notes(), 2 * (8 + 2 + 3), "the beat is in the clip while it is heard")
   local now = paw.audition.state()
   eq(#now.notes, 8 + 2 + 3, "one bar of it plays")
@@ -338,7 +326,7 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
   paw.ui.focus("pianoroll")
   keys("<C-s>")
   keys("dominant")
-  eq(wait_for(function() return heard() and heard().item ~= nil end), true, "it is heard")
+  T.advance_until(function() return heard() and heard().item ~= nil end, "it is heard", 5000)
   local now = paw.audition.state()
   local tracks = {}
   for _, n in ipairs(now.notes) do

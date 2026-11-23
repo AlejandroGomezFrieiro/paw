@@ -173,10 +173,9 @@ test("frames: after an audition with the song stopped, the last frame shows the 
     frames = frames + 1
     last = api.ui_frame_snapshot(W, H, true) or last
   end
-  local t0 = api.now()
   t:play_note("A3", 100, 180)
   T.advance_until(function() return not paw.ui.active() end, "the frames of the audition to end", 5000)
-  eq(frames > 0, true, "frames of what moves, for " .. (api.now() - t0) .. " ms")
+  eq(frames > 0, true, "frames of what moves")
   api.ui_attached = attached
   local whole = api.ui_frame_snapshot(W, H)
   for row = 1, H do

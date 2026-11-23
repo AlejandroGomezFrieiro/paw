@@ -4,6 +4,7 @@
 -- tools and waves, the mouse, and automating a parameter from the device
 -- panel. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
 local L = paw.layout
@@ -290,7 +291,7 @@ test("~ gives a stretch its shape, and ] [ bend a smooth one", function()
   local wait = paw.opt.timeoutlen
   paw.opt.timeoutlen = 20
   keys("2]")
-  paw.wait(150)
+  advance(150)
   paw.opt.timeoutlen = wait
   near(api.lane_shapes(lane.id)[1].tension, 0.5, 1e-9, "] bends it")
   keys("~")

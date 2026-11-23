@@ -1,5 +1,6 @@
 -- Devices as one works with them all day: `paw.fx` (runtime/lua/paw/fx.lua).
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
@@ -245,7 +246,7 @@ test("vst3 presets: a .vstpreset file is loaded", function()
     if p.key == "output_gain" or p.key == "g_out" then gain = p end
   end
   fx:set(gain.key, gain.min)
-  paw.wait(300) -- the plugin takes the value as it plays
+  advance(300) -- the plugin takes the value as it plays
   local path = T.scratch .. "/quiet.vstpreset"
   T.write_file(path, api.device_call(fx.id, "preset.export", ""))
   fx:set(gain.key, gain.max)
@@ -454,7 +455,7 @@ test("params: the one last touched shows itself, and :param.last goes to it and 
   eq(row.param.key, "release", "and to it in the panel")
   eq(synth:lane("release") ~= nil, true, "`automate` makes its lane")
   synth:set("cutoff", 500)
-  paw.wait(20)
+  advance(20)
   eq(paw.fx.last_touched.param, "cutoff", "a parameter set here is touched too")
 end)
 
@@ -564,7 +565,7 @@ test(
     T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "half and half line up: no comb filtering")
     comp:set("lookahead", 2)
     paw.flush()
-    paw.wait(50)
+    advance(50)
     T.near(T.render({ bits = 16, tail = 0.1 }).peak, full.peak, 0.01, "and still when the look-ahead changes")
     paw.fx.set_wet(comp, 100)
     local again = T.render({ bits = 16, tail = 0.1 })

@@ -2,6 +2,8 @@
 -- automation modes, and long files played from the disk. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
+local meter = T.meter
+local advance = T.advance
 local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local api = paw.api
 local until_, until_beat, next_block = T.until_, T.until_beat, T.next_block
@@ -454,7 +456,7 @@ test("a count-in counts a bar before the take, which starts on the beat where th
     eq(paw.project.get().edits, edits, "and nothing changed")
     -- Punching in by hand while playing is not counted.
     paw.transport.play()
-    paw.wait(50)
+    advance(50)
     paw.transport.recording = true
     eq(api.transport_get().counting, 0, "punched in by hand: no count")
     T.stop()
@@ -807,9 +809,9 @@ test("a track's automation mode says what moving a control writes", function()
   t.volume = -3
   -- Real time is the point: a control in touch mode is let go 600 ms
   -- after its last move.
-  paw.wait(250)
+  advance(250)
   local during = paw.transport.position
-  paw.wait(1100) -- let go: no move for longer than the release time
+  advance(1100) -- let go: no move for longer than the release time
   local after = paw.transport.position
   T.stop()
   paw.flush()
@@ -824,7 +826,7 @@ test("a track's automation mode says what moving a control writes", function()
   until_beat(0.1)
   api.automation_hold(t.id, "volume", nil, nil, true)
   t.volume = -9
-  paw.wait(1100) -- real time: held for longer than the release time
+  advance(1100) -- held for longer than the release time
   local held = paw.transport.position
   until_beat(held + 0.1)
   api.automation_hold(t.id, "volume", nil, nil, false)
@@ -901,7 +903,7 @@ test("a long file is played from the disk, sample for sample as from memory", fu
   -- It plays in real time, from the middle too.
   paw.transport.seek(12)
   paw.transport.play()
-  until_(function() return t:meter() > 0.05 end, "the long file to be heard while playing")
+  until_(function() return meter(t) > 0.05 end, "the long file to be heard while playing")
   T.stop()
   -- Kept between runs: the next time it is not decoded again.
   local _, dir = api.media_store()
@@ -958,7 +960,7 @@ test("the window is told of markers, takes, automation modes and lanes shown as 
   paw.transport.play()
   until_beat(0.1)
   paw.frontend.act.hold(t.id, "volume", 0, "", true)
-  paw.wait(900) -- real time: held for longer than the release time
+  advance(900) -- held for longer than the release time
   local held = paw.transport.position
   paw.frontend.act.hold(t.id, "volume", 0, "", false)
   until_beat(held + 0.4)

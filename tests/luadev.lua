@@ -1,6 +1,7 @@
 -- Tests of devices written in Lua (paw.luadev, paw.dsp, the paw-luadev
 -- crate). Loaded by tests/suite.lua with its helpers.
 local T = ...
+local meter = T.meter
 local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local tone, channel_peaks = T.tone, T.channel_peaks
 local api = paw.api
@@ -260,9 +261,9 @@ test("a note played while the device is late still sounds, and its note-off stil
     os.remove(gate)
   end
   while_late(1, function() t:note_on("C5", 100) end)
-  T.until_(function() return t:meter() >= 0.09 end, "the note to sound")
+  T.until_(function() return meter(t) >= 0.09 end, "the note to sound")
   while_late(2, function() t:note_off("C5") end)
-  T.until_(function() return t:meter() < 0.01 end, "the note to end")
+  T.until_(function() return meter(t) < 0.01 end, "the note to end")
 end)
 
 test("a script that does not load says why, and nothing else is hurt", function()

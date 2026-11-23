@@ -1,6 +1,7 @@
 -- The tempo map: tempo and time signature changes along the song, and
 -- everything that converts with them.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh, fails = T.test, T.eq, T.near, T.fresh, T.fails
 local paw = require("paw")
 local api = paw.api
@@ -100,9 +101,9 @@ end)
 test("tempo: tap tempo sets the tempo from the taps", function()
   fresh()
   paw.commands.exec("tempo.tap")
-  paw.wait(250)
+  advance(250)
   paw.commands.exec("tempo.tap")
-  paw.wait(250)
+  advance(250)
   paw.commands.exec("tempo.tap")
   near(paw.project.tempo, 240, 30, "taps a quarter second apart")
 end)

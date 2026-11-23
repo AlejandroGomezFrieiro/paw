@@ -1,6 +1,7 @@
 -- Fixes found by a second evaluation of the terminal UI. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local L = paw.layout
@@ -245,7 +246,7 @@ test(
     local text = pane()
     eq(text:find("off · Ctrl-Space hears", 1, true), nil, "on at once")
     eq(text:find("…", 1, true) ~= nil, true, "waiting to hear")
-    paw.wait(paw.opt.audition_delay + 200)
+    advance(paw.opt.audition_delay + 200)
     text = pane()
     eq(
       text:find("♪ hearing one", 1, true) ~= nil,

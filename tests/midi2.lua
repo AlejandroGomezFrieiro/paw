@@ -14,13 +14,7 @@ pcall(ffi.cdef, "int getpid(void);")
 local LOOP = "Loop" .. ffi.C.getpid()
 local A = paw.frontend.act
 
-local function wait_for(ready, ms)
-  local deadline = api.now() + (ms or 10000)
-  while not ready() and api.now() < deadline do
-    paw.wait(10)
-  end
-  return ready()
-end
+local LIVE = "MIDI goes out and comes back through the system's sequencer, in real time"
 
 local function output_named(name)
   for _, port in ipairs(paw.midi.outputs()) do
@@ -42,7 +36,7 @@ local function with_loop(fn)
     if event.port == LOOP then heard[#heard + 1] = event end
   end)
   local ok, err
-  if wait_for(function() return output_named("paw: " .. LOOP) end, 4000) then
+  if pcall(T.until_, function() return output_named("paw: " .. LOOP) end, "our port", 4000) then
     ok, err = xpcall(fn, debug.traceback, heard)
   else
     ok, err = true, "skipped: no ALSA sequencer to send MIDI through"
@@ -138,11 +132,11 @@ test("a route in MPE plays each note of a chord on a channel of its own, bent th
       end
       return out
     end
-    wait_for(function()
+    T.until_(function()
       for _, e in ipairs(heard) do
         if e.type == "bend" and e.value > 0 then return true end
       end
-    end, 8000)
+    end, "what was sent to come back", 8000)
     paw.transport.stop()
     local on = ons()
     eq(string.format("%s %s %s", on[60], on[64], on[67]), "2 3 4", "the chord on member channels 2, 3 and 4")
@@ -157,20 +151,20 @@ test("a route in MPE plays each note of a chord on a channel of its own, bent th
       if e.type == "cc" and e.number == 6 and e.channel == 1 then announced = math.floor(e.value * 127 + 0.5) == 4 end
     end
     eq(announced, true, "the zone was announced on channel 1, with its four member channels")
-    wait_for(function()
+    T.until_(function()
       local offs = 0
       for _, e in ipairs(heard) do
         if e.type == "note_off" then offs = offs + 1 end
       end
       return offs >= 3
-    end, 4000)
+    end, "what was sent to come back", 4000)
     local offs = {}
     for _, e in ipairs(heard) do
       if e.type == "note_off" then offs[e.pitch] = e.channel end
     end
     eq(string.format("%s %s %s", offs[60], offs[64], offs[67]), "2 3 4", "stopping ends each note on its channel")
   end)
-end)
+end, { live = LIVE })
 
 test("a route with 14-bit controllers sends the fine part of control changes below 32", function()
   fresh()
@@ -182,11 +176,11 @@ test("a route with 14-bit controllers sends the fine part of control changes bel
     clip:set_controls({ { start = 0.25, type = "cc", number = 1, value = (8192 + 1) / 16383 } })
     t.midi_output = { port = "paw: " .. LOOP, channel = 3, form = "cc14" }
     paw.transport.play()
-    wait_for(function()
+    T.until_(function()
       for _, e in ipairs(heard) do
         if e.type == "cc" and e.number == 33 then return true end
       end
-    end, 8000)
+    end, "what was sent to come back", 8000)
     paw.transport.stop()
     local coarse, fine
     for _, e in ipairs(heard) do
@@ -201,7 +195,7 @@ test("a route with 14-bit controllers sends the fine part of control changes bel
       "together the fourteen bits"
     )
   end)
-end)
+end, { live = LIVE })
 
 -- The editor for controller moves.
 

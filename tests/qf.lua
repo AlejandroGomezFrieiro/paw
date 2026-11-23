@@ -3,6 +3,7 @@
 -- `:cdo` and `:cfix`, and what the program feeds it (renders, missing sound
 -- files, plugins). Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local eq, fresh = T.eq, T.fresh
 local api = paw.api
 local A = paw.address
@@ -389,7 +390,7 @@ test("qf: missing sound files, stopped plugins and plugin files that fail are pr
   paw.transport.play()
   local waited = 0
   while #qf.fed("plugins") == 0 and waited < 5000 do
-    paw.wait(100)
+    advance(100)
     waited = waited + 100
   end
   paw.transport.stop()
@@ -450,6 +451,6 @@ test("qf: ]q and [q do not take the piano roll's ] and [ away", function()
   paw.ui.views:get("pianoroll"):set(100, 2)
   local before = clip:notes()[2].velocity
   keys("]")
-  paw.wait(paw.opt.timeoutlen + 300)
+  advance(paw.opt.timeoutlen + 300)
   eq(clip:notes()[2].velocity, math.min(127, before + 10), "] alone still makes the note louder, after the wait")
 end)

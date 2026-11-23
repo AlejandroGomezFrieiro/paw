@@ -2,6 +2,7 @@
 -- of its own (tests/fixtures/range_lint.py, a range lint in Python) driven
 -- through its whole life. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local eq, fresh = T.eq, T.fresh
 
 -- Each test leaves things as the next expects them: no servers, no
@@ -318,7 +319,7 @@ test("lsp: a server that dies is restarted as its config allows, and its diagnos
     return n
   end
   T.advance_until(function() return deaths() == 2 end, "a death, a restart and a second death", 10000)
-  paw.wait(700)
+  advance(700)
   eq(deaths(), 2, "not restarted a second time")
   eq(status("range"), "dead", "left dead")
   eq(#paw.diagnostic.get(), 0, "nothing said")
