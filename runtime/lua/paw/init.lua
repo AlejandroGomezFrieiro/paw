@@ -1,6 +1,10 @@
 -- `require("paw")`: the whole scripting surface, assembled from the modules in
 -- this directory. The kernel provides `paw.api`; everything else is Lua that
 -- you can read, replace or extend.
+
+-- A larger cache of compiled traces, before the runtime compiles any
+-- (paw/jit.tl).
+require("paw.jit")
 local api = require("paw.api")
 
 local paw = { api = api, version = "0.1.0" }

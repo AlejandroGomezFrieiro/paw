@@ -84,11 +84,26 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
   Rust at the next Lua line that runs, so use `--record` for the Rust
   side. In `scope`, the probe runs for the first time of each key
   alone. The key gets the samples of each state (`lua_states`) and the
-  file of its folded stacks (`lua_folded`).
+  file of its folded stacks (`lua_folded`). The start and the stop of
+  `jit.profile` flush all compiled traces, so each key with this probe
+  compiles all of its code again, and its share of `[J]` is too large.
+- `--vmstates` (`scope` only): `perf record` of the kernel thread for the
+  first time of each key. The key gets the millions of cycles in each
+  part of LuaJIT (`vm_states`): `J` the trace compiler, `I` the
+  interpreter and the rest of LuaJIT, `G` the garbage collector, `N` the
+  compiled traces, `C` Rust, the C library and the C API of LuaJIT. The
+  probe finds the part of a function from the object file of
+  `libluajit.a` that has it: the newest one under `target/`, or the
+  file in `LIBLUAJIT`. It does not change the traces. Use the profile
+  shell, which has `perf`.
 - `scope` always gives the full cycles of the garbage collector during
   each key (`gc_cycles`) and the Lua heap after it (`lua_kb`). With
   `--collect`, a full cycle runs before each key, outside the
   measurement. Then no key pays for the garbage of the keys before it.
+- `scope` always gives the work of the trace compiler during each key
+  (`traces`): the traces that LuaJIT started, compiled and stopped
+  (`aborted`), and its flushes of all traces. The load does not change
+  these counts.
 - `--wrap "heaptrack -o <file>"`: runs paw under `heaptrack`. To get the
   allocations of the steady state, run the scenario twice with different
   `--secs`, and give both files to

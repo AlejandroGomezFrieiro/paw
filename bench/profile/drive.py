@@ -48,6 +48,12 @@ Options (all optional):
   --luaprof        while playing or idle, also run LuaJIT's profiler in the
                    kernel and write a flamegraph of the Lua functions; in
                    scope, profile the first time of each key by itself
+  --vmstates       scope: `perf record` the kernel thread during the first
+                   time of each key, and give the share of the samples in
+                   LuaJIT's trace compiler, interpreter, compiled traces and
+                   garbage collector; unlike --luaprof (whose start and stop
+                   flush all compiled traces), it does not change the JIT;
+                   needs perf and libluajit.a of the build (or $LIBLUAJIT)
   --collect        scope: a full cycle of the garbage collector before each
                    key, outside the measurement, so that no key pays for
                    the garbage of the keys before it
@@ -77,6 +83,7 @@ import sys
 import tempfile
 import termios
 import fcntl
+import glob
 import threading
 import time
 
@@ -691,19 +698,101 @@ arm()
 _G.__paw_gc_cycles = function() return cycles end
 """
 
+# The work of LuaJIT's trace compiler since this ran: the traces that it
+# started, compiled and gave up (abort), and the flushes of all traces.
+# The counts do not change with the load of the machine.
+JIT_TRACES_LUA = r"""
+local counts = { start = 0, stop = 0, abort = 0, flush = 0 }
+jit.attach(function(what)
+  counts[what] = (counts[what] or 0) + 1
+end, "trace")
+_G.__paw_jit_traces = function()
+  return counts.start, counts.stop, counts.abort, counts.flush
+end
+"""
+
+
+# The parts of LuaJIT, by the object file of libluajit.a that defines each
+# function. J: the trace compiler (the recorder, the optimizer, the
+# assembler, the snapshots and the trace bookkeeping). G: the garbage
+# collector and the allocator. I: the interpreter and the rest of LuaJIT,
+# but its C API (lj_api.o), which counts with the caller (C). A sample with
+# no symbol is in the machine code of a trace (N).
+VM_OBJECTS = {"J": ("lj_ir.o", "lj_opt_", "lj_mcode.o", "lj_snap.o", "lj_record.o", "lj_crecord.o",
+                    "lj_ffrecord.o", "lj_asm.o", "lj_trace.o", "lj_gdbjit.o"),
+              "G": ("lj_gc.o", "lj_alloc.o"),
+              "C": ("lj_api.o",)}
+
+
+def luajit_objects():
+    """{function name: VM part} from $LIBLUAJIT, or the newest libluajit.a of
+    the build."""
+    archives = ([os.environ["LIBLUAJIT"]] if os.environ.get("LIBLUAJIT")
+                else glob.glob(os.path.join(REPO, "target/*/build/mlua-sys-*/out/lib/libluajit.a")))
+    if not archives:
+        sys.exit("--vmstates: no libluajit.a under target/: build paw first")
+    out = subprocess.run(["nm", "--defined-only", max(archives, key=os.path.getmtime)],
+                         capture_output=True, text=True).stdout
+    parts, part = {}, "I"
+    for line in out.splitlines():
+        if line.endswith(":"):
+            obj = line[:-1]
+            part = next((p for p, objs in VM_OBJECTS.items() if obj.startswith(objs)), "I")
+        elif line.split()[1:2] in (["t"], ["T"]):
+            parts[line.split()[2]] = part
+    return parts
+
+
+class VmStates:
+    """perf record of the kernel thread over one key: the share of the samples
+    in each part of LuaJIT (VM_OBJECTS; C is Rust, the C library and the
+    C API of LuaJIT)."""
+
+    parts = None
+
+    def __init__(self, opts, paw):
+        if VmStates.parts is None:
+            VmStates.parts = luajit_objects()
+        self.path = os.path.join(opts.out, f"{opts.label}-vm-{len(os.listdir(opts.out))}.perf.data")
+        self.proc = subprocess.Popen(
+            ["perf", "record", "-q", "-e", "cycles:u", "-F", "5000", "-t", str(paw.pid), "-o", self.path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.3)  # perf attaches before the key
+
+    def stop(self):
+        """{part: millions of cycles}: each sample weighs its period."""
+        self.proc.send_signal(signal.SIGINT)
+        self.proc.wait(timeout=60)
+        out = subprocess.run(["perf", "script", "-i", self.path, "-F", "period,ip,sym"],
+                             capture_output=True, text=True).stdout
+        states = {}
+        for line in out.splitlines():
+            fields = line.split(None, 2)
+            if len(fields) < 2:
+                continue
+            sym = fields[2].strip() if len(fields) > 2 else "[unknown]"
+            part = "N" if sym == "[unknown]" else VmStates.parts.get(sym, "C")
+            states[part] = states.get(part, 0) + int(fields[0])
+        return {part: round(cycles / 1e6, 2) for part, cycles in states.items()}
+
 
 def key_probed(opts, paw, name, data):
-    """measure_key, with the garbage collector's full cycles and the Lua
-    heap after the key, and with --luaprof the profile of this key alone:
-    its folded stacks in a file, and the share of the samples in each
-    state of the VM (N compiled, I interpreted, C in C, G the garbage
-    collector, J the trace compiler)."""
+    """measure_key, with the garbage collector's full cycles, the traces
+    of the JIT compiler and the Lua heap after the key; with --luaprof the
+    profile of this key alone: its folded stacks in a file, and the share
+    of the samples in each state of the VM (N compiled, I interpreted, C in
+    C, G the garbage collector, J the trace compiler); with --vmstates the
+    cycles in each part of LuaJIT (VmStates)."""
     if opts.collect:
         paw.eval("collectgarbage()")
     gc0 = paw.eval("return __paw_gc_cycles()")
+    jit0 = paw.eval("return {__paw_jit_traces()}")
     if opts.luaprof:
         paw.eval(LUAPROF_START)
+    vm = VmStates(opts, paw) if opts.vmstates else None
     rec = measure_key(paw, name, data)
+    if vm:
+        rec["vm_states"] = vm.stop()
     if opts.luaprof:
         folded = paw.eval(LUAPROF_STOP) or ""
         path = os.path.join(opts.out, f"{opts.label}-scope-{len(os.listdir(opts.out))}.lua.folded")
@@ -720,6 +809,9 @@ def key_probed(opts, paw, name, data):
         rec["lua_states"] = states
         rec["lua_folded"] = path
     rec["gc_cycles"] = paw.eval("return __paw_gc_cycles()") - gc0
+    jit1 = paw.eval("return {__paw_jit_traces()}")
+    rec["traces"] = dict(zip(("started", "compiled", "aborted", "flushes"),
+                             (b - a for a, b in zip(jit0, jit1))))
     rec["lua_kb"] = round(paw.lua_kb())
     return rec
 
@@ -728,6 +820,7 @@ def scenario_scope(opts, project):
     paw, first = start(opts, project)
     paw.eval(SCOPE_SETUP)
     paw.eval(GC_CYCLES_LUA)
+    paw.eval(JIT_TRACES_LUA)
     paw.screen.wait_quiet(500, 30)
     frame_cost(opts, paw, "song")
     named = slow_counts(paw)
@@ -931,6 +1024,7 @@ def parse(argv):
     o.record = 0
     o.luaprof = False
     o.collect = False
+    o.vmstates = False
     o.label = None
     o.reps = 5
     o.keys = "j,k"
@@ -952,6 +1046,7 @@ def parse(argv):
         elif a == "--record": o.record = float(v); i += 1
         elif a == "--luaprof": o.luaprof = True
         elif a == "--collect": o.collect = True
+        elif a == "--vmstates": o.vmstates = True
         elif a == "--label": o.label = v; i += 1
         elif a == "--reps": o.reps = int(v); i += 1
         elif a == "--keys": o.keys = v; i += 1

@@ -17,6 +17,7 @@
 # kernel loads before the other modules.
 paw.api
 paw.compat
+paw.jit
 paw.portable
 paw.opts
 paw.partial
