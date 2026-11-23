@@ -294,6 +294,8 @@ function K.startup()
   paw.health = require("paw.health")
   -- `:profile`: LuaJIT's sampling profiler (paw/profile.tl).
   paw.profile = require("paw.profile")
+  -- Extensions that wait for their first use (paw/lazy.tl).
+  paw.ext.lazy = require("paw.lazy")
   local env = api.env()
   -- Extensions the program was built with (`paw.withExtensions` in the
   -- flake): part of the program, so loaded with `--clean` too.
@@ -316,6 +318,8 @@ function K.startup()
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
   warn()
+  -- An extension that loads from now on says why in `:extensions`.
+  paw.ext.started = true
   -- All modules, extensions and the configuration declared their events
   -- now: check the names that subscriptions gave as text (paw/events.tl).
   events.check_names()

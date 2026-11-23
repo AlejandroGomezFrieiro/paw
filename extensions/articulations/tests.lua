@@ -521,12 +521,24 @@ end)
 
 -- Notation ------------------------------------------------------------------------------
 
+test("articulations: without the notation extension it works, and the score has no marks to draw", function()
+  if paw.ext.loaded.notation then paw.ext.unload("notation", { force = true }) end
+  local track, clip = strings()
+  eq(paw.ext.loaded.articulations.ok, true, "loaded without notation")
+  eq(paw.query.marks:get("notation"), nil, "no marks of a score")
+  local map = art.map_of(track.id)
+  art.set({ { clip = clip.id, place = 1 } }, { attr = map.by_id.staccato.attr })
+  api.undo_checkpoint()
+  local marks = paw.query.marks:get("articulations")(clip:notes()[1], clip:get())
+  eq(marks.art[1], "staccato", "its note mark is the staccato of the map")
+  eq(#paw.query("note[art=staccato]"), 1, "which a query finds")
+end)
+
 test(
   "articulations: the score shows the articulations as marks and technique text, and marks written in it set them",
   function()
     local track, clip = strings()
     if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
-    require("articulations.notation")
     local map = art.map_of(track.id)
     art.set({ { clip = clip.id, place = 1 } }, { attr = map.by_id.staccato.attr })
     art.set({ { clip = clip.id, place = 3 }, { clip = clip.id, place = 4 } }, { attr = map.by_id.pizzicato.attr })

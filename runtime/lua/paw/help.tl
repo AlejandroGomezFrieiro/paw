@@ -46,6 +46,7 @@ local type LayoutModule = require("paw.layout")
 local type QfModule = require("paw.qf")
 local type FormatsModule = require("paw.formats")
 local type TextbufModule = require("paw.textbuf")
+local type LazyModule = require("paw.lazy")
 
 --- A kind of page of the manual: its folder of docs/ and its heading.
 local record Kind
@@ -184,6 +185,7 @@ end
 local record Ext
   list: function(): {ExtInfo}
   bundled_dir: function(): string
+  lazy: LazyModule
 end
 
 local record Paw is partial.Paw
@@ -308,6 +310,13 @@ M.kinds = {
 local function ext_loaded(name: string): boolean
   local entry = paw.ext.loaded[name]
   return entry ~= nil and entry.ok ~= false
+end
+
+--- What loads the extension `name` that waits for its first use, in
+--- words (`:undotree`, `<leader>pu`), or nil when it does not wait.
+local function ext_waits(name: string): {string}
+  local lazy = ext.lazy
+  return lazy and lazy.describe(name)
 end
 
 --- What docs/README.md says of the pages it links: the kind of the section
@@ -811,7 +820,9 @@ local function index_text(sources: {Source}, pause: function()): string
         end
         local title = source.title or source.name
         local note = ""
-        if source.ext and not ext_loaded(source.ext) then
+        if source.ext and ext_waits(source.ext) then
+          note = " (loads when you use it)"
+        elseif source.ext and not ext_loaded(source.ext) then
           note = " (not loaded)"
         end
         out[#out + 1] = "- [" .. title:gsub("[%[%]]", "") .. "](help:" .. source.aliases[1] .. ")" .. note
@@ -828,6 +839,22 @@ end
 
 --- The note at the top of the page of an extension that is not loaded.
 local function unloaded_note(source: Source): string
+  local waits = ext_waits(source.ext)
+  if waits then
+    local typed: {string} = {}
+    for i, word in ipairs(waits) do
+      typed[i] = "`" .. word .. "`"
+    end
+    return table.concat(
+      {
+        "**This extension loads when you first use one of these:** " .. table.concat(typed, ", ") .. ".",
+        "To load it now, type:",
+        "",
+        "    :ext.load " .. source.ext,
+      },
+      "\n"
+    )
+  end
   local env = api.env()
   -- A bundled extension is loaded by its name.
   local bundled = ext.bundled_dir and ext.bundled_dir()
@@ -957,7 +984,14 @@ local function build_now(pause?: function()): Index
       end
       source.blocks = cached.blocks
       source.loaded = not source.ext or ext_loaded(source.ext)
-      parts[#parts + 1] = source.path .. "\0" .. tostring(cached) .. "\0" .. tostring(source.loaded)
+      local waits = source.ext and ext_waits(source.ext)
+      parts[#parts + 1] = source.path
+        .. "\0"
+        .. tostring(cached)
+        .. "\0"
+        .. tostring(source.loaded)
+        .. "\0"
+        .. tostring(waits ~= nil)
     end
   end
   local signature = table.concat(parts, "\n")
@@ -1413,7 +1447,9 @@ function M.jump(tag: Tag): contracts.Window
     keymap.push_jump()
   end
   local source = tag.source
-  if source.ext and not source.loaded then
+  if source.ext and ext_waits(source.ext) then
+    paw.notify(source.ext .. " loads when you first use it: the page says how")
+  elseif source.ext and not source.loaded then
     paw.notify(source.ext .. " is not loaded: the page says how to load it", "warn")
   end
   return M.show(source, tag.row, tag.col)

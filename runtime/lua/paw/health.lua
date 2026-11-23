@@ -284,7 +284,11 @@ end, { desc = "fonts the window falls back on" })
 
 M.register("extensions", function(h)
   local list = paw.ext.list()
-  if #list == 0 then h.info("no extensions loaded") end
+  local waiting = paw.ext.lazy and paw.ext.lazy.list() or {}
+  if #list == 0 and #waiting == 0 then h.info("no extensions loaded") end
+  for _, w in ipairs(waiting) do
+    h.info(w.name .. " waits for " .. table.concat(paw.ext.lazy.describe(w.name), ", "))
+  end
   for _, e in ipairs(list) do
     local name = e.name .. (e.version and " " .. e.version or "")
     if e.ok then
@@ -294,7 +298,11 @@ M.register("extensions", function(h)
         needs[#needs + 1] = other .. " " .. tostring(want)
       end
       table.sort(needs)
-      h.ok(name .. (#needs > 0 and " (requires " .. table.concat(needs, ", ") .. ")" or ""))
+      h.ok(
+        name
+          .. (#needs > 0 and " (requires " .. table.concat(needs, ", ") .. ")" or "")
+          .. (e.loaded_by and e.loaded_by ~= "at start" and ", loaded by " .. e.loaded_by or "")
+      )
       for _, o in ipairs(e.overrides or {}) do
         h.warn(
           string.format("%s replaces the %s %s of %s", e.name, o.kind, o.what, o.of),

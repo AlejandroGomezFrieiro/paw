@@ -36,6 +36,8 @@ Each extension has a README. Its pictures are in `extensions/<name>/images`, and
 | [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal tracks, a vocal editor, the device that plays the voice and the engine that sings | `ffi`, `processes`, `native` |
 | [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any track takes | `processes` |
 
+The manifests of doctor, drums, mixdiag, notation, plugstate, templates and tutor name their commands, keys and views, so `paw.ext.use` makes them wait for their first use ([Load on first use](#load-on-first-use)). The other extensions load at once, for example articulations, which sends keyswitches while the song plays, and the extensions whose devices a project needs when it opens.
+
 `crates/paw-mcp` is not an extension, but it is also outside the core. It is a Model Context Protocol server in front of the control socket.
 
 ## Files
@@ -68,17 +70,45 @@ Files in `~/.config/paw/lua/` replace the built-in modules with the same name, s
 
 | Name | Effect |
 | --- | --- |
-| `paw.ext.load(path)` | loads an extension from a directory, a `.lua` file or a `.tl` file |
-| `paw.ext.load_bundled(name)` | loads a bundled extension by name |
-| `:ext.load name` | loads a bundled extension now. Tab completes the names |
-| `:extensions` | lists the extensions that loaded, with the version, what each registered, and the error of each extension that failed |
+| `paw.ext.use(name or path, spec)` | loads an extension, or makes it wait for its first use when its manifest or `spec` gives triggers ([Load on first use](#load-on-first-use)). A name alone is a bundled extension |
+| `paw.ext.load(path)` | loads an extension from a directory, a `.lua` file or a `.tl` file now |
+| `paw.ext.load_bundled(name)` | loads a bundled extension by name now |
+| `:ext.load name` | loads a bundled extension, or one that waits, now. Tab completes the names, and those that wait come first |
+| `:extensions` | lists the extensions that loaded, with the version, what loaded each one, what each registered, and the error of each extension that failed. It also lists the extensions that wait, with what each waits for |
 | `paw.ext.unload(name)`, `:ext.unload name` | unloads an extension |
 | `paw.ext.unload(name, { force = true })`, `:ext.unload! name` | unloads an extension when its devices are on tracks |
-| `paw.ext.loaded[name]` | true when the extension is loaded |
+| `paw.ext.loaded[name]` | the entry of a loaded extension: `version`, `ok`, `error`, and `loaded_by`, the words that say what loaded it (`at start`, `paw.ext.use`, `:ext.load`, `:notation`, `<leader>nn`, `event project.loaded`, `kind film`, `view tutor`, `required by tutor`) |
+| `paw.ext.lazy.waiting[name]` | the record of an extension that waits for its first use, with its `triggers` |
 | `paw.ext.bundled()` | the names of the bundled extensions, in `$PAW_HOME/extensions` or in `extensions` under the working directory |
 | `paw.ext.provides(name)` | what an extension registered |
 
-A command of an extension that is not loaded tells you so, instead of saying "no command". Extensions have no separate interface. An extension is Lua that calls `paw.command`, `paw.keymap.set`, `paw.on` and `paw.ui.view` in the same way as a configuration does. [How to load an extension](../how-to/load-an-extension.md) gives the steps.
+A command of an extension that is not loaded tells you so, instead of saying "no command". `:help name` and the extension picker (`:pick extensions`) say whether an extension is loaded, waits for its first use, or failed. Extensions have no separate interface. An extension is Lua that calls `paw.command`, `paw.keymap.set`, `paw.on` and `paw.ui.view` in the same way as a configuration does. [How to load an extension](../how-to/load-an-extension.md) gives the steps.
+
+### Load on first use
+
+An extension can wait until you first use it, so that paw starts faster. Its manifest, or the `spec` of `paw.ext.use`, names the triggers. Until a trigger comes, paw puts a stub in place of each command, key and view, and the extension's code doesn't run.
+
+| Trigger | Value | The extension loads when |
+| --- | --- | --- |
+| `cmd` | a name, or a list of names and of `{ name, desc = ... }`. A name that ends in `*` is a prefix (`"notation.*"`) | you run the command. Its stub completes and shows in `:help` with `desc`, or with the description of the manifest |
+| `keys` | a key, or a list of keys and of `{ lhs, mode = "n" or { "n", "x" }, view = name, desc = ... }` | you press the key. Its stub shows in the key hints with `desc` |
+| `event` | the name of an event, or a list of names or patterns (`"project.*"`) | paw sends the event. The handlers of the extension get the event that loaded it |
+| `kind` | a key of a registry, or a list of them. A name alone is a kind of clip or of track. `{ registry = "pickers", key = "film" }` is a key of any registry, by the `kind` of the registry | paw asks the registry for that key, for example when a project with a clip of that kind opens |
+| `view` | the name of a view, or a list of them | the view opens |
+| `lazy` | `false` | at once, even when the manifest gives triggers. `true` with no trigger waits for `:ext.load` |
+
+The first use loads the extension and then does what you asked. The command runs with its range, count and arguments, and the key runs with its count and register, and both are one step that `u` undoes. If the extension fails to load, paw says why once, and the stubs stay.
+
+A project whose clips have a kind of a waiting extension opens and plays as it was saved. The kind loads the extension while the project opens, and opening it isn't a step to undo.
+
+`paw.ext.use` takes the triggers of `spec` in place of those of the manifest, field by field. The extensions in `~/.config/paw/extensions` and the extensions that Nix packaged go through `paw.ext.use` too, so those with triggers wait. `paw.ext.load` always loads at once.
+
+```lua
+paw.ext.use("notation")                                  -- the triggers of its manifest
+paw.ext.use("drums", { lazy = false })                   -- now
+paw.ext.use("mixdiag", { keys = { "<leader>ma" } })      -- only this key
+paw.ext.use("~/code/euclid", { cmd = { "euclid.*" } })   -- one of your own
+```
 
 ### What an extension owns
 
@@ -116,6 +146,7 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.pick.sources` | picker sources |
 | `paw.statusline.components` | status line components |
 | `paw.query.fields` | query fields, by kind and name (`"note pitch"`) |
+| `paw.query.marks` | what gives the marks of a note, by a name: `function(note, clip)` gives `{ art = { "staccato" }, text = "pizz." }` or nil. Queries (`note[art=...]`), `:vimgrep` and the pickers find a note by its marks, and the score draws the marks of the other entries. The notation extension gives the marks written in the score, and the articulations extension gives those of each note's articulation |
 | `paw.ex.fields` | fields of `:s` and `:g` |
 | `paw.ex.views` | views of ranges |
 | `paw.trackcolumn.components` | parts of the track column |
@@ -194,8 +225,10 @@ return {
   name = "euclid", version = "1.2.0",
   description = "Euclidean rhythms as clips",
   requires = { paw = "^1.0", sections = ">=0.1" },   -- the API, and other extensions
+  optional = { notation = "*" },                    -- extensions it uses when they are there
   provides = { "rhythms" },                         -- names that other extensions can require
   needs = { "processes" },                          -- what the build of paw must have
+  cmd = { "euclid.*" },                             -- it waits for its first use
 }
 ```
 
@@ -211,7 +244,11 @@ return {
 | `*` | any version |
 | `>=1.2, <2` | all of the requirements |
 
-Before an extension runs, paw loads what it requires (first from beside it, then from the bundled extensions) and checks every version. paw does not run an extension whose requirements are not met, and `:extensions` and `:checkhealth extensions` give the reason.
+Before an extension runs, paw loads what it requires (first from beside it, then from the bundled extensions) and checks every version. paw does not run an extension whose requirements are not met, and `:extensions` and `:checkhealth extensions` give the reason. When a required extension isn't there, the message says where to put it, for example `needs the extension sections, which is not to be found: put it beside euclid, or in ~/.config/paw/extensions`.
+
+`optional` names the extensions that the extension uses when they are there, with the versions it works with, in the same form as `requires`. When both load from one folder, or are both packaged, the optional extension loads first. An optional extension that isn't there, or that waits for its first use, isn't an error, and a loaded one of another version gives a warning. You can unload an optional extension while the other extension stays loaded, so the extension must work without it. The bundled extensions articulations, interop, musicops and tutor name their optional extensions.
+
+The fields `cmd`, `keys`, `event`, `kind`, `view` and `lazy` give the triggers that the extension waits for, as [Load on first use](#load-on-first-use) describes.
 
 `needs` lists the features of the build that the extension uses. `paw.api.build()` gives what the running build has, as `{ vm, features }`. `vm` is the Lua that runs the code, `luajit` on Linux and `lua52` in the web build.
 

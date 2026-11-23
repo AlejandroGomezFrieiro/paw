@@ -16,9 +16,15 @@
 -- unload. The unload of an extension whose entry is below another removes
 -- only its own entry, so the entry on top stays.
 --
+-- An extension that waits for its first use can wait for a key of any
+-- registry (its `kind` trigger). A `get` of a key with no entry calls
+-- `registry.missing`, which loads that extension, and then gives the entry
+-- that the extension put.
+--
 -- This module is in a low layer (tools/layers.txt). It does not read
 -- paw.ext: paw.ext sets `registry.owner`, `registry.maker` and
--- `registry.replaced`.
+-- `registry.replaced`, and paw/lazy.tl sets `registry.missing` and
+-- `registry.waiting`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
@@ -97,6 +103,14 @@ local record M
   --- Runs when the extension `owner` puts an entry over an entry of the
   --- extension `previous`: paw.ext keeps it for `:checkhealth extensions`.
   replaced: function(registry: M.Owned, what: string, owner: string, previous: string)
+  --- Runs when `get` finds no entry at `key`: paw/lazy.tl loads the
+  --- extension that waits for this key of this registry, and gives true.
+  --- `get` then looks again. Nil until paw/lazy.tl sets it.
+  missing: function(registry: M.Owned, key: string): boolean
+  --- True when an extension waits for a key of `registry`: a module that
+  --- skips its work while the registry is empty does it then, so that its
+  --- `get` loads the extension. paw/lazy.tl sets it.
+  waiting: function(registry: M.Owned): boolean
 end
 
 -- Every registry made, in the order of `new`.
@@ -178,6 +192,10 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
 
   function registry.get(_: M.Registry<T>, key: string): T
     local top = slots[key]
+    -- A key that an extension that waits gives: it loads now.
+    if not top and key ~= nil and M.missing and M.missing(registry, key) then
+      top = slots[key]
+    end
     return top and top.value
   end
 

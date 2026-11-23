@@ -127,7 +127,9 @@ test("an extension's requirements are loaded before it, and their versions check
   local needy = paw.ext.load(dir("reqs/needy"))
   eq(
     needy.error,
-    "needs the extension nowhere, which is not to be found",
+    "needs the extension nowhere, which is not to be found: put it beside needy, or in "
+      .. api.env().config_dir
+      .. "/extensions",
     "a name provided counts; a missing one does not"
   )
   local ok, why = paw.ext.unload("base")
@@ -137,6 +139,24 @@ test("an extension's requirements are loaded before it, and their versions check
     eq(paw.ext.unload(name), true, "unload " .. name)
   end
   eq(paw.commands.get("base.hi"), nil, "gone with it")
+end)
+
+test("an optional extension of the same folder loads first, and one that is not there is no error", function()
+  local root = dir("optional")
+  -- `aa` comes first in the folder, and wants `zz` first.
+  write(root .. "/aa/manifest.lua", 'return { optional = { zz = "*", gone = "*" } }')
+  write(root .. "/aa/init.lua", "_G.optional_order = (_G.optional_order or '') .. 'aa'")
+  write(root .. "/zz/manifest.lua", "return {}")
+  write(root .. "/zz/init.lua", "_G.optional_order = (_G.optional_order or '') .. 'zz'")
+  T.after(function()
+    _G.optional_order = nil
+    paw.ext.unload("aa")
+    paw.ext.unload("zz")
+  end)
+  paw.ext.load_dir(root)
+  eq(_G.optional_order, "zzaa", "zz first")
+  eq(paw.ext.loaded.aa.ok, true, "and aa loads without gone")
+  eq(paw.ext.unload("zz"), true, "an optional one unloads while the other stays")
 end)
 
 test("what an extension registers is its own, and unloading it takes all of it away", function()

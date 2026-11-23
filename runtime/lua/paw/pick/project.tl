@@ -18,6 +18,7 @@ local type objects = require("paw.objects")
 local type HelpModule = require("paw.help")
 local type MarkersModule = require("paw.markers")
 local type QueryModule = require("paw.query")
+local type LazyModule = require("paw.lazy")
 local type GrepModule = require("paw.grep")
 local type QfModule = require("paw.qf")
 local type MusicModule = require("paw.music")
@@ -65,7 +66,8 @@ local record Ext
   list: function(): {ExtInfo}
   bundled_dir: function(): string
   bundled: function(): {string}
-  load_bundled: function(name: string): contracts.ExtEntry, string
+  load_bundled: function(name: string, why?: string): contracts.ExtEntry, string
+  lazy: LazyModule
 end
 
 --- The devices' presets (paw/fx.lua, in Lua): the picker of the device under the cursor.
@@ -115,6 +117,8 @@ local record ExtLine
   loaded: boolean
   ok: boolean
   error: string
+  --- What loads it, for one that waits for its first use.
+  waits: {string}
 end
 
 --- A key of a table of the `paw` global: a name, or a place in a list.
@@ -556,6 +560,12 @@ local extensions: contracts.PickSource<ExtLine> = {
       seen[e.name] = true
       out[#out + 1] = {name = e.name, path = e.path, loaded = true, ok = e.ok, error = e.error}
     end
+    for _, w in ipairs(ext.lazy.list()) do
+      if not seen[w.name] then
+        seen[w.name] = true
+        out[#out + 1] = {name = w.name, path = w.path, loaded = false, waits = ext.lazy.describe(w.name)}
+      end
+    end
     local dir = ext.bundled_dir()
     for _, name in ipairs(ext.bundled()) do
       if not seen[name] then
@@ -565,7 +575,11 @@ local extensions: contracts.PickSource<ExtLine> = {
     return out
   end,
   format = function(e: ExtLine): string
-    return string.format("%-14s %s", e.name, not e.loaded and "not loaded" or e.ok and "loaded" or "failed")
+    local state = e.waits and "waits for " .. table.concat(e.waits, ", ")
+      or not e.loaded and "not loaded"
+      or e.ok and "loaded"
+      or "failed"
+    return string.format("%-14s %s", e.name, state)
   end,
   primary = function(e: ExtLine): string return e.name end,
   choose = "help, or load",
@@ -574,7 +588,12 @@ local extensions: contracts.PickSource<ExtLine> = {
       paw.help.open(e.name)
       return
     end
-    local entry, why = ext.load_bundled(e.name)
+    local entry, why: contracts.ExtEntry, string
+    if e.waits then
+      entry = ext.lazy.load(e.name, "the extension picker")
+    else
+      entry, why = ext.load_bundled(e.name, "the extension picker")
+    end
     if not entry then
       return paw.notify(why, "warn")
     end

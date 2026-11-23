@@ -15,6 +15,12 @@ local function has(text, part, what)
   if not text:find(part, 1, true) then error(string.format("%s: %q is not in\n%s", what or "text", part, text), 2) end
 end
 
+--- The notation extension: the staccato of the Piano's C4 is a mark of
+--- the score, which a search finds only with it (`paw.query.marks`).
+local function with_notation()
+  if not paw.ext.loaded.notation then paw.ext.load("extensions/notation") end
+end
+
 --- Strings, Violins pizz (two clips), Violas, a Piano with a lyric and an
 --- articulation, a marker, a region; groups Strings ⊃ { Violins, Violas }.
 local function song()
@@ -248,6 +254,7 @@ end)
 
 test("search: notes by lyric and articulation, drawn in a small piano roll", function()
   local s = song()
+  with_notation()
   paw.pick("notes")
   paw.keymap.feed("staccato")
   eq(#pick.state().matches, 1, "one staccato note")
@@ -291,6 +298,7 @@ test("search: :vimgrep fills the quickfix list from every kind of text, and :cdo
   eq(table.concat(fields, " "), "clip clip clip region", "clips and the region")
   paw.commands.exec("vimgrep /^l[ao]$/j lyric")
   eq(#paw.qf.current().entries, 2, "only lyrics")
+  with_notation()
   paw.commands.exec("vimgrep /^staccato$/ art")
   eq(paw.ui.focused, "pianoroll", "the first is gone to")
   paw.commands.exec("vimgrep /^Viol/j track")
@@ -356,6 +364,26 @@ test("search: the notation extension's text and dynamics are text to search", fu
   eq(table.concat(texts, ", "), "text: Allegro, dynamic: mf", "both, with what they are")
 end)
 
+test(
+  "search: a mark of the score is found by a query and by :vimgrep while the notation extension is loaded",
+  function()
+    song()
+    local function found()
+      paw.commands.exec("vimgrep /^staccato$/j art")
+      local list = paw.qf.current()
+      local grepped = list and list.title == "vimgrep /^staccato$/" and #list.entries or 0
+      return #paw.query("note[art=staccato]") .. " " .. grepped
+    end
+    with_notation()
+    eq(found(), "1 1", "with notation: the query and the grep find the C4")
+    eq(paw.ext.unload("notation"), true, "notation unloads")
+    paw.qf.close()
+    local s = paw.qf.stack()
+    s.lists, s.at = {}, 0
+    eq(found(), "0 0", "without it: neither finds a note")
+  end
+)
+
 -- Structural queries ------------------------------------------------------------------------
 
 local function names(nodes)
@@ -368,6 +396,7 @@ end
 
 test("search: queries find nodes by kind, fields and where they sit", function()
   song()
+  with_notation()
   eq(names(paw.query("clip[name~=pizz] > note[pitch>=C5]")), "C5 E5 D5", "the example")
   eq(names(paw.query("group[name=Strings] track")), "Violins Violas", "tracks inside a group")
   eq(names(paw.query("track[name^=vio] clip")), "pizz arco pizz 2 pizz", "a track's clips")

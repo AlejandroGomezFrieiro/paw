@@ -98,6 +98,9 @@ paw.export = {}
 ---@class paw.ext
 paw.ext = {}
 
+---@class paw.ext.lazy
+paw.ext.lazy = {}
+
 ---@class paw.external
 paw.external = {}
 
@@ -2804,6 +2807,17 @@ function paw.events.check_names() end
 
 paw.events.emit = paw.emit
 
+--- Run the handlers that listen by `pattern` (a name, `family.*` or `*`)
+--- and have the handle `from` or a larger one, with the event `name`, as
+--- `emit` runs them. An emit takes its list of handlers when it starts:
+--- paw/lazy.tl gives the event that loaded an extension to the handlers
+--- that the extension made.
+---@param from any
+---@param pattern any
+---@param name any
+---@param payload any
+function paw.events.emit_since(from, pattern, name, payload) end
+
 --- How many events paw has sent since it started. A number that is the
 --- same as before means that no event came in between.
 function paw.events.emitted() end
@@ -2819,6 +2833,10 @@ function paw.events.event(name) end
 --- `*`). Use it for events that are expensive to make.
 ---@param name any
 function paw.events.listened(name) end
+
+--- The handle that the next `paw.on` gives. A handler made later has this
+--- handle or a larger one.
+function paw.events.next_handle() end
 
 paw.events.off = paw.off
 
@@ -3060,22 +3078,26 @@ function paw.ext.list() end
 --- Load one extension from a directory or a file (`.lua`, or `.tl` or the
 --- extension of another language of `paw.lang`). One the program
 --- was built with is not loaded again from elsewhere: the configuration
---- that names the source tree's copy gets the packaged one.
+--- that names the source tree's copy gets the packaged one. `why` says how
+--- it came to load, in words for `:extensions` (`entry.loaded_by`).
 ---@param path any
-function paw.ext.load(path) end
+---@param why any
+function paw.ext.load(path, why) end
 
 --- Load a bundled extension by name. A name that is loaded does not change.
 --- Returns the entry, or nil and the problem.
 ---@param name any
-function paw.ext.load_bundled(name) end
+---@param why any
+function paw.ext.load_bundled(name, why) end
 
---- Load everything in a directory of extensions.
+--- Use everything in a directory of extensions: each one with triggers
+--- waits for them, and the others load now.
 ---@param dir any
 function paw.ext.load_dir(dir) end
 
 --- Load the extensions the program was built with: `dirs` is a list of
 --- their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's
---- `paw.withExtensions` sets).
+--- `paw.withExtensions` sets). Each one with triggers waits for them.
 ---@param dirs any
 function paw.ext.load_packaged(dirs) end
 
@@ -3085,6 +3107,17 @@ function paw.ext.load_packaged(dirs) end
 ---@param path any
 ---@param name any
 function paw.ext.manifest(path, name) end
+
+--- What the `needs` of a manifest names that this build does not have:
+--- nil, or the reason it does not load. A name that no build knows is
+--- missing too, so that a typo is said.
+---@param manifest any
+function paw.ext.missing_needs(manifest) end
+
+--- The name of an extension at `path`: its directory's or file's, without
+--- the extension of the file.
+---@param path any
+function paw.ext.name_of(path) end
 
 --- The numbers of a version: "1.2.3" gives { 1, 2, 3 }. A part that is not there is 0.
 --- Nil for text that is not a version.
@@ -3121,6 +3154,47 @@ function paw.ext.satisfies(version, want) end
 ---@param name any
 ---@param opts any
 function paw.ext.unload(name, opts) end
+
+--- Use an extension: it waits for its triggers, or loads now (paw/lazy.tl).
+--- `which` is a path, or the name of a bundled extension. `spec` gives
+--- triggers in place of those of its manifest, field by field, and
+--- `spec.lazy = false` loads it now. Returns the entry when it loaded, or
+--- nil when it waits.
+---@param which any
+---@param spec any
+function paw.ext.use(which, spec) end
+
+--- The triggers of a waiting extension in words, for `:extensions`,
+--- `:help` and the picker: `{ ":undotree", "<leader>pu", "view undotree" }`.
+--- Nil for one that does not wait.
+---@param name any
+function paw.ext.lazy.describe(name) end
+
+--- Stop waiting for `name`: its stubs go. paw/ext.lua calls it when the
+--- extension loads by any other way (`:ext.load`, a requirement), and to
+--- unload one that waits. Gives true when it waited.
+---@param name any
+function paw.ext.lazy.forget(name) end
+
+--- The waiting extensions, sorted by name.
+function paw.ext.lazy.list() end
+
+--- Load the waiting extension `name` now: its stubs go, and paw loads it.
+--- `why` says what loaded it (`:undotree`, `<leader>pu`). Failed, it
+--- waits again with its stubs. Gives the entry of `paw.ext.loaded`.
+---@param name any
+---@param why any
+function paw.ext.lazy.load(name, why) end
+
+--- Use an extension as lazy.nvim does: it loads on its first command, key,
+--- event, kind or view (`spec`, then its manifest), or now when it has no
+--- trigger or `spec.lazy` is false. `which` is a path or the name of a
+--- bundled extension. `why` says what loads it now ("at start"). Gives the
+--- entry of `paw.ext.loaded` when it loaded, or nil when it waits.
+---@param which any
+---@param spec any
+---@param why any
+function paw.ext.lazy.use(which, spec, why) end
 
 --- Act on the changes as the option says: called when paw gets the focus,
 --- or at the next key after them.
@@ -7162,8 +7236,9 @@ function paw.qf.where(e) end
 
 --- A note's articulations: its attribute's (`paw.attr`: the tag, the name
 --- and the code, so `pz`, `pizzicato` and `11.A` all find a pizzicato),
---- those the score marks (`meta.notation.art`, a set) and any named in
---- `meta.articulation` (a name or a list of them).
+--- the marks that `paw.query.marks` gives (the score's, when the notation
+--- extension is loaded) and any named in `meta.articulation` (a name or a
+--- list of them). Each name once, sorted.
 ---@param node any
 function paw.query.articulations(node) end
 
@@ -7261,6 +7336,15 @@ function paw.registry.all() end
 ---@param value any
 function paw.registry.maker(value) end
 
+--- Loads the extension that waits for `key` of `reg` (its `kind`
+--- trigger), and gives true when it loaded, so that `reg:get(key)` gives
+--- the entry that the extension put. The kind of a track loads its
+--- extension when the track header asks for it, and the kind of a clip
+--- loads its extension when the project opens.
+---@param reg any
+---@param key any
+function paw.registry.missing(reg, key) end
+
 --- A new registry: entries by key, each with the extension that put it
 --- there. `kind` names it in `paw.ext.provides` and `title` in
 --- `:extensions`. Its functions are `put(key, value)`, `get(key)`,
@@ -7284,6 +7368,10 @@ function paw.registry.owner() end
 ---@param owner any
 ---@param previous any
 function paw.registry.replaced(reg, what, owner, previous) end
+
+--- True when an extension waits for a key of `reg`.
+---@param reg any
+function paw.registry.waiting(reg) end
 
 --- A connection closed: nothing more is sent to it.
 ---@param client any
