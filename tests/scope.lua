@@ -656,6 +656,25 @@ test("a frozen track renders as it did live, and its fader stays live", function
   reset()
 end)
 
+test("a bounced track sounds through the master as the original did", function()
+  start()
+  local t = synth("Lead", 60)
+  t.volume = -6
+  paw.master:add_device("gain", { gain = -6 })
+  paw.flush()
+  local live = render()
+  paw.cursor.set_track(t)
+  keys(":track.bounce<CR>")
+  local bounced = paw.cursor.track()
+  eq(bounced.name .. " " .. tostring(t.mute), "Lead (bounced) true", "a new track beside the muted original")
+  -- The master's gain and the track's fader are each heard once.
+  local worst, peak = difference(live, render())
+  eq(peak > 0.05, true, "it sounds")
+  eq(worst < 1e-5, true, "the same sound, bounced as live: " .. worst)
+  os.remove(bounced:clips()[1].file)
+  reset()
+end)
+
 test("a frozen group renders as it did live; its members are held", function()
   start()
   local o = orchestra()

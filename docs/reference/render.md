@@ -228,7 +228,9 @@ group, into `renders/stems`:
 ## Bounce
 
 `:track.bounce` renders a track with its devices to audio, on a new track,
-and mutes the original track. In Lua: `paw.bounce(track, { name = ... })`,
+and mutes the original track. The new track has the fader and pan of the
+original track in its sound. It does not have the devices and fader of the
+master, because the new track plays through the master. In Lua: `paw.bounce(track, { name = ... })`,
 which returns the new track.
 
 ## Regions

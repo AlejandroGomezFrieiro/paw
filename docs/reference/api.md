@@ -11,7 +11,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw
 
 - `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...). In a window inside a subproject, the track is made in that subproject unless `opts.nest` says another.
-- `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
+- `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. The render has the track's fader and pan but not the master's devices and fader, because the new track plays through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
   ```lua
