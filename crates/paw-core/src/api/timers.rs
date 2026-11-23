@@ -120,6 +120,13 @@ impl Shared {
             (timers.iter().filter(|t| t.due <= now).count(), timers.len())
         };
         let work = self.session.borrow().work();
+        // One borrow each: a struct literal keeps its temporaries to the end,
+        // so two `borrow_mut` calls in it would clash.
+        let midi = self.midi_in.lock().unwrap().len();
+        let (helpers, helpers_busy) = {
+            let mut io = self.io.borrow_mut();
+            (io.working(), io.awaited())
+        };
         Pending {
             timers_due,
             timers,
@@ -131,9 +138,9 @@ impl Shared {
             renders: work.renders,
             measures: self.measures.count(),
             files: work.files,
-            midi: self.midi_in.lock().unwrap().len(),
-            helpers: self.io.borrow_mut().working(),
-            helpers_busy: self.io.borrow_mut().awaited(),
+            midi,
+            helpers,
+            helpers_busy,
         }
     }
 
