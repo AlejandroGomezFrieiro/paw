@@ -160,3 +160,32 @@ test("a region scope's children are its regions inside, and :narrow takes the on
   )
   keys(":widen!<CR>")
 end)
+
+--- How many times paw made the tree of regions.
+local function trees_made()
+  for _, s in ipairs(require("paw.derived").stats()) do
+    if s.name == "markers.tree" then return s.made end
+  end
+end
+
+test("the tree of regions is made again after a change of a region, not after an edit of a note", function()
+  start()
+  song()
+  local clip = paw.add_track({ name = "Bass" }):add_clip({ start = 0, length = 4 })
+  api.undo_checkpoint()
+  eq(#paw.markers.tree(), 3, "three regions at the top")
+  local made = trees_made()
+  clip:add_note({ pitch = 40, start = 0, length = 1 })
+  api.undo_checkpoint()
+  -- The events of the edit come, as at the end of a key.
+  paw.flush()
+  eq(#paw.markers.tree(), 3, "the same tree after a note edit")
+  eq(trees_made(), made, "a note edit does not make the tree again")
+  paw.markers.add(64, "Coda", { length = 16 })
+  api.undo_checkpoint()
+  eq(#paw.markers.tree(), 4, "a new region is in the tree")
+  eq(trees_made(), made + 1, "made again once")
+  keys("u")
+  eq(#paw.markers.tree(), 3, "u takes the region away")
+  eq(trees_made(), made + 1, "u gives back the tree of before without a make")
+end)

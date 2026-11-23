@@ -7,6 +7,49 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+
+
+## 2026-11-23: the region tree and the tracks of a scope as memos of paw.derived
+
+`paw.markers.tree()` is a memo of `paw.derived` that reads the source
+`project` (the event `project.changed`: the name, `meta` or the tempo
+changed). A note edit does not make it stale. Before, each call read
+the whole project (`project_get()`) and made a text of every region to
+compare with the last one. `paw.scope.tracks()` is a memo for each
+scope of the song: it reads the track list, and for a scope with a
+group, the `meta` of each track.
+
+The project: 64 tracks with a synth, 2 048 MIDI clips of 25 notes (the
+shape of `bench/profile/project.lua`), 500 regions (250 of 8 beats, each
+with one of 4 beats inside), and a group of 8 tracks. Each of 25 rounds
+moves one note of the first clip of track 3 (`clip_set_notes`,
+`paw.flush()`, `undo_checkpoint`), then reads `paw.markers.tree()`,
+`paw.scope.tracks()` (the song) and `paw.scope.tracks(group)`. The
+script is not in the repository.
+
+The times are the processor time of the kernel thread for one call, the
+median of the 25 rounds of each run, and the range of the 5 medians.
+`main` (the shared binary of e46ecc13 with its own runtime) and the
+branch (its dev runtime on the same binary) ran in turns, 5 pairs, under
+the measure lock on cores 16 to 23. The load average was 13 to 18,
+measured under external load.
+
+| What | main | branch |
+| --- | ---: | ---: |
+| `paw.markers.tree()` after a note edit | 1.07 to 1.41 ms | 0.0015 to 0.0027 ms |
+| `paw.scope.tracks(group)` after a note edit | 0.75 to 0.84 ms | 0.0020 to 0.0031 ms |
+| `paw.scope.tracks()` (the song) after a note edit | 0.005 to 0.016 ms | 0.004 to 0.007 ms |
+
+The count that does not depend on the load: over the 25 note edits, the
+branch made the tree 0 times (`stats().made` of `markers.tree` stayed
+at 1, the make before the first round) and each scope's tracks once,
+at their first read. The largest single read of the tree in a branch
+run was 0.048 to 0.054 ms, one read out of 25. The tracks of the song
+show no measurable difference: the kernel's track list was already
+quick, and the memo gives a copy of its list.
+
+## 2026-11-23: the first scope keys after the group tree change
+
 ## 2026-11-23: the check of a frozen track after an edit
 
 A frozen track keeps the key of what its file was made from
