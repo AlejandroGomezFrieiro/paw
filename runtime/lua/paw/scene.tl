@@ -228,7 +228,7 @@ local function key_of(view: View, win: Window): string
 end
 
 local function still(w: Watcher, name: string, area: Area, win: Window): boolean
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if view and view.scene_key then
     for _, role in ipairs(view.scene_roles or {}) do
       if not w.roles[role] then
@@ -258,7 +258,7 @@ end
 --- milliseconds: every tick, or less often if the view says so
 --- (`view.redraw_every`, for a view whose moving parts are small).
 local function every(name: string): number
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   return view and view.redraw_every or 30
 end
 
@@ -298,7 +298,7 @@ local function push(client: integer, all?: boolean)
           if not ok then
             api.log("the scene of " .. what.view .. " failed: " .. tostring(err))
           end
-          area.key = key_of(paw.ui.views[what.view] or {}, what.win)
+          area.key = key_of(paw.ui.views:get(what.view) or {}, what.win)
           local _, open = api.scene_end(client, id)
           if not open then
             return M.closed(client)
@@ -353,7 +353,7 @@ local function live(): Live
   -- What views add for their own bound nodes (`view.live_values()`, a
   -- table of values by name): the device panel's parameters that lanes move.
   local fields = out as {string: Value}
-  for _, view in pairs(paw.ui.views) do
+  for _, view in pairs(paw.ui.views:entries()) do
     if type(view.live_values) == "function" then
       local ok, values = pcall(view.live_values)
       if ok and type(values) == "table" then
@@ -561,7 +561,7 @@ input = function(client: integer, name: string | number, event: RolesModule.Scen
   -- On a hit region of the scene it was sent, the view's gesture has it
   -- in units (paw/roles.tl); anything else goes on as a terminal's would.
   local area = watcher.areas[id]
-  local view = paw.ui.views[own or (area and area.view) or ""]
+  local view = paw.ui.views:get(own or (area and area.view) or "")
   if view and paw.roles.input(client, id, view, not own and tonumber(id) as integer or nil, event, watcher.held) then
     return true
   end

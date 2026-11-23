@@ -4,7 +4,7 @@ local api = paw.api
 local util = paw.util
 local command = paw.command
 local cursor = paw.cursor
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 command("view.next", function() paw.ui.focus_next(1) end, { desc = "Focus the next view" })
 command("view.prev", function() paw.ui.focus_next(-1) end, { desc = "Focus the previous view" })
@@ -34,7 +34,7 @@ command("view.close", function()
 end, { desc = "Close the focused panel; the keyboard goes to the window before" })
 command("view.window", function(ctx)
   local name = ctx.args[1] and tostring(ctx.args[1]) or (paw.ui.float and paw.ui.float.name) or paw.ui.focused
-  if not paw.ui.views[name] then return paw.notify("no view `" .. name .. "`", "warn") end
+  if not paw.ui.views:get(name) then return paw.notify("no view `" .. name .. "`", "warn") end
   paw.canvas.open_view(name)
 end, {
   desc = "Open a view in a window of its own, in the graphical frontend: `view.window undotree`; the focused one without a name",
@@ -52,7 +52,7 @@ end, {
 })
 command("view.open", function(ctx)
   local name = tostring(ctx.args[1] or "")
-  local view = paw.ui.views[name]
+  local view = paw.ui.views:get(name)
   if not view then return paw.notify("no view `" .. name .. "`", "warn") end
   -- Where it is already: in a window of its own, or in the layout.
   if paw.canvas.open_views[name] then return paw.canvas.focus(name) end
@@ -66,7 +66,7 @@ end, {
 command("view.only", function() paw.layout.only() end, { desc = "Close every window but this one, as `:only`" })
 command("zoom", function(ctx)
   local name = paw.ui.focused == "pianoroll" and "note_zoom" or "zoom"
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   if ctx.args.by then
     paw.opt[name] = util.clamp(paw.opt[name] * ctx.args.by, 0.125, 64)
   elseif tonumber(ctx.args[1]) then

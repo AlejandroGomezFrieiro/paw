@@ -378,7 +378,7 @@ test(
     paw.ui.show("session")
     local id = act.open(t.id, 3)
     eq(launcher.clip(t.id, 3).id, id, "a double click on an empty slot makes a clip there")
-    eq(paw.ui.views.pianoroll:clip().id, id, "and opens it in the piano roll")
+    eq(paw.ui.views:get("pianoroll"):clip().id, id, "and opens it in the piano roll")
     paw.ui.hide("pianoroll")
     act.move(id, u.id, 5, false)
     eq(launcher.clip(u.id, 5).id, id, "dragged to another track's slot")
@@ -432,7 +432,7 @@ test("launcher: the launcher unloads and loads again, and the project keeps its 
   local ok, err = paw.ext.unload("launcher")
   eq(ok, true, "unloaded: " .. tostring(err))
   eq(paw.commands.get("launch"), nil, "its commands are gone")
-  eq(paw.ui.views.session, nil, "and its view")
+  eq(paw.ui.views:get("session"), nil, "and its view")
   eq(paw.learn.triggers.launch, nil, "and its controller buttons")
   eq(#api.cue_list(t.id), 1, "the clip stays in the project")
   local path = T.scratch .. "/launcher-without.paw"
@@ -499,7 +499,7 @@ test(
     for _, r in ipairs(paw.ui.rects) do
       if r.name == "session" then rect = r end
     end
-    local view = paw.ui.views.session
+    local view = paw.ui.views:get("session")
     local col = view.geometry.columns[1]
     local function slot(row) return rect.x + col.x, rect.y + 1 + (row - view.top) + 1 end
     local x, y = slot(1)
@@ -685,7 +685,7 @@ test(
     paw.ui.show("session")
     paw.cursor.set_track(t.id)
     api.ui_snapshot(120, 36)
-    local view = paw.ui.views.session
+    local view = paw.ui.views:get("session")
     launcher.launch(t.id, 0, { quantize = "off" })
     until_(function() return state(t.id).slot == 0 end, "the clip to start", 5000)
     -- Its key (`paw.scene`) says what the window shows of what plays: it

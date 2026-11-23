@@ -106,7 +106,7 @@ The piano roll draws the layers below, from back to front.
 | suggestions | 50 |
 | the selection and the cursor | |
 
-`paw.ui.views.pianoroll.layer(name, order, paint, marks)` adds a layer.
+`paw.ui.views:get("pianoroll").layer(name, order, paint, marks)` adds a layer.
 
 - `paint(p)` draws the layer in the cells of the terminal. `p` has `roll`,
   `ruler`, `clip`, `parts`, `x(beat)`, `row(pitch)`, `from`, `to`, `zoom`,

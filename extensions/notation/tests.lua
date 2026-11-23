@@ -532,7 +532,7 @@ end
 
 test("notation: the piano roll opened from the notation view takes its clip", function()
   local _, clip = song({ N(67, 1, 1) })
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll.clip_id = nil
   paw.ui.hide("pianoroll")
   paw.ui.focus("notation")

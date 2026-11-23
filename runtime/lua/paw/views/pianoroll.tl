@@ -5,7 +5,7 @@
 -- gives the view's type, the record `PianoRoll`, and its other types: a
 -- module that reads the roll names them with
 -- `local type Roll = require("paw.views.pianoroll")` (`Roll.PianoRoll`,
--- `Roll.Layer`) and takes the view from `paw.ui.views.pianoroll`. The modules that draw on
+-- `Roll.Layer`) and takes the view from `paw.ui.views:get("pianoroll")`. The modules that draw on
 -- the roll or act on it (paw/roll_draw.tl, paw/frontend.tl) name this one's
 -- types, so this one declares only the part of them that it calls.
 local api = require("paw.api")
@@ -364,7 +364,7 @@ local record M
   type GridChoice = GridChoice
   --- The event `pianoroll.opened`: the piano roll opened a clip.
   opened: events.Event<Opened>
-  --- The view, as `paw.ui.views.pianoroll` gives it.
+  --- The view, as `paw.ui.views:get("pianoroll")` gives it.
   view: PianoRoll
 end
 M.opened = events.event("pianoroll.opened")
@@ -505,7 +505,7 @@ end
 --- takes that clip, as the arrange view's clip is taken: the window that
 --- had the keyboard says which.
 function view:on_show()
-  local other = paw.ui.views[paw.ui.focused] as PianoRoll
+  local other = paw.ui.views:get(paw.ui.focused) as PianoRoll
   if not other or other == self or type(other.clip) ~= "function" then
     return
   end
@@ -624,7 +624,7 @@ end
 -- piano roll's, earlier entries first (`paw.keymap` looks here through
 -- `subscope`).
 --
---   paw.ui.views.pianoroll:key_scope("pianoroll.complete", 50, function() return shown ~= nil end)
+--   paw.ui.views:get("pianoroll"):key_scope("pianoroll.complete", 50, function() return shown ~= nil end)
 view.key_scopes = {}
 
 function view:key_scope(name: string, order: number, active: function(): boolean)

@@ -291,7 +291,7 @@ local function roll_with(notes, length)
   paw.cursor.set_track(t)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set_step(nil) -- insert mode's note length, which other tests may have changed
   roll:set(notes[1] and notes[1].pitch or 60, 0)

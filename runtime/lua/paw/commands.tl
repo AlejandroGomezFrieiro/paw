@@ -7,6 +7,7 @@ local events = require("paw.events")
 local type contracts = require("paw.contracts")
 local options = require("paw.options")
 local util = require("paw.util")
+local registry = require("paw.registry")
 
 -- The types that a command's function and options have are contracts
 -- (paw/contracts.tl), so that `paw.command` is typed for the modules in
@@ -79,6 +80,10 @@ local record M
   type Entry = Entry
   type Completer = Completer
 
+  --- The commands by name, with the extension that defined each one.
+  --- `paw.command` and `alias` put one, and `specs:remove(name)` takes
+  --- one away.
+  specs: registry.Registry<Spec>
   owner: function(): string
   line_handlers: {function(string, Context): boolean}
   completers: {string: Completer}
@@ -93,7 +98,6 @@ local type KeymapModule = require("paw.keymap")
 local type LimitModule = require("paw.limit")
 local type FormatsModule = require("paw.formats")
 local type CursorModule = require("paw.cursor")
-local type Registries = require("paw.registry")
 local record State
   command_uses: {string: integer}
 end
@@ -116,13 +120,13 @@ end
 -- paw/ui.tl names this module's types (through paw/layout.tl), so this
 -- one declares only the part of it that it reads.
 local record Ui
-  views: {string: contracts.View}
+  views: registry.Registry<contracts.View>
 end
 
 --- `paw.pick` (paw/pick.tl, which requires this module): the pickers
 --- by name, which `:pick` completes.
 local record Pick
-  sources: Registries.Registry<contracts.PickEntry>
+  sources: registry.Registry<contracts.PickEntry>
 end
 
 local record Paw is partial.Paw
@@ -137,10 +141,18 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
-local registry: {string: Spec} = {}
--- The commands of `registry` sorted by name, or nil when it changed since
+-- The commands of `M.specs` sorted by name, or nil when it changed since
 -- (`M.list`). Completion asks for the list after each typed character.
 local sorted: {Spec}
+M.specs = registry.new(
+  "commands",
+  "commands",
+  {
+    label = function(name: string): string return ":" .. name end,
+    changed = function() sorted = nil end,
+  }
+)
+local specs = M.specs
 
 --- The last command that can be adjusted, as it ran: what `adjust` runs
 --- again. `before` is the undo state that it started from.
@@ -166,18 +178,20 @@ local running = 0 -- how many commands run inside each other
 function M.define<C is Context>(name: string, run: function(C): (Result), opts?: Options)
   assert(name is string and run is function, "usage: paw.command(name, function, opts)")
   opts = opts or {}
-  sorted = nil
-  registry[name] = {
-    name = name,
-    run = run as function(Context): (Result),
-    desc = opts.desc or "",
-    raw = opts.raw,
-    complete = opts.complete,
-    label = opts.label,
-    range = opts.range,
-    adjust = opts.adjust,
-    ext = opts.ext or M.owner(),
-  }
+  specs:put(
+    name,
+    {
+      name = name,
+      run = run as function(Context): (Result),
+      desc = opts.desc or "",
+      raw = opts.raw,
+      complete = opts.complete,
+      label = opts.label,
+      range = opts.range,
+      adjust = opts.adjust,
+      ext = opts.ext or M.owner(),
+    }
+  )
 end
 
 --- The extension that paw loads now, or whose code registers these commands
@@ -205,42 +219,36 @@ end
 
 --- Make `alias` another name for `target`.
 function M.alias(alias: string, target: string)
-  local spec = assert(registry[target], "no command " .. target)
-  sorted = nil
-  registry[alias] = {
-    name = alias,
-    run = spec.run,
-    desc = spec.desc,
-    raw = spec.raw,
-    complete = spec.complete,
-    label = spec.label,
-    range = spec.range,
-    adjust = spec.adjust,
-    alias_of = target,
-    ext = spec.ext,
-  }
+  local spec = assert(specs:get(target), "no command " .. target)
+  specs:put(
+    alias,
+    {
+      name = alias,
+      run = spec.run,
+      desc = spec.desc,
+      raw = spec.raw,
+      complete = spec.complete,
+      label = spec.label,
+      range = spec.range,
+      adjust = spec.adjust,
+      alias_of = target,
+      ext = spec.ext,
+    }
+  )
 end
 
 --- The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
 function M.get(name: string): Spec
-  return registry[name]
-end
-
---- Put a command back as `spec` (a command that `get` or `list` gave), or
---- remove it with nil. An extension that unloads does this with the
---- commands that it made.
-function M.put(name: string, spec: Spec)
-  sorted = nil
-  registry[name] = spec
+  return specs:get(name)
 end
 
 --- Count a use of a command selected by name (typed, or selected in a
 --- picker). Pickers then show the commands used most first. paw keeps the
 --- count in `paw.state`.
 function M.used(name: string)
-  local spec = registry[name]
+  local spec = specs:get(name)
   name = spec and spec.alias_of or name
-  if not registry[name] then
+  if not specs:get(name) then
     return
   end
   local uses = paw.state.command_uses or {}
@@ -258,7 +266,7 @@ end
 function M.list(): {Spec}
   if not sorted then
     sorted = {}
-    for _, spec in pairs(registry) do
+    for _, spec in pairs(specs:entries()) do
       sorted[#sorted + 1] = spec
     end
     table.sort(sorted, function(a: Spec, b: Spec): boolean return a.name < b.name end)
@@ -275,8 +283,8 @@ end
 --- `.show` command, where it has one.
 function M.main(name: string): Spec
   for _, main in ipairs({".open", ".show"}) do
-    if registry[name .. main] then
-      return registry[name .. main]
+    if specs:get(name .. main) then
+      return specs:get(name .. main)
     end
   end
 end
@@ -314,7 +322,7 @@ end
 
 --- Run a command. `args` is a table of arguments. `ctx` adds fields such as `count`.
 function M.run<C is Context>(name: string, args?: Args, ctx?: C): Result
-  local spec = registry[name]
+  local spec = specs:get(name)
   if not spec and name is string then
     spec = M.main(name)
     if spec then
@@ -415,7 +423,7 @@ function M.parse(line: string): string, Args
   if not name then
     return nil
   end
-  local spec = registry[name]
+  local spec = specs:get(name)
   if spec and spec.raw then
     return name, {rest}
   end
@@ -503,7 +511,7 @@ end
 --- names that its `adjust` lists. A parameter not given is not in the table.
 ---   local p = paw.commands.params(ctx)  -- `:quantize 1/16 strength=50`: { grid = "1/16", strength = 50 }
 function M.params(ctx: Context): {string: Arg}
-  local spec = registry[ctx.name]
+  local spec = specs:get(ctx.name)
   if not spec then
     return {}
   end
@@ -547,7 +555,7 @@ end
 --- command that can be adjusted, as they are now; nil when no command ran
 --- that can be adjusted. `<leader>.` puts it on the command line.
 function M.adjusting(): string
-  local spec = last and registry[last.name]
+  local spec = last and specs:get(last.name)
   if not (last and spec and spec.adjust) then
     return nil
   end
@@ -576,7 +584,7 @@ end
 --- last command that can be adjusted, and their values now. Nil when there
 --- is no such command.
 function M.panel(): contracts.AdjustPanel
-  local spec = last and registry[last.name]
+  local spec = last and specs:get(last.name)
   if not (last and spec and spec.adjust) then
     return nil
   end
@@ -612,7 +620,7 @@ end
 --- and these laid over them, and the undo step is the new result. It
 --- works only on the last change: after `undo`, or another change, it says so.
 function M.adjust(given: Args)
-  local spec = last and registry[last.name]
+  local spec = last and specs:get(last.name)
   local args: Args
   local line: string
   if last and spec and spec.adjust then
@@ -676,7 +684,7 @@ end
 --- command, and the values of one.
 local function complete_adjust(_: string, info: Info): {Candidate}
   local out: {Candidate} = {}
-  local spec = last and registry[last.name]
+  local spec = last and specs:get(last.name)
   if not (last and spec and spec.adjust) then
     return out
   end
@@ -857,7 +865,7 @@ M.completers = {
   end,
   views = function(): {Item}
     local out: {Item} = {}
-    for name, view in pairs(paw.ui.views) do
+    for name, view in pairs(paw.ui.views:entries()) do
       if view.focusable ~= false then
         out[#out + 1] = item(name)
       end
@@ -982,7 +990,7 @@ function M.complete(line: string): {Entry}
     end
     return out
   end
-  local spec = registry[name]
+  local spec = specs:get(name)
   if not spec or not spec.complete then
     return out
   end

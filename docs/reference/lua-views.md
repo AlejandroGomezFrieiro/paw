@@ -173,7 +173,7 @@ The widget roles are in this table.
 - `style` is how the terminal draws the role, `tone` is a color of the palette of the graphical window, by name, and `label` is the name of the role for a screen reader.
 - The action of a hit region can be `keys` to type or `cmd` to run, in place of a gesture, and `hint` is what the status line shows for the region.
 - A gesture that returns false gives the event to `on_mouse`.
-- `paw.ui.roles` lists the roles with their props, and the mixer (`runtime/lua/paw/views/mixer.lua`) is made of roles.
+- `paw.ui.roles` is the registry of the roles (`paw.ui.roles:get("fader")` gives one with its props), and the mixer (`runtime/lua/paw/views/mixer.lua`) is made of roles.
 - `view.live_roles` names the bound roles that change while the song plays, e.g., `{ "meter", "peak" }` in the mixer. If those are the only parts that change, and the graphical window paints them all, the window gets only the live values and no new scenes. The piano roll names `{ "playhead" }`, and the terminal also draws only these roles again while the song plays, not the whole view.
 - A view with `still = true` shows nothing that changes while the song plays, e.g., the command line. A view with `live_part = true` is drawn again whole, as one part, e.g., the status line. A view with none of `live_roles`, `still` and `live_part` makes the terminal draw the whole screen for each frame while the song plays.
 - The terminal draws a bound role again only when its value changes, so a playhead keeps its cells while the song is stopped. A role can also give `stamp(buf, props)`, a text of what its cells show for these props, and then the terminal draws it again only when the text changes. The meter of the arrange view uses it, because a falling level changes a cell only now and then. A `live_part` view can give `live_stamp(self, width)` in the same way, and the status line gives it from its components.
@@ -461,7 +461,7 @@ A layer draws with `paint(p)`, one time for both frontends.
 - The row of tools of the roll takes switches.
 
 ```lua
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 roll.layer("lint", 30,
   function(p)                           -- p.roll, p.plane, p.x(beat), p.row(pitch) (nil off the screen), p.data, p.hue
     local row = p.row(60)
@@ -505,8 +505,8 @@ The articulations extension uses all four.
 
 | Function | Draws on |
 | --- | --- |
-| `paw.ui.views.pianoroll.layer(name, order, paint)` | the piano roll, in order. Below 20 is under the notes of the clip. `paint(p)` gets the cells of the roll and the ruler, the clip, `p.x(beat)` and `p.row(pitch)` |
-| `paw.ui.views.arrange.layers[name] = function(view, layer)` | the timeline and its ruler |
+| `paw.ui.views:get("pianoroll").layer(name, order, paint)` | the piano roll, in order. Below 20 is under the notes of the clip. `paint(p)` gets the cells of the roll and the ruler, the clip, `p.x(beat)` and `p.row(pitch)` |
+| `paw.ui.views:get("arrange").layers[name] = function(view, layer)` | the timeline and its ruler |
 | `paw.ui.layer(view, part, name, order, paint)` | a part of a view, where the view calls `paw.ui.paint(view, part, ctx)`: the `header` and `clip` of the arrange view, the `strip` and `strip_foot` of the mixer, the `device` and `param` of the device panel |
 
 `paw.ui.locator(view, { at, position, place, go })` tells how a view

@@ -7,7 +7,7 @@
 local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
-local panel = paw.ui.views.devices
+local panel = paw.ui.views:get("devices")
 
 local W, H, CELL = 140, 44, { w = 8, h = 16 }
 local ROLES = { "label", "button", "switch", "knob", "fader", "meter", "peak", "chip", "param", "power", "band" }

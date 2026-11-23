@@ -54,7 +54,7 @@ test("the frontend is told colours, chains, both meter sides and when notes chan
   eq(flat[3], 60, "start, length, pitch")
   -- The piano roll as a window is sent it: notes in the track's colour,
   -- with how hard each is played.
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   local notes = T.roll_notes()
   eq(notes[1].props.color, state.tracks[1].color, "the notes in the track's colour")
   eq(notes[2].props.velocity, 80, "and how hard each note is played")
@@ -95,7 +95,7 @@ test("the pointer selects, moves, copies, resizes and makes clips", function()
 
   act.open_clip(clip.id)
   eq(
-    paw.ui.visible("pianoroll") and paw.ui.views.pianoroll:clip().id,
+    paw.ui.visible("pianoroll") and paw.ui.views:get("pianoroll"):clip().id,
     clip.id,
     "a double click on a clip opens its notes"
   )
@@ -346,7 +346,7 @@ test("a view paints in pixels for a graphical frontend, and gets the pointer", f
 
   paw.canvas.pointer("scope", { kind = "down", x = 12, y = 34, button = "left" })
   eq(seen[1], "down 12,34", "the view is handed the pointer")
-  paw.ui.views.scope.paint = function() error("broken") end
+  paw.ui.views:get("scope").paint = function() error("broken") end
   eq(
     paw.canvas.paint("scope", 100, 100).ops[2][4]:find("broken", 1, true) ~= nil,
     true,
@@ -530,7 +530,7 @@ test("notes are drawn, chosen with clicks and a box, and moved and stretched tog
     end
     return table.concat(out, " ")
   end
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
 
   -- A drawn note is the one chosen note.
   local at = act.add_note(id, 62, 3.1, 0.6)
@@ -808,7 +808,7 @@ test("either edge of chosen clips is trimmed, hiding notes, and Alt slips what p
   )
   act.trim_clips(c["1.2"], "start", 9, false, false)
   eq(place(c["1.2"]), "5+1", "never shorter than a grid step")
-  paw.ui.views.pianoroll:edit(paw.clip(clip.id))
+  paw.ui.views:get("pianoroll"):edit(paw.clip(clip.id))
   local shown = T.roll_notes()
   eq(
     #shown .. " " .. shown[1].hit.place .. " " .. shown[1].props.label,
@@ -1038,7 +1038,7 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
     end
     return table.concat(out, " ")
   end
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
 
   -- Alt and a drag: every note crossed goes, even between two points far apart.
   api.undo_checkpoint()
@@ -1073,11 +1073,11 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   eq(clip:notes()[at].length, 1, "a click gives the roll's note length")
   at = act.add_note(id, 51, 6, 0.5)
   eq(clip:notes()[at].length, 0.5, "a drawn note is as long as it was drawn")
-  eq(paw.ui.views.pianoroll:step_length(), 0.5, "and its length becomes the note length")
+  eq(paw.ui.views:get("pianoroll"):step_length(), 0.5, "and its length becomes the note length")
   at = act.add_note(id, 52, 6, 0)
   eq(clip:notes()[at].length, 0.5, "which the next click gives")
   act.set_note_length(0)
-  eq(paw.ui.views.pianoroll:step_length(), paw.opt.note_grid, "0 means one grid step")
+  eq(paw.ui.views:get("pianoroll"):step_length(), paw.opt.note_grid, "0 means one grid step")
 
   -- Snap off: everything lands where the pointer let go.
   paw.opt.note_snap = false
@@ -1120,7 +1120,7 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   act.quantize_notes(q.id)
   eq(starts(), "0+0.5 1.5+0.5 3.5+0.5", "with none chosen all are, and none leaves the clip")
   paw.opt.note_grid = 0.25
-  paw.ui.views.pianoroll:edit(q)
+  paw.ui.views:get("pianoroll"):edit(q)
   paw.commands.exec("notes.quantize 50")
   eq(starts(), "0+0.5 1.5+0.5 3.5+0.5", "the command does the same, at a strength")
 
@@ -1137,7 +1137,7 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   act.set_note_length(0)
 
   -- A click on the roll's ruler moves the playhead within the clip.
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   act.roll_seek(id, 2)
   eq(api.transport_get().position, 6, "the playhead goes to that beat of the clip")
 end)

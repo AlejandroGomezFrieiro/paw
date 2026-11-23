@@ -26,6 +26,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type registry = require("paw.registry")
 local options = require("paw.options")
 local events = require("paw.events")
 local commands = require("paw.commands")
@@ -66,7 +67,7 @@ end
 
 local record Ui
   focused: string
-  views: {string: View}
+  views: registry.Registry<View>
   input: function(opts: InputOptions, on_submit: function(text: string))
 end
 
@@ -691,8 +692,8 @@ events.on(
   end
 )
 
-if paw.ui.views.arrange then
-  paw.ui.views.arrange.insert_hints = true
+if paw.ui.views:get("arrange") then
+  paw.ui.views:get("arrange").insert_hints = true
 end
 
 -- The built-in keys ---------------------------------------------------------------

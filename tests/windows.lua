@@ -89,7 +89,7 @@ end)
 test(":vs roll puts the piano roll beside the arrange view, both drawn and both usable", function()
   start()
   local t, clip = riff()
-  paw.ui.views.pianoroll.clip_id = clip.id
+  paw.ui.views:get("pianoroll").clip_id = clip.id
   sized(function() keys(":vs roll<CR>") end)
   eq(paw.ui.focused, "pianoroll", "the new window has the keyboard")
   local r = rects()
@@ -101,7 +101,7 @@ test(":vs roll puts the piano roll beside the arrange view, both drawn and both 
   eq(text:find("Keys", 1, true) ~= nil, true, "the arrange view draws its track")
   eq(text:find("riff", 1, true) ~= nil, true, "the roll draws its clip")
   eq(text:find("traceback", 1, true), nil, "neither failed")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local pitch = roll.pitch
   keys("k")
   eq(roll.pitch, pitch + 1, "keys in the roll move its cursor")
@@ -123,14 +123,14 @@ end)
 test("Enter on a clip opens the piano roll below the arrange view, as before", function()
   start()
   local _, clip = riff()
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   local r = rects()
   eq(r.pianoroll.y > r.arrange.y and r.pianoroll.x == r.arrange.x, true, "below")
   eq(paw.ui.focused, "pianoroll", "with the keyboard")
   keys("<C-w>c")
   eq(windows(), "arrange", "Ctrl-w c closes it")
   eq(paw.ui.focused, "arrange", "and the keyboard goes back")
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   eq(windows(), "arrange pianoroll", "it comes back where it was")
   reset()
 end)
@@ -141,7 +141,7 @@ test(
     start()
     riff()
     -- A view of one state, as an extension may make.
-    if not paw.ui.views.single then
+    if not paw.ui.views:get("single") then
       paw.ui.view("single", { render = function(_, buf) buf:text(0, 0, "single") end })
     end
     sized(function()
@@ -413,8 +413,8 @@ test("a buffer type of its own has a buffer for each target and any number of wi
   keys("<F9>")
   eq(L.current().state.key, "<F9>", "keys with no mapping go to the type, with the window")
   reset()
-  paw.ui.views.probe = nil
-  L.types.probe = nil
+  paw.ui.views:remove("probe")
+  L.types:remove("probe")
   for id, buf in pairs(L.buffers) do
     if buf.type == "probe" then L.buffers[id] = nil end
   end
@@ -423,7 +423,7 @@ end)
 test("time bound windows scroll and zoom together, led by the one with the keyboard", function()
   start()
   local _, clip = riff(8)
-  local roll, arrange = paw.ui.views.pianoroll, paw.ui.views.arrange
+  local roll, arrange = paw.ui.views:get("pianoroll"), paw.ui.views:get("arrange")
   roll.clip_id = clip.id
   local zoom, note_zoom = paw.opt.zoom, paw.opt.note_zoom
   sized(function() keys(":vs roll<CR>") end)
@@ -542,9 +542,9 @@ test("every view still opens: by its keys, and in a window of its own", function
   reset()
   -- An extension's painted views are views too.
   paw.cmd("ext.load", { "undotree" })
-  paw.ui.views.pianoroll.clip_id = clip.id
+  paw.ui.views:get("pianoroll").clip_id = clip.id
   local failed = {}
-  for name, view in pairs(paw.ui.views) do
+  for name, view in pairs(paw.ui.views:entries()) do
     if view.focusable ~= false and not view.buftype then
       sized(function()
         keys(":vnew<CR>")

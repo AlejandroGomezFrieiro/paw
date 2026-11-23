@@ -200,19 +200,6 @@ local function split(key) return key:match("^(%S+) (.*)$") end
 -- after it loads them, before an extension loads.
 M.registries = {
   {
-    kind = "commands",
-    title = "commands",
-    snapshot = function()
-      local out = {}
-      for _, spec in ipairs(paw.commands.list()) do
-        out[spec.name] = spec
-      end
-      return out
-    end,
-    put = function(key, value) paw.commands.put(key, value) end,
-    label = function(key) return ":" .. key end,
-  },
-  {
     kind = "keys",
     title = "keys",
     snapshot = function()
@@ -239,22 +226,6 @@ M.registries = {
       groups[scope][keys] = value
     end,
   },
-  {
-    kind = "views",
-    title = "views",
-    snapshot = function()
-      local out = {}
-      -- A buffer type's view is the buffer type's, listed as that.
-      for name, view in pairs(paw.ui.views) do
-        if not view.buftype then out[name] = view end
-      end
-      return out
-    end,
-    put = function(key, value)
-      paw.ui.views[key] = value
-      api.ui_redraw()
-    end,
-  },
   -- The line of keys at the bottom that a view of its shows, by view and mode.
   {
     kind = "keybar",
@@ -269,35 +240,6 @@ M.registries = {
       api.ui_redraw()
     end,
   },
-  keyed("buftypes", "buffer types", function() return paw.layout.types end, function(key, value)
-    paw.layout.types[key] = value
-    if value then
-      paw.layout.buftype(key, value)
-    else
-      paw.ui.views[key] = nil
-    end
-  end),
-  keyed("textbuf_kinds", "text buffer kinds", function() return paw.textbuf and paw.textbuf.kinds end),
-  keyed("track_kinds", "kinds of track", function() return paw.track_kinds.kinds end, function(key, value)
-    if value then
-      paw.track_kinds.define(key, value)
-    else
-      paw.track_kinds.remove(key)
-    end
-  end),
-  keyed("clip_kinds", "kinds of clip", function() return paw.clip_kinds.kinds end, function(key, value)
-    if value then
-      paw.clip_kinds.define(key, value)
-    else
-      paw.clip_kinds.remove(key)
-    end
-  end),
-  keyed("roles", "roles", function() return paw.roles and paw.roles.registry end, function(key, value)
-    paw.roles.registry[key] = value
-    -- Frontends that paint roles learn the set changed.
-    paw.roles.version = paw.roles.version + 1
-    api.ui_redraw()
-  end),
   {
     kind = "query_fields",
     title = "query fields",

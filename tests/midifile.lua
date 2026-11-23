@@ -274,7 +274,7 @@ test("a format 1 file opens with a track each, named, and the arrange view and p
   )
   paw.cursor.set_track(paw.tracks()[1])
   paw.cursor.beat = 0
-  paw.ui.views.pianoroll:edit(bass)
+  paw.ui.views:get("pianoroll"):edit(bass)
   paw.ui.focus("pianoroll")
   local roll = screen()
   eq(roll:find("E2", 1, true) ~= nil, true, "the piano roll shows the bass notes' key:\n" .. roll)

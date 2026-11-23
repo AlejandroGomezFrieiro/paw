@@ -1088,7 +1088,7 @@ paw.trackcolumn.sign(
   }
 )
 -- Stretches of time on the arrange view's ruler (one of its layers).
-local arrange = paw.ui.views.arrange as contracts.ArrangeView
+local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
 arrange.layers.diagnostics = function(_: contracts.ArrangeView, c: contracts.ArrangeLayer)
   if not next(store) then
     return
@@ -1172,7 +1172,7 @@ function M.status(): {contracts.Piece}
   if not next(store) then
     return nil
   end
-  local view = paw.ui.views.pianoroll as PianoRoll
+  local view = paw.ui.views:get("pianoroll") as PianoRoll
   local n = M.count(paw.ui.visible("pianoroll") and view.clip_id or nil)
   if n.total == 0 then
     return nil
@@ -1257,7 +1257,7 @@ function M.marks(): Marks
   return {tracks = list, times = times}
 end
 
-local roll = paw.ui.views.pianoroll as PianoRoll
+local roll = paw.ui.views:get("pianoroll") as PianoRoll
 roll.layer("diagnostics", 30, function(p: RollLayer) M.paint_roll(p) end)
 
 -- The window's menu on a note: the `n`th of its fixes, as `actions` lists them.

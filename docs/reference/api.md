@@ -438,7 +438,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   Quotes keep spaces together: `track.add "Lead Guitar"`, `name="Lead Guitar"`.
-- `paw.commands.put(name, spec)`: Put a command back as `spec` (a command that `get` or `list` gave), or remove it with nil. An extension that unloads does this with the commands that it made.
 - `paw.commands.range(line)`: Split a range from the start of a command line. Returns the range and the rest. The range is nil when there is no range. When the range names nothing, an error message replaces the rest.
 - `paw.commands.run`: the same as `paw.cmd`.
 - `paw.commands.unknown(name)`: What to say about a name that is no command: the commands that start with it, if there are any.

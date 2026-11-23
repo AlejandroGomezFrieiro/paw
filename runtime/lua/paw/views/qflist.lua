@@ -131,7 +131,7 @@ layout.buftype("qflist", {
     return loose
   end,
 })
-local view = paw.ui.views.qflist
+local view = paw.ui.views:get("qflist")
 view.title = "Quickfix list"
 -- The graphical frontend lists it among the views it can open (More).
 view.window = nil

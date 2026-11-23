@@ -14,7 +14,7 @@ local function test(name, fn)
     while paw.ui.float do
       paw.ui.close()
     end
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
     if not result[1] then error(result[2], 0) end
@@ -148,8 +148,8 @@ test("diagnostic: the piano roll marks them, the status line counts them, the ar
     "the message after it\n" .. text
   )
 
-  paw.ui.views.pianoroll:edit(clip)
-  paw.ui.views.pianoroll:set(100, 0)
+  paw.ui.views:get("pianoroll"):edit(clip)
+  paw.ui.views:get("pianoroll"):set(100, 0)
   local screen = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(screen:find("E7 is out of range", 1, true) ~= nil, true, "the terminal's piano roll shows the message")
   eq(screen:find("E1", 1, true) ~= nil, true, "the status line counts it")
@@ -187,7 +187,7 @@ test("diagnostic: ]d and [d go from one to the next, in the piano roll and betwe
   local b = t2:add_clip({ start = 8, length = 4, notes = { { pitch = 110, start = 0, length = 1 } } })
   lint(a, 48, 84)
   lint(b, 48, 84)
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(a)
   paw.keymap.feed("]d")
   eq(roll.beat .. " " .. roll.pitch, "3 20", "the next diagnostic's note")

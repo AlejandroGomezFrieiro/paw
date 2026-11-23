@@ -1776,13 +1776,6 @@ function paw.commands.params(ctx) end
 ---@param line any
 function paw.commands.parse(line) end
 
---- Put a command back as `spec` (a command that `get` or `list` gave), or
---- remove it with nil. An extension that unloads does this with the
---- commands that it made.
----@param name any
----@param spec any
-function paw.commands.put(name, spec) end
-
 --- Split a range from the start of a command line. Returns the range and
 --- the rest. The range is nil when there is no range. When the range names
 --- nothing, an error message replaces the rest.

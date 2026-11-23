@@ -147,8 +147,8 @@ local function tidy_screen()
   end
   -- The note length chosen in insert mode lasts the session, and the device
   -- panel keeps its row from track to track: lessons start from the top.
-  paw.ui.views.pianoroll:set_step(nil)
-  paw.ui.views.devices.row = 1
+  paw.ui.views:get("pianoroll"):set_step(nil)
+  paw.ui.views:get("devices").row = 1
   paw.ui.focus("arrange")
   if paw.keymap.mode ~= "n" then paw.keymap.set_mode("n") end
 end

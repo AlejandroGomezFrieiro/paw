@@ -25,6 +25,7 @@ local api = require("paw.api")
 local util = require("paw.util")
 local events = require("paw.events")
 local commands = require("paw.commands")
+local registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -256,8 +257,9 @@ local record M
   type State = State
   type Register = Register
   type OpenOptions = OpenOptions
-  --- The kinds, by name (`paw.textbuf.kind`).
-  kinds: {string: contracts.TextKind<contracts.TextItem, Fields>}
+  --- The kinds by name, with the extension that made each one.
+  --- `paw.textbuf.kind` puts one.
+  kinds: registry.Registry<contracts.TextKind<contracts.TextItem, Fields>>
   --- The columns of a row in a column of the grid (`row * BIG + column`).
   BIG: integer
   --- The operators of the text (`d`, `y`, `c`, `gu`, `gU`, `g~`, and
@@ -274,7 +276,7 @@ local record M
   write: function(buf: TextBuffer, force: boolean)
   buf: function(): TextBuffer
 end
-M.kinds = {}
+M.kinds = registry.new("textbuf_kinds", "text buffer kinds")
 local BIG = 1000000
 M.BIG = BIG
 
@@ -595,7 +597,7 @@ end
 function M.kind<I is contracts.TextItem, F>(name: string, spec: contracts.TextKind<I, F>): contracts.TextKind<I, F>
   spec.name = name
   spec.pattern = spec.pattern or ("^paw://" .. name:gsub("%p", "%%%0") .. "$")
-  M.kinds[name] = spec as contracts.TextKind<contracts.TextItem, Fields>
+  M.kinds:put(name, spec as contracts.TextKind<contracts.TextItem, Fields>)
   layout.powers(
     "textbuf." .. name,
     spec,
@@ -618,7 +620,7 @@ local function kind_of(target: string): contracts.TextKind<contracts.TextItem, F
   if not (target is string) then
     return nil
   end
-  for _, spec in pairs(M.kinds) do
+  for _, spec in pairs(M.kinds:entries()) do
     local found = {target:match(spec.pattern)}
     if found[1] ~= nil then
       if found[1] == target and not spec.pattern:find("%(") then
@@ -2796,7 +2798,7 @@ local def: Def = layout.buftype(
     window = function(): Window return loose end,
   } as Def
 )
-local view = ui().views.textbuf
+local view = ui().views:get("textbuf")
 view.title = "Text"
 
 -- What a kind adds: its keys first, then `K` and its part of the status line.
@@ -3301,7 +3303,7 @@ commands.define(
         return {"vertical", "here", "window"}
       end
       local out: {string} = {}
-      for name in pairs(M.kinds) do
+      for name in pairs(M.kinds:entries()) do
         out[#out + 1] = "paw://" .. name
       end
       out[#out + 1] = "paw://track/1/devices"

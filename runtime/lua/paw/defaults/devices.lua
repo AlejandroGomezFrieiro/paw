@@ -68,13 +68,13 @@ command("devices", function()
   paw.ui.page("Devices", lines)
 end, { desc = "List every device that can be added" })
 command("device.remove", function()
-  local device = paw.ui.views.devices:selected()
+  local device = paw.ui.views:get("devices"):selected()
   if device then device:remove() end
 end, { desc = "Remove the device selected in the device panel" })
 command("device.restart", function()
   -- The device selected in the panel if it has stopped, else every device
   -- of the track that has.
-  local chosen = paw.ui.focused == "devices" and paw.ui.views.devices:selected() or nil
+  local chosen = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected() or nil
   local track = need_track()
   local started, failed = 0, nil
   for _, device in ipairs(chosen and { chosen } or track and track:devices() or {}) do
@@ -96,12 +96,12 @@ command("device.restart", function()
   )
 end, { desc = "Start a plugin again that stopped working, with the state the project last had of it" })
 command("device.bypass", function()
-  local device = paw.ui.views.devices:selected()
+  local device = paw.ui.views:get("devices"):selected()
   if device then device.bypass = not device.bypass end
 end, { desc = "Bypass the device selected in the device panel" })
 command("device.editor", function()
   -- The device selected in the panel, else the track's first one with a window.
-  local device = paw.ui.focused == "devices" and paw.ui.views.devices:selected()
+  local device = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected()
     or paw.ui.focused == "mixer" and paw.mixer_rows.device()
     or nil
   if not (device and device.editor) then

@@ -111,7 +111,7 @@ command("slot.delete", function()
 end, { desc = "Empty the slot under the cursor" })
 command("slot.edit", function()
   local clip = slot_clip()
-  if clip and clip.kind == "midi" then paw.ui.views.pianoroll:edit(paw.clip(clip.id)) end
+  if clip and clip.kind == "midi" then paw.ui.views:get("pianoroll"):edit(paw.clip(clip.id)) end
 end, { desc = "Open the notes of the clip in the slot under the cursor" })
 command("slot.mode", function(ctx)
   local clip = slot_clip()

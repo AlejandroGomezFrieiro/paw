@@ -148,11 +148,6 @@ local record PartLayer
   clip: types.Clip
 end
 
-local record Views
-  pianoroll: PianoRoll
-  arrange: Arrange
-end
-
 --- paw/scope.tl, the part of it that this module reads.
 local record ScopeLevel
   id: integer
@@ -195,9 +190,6 @@ local function keymap(): KeymapModule
 end
 local function ui(): UiModule
   return paw.ui
-end
-local function views(): Views
-  return paw.ui.views as Views
 end
 local function cmdline(): Cmdline
   return (require as function(string): Cmdline)("paw.views.cmdline")
@@ -251,7 +243,7 @@ function M.view(name: string, spec: ExView)
 end
 
 local function roll(): PianoRoll
-  return views().pianoroll
+  return paw.ui.views:get("pianoroll") as PianoRoll
 end
 local function roll_start(): number
   local clip = roll():clip()
@@ -287,7 +279,7 @@ end
 
 --- The beat of the song the focused view's cursor is on.
 local function cursor_beat(): number
-  local view = ui().views[ui().focused]
+  local view = ui().views:get(ui().focused)
   local g = view and view.grid
   if not g then
     return paw.cursor.beat
@@ -2902,11 +2894,11 @@ local function paint_roll(p: RollLayer)
   end
 end
 
-views().pianoroll.layer("ex", 45, paint_roll)
+roll().layer("ex", 45, paint_roll)
 
 -- The arrange view: the range on the ruler, its tracks marked in the
 -- headers, clips that match (or hold notes that do) lit with how many.
-views().arrange.layers.ex = function(_: Arrange, layer: ArrangeLayer)
+(paw.ui.views:get("arrange") as Arrange).layers.ex = function(_: Arrange, layer: ArrangeLayer)
   local s = view_state
   if not (s and s.from) then
     return

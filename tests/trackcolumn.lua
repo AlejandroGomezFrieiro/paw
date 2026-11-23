@@ -127,7 +127,7 @@ test("relative bars: 4W lands on the bar marked 4, 4B on the one behind marked 4
     for ch in lines()[1]:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
       cells[#cells + 1] = ch
     end
-    local view = paw.ui.views.arrange
+    local view = paw.ui.views:get("arrange")
     local x = view.geometry.hw + math.floor((paw.time.bar_start(bar) - view.scroll) * view.geometry.zoom + 0.5)
     local digits = ""
     while cells[x + 1] and cells[x + 1]:match("^%d$") do

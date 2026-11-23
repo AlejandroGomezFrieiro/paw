@@ -152,6 +152,10 @@ function M.references(text)
     for start, name, stop in row:gmatch("()(paw%.[%a_][%w_%.]*)()") do
       if start == 1 or not row:sub(start - 1, start - 1):match("[%w_%.:]") then
         local field = row:match("^%s+as%s+[^()]-%)%.([%a_][%w_]*)", stop)
+        -- An entry of a registry by a literal key, `paw.ui.views:get("roll")`,
+        -- reads `paw.ui.views.roll`.
+        local key = row:match('^:get%("(%d+)"%)', stop)
+        field = field or (key and strings[tonumber(key)])
         name = name:gsub("%.$", "") .. (field and "." .. field or "")
         refs[#refs + 1] = { name = name, line = line, kind = "paw" }
       end
@@ -297,7 +301,7 @@ end
 ---
 --- `names` holds the distinct names that `from` reads of `to`: the prefix
 --- that names `to` and one more part (`paw.ui.notify`,
---- `paw.ui.views.pianoroll.state`). A `require` gives the name of the module.
+--- `paw.ui.views:get("pianoroll").state`). A `require` gives the name of the module.
 --- The name of the module stays only when it is the only one: a `local type
 --- X = require("paw.x")` next to reads of `paw.x.y` adds no name, so a type
 --- that replaces a stand-in record costs nothing. `count` is the number of

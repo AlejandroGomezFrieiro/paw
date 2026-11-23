@@ -650,7 +650,7 @@ test("guide: change the velocity, length and pitch of notes, and quantize them",
   eq(notes(c), "64@1+1 v100 67@2+1 v100 72@0+1 v100", "12+ an octave")
   keys("u")
   keys("w")
-  eq(paw.ui.views.pianoroll.beat, 1, "w goes to the next note")
+  eq(paw.ui.views:get("pianoroll").beat, 1, "w goes to the next note")
   keys("K")
   keys("<Esc>")
   paw.ui.close()
@@ -1093,7 +1093,7 @@ test("guide: use articulations with a plugin instrument", function()
   eq(paw.ui.messages[#paw.ui.messages].text:find("bound", 1, true) ~= nil, true, "a message tells so")
 
   -- Give notes an articulation.
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(40, 0)
   paw.ui.focus("pianoroll")
@@ -1491,7 +1491,7 @@ test("guide: select a chord, a phrase, a voice or a pitch in the piano roll", fu
   api.undo_checkpoint()
   keys("<CR>")
   eq(paw.ui.focused, "pianoroll", "Enter opens the piano roll")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local function yanked() return #paw.keymap.getreg().notes end
   roll:set(52, 0)
   keys("yic")
@@ -1592,7 +1592,7 @@ test("guide: enter notes from a MIDI keyboard", function()
   keys(":track.midi Keystation<CR>")
   keys("<CR>")
   eq(paw.ui.focused, "pianoroll", "Enter opens the clip in the piano roll")
-  paw.ui.views.pianoroll:set(60, 0)
+  paw.ui.views:get("pianoroll"):set(60, 0)
   keys("I")
   eq(paw.roll_draw.stepping(), true, "I starts step input")
   eq(paw.roll_draw.label():match("^STEP"), "STEP", "the title says STEP")

@@ -227,7 +227,7 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
       keymap.push_jump()
       paw.ui.focus("arrange")
       paw.cursor.set_beat(m.beat)
-      local arrange = paw.ui.views.arrange as contracts.ArrangeView
+      local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
       if arrange.center then
         arrange:center()
       end

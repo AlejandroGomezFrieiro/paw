@@ -272,7 +272,7 @@ test("derived: K on a note names its chord, and says the chord is being read aft
   local clip = paw.add_track({ name = "Piano" }):add_clip({ start = 0, length = 8, notes = notes })
   paw.flush()
   paw.harmony.chords()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   paw.ui.focus("pianoroll")
   local function said()

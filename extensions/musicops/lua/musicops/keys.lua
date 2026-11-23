@@ -22,7 +22,7 @@ local POLY = { "pianoroll", "arrange" } -- not the vocal editor: one voice, and 
 
 --- The clip open in a note view, as a handle, and the view.
 function M.view_clip(name)
-  local v = paw.ui.views[name]
+  local v = paw.ui.views:get(name)
   if not (v and v.clip_id) then return end
   local ok, c = pcall(api.clip_get, v.clip_id)
   if ok and c.kind == "midi" then return paw.clip(v.clip_id), v end
@@ -582,7 +582,7 @@ function M.install_locks()
     local orig = original("n", "pianoroll", lhs)
     keymap.set(lhs, function(ctx)
       if not locked() then return call(orig, ctx) end
-      local roll = paw.ui.views.pianoroll
+      local roll = paw.ui.views:get("pianoroll")
       local key, to = scale.current(), nil
       if
         roll:change(function(n)

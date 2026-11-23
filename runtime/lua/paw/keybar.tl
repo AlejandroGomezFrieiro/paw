@@ -10,6 +10,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -30,7 +31,7 @@ local type Shown = DrawModule.KeyHint
 -- the parts of them that it reads.
 local record Ui
   focused: string
-  views: {string: contracts.View}
+  views: registry.Registry<contracts.View>
 end
 local record InsertKind
   key: string
@@ -108,7 +109,7 @@ function M.entries(): {Shown}
   local lines = M.lines[view]
   -- A part of the view whose keys come first (a suggestion showing) has
   -- its own line, when it sets one.
-  local v = paw.ui.views[view]
+  local v = paw.ui.views:get(view)
   if v and v.subscope then
     local ok, sub = pcall(v.subscope, v) as (boolean, string | {string})
     local first: string

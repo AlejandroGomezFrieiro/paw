@@ -78,7 +78,7 @@ paw.ui.layer("devices", "device", "annotations", 40, function(c)
     c.buf:text(c.x + c.width - api.str_width(list[1].label), c.y, list[1].label, "Annotation")
   end
 end)
-paw.ui.views.arrange.layers.annotations = function(_, c)
+paw.ui.views:get("arrange").layers.annotations = function(_, c)
   if not next(store) then return end
   for _, a in ipairs(M.get()) do
     local t = a.location.selector and a.location.selector.time

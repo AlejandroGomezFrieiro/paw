@@ -8,7 +8,7 @@ local art = require("articulations")
 local m2 = art.m2
 
 local M = {}
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local function palette() return require("paw.theme").palette end
 

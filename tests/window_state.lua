@@ -69,7 +69,7 @@ end
 local function each(name, fn)
   local out = {}
   for _, win in ipairs(L.windows(paw.ui.layout)) do
-    if win.view == name then out[#out + 1] = L.within(win, fn, paw.ui.views[name]) end
+    if win.view == name then out[#out + 1] = L.within(win, fn, paw.ui.views:get(name)) end
   end
   return out
 end
@@ -87,7 +87,7 @@ test("window state: two piano rolls on two clips, each with its own cursor", fun
   local text = screen()
   eq(text:find("riff", 1, true) ~= nil and text:find("hook", 1, true) ~= nil, true, "each drawn with its clip")
   eq(text:find("traceback", 1, true), nil, "neither failed")
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   eq(roll.clip_id, other.id, "the keys act in the new window")
   local left = each("pianoroll", function(v) return v.pitch end)[1]
   keys("kkk")
@@ -123,7 +123,7 @@ test("window state: each piano roll edits its own set of clips", function()
     keys(":vs roll://riff<CR>")
   end)
   screen()
-  paw.ui.views.pianoroll:set(40, 0)
+  paw.ui.views:get("pianoroll"):set(40, 0)
   keys("gE")
   local counts = each("pianoroll", function() return #paw.roll_clips.ids() end)
   eq(table.concat(counts, " "), "1 2", "gE edits the bass clip too, in this window only")
@@ -143,7 +143,7 @@ test("window state: one score twice, and the notation beside the piano roll of t
     clip.id .. " " .. clip.id,
     "the same clip in both"
   )
-  local before = paw.ui.views.notation.beat
+  local before = paw.ui.views:get("notation").beat
   keys("l")
   local beats = each("notation", function(v) return v.beat end)
   eq(beats[1], before, "the cursor of the first stays")
@@ -192,8 +192,8 @@ test("window state: the mixer twice, each window with its own row and scroll", f
   eq(rows[1], before[1], "the left mixer's row stays")
   eq(rows[2] ~= before[2], true, "the right mixer's row moved")
   local mixers = L.windows(paw.ui.layout)
-  L.within(mixers[1], function() paw.ui.views.mixer.scroll = 0 end)
-  L.within(mixers[2], function() paw.ui.views.mixer.scroll = 3 end)
+  L.within(mixers[1], function() paw.ui.views:get("mixer").scroll = 0 end)
+  L.within(mixers[2], function() paw.ui.views:get("mixer").scroll = 3 end)
   local scrolls = each("mixer", function(v) return v.scroll end)
   eq(scrolls[1] .. " " .. scrolls[2], "0 3", "a scroll for each window")
   keys("<C-w>c")
@@ -249,12 +249,12 @@ test("window state: two device panels on two tracks", function()
   paw.cursor.set_track(a)
   -- \p pins the left panel to the track it shows, and again follows the cursor.
   keys("\\p")
-  eq(paw.ui.views.devices.pin, a.id, "\\p pins the panel to Lead")
+  eq(paw.ui.views:get("devices").pin, a.id, "\\p pins the panel to Lead")
   eq(paw.ui.message ~= nil and tostring(paw.ui.message.text):find("Lead", 1, true) ~= nil, true, "it says what it did")
   paw.cursor.set_track(b)
   eq(each("devices", function(v) return v:track_id() end)[1], a.id, "the pinned panel stays on Lead")
   keys("\\p")
-  eq(paw.ui.views.devices.pin, nil, "\\p again: it follows the cursor")
+  eq(paw.ui.views:get("devices").pin, nil, "\\p again: it follows the cursor")
   -- A saved layout keeps the pinned track.
   local found = false
   local function walk(node)
@@ -288,7 +288,7 @@ test("window state: a piano roll in a window of its own keeps its own clip and c
     keys(":e roll://riff<CR>")
     keys(":vs roll://hook<CR>")
   end)
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   keys(":view.window<CR>")
   local own = paw.canvas.open_views.pianoroll
   eq(own ~= nil and own.win ~= nil, true, "the roll of hook is in a window of its own")
@@ -322,7 +322,7 @@ test("window state: the notation in a window of its own keeps its own clip", fun
     keys(":e notation://riff<CR>")
     keys(":vs notation://hook<CR>")
   end)
-  local score = paw.ui.views.notation
+  local score = paw.ui.views:get("notation")
   keys(":view.window<CR>")
   local own = paw.canvas.open_views.notation
   eq(own ~= nil and own.win ~= nil, true, "the notation of hook is in a window of its own")

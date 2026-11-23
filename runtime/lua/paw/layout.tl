@@ -26,6 +26,7 @@
 -- (paw/ui.tl lays them out), so paw/ui.tl and the modules above it name
 -- them; it declares only the parts of those modules that it calls.
 local api = require("paw.api")
+local registry = require("paw.registry")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
@@ -268,7 +269,7 @@ local type Wrap = function(fn: KeyFn): KeyFn
 -- The parts of paw/ui.tl and of paw/canvas.tl that this module calls:
 -- those modules name this one's records, so this one cannot name theirs.
 local record Ui
-  views: {string: View}
+  views: registry.Registry<View>
   tabs: {Tab}
   tab: integer
   layout: Node
@@ -368,8 +369,9 @@ local record M
   type KeyFn = KeyFn
   type Wrap = Wrap
 
-  --- Buffer types made with `paw.buftype`, by name.
-  types: {string: Buftype}
+  --- Buffer types made with `paw.buftype`, by name, with the extension that
+  --- made each one.
+  types: registry.Registry<Buftype>
   --- Every buffer, by number.
   buffers: {integer: Buffer}
   --- Where a docked view goes when no window has it.
@@ -451,7 +453,7 @@ local record M
   load: function(name: string): boolean, string
 end
 
-M.types = {}
+M.types = registry.new("buftypes", "buffer types")
 M.buffers = {}
 M.homes = {}
 M.names = {pianoroll = "roll"}
@@ -480,7 +482,7 @@ local function ui(): Ui
 end
 
 local function focusable(name: string): boolean
-  local view = ui().views[name]
+  local view = ui().views:get(name)
   return view ~= nil and view.focusable ~= false
 end
 
@@ -844,7 +846,7 @@ end
 --- True if a view is shown in one window at a time: a view without a
 --- state for each window. A buffer type is not.
 function M.one_window(name: string): boolean
-  return not M.types[name] and not M.per_window(name)
+  return not M.types:get(name) and not M.per_window(name)
 end
 
 --- Put the state of `win` in the table of its view, and keep the state of
@@ -1256,9 +1258,9 @@ end
 --- A view's buffer: every view has one.
 local function single(name: string): Buffer
   local buf = by_view[name]
-  if not buf and ui().views[name] and not M.types[name] then
+  if not buf and ui().views:get(name) and not M.types:get(name) then
     next_buf = next_buf + 1
-    local view = ui().views[name]
+    local view = ui().views:get(name)
     buf = {id = next_buf, name = view.bufname or M.names[name] or name, type = name, single = true, listed = true}
     M.buffers[buf.id] = buf
     by_view[name] = buf
@@ -1280,7 +1282,7 @@ end
 --- A buffer of a type for a target, made if there is none. A view's type
 --- has one buffer, whatever the target.
 function M.buf_create(type_name: string, target?: string): Buffer
-  local def = M.types[type_name]
+  local def = M.types:get(type_name)
   if not def then
     return single(type_name)
   end
@@ -1322,36 +1324,36 @@ function M.resolve(name: string | integer): string, Buffer, string
     end
   end
   for view, short in pairs(M.names) do
-    if short == text and ui().views[view] then
+    if short == text and ui().views:get(view) then
       return view, single(view)
     end
   end
   local views = ui().views
-  for view, def in pairs(views) do
+  for view, def in pairs(views:entries()) do
     if def.bufname == text then
       return view, single(view)
     end
   end
-  if M.types[text] then
+  if M.types:get(text) then
     return text, M.buf_create(text)
   end
-  if views[text] and views[text].focusable ~= false then
+  if views:get(text) and views:get(text).focusable ~= false then
     return text, single(text)
   end
   -- A type may take names of its own form as targets (`paw://lane/3`).
-  for type_name, def in pairs(M.types) do
+  for type_name, def in pairs(M.types:entries()) do
     if def.claims and def.claims(text) then
       return type_name, M.buf_create(type_name, text)
     end
   end
   local kind, target = text:match("^([%w_]+)://(.*)$")
-  if kind and M.types[kind] then
+  if kind and M.types:get(kind) then
     return kind, M.buf_create(kind, target ~= "" and target or nil)
   end
   -- A view that opens a thing of its own in its window (`roll://7`, the
   -- piano roll on clip 7): the view, and what to open, for `open_target`.
   local view = kind and target ~= "" and M.view_named(kind)
-  if view and views[view].open_target then
+  if view and views:get(view).open_target then
     return view, single(view), target
   end
 end
@@ -1360,11 +1362,11 @@ end
 function M.view_named(name: string): string
   local views = ui().views
   for view, short in pairs(M.names) do
-    if short == name and views[view] then
+    if short == name and views:get(view) then
       return view
     end
   end
-  if views[name] and views[name].focusable ~= false and not M.types[name] then
+  if views:get(name) and views:get(name).focusable ~= false and not M.types:get(name) then
     return name
   end
 end
@@ -1392,7 +1394,7 @@ local function aim(name: string, target: string): boolean, string
   if target == nil then
     return true
   end
-  local view = ui().views[name]
+  local view = ui().views:get(name)
   if not (view and view.open_target) then
     return false, name .. " opens nothing by name"
   end
@@ -1414,7 +1416,7 @@ function M.buffers_list(): {Buffer}
     end
   end
   for name in pairs(M.homes) do
-    if u.views[name] then
+    if u.views:get(name) then
       single(name)
     end
   end
@@ -1422,7 +1424,7 @@ function M.buffers_list(): {Buffer}
   for _, buf in pairs(M.buffers) do
     -- A buffer of a view or a type that an extension took away when it
     -- unloaded cannot be shown: it is not listed.
-    local showable = buf.single and u.views[buf.type] ~= nil or not buf.single and M.types[buf.type] ~= nil
+    local showable = buf.single and u.views:get(buf.type) ~= nil or not buf.single and M.types:get(buf.type) ~= nil
     if buf.listed and showable then
       out[#out + 1] = buf
     end
@@ -1445,8 +1447,8 @@ function M.buffer_names(): {commands.Item}
   for _, buf in ipairs(M.buffers_list()) do
     add(buf.name, M.title(buf))
   end
-  for name, view in pairs(ui().views) do
-    if view.focusable ~= false and not M.types[name] then
+  for name, view in pairs(ui().views:entries()) do
+    if view.focusable ~= false and not M.types:get(name) then
       add(view.bufname or M.names[name] or name, view.title)
     end
   end
@@ -1456,14 +1458,14 @@ end
 
 --- What a buffer is called on screen.
 function M.title(buf: Buffer): string
-  local def = M.types[buf.type]
+  local def = M.types:get(buf.type)
   if def and def.title then
     local ok, text = pcall(def.title, buf) as (boolean, string)
     if ok and text then
       return tostring(text)
     end
   end
-  local view = ui().views[buf.type]
+  local view = ui().views:get(buf.type)
   -- A view's title may say what it shows now (`view:title_of()`).
   if view and view.title_of then
     local ok, text = pcall(view.title_of, view) as (boolean, string)
@@ -1513,7 +1515,7 @@ function M.buf_delete(buf: Buffer)
   if buf.single then
     buf.listed = false
   else
-    local def = M.types[buf.type]
+    local def = M.types:get(buf.type)
     if def and def.delete then
       def.delete(buf)
     end
@@ -1544,7 +1546,7 @@ end
 function M.drop_dead()
   local dead: {Buffer} = {}
   for _, buf in pairs(M.buffers) do
-    local def = M.types[buf.type]
+    local def = M.types:get(buf.type)
     if def and def.alive and not buf.single and not def.alive(buf) then
       dead[#dead + 1] = buf
     end
@@ -1588,7 +1590,7 @@ end
 --- and `ctx.buf`.
 function M.buftype<B is contracts.Buftype>(name: string, def: B): B
   def.name = name
-  M.types[name] = def
+  M.types:put(name, def)
   local function win_of(ctx?: RenderContext): Node
     if ctx and ctx.win then
       return ctx.win as Node
@@ -1666,7 +1668,7 @@ function M.buftype<B is contracts.Buftype>(name: string, def: B): B
   if def.pointer then
     view.pointer = function(_: View, e: contracts.PointerEvent): boolean return def.pointer(win_of(), e) end
   end
-  ui().views[name] = view
+  ui().views:put(name, view)
   if type(def.grid) == "function" then
     -- The grid of the window with the keys, asked for each time.
     local grid_of = def.grid
@@ -1908,7 +1910,7 @@ function M.reveal(name: string, go?: boolean): Node
   if buf then
     buf.listed = true
   end
-  local view = u.views[name]
+  local view = u.views:get(name)
   if view and view.on_show then
     view:on_show()
   end
@@ -1994,7 +1996,7 @@ function M.close(win?: Node): boolean
     end
   else
     win.hidden = true
-    local view = u.views[win.view]
+    local view = u.views:get(win.view)
     if view and view.on_hide then
       view:on_hide()
     end
@@ -2071,10 +2073,10 @@ function M.split(opts: SplitOptions): Node, string
   local u, t = ui(), tab()
   local cur = opts.win or M.current()
   local name = opts.view or "empty"
-  if not u.views[name] then
+  if not u.views:get(name) then
     return nil, "no buffer `" .. tostring(name) .. "`"
   end
-  local single_view = not M.types[name]
+  local single_view = not M.types:get(name)
   local one = M.one_window(name)
   if one and cur and cur.view == name then
     return nil, name .. " is in this window already"
@@ -2128,7 +2130,7 @@ function M.split(opts: SplitOptions): Node, string
   if single_view then
     take(name)
     single(name).listed = true
-    local view = u.views[name]
+    local view = u.views:get(name)
     if moved then
       paw.notify(called(name) .. " moved to the new window")
     elseif view.on_show then
@@ -2164,7 +2166,7 @@ function M.show_in(win: Node, name: string, buf?: integer, target?: string): Nod
   local before = M.buf_of(win)
   -- What `Ctrl-^` goes back to.
   win.alt = {view = old_view, buf = old_buf}
-  local single_view = not M.types[name]
+  local single_view = not M.types:get(name)
   if M.one_window(name) then
     local moved = remove_view(t.layout, name, win)
     take(name)
@@ -2178,13 +2180,13 @@ function M.show_in(win: Node, name: string, buf?: integer, target?: string): Nod
   win.view, win.buf, win.state, win.kept = name, not single_view and buf or nil, {}, nil
   M.buf_of(win).listed = M.buf_of(win).listed or single_view
   if old_view ~= name and not old_buf and not M.find(t.layout, old_view, true) then
-    local view = u.views[old_view]
+    local view = u.views:get(old_view)
     if view and view.on_hide then
       view:on_hide()
     end
   end
   if single_view and old_view ~= name then
-    local view = u.views[name]
+    local view = u.views:get(name)
     if view.on_show then
       M.within(win, function() view:on_show() end)
     end
@@ -2212,7 +2214,7 @@ end
 function M.alternate(win?: Node): Node
   win = win or M.current()
   local alt = win and win.alt
-  if not alt or not (M.types[alt.view] or ui().views[alt.view]) then
+  if not alt or not (M.types:get(alt.view) or ui().views:get(alt.view)) then
     paw.notify("this window has shown nothing else", "warn")
     return nil
   end
@@ -2548,7 +2550,7 @@ function M.tab_new(name?: string, view?: string, win?: Node, buf?: integer, targ
   local u = ui()
   if not win then
     view = view or "empty"
-    if M.types[view] then
+    if M.types:get(view) then
       buf = buf or M.buf_create(view).id
     end
     win = M.leaf(view, {buf = buf})
@@ -2743,7 +2745,7 @@ local function export(node: Node, scopes?: boolean): SpecNode
       out.target = buf.target
     end
     -- What a view opens in the window (its clip), as `roll://7` names it.
-    local view = not buf and ui().views[node.view]
+    local view = not buf and ui().views:get(node.view)
     if view and view.window_target then
       local ok, target = pcall(M.within, node, function(): string | integer return view:window_target() end)
         as (boolean, string)
@@ -2816,7 +2818,7 @@ local function import(spec: Spec): Node
     win.folds = copy_folds(node_spec.folds as {contracts.Fold})
     win.foldlevel = node_spec.foldlevel
     win.vzoom = copy(node_spec.vzoom) as contracts.VZoom
-    if M.types[name] then
+    if M.types:get(name) then
       win.buf = M.buf_create(name, node_spec.target).id
     else
       -- What the view opens there, once the window is in a tab.
@@ -3023,13 +3025,13 @@ function M.time_lead(): Node, {integer: boolean}
   if not (lead and lead.opts and lead.opts.timebind) then
     return nil
   end
-  local view = u.views[lead.view]
+  local view = u.views:get(lead.view)
   if not (view and view.time_axis) then
     return nil
   end
   local followers: {integer: boolean} = {}
   for _, win in ipairs(M.windows(u.layout)) do
-    local other = u.views[win.view]
+    local other = u.views:get(win.view)
     if win ~= lead and win.opts and win.opts.timebind and other and other.set_time_axis then
       followers[win.id] = true
     end
@@ -3050,7 +3052,7 @@ end
 --- Call it after paw draws the main window. The other windows take its time.
 function M.time_follow(lead: Node, win: Node)
   local u = ui()
-  local lead_view, view = u.views[lead.view], u.views[win.view]
+  local lead_view, view = u.views:get(lead.view), u.views:get(win.view)
   local left, zoom = M.within(lead, function(): number, number, number return lead_view:time_axis({win = lead}) end)
   if left then
     M.within(win, function() view:set_time_axis(left, zoom, {win = win}) end)
@@ -3231,7 +3233,7 @@ function M.setup()
   -- A view's own name goes to it: `:arrange`, `:mixer`, `:roll`.
   for _, view in ipairs({"arrange", "mixer", "pianoroll"}) do
     local word = M.names[view] or view
-    if ui().views[view] and not commands.get(word) then
+    if ui().views:get(view) and not commands.get(word) then
       command(word, function(): Result paw.ui.focus(view) end, {desc = "Show " .. M.titles[view] .. " and go to it"})
     end
   end

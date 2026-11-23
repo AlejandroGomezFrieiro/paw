@@ -18,7 +18,7 @@ local function test(name, fn)
     while paw.ui.float do
       paw.ui.close()
     end
-    paw.ui.views.pianoroll.clip_id = nil
+    paw.ui.views:get("pianoroll").clip_id = nil
     for _, v in ipairs({ "pianoroll", "mixer", "devices" }) do
       paw.ui.hide(v)
     end
@@ -260,7 +260,7 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   -- ]d in the device panel goes to the parameter.
   paw.ui.focus("devices")
   paw.keymap.feed("]d")
-  local row = paw.ui.views.devices:rows()[paw.ui.views.devices.row]
+  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
   eq(row.param and row.param.key, "cutoff", "]d goes to the parameter")
   api.undo_checkpoint()
   paw.keymap.feed("<leader>la")
@@ -292,7 +292,7 @@ test(
       .add_track({ name = "Lower" })
       :add_clip({ start = 4, length = 4, notes = { { pitch = 48, start = 1, length = 1 } } })
     paw.flush()
-    paw.ui.views.pianoroll:edit(a)
+    paw.ui.views:get("pianoroll"):edit(a)
     paw.roll_clips.open({ a.id, b.id }, a.id)
     -- Shown to a server attached to clips: both, by focus.
     local opened = {}
