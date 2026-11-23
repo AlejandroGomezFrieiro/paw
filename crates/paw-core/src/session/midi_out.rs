@@ -48,7 +48,7 @@ impl Session {
                     self.midi.out = Some(out);
                 }
                 Err(err) => {
-                    self.warnings.push(format!("no MIDI output: {err:#}"));
+                    self.doc.warnings.push(format!("no MIDI output: {err:#}"));
                     return;
                 }
             }

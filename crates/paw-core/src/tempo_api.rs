@@ -47,7 +47,7 @@ where
         N::NAME.trim_start_matches("paw.api."),
         lua.create_function(guard::<N, A, R, _>(move |lua, args: A| {
             let session = sh.session.borrow();
-            f(lua, session.project.tempo_map(), args)
+            f(lua, session.doc.project.tempo_map(), args)
         }))?,
     )
 }
@@ -325,7 +325,7 @@ where
     api.set(
         N::NAME.trim_start_matches("paw.api."),
         lua.create_function(guard::<N, (Id, A), MultiValue, _>(move |lua, (clip, args): (Id, A)| {
-            let Some(time) = NestTime::of(&sh.session.borrow().project, clip) else {
+            let Some(time) = NestTime::of(&sh.session.borrow().doc.project, clip) else {
                 return Ok(MultiValue::from_vec(vec![LuaValue::Nil]));
             };
             f(lua, &time, args)?.into_lua_multi(lua)

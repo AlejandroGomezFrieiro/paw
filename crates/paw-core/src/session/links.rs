@@ -14,22 +14,22 @@ impl Session {
     /// copy, named after the clip.
     pub fn clip_link(&mut self, id: Id) -> Result<Id> {
         let (track, _) = self
-            .project
+            .doc.project
             .find_clip(id)
             .with_context(|| format!("no clip {id} on a timeline"))?;
-        let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
+        let clip = self.doc.project.clip(id).with_context(|| format!("no clip {id}"))?;
         if !matches!(clip.content, ClipContent::Midi { .. }) {
             bail!("clip {id} is a clip of the kind `{}`: only MIDI clips can be linked", clip.content.kind());
         }
         let link = match &clip.link {
             Some(link) => link.clone(),
-            None => self.project.new_link_name(&clip.name),
+            None => self.doc.project.new_link_name(&clip.name),
         };
         // The copy shares the clip's notes: the same runs, compiled once.
         let mut copy = (**clip).clone();
         copy.start = clip.start + clip.length;
         copy.link = Some(link.clone());
-        copy.id = self.new_id();
+        copy.id = self.doc.new_id();
         let copy_id = copy.id;
         self.edit_named(|p| {
             let clip = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
@@ -47,7 +47,7 @@ impl Session {
     /// Take the clip `id` out of its link: it keeps its notes, and an edit
     /// of it no longer changes the other clips of the link.
     pub fn clip_unlink(&mut self, id: Id) -> Result<()> {
-        let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
+        let clip = self.doc.project.clip(id).with_context(|| format!("no clip {id}"))?;
         if clip.link.is_none() {
             bail!("clip {id} is not linked");
         }

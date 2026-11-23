@@ -72,7 +72,7 @@ fn target_name(t: &Target) -> String {
 impl Session {
     /// The block `clip` checked for a promote.
     fn promote_block(&self, clip: Id) -> Result<Block> {
-        let p = &self.project;
+        let p = &self.doc.project;
         let (row, _) = p.find_clip(clip).with_context(|| format!("no clip {clip}"))?;
         let c = p.clip(clip).with_context(|| format!("no clip {clip}"))?;
         let ClipContent::Nest { nest, offset, play } = &c.content else {
@@ -114,8 +114,8 @@ impl Session {
             return self.promote_per_track(b, blocks);
         }
         let b = self.promote_block(clip)?;
-        let group_id = self.new_id();
-        let p = &self.project;
+        let group_id = self.doc.new_id();
+        let p = &self.doc.project;
         let nest = p.nest(b.nest).context("no subproject")?.clone();
         let row = p.track(b.row).context("no row")?.clone();
         let master = p.track(nest.master).context("no master")?.clone();
@@ -131,7 +131,7 @@ impl Session {
         } else {
             (row.devices.clone(), row.lanes.clone())
         };
-        let p = &self.project;
+        let p = &self.doc.project;
         group.devices = master.devices.iter().chain(row_devices.iter()).cloned().collect();
         group.volume = master.volume + row.volume;
         group.meta.insert("group_head".into(), json!(true));
@@ -223,7 +223,7 @@ impl Session {
     /// `clip` is one: each row and the track its block plays. None for a
     /// block of the mix or of a stem row.
     fn per_track_blocks(&self, clip: Id) -> Result<Option<(Block, Vec<RowBlock>)>> {
-        let p = &self.project;
+        let p = &self.doc.project;
         let (row, _) = p.find_clip(clip).with_context(|| format!("no clip {clip}"))?;
         let c = p.clip(clip).with_context(|| format!("no clip {clip}"))?;
         let is_stem_row = |row: Id| p.track(row).is_some_and(|t| t.meta.contains_key("nest_stem"));
@@ -277,7 +277,7 @@ impl Session {
     /// tracks go back to the row of the block that plays it, cut at the
     /// block; the blocks, the subproject and its tracks go.
     fn promote_per_track(&mut self, b: Block, blocks: Vec<RowBlock>) -> Result<Promoted> {
-        let mut p = self.project.clone();
+        let mut p = self.doc.project.clone();
         let gone_clips: HashSet<Id> = blocks.iter().map(|x| x.clip).collect();
         let mut rows = Vec::new();
         for RowBlock { row, track, .. } in &blocks {

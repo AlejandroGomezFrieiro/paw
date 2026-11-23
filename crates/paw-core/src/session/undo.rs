@@ -156,31 +156,23 @@ impl Session {
         // Edits made before the move report themselves as edits.
         self.flush();
         self.checkpoint();
-        // Bookkeeping since the step closed (plugin parameters taken over by
-        // their editors, recordings moved beside the project) stays with it.
-        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
-        let from = self.undo.history.current();
-        let id = go(&mut self.undo.history)?;
+        let (from, id) = self.doc.history_move(go)?;
         // A state still in the undo file is read now; one that cannot be
         // read is not gone to.
         if !self.undo_file_states(&[id]) {
-            self.undo.history.goto(from);
+            self.doc.undo.history.goto(from);
             return None;
         }
         if id != from {
-            self.project = self.undo.history.current_snapshot().clone();
-            self.undo.checkpoint = self.project.clone();
-            self.dirty = true;
-            self.undo.restoring = true;
+            self.doc.take_current_state();
             self.files_there.forget();
-            self.undo.edits += 1;
         }
         Some(id)
     }
 
     /// The whole tree, as plain data.
     pub fn undo_tree(&self) -> Value {
-        let h = &self.undo.history;
+        let h = &self.doc.undo.history;
         let states: Vec<Value> = h
             .states()
             .map(|s| {
@@ -194,7 +186,7 @@ impl Session {
             .collect();
         json!({
             "current": h.current(), "root": h.root(), "saved": h.saved(),
-            "limit": h.limit(), "pending": self.undo.touched, "states": states,
+            "limit": h.limit(), "pending": self.doc.undo.touched, "states": states,
             "bytes": h.bytes(), "byte_limit": h.byte_limit(),
         })
     }
@@ -214,14 +206,14 @@ impl Session {
         {
             bail!("the undo history keeps 16 MB to 1 TB, not {bytes} bytes");
         }
-        let h = &mut self.undo.history;
+        let h = &mut self.doc.undo.history;
         h.set_limits(steps.unwrap_or(h.limit()), bytes.unwrap_or(h.byte_limit()));
         Ok(())
     }
 
     /// The current state's id.
     pub fn undo_current(&self) -> StateId {
-        self.undo.history.current()
+        self.doc.undo.history.current()
     }
 
     /// Go to any state in the tree. False when there is no such state.
@@ -246,10 +238,10 @@ impl Session {
             Some(id) => id,
             None => {
                 self.checkpoint();
-                self.undo.history.current()
+                self.doc.undo.history.current()
             }
         };
-        if !self.undo.history.set_name(id, name) {
+        if !self.doc.undo.history.set_name(id, name) {
             bail!("no state {id} in the undo tree");
         }
         Ok(id)
@@ -257,7 +249,7 @@ impl Session {
 
     /// Keep a state from being pruned, or let it be again.
     pub fn undo_keep(&mut self, id: StateId, keep: bool) -> Result<()> {
-        if !self.undo.history.set_keep(id, keep) {
+        if !self.doc.undo.history.set_keep(id, keep) {
             bail!("no state {id} in the undo tree");
         }
         Ok(())
@@ -265,15 +257,15 @@ impl Session {
 
     /// The command making the open step: see [`History::label`].
     pub fn undo_label(&mut self, text: Option<String>) {
-        self.undo.history.label(text);
+        self.doc.undo.history.label(text);
     }
 
     /// Make the edits of the open step part of state `id` instead of a step
     /// of their own, if `id` is still the current state and nothing hangs on
     /// it. Returns whether they will be.
     pub fn undo_join(&mut self, id: StateId) -> bool {
-        let joins = id == self.undo.history.current() && self.undo.history.can_extend();
-        self.undo.join = joins.then_some(id);
+        let joins = id == self.doc.undo.history.current() && self.doc.undo.history.can_extend();
+        self.doc.undo.join = joins.then_some(id);
         joins
     }
 
@@ -281,7 +273,7 @@ impl Session {
     /// close as a step of their own: not during a trial, whose edits are
     /// one step made when it ends.
     pub fn undo_pending(&self) -> bool {
-        self.undo.touched && self.audition.trial.is_none()
+        self.doc.undo.touched && self.audition.trial.is_none()
     }
 
     /// Put back the project as the open step found it, leaving the history
@@ -291,15 +283,15 @@ impl Session {
         if !self.undo_pending() {
             return false;
         }
-        self.project = self.undo.checkpoint.clone();
+        self.doc.project = self.doc.undo.checkpoint.clone();
         self.files_there.forget();
-        self.undo.touched = false;
-        self.dirty = true;
-        self.undo.restoring = true;
-        self.undo.edits += 1;
-        self.undo.sweep = Default::default();
-        self.undo.join = None;
-        self.undo.history.clear_labels();
+        self.doc.undo.touched = false;
+        self.doc.dirty = true;
+        self.doc.undo.restoring = true;
+        self.doc.undo.edits += 1;
+        self.doc.undo.sweep = Default::default();
+        self.doc.undo.join = None;
+        self.doc.undo.history.clear_labels();
         true
     }
 
@@ -312,7 +304,7 @@ impl Session {
     /// fails.
     pub fn undo_adjust(&mut self, before: Option<StateId>, label: Option<String>) -> AdjustStart {
         self.checkpoint();
-        let h = &self.undo.history;
+        let h = &self.doc.undo.history;
         let current = h.current();
         let state = h.get(current).expect("the current state is in the tree");
         let status = if !state.children.is_empty() {
@@ -331,19 +323,19 @@ impl Session {
         } else {
             status
         };
-        let h = &self.undo.history;
+        let h = &self.doc.undo.history;
         if status == AdjustStatus::Ready {
             let parent = parent.expect("a step has a parent");
             let parent = h.get(parent).expect("a parent is in the tree").snapshot.clone();
-            let project = std::mem::replace(&mut self.project, parent.clone());
-            self.undo.adjusting = Some(Adjusting { project, label: old_label.clone() });
-            self.undo.checkpoint = parent;
-            self.undo.history.set_label(current, label);
-            self.undo.touched = true;
-            self.undo.join = Some(current);
-            self.dirty = true;
-            self.undo.restoring = true;
-            self.undo.edits += 1;
+            let project = std::mem::replace(&mut self.doc.project, parent.clone());
+            self.doc.undo.adjusting = Some(Adjusting { project, label: old_label.clone() });
+            self.doc.undo.checkpoint = parent;
+            self.doc.undo.history.set_label(current, label);
+            self.doc.undo.touched = true;
+            self.doc.undo.join = Some(current);
+            self.doc.dirty = true;
+            self.doc.undo.restoring = true;
+            self.doc.undo.edits += 1;
         }
         AdjustStart { status, label: old_label }
     }
@@ -351,41 +343,41 @@ impl Session {
     /// The command that [`Session::undo_adjust`] ran again failed: put the
     /// step back as it was.
     pub fn undo_adjust_cancel(&mut self) {
-        let Some(step) = self.undo.adjusting.take() else { return };
-        self.project = step.project.clone();
-        self.undo.checkpoint = step.project;
-        let current = self.undo.history.current();
-        self.undo.history.set_label(current, step.label);
-        self.undo.touched = false;
-        self.undo.join = None;
-        self.undo.sweep = Default::default();
-        self.undo.history.clear_labels();
-        self.dirty = true;
-        self.undo.restoring = true;
-        self.undo.edits += 1;
+        let Some(step) = self.doc.undo.adjusting.take() else { return };
+        self.doc.project = step.project.clone();
+        self.doc.undo.checkpoint = step.project;
+        let current = self.doc.undo.history.current();
+        self.doc.undo.history.set_label(current, step.label);
+        self.doc.undo.touched = false;
+        self.doc.undo.join = None;
+        self.doc.undo.sweep = Default::default();
+        self.doc.undo.history.clear_labels();
+        self.doc.dirty = true;
+        self.doc.undo.restoring = true;
+        self.doc.undo.edits += 1;
     }
 
     /// The keys typed for the open step.
     pub fn undo_keys(&mut self, text: String) {
-        self.undo.history.keys(text);
+        self.doc.undo.history.keys(text);
     }
 
     /// What differs from state `a` to state `b`. `b` defaults to the current
     /// state and `a` to `b`'s parent, which is what `b`'s step changed.
     pub fn undo_diff(&mut self, a: Option<StateId>, b: Option<StateId>) -> Result<Value> {
-        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
-        let b = b.unwrap_or(self.undo.history.current());
+        self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
+        let b = b.unwrap_or(self.doc.undo.history.current());
         let to = self
-            .undo.history
+            .doc.undo.history
             .get(b)
             .with_context(|| format!("no state {b} in the undo tree"))?;
         let a = a.or(to.parent).unwrap_or(b);
         for id in [a, b] {
             self.undo_file_state(id)?;
         }
-        let to = self.undo.history.get(b).expect("state b was found a moment ago");
+        let to = self.doc.undo.history.get(b).expect("state b was found a moment ago");
         let from = self
-            .undo.history
+            .doc.undo.history
             .get(a)
             .with_context(|| format!("no state {a} in the undo tree"))?;
         let mut value = diff(&from.snapshot, &to.snapshot);
@@ -397,11 +389,11 @@ impl Session {
     /// The project as it was in state `id` (the current one by default), as
     /// a project file holds it, for comparing it with another version.
     pub fn undo_project(&mut self, id: Option<StateId>) -> Result<Project> {
-        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
-        let id = id.unwrap_or(self.undo.history.current());
+        self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
+        let id = id.unwrap_or(self.doc.undo.history.current());
         self.undo_file_state(id)?;
         let state = self
-            .undo.history
+            .doc.undo.history
             .get(id)
             .with_context(|| format!("no state {id} in the undo tree"))?;
         Ok(state.snapshot.clone())
@@ -426,13 +418,13 @@ impl Session {
             "the project has no file yet, so there is nowhere to keep checkpoints: save it first",
         )?;
         let id = self.undo_name(id, Some(name.to_string()))?;
-        let project = if id == self.undo.history.current() {
+        let project = if id == self.doc.undo.history.current() {
             // As saving does: what the plugins hold now goes with it.
             self.capture_states();
-            self.project.clone()
+            self.doc.project.clone()
         } else {
             self.undo_file_state(id)?;
-            self.undo.history.get(id).unwrap().snapshot.clone()
+            self.doc.undo.history.get(id).unwrap().snapshot.clone()
         };
         let time = history::now();
         let file = CheckpointFile {
@@ -511,21 +503,21 @@ impl Session {
             bail!("{} was written by a newer version", path.display());
         }
         let mut project = file.project;
-        share_with(&mut project, &self.project);
+        share_with(&mut project, &self.doc.project);
         self.flush();
         self.checkpoint();
-        self.undo.history.clear_labels();
-        self.undo.history
+        self.doc.undo.history.clear_labels();
+        self.doc.undo.history
             .label(Some(format!("checkpoint.restore {}", file.name)));
-        self.next_id = self.next_id.max(project.max_id() + 1);
+        self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
         self.edit(|p| {
             *p = project;
             Ok(())
         })?;
-        self.undo.restoring = true;
+        self.doc.undo.restoring = true;
         self.checkpoint();
-        let id = self.undo.history.current();
-        self.undo.history.set_name(id, Some(file.name));
+        let id = self.doc.undo.history.current();
+        self.doc.undo.history.set_name(id, Some(file.name));
         Ok(id)
     }
 

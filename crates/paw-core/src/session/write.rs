@@ -66,7 +66,7 @@ impl Session {
     /// How moves on a track are treated right now.
     pub(super) fn auto_mode(&self, track: Id) -> AutoMode {
         let mode = self
-            .project
+            .doc.project
             .track(track)
             .map_or(AutoMode::Read, |t| t.automation);
         // The transport's switch latches every track that does not write
@@ -153,7 +153,7 @@ impl Session {
             ("param", _, _) => anyhow::bail!("a parameter is named by its device and its key"),
             (other, _, _) => anyhow::bail!("`{other}` is not something automation moves"),
         };
-        if self.project.track(track).is_none() {
+        if self.doc.project.track(track).is_none() {
             anyhow::bail!("no track {track}");
         }
         self.automation_hold(track, target, on);
@@ -162,12 +162,12 @@ impl Session {
 
     /// What a fader, pan or parameter is set to in the project.
     fn target_value(&self, track: Id, target: &Target) -> Option<f64> {
-        let t = self.project.track(track)?;
+        let t = self.doc.project.track(track)?;
         match target {
             Target::Volume => Some(t.volume),
             Target::Pan => Some(t.pan),
             Target::Param { device, param } => {
-                self.project.device(*device)?.params.get(param).copied()
+                self.doc.project.device(*device)?.params.get(param).copied()
             }
             Target::State { .. } => None,
         }
@@ -176,7 +176,7 @@ impl Session {
     /// In write mode everything a track's lanes move is held from the start.
     fn hold_written_tracks(&mut self) {
         let mut wanted = Vec::new();
-        for track in self.project.all_tracks() {
+        for track in self.doc.project.all_tracks() {
             if track.automation != AutoMode::Write {
                 continue;
             }
@@ -222,7 +222,7 @@ impl Session {
                 self.write_latch(latch, now)
             };
             if let Err(err) = written {
-                self.warnings
+                self.doc.warnings
                     .push(format!("could not write automation: {err:#}"));
             }
             !let_go
@@ -234,7 +234,7 @@ impl Session {
 
     /// The lane a latch writes into, made if the target has none yet.
     fn latch_lane(&mut self, latch: &Latch) -> Result<Option<Id>> {
-        let Some(track) = self.project.track(latch.track) else {
+        let Some(track) = self.doc.project.track(latch.track) else {
             return Ok(None);
         };
         if let Some(lane) = track.lanes.iter().find(|l| l.target == latch.target) {

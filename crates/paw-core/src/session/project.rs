@@ -5,15 +5,15 @@ use super::*;
 
 impl Session {
     pub fn project_view(&self) -> Value {
-        let p = &self.project;
+        let p = &self.doc.project;
         json!({
             "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
             "tempo_ramp": p.tempo_ramp, "tempo_changes": p.tempo_changes, "sig_changes": p.sig_changes,
             "key": p.key, "path": self.path, "length": p.end(), "meta": p.meta,
-            "modified": self.undo.touched || !self.undo.history.at_saved(),
+            "modified": self.doc.undo.touched || !self.doc.undo.history.at_saved(),
             // Goes up with every change: compare two readings to see whether
             // something in between edited the project.
-            "edits": self.undo.edits,
+            "edits": self.doc.undo.edits,
             // The same tempo and signature points give the same stamp.
             "tempo_stamp": p.tempo_stamp(),
         })
@@ -22,9 +22,9 @@ impl Session {
     /// One entry of [`project_view`](Self::project_view), made alone: its
     /// `length` looks at every clip, and its `meta` can be large.
     pub fn project_field(&self, key: &str) -> Value {
-        let p = &self.project;
+        let p = &self.doc.project;
         match key {
-            "edits" => json!(self.undo.edits),
+            "edits" => json!(self.doc.undo.edits),
             "tempo_stamp" => json!(p.tempo_stamp()),
             "name" => json!(p.name),
             "tempo" => json!(p.tempo),
@@ -32,7 +32,7 @@ impl Session {
             "sig_den" => json!(p.sig_den),
             "key" => json!(p.key),
             "path" => json!(self.path),
-            "modified" => json!(self.undo.touched || !self.undo.history.at_saved()),
+            "modified" => json!(self.doc.undo.touched || !self.doc.undo.history.at_saved()),
             _ => self.project_view().get(key).cloned().unwrap_or(Value::Null),
         }
     }
@@ -87,14 +87,14 @@ impl Session {
         }
         self.capture_states();
         self.checkpoint();
-        self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
+        self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
         let fresh = Project::default();
-        let limits = (self.undo.history.limit(), self.undo.history.byte_limit());
-        let history = std::mem::replace(&mut self.undo.history, new_history(fresh.clone(), limits));
+        let limits = (self.doc.undo.history.limit(), self.doc.undo.history.byte_limit());
+        let history = std::mem::replace(&mut self.doc.undo.history, new_history(fresh.clone(), limits));
         self.shelf = Some(Shelf {
-            project: self.project.clone(),
+            project: self.doc.project.clone(),
             history,
-            touched: self.undo.touched,
+            touched: self.doc.undo.touched,
             transport: self.transport.clone(),
             position: self.position(),
             path: self.path.clone(),
@@ -114,10 +114,10 @@ impl Session {
         let Some(shelf) = self.shelf.take() else {
             bail!("no project is put aside");
         };
-        let limits = (self.undo.history.limit(), self.undo.history.byte_limit());
-        self.undo.history = shelf.history;
+        let limits = (self.doc.undo.history.limit(), self.doc.undo.history.byte_limit());
+        self.doc.undo.history = shelf.history;
         self.undo_file_swap(shelf.lazy);
-        self.undo.history.set_limits(limits.0, limits.1);
+        self.doc.undo.history.set_limits(limits.0, limits.1);
         self.put_project(shelf.project, shelf.transport, shelf.path, Some(shelf.touched));
         self.seek(shelf.position);
         Ok(())
@@ -156,22 +156,22 @@ impl Session {
         // A take that closes belongs to this project, not the next one.
         self.finish_takes_now();
         self.seek(0.0);
-        self.next_id = self.next_id.max(project.max_id() + 1);
-        self.project = project;
+        self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
+        self.doc.project = project;
         self.files_there.forget();
-        self.undo.checkpoint = self.project.clone();
+        self.doc.undo.checkpoint = self.doc.project.clone();
         if touched.is_none() {
-            self.undo.history.reset(self.project.clone(), history::now());
+            self.doc.undo.history.reset(self.doc.project.clone(), history::now());
             // Its states from an undo file went with it.
             self.undo_file_swap(Default::default());
         }
-        self.undo.touched = touched.unwrap_or(false);
+        self.doc.undo.touched = touched.unwrap_or(false);
         // Another project is a change: what Lua keeps by the count of edits
         // (paw/groups.tl, paw/scope.tl) reads the new project at once, not at
         // the end of the turn when `project.loaded` is sent.
-        self.undo.edits += 1;
-        self.dirty = true;
-        self.undo.restoring = true;
+        self.doc.undo.edits += 1;
+        self.doc.dirty = true;
+        self.doc.undo.restoring = true;
         // The count-in is the user's, not the project's.
         let (count_in, pre_roll, pre_roll_seconds) = (
             self.transport.count_in,
@@ -193,7 +193,7 @@ impl Session {
         // The old project's audio is not needed for undo any more.
         self.trim_audio();
         self.watch_project_files();
-        self.emit(E::ProjectLoaded(Loaded { path: self.path.clone() }));
+        self.doc.emit(E::ProjectLoaded(Loaded { path: self.path.clone() }));
     }
 
     pub fn project_new(&mut self) {
@@ -207,13 +207,13 @@ impl Session {
     /// Count the project as it is now as saved, without writing it.
     pub fn mark_saved(&mut self) {
         self.checkpoint();
-        self.undo.history.mark_saved(false);
+        self.doc.undo.history.mark_saved(false);
     }
 
     pub fn undo_reset(&mut self) {
-        self.undo.checkpoint = self.project.clone();
-        self.undo.history.reset(self.project.clone(), history::now());
-        self.undo.touched = false;
+        self.doc.undo.checkpoint = self.doc.project.clone();
+        self.doc.undo.history.reset(self.doc.project.clone(), history::now());
+        self.doc.undo.touched = false;
     }
 
     pub fn project_load(&mut self, path: &Path) -> Result<()> {
@@ -234,7 +234,7 @@ impl Session {
         self.replace_project(file.project, file.transport, Some(path.to_path_buf()));
         self.screen = file.screen;
         // Files found elsewhere are a change the file does not have yet.
-        self.undo.touched |= moved;
+        self.doc.undo.touched |= moved;
         Ok(())
     }
 
@@ -245,7 +245,7 @@ impl Session {
         self.capture_states();
         let file = json!({
             "version": FILE_VERSION,
-            "project": self.project,
+            "project": self.doc.project,
             "transport": self.transport,
             "take": self.take_in_progress(),
             "recovery": note,
@@ -297,15 +297,15 @@ impl Session {
         self.replace_project(file.project, file.transport, original);
         self.restore_take(&take);
         // It differs from what is on disk, if anything is.
-        self.undo.touched = true;
-        self.undo.edits += 1;
+        self.doc.undo.touched = true;
+        self.doc.undo.edits += 1;
         Ok(note)
     }
 
     /// The project as a file at `path` holds it: media named as from
     /// there, and the devices' own ids of the parameters it names.
     pub(super) fn file_project(&self, path: &Path) -> Project {
-        let mut project = media::for_file(&self.project, path);
+        let mut project = media::for_file(&self.doc.project, path);
         let tracks = project
             .tracks
             .iter_mut()
@@ -365,7 +365,7 @@ impl Session {
         // made later in the same turn is a change that is not saved.
         self.checkpoint();
         // A project that was never named takes its file's name.
-        let named = (self.project.name == Project::default().name)
+        let named = (self.doc.project.name == Project::default().name)
             .then(|| path.file_stem().map(|s| s.to_string_lossy().into_owned()))
             .flatten()
             .filter(|name| !name.is_empty());
@@ -386,15 +386,15 @@ impl Session {
         self.path = Some(path.clone());
         if let Some(name) = named {
             // Not an edit to undo: the saved state is the named one.
-            self.project.name = name.clone();
-            self.undo.checkpoint.name = name;
-            self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
-            self.dirty = true;
+            self.doc.project.name = name.clone();
+            self.doc.undo.checkpoint.name = name;
+            self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
+            self.doc.dirty = true;
         }
-        self.undo.history.mark_saved(false);
+        self.doc.undo.history.mark_saved(false);
         self.remember_for_panic();
         let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
-        self.emit(E::ProjectSaved(saved));
+        self.doc.emit(E::ProjectSaved(saved));
         Ok(path)
     }
 }

@@ -48,10 +48,10 @@ impl Session {
 
     pub fn lane_view(&self, id: Id) -> Result<Value> {
         let (track, _) = self
-            .project
+            .doc.project
             .find_lane(id)
             .with_context(|| format!("no lane {id}"))?;
-        Ok(self.lane_json(self.project.lane(id).unwrap(), track))
+        Ok(self.lane_json(self.doc.project.lane(id).unwrap(), track))
     }
 
     pub(super) fn lane_json(&self, l: &Lane, track: Id) -> Value {
@@ -80,7 +80,7 @@ impl Session {
     /// The automation lanes of a track, without their points.
     pub fn lane_list(&self, track: Id) -> Result<Value> {
         let t = self
-            .project
+            .doc.project
             .track(track)
             .with_context(|| format!("no track {track}"))?;
         Ok(Value::Array(
@@ -89,7 +89,7 @@ impl Session {
     }
 
     pub fn lane_add(&mut self, track: Id, opts: LaneOpts) -> Result<Id> {
-        if self.project.track(track).is_none() {
+        if self.doc.project.track(track).is_none() {
             bail!("no track {track}");
         }
         let kind = match opts.target {
@@ -105,7 +105,7 @@ impl Session {
                     .param
                     .as_deref()
                     .context("parameter lanes need a `param`")?;
-                if self.project.find_device(device).map(|(t, _)| t) != Some(track) {
+                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(track) {
                     bail!("device {device} is not on track {track}");
                 }
                 Target::Param {
@@ -115,7 +115,7 @@ impl Session {
             }
             LaneKind::State => {
                 let device = opts.device.context("state lanes need a `device`")?;
-                if self.project.find_device(device).map(|(t, _)| t) != Some(track) {
+                if self.doc.project.find_device(device).map(|(t, _)| t) != Some(track) {
                     bail!("device {device} is not on track {track}");
                 }
                 Target::State { device }
@@ -130,7 +130,7 @@ impl Session {
             bail!("only a state lane has `states`");
         }
         if self
-            .project
+            .doc.project
             .track(track)
             .unwrap()
             .lanes
@@ -141,7 +141,7 @@ impl Session {
         }
         if let Target::Param { device, param } = &target
             && !self
-                .project
+                .doc.project
                 .device(*device)
                 .unwrap()
                 .params
@@ -158,7 +158,7 @@ impl Session {
             })?;
         }
         let points = self.clean_points(&target, states.len(), opts.points)?;
-        let id = self.new_id();
+        let id = self.doc.new_id();
         self.edit(|p| {
             p.track_mut(track).unwrap().lanes.push(Arc::new(Lane {
                 id,
@@ -196,7 +196,7 @@ impl Session {
 
     pub fn lane_points(&self, id: Id) -> Result<&[(f64, f64)]> {
         Ok(&self
-            .project
+            .doc.project
             .lane(id)
             .with_context(|| format!("no lane {id}"))?
             .points)
@@ -205,7 +205,7 @@ impl Session {
     /// Replace a lane's points, or add one, replacing any already at its beat.
     pub fn lane_set_points(&mut self, id: Id, new: Vec<(f64, f64)>, add: bool) -> Result<()> {
         let lane = self
-            .project
+            .doc.project
             .lane(id)
             .with_context(|| format!("no lane {id}"))?
             .clone();
@@ -229,7 +229,7 @@ impl Session {
     /// The shapes of a lane's stretches that are not straight.
     pub fn lane_shapes(&self, id: Id) -> Result<&[Segment]> {
         Ok(&self
-            .project
+            .doc.project
             .lane(id)
             .with_context(|| format!("no lane {id}"))?
             .shapes)
@@ -238,7 +238,7 @@ impl Session {
     /// Replace the shapes of a lane's stretches: each by the beat of a point
     /// of the lane; a straight one need not be listed.
     pub fn lane_set_shapes(&mut self, id: Id, shapes: Vec<Segment>) -> Result<()> {
-        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
+        let lane = self.doc.project.lane(id).with_context(|| format!("no lane {id}"))?;
         let mut kept: Vec<Segment> = Vec::new();
         for mut s in shapes {
             if !s.beat.is_finite() || !s.tension.is_finite() {
@@ -262,7 +262,7 @@ impl Session {
 
     /// The lane's value at a beat, or nothing when it has no points.
     pub fn lane_value_at(&self, id: Id, beat: f64) -> Result<Option<f64>> {
-        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
+        let lane = self.doc.project.lane(id).with_context(|| format!("no lane {id}"))?;
         Ok(paw_engine::automation::value_at(&lane.played(), beat))
     }
 
@@ -304,7 +304,7 @@ impl Session {
 
     /// The states of a state lane, whole.
     pub fn lane_states(&self, id: Id) -> Result<Vec<Arc<LaneState>>> {
-        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
+        let lane = self.doc.project.lane(id).with_context(|| format!("no lane {id}"))?;
         if !matches!(lane.target, Target::State { .. }) {
             bail!("lane {id} is not a state lane");
         }
@@ -323,7 +323,7 @@ impl Session {
         if let Some(twice) = states.iter().find(|s| !names.insert(s.name.as_str())) {
             bail!("two states are named `{}`", twice.name);
         }
-        let lane = self.project.lane(id).unwrap().clone();
+        let lane = self.doc.project.lane(id).unwrap().clone();
         let points = if states.is_empty() {
             Vec::new()
         } else {

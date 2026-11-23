@@ -122,20 +122,20 @@ impl Session {
         let Some(trial) = self.audition.trial.take() else {
             return false;
         };
-        if keep || !self.undo.touched {
+        if keep || !self.doc.undo.touched {
             return true;
         }
         // The step before holds the project as it was, but plugins keep
         // their state to themselves until asked: take what they hold now,
         // except where the trial loaded a preset.
-        let mut back = self.undo.checkpoint.clone();
+        let mut back = self.doc.undo.checkpoint.clone();
         let before: std::collections::HashMap<Id, &Option<String>> = self
-            .undo.checkpoint
+            .doc.undo.checkpoint
             .all_tracks()
             .flat_map(|t| &t.devices)
             .map(|d| (d.id, &d.state))
             .collect();
-        for track in self.project.all_tracks() {
+        for track in self.doc.project.all_tracks() {
             for device in &track.devices {
                 // Only what differs is copied, so that what did not change
                 // is the same to the engine and left alone.
@@ -147,14 +147,14 @@ impl Session {
                 }
             }
         }
-        self.project = back;
+        self.doc.project = back;
         self.files_there.forget();
-        self.undo.touched = false;
-        self.dirty = true;
-        self.undo.restoring = true;
-        self.undo.edits += 1;
-        self.undo.sweep = Default::default();
-        self.undo.history.clear_labels();
+        self.doc.undo.touched = false;
+        self.doc.dirty = true;
+        self.doc.undo.restoring = true;
+        self.doc.undo.edits += 1;
+        self.doc.undo.sweep = Default::default();
+        self.doc.undo.history.clear_labels();
         true
     }
 

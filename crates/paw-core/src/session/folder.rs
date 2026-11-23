@@ -1615,7 +1615,7 @@ impl super::Session {
                 .iter()
                 .all(|(rel, bytes)| std::fs::read(dir.join(rel)).is_ok_and(|old| &old == bytes))
         {
-            self.undo.history.mark_saved(false);
+            self.doc.undo.history.mark_saved(false);
         }
         Ok(done.written)
     }
@@ -1638,9 +1638,9 @@ impl super::Session {
         self.replace_project(project, transport, Some(file));
         self.screen = read.screen;
         for problem in read.problems {
-            self.warnings.push(problem);
+            self.doc.warnings.push(problem);
         }
-        self.undo.touched |= moved;
+        self.doc.undo.touched |= moved;
         Ok(())
     }
 
@@ -1648,14 +1648,14 @@ impl super::Session {
     /// parts from outside get ids of their own.
     fn used_ids(&self) -> BTreeSet<u64> {
         let mut used = BTreeSet::new();
-        for t in self.project.all_tracks() {
+        for t in self.doc.project.all_tracks() {
             used.insert(t.id);
             used.extend(t.clips.iter().map(|c| c.id));
             used.extend(t.cues.iter().map(|c| c.id));
             used.extend(t.devices.iter().map(|d| d.id));
             used.extend(t.lanes.iter().map(|l| l.id));
         }
-        used.insert(self.next_id);
+        used.insert(self.doc.next_id);
         used
     }
 
@@ -1707,8 +1707,8 @@ impl super::Session {
             p.tracks.insert(at, Arc::new(track));
             Ok(())
         })?;
-        self.next_id = self.next_id.max(self.project.max_id() + 1);
-        self.warnings.extend(problems);
+        self.doc.next_id = self.doc.next_id.max(self.doc.project.max_id() + 1);
+        self.doc.warnings.extend(problems);
         self.watch_project_files();
         Ok(id)
     }
@@ -1740,8 +1740,8 @@ impl super::Session {
             t.chain_origin = None;
             Ok(())
         })?;
-        self.next_id = self.next_id.max(self.project.max_id() + 1);
-        self.warnings.extend(problems);
+        self.doc.next_id = self.doc.next_id.max(self.doc.project.max_id() + 1);
+        self.doc.warnings.extend(problems);
         self.watch_project_files();
         Ok(count)
     }
@@ -1751,7 +1751,7 @@ impl super::Session {
     /// Returns the files written.
     pub fn chain_write(&mut self, track: u64, file: &Path) -> Result<Vec<PathBuf>> {
         self.capture_states();
-        let mut t = self.project.track(track).with_context(|| format!("no track {track}"))?.clone();
+        let mut t = self.doc.project.track(track).with_context(|| format!("no track {track}"))?.clone();
         self.keep_param_ids(&mut t);
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
         let (devices, states) = chain_files(&t)?;
@@ -1787,11 +1787,11 @@ impl super::Session {
         self.replace_project(project, transport, Some(file));
         self.screen = read.screen;
         for problem in read.problems {
-            self.warnings.push(problem);
+            self.doc.warnings.push(problem);
         }
         // It differs from what is on disk: the project file is damaged.
-        self.undo.touched = true;
-        self.undo.edits += 1;
+        self.doc.undo.touched = true;
+        self.doc.undo.edits += 1;
         Ok(Value::Null)
     }
 
@@ -1812,7 +1812,7 @@ impl super::Session {
         // What is saved is everything up to here and nothing after.
         self.checkpoint();
         // A project that was never named takes its folder's name.
-        let named = (self.project.name == Project::default().name)
+        let named = (self.doc.project.name == Project::default().name)
             .then(|| dir.file_name().map(|s| s.to_string_lossy().into_owned()))
             .flatten()
             .filter(|name| !name.is_empty());
@@ -1842,13 +1842,13 @@ impl super::Session {
         self.path = Some(file.clone());
         if let Some(name) = named {
             // Not an edit to undo: the saved state is the named one.
-            self.project.name = name.clone();
-            self.undo.checkpoint.name = name;
-            self.undo.history.set_current_snapshot(self.undo.checkpoint.clone());
-            self.dirty = true;
+            self.doc.project.name = name.clone();
+            self.doc.undo.checkpoint.name = name;
+            self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
+            self.doc.dirty = true;
         }
         if only.is_none() {
-            self.undo.history.mark_saved(false);
+            self.doc.undo.history.mark_saved(false);
         }
         self.remember_for_panic();
         if renamed || !done.written.is_empty() || !done.moved.is_empty() {
@@ -1859,7 +1859,7 @@ impl super::Session {
         }
         if only.is_none() {
             // The undo file keeps these files as the state saved.
-            self.undo.file.saved_files = Some((self.undo.history.current(), layout.files));
+            self.doc.undo.file.saved_files = Some((self.doc.undo.history.current(), layout.files));
         }
         let saved = Saved {
             path: file.clone(),
@@ -1867,7 +1867,7 @@ impl super::Session {
             unused: Some(done.unused.clone()),
             moved: Some(done.moved.clone()),
         };
-        self.emit(E::ProjectSaved(saved));
+        self.doc.emit(E::ProjectSaved(saved));
         Ok((file, done))
     }
 }

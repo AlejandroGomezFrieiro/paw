@@ -148,7 +148,7 @@ impl Session {
             }
         }
         for (id, instance) in ready {
-            let Some(device) = self.project.device(id).cloned() else {
+            let Some(device) = self.doc.project.device(id).cloned() else {
                 continue;
             };
             {
@@ -158,7 +158,7 @@ impl Session {
                     audio: &mut self.audio,
                     live: &mut self.live,
                     sample_rate: self.engine.handle.sample_rate as f32,
-                    warnings: &mut self.warnings,
+                    warnings: &mut self.doc.warnings,
                     offline: false,
                     waker: self.engine.handle.waker(),
                 };
@@ -166,23 +166,23 @@ impl Session {
                 let mut send = |msg| handle.send(msg);
                 install(&device, instance, &self.engine.map, &mut ctx, &mut send);
             }
-            let track = self.project.find_device(id).map(|(track, _)| track);
+            let track = self.doc.project.find_device(id).map(|(track, _)| track);
             let name = self.device_name(&device.kind);
-            self.emit(E::DeviceReady(DeviceReady { id, track, name }));
-            self.emit(E::DeviceChanged(Item::on(id, track)));
-            self.emit(E::changed());
+            self.doc.emit(E::DeviceReady(DeviceReady { id, track, name }));
+            self.doc.emit(E::DeviceChanged(Item::on(id, track)));
+            self.doc.emit(E::changed());
             // Its latency lines the tracks up again.
-            self.dirty = true;
+            self.doc.dirty = true;
         }
         for (id, why) in failed {
-            let Some((track, _)) = self.project.find_device(id) else {
+            let Some((track, _)) = self.doc.project.find_device(id) else {
                 continue;
             };
-            let kind = self.project.device(id).map_or("", |d| d.kind.as_str());
+            let kind = self.doc.project.device(id).map_or("", |d| d.kind.as_str());
             let name = self.device_name(kind);
-            self.emit(E::DeviceStopped(DeviceTrouble { device: id, track, name, reason: Some(why), loading: true }));
-            self.emit(E::DeviceChanged(Item::on(id, Some(track))));
-            self.emit(E::changed());
+            self.doc.emit(E::DeviceStopped(DeviceTrouble { device: id, track, name, reason: Some(why), loading: true }));
+            self.doc.emit(E::DeviceChanged(Item::on(id, Some(track))));
+            self.doc.emit(E::changed());
         }
         self.flush();
     }
@@ -190,7 +190,7 @@ impl Session {
     /// Begin making a device that was waiting. Returns why it could not
     /// even begin, having marked it failed.
     fn start_load(&mut self, id: Id) -> Option<String> {
-        let device = self.project.device(id)?;
+        let device = self.doc.project.device(id)?;
         let state = device.state.as_deref().map(|text| BASE64.decode(text));
         let why = match (self.registry.get(&device.kind), state) {
             (_, Some(Err(err))) => format!("its saved state is not base64: {err}"),
@@ -225,7 +225,7 @@ impl Session {
             if matches!(self.loads.devices.get(&id), Some(Load::Queued))
                 && let Some(why) = self.start_load(id)
             {
-                self.warnings.push(why);
+                self.doc.warnings.push(why);
             }
             self.poll_loads();
             std::thread::sleep(Duration::from_millis(5));
@@ -242,12 +242,12 @@ impl Session {
             std::thread::sleep(Duration::from_millis(5));
         }
         let describe = |session: &Session, id: Id| {
-            let device = session.project.device(id);
+            let device = session.doc.project.device(id);
             let name = session.device_name(device.map_or("", |d| d.kind.as_str()));
             let track = session
-                .project
+                .doc.project
                 .find_device(id)
-                .and_then(|(track, _)| session.project.track(track))
+                .and_then(|(track, _)| session.doc.project.track(track))
                 .map_or(String::new(), |t| t.name.clone());
             format!("{name} on {track}")
         };

@@ -43,7 +43,7 @@ impl Session {
             bail!("a tempo map needs at least one tempo and one signature");
         }
         // The same map again changes nothing, and makes no undo step.
-        if tempos == self.project.tempo_points() && sigs == self.project.sig_points() {
+        if tempos == self.doc.project.tempo_points() && sigs == self.doc.project.sig_points() {
             return Ok(());
         }
         self.edit(|p| {
@@ -57,8 +57,8 @@ impl Session {
     pub fn tempo_set(&mut self, beat: f64, bpm: f64, ramp: Option<bool>) -> Result<()> {
         check_beat(beat)?;
         check_bpm(bpm)?;
-        let mut tempos = self.project.tempo_points();
-        let sigs = self.project.sig_points();
+        let mut tempos = self.doc.project.tempo_points();
+        let sigs = self.doc.project.sig_points();
         match tempos.iter_mut().find(|p| (p.beat - beat).abs() < EPS) {
             Some(p) => {
                 p.bpm = bpm;
@@ -75,7 +75,7 @@ impl Session {
 
     /// Remove the tempo point at `beat`. The one at the start stays.
     pub fn tempo_remove(&mut self, beat: f64) -> Result<()> {
-        let mut tempos = self.project.tempo_points();
+        let mut tempos = self.doc.project.tempo_points();
         let Some(i) = tempos.iter().position(|p| (p.beat - beat).abs() < 1e-6) else {
             bail!("there is no tempo change at beat {beat}");
         };
@@ -83,7 +83,7 @@ impl Session {
             bail!("the tempo at the start stays: set it instead");
         }
         tempos.remove(i);
-        let sigs = self.project.sig_points();
+        let sigs = self.doc.project.sig_points();
         self.tempo_set_points(tempos, sigs)
     }
 
@@ -92,8 +92,8 @@ impl Session {
     pub fn signature_set(&mut self, beat: f64, num: u32, den: u32) -> Result<()> {
         check_beat(beat)?;
         check_sig(num, den)?;
-        let tempos = self.project.tempo_points();
-        let mut sigs = self.project.sig_points();
+        let tempos = self.doc.project.tempo_points();
+        let mut sigs = self.doc.project.sig_points();
         match sigs.iter_mut().find(|p| (p.beat - beat).abs() < 1e-6) {
             Some(p) => (p.num, p.den) = (num, den),
             None => sigs.push(SigPoint { beat, num, den }),
@@ -103,7 +103,7 @@ impl Session {
 
     /// Remove the signature change at `beat`. The one at the start stays.
     pub fn signature_remove(&mut self, beat: f64) -> Result<()> {
-        let mut sigs = self.project.sig_points();
+        let mut sigs = self.doc.project.sig_points();
         let Some(i) = sigs.iter().position(|p| (p.beat - beat).abs() < 1e-6) else {
             bail!("there is no signature change at beat {beat}");
         };
@@ -111,7 +111,7 @@ impl Session {
             bail!("the signature at the start stays: set it instead");
         }
         sigs.remove(i);
-        let tempos = self.project.tempo_points();
+        let tempos = self.doc.project.tempo_points();
         self.tempo_set_points(tempos, sigs)
     }
 }
