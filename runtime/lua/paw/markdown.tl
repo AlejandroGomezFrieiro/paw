@@ -98,8 +98,8 @@ local record M
   record RenderOptions
     width: integer
     heading_tag: function(block: Block): string
-    --- Called before each block: where a long render may stop for a
-    --- while (help made at idle, paw/help.tl).
+    --- Called before each block, and before each row of a table: where a
+    --- long render may stop for a while (help made at idle, paw/help.tl).
     pause: function()
   end
 
@@ -325,10 +325,13 @@ local function is_rule_row(line: string): boolean
 end
 
 --- Markdown as a list of blocks (headings, paragraphs, lists, code, tables)
---- for `render`.
-function M.parse(text: string): {Block}
+--- for `render`. `pause()`, if given, is called for each line, where a
+--- long parse may stop for a while (help made at idle, paw/help.tl).
+function M.parse(text: string, pause?: function()): {Block}
+  pause = pause or function() end
   local lines: {string} = {}
   for line in (text:gsub("\r", "") .. "\n"):gmatch("([^\n]*)\n") do
+    pause()
     lines[#lines + 1] = (line:gsub("\t", "    "))
   end
   local blocks: {Block} = {}
@@ -350,6 +353,7 @@ function M.parse(text: string): {Block}
   local i = 1
   local para: Block
   while i <= #lines do
+    pause()
     local line = lines[i]
     local indent = #line:match("^ *")
     local fence = line:match("^%s*(```+)")
@@ -400,6 +404,7 @@ function M.parse(text: string): {Block}
       local rows = {cells(line)}
       i = i + 2
       while i <= #lines and lines[i]:match("^%s*|") do
+        pause()
         rows[#rows + 1] = cells(lines[i])
         i = i + 1
       end
@@ -512,11 +517,12 @@ local function new_line(prefix?: string, style?: string): Line
   return line
 end
 
-local function append(
+--- Mark `text` (`tw` cells wide), which goes at the end of `line`: its
+--- width, style, link and code. The caller puts the text itself.
+local function mark(
   line: Line, text: string, style?: string, link?: string, code?: string, first?: boolean, tw?: integer
 )
   local c0 = line.w
-  line.text = line.text .. text
   local c1 = c0 + (tw or width(text))
   line.w = c1
   if style then
@@ -536,13 +542,39 @@ local function append(
   end
 end
 
+--- Put `text` at the end of `line`, marked as `mark` says.
+local function append(
+  line: Line, text: string, style?: string, link?: string, code?: string, first?: boolean, tw?: integer
+)
+  line.text = line.text .. text
+  mark(line, text, style, link, code, first, tw)
+end
+
 --- Runs filled into lines `w` wide: the first line starts with `first`
 --- (a bullet), the rest with `rest` (as many spaces). `style` goes under
 --- every piece that has none (a table's header). `lead` says which code is
 --- marked `first`: "all", or "lead" for the code before the first plain word.
 local function fill(runs: {Run}, w: integer, first: string, rest: string, style?: string, lead?: string): {Line}
   local out: {Line} = {}
-  local line = new_line(first)
+  -- The pieces of the line's text are joined once, when the line is done:
+  -- a string made again for each word is garbage for the collector.
+  local line: Line
+  local parts: {string}
+  local function open(prefix: string)
+    line = new_line(prefix)
+    parts = {line.text}
+  end
+  local function put(
+    text: string, piece_style?: string, link?: string, code?: string, first_code?: boolean, tw?: integer
+  )
+    parts[#parts + 1] = text
+    mark(line, text, piece_style, link, code, first_code, tw)
+  end
+  local function close()
+    line.text = table.concat(parts)
+    out[#out + 1] = line
+  end
+  open(first)
   local used = line.w
   local rest_w = width(rest)
   local empty = true
@@ -550,14 +582,14 @@ local function fill(runs: {Run}, w: integer, first: string, rest: string, style?
   for _, word in ipairs(words_of(runs)) do
     local ww = word_width(word)
     if not empty and used + 1 + ww > w then
-      out[#out + 1] = line
-      line = new_line(rest)
+      close()
+      open(rest)
       used, empty = rest_w, true
     end
     if not empty then
       -- The space between two words of one link is part of the link.
       local prev = line.links[#line.links]
-      append(line, " ", nil, prev and word[1].link == prev[3] and word[1].link or nil, nil, nil, 1)
+      put(" ", nil, prev and word[1].link == prev[3] and word[1].link or nil, nil, nil, 1)
       used = used + 1
     end
     local has_code = false
@@ -572,18 +604,18 @@ local function fill(runs: {Run}, w: integer, first: string, rest: string, style?
       -- A word wider than the whole line is cut where the line ends.
       while tw > w - rest_w and used + tw > w and used < w do
         local head, tail = cut(text, w - used)
-        append(line, head, piece.style or style, piece.link, piece.code and piece.text, leading)
-        out[#out + 1] = line
-        line = new_line(rest)
+        put(head, piece.style or style, piece.link, piece.code and piece.text, leading)
+        close()
+        open(rest)
         used, text = rest_w, tail
         tw = width(text)
       end
-      append(line, text, piece.style or style, piece.link, piece.code and piece.text, leading, tw)
+      put(text, piece.style or style, piece.link, piece.code and piece.text, leading, tw)
       used = used + tw
     end
     empty = false
   end
-  out[#out + 1] = line
+  close()
   return out
 end
 
@@ -675,11 +707,9 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       end
     end
   end
-  local pause = opts.pause
+  local pause = opts.pause or function() end
   for _, block in ipairs(blocks) do
-    if pause then
-      pause()
-    end
+    pause()
     local from = #lines + 1
     local t = block.type
     if t == "blank" then
@@ -752,6 +782,7 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       local rows: {{{Run}}} = {}
       local natural: {integer} = {}
       for r, row in ipairs(block.rows) do
+        pause()
         rows[r] = {}
         for c, cell in ipairs(row) do
           rows[r][c] = inline(cell)
@@ -762,6 +793,7 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
       local laid: {{{Line}}} = {}
       local tall = false
       for r, row in ipairs(rows) do
+        pause()
         laid[r] = {}
         for c = 1, #widths do
           laid[r][c] = fill(row[c] or {}, widths[c], "", "", r == 1 and "HelpTableHead" or nil, c == 1 and "all" or nil)
@@ -771,6 +803,7 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
         end
       end
       for r = 1, #laid do
+        pause()
         if r > 2 and tall then
           push(new_line())
         end
@@ -780,11 +813,14 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
         end
         for k = 1, height do
           local line = new_line(indent)
+          -- The text of the cells, joined once (see `fill`).
+          local texts: {string} = {line.text}
           for c = 1, #widths do
             local part = laid[r][c][k]
             local at = line.w
             if part then
-              line.text, line.w = line.text .. part.text, line.w + part.w
+              texts[#texts + 1] = part.text
+              line.w = line.w + part.w
               for _, s in ipairs(part.spans) do
                 line.spans[#line.spans + 1] = {s[1] + at, s[2] + at, s[3]}
               end
@@ -797,10 +833,11 @@ function M.render(blocks: {Block}, opts?: M.RenderOptions): M.Document
             end
             if c < #widths then
               local pad = widths[c] - (part and part.w or 0) + 2
-              line.text, line.w = line.text .. string.rep(" ", pad), line.w + pad
+              texts[#texts + 1] = string.rep(" ", pad)
+              line.w = line.w + pad
             end
           end
-          line.text = line.text:gsub("%s+$", "")
+          line.text = table.concat(texts):gsub("%s+$", "")
           line.w = width(line.text)
           push(line)
         end

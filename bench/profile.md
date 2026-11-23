@@ -34,9 +34,10 @@ folders and `HOME`, and a control socket of its own. It answers the
 terminal probe, writes the keys and reads what paw draws. A frame is
 what paw writes between the start and the end of a synchronized update.
 
-The driver gives `PAW_RUNTIME` to paw. To measure the Lua of a branch
-with a binary of main, set `PAW_RUNTIME` to the folder that
-`tools/dev-runtime.sh` makes, and give the binary with `--paw`.
+The driver gives paw the variables `PAW_RUNTIME` and `LD_PRELOAD` of its
+own environment. Use `PAW_RUNTIME` to measure the Lua of a checkout with
+a binary of main (`tools/dev-runtime.sh`). Use `LD_PRELOAD` to measure
+another allocator.
 
 The first run makes the large project with
 [profile/project.lua](profile/project.lua). It has 64 tracks with a synth
@@ -88,11 +89,6 @@ These options add a probe to `idle`, `idle-armed`, `play`, `record` and
 - `--setup LUA`: Lua that the kernel runs after the start. For example,
   `--setup "paw.harmony.provide('builtin', nil)"` stops the chord
   analysis.
-- `--report LUA`: Lua that the kernel runs at the end of `repeat`. The
-  value that it returns goes in the field `report`, one item for each
-  line.
-- `PAW_RUNTIME`: the driver gives it to paw. So a runtime from
-  `tools/dev-runtime.sh` runs with a binary of main.
 
 ## Without the scenarios
 
@@ -122,8 +118,8 @@ Two tools in paw itself give the same view without `drive.py`:
 | [profile/calls.py](profile/calls.py) | Counts the calls of each `paw.api` function, and the line that calls it, per frame while paw plays (or with `--press j,k`, per key). |
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
 | [profile/frame.lua](profile/frame.lua) `<project> [rounds] [keys] [size]` | The time of a full frame of the arrange view after each key (`j,k` by default), with no terminal. With `PAW_FRAME_PROF=<file>`, the folded Lua stacks of the frames, for `top.py`. Under `perf stat`, run it with 0 rounds and with N: the difference divided by N is the instructions of a key and its frame. The frame is drawn as the terminal draws it (`paw.api.ui_snapshot`), and it is not written to a terminal. Run it with [profile/headless.py](profile/headless.py). |
-| [profile/handlers.lua](profile/handlers.lua) | The event handlers that run after each key, with their time: for each key, event and handler, the calls and the time for each press, and its longest call. It also lists each end of a turn that takes more than 4 ms, with its parts. Load it with `--setup 'dofile("<checkout>/bench/profile/handlers.lua")'` and read it with `--report 'return paw_bench_handlers()'`, for example with `repeat --keys x,u,dd,u`. |
 | [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
+| [profile/help.lua](profile/help.lua) `[project] [alloc]` | The slices of the help index that paw makes at idle (the job `help`): their number, the longest slice, the mean slice and the time of the build. With `alloc`, the collector is stopped, and it also gives the MB that one build allocates. Each run makes the index once, as at the start: run it a few times for the spread. Run it with [profile/headless.py](profile/headless.py). |
 
 ## Numbers on a shared machine
 

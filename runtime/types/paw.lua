@@ -4219,8 +4219,9 @@ function paw.help.owned(index, topic, exact) end
 ---@param topic any
 function paw.help.owners(topic) end
 
---- Make the index of help at idle, in slices. A page that did not change
---- since the last build is not made again.
+--- Make the index of help at idle, in slices (the job `help` of
+--- `paw.slices`). A page that did not change since the last build is not
+--- made again. Returns the job.
 function paw.help.prepare() end
 
 --- True while paw makes the index of help at idle.
@@ -5635,9 +5636,11 @@ function paw.luadev.watch() end
 function paw.markdown.inline(s, style, link, out) end
 
 --- Markdown as a list of blocks (headings, paragraphs, lists, code, tables)
---- for `render`.
+--- for `render`. `pause()`, if given, is called for each line, where a
+--- long parse may stop for a while (help made at idle, paw/help.tl).
 ---@param text any
-function paw.markdown.parse(text) end
+---@param pause any
+function paw.markdown.parse(text, pause) end
 
 --- The text of runs without their marks: a heading as it reads.
 ---@param s any

@@ -35,6 +35,7 @@ local kernel = require("paw.events.kernel")
 local A = require("paw.address")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local slices = require("paw.slices")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -765,8 +766,8 @@ local record Parsed
 end
 local parsed: {string: Parsed} = {}
 
---- The contents page, as Markdown.
-local function index_text(sources: {Source}): string
+--- The contents page, as Markdown. `pause()` as `build_now` says.
+local function index_text(sources: {Source}, pause: function()): string
   local out = {
     "# paw help",
     "",
@@ -800,6 +801,7 @@ local function index_text(sources: {Source}): string
   for _, group in ipairs(groups) do
     local any = false
     for _, source in ipairs(sources) do
+      pause()
       if source.group == group[1] then
         if not any then
           out[#out + 1] = ""
@@ -845,7 +847,44 @@ local function unloaded_note(source: Source): string
   )
 end
 
-local function heading_tags(sources: {Source})
+--- Sort `list` by name, as `table.sort` does, with `pause()` between
+--- pieces of the work: a merge sort from the bottom up. The thousands of
+--- tags of the manual take some milliseconds to sort.
+local function sort_by_name(list: {Tag}, pause: function())
+  local n = #list
+  local from: {Tag} = list
+  local to: {Tag} = {}
+  local width = 1
+  while width < n do
+    -- Each pass merges the sorted runs of `width` tags in pairs, from
+    -- `from` into `to`.
+    local lo = 1
+    while lo <= n do
+      local mid, hi = math.min(lo + width, n + 1), math.min(lo + 2 * width, n + 1)
+      local a, b = lo, mid
+      for k = lo, hi - 1 do
+        if k % 256 == 0 then
+          pause()
+        end
+        if a < mid and (b >= hi or from[a].name <= from[b].name) then
+          to[k], a = from[a], a + 1
+        else
+          to[k], b = from[b], b + 1
+        end
+      end
+      lo = hi
+    end
+    from, to = to, from
+    width = width * 2
+  end
+  if from ~= list then
+    for k = 1, n do
+      list[k] = from[k]
+    end
+  end
+end
+
+local function heading_tags(sources: {Source}, pause: function())
   local used: {string: boolean | Source} = {}
   local function take(name: string): string
     if used[name] then
@@ -864,6 +903,7 @@ local function heading_tags(sources: {Source})
   for _, source in ipairs(sources) do
     source.headings = {}
     for _, block in ipairs(source.blocks) do
+      pause()
       if block.type == "heading" then
         local base = slug(block.text)
         if block.level == 1 and not source.title then
@@ -887,8 +927,10 @@ end
 --- Read every page, give its headings their tags, make it into lines and
 --- gather the tags. Done again when a page changed, an extension was loaded
 --- or a page was added. `pause()`, if given, is called between pieces of
---- the work, where a build made at idle stops for a while.
+--- the work, at most a few hundred microseconds apart, where a build made
+--- at idle stops for a while.
 local function build_now(pause?: function()): Index
+  pause = pause or function() end
   -- The files are looked at again at most every two seconds.
   local names: {string} = {}
   for _, entry in ipairs(ext.list()) do
@@ -901,6 +943,7 @@ local function build_now(pause?: function()): Index
   local sources = M.sources()
   local parts: {string} = {}
   for _, source in ipairs(sources) do
+    pause()
     -- docs/README.md orders the contents.
     if source.readme then
       parts[#parts + 1] = read_file(source.readme) or ""
@@ -909,14 +952,11 @@ local function build_now(pause?: function()): Index
       local text = source.text and source.text() or read_file(source.path) or ""
       local cached = parsed[source.path]
       if not (cached and cached.text == text) then
-        cached = {text = text, blocks = md.parse(text)}
+        cached = {text = text, blocks = md.parse(text, pause)}
         parsed[source.path] = cached
       end
       source.blocks = cached.blocks
       source.loaded = not source.ext or ext_loaded(source.ext)
-      if pause then
-        pause()
-      end
       parts[#parts + 1] = source.path .. "\0" .. tostring(cached) .. "\0" .. tostring(source.loaded)
     end
   end
@@ -929,10 +969,10 @@ local function build_now(pause?: function()): Index
   known_keys, known_options = nil, nil
   -- The contents are made from the pages' titles and headings.
   sources[1].blocks = {}
-  heading_tags(sources)
-  sources[1].blocks = md.parse(index_text(sources))
+  heading_tags(sources, pause)
+  sources[1].blocks = md.parse(index_text(sources, pause), pause)
   sources[1].title = nil
-  heading_tags({sources[1]})
+  heading_tags({sources[1]}, pause)
   local tags: {string: Tag} = {}
   -- Each extension's pages' own tags too, for what the extension owns
   -- (`ext_tags[name][tag]`): its commands and keys are found there even
@@ -990,6 +1030,7 @@ local function build_now(pause?: function()): Index
     end
     local heading_at = 0
     for _, a in ipairs(source.doc.anchors) do
+      pause()
       if a.kind == "heading" then
         heading_at = heading_at + 1
         local block = source.headings[heading_at]
@@ -1029,7 +1070,7 @@ local function build_now(pause?: function()): Index
   for _, tag in pairs(tags) do
     list[#list + 1] = tag
   end
-  table.sort(list, function(a: Tag, b: Tag): boolean return a.name < b.name end)
+  sort_by_name(list, pause)
   built = {
     checked = api.now(),
     loaded = loaded,
@@ -1048,13 +1089,20 @@ end
 --
 -- To read and render every page takes more than a second of processor time.
 -- An interactive session does it after it starts, in slices of a few
--- milliseconds between keys, so that the first `:help` finds it done. A
--- call that needs the index before then finishes it at once.
+-- milliseconds between keys (the job `help` of `paw.slices`), so that the
+-- first `:help` finds it done. A call that needs the index before then
+-- finishes it at once.
+--
+-- The build is a coroutine: `build_now(pause)` yields in `pause()` when
+-- the slice is over, deep inside a parse or a render, and the next slice
+-- resumes it there.
 
---- Milliseconds of work in one slice, and between two slices.
-local SLICE_MS, GAP_MS = 4, 10
+--- The name of the job in `paw.slices`.
+local JOB = "help"
 
 --- The build being made at idle, and when its slice ends (`api.now()`).
+--- `slice_end` is `math.huge` outside a slice, so that `pause()` never
+--- yields in a build made at once.
 local preparing: thread
 local slice_end = math.huge
 
@@ -1064,18 +1112,30 @@ local function pause()
   end
 end
 
---- Finish the build being made at idle, now.
-local function finish_preparing()
-  local co = preparing
-  if not co or coroutine.status(co) ~= "suspended" then
-    return
-  end
-  slice_end = math.huge
+--- Resume the build being made at idle until it ends or its slice is over
+--- (`ms` milliseconds; `math.huge` to finish it). Returns true when it ended.
+local function resume(co: thread, ms: number): boolean
+  slice_end = api.now() + ms
   local ok, err = coroutine.resume(co)
+  slice_end = math.huge
+  if ok and coroutine.status(co) == "suspended" then
+    return false
+  end
   preparing = nil
   if not ok then
     api.log("help: the index made at idle failed: " .. tostring(err))
   end
+  return true
+end
+
+--- Finish the build being made at idle, now.
+local function finish_preparing()
+  local co = preparing
+  if not co then
+    return
+  end
+  slices.stop(JOB)
+  resume(co, math.huge)
 end
 
 local function build(): Index
@@ -1083,31 +1143,16 @@ local function build(): Index
   return build_now()
 end
 
---- Make the index of help at idle, in slices. A page that did not change
---- since the last build is not made again.
-function M.prepare()
+--- Make the index of help at idle, in slices (the job `help` of
+--- `paw.slices`). A page that did not change since the last build is not
+--- made again. Returns the job.
+function M.prepare(): slices.Job
   if preparing then
-    return
+    return slices.job(JOB)
   end
   local co = coroutine.create(function() build_now(pause) end)
   preparing = co
-  local function step()
-    if preparing ~= co then
-      return
-    end
-    slice_end = api.now() + SLICE_MS
-    local ok, err = coroutine.resume(co)
-    slice_end = math.huge
-    if not ok then
-      preparing = nil
-      api.log("help: the index made at idle failed: " .. tostring(err))
-    elseif coroutine.status(co) == "dead" then
-      preparing = nil
-    else
-      paw.defer(step, GAP_MS)
-    end
-  end
-  paw.defer(step, GAP_MS)
+  return slices(JOB, function(ms: number): boolean return resume(co, ms) end)
 end
 
 --- True while paw makes the index of help at idle.

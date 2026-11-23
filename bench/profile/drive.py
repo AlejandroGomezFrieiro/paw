@@ -50,9 +50,6 @@ Options (all optional):
   --times N        repeat: how many rounds (default 20); it also gives the
                    time from each key to its first frame (median, min, max)
   --setup LUA      Lua run in the kernel after the start, before measuring
-  --report LUA     repeat: Lua run in the kernel at the end; what it
-                   returns goes in the field "report" (text with lines
-                   becomes a list)
   --budget MS      paw.opt.budget_ms (default 5, 0 is off): each callback
                    that takes longer is named once; keys lists them with
                    the key that ran them ("slow": name, times, last ms),
@@ -199,8 +196,9 @@ class Paw:
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/nonexistent/bus",
             "LANG": "C.UTF-8",
         }
-        # PAW_RUNTIME: the Lua of another checkout (tools/dev-runtime.sh).
-        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH", "PAW_RUNTIME"):
+        # PAW_RUNTIME: the Lua of a checkout (tools/dev-runtime.sh); LD_PRELOAD:
+        # another allocator, for example.
+        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH", "PAW_RUNTIME", "LD_PRELOAD"):
             if k in os.environ:
                 env[k] = os.environ[k]
         env.update(env_extra or {})
@@ -710,9 +708,6 @@ def scenario_repeat(opts, project):
     res = probes.stop()
     if opts.budget:
         res["slow"] = slow_since(paw, {})
-    if opts.report:
-        report = paw.eval(opts.report)
-        res["report"] = report.split("\n") if isinstance(report, str) else report
     res.update({"scenario": "repeat", "keys": opts.keys, "times": opts.times,
                 "kernel_cpu_ms_per_round": round((paw.kernel_ns() - k0) / 1e6 / opts.times, 2),
                 "wall_s": round(time.monotonic() - t0, 2)})
@@ -747,7 +742,6 @@ def parse(argv):
     o.keys = "j,k"
     o.times = 20
     o.setup = None
-    o.report = None
     o.budget = 5
     i = 1
     while i < len(argv):
@@ -768,7 +762,6 @@ def parse(argv):
         elif a == "--keys": o.keys = v; i += 1
         elif a == "--times": o.times = int(v); i += 1
         elif a == "--setup": o.setup = v; i += 1
-        elif a == "--report": o.report = v; i += 1
         elif a == "--budget": o.budget = float(v); i += 1
         else:
             sys.exit(f"unknown option {a}\n{__doc__}")
