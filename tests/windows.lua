@@ -480,6 +480,28 @@ test("layouts are saved and put back, and a configuration names its own", functi
   reset()
 end)
 
+test("a layout put back forgets the empty windows it closes", function()
+  start()
+  paw.layouts.probe_plain = { { layout = "arrange" } }
+  T.after(function()
+    paw.layouts.probe_plain = nil
+    reset()
+  end)
+  local function empties()
+    local n = 0
+    for _, buf in pairs(L.buffers) do
+      if buf.type == "empty" then n = n + 1 end
+    end
+    return n
+  end
+  local before = empties()
+  keys(":vnew<CR>")
+  eq(empties(), before + 1, ":vnew makes an empty buffer")
+  keys(":layout probe_plain<CR>")
+  eq(windows(), "arrange", "the layout")
+  eq(empties(), before, "the empty window's buffer goes with it")
+end)
+
 test("every seat has tabs and windows of its own", function()
   start()
   riff()

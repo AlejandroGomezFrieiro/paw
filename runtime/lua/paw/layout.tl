@@ -2680,7 +2680,18 @@ function M.restore(saved: SpecNode): boolean
   if #tabs == 0 then
     return false
   end
+  -- The windows of the old tabs close: an empty window's buffer goes with
+  -- its window, as when the window closes by itself.
+  local old: {integer} = {}
+  for _, t in ipairs(u.tabs or {}) do
+    for _, win in ipairs(M.windows(t.layout, true)) do
+      old[#old + 1] = win.buf
+    end
+  end
   u.tabs, u.tab = tabs, 0
+  for _, id in ipairs(old) do
+    reap(id)
+  end
   local go = math.max(1, math.min(tonumber(saved.tab) or 1, #tabs)) as integer
   for _, t in ipairs(tabs) do
     open_pending(t.layout)

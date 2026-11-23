@@ -34,7 +34,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 
 | Helper | Use |
 | --- | --- |
-| `T.fresh()` | A new project, the start layout, normal mode and no float. Call it first in each test that needs a project. |
+| `T.fresh()` | A new project, the start layout with no popped-out view and no window history, normal mode, no float and no quickfix list. Call it first in each test that needs a project. |
 | `T.start()` | `T.fresh()`, then `<Esc><Esc>`: the start of a test that types keys. |
 | `T.screen(w, h)` | The text of the screen, 120 by 40 if no size is given. |
 | `T.after(fn)` | Put back what the test changed. It runs after the test, also after a failure. |
@@ -70,7 +70,9 @@ A test makes all the state that it reads.
   before it stays until the test ends.
 - After each file of `tests/`, and after the files of each extension, the
   runner unloads the extensions that the tests loaded and removes the
-  hooks, timers and key mappings that test code made. A test file that
+  hooks, timers and key mappings that test code made. It also puts back
+  the audio engine, the MIDI test ports and the step input controls that
+  Lua bound, and the leak check names the first test that changed them. A test file that
   leaves one fails "`<part>` leaves no state behind". Do not add a line to
   `tests/leaks-allowed.txt`.
 - Take ids from the kernel (the value that a call returns). Never write
