@@ -797,8 +797,10 @@ test(":export project in the song writes a copy of it with its media; a range is
   api.clip_add(keys_.id, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 2 } } })
   api.clip_add(paw.add_track({ name = "Hit" }).id, { start = 2, file = T.write_wav(dir .. "/hit.wav", samples) })
   paw.flush()
+  -- The edits above close as a step, so the text below is the song with them.
+  api.undo_checkpoint()
   local before, heard = project_text(), sound(0, 8)
-  T.expect_error("a range does not go with it")
+  T.expect_error("a range does not go with export project")
   keys(":2export project " .. dir .. "/Copy/<CR>")
   keys(":export project " .. dir .. "/Copy/<CR>")
   eq(
