@@ -45,6 +45,12 @@ them to paw.
 8. **Report each round.** Give what each round found and changed, or
    what it examined. Give the checks that you ran, and what you are not
    sure of.
+9. **Check the Definition of Done.** Each ticket has a Definition of
+   Done. Before you hand back the work, give the evidence for each item:
+   the acceptance criteria, the tests, the checks, the docs, the
+   architecture documentation and the report. Start the report with the
+   changes that you need outside your branch: the file, the place and
+   the exact edit. Do not make these changes yourself.
 
 ## 2. Code style
 
