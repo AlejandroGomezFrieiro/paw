@@ -4,6 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     Device, DeviceSlot, Engine, Io, LocalTime, Msg, Place, ProcessCtx, SchedEntry, Schedule,
     TrackRt, TrackSlot,
@@ -44,8 +45,8 @@ fn seen(local: LocalTime, from: f64) -> (ProcessCtx, ProcessCtx) {
         Msg::InsertTrack { slot: TrackSlot(2), track: TrackRt::new() },
         Msg::InsertDevice { slot: DeviceSlot(0), device: Box::new(Recorder(inside.clone())) },
         Msg::InsertDevice { slot: DeviceSlot(1), device: Box::new(Recorder(song.clone())) },
-        Msg::SetChain { track: TrackSlot(1), chain: Box::new([DeviceSlot(0)]) },
-        Msg::SetChain { track: TrackSlot(2), chain: Box::new([DeviceSlot(1)]) },
+        Msg::SetGraph { slot: TrackSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
+        Msg::SetGraph { slot: TrackSlot(2).into(), plan: GraphPlan::serial(&[DeviceSlot(1)]) },
         Msg::SetLocalTime { track: TrackSlot(1), time: Some(Box::new(local)) },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![

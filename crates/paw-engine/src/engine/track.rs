@@ -6,13 +6,20 @@ use crate::automation::Automation;
 use crate::clip::ClipSet;
 use crate::{event::Event, event::EventBuf};
 use crate::launch::Launcher;
+use crate::plan::GraphPlan;
 use crate::slot::{DeviceSlot, TrackSlot};
 
 use super::MAX_BLOCK;
 
 pub struct TrackRt {
     pub(super) buf: [Vec<f32>; 2],
-    pub(super) chain: Box<[DeviceSlot]>,
+    /// The plan of its chain, which it runs on `buf`.
+    pub(super) plan: Box<GraphPlan>,
+    /// A plan of another shape, which takes over when `plan` has faded out.
+    pub(super) next: Option<Box<GraphPlan>>,
+    /// The plan it ran before, kept until a message lets the engine free it.
+    pub(super) spent: Option<Box<GraphPlan>>,
+    pub(super) swap: Swap,
     pub(super) clips: Box<ClipSet>,
     pub(super) automation: Box<Automation>,
     pub(super) gain: f32,
@@ -70,7 +77,10 @@ impl TrackRt {
     pub fn new() -> Box<Self> {
         Box::new(Self {
             buf: [vec![0.0; MAX_BLOCK], vec![0.0; MAX_BLOCK]],
-            chain: Box::new([]),
+            plan: GraphPlan::serial(&[]),
+            next: None,
+            spent: None,
+            swap: Swap::Steady,
             clips: Box::default(),
             automation: Box::default(),
             gain: 1.0,
@@ -129,6 +139,53 @@ impl TrackRt {
         let angle = (self.pan.clamp(-1.0, 1.0) + 1.0) * std::f32::consts::FRAC_PI_4;
         let scale = self.gain * std::f32::consts::SQRT_2;
         [scale * angle.cos(), scale * angle.sin()]
+    }
+}
+
+/// Where a change of the plan is: a plan of another shape fades the old
+/// one out, takes over, and fades in, so that the change does not click.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Swap {
+    Steady,
+    /// The old plan fades out: `left` of `len` frames to go.
+    Out { left: u32, len: u32 },
+    /// The new plan fades in.
+    In { left: u32, len: u32 },
+}
+
+impl TrackRt {
+    /// Fade the block of `n` frames as the swap of plans asks, and take the
+    /// next plan on when the old one has faded out.
+    pub(super) fn fade(&mut self, n: usize) {
+        let n32 = n as u32;
+        let (from, to) = match self.swap {
+            Swap::Steady => return,
+            Swap::Out { left, len } => {
+                let after = left.saturating_sub(n32);
+                self.swap = Swap::Out { left: after, len };
+                (left as f32 / len as f32, after as f32 / len as f32)
+            }
+            Swap::In { left, len } => {
+                let after = left.saturating_sub(n32);
+                self.swap = if after == 0 { Swap::Steady } else { Swap::In { left: after, len } };
+                (1.0 - left as f32 / len as f32, 1.0 - after as f32 / len as f32)
+            }
+        };
+        let step = (to - from) / n.max(1) as f32;
+        for ch in &mut self.buf {
+            for (i, s) in ch[..n].iter_mut().enumerate() {
+                *s *= (from + step * (i + 1) as f32).clamp(0.0, 1.0);
+            }
+        }
+        if let Swap::Out { left: 0, len } = self.swap {
+            self.swap = match self.next.take() {
+                Some(next) => {
+                    self.spent = Some(std::mem::replace(&mut self.plan, next));
+                    Swap::In { left: len, len }
+                }
+                None => Swap::Steady,
+            };
+        }
     }
 }
 

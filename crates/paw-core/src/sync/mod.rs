@@ -19,6 +19,7 @@
 
 mod audio;
 mod automation;
+mod chains;
 mod clips;
 mod devices;
 mod items;
@@ -33,7 +34,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use paw_engine::launch::Slots;
-use paw_engine::{ClipSet, Controller, DeviceSlot, Msg, ParamInfo, Registry, TrackRt, TrackSlot, db_to_gain};
+use paw_engine::{ClipSet, Controller, Msg, ParamInfo, Registry, TrackRt, TrackSlot, db_to_gain};
 use paw_types::midi_form::Form;
 
 pub use self::audio::AudioCache;
@@ -127,6 +128,8 @@ pub struct SyncCtx<'a> {
     /// The schedule time of the turn: a bake asked for waits its settle
     /// from it.
     pub now: crate::clock::ScheduleTime,
+    /// The kinds of split, which tell how each split of a chain plays.
+    pub kinds: &'a crate::model::chain::SplitKinds,
 }
 
 /// Bring the engine from `old` to `new`.
@@ -376,8 +379,9 @@ impl<'p> Pass<'p, '_, '_> {
         })
     }
 
-    /// A track's devices added, set offline or back, or changed, and its
-    /// chain sent again when it changed. Whether the chain is the same.
+    /// A track's devices added, set offline or back, or changed, and the
+    /// plan of its chain sent again when it changed. Whether the devices
+    /// are the same, in the same order.
     fn track_devices(&mut self, track: &Track, pass: &TrackPass) -> bool {
         // Devices set offline or back online since: gone from the engine,
         // or made, and the chain sent again.
@@ -419,14 +423,7 @@ impl<'p> Pass<'p, '_, '_> {
                     .map(|d| d.id)
                     .eq(track.devices.iter().map(|d| d.id))
             });
-        if !same_chain {
-            let chain: Box<[DeviceSlot]> = track
-                .devices
-                .iter()
-                .filter_map(|d| self.map.devices.get(&d.id).copied())
-                .collect();
-            (self.send)(Msg::SetChain { track: pass.slot, chain });
-        }
+        self.send_plan(track, pass.slot, pass.plays != Played::Live, pass.prev.is_none());
         same_chain
     }
 
@@ -723,19 +720,57 @@ impl<'p> Pass<'p, '_, '_> {
         }
     }
 
-    /// A device whose latency changed: its dry signal is held back to match.
+    /// A device whose latency changed: its dry signal is held back to
+    /// match, and the branches of its chain wait for it.
     fn device_latency(&mut self) {
+        let mut changed = HashSet::new();
         for (id, live) in self.ctx.live.iter() {
             if let Some(&slot) = self.map.devices.get(id)
                 && self.map.host_latency.get(id) != Some(&live.latency)
             {
                 self.map.host_latency.insert(*id, live.latency);
+                changed.insert(*id);
                 (self.send)(Msg::SetDeviceLatency {
                     device: slot,
                     frames: live.latency,
                 });
             }
         }
+        if changed.is_empty() {
+            return;
+        }
+        for track in self.new.all_tracks() {
+            if track.devices.iter().any(|d| changed.contains(&d.id))
+                && let Some(&slot) = self.map.tracks.get(&track.id)
+            {
+                let held = self.map.played.contains_key(&track.id);
+                self.send_plan(track, slot, held, false);
+            }
+        }
+    }
+
+    /// Compile the chain of `track` and send the plan to its processor,
+    /// when it is not what the engine has (or always, when `fresh`: the
+    /// processor is new). The devices of a frozen or held track hold
+    /// nothing back.
+    fn send_plan(&mut self, track: &Track, slot: TrackSlot, held: bool, fresh: bool) {
+        let live = &*self.ctx.live;
+        let latency = |d: &DeviceInst| -> u32 {
+            if held || d.bypass {
+                return 0;
+            }
+            live.get(&d.id).map_or(0, |l| l.latency.min(paw_engine::MAX_DELAY as u32))
+        };
+        let slots = chains::Slots { devices: &self.map.devices, latency: &latency, kinds: self.ctx.kinds };
+        let (tree, notes) = chains::tree_of(track, &slots);
+        if !fresh && self.map.trees.get(&track.id) == Some(&tree) {
+            return;
+        }
+        let plan = paw_engine::plan::compile(&tree, self.ctx.sample_rate);
+        self.map.meters.insert(track.id, plan.meters().clone());
+        self.map.trees.insert(track.id, tree);
+        self.ctx.warnings.extend(notes);
+        (self.send)(Msg::SetGraph { slot: slot.into(), plan });
     }
 
     /// Side-chain and output buffers for the devices that are routed, and
@@ -743,7 +778,7 @@ impl<'p> Pass<'p, '_, '_> {
     fn routing(&mut self) {
         let map = &mut *self.map;
         let send = &mut *self.send;
-        let routing = routing_of(self.new, self.ctx.live, &map.played, self.placed);
+        let routing = routing_of(self.new, self.ctx.live, map, self.placed);
         // Devices that listen to a side-chain get a buffer for it, before the
         // schedule that fills it; those that no longer do give theirs back.
         let keyed: HashSet<Id> = routing
@@ -841,6 +876,8 @@ impl<'p> Pass<'p, '_, '_> {
         for id in gone {
             let map = &mut *self.map;
             map.pieces.remove(&id);
+            map.trees.remove(&id);
+            map.meters.remove(&id);
             map.cue_rows.remove(&id);
             map.cue_events.remove(&id);
             if let Some(slot) = map.tracks.remove(&id) {

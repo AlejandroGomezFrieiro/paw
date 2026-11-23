@@ -8,9 +8,10 @@
 --   paw.chain.wrap(c, { comp, eq }, "layer") -- a new split around them
 --   paw.chain.set(c, branch, { gain = -6 })
 --
--- Until the engine runs a chain, it plays the devices in the chain's signal
--- order, in series. Written in Teal (paw/lang.tl): the build compiles it to
--- Lua.
+-- The engine plays the chain: a split sends its input into each branch and
+-- sums them again. A split of a kind that the engine does not play (`outs`,
+-- or a kind that no loaded extension defines) plays its first branch.
+-- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local registry = require("paw.registry")
 local type types = require("paw.types")
@@ -127,12 +128,12 @@ local function done(message: string, id?: integer): Chain.Done
   return {id = id, message = message}
 end
 
---- A note on a split that the engine does not run yet.
+--- A note on a split that the engine does not play yet.
 local function series(kind: string): string
-  if kind == "chain" then
-    return ""
+  if kind == "outs" then
+    return "; it plays its first branch until the engine plays outs splits"
   end
-  return "; it plays its branches in series until the engine runs chains"
+  return ""
 end
 
 --- Wrap the nodes `nodes` (devices or splits in a row of one branch) of

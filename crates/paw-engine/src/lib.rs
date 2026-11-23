@@ -26,6 +26,7 @@ pub mod midi_filter;
 pub mod midi_out;
 pub mod pool;
 pub mod preview;
+pub mod plan;
 pub mod probe;
 pub mod record;
 pub mod samples;
@@ -50,7 +51,8 @@ pub use local_time::{LocalTime, Place};
 pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
-pub use slot::{DeviceSlot, TrackSlot};
+pub use plan::GraphPlan;
+pub use slot::{DeviceSlot, ProcessorSlot, TrackSlot};
 
 /// Convert decibels to linear gain. Anything at or below -120 dB is silence.
 pub fn db_to_gain(db: f64) -> f32 {

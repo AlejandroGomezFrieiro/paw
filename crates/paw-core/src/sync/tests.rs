@@ -81,6 +81,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
             waker: Default::default(),
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
+            kinds: &crate::model::chain::SplitKinds::builtin(),
         };
         let mut sent = Vec::new();
         let before = compiled(&map);
@@ -320,6 +321,7 @@ fn follows(follow: Follow) -> bool {
         waker: Default::default(),
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
+        kinds: &crate::model::chain::SplitKinds::builtin(),
     };
     let mut map = Mapper::new();
     map.follow = follow;
@@ -425,6 +427,7 @@ fn compiles(states: &[&Project]) -> (Mapper, usize) {
             waker: Default::default(),
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
+            kinds: &crate::model::chain::SplitKinds::builtin(),
         };
         let before = clips::COMPILES.with(|c| c.get());
         sync(old, state, &mut map, &mut ctx, &mut |_| {}, &mut Vec::new());
@@ -905,6 +908,31 @@ fn null_in_subproject() -> Project {
     p
 }
 
+/// The mix with a chain on Keys: the synth, then `inner` (a split of
+/// `kind`) with the delay in its first branch and `rest` empty branches.
+fn null_chained(kind: &str, rest: usize) -> Project {
+    let mut p = null_mix();
+    let mut branches = vec![json!({ "id": 53, "nodes": [{ "device": 3 }] })];
+    branches.extend((0..rest).map(|i| json!({ "id": 60 + i, "nodes": [] })));
+    let chain = json!({ "root": { "id": 50, "kind": "chain", "branches": [{ "id": 51, "nodes": [
+        { "device": 2 },
+        { "split": { "id": 52, "kind": kind, "name": "Inner", "branches": branches } },
+    ] }] } });
+    p.track_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
+    p
+}
+
+/// The mix with the delay of Keys in a rack.
+fn null_racked() -> Project {
+    null_chained("chain", 0)
+}
+
+/// The mix with the delay of Keys in the first branch of a split of a
+/// kind that no loaded extension defines, beside an empty branch.
+fn null_absent_kind() -> Project {
+    null_chained("drums.transient", 1)
+}
+
 /// How a case renders: the size of the blocks, the threads, and whether
 /// devices at rest sleep.
 #[derive(Clone, Copy)]
@@ -973,7 +1001,7 @@ fn one_project_rendered_two_ways_nulls() {
     let ramp: States = || vec![null_mix_on_a_ramp()];
     let blocks = |block| Way { block, ..PLAIN };
     #[rustfmt::skip]
-    let cases: [(&str, States, Way, States, Way); 12] = [
+    let cases: [(&str, States, Way, States, Way); 14] = [
         ("blocks of 64 and of 512 frames", mix, blocks(64), mix, PLAIN),
         ("blocks of 128 and of 512 frames", mix, blocks(128), mix, PLAIN),
         ("blocks of 64 and of 512 frames at 120 BPM", at_120, blocks(64), at_120, PLAIN),
@@ -986,6 +1014,8 @@ fn one_project_rendered_two_ways_nulls() {
         ("a bypassed device and no device", || vec![null_bypassed()], PLAIN, || vec![null_without_delay()], PLAIN),
         ("devices that sleep and devices awake", mix, PLAIN, mix, Way { sleep: false, ..PLAIN }),
         ("a subproject's track and its clip on the row", || vec![null_in_subproject()], PLAIN, mix, PLAIN),
+        ("the delay in a rack and in series", || vec![null_racked()], PLAIN, mix, PLAIN),
+        ("a split of an absent kind and its first branch", || vec![null_absent_kind()], PLAIN, mix, PLAIN),
     ];
     for (name, a_states, a_way, b_states, b_way) in cases {
         let a = null_render(&a_states(), a_way);
@@ -996,6 +1026,33 @@ fn one_project_rendered_two_ways_nulls() {
         assert!(!a_way.sleep || a.slept > 0, "{name}: devices sleep through the rest");
         assert_eq!(a.first_difference(&b), None, "{name}: the first frame that differs");
     }
+}
+
+/// The branches of a split play side by side: a track is as late as the
+/// slowest path through its chain, not the sum of its devices.
+#[test]
+fn a_track_is_as_late_as_the_slowest_path_of_its_chain() {
+    let limiters = json!([
+        { "id": 2, "kind": "limiter", "bypass": false, "params": {} },
+        { "id": 3, "kind": "limiter", "bypass": false, "params": {} },
+    ]);
+    let series: Project = serde_json::from_value(json!({
+        "name": "t", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
+        "master": track_json(0, "Master", None, json!([]), json!([])),
+        "tracks": [track_json(1, "Keys", None, limiters, json!([]))],
+    }))
+    .unwrap();
+    let mut layered = series.clone();
+    let chain = json!({ "root": { "id": 50, "kind": "chain", "branches": [{ "id": 51, "nodes": [
+        { "split": { "id": 52, "kind": "layer", "branches": [
+            { "id": 53, "nodes": [{ "device": 2 }] },
+            { "id": 54, "nodes": [{ "device": 3 }] },
+        ] } },
+    ] }] } });
+    layered.track_mut(1).unwrap().chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
+    let one = compiles(&[&series]).0.latency / 2;
+    assert!(one > 0, "a limiter looks ahead");
+    assert_eq!(compiles(&[&layered]).0.latency, one, "two limiters side by side");
 }
 
 /// What a plugin hears of the host, in order: "offline" or "realtime"
@@ -1079,6 +1136,7 @@ fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
         waker: Default::default(),
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
+        kinds: &crate::model::chain::SplitKinds::builtin(),
     };
     let mut sent = Vec::new();
     sync(&Project::default(), &project, &mut Mapper::new(), &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());
