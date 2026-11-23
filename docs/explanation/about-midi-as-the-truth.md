@@ -6,6 +6,16 @@ Ex, the language servers, MIDI export and the score of the notation
 extension all edit the same notes. The page explains why paw keeps one
 truth, and how extensions keep data that MIDI cannot hold.
 
+The rule is changing to a wider one: lanes are the truth. The data that
+you write is the truth, and paw keeps the result of each step that makes
+new data from it, so a project opens and plays without the extension or
+program that made the result. Today a track holds clips, automation lanes
+and state lanes, and the notes of its MIDI clips are what plays. A kind of
+clip from an extension already follows the wider rule: the project saves
+what the kind makes, so its clips play without the extension. The page
+tells how paw works today, and it changes when a track can hold lanes of
+each kind.
+
 ## Why there is one truth and many views
 
 A score shows more than MIDI can say. For example, it shows the letter

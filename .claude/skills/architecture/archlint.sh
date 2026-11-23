@@ -103,7 +103,9 @@ for f in "$arch"/decisions/[0-9][0-9][0-9][0-9]-*.md; do
     proposed | accepted | rejected | deprecated) ;;
     "superseded by "[0-9][0-9][0-9][0-9])
       by=${status#superseded by }
-      compgen -G "$arch/decisions/$by-*.md" >/dev/null || err adr "$base: superseded by $by, which does not exist"
+      # A glob test, not `compgen`: some builds of bash do not have it.
+      by_files=("$arch/decisions/$by"-*.md)
+      [ -e "${by_files[0]}" ] || err adr "$base: superseded by $by, which does not exist"
       ;;
     "") err adr "$base: no status" ;;
     *) err adr "$base: status '$status' is not known" ;;

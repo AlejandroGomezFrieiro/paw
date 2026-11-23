@@ -26,10 +26,13 @@ commands, and a configuration that can change everything.
    `Ctrl-a` `Ctrl-x` change the main value, `[ ]` the second value. `< >`
    are time. `K` describes. `Esc` cancels. The keys of one view go on
    `<localleader>`. See [The key rule](docs/reference/key-rule.md).
-4. **MIDI is the truth.** Notes, controllers and clips are the data. An
-   extension keeps its own data in `meta` and never owns clip data. A
-   project must open and play without the extension. See
+4. **Lanes are the truth.** Source lanes hold the data. A derived lane
+   is a recipe plus its kept result. A project opens and plays without
+   the extension or program that made a derived lane. An extension keeps
+   its own data in `meta` and never owns the data of a source lane. See
    [About MIDI as the truth](docs/explanation/about-midi-as-the-truth.md).
+   The public page tells the design of today, and it changes when lanes
+   of each kind exist.
 5. **A small core, extensions for the rest.** A feature that is not
    needed by all users is an extension. Core changes for an extension are
    generic, not specific to that extension. See
@@ -92,6 +95,11 @@ contract. A contract is a trait, a saved type, a file format, a
   the owner accepts it.
 - A change of a contract updates the architecture documentation in the
   same work.
+- The target design calls the container a **part**, and a row inside a
+  part a **lane**. Use these words in design text. The code, the API
+  and the user pages say "track" until one rename changes all of them.
+  Do not use the word "part" for the container in a name of the code or
+  on a user page before that rename.
 
 ## Documentation standards
 
