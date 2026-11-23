@@ -27,6 +27,10 @@ const AUDIO_TURN: Duration = Duration::from_millis(100);
 /// The most sound that one `wait_blocks` plays: a count past it is a
 /// mistake, which would keep the main loop busy for ever.
 const MOST_BLOCKS_TIME: Duration = Duration::from_secs(60);
+/// The most wall time that the manual clock waits for the writers of the
+/// takes that closed. A writer ends in milliseconds; a disk that hangs
+/// does not stop the clock for ever.
+const MOST_TAKE_WAIT: Duration = Duration::from_secs(30);
 
 /// The functions of the timers that are due, with one-shot timers removed
 /// and repeating ones moved on.
@@ -161,6 +165,7 @@ impl Shared {
         let mut turns_here = 0;
         loop {
             self.turn(lua, true)?;
+            self.wait_for_take_writers(lua)?;
             let now = clock.now();
             // A turn can start a timer that is due at once (`paw.defer`).
             turns_here += 1;
@@ -180,6 +185,19 @@ impl Shared {
         }
         clock.advance_to(target);
         self.turn(lua, true)
+    }
+
+    /// Wait on the wall clock while the writers of a take that closed
+    /// write its files, with a turn each millisecond: the take becomes
+    /// clips before the manual clock moves on, so that a wait in song
+    /// time for those clips (the doctor's recording) sees them.
+    fn wait_for_take_writers(&self, lua: &Lua) -> mlua::Result<()> {
+        let deadline = Instant::now() + MOST_TAKE_WAIT;
+        while self.session.borrow().takes_writing() > 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+            self.turn(lua, true)?;
+        }
+        Ok(())
     }
 
     /// Let `by` of wall time pass, with a turn each millisecond.

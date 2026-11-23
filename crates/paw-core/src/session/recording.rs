@@ -362,6 +362,13 @@ impl Session {
         self.rec.closing.push(take);
     }
 
+    /// How many closing takes the engine has let go of, whose writer
+    /// threads still write their files: work on the wall clock that ends
+    /// on its own.
+    pub(crate) fn takes_writing(&self) -> usize {
+        self.rec.closing.iter().filter(|take| take.shared.closed() && !take.is_done()).count()
+    }
+
     /// Make the clips of each closing take that is done, in the order the
     /// takes stopped. Called regularly, from [`idle`](Self::idle).
     pub(super) fn poll_takes(&mut self) {
