@@ -41,9 +41,7 @@ extensions/notation/tests_fixes.lua paw.wait( 1
 extensions/pattern/tests.lua :meter( 1
 extensions/pattern/tests.lua api.now() 2
 extensions/pattern/tests.lua api.sleep( 1
-extensions/plugstate/tests.lua api.now() 2
 extensions/plugstate/tests_frameworks.lua api.sleep( 1
-extensions/plugstate/tests_tone3000.lua api.now() 4
 extensions/rulerplus/tests.lua paw.wait( 1
 extensions/sampler/tests.lua api.now() 2
 extensions/sampler/tests.lua paw.wait( 2
@@ -100,23 +98,11 @@ tests/guides_howto.lua paw.wait( 8
 tests/guides_projects.lua api.now() 1
 tests/guides_render.lua api.now() 2
 tests/guides_render.lua paw.wait( 1
-tests/helper_processes.lua api.now() 2
 tests/input.lua :meter( 7
 tests/input.lua api.sleep( 6
-tests/offline.lua :meter( 1
-tests/offline.lua api.now() 2
-tests/offline.lua paw.wait( 10
-tests/plugin_state.lua api.now() 2
-tests/plugin_state.lua api.sleep( 2
-tests/plugin_state.lua paw.wait( 1
-tests/plugins.lua :meter( 1
-tests/plugins.lua paw.wait( 1
 # Live: the transport moves in real time, a one-sided check (not faster).
 tests/realtime.lua :meter( 1
 tests/realtime.lua api.now() 3
-tests/safety.lua :meter( 7
-tests/safety.lua api.now() 1
-tests/safety.lua paw.wait( 5
 tests/scope.lua :meter( 4
 tests/scope.lua paw.wait( 6
 # Live: the profiler samples a Lua loop of 50 ms on the wall clock.

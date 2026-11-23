@@ -26,7 +26,17 @@
 //! The helper finds the plugin the way the DAW does (`register`, from the
 //! same cache and the same folders), creates it, and opens its editor in a window of its own, so
 //! plugin windows work exactly as they do in-process.
+//!
+//! Tests ask a running plugin through `paw.api.device_call`:
+//! `sandbox.pid` gives its helper's process, `sandbox.late` the blocks it
+//! did not answer in time, and `sandbox.hang` and `sandbox.deadline` make
+//! it and the plugins of its kind made after it stop answering, and a
+//! render give up on them soon ([`KindTest`]). A device that is still
+//! loading takes `sandbox.hold`, `sandbox.release`, `sandbox.hang` and
+//! `sandbox.deadline` in the session, which passes the last two to
+//! [`DeviceFactory::start`] as a `StartTest`.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
@@ -80,9 +90,45 @@ const STALL_LIMIT: Duration = Duration::from_secs(2);
 /// treated as stopped for the rest of the render, which goes on without it.
 const OFFLINE_LIMIT: Duration = Duration::from_secs(20);
 
-/// For tests: helpers stop answering blocks (they sleep instead). Set from
-/// `sandbox.hang`; helpers started while it is set start that way.
+/// For tests, in a helper: its audio thread stops answering blocks (it
+/// sleeps instead), until `sandbox.hang 0`. Set by `sandbox.hang`, or at
+/// the helper's start when its kind hangs ([`KindTest`]).
 static TEST_HANG: AtomicBool = AtomicBool::new(false);
+
+/// For tests, in the DAW: what `sandbox.hang` and `sandbox.deadline` on a
+/// running plugin asked of the plugins of its kind that are made from now
+/// on, a render's own among them. A plugin of another kind never meets it.
+#[derive(Clone, Copy, Debug, Default)]
+struct KindTest {
+    /// Their helpers stop answering blocks, as the plugin's did.
+    hang: bool,
+    /// A render waits this long for one of their blocks, in place of
+    /// [`OFFLINE_LIMIT`].
+    deadline: Option<Duration>,
+}
+
+/// The [`KindTest`] of each kind that a test changed, by kind.
+static KIND_TESTS: Mutex<BTreeMap<String, KindTest>> = Mutex::new(BTreeMap::new());
+
+fn kind_test(kind: &str) -> KindTest {
+    KIND_TESTS
+        .lock()
+        .unwrap()
+        .get(kind)
+        .copied()
+        .unwrap_or_default()
+}
+
+/// Change what the tests ask of the plugins of `kind`; a kind asked for
+/// nothing more is forgotten.
+fn set_kind_test(kind: &str, change: impl FnOnce(&mut KindTest)) {
+    let mut tests = KIND_TESTS.lock().unwrap();
+    let test = tests.entry(kind.to_string()).or_default();
+    change(test);
+    if !test.hang && test.deadline.is_none() {
+        tests.remove(kind);
+    }
+}
 
 /// Say how to start the helper: the program and the arguments that put it
 /// in `plugin-host` mode. Until this is called plugins are hosted in-process,

@@ -282,10 +282,10 @@ pub(super) fn release_targets(
                 else {
                     continue;
                 };
-                if let Some(controller) = live.controller.as_mut()
+                if live.controller.is_some()
                     && let Some(state) = &inst.state
                     && let Ok(bytes) = BASE64.decode(state)
-                    && let Err(err) = controller.load_state(&bytes)
+                    && let Err(err) = live.load_state(&bytes)
                 {
                     ctx.warnings
                         .push(format!("could not give a device its state back: {err:#}"));

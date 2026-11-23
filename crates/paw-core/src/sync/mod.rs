@@ -69,6 +69,38 @@ pub struct LiveDevice {
     pub attached: bool,
     /// Whether it takes its track's clips, and what it was given.
     pub clips: TakesClips,
+    /// The states given to it since it was made ([`load_state`](Self::load_state)),
+    /// and the number of the last that the session told it took on
+    /// (`device.state_applied`). `states_told` is never more than
+    /// `states_given`.
+    pub states_given: u64,
+    pub states_told: u64,
+}
+
+impl LiveDevice {
+    /// Give the running device a whole state, as its controller saved it.
+    /// The session tells when it took it on (`device.state_applied`).
+    pub fn load_state(&mut self, state: &[u8]) -> anyhow::Result<()> {
+        let controller = self
+            .controller
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("the device takes no saved state"))?;
+        controller.load_state(state)?;
+        self.states_given += 1;
+        Ok(())
+    }
+
+    /// The number of the last state given that the device took on, once,
+    /// when it is newer than the last told: a device takes a state on when
+    /// no state is pending in its controller.
+    pub fn take_state_applied(&mut self) -> Option<u64> {
+        let pending = self.controller.as_ref().is_some_and(|c| c.state_pending());
+        if self.states_told == self.states_given || pending {
+            return None;
+        }
+        self.states_told = self.states_given;
+        Some(self.states_told)
+    }
 }
 
 pub type LiveDevices = HashMap<Id, LiveDevice>;

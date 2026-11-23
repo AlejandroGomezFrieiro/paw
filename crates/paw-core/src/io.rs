@@ -185,10 +185,18 @@ impl Io {
         ids
     }
 
-    /// How many piped processes have not closed their output: work in
-    /// flight in other processes (`paw.api.pending`).
-    pub fn open_pipes(&self) -> usize {
-        self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count()
+    /// Work in flight in other processes (`paw.api.pending`): the piped
+    /// processes that have not closed their output, and the other
+    /// processes that still run (a download that writes to a file).
+    pub fn working(&mut self) -> usize {
+        let open_pipes = self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count();
+        let mut running = 0;
+        for (id, child) in &mut self.procs {
+            if !self.pipes.contains_key(id) && matches!(child.try_wait(), Ok(None)) {
+                running += 1;
+            }
+        }
+        open_pipes + running
     }
 
     /// Up to `max` bytes a piped process has written: empty when nothing is

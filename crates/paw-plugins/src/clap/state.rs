@@ -35,9 +35,10 @@ impl ClapController {
         self.shared
             .on_main(|plugin| ext.load(plugin, &mut rest))
             .map_err(|_| anyhow::anyhow!("the plugin rejected the saved state"))?;
-        // Some plugins take a state on only in their next block.
-        self.shared.flags.wake();
+        // Some plugins take a state on only in their next block. The mark
+        // comes first: a block that the wake starts counts.
         self.given_state();
+        self.shared.flags.wake();
         Ok(())
     }
 }

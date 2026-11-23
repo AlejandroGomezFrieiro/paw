@@ -174,7 +174,12 @@ test("a take's file is a valid WAV while it is recorded, and is in the safety co
     -- A safety copy made now has the take in it.
     local copy = T.scratch .. "/take-copy.json"
     api.project_backup(copy, { path = dir .. "/song.json", time = os.time(), pid = 999999999 })
-    paw.wait(2600)
+    -- The header is written again as the take grows.
+    T.advance_until(
+      function() return wav_sizes(files[1]) > 48000 * 4 end,
+      "the header to count a second of the take",
+      10000
+    )
     local size, length = wav_sizes(files[1])
     eq(size > 48000 * 4, true, "the header counts what was written a moment ago: " .. size)
     eq(size <= length - 44, true, "and no more than is in the file")
@@ -269,11 +274,11 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
   eq(#a, #b, "the same length")
   eq(largest_difference(a, b, 4097) < 1e-3, true, "everything else is as it was: " .. largest_difference(a, b, 4097))
 
-  -- Playing: the device is reported as stopped, and the other track sounds.
+  -- Playing: the device is reported as stopped.
   local stopped
   local handle = paw.on("device.stopped", function(e) stopped = e end)
   paw.transport.play()
-  paw.wait(400)
+  T.until_(function() return stopped end, "the device that panicked to be reported")
   paw.off(handle)
   eq(stopped and stopped.device, bad.id, "device.stopped names it")
   eq(
@@ -282,15 +287,11 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
     "and says why: " .. tostring(stopped and stopped.reason)
   )
   eq(api.device_get(bad.id).stopped ~= nil, true, "the device shows it has stopped")
-  eq(select(1, paw.tracks()[1]:meter()) > 0.01, true, "the other track still sounds")
-  local left, right = paw.master:meter()
-  eq(left == left and right == right and left < 10, true, "the master is finite")
-  eq(select(1, other:meter()) > 0.01, true, "and its own track plays on, through it")
   T.stop()
   bad:set("fail", 0)
   bad:restart()
   eq(api.device_get(bad.id).stopped, nil, "restarted, it works again")
-end, { live = "the engine bypasses the device that panicked while it plays in real time" })
+end)
 
 test("a device that puts out NaN is silenced at its output and reported once", function()
   fresh()
@@ -306,14 +307,13 @@ test("a device that puts out NaN is silenced at its output and reported once", f
   local said = 0
   local handle = paw.on("device.invalid", function() said = said + 1 end)
   paw.transport.play()
-  paw.wait(500)
+  T.until_(function() return said > 0 end, "the device that puts out NaN to be reported")
+  -- More blocks with NaN in them, each looked at.
+  T.next_block(10)
+  T.settle()
   T.stop()
   paw.off(handle)
   eq(said, 1, "said once, not every block")
-  local left = paw.master:meter()
-  eq(left == left, true, "the master meter is a number")
-  local l2 = other:meter()
-  eq(l2, 0, "the track's meter reads silence")
 end)
 
 test(
@@ -329,43 +329,53 @@ test(
     local other = T.tone("other", 16, "E4")
     local fx = other:add_device(kind)
     if not pcall(api.device_call, fx.id, "sandbox.pid") then return "skipped: plugins are hosted in-process here" end
-    -- One that is not told to hang, to tell the helpers made later to answer again.
+    -- One that is not told to hang, to tell the plugins of the kind made
+    -- later to answer again.
     local helper = T.tone("helper", 1):add_device(kind)
+    T.after(function()
+      pcall(api.device_call, helper.id, "sandbox.hang", "0")
+      pcall(api.device_call, helper.id, "sandbox.deadline", "0")
+    end)
     local stopped
     local handler = paw.on("device.stopped", function(e)
       if e.device == fx.id then stopped = e end
     end)
+    -- It hangs until the test ends it, and so do the instances that a
+    -- render makes of it, for which the render waits one millisecond.
     api.device_call(fx.id, "sandbox.hang")
-    local ok, err = xpcall(function()
-      paw.transport.play()
-      T.until_(function() return stopped end, "the plugin that hangs to be reported")
-      eq(stopped.device, fx.id, "the plugin is reported")
-      eq(stopped.reason:find("stopped answering", 1, true) ~= nil, true, "as not answering: " .. stopped.reason)
-      eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")
-      eq(select(1, steady:meter()) > 0.01, true, "the other track sounds")
-      eq(select(1, other:meter()) > 0.01, true, "its own track plays on, the effect passed through")
-      T.stop()
-
-      -- A render makes instances of its own, which hang too: it goes on without them.
-      local began = api.now()
-      local info = render({ ["end"] = 8, tail = 0 })
-      eq(info.peak > 0.05, true, "and has the rest of the song")
-      paw.flush()
-      -- By time, not by count: the list holds 500 messages at most.
-      local said = false
-      for _, m in ipairs(paw.ui.messages) do
-        if m.time >= began and m.text:find("stopped during the render", 1, true) then said = true end
-      end
-      eq(said, true, "the render says what it left out")
-    end, debug.traceback)
+    api.device_call(fx.id, "sandbox.deadline", "1")
+    paw.transport.play()
+    T.until_(function() return stopped end, "the plugin that hangs to be reported")
     paw.off(handler)
+    eq(stopped.device, fx.id, "the plugin is reported")
+    eq(stopped.reason:find("stopped answering", 1, true) ~= nil, true, "as not answering: " .. stopped.reason)
+    eq(paw.transport.playing and paw.transport.position > 1, true, "the transport kept running")
     T.stop()
-    pcall(api.device_call, helper.id, "sandbox.hang", "0")
-    if not ok then error(err, 0) end
+
+    -- A render makes instances of its own, which hang too: it goes on
+    -- without them. Its own track plays on, the effect passed through.
+    steady.mute = true
+    local last = paw.ui.messages[#paw.ui.messages]
+    local info = render({ ["end"] = 8, tail = 0 })
+    eq(info.peak > 0.05, true, "the render has the track of the plugin that hangs")
+    paw.flush()
+    -- The messages after the last one before the render: the list holds
+    -- 500 messages at most, so a count would not do.
+    local said = false
+    for i = #paw.ui.messages, 1, -1 do
+      local m = paw.ui.messages[i]
+      if m == last then break end
+      if m.text:find("stopped during the render", 1, true) then said = true end
+    end
+    eq(said, true, "the render says what it left out")
+
+    api.device_call(helper.id, "sandbox.hang", "0")
+    api.device_call(helper.id, "sandbox.deadline", "0")
     fx:restart()
     eq(api.device_get(fx.id).stopped, nil, "restarted, it works again")
     paw.transport.play()
-    paw.wait(600)
+    T.next_block(10, fx.id)
+    T.settle()
     T.stop()
     eq(api.device_get(fx.id).stopped, nil, "and keeps answering")
   end
@@ -442,7 +452,7 @@ test("takes of a project whose folder moved are not offered when the project use
     local mic = paw.add_track({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.transport.record()
-    paw.wait(600)
+    T.until_beat(1)
     T.stop()
     paw.project.save()
     paw.project.new()

@@ -124,7 +124,7 @@ the owner's computer or folders. Mock what it needs.
 - Mock what is needed. Give a fake to the code as an argument, or put a
   fake in the field of a module and put the old value back with
   `T.after`. Other fakes: the stub plugin, the plugin sandbox that the
-  test controls (`sandbox.hang`), a scratch folder.
+  test controls (`sandbox.hold`, `sandbox.hang`), a scratch folder.
 - Run paw by hand only through `tests/tools/run.sh`. It uses the same
   environment as the suite.
 
@@ -238,8 +238,19 @@ the owner's computer or folders. Mock what it needs.
   make it happen. Then check. "Nothing happened in 300 ms" is not a
   check.
 - A plugin or a helper process that the test controls waits for the
-  test (`sandbox.hang`, and the plugin handshakes). Do not compare
-  an injected delay with a deadline.
+  test. Do not compare an injected delay with a deadline. The plugin
+  sandbox has test commands (`api.device_call(id, "sandbox.<command>")`):
+  `hold` and `release` keep a device that loads a stand-in until the
+  test releases it (`T.settle` does not wait for it); `hang` stops a
+  device while it is made (call it before the next turn), or stops the
+  answers of a device that runs, and of the plugins of its kind made
+  after it, until `hang 0`; `deadline <ms>` makes the session stop it
+  soon.
+  Reset a command of a plugin that runs with `T.after`: it holds for its
+  kind. Wait for `device.state_applied` (with its `seq`) when a plugin
+  must take a state on, not for a time. A helper process that still
+  runs is work in flight (`api.pending().helpers`): `T.until_` waits
+  for it.
 
 ## 9. Skips
 

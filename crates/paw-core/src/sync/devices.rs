@@ -306,6 +306,8 @@ fn put_in(
             stopped: None,
             attached,
             clips: TakesClips::Unasked,
+            states_given: 0,
+            states_told: 0,
         },
     );
 }
@@ -410,11 +412,11 @@ pub(super) fn update_device(
     // what the state says, not the default.
     let preset = device.loaded != before.loaded;
     let with_state = preset && device.state.is_some() && live.controller.is_some();
-    if with_state && let Some(controller) = live.controller.as_mut() {
+    if with_state {
         let loaded = BASE64
             .decode(device.state.as_deref().unwrap_or(""))
             .map_err(anyhow::Error::from)
-            .and_then(|bytes| controller.load_state(&bytes));
+            .and_then(|bytes| live.load_state(&bytes));
         match loaded {
             // Some plugins take a state on only in their next block, which
             // an engine at rest would not run.
@@ -448,12 +450,12 @@ pub(super) fn update_device(
     }
     if device.state != before.state
         && !with_state
-        && let Some(controller) = live.controller.as_mut().filter(|c| c.follows_state())
+        && live.controller.as_ref().is_some_and(|c| c.follows_state())
     {
         let loaded = BASE64
             .decode(device.state.as_deref().unwrap_or(""))
             .map_err(anyhow::Error::from)
-            .and_then(|bytes| controller.load_state(&bytes));
+            .and_then(|bytes| live.load_state(&bytes));
         match loaded {
             // Some plugins take a state on only in their next block, which
             // an engine at rest would not run.

@@ -18,7 +18,8 @@ pub struct Work {
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
     pub bakes_waiting: usize,
-    /// Plugins being made apart from the main loop.
+    /// Plugins being made apart from the main loop, but for those that a
+    /// test holds back (`sandbox.hold`).
     pub plugin_loads: usize,
     /// Renders running on a thread of their own (0 or 1).
     pub renders: usize,
@@ -95,7 +96,7 @@ impl Session {
         Work {
             bakes_running: bakes.running,
             bakes_waiting: bakes.waiting,
-            plugin_loads: self.loads.count(),
+            plugin_loads: self.loads.in_flight(),
             renders: usize::from(self.rendering()),
             files: self.files_watch.waiting(),
             next_due,

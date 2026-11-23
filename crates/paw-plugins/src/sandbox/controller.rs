@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, bail};
 use paw_engine::Waker;
-use paw_engine::device::{Change, Controller, ParamInfo, Ports};
+use paw_engine::device::{Change, Controller, ParamInfo, Ports, test_deadline};
 use rustix::process::Signal;
 use super::*;
 use super::shm::*;
@@ -20,6 +20,8 @@ use super::device::*;
 /// The main-thread half of the stand-in.
 pub(super) struct RemoteController {
     pub(super) name: String,
+    /// The plugin's kind, which a test's `sandbox.hang` names ([`KindTest`]).
+    pub(super) kind: String,
     pub(super) link: Arc<Link>,
     pub(super) stream: UnixStream,
     pub(super) child: Child,
@@ -36,15 +38,23 @@ pub(super) struct RemoteController {
     /// while some came late.
     pub(super) answered_seen: u32,
     pub(super) stalled_since: Option<Instant>,
-    /// The plugin was given a state or a call when it had answered this
-    /// many blocks: its values are read again once it has answered
-    /// another, as some plugins take a state on only in their next block.
+    /// The plugin was given a state or a call when this was the last
+    /// block asked of it: its values are read again once it has answered
+    /// a later one, as some plugins take a state on only in their next
+    /// block. A block under way at that time may have begun before the
+    /// state came, so its answer does not count.
     pub(super) reread: Option<u32>,
     /// The engine the device is in ([`Controller::set_waker`]).
     pub(super) engine: Option<Waker>,
 }
 
 impl RemoteController {
+    /// Read the values again once the plugin has answered a block that
+    /// began after now (see [`reread`](Self::reread)).
+    fn reread_after_next_block(&mut self) {
+        self.reread = Some(self.link.shm.header().request.load(Ordering::Acquire));
+    }
+
     /// Have the plugin run in the next block, though it said it was at
     /// rest and the engine may rest.
     fn wake(&self) {
@@ -183,14 +193,19 @@ impl Controller for RemoteController {
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         self.ask(&Request::LoadState(state), STATE_LIMIT)?;
+        // The mark comes first: a block that the wake starts counts.
+        self.reread_after_next_block();
         self.wake();
-        self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         self.refresh_values();
         Ok(())
     }
 
     fn follows_state(&self) -> bool {
         self.follows_state
+    }
+
+    fn state_pending(&self) -> bool {
+        self.reread.is_some() && self.ended.is_none()
     }
 
     fn ports(&self) -> Ports {
@@ -226,8 +241,8 @@ impl Controller for RemoteController {
             self.wake();
         }
         // The values of a state the plugin has taken on since.
-        if let Some(at) = self.reread
-            && self.link.answered.load(Ordering::Relaxed) != at
+        if let Some(asked) = self.reread
+            && (header.done.load(Ordering::Acquire).wrapping_sub(asked) as i32) > 0
         {
             self.reread = None;
             let before = self.values.clone();
@@ -305,9 +320,22 @@ impl Controller for RemoteController {
         // many blocks it did not answer in time.
         match method {
             "sandbox.pid" => return Ok(self.child.id().to_string().into_bytes()),
-            // For tests: this helper, and those started from now on, stop
-            // answering blocks ("0" puts it back for new ones).
-            "sandbox.hang" => TEST_HANG.store(data != b"0", Ordering::Relaxed),
+            // For tests: this helper, and those of its kind started from
+            // now on, stop answering blocks, until "0" ([`KindTest`]).
+            "sandbox.hang" => {
+                set_kind_test(&self.kind, |test| test.hang = data != b"0");
+                if self.ended.is_some() {
+                    return Ok(Vec::new());
+                }
+            }
+            // For tests: a render waits this many milliseconds for a block
+            // of the plugins of this kind made from now on ("0": as long
+            // as for any plugin).
+            "sandbox.deadline" => {
+                let deadline = test_deadline(data)?;
+                set_kind_test(&self.kind, |test| test.deadline = deadline);
+                return Ok(Vec::new());
+            }
             "sandbox.late" => {
                 return Ok(self
                     .link
@@ -323,8 +351,8 @@ impl Controller for RemoteController {
             data,
         };
         let answer = self.ask(&request, STATE_LIMIT)?;
+        self.reread_after_next_block();
         self.wake();
-        self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         // A preset sets the plugin's parameters anew.
         if method == paw_engine::device::method::PRESET_LOAD {
             self.refresh_values();

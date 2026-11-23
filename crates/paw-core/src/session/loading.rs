@@ -20,7 +20,7 @@ use anyhow::{Result, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::MAX_BLOCK;
-use paw_engine::device::Starting;
+use paw_engine::device::{StartTest, Starting, test_deadline};
 
 use super::Session;
 use crate::model::Id;
@@ -41,12 +41,26 @@ pub(super) enum Load {
     Failed(String),
 }
 
+/// What a test asked of one device while it loads (`sandbox.hold`,
+/// `sandbox.hang`, `sandbox.deadline`).
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct LoadTest {
+    /// Kept back when it is made, until `sandbox.release`: it stays a
+    /// stand-in, and is no work in flight for [`Session::work`].
+    held: bool,
+    /// Given to the factory when the device starts.
+    start: StartTest,
+}
+
 #[derive(Default)]
 pub(super) struct Loads {
     /// Whether devices are made apart (see [`Session::set_load_apart`]).
     pub on: bool,
     /// By id, which is also the order they were added in.
     pub devices: BTreeMap<Id, Load>,
+    /// What tests asked of devices that load, by id. An entry goes with
+    /// the load: a device made again starts with none.
+    tests: BTreeMap<Id, LoadTest>,
 }
 
 impl Loads {
@@ -56,6 +70,11 @@ impl Loads {
             self.devices.get(&id),
             Some(Load::Queued | Load::Starting(_))
         )
+    }
+
+    /// Whether a test holds the device back (`sandbox.hold`).
+    fn held(&self, id: Id) -> bool {
+        self.tests.get(&id).is_some_and(|test| test.held)
     }
 
     /// Why the device could not be made, if that is what happened to it.
@@ -77,6 +96,15 @@ impl Loads {
             .filter(|load| !matches!(load, Load::Failed(_)))
             .count()
     }
+
+    /// How many devices wait or are being made, and are not held by a
+    /// test: the work that the session still does by itself.
+    pub fn in_flight(&self) -> usize {
+        self.devices
+            .iter()
+            .filter(|(id, load)| !matches!(load, Load::Failed(_)) && !self.held(**id))
+            .count()
+    }
 }
 
 impl Session {
@@ -96,11 +124,48 @@ impl Session {
             // A device made again (restarted, or undone and done again)
             // starts over: dropping what was under way ends its helper.
             self.loads.devices.insert(id, Load::Queued);
+            self.loads.tests.remove(&id);
         }
         let map = &self.engine.map;
         self.loads
             .devices
             .retain(|id, _| map.devices.contains_key(id));
+        let loads = &self.loads.devices;
+        self.loads.tests.retain(|id, _| loads.contains_key(id));
+    }
+
+    /// A test command for a device that is loading, which the session
+    /// answers itself: none for another device or command. `sandbox.hold`
+    /// keeps the device back when it is made, until `sandbox.release`.
+    /// `sandbox.hang` and `sandbox.deadline <ms>` are for a device that has
+    /// not started yet (it starts in the next turn): it is not made, and
+    /// it is given up on after the deadline.
+    pub(super) fn load_test(&mut self, id: Id, method: &str, data: &[u8]) -> Option<Result<Vec<u8>>> {
+        const COMMANDS: [&str; 4] = ["sandbox.hold", "sandbox.release", "sandbox.hang", "sandbox.deadline"];
+        if !self.loads.loading(id) || !COMMANDS.contains(&method) {
+            return None;
+        }
+        let queued = matches!(self.loads.devices.get(&id), Some(Load::Queued));
+        let test = self.loads.tests.entry(id).or_default();
+        let answer = match method {
+            "sandbox.hold" => {
+                test.held = true;
+                Ok(())
+            }
+            "sandbox.release" => {
+                test.held = false;
+                Ok(())
+            }
+            "sandbox.hang" | "sandbox.deadline" if !queued => {
+                Err(anyhow::anyhow!("{method}: the device is being made already"))
+            }
+            "sandbox.hang" => {
+                test.start.hang = data != b"0";
+                Ok(())
+            }
+            _ => test_deadline(data).map(|deadline| test.start.deadline = deadline),
+        };
+        Some(answer.map(|()| Vec::new()))
     }
 
     /// Start what is waiting, while there is room, and put in place what
@@ -112,6 +177,10 @@ impl Session {
         let mut ready = Vec::new();
         let mut failed = Vec::new();
         for (id, load) in self.loads.devices.iter_mut() {
+            // One that a test holds stays a stand-in, made or not.
+            if self.loads.tests.get(id).is_some_and(|test| test.held) {
+                continue;
+            }
             if let Load::Starting(starting) = load
                 && let Some(outcome) = starting.poll()
             {
@@ -127,6 +196,7 @@ impl Session {
         }
         for (id, _) in &ready {
             self.loads.devices.remove(id);
+            self.loads.tests.remove(id);
         }
         let running = self
             .loads
@@ -175,6 +245,7 @@ impl Session {
             self.doc.dirty = true;
         }
         for (id, why) in failed {
+            self.loads.tests.remove(&id);
             let Some((track, _)) = self.doc.project.find_device(id) else {
                 continue;
             };
@@ -196,7 +267,8 @@ impl Session {
             (_, Some(Err(err))) => format!("its saved state is not base64: {err}"),
             (Some(factory), state) => {
                 let state = state.and_then(Result::ok);
-                match factory.start(self.engine.handle.sample_rate as f32, MAX_BLOCK, state) {
+                let test = self.loads.tests.get(&id).map(|test| test.start).unwrap_or_default();
+                match factory.start(self.engine.handle.sample_rate as f32, MAX_BLOCK, state, test) {
                     Some(starting) => {
                         self.loads.devices.insert(id, Load::Starting(starting));
                         return None;

@@ -27,10 +27,11 @@ test("scripts run helper processes and talk to them over sockets", function()
     got[#got + 1] = api.sock_read(server)
   end
   local big = table.concat(sent)
-  local deadline = api.now() + 5000
-  while #table.concat(got) < #big and api.now() < deadline do
-    got[#got + 1] = api.sock_read(server)
-  end
+  -- Each write was in the socket when it returned: read until it is empty.
+  repeat
+    local more = api.sock_read(server)
+    got[#got + 1] = more
+  until more == ""
   eq(table.concat(got) == big, true, "bytes arrive unchanged, binary included")
   api.sock_close(client)
   eq(api.sock_read(server), nil, "nil once the other side closed")

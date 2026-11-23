@@ -254,6 +254,14 @@ pub trait Controller {
     fn follows_state(&self) -> bool {
         false
     }
+    /// Whether a state given with [`load_state`](Self::load_state) is not
+    /// taken on yet: some plugins take it on only in their next block, and
+    /// a plugin in a helper process tells its new values after that block.
+    /// The host says that a device took a state on (`device.state_applied`)
+    /// once this is false again.
+    fn state_pending(&self) -> bool {
+        false
+    }
     /// Called regularly, for whatever the device needs done on the main thread.
     fn idle(&mut self) {}
     /// Given as the device goes into an engine: the device wakes the engine
@@ -752,6 +760,7 @@ pub trait DeviceFactory {
     /// Begin making a device, with `state` (as its controller saved it)
     /// loaded into it, and return at once; [`Starting::poll`] gives the
     /// result. None for factories that only make devices in [`create`].
+    /// `test` is what a test asked of this one device.
     ///
     /// [`create`]: Self::create
     fn start(
@@ -759,9 +768,33 @@ pub trait DeviceFactory {
         _sample_rate: f32,
         _max_block: usize,
         _state: Option<Vec<u8>>,
+        _test: StartTest,
     ) -> Option<Box<dyn Starting>> {
         None
     }
+}
+
+/// What a test asked of one device that is made apart, before it starts
+/// (`sandbox.hang` and `sandbox.deadline` on a device that is loading).
+/// The default is what a user gets.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StartTest {
+    /// The device is not made until it is given up on: as a plugin that
+    /// waits on a dead network mount.
+    pub hang: bool,
+    /// Give up on the device when it is not made in this time, in place
+    /// of the factory's own limit.
+    pub deadline: Option<std::time::Duration>,
+}
+
+/// The deadline that a test gives as data of `sandbox.deadline`: whole
+/// milliseconds as text, "0" for none.
+pub fn test_deadline(data: &[u8]) -> Result<Option<std::time::Duration>> {
+    let text = std::str::from_utf8(data).unwrap_or_default().trim();
+    let ms: u64 = text
+        .parse()
+        .map_err(|_| anyhow::anyhow!("sandbox.deadline takes milliseconds, not `{text}`"))?;
+    Ok((ms > 0).then(|| std::time::Duration::from_millis(ms)))
 }
 
 /// A device that is being made apart from the main thread (see

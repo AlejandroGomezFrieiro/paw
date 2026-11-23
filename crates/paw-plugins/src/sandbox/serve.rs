@@ -301,7 +301,7 @@ unsafe fn run(args: &[String], make: impl FnOnce(&str, f32, usize) -> Result<Ins
     if shm.header().magic != MAGIC {
         bail!("the shared memory is not the DAW's");
     }
-    follow_test_env(kind);
+    follow_test_env();
     let instance = match make(kind, rate.parse()?, max_block) {
         Ok(instance) => instance,
         Err(err) => {
@@ -329,20 +329,19 @@ unsafe fn run(args: &[String], make: impl FnOnce(&str, f32, usize) -> Result<Ins
     Ok(())
 }
 
-/// For tests: `PAW_PLUGIN_TEST_HANG` makes the audio thread stop answering
-/// (see [`TEST_HANG`]), and `PAW_PLUGIN_HOST_HANG=<part of a kind>:<seconds>`
-/// makes the helper of a matching plugin wait that long before it makes it,
-/// as one that waits on a dead network mount does.
-fn follow_test_env(kind: &str) {
+/// For tests (see [`KindTest`] and `StartTest`): `PAW_PLUGIN_TEST_HANG`
+/// makes the audio thread stop answering (see [`TEST_HANG`]), and
+/// `PAW_PLUGIN_HOST_HANG` makes the helper wait, before it makes the
+/// plugin, until the DAW ends it: as a helper whose plugin waits on a dead
+/// network mount.
+fn follow_test_env() {
     if std::env::var_os("PAW_PLUGIN_TEST_HANG").is_some() {
         TEST_HANG.store(true, Ordering::Relaxed);
     }
-    if let Ok(hang) = std::env::var("PAW_PLUGIN_HOST_HANG")
-        && let Some((part, secs)) = hang.rsplit_once(':')
-        && kind.contains(part)
-        && let Ok(secs) = secs.parse::<f64>()
-    {
-        std::thread::sleep(Duration::from_secs_f64(secs.clamp(0.0, 3600.0)));
+    if std::env::var_os("PAW_PLUGIN_HOST_HANG").is_some() {
+        loop {
+            std::thread::park();
+        }
     }
 }
 
