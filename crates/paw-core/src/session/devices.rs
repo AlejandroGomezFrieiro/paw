@@ -548,6 +548,7 @@ impl Session {
                 warnings: &mut self.doc.warnings,
                 offline: false,
                 waker: self.engine.handle.waker(),
+                bell: self.bell.bell(crate::doorbell::Woken::PLUGINS),
                 now: self.now,
             };
             let handle = &mut self.engine.handle;
@@ -578,35 +579,9 @@ impl Session {
         Ok(())
     }
 
-    /// The upkeep of a turn: the stepped engine, takes, renders, the
-    /// transport, plugins (their editors run here, and what they changed
-    /// by themselves is picked up), bakes, devices and watched files. The
-    /// kernel calls it once each turn, at the time of the turn
-    /// ([`set_now`](Self::set_now)).
-    pub(crate) fn idle(&mut self) {
-        // The stepped engine plays up to the time of the turn first: what it
-        // played is then heard of below.
-        self.run_stepped_audio();
-        // A take whose file could not be written stops; what it has is kept.
-        if self.rec.take.as_ref().is_some_and(|t| t.shared.failed()) {
-            self.stop();
-        }
-        self.poll_takes();
-        self.render_poll();
-        self.play_states();
-        self.poll_preview();
-        self.poll_loads();
-        self.poll_bakes();
-        self.watch_devices();
-        self.poll_file_changes();
-        let mut scan = self.scan_devices();
-        self.emit_device_scan(&mut scan);
-        self.apply_device_scan(scan);
-    }
-
     /// Look at each live device once: engine faults, health, latency and what
     /// its own window changed.
-    fn scan_devices(&mut self) -> DeviceScan {
+    pub(super) fn scan_devices(&mut self) -> DeviceScan {
         let mut scan = DeviceScan::default();
         for (id, live) in &mut self.live {
             // Any device, built in or not, that panicked or put out NaN or
@@ -669,7 +644,7 @@ impl Session {
 
     /// Tell the frontends about the parameters moved in a plugin's window and
     /// the devices that stopped or put out NaN or infinity.
-    fn emit_device_scan(&mut self, scan: &mut DeviceScan) {
+    pub(super) fn emit_device_scan(&mut self, scan: &mut DeviceScan) {
         let moved = std::mem::take(&mut scan.moved);
         let stopped = std::mem::take(&mut scan.stopped);
         let invalid = std::mem::take(&mut scan.invalid);
@@ -717,7 +692,7 @@ impl Session {
 
     /// The plugin's own changes: lining up the tracks again for a new latency,
     /// and dropping the project's overrides of values the plugin now holds.
-    fn apply_device_scan(&mut self, scan: DeviceScan) {
+    pub(super) fn apply_device_scan(&mut self, scan: DeviceScan) {
         if scan.latency_changed {
             // The tracks have to be lined up again.
             self.doc.dirty = true;
@@ -827,21 +802,11 @@ impl Session {
             .with_context(|| format!("device `{kind}` takes no calls"))?
             .call(method, data)
     }
-
-    /// Whether any device needs [`idle`](Self::idle) to be called.
-    pub(crate) fn needs_idle(&self) -> bool {
-        self.live.values().any(|live| live.controller.is_some())
-            || self.loads.busy()
-            || self.watching()
-            || self.rendering()
-            || !self.rec.closing.is_empty()
-    }
-
 }
 
 /// What `Session::idle` found among the live devices.
 #[derive(Default)]
-struct DeviceScan {
+pub(super) struct DeviceScan {
     changed: Vec<(Id, Vec<String>)>,
     /// What was moved in a plugin's own window, for writing automation.
     moved: Vec<(Id, String, String, f64)>,

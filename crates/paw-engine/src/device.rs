@@ -264,6 +264,18 @@ pub trait Controller {
     }
     /// Called regularly, for whatever the device needs done on the main thread.
     fn idle(&mut self) {}
+    /// Whether the device needs [`idle`](Self::idle) at a frame rate now:
+    /// its window is open, or it has not told yet that it took a state on.
+    /// Else the host calls it only now and then, or when the device rings
+    /// (see [`set_bell`](Self::set_bell)).
+    fn wants_idle(&self) -> bool {
+        self.editor_open() || self.state_pending()
+    }
+    /// Given as the device goes into the session: the device marks it
+    /// when it asks for a call on the main thread from another thread (a
+    /// CLAP plugin's `request_callback`, which may come from the audio
+    /// thread). The host then calls [`idle`](Self::idle) soon.
+    fn set_bell(&mut self, _bell: crate::Bell) {}
     /// Given as the device goes into an engine: the device wakes the engine
     /// with it when it must run its next block for a reason that sends the
     /// engine no message (a plugin asks for a block), so that an engine at
@@ -760,7 +772,8 @@ pub trait DeviceFactory {
     /// Begin making a device, with `state` (as its controller saved it)
     /// loaded into it, and return at once; [`Starting::poll`] gives the
     /// result. None for factories that only make devices in [`create`].
-    /// `test` is what a test asked of this one device.
+    /// `test` is what a test asked of this one device. The thread that
+    /// waits rings `ready` once the result is there to poll.
     ///
     /// [`create`]: Self::create
     fn start(
@@ -769,6 +782,7 @@ pub trait DeviceFactory {
         _max_block: usize,
         _state: Option<Vec<u8>>,
         _test: StartTest,
+        _ready: crate::Bell,
     ) -> Option<Box<dyn Starting>> {
         None
     }

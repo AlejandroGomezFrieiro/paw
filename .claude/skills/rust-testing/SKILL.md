@@ -356,6 +356,10 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   over `tests/timing-allowed.txt` fails the suite and `nix flake check`.
   It also fails on each `var("HOME")`, `var_os("USER")`, `home_dir(`,
   `/etc/passwd` or `"/home/` in the test code. These have no allow-list.
+- A worker that rings the loop (`paw_engine::Bell`) has a test that
+  waits for its bit in a `doorbell::Waiter` with no timeout
+  (`waiter.wait(None)`), and then finds its result. The ring is the
+  sync point, not a time.
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that
@@ -363,8 +367,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   `Clock::manual()`.
 - A test that starts paw gives `--clock manual` when it steps timers or
   settle delays. Then `paw.api.wait(ms)` moves the clock, `paw.api.step()`
-  does one turn of the loop, and `paw.api.pending()` gives the work that is
-  in flight. Give also `--audio step` when it checks sound or meters: the
+  does one turn of the loop, `paw.api.settle()` turns it until no work
+  is in flight, and `paw.api.pending()` gives the work that is in flight. Give also `--audio step` when it checks sound or meters: the
   engine has no audio thread, and plays a block only when the clock gets
   to its end. `paw.api.wait_blocks(n)` moves the clock by exactly `n`
   blocks. In Rust, `backend::Stream::run_to(at)` and `end_of(n)` step

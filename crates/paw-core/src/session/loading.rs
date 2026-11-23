@@ -23,6 +23,7 @@ use paw_engine::MAX_BLOCK;
 use paw_engine::device::{StartTest, Starting, test_deadline};
 
 use super::Session;
+use crate::doorbell::Woken;
 use crate::model::Id;
 use crate::sync::{SyncCtx, install};
 
@@ -169,10 +170,12 @@ impl Session {
     }
 
     /// Start what is waiting, while there is room, and put in place what
-    /// has been made. Called regularly, from [`idle`](Self::idle).
-    pub(super) fn poll_loads(&mut self) {
+    /// has been made. Called regularly, from [`idle`](Self::idle). Gives
+    /// true when a device was made or could not be: the news that the
+    /// thread that waits for it rings for.
+    pub(super) fn poll_loads(&mut self) -> bool {
         if !self.loads.busy() {
-            return;
+            return false;
         }
         let mut ready = Vec::new();
         let mut failed = Vec::new();
@@ -194,6 +197,7 @@ impl Session {
                 }
             }
         }
+        let news = !ready.is_empty() || !failed.is_empty();
         for (id, _) in &ready {
             self.loads.devices.remove(id);
             self.loads.tests.remove(id);
@@ -231,6 +235,7 @@ impl Session {
                     warnings: &mut self.doc.warnings,
                     offline: false,
                     waker: self.engine.handle.waker(),
+                    bell: self.bell.bell(crate::doorbell::Woken::PLUGINS),
                     now: self.now,
                 };
                 let handle = &mut self.engine.handle;
@@ -257,6 +262,7 @@ impl Session {
             self.doc.emit(E::changed());
         }
         self.flush();
+        news
     }
 
     /// Begin making a device that was waiting. Returns why it could not
@@ -269,7 +275,8 @@ impl Session {
             (Some(factory), state) => {
                 let state = state.and_then(Result::ok);
                 let test = self.loads.tests.get(&id).map(|test| test.start).unwrap_or_default();
-                match factory.start(self.engine.handle.sample_rate as f32, MAX_BLOCK, state, test) {
+                let ready = self.bell.bell(Woken::LOADS);
+                match factory.start(self.engine.handle.sample_rate as f32, MAX_BLOCK, state, test, ready) {
                     Some(starting) => {
                         self.loads.devices.insert(id, Load::Starting(starting));
                         return None;

@@ -28,6 +28,7 @@ use serde_json::{Value, json};
 
 use super::Session;
 use super::folder::PROJECT_FILE;
+use crate::clock::Agenda;
 use crate::freeze;
 use crate::media::hash::Hashing;
 use crate::media::{Changed, MediaRecord, MediaTable, SourceHash, Sources};
@@ -520,9 +521,28 @@ impl Session {
     /// [`read_ahead_from`](Self::read_ahead_from) the playhead, a few times
     /// a second of schedule time while the song plays. Called every turn.
     pub(crate) fn read_ahead(&mut self) {
-        if self.play.playing && self.now - self.read_ahead_at >= std::time::Duration::from_millis(250) {
+        if self.play.playing && self.now - self.read_ahead_at >= super::upkeep::READ_AHEAD {
             self.read_ahead_from(self.position());
         }
+    }
+
+    /// When the song that plays is next read ahead of the playhead.
+    pub(super) fn read_ahead_agenda(&self) -> Agenda {
+        let next_due = self.play.playing.then(|| self.read_ahead_at + super::upkeep::READ_AHEAD);
+        Agenda { next_due, ..Agenda::default() }
+    }
+
+    /// Take what the hash worker learned. Gives true when it learned a
+    /// file: the news that it rings for.
+    pub(super) fn poll_hashes(&mut self) -> bool {
+        let Some(changed) = self.sources.poll() else {
+            return false;
+        };
+        if !changed.is_empty() {
+            self.doc.undo.touched = true;
+            self.tell_changed(changed);
+        }
+        true
     }
 
     /// Make the paths of a project just read from `path` absolute, and look
@@ -580,21 +600,16 @@ impl Session {
         }
     }
 
-    /// Take what the background hashing learned, and give it the files
-    /// that the project uses and nothing knows yet (an import, a
-    /// recording). Called every turn.
+    /// Give the background hashing the files that the project uses and
+    /// nothing knows yet (an import, a recording). Called every turn; the
+    /// upkeep takes what it learned (`poll_hashes`).
     pub(crate) fn poll_media(&mut self) {
-        let changed = self.sources.poll();
         // A stretched clip waits for the hash of its file: its file goes
         // to the worker now, not at the next look for new files.
         self.sources.notice(self.audio.upkeep.unhashed.iter().map(PathBuf::as_path));
         if self.sources.due(self.now) {
             let used = sources_of(&self.doc.project);
             self.sources.notice(used.iter().map(PathBuf::as_path));
-        }
-        if !changed.is_empty() {
-            self.doc.undo.touched = true;
-            self.tell_changed(changed);
         }
     }
 

@@ -241,6 +241,7 @@ fn put_in(
 ) {
     if let Some(controller) = controller.as_mut() {
         controller.set_waker(ctx.waker.clone());
+        controller.set_bell(ctx.bell.clone());
         deliver_posts(&device.kind, controller.as_mut(), ctx);
     }
     let attached = controller

@@ -105,7 +105,7 @@ test("a stretch starts to be made 150 ms after it is asked for", function()
   -- The stretch is asked for once its file is hashed. The hashing is work
   -- in flight, so a settle waits for it.
   local pending = T.settle()
-  eq(pending.hashing, 0, "the file is hashed")
+  eq(pending.in_flight.hashes, nil, "the file is hashed")
   eq(pending.bakes_waiting, 1, "and the stretch is asked for")
   T.advance(149)
   eq(api.pending().bakes_waiting, 1, "149 ms later the stretch still waits")

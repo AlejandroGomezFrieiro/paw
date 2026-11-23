@@ -22,7 +22,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use crate::clock::ScheduleTime;
+use crate::clock::{Agenda, ScheduleTime};
+use crate::doorbell::Woken;
 
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::backend;
@@ -374,6 +375,9 @@ pub(crate) struct Job {
     started: Instant,
     progress: Arc<Progress>,
     thread: Option<JoinHandle<Result<Value>>>,
+    /// The render's thread did its work: joining it waits no more than
+    /// for the thread to end.
+    ended: Arc<AtomicBool>,
     /// The main-thread side of the render's devices: kept here until its
     /// engine, on the render's thread, is gone.
     live: Option<LiveDevices>,
@@ -388,6 +392,20 @@ pub(crate) struct Job {
     /// The stop being given, while the plugin gets ready.
     settling: Option<(Id, Settle)>,
     settle: Duration,
+}
+
+/// Says that a render's thread did its work, however it ends: the flag
+/// first, then the bell.
+struct Ended {
+    ended: Arc<AtomicBool>,
+    bell: paw_engine::Bell,
+}
+
+impl Drop for Ended {
+    fn drop(&mut self) {
+        self.ended.store(true, std::sync::atomic::Ordering::Release);
+        self.bell.ring();
+    }
 }
 
 /// What a render's thread needs besides its engine.
@@ -409,6 +427,9 @@ struct Plan {
     /// [`check_render_target`] refuses it with `peak` or `loudness`.
     gain: f32,
     progress: Arc<Progress>,
+    /// Tells the main loop that the render asks for a stop's state, or
+    /// that it ended.
+    bell: paw_engine::Bell,
     /// For a lossy format: how ffmpeg is to make the file from the WAV
     /// that is rendered first.
     encode: Option<Encode>,
@@ -554,6 +575,7 @@ impl Session {
             loudness: opts.loudness,
             gain: opts.gain.map_or(1.0, paw_engine::db_to_gain),
             progress: progress.clone(),
+            bell: self.bell.bell(Woken::RENDER),
             encode: format.lossy().map(|lossy| Encode {
                 format: lossy,
                 program: encode::program(opts.ffmpeg.as_deref()).to_owned(),
@@ -563,9 +585,12 @@ impl Session {
             tags: opts.tags.clone(),
             cover,
         };
+        let ended = Arc::new(AtomicBool::new(false));
+        let end = Ended { ended: ended.clone(), bell: plan.bell.clone() };
         let thread = std::thread::Builder::new()
             .name("render".into())
             .spawn(move || {
+                let _end = end;
                 let _handle = handle;
                 run(engine, plan)
             })
@@ -577,6 +602,7 @@ impl Session {
             started,
             progress,
             thread: Some(thread),
+            ended,
             live: Some(live),
             reported: (0.0, self.now),
             stops,
@@ -693,6 +719,7 @@ impl Session {
             warnings: &mut self.doc.warnings,
             offline: true,
             waker,
+            bell: paw_engine::Bell::none(),
             now: self.now,
         };
         let mut mapper = Mapper::new();
@@ -815,22 +842,24 @@ impl Session {
     /// Report how the running render is getting on: `render.progress` now
     /// and then, and `render.done`, `render.failed` or `render.cancelled`
     /// when it ends. Called from [`idle`](Self::idle).
-    pub(crate) fn render_poll(&mut self) {
+    /// Gives true when the render's thread asked for a stop's state or
+    /// ended: the news that it rings for.
+    pub(crate) fn render_poll(&mut self) -> bool {
         let Some(job) = &mut self.render_job else {
-            return;
+            return false;
         };
-        serve_stops(job);
-        let finished = job.thread.as_ref().is_none_or(|t| t.is_finished());
+        let asked = serve_stops(job);
+        let finished = job.thread.is_none() || job.ended.load(std::sync::atomic::Ordering::Acquire);
         if !finished {
             let fraction = job.progress.get();
             // At most ten times a second of schedule time.
-            if fraction != job.reported.0 && self.now - job.reported.1 >= Duration::from_millis(100) {
+            if fraction != job.reported.0 && self.now - job.reported.1 >= PROGRESS {
                 job.reported = (fraction, self.now);
                 let progress = RenderProgress { path: job.path.clone(), fraction,
                     stage: job.progress.stage().to_string(), seconds: job.started.elapsed().as_secs_f64() };
                 self.doc.emit(E::RenderProgress(progress));
             }
-            return;
+            return asked;
         }
         let mut job = self.render_job.take().expect("checked above");
         let result = match job.thread.take() {
@@ -846,18 +875,39 @@ impl Session {
             Err(err) => E::RenderFailed(RenderEnd { path: job.path, error: Some(format!("{err:#}")) }),
         };
         self.doc.emit(event);
+        true
+    }
+
+    /// What the running render has left for the loop: its thread in
+    /// flight, its next report of progress, and a tick while a plugin gets
+    /// ready for a stop's state.
+    pub(crate) fn render_agenda(&self) -> Agenda {
+        let Some(job) = &self.render_job else {
+            return Agenda::default();
+        };
+        Agenda {
+            in_flight: 1,
+            next_due: Some(job.reported.1 + PROGRESS),
+            tick: job.settling.is_some().then_some(crate::session::upkeep::FRAME),
+            ..Agenda::default()
+        }
     }
 }
 
+/// The time between two reports of a render's progress.
+const PROGRESS: Duration = Duration::from_millis(100);
+
 /// Give the states the render's thread stopped for, and answer it once the
-/// plugin is ready. Never waits.
-fn serve_stops(job: &mut Job) {
+/// plugin is ready. Never waits. Gives true when the thread asked for one.
+fn serve_stops(job: &mut Job) -> bool {
     let Some(live) = job.live.as_mut() else {
-        return;
+        return false;
     };
+    let mut asked = false;
     if job.settling.is_none()
         && let Ok(at) = job.asks.try_recv()
     {
+        asked = true;
         if let Some(stop) = job.stops.get(at)
             && let Some(device) = live.get_mut(&stop.device)
         {
@@ -874,6 +924,7 @@ fn serve_stops(job: &mut Job) {
         job.settling = None;
         let _ = job.answers.send(());
     }
+    asked
 }
 
 /// A render's answer with what it had to leave out, if anything.
@@ -1070,7 +1121,9 @@ fn play(
 /// Ask the main thread to give the state of stop `at`, and wait until the
 /// plugin is ready.
 fn wait_for_state(plan: &Plan, at: usize) -> Result<()> {
-    if plan.ask.send(at).is_err() {
+    let asked = plan.ask.send(at);
+    plan.bell.ring();
+    if asked.is_err() {
         return Ok(());
     }
     loop {
@@ -1395,6 +1448,17 @@ impl Flac {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_render_thread_that_ends_sets_its_flag_and_then_rings() {
+        let waiter = crate::doorbell::Waiter::new().unwrap();
+        let ended = Arc::new(AtomicBool::new(false));
+        let end = Ended { ended: ended.clone(), bell: waiter.doorbell().bell(Woken::RENDER) };
+        std::thread::spawn(move || drop(end)).join().unwrap();
+        waiter.wait(None).unwrap();
+        assert_eq!(waiter.doorbell().take(), Woken::RENDER);
+        assert!(ended.load(std::sync::atomic::Ordering::Acquire));
+    }
 
     #[test]
     fn a_format_that_cannot_be_written_is_refused_by_name() {

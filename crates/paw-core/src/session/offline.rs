@@ -86,6 +86,7 @@ impl Session {
                 warnings: &mut self.doc.warnings,
                 offline: true,
                 waker,
+                bell: paw_engine::Bell::none(),
                 now: self.now,
             };
             sync(

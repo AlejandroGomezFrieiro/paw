@@ -60,6 +60,7 @@ mod promote;
 mod save;
 mod export;
 mod schedule;
+mod upkeep;
 pub(crate) use document::{Place, WrapOpts};
 mod monitor;
 mod statelanes;
@@ -542,6 +543,9 @@ pub(crate) struct Session {
     read_ahead_at: ScheduleTime,
     /// The schedule time of the turn that runs (`Session::set_now`).
     now: ScheduleTime,
+    /// Gives the workers of the session their bells
+    /// ([`set_doorbell`](Self::set_doorbell)).
+    bell: crate::doorbell::Doorbell,
     /// What each of the project's files is: its hash, size and header
     /// (`media.json`), learned in the background (session/media.rs).
     pub(crate) sources: crate::media::Sources,
@@ -645,6 +649,7 @@ impl Session {
             files_there: Default::default(),
             read_ahead_at: ScheduleTime::ZERO,
             now: ScheduleTime::ZERO,
+            bell: Default::default(),
             sources: Default::default(),
             shelf: None,
             audition: Default::default(),

@@ -16,7 +16,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::{SendError, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -29,6 +29,7 @@ use serde_json::Value;
 
 use crate::api::{self, Env, Shared};
 use crate::clock::{Agenda, Clock, ScheduleTime};
+use crate::doorbell::{Waiter, Woken};
 use crate::grid::{Caps, Grid, Highlights};
 use crate::rpc::{ClientId, Clients};
 use crate::session::Session;
@@ -99,6 +100,24 @@ pub enum KernelMsg {
     Gone(ClientId),
 }
 
+/// The sending end of the kernel's channel, for other threads: a message
+/// sent wakes the loop. Cheap to clone.
+#[derive(Clone)]
+pub struct KernelSender {
+    tx: Sender<KernelMsg>,
+    bell: paw_engine::Bell,
+}
+
+impl KernelSender {
+    /// Send a message to the kernel and wake its loop. An error gives the
+    /// message back when the kernel is gone.
+    pub fn send(&self, msg: KernelMsg) -> Result<(), SendError<KernelMsg>> {
+        self.tx.send(msg)?;
+        self.bell.ring();
+        Ok(())
+    }
+}
+
 /// Something that shows the grid to a person.
 pub trait Frontend {
     fn present(&mut self, grid: &Grid, cursor: Option<(u16, u16)>) -> Result<()>;
@@ -129,7 +148,7 @@ pub struct KernelOpts {
 pub struct Kernel {
     shared: Rc<Shared>,
     lua: Lua,
-    tx: Sender<KernelMsg>,
+    tx: KernelSender,
 }
 
 impl Drop for Kernel {
@@ -152,7 +171,10 @@ impl Kernel {
         session.sources.keep_index_in(crate::media::index::LocalIndex::default_file(&opts.dirs));
         session.dirs = opts.dirs;
         session.set_now(opts.clock.now());
+        let waiter = Waiter::new().context("the wait of the kernel's loop")?;
+        session.set_doorbell(waiter.doorbell().clone());
         let (tx, rx) = channel();
+        let tx = KernelSender { tx, bell: waiter.doorbell().bell(Woken::MESSAGES) };
         let clients = Clients::default();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties
@@ -200,7 +222,11 @@ impl Kernel {
             input_from: Cell::new(0),
             detach: RefCell::new(Vec::new()),
             watchdog: Watchdog::new(started),
-            measures: Default::default(),
+            measures: crate::measure::Running::with_bell(waiter.doorbell().bell(Woken::MEASURES)),
+            waiter,
+            missed: Cell::new(Woken::empty()),
+            missed_wakes: Cell::new(0),
+            looked_on_a_tick: Cell::new(false),
             scenes: Default::default(),
             env: Env {
                 config_dir: opts.config_dir,
@@ -211,15 +237,15 @@ impl Kernel {
             },
         });
         // What a helper writes waits with it; the message only wakes the loop.
-        let output_tx = Mutex::new(tx.clone());
+        let output_tx = tx.clone();
         shared.io.borrow_mut().on_output(Arc::new(move || {
-            let _ = output_tx.lock().unwrap().send(KernelMsg::Output);
+            let _ = output_tx.send(KernelMsg::Output);
         }));
         Ok(Self { shared, lua: Lua::new(), tx })
     }
 
     /// A handle for other threads to send input and RPC calls to the kernel.
-    pub fn sender(&self) -> Sender<KernelMsg> {
+    pub fn sender(&self) -> KernelSender {
         self.tx.clone()
     }
 

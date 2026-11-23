@@ -25,11 +25,14 @@ local record M
     longest: number
   end
   --- What `paw.slices` takes besides the step: `ms`, the most milliseconds
-  --- that one call of the step gets (4), and `after`, the milliseconds
-  --- before the first slice (0).
+  --- that one call of the step gets (4), `after`, the milliseconds before
+  --- the first slice (0), and `idle`, true for work that nothing waits
+  --- for (the collector of garbage): a wait of a test does not wait for
+  --- its slices (`paw.api.settle`).
   record Options
     ms: number
     after: number
+    idle: boolean
   end
   --- One slice of a job: work for at most `ms` milliseconds, then return
   --- true when the job is over.
@@ -49,11 +52,13 @@ local record Paw
 end
 local paw = (_G as {string: Paw}).paw
 
---- A job that runs: what it calls, how long a slice is, the timer of its next slice.
+--- A job that runs: what it calls, how long a slice is, whether it is
+--- idle work, the timer of its next slice.
 local record Running
   job: M.Job
   step: M.Step
   ms: number
+  idle: boolean
   timer: integer
 end
 
@@ -61,7 +66,18 @@ local jobs: {string: Running} = {}
 
 local named = limit.named as Named
 
-local function slice(r: Running)
+local slice: function(r: Running)
+
+--- The timer of the next slice of `r`, in `ms` milliseconds. The timer of
+--- idle work says so to the kernel.
+local function next_slice(r: Running, ms: number): integer
+  if r.idle then
+    return api.timer_start(ms, false, function() slice(r) end, true)
+  end
+  return paw.defer(function() slice(r) end, ms)
+end
+
+slice = function(r: Running)
   r.timer = nil
   local job = r.job
   local t0 = api.real_ms()
@@ -80,7 +96,7 @@ local function slice(r: Running)
     jobs[job.name] = nil
     return
   end
-  r.timer = paw.defer(function() slice(r) end, 0)
+  r.timer = next_slice(r, 0)
 end
 
 --- Stop the job `name`. Returns true if it was running.
@@ -100,8 +116,9 @@ end
 --- until it returns true. The step works for at most `ms` milliseconds
 --- (`opts.ms`, 4) and keeps its place for the next call. The keys that
 --- wait run between two calls. `opts.after` is the time before the first
---- call (0). A job of the same name stops first. An error in the step
---- shows as a message and ends the job. Returns the job.
+--- call (0). With `opts.idle`, the job is idle work: a wait of a test does
+--- not wait for it. A job of the same name stops first. An error in the
+--- step shows as a message and ends the job. Returns the job.
 function M.run(name: string, step: M.Step, opts?: M.Options): M.Job
   M.stop(name)
   opts = opts or {}
@@ -109,9 +126,10 @@ function M.run(name: string, step: M.Step, opts?: M.Options): M.Job
     job = {name = name, slices = 0, ms = 0, longest = 0},
     step = step,
     ms = opts.ms or 4,
+    idle = opts.idle or false,
   }
   jobs[name] = r
-  r.timer = paw.defer(function() slice(r) end, opts.after or 0)
+  r.timer = next_slice(r, opts.after or 0)
   return r.job
 end
 

@@ -1168,22 +1168,26 @@ local record types
 
   -- The loop of the kernel (api/timers.rs) -----------------------------------
 
-  --- `paw.api.pending()` (`Pending`): the work not done yet, by kind.
-  --- `next_ms` is nil when nothing waits for the schedule clock.
+  --- `paw.api.pending()` and `paw.api.settle()` (`Pending`): the work not
+  --- done yet. `ready`: the next turn has work. `quiet`: nothing is in
+  --- flight, no helper works and the engine plays nothing: only timers
+  --- are left. `next_ms` is nil when nothing waits for the schedule clock.
+  --- `in_flight` has the work of other threads and processes by kind
+  --- (`bakes`, `hashes`, `loads`, `renders`, `takes`, `preview`,
+  --- `plugins`, `measures`); a kind with none is left out.
   record Pending
+    ready: boolean
+    quiet: boolean
+    next_ms: number
+    in_flight: {string: integer}
     timers_due: integer
     timers: integer
-    next_ms: number
-    bakes_running: integer
     bakes_waiting: integer
-    hashing: integer
-    plugin_loads: integer
-    renders: integer
-    measures: integer
     files: integer
     midi: integer
     helpers: integer
     helpers_busy: integer
+    missed_wakes: integer
   end
 
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
