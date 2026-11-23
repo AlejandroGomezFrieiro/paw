@@ -66,7 +66,7 @@ use paw_engine::{
     NOTE_BEND_RANGE, NoteCtl, ParamInfo, Ports, ProcessCtx, Registry, ump,
 };
 
-use crate::echo::Echo;
+use crate::echo::{Blocks, Echo};
 use crate::presets::PresetLocation;
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
 use crate::{Found, HeldNotes, PluginFormat, is_main_thread, write_output};
@@ -199,7 +199,7 @@ struct HostFlags {
     rescan: AtomicBool,
     /// Blocks the plugin has processed, to tell when it has taken on a
     /// state.
-    blocks: AtomicU64,
+    blocks: Blocks,
     /// States the plugin was given: the first block after a new one is
     /// the block in which a plugin that takes a state on in its next block
     /// takes it on.
@@ -220,7 +220,7 @@ impl HostFlags {
             restart: AtomicBool::new(false),
             wake: AtomicBool::new(false),
             rescan: AtomicBool::new(false),
-            blocks: AtomicU64::new(0),
+            blocks: Blocks::default(),
             loads: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             resize: Mutex::new(None),
@@ -875,20 +875,19 @@ impl Device for ClapDevice {
         };
         let steady_time = self.steady_time;
         self.steady_time += n as u64;
-        let status = processor.process(
-            &inputs,
-            &mut outputs,
-            &InputEvents::from_buffer(&self.events),
-            &mut OutputEvents::from_buffer(&mut self.out),
-            Some(steady_time),
-            Some(&transport(ctx)),
-        );
+        let status = self.shared.flags.blocks.run(|| {
+            processor.process(
+                &inputs,
+                &mut outputs,
+                &InputEvents::from_buffer(&self.events),
+                &mut OutputEvents::from_buffer(&mut self.out),
+                Some(steady_time),
+                Some(&transport(ctx)),
+            )
+        });
         if let Err(PluginInstanceError::NullProcessFunction) = status {
             return;
         }
-        // Counted once the block is done: a state taken on in it, and
-        // the plugin's words of it, are there before the count is.
-        self.shared.flags.blocks.fetch_add(1, Ordering::Release);
         // The plugin failed the block (`CLAP_PROCESS_ERROR`).
         let Ok(status) = status else {
             return;
@@ -1035,8 +1034,8 @@ struct ClapController {
     changes: rtrb::Consumer<(clap_id, f64, bool, bool)>,
     /// Tells the echo of a state from an edit.
     echo: Echo,
-    /// When it was last given a state, how many blocks it had processed:
-    /// its values are read again once it has processed another.
+    /// When it was last given a state, the mark of its blocks: its values
+    /// are read again once a block after it is done.
     reread: Option<u64>,
     /// The last value seen for each parameter, to tell what a rescan changed.
     known: Vec<f64>,
@@ -1055,7 +1054,7 @@ impl ClapController {
     fn given_state(&mut self) {
         let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();
         self.echo.given(values);
-        self.reread = Some(self.shared.flags.blocks.load(Ordering::Acquire));
+        self.reread = Some(self.shared.flags.blocks.mark());
         self.shared.flags.loads.fetch_add(1, Ordering::Release);
     }
 
@@ -1224,8 +1223,8 @@ impl Controller for ClapController {
         let mut out = Vec::new();
         // A plugin that takes a state on only in its next block has its
         // new values only then: read them back, as the echo they are.
-        if let Some(blocks) = self.reread
-            && self.shared.flags.blocks.load(Ordering::Acquire) != blocks
+        if let Some(mark) = self.reread
+            && self.shared.flags.blocks.after(mark)
         {
             self.reread = None;
             let values: Vec<Option<f64>> = (0..self.known.len()).map(|i| self.value(i)).collect();

@@ -10,7 +10,7 @@ use std::ffi::{c_char, c_void};
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
@@ -24,7 +24,7 @@ use vst3::Steinberg::Vst::*;
 use vst3::Steinberg::*;
 use vst3::{Class, ComPtr, ComRef, ComWrapper, Interface};
 
-use crate::echo::Echo;
+use crate::echo::{Blocks, Echo};
 use crate::window::{HostWindow, Watches, WindowEvent, ui_scale};
 use crate::{Found, HeldNotes, PluginFormat, write_output};
 
@@ -328,7 +328,7 @@ struct Host {
     /// take on in their next block.
     wake: AtomicBool,
     /// Blocks the processor has run, to tell when it has taken on a state.
-    blocks: AtomicU64,
+    blocks: Blocks,
     watches: RunLoop,
 }
 
@@ -1392,10 +1392,11 @@ impl Device for Vst3Device {
                 .as_ptr();
             data.inputEvents = self.events.as_com_ref::<IEventList>().unwrap().as_ptr();
             data.processContext = &mut context;
-            let processed = self.shared.processor.process(&mut data);
-            // Counted once the block is done: a state taken on in it is
-            // there before the count is.
-            self.shared.host.blocks.fetch_add(1, Ordering::Release);
+            let processed = self
+                .shared
+                .host
+                .blocks
+                .run(|| self.shared.processor.process(&mut data));
             if processed != OK {
                 return;
             }
@@ -1447,8 +1448,8 @@ struct Vst3Controller {
     known: Vec<f64>,
     /// Tells the echo of a state from an edit.
     echo: Echo,
-    /// When it was last given a state, how many blocks the processor had
-    /// run: the controller reads the state again once it has run another.
+    /// When it was last given a state, the mark of its blocks: the
+    /// controller reads the state again once a block after it is done.
     reread: Option<u64>,
     /// Values a state gave the controller, to report as its echo.
     reported: Vec<Change>,
@@ -1607,8 +1608,8 @@ impl Controller for Vst3Controller {
         // it there) has its new values only then: the controller, which
         // read them from it as it was given the state, reads them again.
         // What changed is the echo of the state: the processor has it.
-        if let Some(blocks) = self.reread
-            && self.shared.host.blocks.load(Ordering::Acquire) != blocks
+        if let Some(mark) = self.reread
+            && self.shared.host.blocks.after(mark)
         {
             self.reread = None;
             if let Some(controller) = &self.shared.controller {
@@ -1894,7 +1895,7 @@ impl Controller for Vst3Controller {
         // Some plugins only queue the state here and take it on in their
         // next block: a processor that sleeps would never take it.
         self.shared.host.wake.store(true, Ordering::Relaxed);
-        self.reread = Some(self.shared.host.blocks.load(Ordering::Acquire));
+        self.reread = Some(self.shared.host.blocks.mark());
         Ok(())
     }
 }
