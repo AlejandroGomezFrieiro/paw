@@ -19,6 +19,9 @@ use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
 
+mod automation;
+pub use automation::ParamRange;
+pub(super) use automation::{check_lane_state, clean_points};
 mod clips;
 pub(super) use clips::{ClipField, check_clip_track};
 mod links;
