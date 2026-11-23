@@ -190,6 +190,28 @@ function M.folded(group: TrackRef): boolean
   return paw.folds ~= nil and paw.folds.group_closed(id_of(group))
 end
 
+--- The subproject a track is in, or nil for a track of the song.
+local track_nest = api.track_get as function(integer, string): integer
+local function place_of(id: integer): integer
+  local ok, nest = pcall(track_nest, id, "nest") as (boolean, integer)
+  return ok and nest or nil
+end
+
+--- The group that a new track goes into when it is added next to `track`
+--- (`o`, `O`, `:nest.new`): below an open group's own row, that group;
+--- else the group of `track`. Nil at the top level, and for a group in
+--- another place (a subproject) than `track`.
+function M.home(track: TrackRef, above?: boolean): integer
+  local id = id_of(track)
+  local group = M.of(id)
+  if not above and M.is_group(id) and not M.folded(id) then
+    group = id
+  end
+  if group and place_of(group) == place_of(id) then
+    return group
+  end
+end
+
 --- True if a track is hidden: inside a folded group. Inside group `top`
 --- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.

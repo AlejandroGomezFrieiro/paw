@@ -138,8 +138,8 @@ test("notation: K on a note says how it is written and what MIDI note it is", fu
   end
   keys("g'")
   keys("K")
-  local text = screen(160, 50)
-  keys("q")
+  local text = T.hover_text()
+  keys("<Esc>")
   eq(text:find("Note  D5", 1, true) ~= nil, true, "the note's name:\n" .. text)
   eq(
     text:find("written quarter, voice 1, staccato, under mf", 1, true) ~= nil,

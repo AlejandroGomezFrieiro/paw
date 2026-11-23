@@ -203,10 +203,8 @@ test("in the mixer h l go between strips and j k along a strip's rows, which + -
   keys("G")
   eq(paw.mixer_rows.current().field, "monitor", "G is the bottom row")
   keys("K")
-  eq(paw.ui.float ~= nil, true, "K describes")
-  while paw.ui.float do
-    paw.ui.close()
-  end
+  eq(paw.ui.hovered ~= nil, true, "K describes")
+  paw.ui.close()
   paw.ui.hide("mixer")
 end)
 

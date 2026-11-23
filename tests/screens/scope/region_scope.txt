@@ -1,22 +1,22 @@
  Verse                  │1   ▼   3       5       7       ┃
  cur 1.1 @9.1           │@9      @11     @13     @15     ┃ end of Verse · zw: the song
- 1 ▾▌ Drums        MSRI │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ┃
+ 1 ▾▌ Drums        MSRI │━━━━▏━━━━━━━━━━━━━━━━━━━━━━━━━━━┃
    │▌in ─────────── 0.0 │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ┃
    │▌   C               │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ┃
-   │▌                   │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ┃
  2 │▌ Kick         MSRI │‹Kick                          ›┃
    │▌in ─────────── 0.0 │                                ┃
    │▌   C       → Drums │                                ┃
-   │▌                   │                                ┃
  3 ╰▌ Snare        MSRI │‹Snare                         ›┃
     ▌in ─────────── 0.0 │                                ┃
     ▌   C       → Drums │                                ┃
-    ▌                   │                                ┃
  4  █ Bass         MSRI │‹Bass                          ›┃
     █in ─────────── 0.0 │                                ┃
     █   C               │                                ┃
-    █                   │                                ┃
         o new track     │
+                        │
+                        │
+                        │
+                        │
                         │
                         │
                         │

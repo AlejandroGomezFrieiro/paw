@@ -133,11 +133,7 @@ test("K on a folded group: its name, its tracks, and that it is folded", functio
   paw.cursor.set_track(b.strings)
   keys("za")
   keys("K")
-  local lines = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    lines[#lines + 1] = line.text
-  end
-  local text = table.concat(lines, "\n")
+  local text = T.hover_text()
   eq(text:find("Fold  Strings\n  Song › Strings · 3 tracks · folded", 1, true) ~= nil, true, text)
 end)
 
@@ -293,6 +289,7 @@ end
 
 test("a visual block over two tracks and four bars, then zf, draws one cell; the other track shows its clip", function()
   trio()
+  paw.opt.zoom = 2
   local open = render("block-open")
   local edits = api.project_get().edits
   local before = screen()
@@ -301,9 +298,9 @@ test("a visual block over two tracks and four bars, then zf, draws one cell; the
   eq({ f.kind, #f.tracks, f.from, f.to, f.closed }, { "range", 2, 16, 32, true }, "a closed block of two tracks")
   local text = screen()
   local keys_rows = rows_of(text, "Keys", "Bass")
-  eq(keys_rows:find("Fold 1", 1, true) ~= nil, true, "one cell with the name:\n" .. keys_rows)
+  eq(keys_rows:find("Keys, Bass 5-8", 1, true) ~= nil, true, "one cell named by its tracks and bars:\n" .. keys_rows)
   eq(rows_of(text, "Pad", "new track"), rows_of(before, "Pad", "new track"), "Pad shows its clip there as before")
-  eq(scene(L.current()):find("Fold 1", 1, true) ~= nil, true, "the scene of the window carries the cell")
+  eq(scene(L.current()):find("Keys, Bass 5-8", 1, true) ~= nil, true, "the scene of the window carries the cell")
   eq(#paw.folds.time_spans(), 0, "no column: the time of the other tracks stays")
   eq(render("block-closed") == open, true, "a render with the fold is the same, bit for bit")
   eq(api.project_get().edits, edits, "no edit of the project")
@@ -312,11 +309,108 @@ test("a visual block over two tracks and four bars, then zf, draws one cell; the
   eq(rows_of(screen(), "Keys", "Bass"), rows_of(before, "Keys", "Bass"), "za opens it: the clips again")
   keys("za")
   keys("znn")
-  eq(paw.scope.breadcrumb(), "Song › Fold 1", "znn enters it")
+  eq(paw.scope.breadcrumb(), "Song › Keys, Bass 5-8", "znn enters it")
   eq(#paw.folds.blocks(), 0, "open inside it")
   keys("zw")
-  eq(rows_of(screen(), "Keys", "Bass"):find("Fold 1", 1, true) ~= nil, true, "zw: back, closed as it was")
+  eq(rows_of(screen(), "Keys", "Bass"):find("Keys, Bass 5-8", 1, true) ~= nil, true, "zw: back, closed as it was")
   keys("zd")
   eq(#paw.folds.list(), 0, "zd deletes it")
   eq(rows_of(screen(), "Keys", "Bass"), rows_of(before, "Keys", "Bass"), "the clips are drawn as before")
+end)
+
+--- Keys, Bass, Pad and Lead, a grid of one bar, two columns a beat, and a
+--- closed block over Bass and Pad in bars 5 to 8, made with the keys. The
+--- cursor is on Bass at bar 5, on the block.
+local function quartet()
+  trio()
+  paw.add_track({ name = "Lead" })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.opt.zoom, paw.opt.grid, paw.opt.track_height = 2, 4, 3
+  keys("j<C-v>j4lzf")
+end
+
+local function on() return api.track_get(paw.cursor.track_id()).name .. " " .. paw.cursor.beat end
+
+test("a closed block is one row for j and k and one step for l and h; an open block is not", function()
+  quartet()
+  keys("k")
+  eq(on(), "Keys 16", "k from the block: the row above it")
+  keys("j")
+  eq(on(), "Bass 16", "j onto the block: its first row")
+  keys("j")
+  eq(on(), "Lead 16", "j again: the row below the block, in one step")
+  keys("k")
+  eq(on(), "Bass 16", "k back onto the block")
+  keys("h")
+  eq(on(), "Bass 12", "h: the bar before the block")
+  keys("l")
+  eq(on(), "Bass 16", "l onto the block")
+  keys("l")
+  eq(on(), "Bass 32", "l again: the bar after the block, in one step")
+  keys("h")
+  eq(on(), "Bass 16", "h back onto it")
+  keys("k2j")
+  eq(on(), "Lead 16", "a count takes the block as one row")
+
+  keys("kza")
+  eq(#paw.folds.blocks(), 0, "za opens the block")
+  keys("hl")
+  eq(on(), "Bass 16", "open: l lands on the first bar of the block")
+  keys("l")
+  eq(on(), "Bass 20", "and l goes on through it bar by bar")
+  keys("kjj")
+  eq(on(), "Pad 20", "j and k go through its rows")
+end)
+
+test("a closed block is a frame with its name, its bars and the keys; a narrow cell keeps the name", function()
+  quartet()
+  -- The top edge: the name `Bass, Pad 5-8` and `4 bars`.
+  T.expect_screen("block_fold", 100, 30, { rows = { 3, 14 } })
+  -- At one column a beat the cell is 16 cells wide: the name stays, the bars go.
+  paw.opt.zoom = 1
+  local text = table.concat(api.ui_snapshot(100, 30), "\n")
+  local edge = text:match("[^\n]*╭▸[^\n]*") or ""
+  eq(edge:find("╭▸ Bass, Pad 5-8", 1, true) ~= nil, true, "the name:\n" .. text)
+  eq(edge:find("bars", 1, true), nil, "the count is cut first:\n" .. edge)
+end)
+
+-- Overviews --------------------------------------------------------------------------------
+
+--- A group Drums of Kick and Snare, each with a clip of 8 bars, and Bass
+--- with no clip; three rows a track, the cursor on Kick.
+local function drums()
+  start()
+  local saved = { zoom = paw.opt.zoom, grid = paw.opt.grid }
+  T.after(function()
+    paw.opt.zoom, paw.opt.grid = saved.zoom, saved.grid
+  end)
+  paw.opt.zoom, paw.opt.grid, paw.opt.track_height = 1, 4, 3
+  paw.ui.views:get("arrange").scroll = 0
+  local members = {}
+  for i, name in ipairs({ "Kick", "Snare" }) do
+    local t = paw.add_track({ name = name })
+    local notes = {}
+    for beat = 0, 30, 4 do
+      notes[#notes + 1] = { pitch = 36 + 2 * i, start = beat + i - 1, length = 1 }
+    end
+    t:add_clip({ name = name, start = 4 * i, length = 32, notes = notes })
+    members[i] = t
+  end
+  paw.add_track({ name = "Bass" })
+  paw.groups.make(members, "Drums")
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(members[1])
+  paw.cursor.set_beat(0)
+end
+
+test("a group's row shows where its tracks have clips; a folded group lists its members with their notes", function()
+  drums()
+  T.expect_screen("group_open", 100, 30, { rows = { 2, 13 }, styles = false })
+  keys("za")
+  T.expect_screen("group_folded", 100, 30, { rows = { 2, 7 }, styles = false })
+  paw.opt.track_height = 2
+  local text = table.concat(api.ui_snapshot(100, 30), "\n")
+  eq(text:find("+2 more", 1, true) ~= nil, true, "two lines: the overview, then how many members:\n" .. text)
 end)

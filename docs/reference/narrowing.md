@@ -21,8 +21,8 @@ model.
 | `zW`, `:widen!` | Go up to the whole song. |
 | `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A subproject: the next clip of a subproject in time, which is the next block of the same subproject or another subproject. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
 | `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
-| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the folds of this window (marked `fold`), the groups, the subprojects (marked `nest`) and the regions as a tree. The preview shows the path of the entry and what it holds. |
-| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes before the track under the cursor (see below). |
+| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the folds of this window (marked `fold`), the groups, the subprojects (marked `subproject` and `⧉` before the name) and the regions as a tree. The preview shows the path of the entry and what it holds. |
+| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes first in the float of `K`, before the track under the cursor (see below). |
 | `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
 | `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
@@ -37,13 +37,16 @@ Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named
 ```
 
 - The bars count from 1 at the start of the scope. The bars of the song
-  follow in parentheses with `@` when they differ, as you type a bar of
-  the song. A scope with all the time of
+  follow in parentheses when they differ, each with `@`, as you type a
+  bar of the song. A scope with all the time of
   the song has no bars and no meter.
 - The meter is the meter at the start of the scope.
 - `named` shows when you named the scope with `:scope.name`.
 - On a fold, the path ends with the name of the fold, and the last word is
   `folded` or `open`, for example `Song › Strings · 3 tracks · folded`.
+- A last line gives the keys for it. On a fold, these are `za` to open it,
+  `znn` to enter it and `zd` to delete it. In a scope, these are `zw` to go
+  up one level, `zW` to go to the song and `]z` to go to the next scope.
 
 The same words show in the message when you enter a scope.
 
@@ -217,7 +220,7 @@ closed, so `znn` on a fold enters it.
 
 | Keys, command | Effect |
 | --- | --- |
-| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. A visual block on some of the tracks: one cell over those tracks and bars, named `Fold 1`. |
+| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. A visual block on some of the tracks: one frame over those tracks and bars, named by its tracks and bars, for example `Piano, Pad 9-24`. |
 | `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a block fold, the block. Else on a track of a group, the fold is the group, and else the region at the cursor. |
 | `zc`, `:fold.close` | Close the fold at the cursor. On a closed fold, close the fold around it. |
 | `zm`, `:fold.more` | Close one more level of regions, the deepest open level first. |
@@ -239,6 +242,11 @@ closed, so `znn` on a fold enters it.
   of its tracks, for example `Fold 1 +3`. The track column shows `▸` on
   it. The row is the first track of the fold, so the clips and the
   buttons on the row are those of that track.
+- The first line of a group's row shows `━` where any track of the group
+  has a clip, and stays blank where none has. A folded group lists its
+  tracks on its other lines, one track on each line, with the track's
+  name and the notes of its clips in one line. When the tracks don't fit,
+  the last line says how many more there are, for example `+3 more`.
 - `znn` on a closed fold enters it, and the window then shows its tracks.
   `zw` returns to the fold, closed as it was.
 - The cursor never stays on a track that is folded away. It goes to the
@@ -274,18 +282,42 @@ tracks, with its name and its number of bars, for example `Bridge ▸ 8`.
 ### Block folds
 
 A visual block over some of the tracks, then `zf`, makes a block fold.
-The block shows as one cell over the rows of its tracks and over its
-bars, with its name on its first row, for example `Fold 1`.
+The block shows as a frame over the rows of its tracks and over its
+bars. The top edge has `▸`, the name, the number of bars and the tracks,
+and each track has a line of `━` where it has clips. The bottom edge
+shows the keys `za` and `znn` when the block holds more than one track.
 
+```
+ 5 │█ Piano        MSRI │▏Piano                          ╭▸ Piano, Pad 9-24 · 16 bars ──────────────
+   │█in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │█   C        → Keys │                                │
+ 6 ╰▌ Pad          MSRI │▏Pad                            │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    ▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  │
+    ▌   C        → Keys │                                ╰─ za opens · znn enters ───────────────────
+```
+
+- The name of a new block gives its tracks and its bars, for example
+  `Piano, Pad 9-24`. With more than three tracks, the name has the first
+  track and how many more, for example `Kick +4 1-8`. A second block with
+  the same name gets a number after it. A block with a name of its own,
+  from `paw.folds.make`, shows its tracks on the top edge too.
+- Where the frame is too narrow for all of it, the tracks go first, then
+  the number of bars. The name stays.
 - The other tracks show that time as usual, and the bars do not move.
 - The song does not change. A render with the block is the same as one
   without it.
+- The cursor takes a closed block as one row and one step, as a closed
+  fold is one line in Vim. From the row above it, `j` goes onto the
+  block, and `j` again goes to the row below it. From the bar before
+  it, `l` goes onto the block, and `l` again goes to the bar after it.
+  `k` and `h` do the same the other way. On an open block, the keys move
+  through its rows and bars one at a time.
 - `za` opens the block and closes it again, and `zd` deletes it. The
   clips under it then show as before.
 - `znn` on a closed block enters it, and the window shows those tracks
   in those bars. `zw` returns to the block, closed as it was.
-- The scene of the arrange view carries the cell, so the graphical
-  window gets the same cell as the terminal.
+- The scene of the arrange view carries the frame and its text, so the
+  graphical window gets the same frame as the terminal.
 
 ## Lua
 

@@ -280,8 +280,8 @@ test("the device panel and the window choose a device's side-chain", function()
   eq(text:find("key Kick pre", 1, true) ~= nil, true, "the device panel shows it:\n" .. text)
   paw.commands.exec("device.sidechain none")
   eq(comp.sidechain, nil, ":device.sidechain none takes it away")
-  paw.keymap.feed("K")
-  eq(paw.ui.float ~= nil, true, "K chooses from a list")
+  paw.keymap.feed("gS")
+  eq(paw.ui.float ~= nil, true, "gS chooses from a list")
   while paw.ui.float do
     paw.ui.close()
   end

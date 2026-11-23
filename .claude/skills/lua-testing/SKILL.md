@@ -38,6 +38,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.fresh()` | A new project, the start layout with no popped-out view and no window history, normal mode, no float and no quickfix list. Call it first in each test that needs a project. |
 | `T.start()` | `T.fresh()`, then `<Esc><Esc>`: the start of a test that types keys. |
 | `T.screen(w, h)` | The text of the screen, 120 by 40 if no size is given. |
+| `T.hover_text()` | The text of the float of `K` (`paw.ui.hover`): the title, then the lines. |
 | `T.after(fn)` | Put back what the test changed. It runs after the test, also after a failure. |
 | `T.keys(text)` | Feed keys through the keymap, as the user types them (`"<Esc>dd"`). |
 | `T.eq(got, want, what)`, `T.near(got, want, tolerance, what)` | Compare a value. `what` tells what the value is. `T.eq` compares two tables by their values (deep). |

@@ -14,9 +14,11 @@ steps, see
 A clip with takes shows a mark after its name, for example
 `take 1 ‹2/3›`. The first number is the take that plays, and the second
 number is how many takes the clip has. When the clip is too short for the
-name and the mark, the mark comes first and the name is cut, for example
-`‹2/3› ta`, so `]t` and `[t` always show a change on the clip. The
-graphical window shows the same text.
+name and the mark, the mark gives only the take that plays, after the first
+letters of the name, for example `tak…‹2›`, so `]t` and `[t` show a change
+on the clip. When the clip has room for fewer than four letters of the name
+and that mark, it shows only the name. The graphical window shows the same
+text.
 
 ## Keys and commands
 
@@ -37,7 +39,7 @@ In the graphical window, the menu of a clip has a Takes entry with the actions i
 
 To comp is to select the best part of each take.
 
-- Cut the clip where the choice changes (`s`), and select a take for each
+- Cut the clip where the choice changes (`S`), and select a take for each
   piece.
 - Each piece keeps all the takes, aligned, so you can move a cut and change
   a choice later.
@@ -61,9 +63,12 @@ graphical window do the same.
   the waveform or the notes of its take, and its name.
 - After recording round the loop, the lanes do not open automatically, and
   `zt` shows each time round.
-- In the terminal, the lanes are one line each below the track, and they are
-  read-only, with the active take bright and showing its name. To comp, use
-  `:take 2` on a selection.
+- In the terminal, each lane has two rows below the track, or as many as the
+  automation lanes when you zoom the rows. The first row shows the name of
+  each take, and the active take is bright with `▶` before its name. The rows
+  under it show the waveform or the notes of the take, at the same time as
+  the clip. With the keys, you comp with `:take 2` on a selection, and with
+  the mouse you drag across a lane.
 - paw remembers which tracks show take lanes for the session, as it does for the
   automation lanes that show as rows, and it does not save them in the project.
 

@@ -1866,11 +1866,21 @@ end
 local function under_cursor(): contracts.Description
   local fold = paw.folds.closed_at()
   if fold then
-    return {{text = "Fold  " .. paw.folds.name(fold), style = "Title"}, "  " .. M.describe_fold(fold), ""}
+    return {
+      {text = "Fold  " .. paw.folds.name(fold), style = "Title"},
+      "  " .. M.describe_fold(fold),
+      {text = "  za opens it · znn enters it · zd deletes it", style = "Dim"},
+      "",
+    }
   end
   local s = M.current()
   if s and not paw.cursor.clip() then
-    return {{text = "Scope  " .. s.name, style = "Title"}, "  " .. M.describe(s), ""}
+    return {
+      {text = "Scope  " .. s.name, style = "Title"},
+      "  " .. M.describe(s),
+      {text = "  zw up one level · zW the song · ]z the next scope", style = "Dim"},
+      "",
+    }
   end
 end
 local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
@@ -1957,7 +1967,13 @@ M.source = {
   title = "Scopes",
   empty = "No scope to enter: make a group, a region or a subproject, or name a scope with `:scope.name`.",
   items = items,
-  format = function(item: Item): string return string.format("%-7s %s", item.kind, item.label) end,
+  format = function(item: Item): string
+    -- A subproject in the words and the mark of the breadcrumb.
+    if item.kind == "nest" then
+      return "subproject ⧉" .. item.label
+    end
+    return string.format("%-10s %s", item.kind, item.label)
+  end,
   primary = function(item: Item): string return item.label end,
   search = function(item: Item): string return item.label end,
   -- What the entry is, in words (a fold as a scope inside the window's):

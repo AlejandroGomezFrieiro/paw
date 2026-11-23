@@ -307,9 +307,7 @@ test("derived: K on a note names its chord, and says the chord is being read aft
   local function said()
     paw.keymap.feed("K")
     local text = table.concat(api.ui_snapshot(160, 40), "\n")
-    while paw.ui.float do
-      paw.ui.close()
-    end
+    paw.ui.close()
     return text
   end
   roll.pitch, roll.beat = 60, 0

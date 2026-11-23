@@ -152,12 +152,12 @@ test(
   end
 )
 
-test("<Space>zz lists a subproject, marked nest, and choosing it enters it", function()
+test("<Space>zz lists a subproject, marked ⧉, and choosing it enters it", function()
   start()
   ballad()
   keys("<Space>zz")
   local text = screen()
-  eq(text:find("nest%s+Ballad") ~= nil, true, "marked nest:\n" .. text)
+  eq(text:find("subproject ⧉Ballad", 1, true) ~= nil, true, "marked ⧉:\n" .. text)
   keys("Ballad<CR>")
   eq(paw.scope.breadcrumb(), "Song › ⧉Ballad", "entered")
   reset()
@@ -351,7 +351,7 @@ test(
   end
 )
 
-test("K on a block: its meter, bars, tempo, tracks, instances", function()
+test("K on a block: the subproject, its meter, bars, tempo, tracks and places", function()
   metal()
   keys("33|")
   keys(":nest.new Ballad 8 6/8<CR>")
@@ -360,13 +360,13 @@ test("K on a block: its meter, bars, tempo, tracks, instances", function()
   paw.cursor.set_track(api.track_list()[2])
   paw.cursor.set_beat(129)
   keys("K")
-  local lines = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    lines[#lines + 1] = line.text
-  end
-  local text = table.concat(lines, "\n")
+  local text = T.hover_text()
   eq(
-    text:find("nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live", 1, true) ~= nil,
+    text:find(
+      "subproject Ballad · 6/8 · 8 bars · follows the tempo · live\n  2 tracks: Track 1, Strings\n  plays in 1 place: @33 (here)",
+      1,
+      true
+    ) ~= nil,
     true,
     text
   )
@@ -794,6 +794,40 @@ end
 
 --- The message line has `text` in it.
 local function said(text) eq(paw.ui.message.text:find(text, 1, true) ~= nil, true, paw.ui.message.text) end
+
+test(":nest.new, :import and o on a track of a group put the new row after it in the group; u takes it away", function()
+  local dir = ballad_folder("group")
+  for _, case in ipairs({
+    { keys = ":nest.new Fill 2<CR>", says = "on its own row in the group Keys", after = "zw" },
+    { keys = ":import " .. dir .. "<CR>", says = "on its own row in the group Keys" },
+    { keys = "o" },
+  }) do
+    start()
+    local kick, piano, pad =
+      paw.add_track({ name = "Kick" }), paw.add_track({ name = "Piano" }), paw.add_track({ name = "Pad" })
+    local group = paw.groups.make({ piano, pad }, "Keys")
+    paw.flush()
+    api.undo_checkpoint()
+    paw.cursor.set_track(piano)
+    keys(case.keys)
+    if case.says then said(case.says) end
+    keys(case.after or "")
+    local list = api.track_list()
+    local row = list[4]
+    eq(
+      { list[1], list[2], list[3], list[5] },
+      { kick.id, group.id, piano.id, pad.id },
+      case.keys .. ": the new row is after Piano"
+    )
+    eq(
+      { paw.groups.of(row), api.track_get(row, "output") },
+      { group.id, group.id },
+      case.keys .. ": in the group, playing into it"
+    )
+    keys("u")
+    eq(#api.track_list(), 4, case.keys .. ": u takes it away")
+  end
+end)
 
 test(
   ":import of a project folder plays it at once on a row of its own; its first edit makes it the song's own copy, said once",
@@ -1233,12 +1267,9 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
   paw.cursor.set_track(api.track_list()[2])
   paw.cursor.set_beat(129)
   keys("K")
-  local said = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    said[#said + 1] = line.text
-  end
+  local said = T.hover_text()
   paw.ui.close()
-  eq(table.concat(said, "\n"):find("nest Ballad · 6/8 · 8 bars", 1, true) ~= nil, true, table.concat(said, "\n"))
+  eq(said:find("subproject Ballad · 6/8 · 8 bars", 1, true) ~= nil, true, said)
 end)
 
 test(
@@ -1625,18 +1656,15 @@ test(":nest.unique on the second block: an edit inside it leaves the first as it
 end)
 
 test(
-  "K on a block placed twice says 2 instances; <Space>zp on one says that the subproject still plays at the other",
+  "K on a block placed twice says it plays in 2 places; <Space>zp on one says that the subproject still plays at the other",
   function()
     local b = linked()
     paw.cursor.set_track(b.row)
     paw.cursor.set_beat(33)
     keys("K")
-    local said = {}
-    for _, line in ipairs(paw.ui.views:get("pager").lines) do
-      said[#said + 1] = line.text
-    end
+    local said = T.hover_text()
     paw.ui.close()
-    eq(table.concat(said, "\n"):find("· 2 instances ·", 1, true) ~= nil, true, table.concat(said, "\n"))
+    eq(said:find("plays in 2 places: @9 (here), @97", 1, true) ~= nil, true, said)
     paw.cursor.set_track(b.row)
     paw.cursor.set_beat(33)
     keys("<Space>zp")

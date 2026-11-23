@@ -199,7 +199,7 @@ From top to bottom, the window has the following parts.
 A pane of the arrange view shows the ruler, the track headers and the
 timeline, as the arrange view of the terminal does, drawn from its scene and
 laid out in cells of the window's monospace font. The ruler is its first
-row, a track is three to four rows tall, and the zoom is columns a beat.
+row, a track is one to three rows tall, and the zoom is columns a beat.
 The window paints the following parts as widgets, where they fall between cells.
 
 - the clips

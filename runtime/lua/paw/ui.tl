@@ -168,12 +168,14 @@ local record PageOptions
   bottom: boolean
   width: integer
   height: integer
+  near_cursor: boolean
 end
 
 --- The state of each seat's screen.
 local record SeatState
   focused: string
   float: contracts.Float
+  hovered: contracts.Hover
   grabber: function(key: string, pasted?: boolean)
   rects: Arrangement
   tabs: {Tab}
@@ -278,6 +280,12 @@ local record M
   grabber: function(key: string, pasted?: boolean)
   --- The floating view, if one is open.
   float: contracts.Float
+  --- The float that `paw.ui.hover` shows next to the cursor, if one is
+  --- open. It does not take the keys: the next key closes it.
+  hovered: contracts.Hover
+  hover_close: function()
+  --- The state of a view in its window with the keyboard (below).
+  instance: function(name: string): View
   --- Where each view was last drawn.
   rects: Arrangement
   --- The tabs, each a tree of windows, and the current one.
@@ -367,10 +375,10 @@ M.bars = { { view = "status", size = 1 }, { view = "cmdline", size = 1 } }
 -- and windows of the instance's terminal.
 seats.keep("ui",
   function(): SeatState
-    return { focused = M.focused, float = M.float, grabber = M.grabber, rects = M.rects, tabs = M.tabs, tab = M.tab, pressed = M.pressed }
+    return { focused = M.focused, float = M.float, hovered = M.hovered, grabber = M.grabber, rects = M.rects, tabs = M.tabs, tab = M.tab, pressed = M.pressed }
   end,
   function(s: SeatState)
-    M.focused, M.float, M.grabber, M.rects, M.pressed = s.focused, s.float, s.grabber, s.rects, s.pressed
+    M.focused, M.float, M.hovered, M.grabber, M.rects, M.pressed = s.focused, s.float, s.hovered, s.grabber, s.rects, s.pressed
     M.tabs, M.tab, M.layout = s.tabs, s.tab, s.tabs[s.tab].layout
   end,
   function(s: SeatState): SeatState
@@ -809,13 +817,44 @@ local function draw(view: View, buf: Buf, ctx: RenderContext)
   if M.rects.surfaces then api.grid_surfaces_seal() end
 end
 
+--- The rectangle on the screen of the current window of view `name`,
+--- and the cell of its cursor: the one the view drew last
+--- (`view.caret`), else the window's top left cell.
+local function cursor_anchor(name: string): ScreenRect, ScreenRect
+  local current = L.current()
+  local area: ScreenRect
+  for _, r in ipairs(M.rects) do
+    if r.name == name and (not area or (current and r.win == current.id)) then area = r end
+  end
+  area = area or { x = 0, y = 0, w = 80, h = 24 }
+  local view = M.instance(name) or M.views:get(name)
+  return area, view and view.caret or { x = area.x + 1, y = area.y, w = 1, h = 1 }
+end
+
+--- The top left cell of a float of `w` by `h` next to the cursor of view
+--- `name`, on a screen of `width` by `height`: under the cursor's row,
+--- else over it, at the cursor's column. So it covers the cursor only on
+--- a screen with no room above or below it.
+local function near_cursor(name: string, w: integer, h: integer, width: integer, height: integer): integer, integer
+  local area, caret = cursor_anchor(name)
+  local y = caret.y + 1
+  if y + h > math.max(area.y + area.h, height - 2) then
+    y = caret.y - h >= 0 and caret.y - h or math.max(0, height - h)
+  end
+  return math.max(0, math.min(caret.x, width - w)), y
+end
+
 local function float_rect(width: integer, height: integer): ScreenRect
   local f = M.float
   local w = math.min(f.width or 72, width - 2)
   local h = math.min(f.height or 24, height - 2)
   -- `top`: at the top of the screen, leaving what is below it in view.
   local y = f.top and 1 or math.floor((height - h) / 2)
-  return { name = f.name, x = math.floor((width - w) / 2), y = y, w = w, h = h }
+  local x = math.floor((width - w) / 2)
+  if f.near_cursor then
+    x, y = near_cursor(f.back, w, h, width, height)
+  end
+  return { name = f.name, x = x, y = y, w = w, h = h }
 end
 
 -- A style that turns off every attribute of a cell. A highlight group
@@ -1480,6 +1519,9 @@ function M.render(buf: Buf)
   M.wake()
 end
 
+-- Draws the float of `K` over the windows (with the hover, below).
+local draw_hover: function(buf: Buf)
+
 --- Draw the whole screen into `buf`: the tab's windows, floats, the status
 --- and command lines.
 function M.render_screen(buf: Buf)
@@ -1573,6 +1615,7 @@ function M.render_screen(buf: Buf)
       end
     end)
   end
+  if M.hovered then draw_hover(buf) end
   if M.float and M.views:get(M.float.name) then
     local r = float_rect(buf.width, buf.height)
     local outer = buf:sub(r.x, r.y, r.w, r.h)
@@ -1699,13 +1742,18 @@ end
 function M.open(name: string, opts?: contracts.FloatOptions)
   if not M.views:get(name) then error("no view `" .. tostring(name) .. "`", 2) end
   opts = opts or {}
-  M.float = { name = name, title = opts.title, width = opts.width, height = opts.height, top = opts.top, back = M.float and M.float.back or M.focused }
+  M.float = {
+    name = name, title = opts.title, width = opts.width, height = opts.height, top = opts.top,
+    near_cursor = opts.near_cursor, back = M.float and M.float.back or M.focused,
+  }
   M.focused = name
   api.ui_redraw()
 end
 
---- Close the float that has the keys, or the window of a view.
+--- Close the float that has the keys, or the window of a view. With
+--- no float, close the hover (`paw.ui.hover`).
 function M.close()
+  if M.hovered and not M.float then return M.hover_close() end
   if not M.float then
     -- A view drawn in a window of its own (`paw.canvas.open_view`) closes
     -- with it, as it would have closed floating.
@@ -1794,6 +1842,8 @@ end
 --- the view). First, the floats over the views and a gesture in progress
 --- get it (`paw.mouse`).
 function M.mouse(event: MouseEvent)
+  -- A click closes the hover, as a key does.
+  if M.hovered and event.kind == "down" then M.hover_close() end
   if paw.mouse.take(event) then return end
   route(event)
   paw.mouse.done(event)
@@ -1948,6 +1998,95 @@ function M.instance(name: string): View
   if not (view and view.window_instances) then return nil end
   local win = L.find(M.layout, name)
   return win and M.instance_of(win) or view
+end
+
+-- The hover --------------------------------------------------------------------------
+-- `K` says what is under the cursor in a small float next to it, as the
+-- hover of Neovim does, and the song stays in view. The hover does not
+-- take the keys: paw/keymap.tl closes it after the next key, and `K`
+-- again puts the keys in it (`hover_enter`).
+
+--- The widest a hover is, in columns, borders included.
+local HOVER_WIDTH = 72
+
+--- The rows of a hover's lines inside `width` columns: a line too long
+--- goes on over the next rows, under its own indent.
+local function hover_rows(lines: {contracts.PageLine}, width: integer): {contracts.PageLine}
+  local out: {contracts.PageLine} = {}
+  for _, line in ipairs(lines) do
+    if api.str_width(line.text) <= width then
+      out[#out + 1] = line
+    else
+      local indent = line.text:match("^ *")
+      for _, part in ipairs(util.wrap(line.text, math.max(8, width - #indent))) do
+        out[#out + 1] = { text = indent .. part, style = line.style }
+      end
+    end
+  end
+  return out
+end
+
+--- The size of the hover: as wide as its longest line and 4 columns,
+--- at most `HOVER_WIDTH` and `width`; and its rows.
+local function hover_size(hover: contracts.Hover, width: integer): integer, {contracts.PageLine}
+  local longest = api.str_width(hover.title or "") + 4
+  for _, line in ipairs(hover.lines) do
+    longest = math.max(longest, api.str_width(line.text))
+  end
+  local w = math.min(longest + 4, HOVER_WIDTH, width)
+  return w, hover_rows(hover.lines, w - 4)
+end
+
+--- Draw the hover next to the cursor, as high as its rows and at most
+--- half the window. With more rows than fit, the last row says how to see
+--- all of them.
+draw_hover = function(buf: Buf)
+  local hover = M.hovered
+  local w, rows = hover_size(hover, buf.width)
+  local area = cursor_anchor(M.focused)
+  local h = math.min(#rows + 2, math.max(3, area.h // 2), buf.height)
+  local x, y = near_cursor(M.focused, w, h, buf.width, buf.height)
+  local inner = M.box(buf:sub(x, y, w, h), hover.title, "Border") as Buf
+  local more = #rows > inner.height
+  for row = 1, more and inner.height - 1 or inner.height do
+    local line = rows[row]
+    if line then inner:text(1, row - 1, line.text, line.style or "Normal") end
+  end
+  if more then inner:text(1, inner.height - 1, "K again: all of it", "Dim") end
+end
+
+--- Show lines next to the cursor of the focused window, in a small float
+--- that leaves the keys where they are: the next key closes it and does
+--- what it does. Each line is a string or `{ text = ..., style = ... }`.
+---   paw.ui.hover("Piano", { "24 notes", { text = "muted", style = "Warn" } })
+function M.hover(title: string, lines: {string | contracts.PageLine})
+  local out: {contracts.PageLine} = {}
+  for _, line in ipairs(lines) do
+    local l: contracts.PageLine = line is string and { text = line } or line as contracts.PageLine
+    for part in (tostring(l.text) .. "\n"):gmatch("([^\n]*)\n") do
+      out[#out + 1] = { text = (part:gsub("\t", "  ")), style = l.style }
+    end
+  end
+  M.hovered = { title = title, lines = out }
+  api.ui_redraw()
+end
+
+--- Close the hover, if one is open.
+function M.hover_close()
+  if not M.hovered then return end
+  M.hovered = nil
+  api.ui_redraw()
+end
+
+--- Put the keys in the hover. It becomes a page in the same place, as
+--- high as its lines while the screen has room, where `j` and `k` scroll
+--- and `q` or `Esc` close it.
+function M.hover_enter()
+  local hover = M.hovered
+  if not hover then return end
+  M.hovered = nil
+  local w, rows = hover_size(hover, HOVER_WIDTH)
+  M.page(hover.title, hover.lines as {string | contracts.PageLine}, { near_cursor = true, width = w, height = #rows + 2 })
 end
 
 --- The location under the cursor of the focused view (or `view`). With

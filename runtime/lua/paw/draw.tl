@@ -255,6 +255,7 @@ local unicode: Glyphs = {
   loop_in = "▕",
   loop_out = "▕",
   clip_start = "▏",
+  clip_end = "▕",
   nest = "⧉ ",
   link = "≡",
   punch_in = "▕",
@@ -311,6 +312,7 @@ local unicode: Glyphs = {
   nest_guide = "┆",
   nest_close = "┄",
   places = "×",
+  overview = "━",
   eighths = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"},
 }
 local ascii: Glyphs = {
@@ -324,6 +326,7 @@ local ascii: Glyphs = {
   loop_in = "[",
   loop_out = "]",
   clip_start = "|",
+  clip_end = "|",
   nest = "& ",
   link = "=",
   punch_in = "{",
@@ -380,6 +383,7 @@ local ascii: Glyphs = {
   nest_guide = ":",
   nest_close = ".",
   places = "x",
+  overview = "=",
   eighths = {".", ".", "-", "-", "=", "=", "#", "#"},
 }
 

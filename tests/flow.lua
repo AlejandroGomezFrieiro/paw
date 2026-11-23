@@ -273,14 +273,6 @@ end)
 
 -- Sizes -----------------------------------------------------------------------
 
-test("track height auto: two tracks on 30 rows get the most rows", function()
-  start()
-  paw.add_track({ name = "A" })
-  paw.add_track({ name = "B" })
-  screen(100, 30)
-  eq(paw.ui.views:get("arrange").geometry.th, 4, "two tracks on 30 rows get the most")
-end)
-
 test("Ctrl-w < and > change the side panel's width or the header width; sizes are options", function()
   start()
   local hw, dw = paw.opt.header_width, paw.opt.devices_width

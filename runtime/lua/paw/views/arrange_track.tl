@@ -38,6 +38,7 @@ local record M
     column_width: integer
   ): Flags
   level_glyph: function(level: number): string
+  notes_line: function(clip: Clip, width: integer, zoom: number): string
   clip_props: function(
     clip: Clip,
     track: Track,
@@ -49,6 +50,9 @@ local record M
     to?: number,
     colour?: string
   ): roles.ClipProps
+  take_body: function(
+    props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, zoom: number
+  )
 end
 
 -- What is kept between frames -------------------------------------------------------
@@ -294,7 +298,8 @@ local function places_text(nest: integer): string
   return n > 1 and (" " .. draw.g.places .. n) or ""
 end
 
---- The name a header shows. A folded group says how many tracks it holds.
+--- The name a header shows. A folded group says how many tracks it holds,
+--- and a group with linked faders has `≡` after its name.
 --- The track column's `fold` shows the groups as a tree; without it, a
 --- member stands a step in under its group, and a group has a mark that
 --- says whether it is open.
@@ -314,6 +319,11 @@ local function name_text(t: Track): string
   elseif returned then
     -- A return row: `⧉ Bridge ×2`, the places the song plays it in.
     name = g.nest .. name .. places_text(returned)
+  end
+  -- A group whose members' faders move together: `Drums ≡`, as a linked
+  -- clip says it.
+  if groups.is_group(t.id) and groups.linked(t.id) then
+    name = name .. " " .. g.link
   end
   if not paw.trackcolumn.shows("fold") then
     name = string.rep(" ", groups.depth(t.id)) .. name
@@ -608,6 +618,17 @@ local function preview(clip: Clip, width: integer, rows: integer, zoom: number):
   return out, runs
 end
 
+--- A clip's notes in one line `width` cells wide (its waveform for an
+--- audio clip), as its body draws them, for an overview of its track
+--- (a member of a folded group). Nil for a clip with nothing to draw in
+--- one line: no notes, or a block of a subproject.
+function M.notes_line(clip: Clip, width: integer, zoom: number): string
+  if clip.kind == "nest" or (clip.kind == "midi" and clip.note_count == 0) then
+    return nil
+  end
+  return (preview(clip, width, 1, zoom))[1]
+end
+
 --- Style names for the runs of a waveform that `draw.waveform` marks.
 local wave_style: {string: string} = {flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "ClipWaveClipFlip"}
 
@@ -623,25 +644,20 @@ local record Body
 end
 local bodies: {roles.ClipProps: Body} = setmetatable({}, {__mode = "k"})
 
---- An audio clip's waveform: in pixels under the cells where the terminal
---- shows them, the whole clip's, so that scrolling moves pieces already
---- made; else in cells.
-local function audio_body(box: Buf, of: Body)
-  local clip = of.clip
+--- A waveform in the rows of `box` under its first: in pixels under the
+--- cells where the terminal shows them, else in cells. `peaks(n)` gives it
+--- at `n` points across the whole box. `key` names the picture, so that
+--- scrolling moves pieces already made.
+local function waveform(box: Buf, key: string, colour: string, peaks: function(n: integer): {types.Peak})
   local cw, height = box.width, box.height
   local body = box:sub(0, 1, cw, height - 1)
-  local function peaks(n: integer): {types.Peak}
-    return wave_peaks(clip, n)
-  end
-  -- The colour the cells draw it in (`paw.draw.hue`'s body).
-  local colour = draw.mix(require("paw.theme").palette.bg, of.colour, of.kind == "_off" and 0.30 or 0.75)
   local pictured = body:strip(
     0,
     0,
     cw,
     height - 1,
     {
-      key = "arrange:wave:" .. clip.id,
+      key = key,
       under = true,
       draw = function(g: contracts.Painter, px: contracts.StripPixels)
         paw.plot.wave(g, px, {peaks = peaks, color = colour})
@@ -651,6 +667,21 @@ local function audio_body(box: Buf, of: Body)
   if not pictured then
     paw.plot.wave_cells(body, {peaks = peaks})
   end
+end
+
+--- The colour that the cells draw a body in (`paw.draw.hue`'s body), by
+--- its kind: "_off" for a muted clip or a take that does not play.
+local function body_colour(colour: string, kind: string): string
+  return draw.mix(require("paw.theme").palette.bg, colour, kind == "_off" and 0.30 or 0.75)
+end
+
+--- An audio clip's waveform, the whole clip's.
+local function audio_body(box: Buf, of: Body)
+  local clip = of.clip
+  local function peaks(n: integer): {types.Peak}
+    return wave_peaks(clip, n)
+  end
+  waveform(box, "arrange:wave:" .. clip.id, body_colour(of.colour, of.kind), peaks)
 end
 
 --- A block of a subproject: what it plays, as a small piano roll of the
@@ -695,9 +726,139 @@ local function clip_body(box: Buf, p: roles.ClipProps)
   end
 end
 
+--- What a take lane's clip draws in its body: take `take` of `clip`.
+--- `key` changes exactly when what the take plays changes
+--- (`paw.frontend.take_rows`).
+local record TakeBody
+  clip: Clip
+  take: integer
+  key: string
+  colour: string
+  zoom: number
+end
+local take_bodies: {roles.ClipProps: TakeBody} = setmetatable({}, {__mode = "k"})
+
+--- The body of a take lane's clip: the take's waveform, or its notes as a
+--- small piano roll, under the same time as the clip's own.
+local function take_body(box: Buf, p: roles.ClipProps)
+  local of = take_bodies[p]
+  if not of or box.height < 2 then
+    return
+  end
+  local clip, take, rows = of.clip, of.take, box.height - 1
+  if clip.kind == "audio" then
+    local function peaks(n: integer): {types.Peak}
+      local key = of.key .. ":" .. n
+      if not waves[key] then
+        waves[key] = paw.takes.peaks(clip, take, n)
+      end
+      return waves[key]
+    end
+    waveform(box, "arrange:take:" .. clip.id .. ":" .. take, of.colour, peaks)
+    return
+  end
+  local key = of.key .. ":" .. box.width .. ":" .. rows .. ":" .. of.zoom
+  local out = rolls.values[key]
+  if out == nil then
+    out = keep(
+      rolls,
+      key,
+      function(): {string}
+        local notes = paw.takes.content(clip, take).notes
+        return draw.miniroll(paw.stretch.sounding(clip, notes) as {types.Note}, box.width, rows, of.zoom)
+      end
+    )
+  end
+  for row, text in ipairs(out) do
+    box:text(0, row, text)
+  end
+end
+
+--- Give a take lane's clip (`props`, take `take` of `clip`) the take's
+--- waveform or notes in its body. `key` is what the take plays
+--- (`paw.frontend.take_rows`), `colour` its track's, and the take is faint
+--- where it does not play (not `active`).
+function M.take_body(
+  props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, zoom: number
+)
+  if not key then
+    return
+  end
+  props.body = take_body
+  take_bodies[props] = {
+    clip = clip, take = take, key = key, colour = body_colour(colour, active and "" or "_off"), zoom = zoom
+  }
+end
+
 --- The styles of a clip's title and body by its kind ("", "_cur", "_off").
 local title_of: {string: string} = {[""] = "title", _cur = "title_cur", _off = "title_off"}
 local body_of: {string: string} = {[""] = "body", _cur = "body_cur", _off = "body_off"}
+
+--- The controller moves of a MIDI clip as the `clip` role's `moves`: in
+--- each of its columns, `zoom` a beat, the height (0 to 1) of the
+--- controller that moves most often, where the column's middle is, and
+--- false before its first move. Kept by the clip's controls, its length,
+--- its loop and the zoom. Nil for a clip without controller moves.
+local curves: Kept<{number | boolean}> = kept_store()
+
+--- A controller move as `paw.stretch.sounding` takes a note: it reads a
+--- length, and a move has none. `height` is its value from 0 to 1.
+local record Move
+  start: number
+  length: number
+  height: number
+end
+
+local function moves(clip: Clip, zoom: number): {number | boolean}
+  if clip.kind ~= "midi" or (clip.control_count or 0) == 0 then
+    return nil
+  end
+  local key = string.format(
+    "%d:%s:%.17g:%s:%.17g:%.17g:%.17g",
+    clip.id,
+    tostring(clip.control_stamp),
+    clip.length,
+    tostring(clip.loop),
+    clip.loop_start or 0,
+    clip.loop_length or 0,
+    zoom
+  )
+  return keep(
+    curves,
+    key,
+    function(): {number | boolean}
+      -- The moves of each controller (its type, number and note), as they
+      -- sound in a looped clip; the one with the most moves is drawn.
+      local by: {string: {Move}} = {}
+      local most: string
+      for _, c in ipairs(api.clip_controls(clip.id)) do
+        if c.type ~= "program" then
+          local name = c.type .. ":" .. tostring(c.number or c.index or 0) .. ":" .. tostring(c.key)
+          local list = by[name] or {}
+          by[name] = list
+          list[#list + 1] = {start = c.start, length = 0, height = c.type == "bend" and (c.value + 1) / 2 or c.value}
+          if not most or #list > #by[most] then
+            most = name
+          end
+        end
+      end
+      local list = most and paw.stretch.sounding(clip, by[most]) as {Move} or {}
+      table.sort(list, function(a: Move, b: Move): boolean return a.start < b.start end)
+      local out: {number | boolean} = {}
+      local after = 1
+      local height: number | boolean = false
+      for x = 0, math.floor(clip.length * zoom + 0.5) - 1 do
+        local middle = (x + 0.5) / zoom
+        while list[after] and list[after].start <= middle do
+          height = list[after].height
+          after = after + 1
+        end
+        out[x + 1] = height
+      end
+      return out
+    end
+  )
+end
 
 --- Where the window's scope (`paw.scope`) cuts a clip that crosses one of
 --- its edges, in beats from the clip's start: `cut_in` at its start,
@@ -777,6 +938,7 @@ function M.clip_props(
     per = zoom,
     repeats = clip.loop and paw.stretch.repeats(clip) as {number} or nil,
     warps = warps,
+    moves = moves(clip, zoom),
     cut_in = cut_in,
     cut_out = cut_out,
     title_style = hues[title_of[kind]],

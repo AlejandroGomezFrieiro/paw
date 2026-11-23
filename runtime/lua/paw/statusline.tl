@@ -669,31 +669,41 @@ spec(
   }
 )
 
--- How much is selected, in visual mode.
+--- Where a selection of the arrange view lies in time, as the ruler numbers
+--- it: `bars 3–10` (`bar 3` for one) when both ends are on bar lines, else
+--- `3.2.00–4.1.00`, with `dash` between the ends, as the loop's.
+local function selected_time(from: number, to: number, dash: string): string
+  local time = paw.time
+  local function on_bar(beat: number): boolean
+    return math.abs(time.bar_floor(beat) - beat) < 1e-6
+  end
+  if on_bar(from) and on_bar(to) then
+    local first, last = time.bar_of(from), time.bar_of(to) - 1
+    return first == last and "bar " .. first or "bars " .. first .. dash .. last
+  end
+  return time.format(from) .. dash .. time.format(to)
+end
+
+-- How much a visual selection of the arrange view holds, the same in each
+-- mode: `bars 3–10 · 3 tracks`; `V` selects whole tracks, so only those.
+-- When the line is too long, only the mode stays longer (rank 1).
 spec(
   "selection",
   {
     still = true,
-    min = 110,
-    rank = 10,
+    rank = 1,
     fn = function(ctx: Context): StatusText
       local selection = ctx.mode == "x" and paw.ui.focused == "arrange" and paw.keymap.selection()
       if not selection then
         return nil
       end
-      local tracks = selection.r1 - selection.r0 + 1
+      local tracks = math.floor(selection.r1 - selection.r0 + 1)
       local text = tracks .. (tracks == 1 and " track" or " tracks")
       if selection.kind ~= "line" then
-        local beats = selection.c1 - selection.c0
-        local bars = beats / paw.time.bar()
-        text = text
-          .. " "
-          .. (
-            math.abs(bars - math.floor(bars + 0.5)) < 1e-9 and string.format("%g bar%s", bars, bars == 1 and "" or "s")
-            or string.format("%g beats", beats)
-          )
+        local dash = ctx.g.ellipsis == "…" and "–" or "-"
+        text = selected_time(selection.c0, selection.c1, dash) .. " " .. ctx.g.dot .. " " .. text
       end
-      return {{"sel " .. text, "StatusLine"}}
+      return {{text, "StatusLine"}}
     end,
   }
 )

@@ -2025,7 +2025,8 @@ function paw.cursor.master_reachable() end
 --- Move by rows. In normal mode, the rows of open automation lanes count.
 --- After an operator or in a selection, only tracks count, as for `dj`.
 --- From the last track, a move down goes on to the master, and from the
---- master a move up returns to the tracks.
+--- master a move up returns to the tracks. A closed block fold at the
+--- cursor's beat is one row (`paw.cursor.stop`).
 ---@param delta any
 function paw.cursor.move_track(delta) end
 
@@ -2035,7 +2036,8 @@ function paw.cursor.on_master() end
 
 --- Where the cursor goes when it moves from beat `old` to `new`: a beat
 --- inside a closed time fold is its start, or its end when the cursor
---- moves on from its start, so that a motion takes a fold as one step.
+--- moves on from its start, so that a motion takes a fold as one step. A
+--- closed block fold on the cursor's track is one step in the same way.
 ---@param old any
 ---@param new any
 function paw.cursor.over(old, new) end
@@ -2066,6 +2068,14 @@ function paw.cursor.shift(track, beat) end
 --- Round a position to the arrange grid.
 ---@param beat any
 function paw.cursor.snap(beat) end
+
+--- The row that stands for a track at a beat when the cursor moves by
+--- rows: the first row of the closed block fold that holds the track
+--- there, or nil when no closed block holds it. A closed block is one row
+--- for `j` and `k`, as a closed fold is one line in Vim.
+---@param id any
+---@param beat any
+function paw.cursor.stop(id, beat) end
 
 --- The track the cursor is on, as a `paw.Track`, or nil.
 function paw.cursor.track() end
@@ -3089,12 +3099,16 @@ function paw.folds.all(on, win) end
 ---@param win any
 function paw.folds.at(id, win) end
 
+--- How many bars a block or a time fold covers (0 when its region is gone).
+---@param f any
+function paw.folds.bars(f) end
+
 --- The closed block fold at the cursor in a window, or nil.
 ---@param win any
 function paw.folds.block_at_cursor(win) end
 
 --- The closed block folds that a window draws (the one a view shows by
---- default), in the order they were made: each draws one cell over the
+--- default), in the order they were made: each draws one frame over the
 --- rows of its tracks and its time. A block that holds all of the scope
 --- the window shows is open there.
 ---@param win any
@@ -3160,7 +3174,7 @@ function paw.folds.list(win) end
 --- Make a fold of what a scope covers (`zf{motion}`), closed, in a
 --- window: a group folds into its row (`zfag`), tracks into one row named
 --- `Fold 1` (`Vjjzf`), a region or bars on every track into a column
---- (`zfar`), and some tracks for some bars into one cell (a visual block,
+--- (`zfar`), and some tracks for some bars into one frame (a visual block,
 --- then `zf`). Returns it, or nil and the reason.
 ---@param spec any
 ---@param win any
@@ -3188,6 +3202,8 @@ function paw.folds.reveal() end
 ---@param id any
 ---@param win any
 function paw.folds.row(id, win) end
+
+paw.folds.row_stop = paw.cursor.stop
 
 --- Fold a group into its row, or open it, in a window: `on` nil flips it.
 ---@param group any
@@ -3219,6 +3235,11 @@ function paw.folds.time_spans(win) end
 ---@param id any
 ---@param win any
 function paw.folds.toggle(id, win) end
+
+--- The names of the tracks of a block fold: `Piano, Pad`, or with more
+--- than three, the first and how many more: `Piano +4`.
+---@param f any
+function paw.folds.track_names(f) end
 
 --- Write the project with the format of a file. Says what it did.
 ---@param path any
@@ -3518,9 +3539,7 @@ function paw.frontend.state(known) end
 --- What take `take` of a clip plays, for the picture in its take lane. For
 --- sound, this is a waveform as `M.peaks` gives it, at `points` points. For
 --- MIDI, it is the notes as `M.preview` gives them. It repeats as a looped
---- clip repeats. The waveform of the take that plays is the waveform of the
---- clip, stretched. The waveform of a different take is its file, made
---- shorter or longer in time as the clip stretches it.
+--- clip repeats (`paw.takes.peaks` gives the waveform).
 ---@param id any
 ---@param take any
 ---@param points any
@@ -3815,6 +3834,14 @@ function paw.groups.gather(group) end
 ---@param track any
 ---@param top any
 function paw.groups.hidden(track, top) end
+
+--- The group that a new track goes into when it is added next to `track`
+--- (`o`, `O`, `:nest.new`): below an open group's own row, that group;
+--- else the group of `track`. Nil at the top level, and for a group in
+--- another place (a subproject) than `track`.
+---@param track any
+---@param above any
+function paw.groups.home(track, above) end
 
 --- True if a track is a group.
 ---@param track any
@@ -6268,9 +6295,13 @@ function paw.nest.data(nest) end
 ---@param spec any
 function paw.nest.define_kind(name, spec) end
 
---- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
---- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
---- block. `c` is the clip, in the window's time.
+--- What `K` says of a block, in three lines. The first gives the
+--- subproject, its meter, its bars, its tempo and whether it is live or
+--- frozen, with the stem's name after it for a stem. The second gives its
+--- tracks, and the third gives the bars of the song where it plays, for
+--- example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`,
+--- `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
+--- `c` is the clip, in the window's time.
 ---@param c any
 function paw.nest.describe(c) end
 
@@ -6318,10 +6349,11 @@ function paw.nest.list() end
 
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` with one block, the meter in the song's map when one is
---- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`), or with the tracks that the `create` of its
---- kind (`o.kind`) makes. Call it in one undo step (a command is one).
+--- track `below` (in its group, as `o` puts a track) with one block, the
+--- meter in the song's map when one is given; then the window enters it,
+--- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
+--- command is one).
 ---@param o any
 function paw.nest.new(o) end
 
@@ -8787,6 +8819,16 @@ function paw.takes.new(id, name) end
 ---@param clip any
 function paw.takes.of(clip) end
 
+--- The waveform of take `index` of an audio clip, as `n` `{ min, max, rms }`
+--- across the clip, as `paw.api.clip_peaks` gives the clip's. The take that
+--- plays is the clip's own waveform, stretched. Another take is its file,
+--- stretched in time as the clip stretches it, and repeated as a looped
+--- clip repeats. Nothing for a missing file.
+---@param clip any
+---@param index any
+---@param n any
+function paw.takes.peaks(clip, index, n) end
+
 --- The takes of a piece of a clip, from beat `from` to `to` of the
 --- timeline: what a cut gives to each side. Sound keeps its entries as they
 --- are (the offset of the piece tells where it is in them). Notes are those
@@ -9348,7 +9390,8 @@ function paw.ui.ask_value(opts, set) end
 ---@param style any
 function paw.ui.box(buf, title, style) end
 
---- Close the float that has the keys, or the window of a view.
+--- Close the float that has the keys, or the window of a view. With
+--- no float, close the hover (`paw.ui.hover`).
 function paw.ui.close() end
 
 --- Add a view to the layout along one side of the screen.
@@ -9408,6 +9451,22 @@ function paw.ui.hide(name) end
 ---@param name any
 ---@param def any
 function paw.ui.hl(name, def) end
+
+--- Show lines next to the cursor of the focused window, in a small float
+--- that leaves the keys where they are: the next key closes it and does
+--- what it does. Each line is a string or `{ text = ..., style = ... }`.
+---   paw.ui.hover("Piano", { "24 notes", { text = "muted", style = "Warn" } })
+---@param title any
+---@param lines any
+function paw.ui.hover(title, lines) end
+
+--- Close the hover, if one is open.
+function paw.ui.hover_close() end
+
+--- Put the keys in the hover. It becomes a page in the same place, as
+--- high as its lines while the screen has room, where `j` and `k` scroll
+--- and `q` or `Esc` close it.
+function paw.ui.hover_enter() end
 
 --- Ask for a line of text on the command line.
 ---   paw.ui.input({ prompt = "Name: ", text = "Bass" }, function(text) ... end)
@@ -9505,7 +9564,8 @@ function paw.ui.open(name, opts) end
 
 --- Show lines of text in a float. Each line is a string or
 --- `{ text = ..., style = ... }`. With `opts.bottom`, it opens at the end.
---- `opts.width` and `opts.height` give its size (100 by 30).
+--- `opts.width` and `opts.height` give its size (100 by 30). With
+--- `opts.near_cursor`, it opens next to the cursor, not in the middle.
 ---@param title any
 ---@param lines any
 ---@param opts any
