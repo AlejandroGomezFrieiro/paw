@@ -4,6 +4,8 @@
 --
 --   harmony.clip          the notes of a clip's content (its stamp and length), in
 --                         its own beats: copies with the same notes share it
+--   harmony.place         a clip where it is: its content and its start
+--   harmony.drums         whether a track is drums, which the reading leaves out
 --   harmony.track         each track's clips that sound, with their starts
 --   harmony.track_window  what one track sounds in one window (a `read.Part`)
 --   harmony.group         what 8 tracks sound in one window: the sum of the above
@@ -107,16 +109,14 @@ local record Place
   to: number
 end
 
---- A track as the reading sees it: its clips that sound, as listed and
---- by where they start (with the latest end so far, for a look-up), and
---- the end of its last note. `pool` keeps the places of a muted track, so
---- that an unmute finds them again.
+--- A track as the reading sees it: its clips that sound, in the order of
+--- their start and by where their notes start (with the latest end so far,
+--- for a look-up), and the end of its last note.
 local record TrackValue
   list: {Place}
   by_from: {Place}
   reach: {number}
   last: number
-  pool: {integer: Place}
 end
 
 --- The clips of a track over a stretch, and the length of a window.
@@ -167,6 +167,7 @@ local bars_now: {number} = {} -- the bars as they are now
 
 local step_node_spec: derived.Spec<integer, number, boolean> = {
   name = "harmony.step",
+  eager = true,
   kind = "memo",
   make = function(ctx: derived.Ctx): number ctx:option("harmony_step"); step_now = options().step; return step_now end,
   same = function(a: number, b: number): boolean return a == b end,
@@ -175,6 +176,7 @@ local step_node = derived.node(step_node_spec)
 
 local tracks_node_spec: derived.Spec<integer, {integer}, boolean> = {
   name = "harmony.tracks",
+  eager = true,
   kind = "memo",
   make = function(ctx: derived.Ctx): {integer} return ctx:tracks() end,
   same = same_list,
@@ -209,49 +211,90 @@ local clip_node_spec: derived.Spec<ClipKey, read.Run, boolean> = {
 }
 local clip_node = derived.node(clip_node_spec)
 
+-- Whether a track is drums, which the reading leaves out: only a change of
+-- its name, meta or devices asks again, not a change of its clips.
+local drums_node_spec: derived.Spec<integer, boolean, boolean> = {
+  name = "harmony.drums",
+  kind = "family",
+  make = function(ctx: derived.Ctx, id: integer): boolean
+    local t = ctx:track(id, {"name", "meta", "devices"})
+    return t ~= nil and options().is_drums(t)
+  end,
+  same = function(a: boolean, b: boolean): boolean return a == b end,
+}
+local drums_node = derived.node(drums_node_spec)
+
+-- A clip that does not sound: not MIDI, muted, gone, or with no notes.
+local SILENT: Place = {}
+
+-- Each clip on its own: an edit of a clip's notes reads that clip again,
+-- not every clip of its track (the kernel gives a clip by its id).
+local place_node_spec: derived.Spec<integer, Place, boolean> = {
+  name = "harmony.place",
+  kind = "family",
+  -- The place before, when its content and start are the same: the track
+  -- and its windows compare places as they are.
+  make = function(ctx: derived.Ctx, id: integer, old: Place): Place
+    ctx:source("clip:" .. id)
+    local ok, c = pcall(api.clip_get, id)
+    if not ok or c.kind ~= "midi" or c.muted then
+      return SILENT
+    end
+    local run = ctx:get(clip_node, {id = id, stamp = c.stamp, length = c.length})
+    if run.n == 0 then
+      return SILENT
+    end
+    if old and old.run == run and old.start == c.start then
+      return old
+    end
+    local reach: number = -math.huge
+    for k = 1, run.n do
+      reach = math.max(reach, run.start[k] + run.length[k])
+    end
+    return {
+      id = id,
+      stamp = c.stamp,
+      start = c.start,
+      length = c.length,
+      run = run,
+      from = c.start + run.start[1],
+      to = c.start + reach,
+    }
+  end,
+  same = function(a: Place, b: Place): boolean return a == b end,
+  limit = 65536,
+}
+local place_node = derived.node(place_node_spec)
+
+local function by_start(a: Place, b: Place): boolean
+  return a.start < b.start or (a.start == b.start and a.id < b.id)
+end
+
+local function by_from(a: Place, b: Place): boolean
+  return a.from < b.from
+end
+
 local track_node_spec: derived.Spec<integer, TrackValue, boolean> = {
   name = "harmony.track",
+  eager = true,
   kind = "family",
-  make = function(ctx: derived.Ctx, id: integer, old: TrackValue): TrackValue
-    local opts = options()
-    local t = ctx:track(id, {"mute", "name", "meta", "devices"})
-    local was = old and old.pool or {}
-    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0, pool = was}
-    if not t or t.mute or opts.is_drums(t) then
+  make = function(ctx: derived.Ctx, id: integer): TrackValue
+    local t = ctx:track(id, {"mute", "clips"})
+    local v: TrackValue = {list = {}, by_from = {}, reach = {}, last = 0}
+    if not t or t.mute or ctx:get(drums_node, id) then
       return v
     end
-    v.pool = {}
-    for _, c in ipairs(ctx:clips(id)) do
-      if c.kind == "midi" and not c.muted then
-        local run = ctx:get(clip_node, {id = c.id, stamp = c.stamp, length = c.length})
-        local place = was[c.id]
-        if not (place and place.run == run and place.start == c.start) then
-          local reach: number = -math.huge
-          for k = 1, run.n do
-            reach = math.max(reach, run.start[k] + run.length[k])
-          end
-          place = {
-            id = c.id,
-            stamp = c.stamp,
-            start = c.start,
-            length = c.length,
-            run = run,
-            from = run.n > 0 and c.start + run.start[1] or nil,
-            to = c.start + reach,
-          }
-        end
-        v.pool[c.id] = place
-        if place.from then
-          v.list[#v.list + 1] = place
-          v.last = math.max(v.last, place.to)
-        end
+    local clips = t.clips
+    for i = 1, #clips do
+      local place = ctx:get(place_node, clips[i])
+      if place ~= SILENT then
+        v.list[#v.list + 1] = place
+        v.by_from[#v.by_from + 1] = place
+        v.last = math.max(v.last, place.to)
       end
     end
-    for i = 1, #v.list do
-      local p = v.list[i]
-      v.by_from[i] = p
-    end
-    table.sort(v.by_from, function(a: Place, b: Place): boolean return a.from < b.from end)
+    table.sort(v.list, by_start)
+    table.sort(v.by_from, by_from)
     local reach: number = -math.huge
     for i = 1, #v.by_from do
       local p = v.by_from[i]
@@ -425,6 +468,7 @@ local beat_node = derived.node(beat_node_spec)
 
 local span_node_spec: derived.Spec<integer, Span, boolean> = {
   name = "harmony.span",
+  eager = true,
   kind = "join",
   make = function(ctx: derived.Ctx): Span
     local last: number = 0
@@ -454,7 +498,7 @@ end
 local window_node_spec: derived.Spec<integer, read.Window, WindowInputs> = {
   name = "harmony.window",
   kind = "family",
-  span = function(i: integer): number, number local step = options().step; return (i - 1) * step, i * step end,
+  span = function(i: integer): number, number return (i - 1) * step_now, i * step_now end,
   inputs = function(ctx: derived.Ctx, i: integer, old: read.Window): WindowInputs
     local step = ctx:get(step_node, 0)
     local at = (i - 1) * step
@@ -506,6 +550,7 @@ local chords_node = derived.node(chords_node_spec)
 
 local bars_node_spec: derived.Spec<integer, {number}, boolean> = {
   name = "harmony.bars",
+  eager = true,
   kind = "memo",
   make = function(ctx: derived.Ctx): {number}
     ctx:tempo()
@@ -627,6 +672,8 @@ function M.reset()
   bars_node:reset()
   keys_node:reset()
   clip_node:reset()
+  place_node:reset()
+  drums_node:reset()
   track_node:reset()
   track_window:reset()
   group_node:reset()

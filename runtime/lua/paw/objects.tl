@@ -1285,10 +1285,12 @@ function Clip:note_at(pitch: Pitch, beat: number): types.Note, integer
   return api.clip_note_at(self.id, music.pitch(pitch), beat)
 end
 
--- A change of a note with its `pitch` as a MIDI number.
+-- A change of a note with its `pitch` as a MIDI number. A number passes as
+-- it is (`music.pitch`): only a name makes a copy.
 local function note_change(change: NoteChangeInput): types.NoteChange
-  if change.pitch then
-    return util.merge(change as {string: Value}, {pitch = music.pitch(change.pitch) as Value}) as types.NoteChange
+  local pitch = change.pitch
+  if pitch is string then
+    return util.merge(change as {string: Value}, {pitch = music.pitch(pitch) as Value}) as types.NoteChange
   end
   return change as types.NoteChange
 end

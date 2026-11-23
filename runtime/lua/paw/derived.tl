@@ -51,8 +51,10 @@ end
 local FRESH, MAYBE, DIRTY, NEW = 0, 1, 2, 3
 
 -- The order in which the job makes what waits, as the bake scheduler has
--- it: what plays next, what shows, the rest.
-local PLAYING, VISIBLE, BACKGROUND = 1, 2, 3
+-- it: what plays next, what shows, the rest. The `eager` entries come
+-- before all: until they are made, the entries that read them do not know
+-- that they are stale.
+local EAGER, PLAYING, VISIBLE, BACKGROUND = 0, 1, 2, 3
 
 --- A value of an entry, its key or its inputs, as the graph keeps them: the
 --- graph never reads it. `Node<K, V, I>` gives it back with its type.
@@ -146,6 +148,12 @@ local record M
     --- of the entries that read it, those with a `span` elsewhere stay
     --- as they are. Nil: everywhere.
     touched: function(old: V, new: V): number, number
+    --- Make a stale entry again first, before the entries that read it
+    --- know: they are marked stale only when its value changed (and with
+    --- `touched`, only those over the time that changed). For a node that
+    --- is quick to make and that many entries read: a change of a track
+    --- does not mark every window of the song.
+    eager: boolean
     --- About how many bytes a value takes.
     bytes: function(v: V): integer
     --- The bytes of all values (with `bytes`), or how many values: past
@@ -208,6 +216,10 @@ end
 local cores: {Core} = {}
 local by_source: {string: {Entry: boolean}} = {} -- who read each source
 local queue: {Entry: boolean} = {} -- what the job makes, stale and wanted
+-- Stale entries of an `eager` node: the job makes them first, and only then
+-- do the entries that read them learn of the change (`went_stale`). An
+-- entry is in it from when it goes stale until it is fresh or goes.
+local eager: {Entry: boolean} = {}
 local pending: {string: boolean} = {} -- sources marked and not yet applied (`apply_pending`)
 local changed_names: {string: boolean} = {} -- kinds whose values changed
 local current: Entry -- the entry being made, which records what it reads
@@ -335,6 +347,14 @@ local schedule: function()
 --- makes it if it is wanted.
 local function went_stale(e: Entry)
   todo = todo + 1
+  if e.core.spec.eager then
+    -- The entries that read it are not marked: when it is made again,
+    -- `remake` marks them if its value changed.
+    eager[e] = true
+    queue[e] = true
+    schedule()
+    return
+  end
   if e.wanted or e.raised then
     queue[e] = true
     schedule()
@@ -357,6 +377,7 @@ end
 local function set_fresh(e: Entry)
   e.state = FRESH
   e.raised = nil
+  eager[e] = nil
   done = done + 1
 end
 
@@ -469,6 +490,10 @@ end
 
 --- Make `e` again: compare its inputs first, then make it.
 local function remake(e: Entry)
+  -- A slice whose time is up stops before each make, at any depth: one
+  -- entry that reads thousands of others does not make all of them in
+  -- one slice.
+  ctx:pause()
   local core = e.core
   local spec = core.spec
   local saved = current
@@ -631,6 +656,9 @@ end
 -- The job -------------------------------------------------------------------------------
 
 local function priority(e: Entry): integer
+  if eager[e] then
+    return EAGER
+  end
   local spec = e.core.spec
   local best = e.raised and VISIBLE or BACKGROUND
   if spec.span then
@@ -660,6 +688,9 @@ local function next_wanted(): Entry
       local p = priority(e)
       if p < best_p then
         best, best_p = e, p
+        if p == EAGER then
+          break
+        end
       end
     end
   end
@@ -675,6 +706,19 @@ local function run_pass()
     label = e.core.spec.label or e.core.spec.name
     ensure(e)
     queue[e] = nil
+  end
+end
+
+--- Make the `eager` entries now (outside a pass): then each entry that one
+--- of them changed is marked stale.
+local function make_eager()
+  while true do
+    local e = next(eager)
+    if not e then
+      return
+    end
+    ensure(e)
+    eager[e] = nil
   end
 end
 
@@ -735,6 +779,7 @@ local function drop(e: Entry)
     end
   end
   queue[e] = nil
+  eager[e] = nil
 end
 
 local function over(core: Core): boolean
@@ -853,6 +898,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       local e = entry_of(core, key as Value)
       local outer = until_ms
       until_ms = nil
+      make_eager()
       ensure(e)
       until_ms = outer
       if next(changed_names) then
@@ -867,7 +913,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       queue[e] = true
       schedule()
     end
-    return e.value as V, e.state == FRESH
+    return e.value as V, e.state == FRESH and next(eager) == nil
   end
   function node:want(key: K)
     before_read()
@@ -882,7 +928,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
     local id = spec.id and (spec.id(key) as Value) or key as Value
     before_read()
     local e = core.entries[id]
-    return e ~= nil and e.state == FRESH and not pass
+    return e ~= nil and e.state == FRESH and not pass and next(eager) == nil
   end
   function node:reset()
     if pass then
@@ -896,6 +942,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       each_user(e, push)
       forget(e)
       queue[e] = nil
+      eager[e] = nil
     end
     core.entries, core.orphans, core.count, core.bytes = {}, {}, 0, 0
     core.revision = core.revision + 1
@@ -947,7 +994,7 @@ end
 function M.reset()
   pass, current = nil, nil
   slices.stop("derived")
-  by_source, queue, pending, changed_names = {}, {}, {}, {}
+  by_source, queue, pending, changed_names, eager = {}, {}, {}, {}, {}
   started, label, done, todo = nil, nil, 0, 0
   for i_core = 1, #cores do
     local core = cores[i_core]
