@@ -10768,6 +10768,12 @@ function paw.api.plugins_add_dir(dir) end
 ---@param path string
 function paw.api.plugins_attach(path) end
 
+--- The folders where paw looks for plugins, for each format, in the order
+--- that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`.
+--- They include the folders that `plugins_add_dir` added. Returns nil where
+--- paw cannot find plugins.
+function paw.api.plugins_dirs() end
+
 --- Stop to find plugins in a directory added with `plugins_add_dir`, and
 --- make no more devices of `kinds`, the kinds found there. Devices that
 --- exist continue to work.
