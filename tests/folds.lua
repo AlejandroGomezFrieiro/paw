@@ -205,7 +205,7 @@ test("zfar folds a region into one column 'Bridge ▸ 8'; l takes it as one step
   local text = screen()
   eq(text:find("Bridge ▸ 8", 1, true) ~= nil, true, "one column with the name and the bars:\n" .. text)
   local view = paw.ui.views:get("arrange")
-  eq(view:col(48) - view:col(16) < 32, true, "the bars after it move left: 8 bars in a narrow column")
+  eq(view.axis:x_of(48) - view.axis:x_of(16) < 32, true, "the bars after it move left: 8 bars in a narrow column")
   paw.cursor.set_beat(15)
   keys("l")
   eq(paw.cursor.beat, 16, "l onto the fold")

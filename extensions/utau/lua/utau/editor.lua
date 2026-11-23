@@ -653,7 +653,9 @@ end
 
 -- Drawing ----------------------------------------------------------------------------
 
-local function x_of(self, beat, zoom) return math.floor((beat - self.scroll) * zoom + 0.5) end
+--- The column of a beat of the clip: the cell that holds it, on the time
+--- axis of the core (paw/axis.tl), as the arrange view and the roll place it.
+local function x_of(self, beat, zoom) return paw.axis.new(self.scroll, zoom):x_of(beat) end
 
 function view:render(buf, ctx)
   local w, h = buf.width, buf.height
@@ -670,7 +672,7 @@ function view:render(buf, ctx)
   -- The chosen curve gets a few rows under the notes when there is room.
   local curve_rows = (device and h >= 16) and 4 or 0
   local rows, tw = math.max(1, h - 4 - curve_rows), w - KEYS
-  local span = tw / zoom
+  local span = paw.axis.new(self.scroll, zoom):beats(tw)
   local list = notes.list(clip.id)
 
   -- Keep the cursor on screen, or while playing the playhead.
@@ -725,7 +727,7 @@ function view:render(buf, ctx)
     local x1 = x_of(self, beat_of(p.stop) - clip.start, zoom)
     ruler:fill(x0, 0, math.max(1, x1 - x0), 1, nil, STATE_STYLE[p.state] or "Ruler")
   end
-  local lines = paw.draw.beats(ruler, self.scroll, span, zoom, clip.start)
+  local lines = paw.draw.beats(ruler, paw.axis.new(self.scroll, zoom), span, clip.start)
 
   local roll = buf:sub(KEYS, 2, tw, rows)
   local end_x = x_of(self, clip.length, zoom)
@@ -794,7 +796,7 @@ function view:render(buf, ctx)
       local over = notes.walker(list)
       local value = notes.sampler(points, 0)
       for col = 0, tw - 1 do
-        local beat = self.scroll + (col + 0.5) / zoom
+        local beat = paw.axis.new(self.scroll, zoom):beat_of(col + 0.5)
         local note = beat < clip.length and over(beat)
         local cents = value(clip.start + beat)
         if note and beat < note.start + note.length then
@@ -810,7 +812,7 @@ function view:render(buf, ctx)
   if sung then
     local columns = {}
     for tick, cents in pairs(sung.ticks) do
-      local col = math.floor((tick / TICKS - self.scroll) * zoom)
+      local col = x_of(self, tick / TICKS, zoom)
       if col >= 0 and col < tw then
         local c = columns[col] or { 0, 0 }
         c[1], c[2] = c[1] + cents, c[2] + 1
@@ -839,7 +841,7 @@ function view:render(buf, ctx)
     roll:fill(
       x_of(self, self.beat, zoom),
       self.top - self.pitch,
-      math.max(1, math.floor(grid * zoom)),
+      math.max(1, x_of(self, self.beat + grid, zoom) - x_of(self, self.beat, zoom)),
       1,
       nil,
       "RollCursor"
@@ -893,7 +895,7 @@ function view:render(buf, ctx)
         local base_row = curve_rows - 1 - math.floor(level / 4)
         area:fill(0, base_row, tw, 1, "┄", "UtauCurveBase")
         paw.draw.curve(area, 0, curve_rows, function(i)
-          local beat = self.scroll + (i + 0.5) / (zoom * 2)
+          local beat = paw.axis.new(self.scroll, zoom):half_beat(i)
           if beat > clip.length then return nil end
           return (value(clip.start + beat) - info.min) / range
         end, "UtauCurve")
@@ -984,7 +986,8 @@ function view:on_mouse(event)
   if event.kind == "down" and event.y >= 2 and event.y < 2 + g.rows and event.x >= KEYS then
     local grid = paw.opt.note_grid
     self.pitch = self.top - (event.y - 2)
-    self.beat = math.max(0, math.floor((self.scroll + (event.x - KEYS) / g.zoom) / grid) * grid)
+    local at = paw.axis.new(self.scroll, g.zoom):beat_of(event.x - KEYS)
+    self.beat = math.max(0, math.floor(at / grid + 1e-6) * grid)
     if event.button == "right" then self:edit_lyric() end
   end
   self.pitch = util.clamp(self.pitch, self.top - g.rows + 1, self.top)

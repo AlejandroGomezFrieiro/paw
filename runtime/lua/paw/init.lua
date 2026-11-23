@@ -62,6 +62,8 @@ paw.contracts = require("paw.contracts")
 paw.cmd = paw.commands.run
 
 paw.music = require("paw.music")
+-- The time axis of a view: where each beat is drawn (paw/axis.tl).
+paw.axis = require("paw.axis")
 -- A note's MIDI 2.0 attribute and the articulations in it (paw/attr.tl).
 paw.attr = require("paw.attr")
 paw.params = require("paw.params")

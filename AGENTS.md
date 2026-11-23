@@ -192,6 +192,7 @@ nix develop -c tools/tlcheck.sh                 # the strict check of all .tl fi
 nix develop -c luacheck .                       # unused and undefined names in the .lua files
 nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
 nix develop -c luajit tools/layers.lua          # no module of the runtime reads a higher layer (the suite does it too)
+nix develop -c luajit tools/zoomlint.lua        # beats go to columns only through paw/axis.tl (the suite does it too)
 nix develop -c tools/vale.sh                   # the docs
 nix build .#website                            # the manual as a static site (tools/website/build.sh)
 nix develop -c cargo check -p paw-fuzz          # the fuzz targets compile (tools/fuzz.sh runs them, CI only)

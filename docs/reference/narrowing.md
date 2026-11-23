@@ -358,8 +358,9 @@ every level is open). `paw.folds` has the functions of the keys:
 `all(false)` (`zR`), and `level(-1)` (`zm`) or `level(1)` (`zr`).
 `paw.folds.list(win)` gives the folds of a window, and
 `paw.folds.at(track)` the fold at a track. `paw.folds.time_spans()` gives
-the closed time folds of a window, and `paw.folds.time_map(zoom)` the map
-from beats to the places of a view with them.
+the closed time folds of a window, with the columns that each one takes.
+`paw.axis.new(scroll, zoom, paw.folds.time_spans())` gives the time axis of
+a view with them, and its `x_of(beat)` gives the column of a beat.
 
 `paw.api.track_list()` gives the tracks of the song. `paw.api.track_list({ nest = id })`
 gives the tracks of a subproject, and `paw.api.track_list({ all = true })`

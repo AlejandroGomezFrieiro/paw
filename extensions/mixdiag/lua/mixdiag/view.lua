@@ -189,7 +189,7 @@ function strip:render(buf)
     -- The most severe finding wins a column.
     local columns = {}
     for _, mark in ipairs(mixdiag.marks()) do
-      local x = g.hw + math.floor((mark.beat - arrange.scroll) * g.zoom + 0.5)
+      local x = g.hw + arrange:current_axis():x_of(mark.beat)
       if x >= g.hw and x < buf.width and (not columns[x] or rank[mark.severity] < rank[columns[x]]) then
         columns[x] = mark.severity
       end

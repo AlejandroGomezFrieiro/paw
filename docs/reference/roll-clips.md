@@ -109,7 +109,7 @@ The piano roll draws the layers below, from back to front.
 `paw.ui.views:get("pianoroll").layer(name, order, paint, marks)` adds a layer.
 
 - `paint(p)` draws the layer in the cells of the terminal. `p` has `roll`,
-  `ruler`, `clip`, `parts`, `x(beat)`, `row(pitch)`, `from`, `to`, `zoom`,
+  `ruler`, `clip`, `parts`, `x(beat)`, `axis`, `row(pitch)`, `from`, `to`, `zoom`,
   `top`, `rows`, `width` and `hue`.
 - `marks(clip_id)` gives what the graphical window draws for the layer:
   boxes or chips in the beats of the clip. Layers with an order below 20

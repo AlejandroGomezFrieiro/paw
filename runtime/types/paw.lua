@@ -35,6 +35,9 @@ paw.audition = {}
 ---@class paw.autosave
 paw.autosave = {}
 
+---@class paw.axis
+paw.axis = {}
+
 ---@class paw.bounce
 paw.bounce = {}
 
@@ -1322,6 +1325,18 @@ function paw.autosave.orphan_takes() end
 ---@param opts any
 function paw.autosave.recover(file, opts) end
 
+--- The cell that a place `x` (in fractions of a cell) is in: the rule of
+--- rounding of each axis. Roles that place beats in cells use it too.
+---@param x any
+function paw.axis.cell(x) end
+
+--- A new axis: `scroll` the beat at the left edge, `zoom` the cells a
+--- beat, `spans` the time folds in order of their beats (optional).
+---@param scroll any
+---@param zoom any
+---@param spans any
+function paw.axis.new(scroll, zoom, spans) end
+
 --- What `K` says of a clip that a bounce muted: the track that plays it
 --- now. Nil for another clip.
 ---@param clip any
@@ -2107,6 +2122,17 @@ function paw.cursor.shift(track, beat) end
 ---@param beat any
 function paw.cursor.snap(beat) end
 
+--- `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid
+--- when nil). paw counts the new place as a whole number of steps from 0,
+--- plus how far `beat` is after the grid line before it. So a long run of
+--- steps gives the exact beat, and a beat on a grid line stays on one. A
+--- place between two lines (the end of a take) keeps its distance from
+--- the line.
+---@param beat any
+---@param n any
+---@param grid any
+function paw.cursor.step(beat, n, grid) end
+
 --- The row that stands for a track at a beat when the cursor moves by
 --- rows: the first row of the closed block fold that holds the track
 --- there, or nil when no closed block holds it. A closed block is one row
@@ -2509,17 +2535,16 @@ function paw.diagnostic.worst(uri, filter) end
 ---@param span any
 function paw.draw.bar_lines(from, span) end
 
---- Write the numbers of a ruler above a roll that shows `span` beats from
---- `scroll`, at `zoom` columns for each beat. Bars have the numbers of the
---- project (`origin` is the project beat of the beat 0 of the roll). Beats
---- between them are ticks. Returns the positions of the lines, as
+--- Write the numbers of a ruler above a roll that shows `span` beats on
+--- the axis `ax` (paw/axis.tl, from its `scroll`). Bars have the numbers of
+--- the project (`origin` is the project beat of the beat 0 of the roll).
+--- Beats between them are ticks. Returns the positions of the lines, as
 --- `{ x, bar }`, for the rows below.
 ---@param ruler any
----@param scroll any
+---@param ax any
 ---@param span any
----@param zoom any
 ---@param origin any
-function paw.draw.beats(ruler, scroll, span, zoom, origin) end
+function paw.draw.beats(ruler, ax, span, origin) end
 
 --- A braille character from its eight dots: bit k is dot k + 1.
 ---@param bits any
@@ -2588,14 +2613,14 @@ function paw.draw.hue(colour) end
 --- false) is left to the caller, which scrolls just enough. A jump (it went
 --- into the jump list) to a target that is off screen, or in the last quarter
 --- of the view, puts the target at the left margin (`paw.opt.jumpview` "left",
---- `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the
---- beats shown, `zoom` the columns a beat.
+--- `paw.opt.jumpmargin` columns) or in the middle ("center"). `target` is a
+--- place in the beats of the view's axis `ax` (paw/axis.tl), whose left
+--- edge is `ax.left`; `span` is the beats shown. Gives the new left edge.
+---@param ax any
 ---@param target any
----@param scroll any
 ---@param span any
----@param zoom any
 ---@param jumped any
-function paw.draw.jump_scroll(target, scroll, span, zoom, jumped) end
+function paw.draw.jump_scroll(ax, target, span, jumped) end
 
 --- A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`,
 --- with a faint dot between them. `? keys` is always the last when it is in
@@ -2636,13 +2661,16 @@ function paw.draw.meters_falling() end
 
 --- Notes as a small piano roll of `rows` text rows, each `width` columns.
 --- A row holds two pitches, drawn with half blocks. `notes` have `start`,
---- `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
+--- `length` and `pitch`, in beats from the start of the box. The box
+--- begins `phase` of a cell into its first column on the axis `ax`
+--- (paw/axis.tl): each note takes the cells that the axis gives its time,
+--- so that it is under the ruler's beat.
 ---@param notes any
 ---@param width any
 ---@param rows any
----@param zoom any
----@param from any
-function paw.draw.miniroll(notes, width, rows, zoom, from) end
+---@param ax any
+---@param phase any
+function paw.draw.miniroll(notes, width, rows, ax, phase) end
 
 --- A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 ---@param a any
@@ -3394,13 +3422,6 @@ function paw.folds.set_group(group, on, win) end
 ---@param beat any
 ---@param win any
 function paw.folds.time_at(beat, win) end
-
---- The map from beats to the places of a view at `zoom` columns a beat,
---- with the closed time folds of a window (the one a view shows by
---- default). Each folded span takes the columns of its label and two more.
----@param zoom any
----@param win any
-function paw.folds.time_map(zoom, win) end
 
 --- The closed time folds of a window (the one a view shows by default),
 --- in order of time: the outermost of folds inside each other, and folds
@@ -4241,19 +4262,18 @@ function paw.harmony.degree(key, pitch) end
 function paw.harmony.degree_pitch(key, degree) end
 
 --- Draw the chords on a row of cells. `buf` is one row high, and shows
---- `span` beats from `scroll` at `zoom` columns for each beat. Beats count
---- from `origin` (the start of a clip, or 0 for the song). Each symbol
---- starts on the left edge of the cell where its chord starts. It stops
---- where the next symbol starts. The labels are as `paw.opt.chords` (or
---- `how`) tells. It draws the reading as it stands: after an edit, the
---- one before it until the new one lands.
+--- `span` beats on the time axis `ax` (paw/axis.tl, from its `scroll`).
+--- Beats count from `origin` (the start of a clip, or 0 for the song). Each
+--- symbol starts in the cell where its chord starts. It stops where the
+--- next symbol starts. The labels are as `paw.opt.chords` (or `how`)
+--- tells. It draws the reading as it stands: after an edit, the one before
+--- it until the new one lands.
 ---@param buf any
----@param scroll any
+---@param ax any
 ---@param span any
----@param zoom any
 ---@param origin any
 ---@param how any
-function paw.harmony.draw(buf, scroll, span, zoom, origin, how) end
+function paw.harmony.draw(buf, ax, span, origin, how) end
 
 --- True if the reading agrees with the project, so `key` and `chords` answer
 --- immediately. A view that paw draws on each key asks this first, because
@@ -6449,13 +6469,6 @@ function paw.mixer_rows.to_kind(dir, n) end
 ---@param n any
 function paw.mixer_rows.to_kind_end(n) end
 
---- The beat at the left edge of column `x` of a timeline whose column 0
---- is beat `scroll`, at `zoom` columns a beat.
----@param x any
----@param scroll any
----@param zoom any
-function paw.mouse.beat(x, scroll, zoom) end
-
 --- Called by `paw.ui.mouse` last: a move over nothing that says what it is
 --- under the pointer clears what the status line said.
 ---@param event any
@@ -6506,14 +6519,6 @@ function paw.mouse.mark_double(event) end
 --- Shift, else "only".
 ---@param event any
 function paw.mouse.mode(event) end
-
---- The same, on the grid: the step the column's left edge falls in, which
---- is the one drawn there.
----@param x any
----@param scroll any
----@param zoom any
----@param grid any
-function paw.mouse.on_grid(x, scroll, zoom, grid) end
 
 --- Called by `paw.ui.mouse` first: true when the event was taken here and
 --- goes no further.

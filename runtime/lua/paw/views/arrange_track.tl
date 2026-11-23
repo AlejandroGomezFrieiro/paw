@@ -3,10 +3,13 @@
 -- input), and the props of its clips with what is drawn in their bodies
 -- (a small piano roll, a waveform, the notes of a subproject's block).
 -- Nothing here knows where the view scrolls: the view places what this
--- module draws.
+-- module draws, and gives it the time axis (paw/axis.tl) and how far into
+-- its first cell each clip begins (`phase`), so that what is drawn in a
+-- clip's cells is under the ruler's beats.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local axis = require("paw.axis")
 local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -16,6 +19,7 @@ local type Buf = contracts.Buf
 local type Track = types.Track
 local type Clip = types.Clip
 local type Hue = DrawModule.Hue
+local type Axis = axis.Axis
 
 local draw = paw.draw
 local util = paw.util
@@ -38,20 +42,22 @@ local record M
     column_width: integer
   ): Flags
   level_glyph: function(level: number): string
-  notes_line: function(clip: Clip, width: integer, zoom: number): string
+  notes_line: function(clip: Clip, width: integer, ax: Axis, at: number): string
+  cuts: function(clip: Clip, from: number, to: number): number, number
   clip_props: function(
     clip: Clip,
     track: Track,
     hue: Hue,
     kind: string,
-    zoom: number,
+    ax: Axis,
+    at: number,
     chosen?: boolean,
     from?: number,
     to?: number,
     colour?: string
   ): roles.ClipProps
   take_body: function(
-    props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, zoom: number
+    props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, ax: Axis
   )
 end
 
@@ -95,6 +101,7 @@ local record Preview
   width: integer
   rows: integer
   zoom: number
+  phase: number
   scale: number | string
   ascii: boolean
   stamp: integer
@@ -542,10 +549,48 @@ local function wave_peaks(clip: Clip, n: integer): {types.Peak}
   return waves[key]
 end
 
+--- The peaks of `n` points across a box `width` cells wide, in which a
+--- clip begins `phase` of a cell into the first cell and takes `cells`
+--- cells: each point gets the loudest of the clip's time under it, so that
+--- the sound is under the ruler's beat (paw/axis.tl). `of(m)` gives the
+--- clip's peaks at `m` points across all of it.
+local function aligned(
+  of: function(m: integer): {types.Peak}, n: integer, width: integer, phase: number, cells: number
+): {types.Peak}
+  if n < 1 or width < 1 or cells <= 0 then
+    return {}
+  end
+  -- Four points of the clip at least for each point of the box.
+  local m = math.min(65536, math.max(n, math.ceil(n * cells / width)) * 4)
+  local fine = of(m) or {}
+  if #fine == 0 then
+    return {}
+  end
+  local out: {types.Peak} = {}
+  for j, p in ipairs(fine) do
+    local u = math.floor((phase + (j - 0.5) / #fine * cells) * n / width) + 1
+    if u >= 1 and u <= n then
+      local q = out[u]
+      if not q then
+        out[u] = {p[1], p[2], p[3]}
+      else
+        q[1], q[2] = math.min(q[1], p[1]), math.max(q[2], p[2])
+        if p[3] and q[3] then
+          q[3] = math.max(q[3], p[3])
+        end
+      end
+    end
+  end
+  for u = 1, n do
+    out[u] = out[u] or {0, 0, 0}
+  end
+  return out
+end
+
 --- Whether a clip's kept preview was drawn from what it would be drawn
 --- from now.
-local function still_fits(kept: Preview, clip: Clip, width: integer, rows: integer, zoom: number): boolean
-  if not (kept.width == width and kept.rows == rows and kept.zoom == zoom) then
+local function still_fits(kept: Preview, clip: Clip, width: integer, rows: integer, ax: Axis, phase: number): boolean
+  if not (kept.width == width and kept.rows == rows and kept.zoom == ax.zoom and kept.phase == phase) then
     return false
   end
   if not (kept.scale == paw.opt.wave_scale and kept.ascii == paw.opt.ascii) then
@@ -563,16 +608,21 @@ local function still_fits(kept: Preview, clip: Clip, width: integer, rows: integ
 end
 
 --- The rows under a clip's name: its notes as a small piano roll, or its
---- waveform.
-local function preview(clip: Clip, width: integer, rows: integer, zoom: number): {string}, {{DrawModule.WaveRun}}
+--- waveform, on the axis `ax`, the clip `phase` of a cell into its first
+--- column.
+local function preview(
+  clip: Clip, width: integer, rows: integer, ax: Axis, phase: number
+): {string}, {{DrawModule.WaveRun}}
   -- Kept by the clip, then compared field by field: a string key made on
   -- each frame for each clip cost more than the look-up saved.
   local scale, ascii = paw.opt.wave_scale, paw.opt.ascii
   local kept = previews[clip.id]
-  if kept and still_fits(kept, clip, width, rows, zoom) then
+  if kept and still_fits(kept, clip, width, rows, ax, phase) then
     return kept.out, kept.runs
   end
-  local key = clip.id .. ":" .. width .. ":" .. rows .. ":" .. zoom .. ":" .. tostring(scale) .. (ascii and "a" or "")
+  local key = string.format(
+    "%d:%d:%d:%.17g:%.17g:%s%s", clip.id, width, rows, ax.zoom, phase, tostring(scale), ascii and "a" or ""
+  )
   local out: {string}
   local runs: {{DrawModule.WaveRun}}
   if clip.kind == "midi" then
@@ -592,19 +642,23 @@ local function preview(clip: Clip, width: integer, rows: integer, zoom: number):
         roll,
         function(): {string}
           local notes = paw.stretch.sounding(clip, api.clip_notes(clip.id)) as {types.Note}
-          return draw.miniroll(notes, width, rows, zoom)
+          return draw.miniroll(notes, width, rows, ax, phase)
         end
       )
     end
   else
     -- A file that has gone missing has been reported already; draw nothing.
-    local ok, peaks = pcall(api.clip_peaks, clip.id, width)
-    out, runs = draw.waveform(ok and peaks or {}, rows)
+    local function of(m: integer): {types.Peak}
+      local ok, peaks = pcall(api.clip_peaks, clip.id, m)
+      return ok and peaks or {}
+    end
+    out, runs = draw.waveform(aligned(of, width, width, phase, ax:cells(clip.length)), rows)
   end
   previews[clip.id] = {
     width = width,
     rows = rows,
-    zoom = zoom,
+    zoom = ax.zoom,
+    phase = phase,
     scale = scale,
     ascii = ascii,
     stamp = clip.stamp,
@@ -620,34 +674,37 @@ end
 
 --- A clip's notes in one line `width` cells wide (its waveform for an
 --- audio clip), as its body draws them, for an overview of its track
---- (a member of a folded group). Nil for a clip with nothing to draw in
---- one line: no notes, or a block of a subproject.
-function M.notes_line(clip: Clip, width: integer, zoom: number): string
+--- (a member of a folded group): on the axis `ax`, the clip at place `at`
+--- (`ax:view` of its start). Nil for a clip with nothing to draw in one
+--- line: no notes, or a block of a subproject.
+function M.notes_line(clip: Clip, width: integer, ax: Axis, at: number): string
   if clip.kind == "nest" or (clip.kind == "midi" and clip.note_count == 0) then
     return nil
   end
-  return (preview(clip, width, 1, zoom))[1]
+  return (preview(clip, width, 1, ax, ax:phase_at(at)))[1]
 end
 
 --- Style names for the runs of a waveform that `draw.waveform` marks.
 local wave_style: {string: string} = {flip = "ClipWaveFlip", clip = "ClipWaveClip", clipflip = "ClipWaveClipFlip"}
 
 --- What each clip's props (`clip_props`) draw in its body: the clip, its
---- track's colour, its kind and the zoom. Kept beside the props, not in
---- them, as they are not data for a frontend; and not in a closure made for
---- each clip on each frame, which LuaJIT does not compile.
+--- track's colour, its kind, the axis and how far into its first cell the
+--- clip begins. Kept beside the props, not in them, as they are not data
+--- for a frontend; and not in a closure made for each clip on each frame,
+--- which LuaJIT does not compile.
 local record Body
   clip: Clip
   colour: string
   kind: string
-  zoom: number
+  ax: Axis
+  phase: number
 end
 local bodies: {roles.ClipProps: Body} = setmetatable({}, {__mode = "k"})
 
 --- A waveform in the rows of `box` under its first: in pixels under the
 --- cells where the terminal shows them, else in cells. `peaks(n)` gives it
---- at `n` points across the whole box. `key` names the picture, so that
---- scrolling moves pieces already made.
+--- at `n` points across the whole box (`aligned`). `key` names the
+--- picture, so that scrolling moves pieces already made.
 local function waveform(box: Buf, key: string, colour: string, peaks: function(n: integer): {types.Peak})
   local cw, height = box.width, box.height
   local body = box:sub(0, 1, cw, height - 1)
@@ -678,8 +735,12 @@ end
 --- An audio clip's waveform, the whole clip's.
 local function audio_body(box: Buf, of: Body)
   local clip = of.clip
+  local cells = of.ax:cells(clip.length)
+  local function whole(m: integer): {types.Peak}
+    return wave_peaks(clip, m)
+  end
   local function peaks(n: integer): {types.Peak}
-    return wave_peaks(clip, n)
+    return aligned(whole, n, box.width, of.phase, cells)
   end
   waveform(box, "arrange:wave:" .. clip.id, body_colour(of.colour, of.kind), peaks)
 end
@@ -688,11 +749,13 @@ end
 --- notes of its subproject's tracks.
 local function nest_body(box: Buf, of: Body)
   local cw, height = box.width, box.height
-  local key = paw.nest.content_key(of.clip) .. ":" .. cw .. ":" .. (height - 1) .. ":" .. of.zoom
+  local key = string.format("%s:%d:%d:%.17g:%.17g", paw.nest.content_key(of.clip), cw, height - 1, of.ax.zoom, of.phase)
   local rows = rolls.values[key]
   if rows == nil then
     rows = keep(
-      rolls, key, function(): {string} return draw.miniroll(paw.nest.notes(of.clip), cw, height - 1, of.zoom) end
+      rolls,
+      key,
+      function(): {string} return draw.miniroll(paw.nest.notes(of.clip), cw, height - 1, of.ax, of.phase) end
     )
   end
   for row, text in ipairs(rows) do
@@ -713,7 +776,7 @@ local function clip_body(box: Buf, p: roles.ClipProps)
   elseif clip.kind == "nest" then
     nest_body(box, of)
   elseif clip.note_count > 0 then
-    local rows, runs = preview(clip, box.width, box.height - 1, of.zoom)
+    local rows, runs = preview(clip, box.width, box.height - 1, of.ax, of.phase)
     for row, text in ipairs(rows) do
       if runs then
         for _, run in ipairs(runs[row]) do
@@ -726,15 +789,15 @@ local function clip_body(box: Buf, p: roles.ClipProps)
   end
 end
 
---- What a take lane's clip draws in its body: take `take` of `clip`.
---- `key` changes exactly when what the take plays changes
+--- What a take lane's clip draws in its body: take `take` of `clip`, on
+--- the axis `ax`. `key` changes exactly when what the take plays changes
 --- (`paw.frontend.take_rows`).
 local record TakeBody
   clip: Clip
   take: integer
   key: string
   colour: string
-  zoom: number
+  ax: Axis
 end
 local take_bodies: {roles.ClipProps: TakeBody} = setmetatable({}, {__mode = "k"})
 
@@ -746,18 +809,23 @@ local function take_body(box: Buf, p: roles.ClipProps)
     return
   end
   local clip, take, rows = of.clip, of.take, box.height - 1
+  local ax, phase = of.ax, p.phase or 0
   if clip.kind == "audio" then
-    local function peaks(n: integer): {types.Peak}
-      local key = of.key .. ":" .. n
+    local function whole(m: integer): {types.Peak}
+      local key = of.key .. ":" .. m
       if not waves[key] then
-        waves[key] = paw.takes.peaks(clip, take, n)
+        waves[key] = paw.takes.peaks(clip, take, m)
       end
       return waves[key]
+    end
+    local cells = ax:cells(clip.length)
+    local function peaks(n: integer): {types.Peak}
+      return aligned(whole, n, box.width, phase, cells)
     end
     waveform(box, "arrange:take:" .. clip.id .. ":" .. take, of.colour, peaks)
     return
   end
-  local key = of.key .. ":" .. box.width .. ":" .. rows .. ":" .. of.zoom
+  local key = string.format("%s:%d:%d:%.17g:%.17g", of.key, box.width, rows, ax.zoom, phase)
   local out = rolls.values[key]
   if out == nil then
     out = keep(
@@ -765,7 +833,7 @@ local function take_body(box: Buf, p: roles.ClipProps)
       key,
       function(): {string}
         local notes = paw.takes.content(clip, take).notes
-        return draw.miniroll(paw.stretch.sounding(clip, notes) as {types.Note}, box.width, rows, of.zoom)
+        return draw.miniroll(paw.stretch.sounding(clip, notes) as {types.Note}, box.width, rows, ax, phase)
       end
     )
   end
@@ -779,14 +847,14 @@ end
 --- (`paw.frontend.take_rows`), `colour` its track's, and the take is faint
 --- where it does not play (not `active`).
 function M.take_body(
-  props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, zoom: number
+  props: roles.ClipProps, clip: Clip, take: integer, key: string, colour: string, active: boolean, ax: Axis
 )
   if not key then
     return
   end
   props.body = take_body
   take_bodies[props] = {
-    clip = clip, take = take, key = key, colour = body_colour(colour, active and "" or "_off"), zoom = zoom
+    clip = clip, take = take, key = key, colour = body_colour(colour, active and "" or "_off"), ax = ax
   }
 end
 
@@ -795,10 +863,11 @@ local title_of: {string: string} = {[""] = "title", _cur = "title_cur", _off = "
 local body_of: {string: string} = {[""] = "body", _cur = "body_cur", _off = "body_off"}
 
 --- The controller moves of a MIDI clip as the `clip` role's `moves`: in
---- each of its columns, `zoom` a beat, the height (0 to 1) of the
---- controller that moves most often, where the column's middle is, and
---- false before its first move. Kept by the clip's controls, its length,
---- its loop and the zoom. Nil for a clip without controller moves.
+--- each of its columns on the axis, the clip `phase` of a cell into the
+--- first, the height (0 to 1) of the controller that moves most often,
+--- where the column's middle is, and false before its first move. Kept by
+--- the clip's controls, its length, its loop, the zoom and the phase. Nil
+--- for a clip without controller moves.
 local curves: Kept<{number | boolean}> = kept_store()
 
 --- A controller move as `paw.stretch.sounding` takes a note: it reads a
@@ -809,19 +878,20 @@ local record Move
   height: number
 end
 
-local function moves(clip: Clip, zoom: number): {number | boolean}
+local function moves(clip: Clip, ax: Axis, phase: number): {number | boolean}
   if clip.kind ~= "midi" or (clip.control_count or 0) == 0 then
     return nil
   end
   local key = string.format(
-    "%d:%s:%.17g:%s:%.17g:%.17g:%.17g",
+    "%d:%s:%.17g:%s:%.17g:%.17g:%.17g:%.17g",
     clip.id,
     tostring(clip.control_stamp),
     clip.length,
     tostring(clip.loop),
     clip.loop_start or 0,
     clip.loop_length or 0,
-    zoom
+    ax.zoom,
+    phase
   )
   return keep(
     curves,
@@ -847,8 +917,8 @@ local function moves(clip: Clip, zoom: number): {number | boolean}
       local out: {number | boolean} = {}
       local after = 1
       local height: number | boolean = false
-      for x = 0, math.floor(clip.length * zoom + 0.5) - 1 do
-        local middle = (x + 0.5) / zoom
+      for x = 0, math.max(1, axis.cell(phase + ax:cells(clip.length))) - 1 do
+        local middle = ax:beats(x + 0.5 - phase)
         while list[after] and list[after].start <= middle do
           height = list[after].height
           after = after + 1
@@ -864,7 +934,7 @@ end
 --- its edges, in beats from the clip's start: `cut_in` at its start,
 --- `cut_out` at its end, each nil where it does not cut. Only the drawing
 --- is cut: an edit of the clip is an edit of all of it.
-local function cuts(clip: Clip, from: number, to: number): number, number
+function M.cuts(clip: Clip, from: number, to: number): number, number
   if not from then
     return nil, nil
   end
@@ -909,22 +979,25 @@ local function clip_label(clip: Clip): string
 end
 
 --- A clip on the timeline's plane, as the `clip` role it is. `kind` is
---- "" or "_cur" (the cursor's) or "_off" (muted). `from`, `to`: the time
---- of the window's scope, which cuts it (`cut_in`, `cut_out`). `colour` is
---- its track's (`paw.draw.track_colour`), when the caller has it.
+--- "" or "_cur" (the cursor's) or "_off" (muted). `ax` is the view's axis
+--- and `at` the place on the plane where the clip's box begins (`ax:view`
+--- of its start). `from`, `to`: the time of the window's scope, which cuts
+--- it (`cut_in`, `cut_out`). `colour` is its track's
+--- (`paw.draw.track_colour`), when the caller has it.
 function M.clip_props(
   clip: Clip,
   track: Track,
   hue: Hue,
   kind: string,
-  zoom: number,
+  ax: Axis,
+  at: number,
   chosen?: boolean,
   from?: number,
   to?: number,
   colour?: string
 ): roles.ClipProps
   colour = colour or draw.track_colour(track)
-  local cut_in, cut_out = cuts(clip, from, to)
+  local cut_in, cut_out = M.cuts(clip, from, to)
   local block = clip.kind == "nest"
   local warps: {number}
   for i, m in ipairs(clip.warp or {}) do
@@ -932,6 +1005,7 @@ function M.clip_props(
     warps[i] = m.beat - clip.start
   end
   local hues = hue as {string: string}
+  local phase = ax:phase_at(at)
   local props: roles.ClipProps = {
     key = "clip:" .. clip.id,
     name = clip.name,
@@ -939,10 +1013,11 @@ function M.clip_props(
     -- A clip with takes says which plays: `take 3 ‹2/4›` (the role puts
     -- the mark first where the label does not fit).
     mark = paw.takes.badge(clip),
-    per = zoom,
+    per = ax.zoom,
+    phase = phase,
     repeats = clip.loop and paw.stretch.repeats(clip) as {number} or nil,
     warps = warps,
-    moves = moves(clip, zoom),
+    moves = moves(clip, ax, phase),
     cut_in = cut_in,
     cut_out = cut_out,
     title_style = hues[title_of[kind]],
@@ -950,7 +1025,7 @@ function M.clip_props(
     body = clip_body,
     nest = block or nil,
   }
-  bodies[props] = {clip = clip, colour = colour, kind = kind, zoom = zoom}
+  bodies[props] = {clip = clip, colour = colour, kind = kind, ax = ax, phase = phase}
   -- What only a frontend that gets scenes reads: the terminal draws the
   -- same cells without it.
   if paw.ui.scene_drawing then

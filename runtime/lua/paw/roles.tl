@@ -32,6 +32,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local registry = require("paw.registry")
+local time_axis = require("paw.axis")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -342,7 +343,9 @@ end
 --
 -- An axis puts `from` at the plane's edge and runs `per` units for each
 -- unit of its domain, backwards when negative. A terminal shows a mark on
--- the cells its edges round to (one at least each way); a window paints it
+-- the cells that its edges are in, by the rule of paw/axis.tl: from the
+-- cell of its first edge up to the cell of its last, that cell not
+-- included (one at least each way); a window paints it
 -- where it is, between cells. A press on a plane, or on what is in it,
 -- comes with `e.at`: where in the domain it was (a terminal's at the
 -- middle of the cell).
@@ -356,8 +359,8 @@ local function along(axis: Axis, v: number, len: number): integer, integer
   if a > b then
     a, b = b, a
   end
-  local first = math.floor(a + 0.5)
-  return first, math.max(1, math.floor(b + 0.5) - first)
+  local first = time_axis.cell(a)
+  return first, math.max(1, time_axis.cell(b) - first)
 end
 
 --- The cells of the plane's buffer that a rectangle of its domain shows on.

@@ -11,6 +11,7 @@ local type contracts = require("paw.contracts")
 local type AddressModule = require("paw.address")
 local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
+local type AxisModule = require("paw.axis")
 local type BounceModule = require("paw.bounce")
 local type BytesModule = require("paw.bytes")
 local type CanvasModule = require("paw.canvas")
@@ -103,6 +104,7 @@ global record paw
    audio: Untyped
    audition: AuditionModule
    autosave: Untyped
+   axis: AxisModule
    bounce: BounceModule
    buf: LayoutModule.Bufs
    buftype: function<B is contracts.Buftype>(name: string, def: B): B

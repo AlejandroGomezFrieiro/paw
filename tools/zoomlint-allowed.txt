@@ -1,0 +1,7 @@
+# The uses of `* zoom` and `/ zoom` outside the time axis (paw/axis.tl)
+# that stay, each with its reason (tools/zoomlint.lua). The list only
+# gets shorter: `<file> <count> <reason>`.
+extensions/notation/lua/notation/tui.lua 1 the room of a note in a score grows with its length: spacing, not a time axis
+extensions/utau/lua/utau/gui.lua 14 the vocal editor's window draws in pixels, not cells, and moves to Rust
+extensions/utau/lua/utau/gui_pitch.lua 4 the vocal editor's window draws in pixels, not cells, and moves to Rust
+extensions/utau/lua/utau/gui_curves.lua 1 the vocal editor's window draws in pixels, not cells, and moves to Rust

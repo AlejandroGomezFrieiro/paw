@@ -11,6 +11,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -23,6 +24,7 @@ local type TempoModule = require("paw.tempo")
 local type Buf = contracts.Buf
 local type MouseEvent = contracts.MouseEvent
 local type Row = Arrange.Row
+local type Axis = axis.Axis
 
 local util = paw.util
 local mouse = paw.mouse
@@ -74,14 +76,14 @@ local function held(): Grab
   return mouse.gesture() as Grab
 end
 
--- Columns and beats through the view's map, which has its time folds
--- (paw/views/arrange.tl `view:col`, `view:beat`).
+-- Columns and beats through the view's time axis, which has its time
+-- folds (paw/axis.tl, `view:current_axis`): the step of the grid drawn in
+-- a column, and a move of the pointer in beats.
 local function grid_at(self: Arrange, tx: number): number
-  local grid = paw.opt.grid
-  return math.floor(self:beat(tx) / grid + 1e-6) * grid
+  return self:current_axis():step_at(math.floor(tx), paw.opt.grid)
 end
 local function cells(self: Arrange, d: number): number
-  return d / self.geometry.zoom
+  return self:current_axis():beats(d)
 end
 
 --- Where the pointer of `e` is on the screen, for a menu there; `down`
@@ -101,7 +103,7 @@ local function stretch(self: Arrange, x0: number, x1: number, fine: boolean): nu
       x0 = x0 + 1
     end
   end
-  return self:beat(x0), self:beat(x1)
+  return self:current_axis():beat_of(x0), self:current_axis():beat_of(x1)
 end
 
 --- Which part of clip `c` a press `into` columns from its start is on,
@@ -109,18 +111,18 @@ end
 --- marker's place, an audio clip's "fade_in", "fade_out" or "gain" (a
 --- window's handles at its top), "start" or "end" (a cell's worth at
 --- either end, when it is three cells or more), or "body".
-local function clip_part(
-  zoom: number, c: types.Clip, into: number, cw: number, dy: number, fine: boolean
-): string, integer
+local function clip_part(ax: Axis, c: types.Clip, into: number, cw: number, dy: number, fine: boolean): string, integer
   local part, index = "body", nil as integer
+  -- Where the clip's beats are in its cells, as the `clip` role draws them.
+  local phase = ax:phase_at(ax:view(c.start))
   for i, m in ipairs(c.warp or {}) do
-    local nx = (m.beat - c.start) * zoom
+    local nx = ax:cells(m.beat - c.start)
     if fine then
       if nx > 0 and nx < cw and math.abs(into - nx) <= 0.6 and dy < 1 then
         part, index = "warp", i
       end
     else
-      local cell = math.floor(nx + 0.5)
+      local cell = axis.cell(phase + nx)
       if cell > 0 and cell < cw and into == cell then
         part, index = "warp", i
       end
@@ -129,7 +131,7 @@ local function clip_part(
   if part == "body" and fine and c.kind == "audio" and dy < 0.55 then
     -- The handles at the top corners, where the fades end; the gain
     -- line along the top between them.
-    local fade_in, fade_out = (c.fade_in or 0) * zoom, cw - (c.fade_out or 0) * zoom
+    local fade_in, fade_out = ax:cells(c.fade_in or 0), cw - ax:cells(c.fade_out or 0)
     if math.abs(into - fade_in) <= 0.6 then
       part = "fade_in"
     elseif math.abs(into - fade_out) <= 0.6 then
@@ -155,22 +157,23 @@ local function clip_at(self: Arrange, row: Row, tx: number, dy: number, fine: bo
   local found: types.Clip
   local part: string
   local index: integer
+  local ax = self:current_axis()
   -- A time fold's column holds no clip.
-  if self:fold_at(tx) then
+  if ax:fold_at(tx) then
     return nil
   end
   for _, c in ipairs(api.clip_list(row.id)) do
     local x0, cw: number, number
     if fine then
-      x0 = self:x(c.start)
-      cw = math.max(1, self:x(c.start + c.length) - x0)
+      x0 = ax:exact(c.start)
+      cw = math.max(1, ax:exact(c.start + c.length) - x0)
     else
-      x0 = self:col(c.start)
-      cw = math.max(1, self:col(c.start + c.length) - x0)
+      local first, after = ax:range(c.start, c.start + c.length)
+      x0, cw = first, after - first
     end
     if tx >= x0 and tx < x0 + cw then
       found = c
-      part, index = clip_part(self.geometry.zoom, c, tx - x0, cw, dy, fine)
+      part, index = clip_part(ax, c, tx - x0, cw, dy, fine)
     end
   end
   return found, part, index
@@ -187,8 +190,8 @@ end
 local function ruler_marks(self: Arrange): {Flag}
   local out: {Flag} = {}
   local mark_end = -1
-  for _, mark in ipairs(paw.tempo.marks(self.scroll, self:beat(self.geometry.layout.tw))) do
-    local x = self:col(mark.beat)
+  for _, mark in ipairs(paw.tempo.marks(self.scroll, self:current_axis():beat_of(self.geometry.layout.tw))) do
+    local x = self:current_axis():x_of(mark.beat)
     if paw.tempo.is_bar_line(mark.beat) then
       x = x + #tostring(paw.time.bar_of(mark.beat))
     end
@@ -215,7 +218,7 @@ local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule
   for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
     local start, stop = paw.markers.placed(m, time)
     if start and paw.markers.lane_row(m.id, time) == (row or 0) then
-      list[#list + 1] = {m = m, x0 = self:col(start), x1 = self:col(stop)}
+      list[#list + 1] = {m = m, x0 = self:current_axis():x_of(start), x1 = self:current_axis():x_of(stop)}
     end
   end
   local width = self.geometry.layout.tw
@@ -247,8 +250,8 @@ local function band_at(self: Arrange, bands: FrontendModule.Bands, row: integer,
   local found: FrontendModule.BandState
   for _, e in ipairs(bands.entries) do
     if e.row == row then
-      local x0 = self:col(e.beat)
-      local span = e.length > 0 and math.max(1, self:col(e.beat + e.length) - x0) or api.str_width(e.name) + 2
+      local x0, x1 = self:current_axis():range(e.beat, e.beat + e.length)
+      local span = e.length > 0 and x1 - x0 or api.str_width(e.name) + 2
       if tx >= x0 and tx < x0 + span then
         found = e
       end
@@ -263,7 +266,7 @@ local function hit(self: Arrange, x: number, y: number, fine: boolean): Hit
   local g = self.geometry
   local L = g.layout
   local out: Hit = {x = x, y = y, tx = x - g.hw, header = x < g.hw - 1, timeline = x >= g.hw, fine = fine}
-  out.beat = self:beat(out.tx)
+  out.beat = self:current_axis():beat_of(out.tx)
   local tempo_y = L.ruler_rows - L.tempo_rows
   if y < L.lanes_y then
     out.area = "ruler"
@@ -332,7 +335,7 @@ local function ghost(self: Arrange, row: Row, start: number, length: number, tex
     name = text,
     color = paw.draw.track_colour(api.track_get(row.id), row.index),
   }
-  self.plane:mark("clip", self:v(start), row.y, length, row.h, props)
+  self.plane:mark("clip", self:current_axis():view(start), row.y, length, row.h, props)
 end
 
 local function box(buf: Buf, x0: integer, y0: integer, x1: integer, y1: integer)
@@ -422,10 +425,11 @@ local function redrawn(self: Arrange, row: Row, c: types.Clip, change: function(
   end
   local track = api.track_get(row.id)
   local hue = paw.draw.track_hue(track, row.index)
-  local props = view.clip_props(c, track, hue, "", self.geometry.zoom)
+  local ax = self:current_axis()
+  local props = view.clip_props(c, track, hue, "", ax, ax:view(c.start))
   props.key = "drag:clip"
   change(props)
-  self.plane:mark("clip", self:v(c.start), row.y, c.length, row.h, props)
+  self.plane:mark("clip", self:current_axis():view(c.start), row.y, c.length, row.h, props)
 end
 
 --- An audio clip's fade handle dragged: the fade ends where it is let go.
@@ -506,7 +510,9 @@ local function press_warp(self: Arrange, e: MouseEvent, h: Hit, c: types.Clip, f
       arrange = function(v: Arrange, buf: Buf)
         local dx = held().dx
         if dx then
-          timeline(v, buf):fill(v:col(m.beat + cells(v, dx)), h.row.y, 1, h.row.h, paw.draw.g.tick, "MouseGhost")
+          timeline(v, buf):fill(
+            v:current_axis():x_of(m.beat + cells(v, dx)), h.row.y, 1, h.row.h, paw.draw.g.tick, "MouseGhost"
+          )
         end
       end,
       drag = function(d: MouseEvent) held().dx = d.dx end,
@@ -935,11 +941,11 @@ local function point_under(
   for i, p in ipairs(points) do
     local near: boolean
     if h.fine then
-      local x, y = self:x(p[1]), top + (1 - p[2]) * rows
+      local x, y = self:current_axis():exact(p[1]), top + (1 - p[2]) * rows
       near = math.abs(x - h.tx) <= 0.7 and math.abs(y - e.y) <= 0.6
     else
       local line = p[2] >= 0.5 and top or top + rows - 1
-      near = self:col(p[1]) == h.tx and (not index or line == e.y)
+      near = self:current_axis():x_of(p[1]) == h.tx and (not index or line == e.y)
     end
     if near then
       index = i
@@ -982,12 +988,14 @@ local function press_lane(self: Arrange, e: MouseEvent, h: Hit, top: number, row
       }
     )
   end
-  local stroke: {LanePoint} = {{fine and self:beat(tx) or grid_at(self, tx), fraction(e.y, top, rows, fine)}}
+  local stroke: {LanePoint} = {
+    {fine and self:current_axis():beat_of(tx) or grid_at(self, tx), fraction(e.y, top, rows, fine)}
+  }
   hold(
     e,
     {
       drag = function(d: MouseEvent)
-        stroke[#stroke + 1] = {self:beat(d.x - self.geometry.hw), fraction(d.y, top, rows, d.fine)}
+        stroke[#stroke + 1] = {self:current_axis():beat_of(d.x - self.geometry.hw), fraction(d.y, top, rows, d.fine)}
         mouse.hint(o.say(stroke[#stroke][1], stroke[#stroke][2]))
       end,
       up = function(u: MouseEvent)
@@ -1083,15 +1091,18 @@ end
 local function ruler_edges(self: Arrange, free: boolean): {Edge}
   local t = api.transport_get()
   local edges: {Edge} = {}
+  -- Where the ruler draws them: in the window's time, on its axis.
+  local ax, here = self:current_axis(), paw.time.local_beat
+  local function x(beat: number): integer
+    return ax:x_of(here(beat)) - 1
+  end
   if t.loop_enabled and t.loop_end > t.loop_start then
-    edges[#edges + 1] = {x = self:col(t.loop_start) - 1, set = function(b: number) A.set_loop_edge("start", b) end}
-    edges[#edges + 1] = {x = self:col(t.loop_end) - 1, set = function(b: number) A.set_loop_edge("end", b) end}
+    edges[#edges + 1] = {x = x(t.loop_start), set = function(b: number) A.set_loop_edge("start", b) end}
+    edges[#edges + 1] = {x = x(t.loop_end), set = function(b: number) A.set_loop_edge("end", b) end}
   end
   if t.punch_enabled and t.punch_end > t.punch_start then
-    edges[#edges + 1] = {
-      x = self:col(t.punch_start) - 1, set = function(b: number) A.set_punch_edge("start", b, free) end
-    }
-    edges[#edges + 1] = {x = self:col(t.punch_end) - 1, set = function(b: number) A.set_punch_edge("end", b, free) end}
+    edges[#edges + 1] = {x = x(t.punch_start), set = function(b: number) A.set_punch_edge("start", b, free) end}
+    edges[#edges + 1] = {x = x(t.punch_end), set = function(b: number) A.set_punch_edge("end", b, free) end}
   end
   return edges
 end
@@ -1118,7 +1129,9 @@ local function press_ruler(self: Arrange, e: MouseEvent, h: Hit)
       return hold(
         e,
         {
-          drag = function(d: MouseEvent) edge.set(self:beat(d.x - self.geometry.hw + (d.fine and 0 or 1))) end,
+          drag = function(d: MouseEvent)
+            edge.set(self:current_axis():beat_of(d.x - self.geometry.hw + (d.fine and 0 or 1)))
+          end,
         }
       )
     end
@@ -1241,9 +1254,9 @@ local function wheel(self: Arrange, e: MouseEvent, h: Hit)
   if mouse.has(e, "C") and not sideways and h.timeline then
     -- Zoom in time, keeping the beat under the pointer where it is.
     local zoom = util.clamp(paw.opt.zoom * (step < 0 and math.sqrt(2) or 1 / math.sqrt(2)), 0.125, 64)
-    local at = self:beat(h.tx)
+    local at = self:current_axis():beat_of(h.tx)
     paw.opt.zoom = zoom
-    self.scroll = math.max(0, at - h.tx / zoom)
+    self.scroll = math.max(0, at - axis.new(0, zoom):beats(h.tx))
   elseif (mouse.has(e, "C") or mouse.has(e, "A")) and not sideways then
     -- The vertical zoom (paw/vzoom.tl): Alt anywhere, Ctrl over the headers.
     return paw.vzoom.step(-step, {view = "arrange"})

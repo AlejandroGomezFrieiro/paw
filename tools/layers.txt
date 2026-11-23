@@ -56,6 +56,8 @@ paw.dsp
 paw.query.tree
 paw.lsp.rpc
 paw.notes
+# The time axis: where a view draws each beat (folds give it their spans).
+paw.axis
 
 [project]
 # The project and what the user edits in it: tracks, clips, notes, time,

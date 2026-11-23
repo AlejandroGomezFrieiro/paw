@@ -305,6 +305,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.autosave.orphan_takes()`: Recorded takes in the `media` directory of the project that no clip uses, written after the last save of the project. A session that stopped during or after a take, without a save, leaves them. A take that you undid before a save is not one of them. { file, name }.
 - `paw.autosave.recover(file, opts)`: Open a copy that a session left, as the project that it is a copy of. `opts.as_path` opens it under that file name (a `.bak`, which paw keeps). `opts.plugins_offline` opens it with all plugins offline, if a plugin possibly stopped the session.
 
+## Module paw.axis
+
+- `paw.axis.cell(x)`: The cell that a place `x` (in fractions of a cell) is in: the rule of rounding of each axis. Roles that place beats in cells use it too.
+- `paw.axis.new(scroll, zoom, spans)`: A new axis: `scroll` the beat at the left edge, `zoom` the cells a beat, `spans` the time folds in order of their beats (optional).
+
 ## Module paw.bounce
 
 - `paw.bounce.describe(clip)`: What `K` says of a clip that a bounce muted: the track that plays it now. Nil for another clip.
@@ -524,6 +529,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
 - `paw.cursor.shift(track, beat)`: For a track of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is, for the block of the row at `beat` (the first block when none is there). Nil for any other track. The arrange view draws its clips that much later, and the cursor finds them there.
 - `paw.cursor.snap(beat)`: Round a position to the arrange grid.
+- `paw.cursor.step(beat, n, grid)`: `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid when nil). paw counts the new place as a whole number of steps from 0, plus how far `beat` is after the grid line before it. So a long run of steps gives the exact beat, and a beat on a grid line stays on one. A place between two lines (the end of a take) keeps its distance from the line.
 - `paw.cursor.stop(id, beat)`: The row that stands for a track at a beat when the cursor moves by rows: the first row of the closed block fold that holds the track there, or nil when no closed block holds it. A closed block is one row for `j` and `k`, as a closed fold is one line in Vim.
 - `paw.cursor.track()`: The track the cursor is on, as a `paw.Track`, or nil.
 - `paw.cursor.track_id()`: The id of the track of the cursor, or of the first track when that track does not exist now. Nil when the project has no tracks. 0 when the cursor is on the master track (`on_master`).
@@ -614,7 +620,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.draw
 
 - `paw.draw.bar_lines(from, span)`: The bars and beats from `from` for `span` beats of the window's time, as the window counts them (`paw.time.lines`): in a subproject with its own meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
-- `paw.draw.beats(ruler, scroll, span, zoom, origin)`: Write the numbers of a ruler above a roll that shows `span` beats from `scroll`, at `zoom` columns for each beat. Bars have the numbers of the project (`origin` is the project beat of the beat 0 of the roll). Beats between them are ticks. Returns the positions of the lines, as `{ x, bar }`, for the rows below.
+- `paw.draw.beats(ruler, ax, span, origin)`: Write the numbers of a ruler above a roll that shows `span` beats on the axis `ax` (paw/axis.tl, from its `scroll`). Bars have the numbers of the project (`origin` is the project beat of the beat 0 of the roll). Beats between them are ticks. Returns the positions of the lines, as `{ x, bar }`, for the rows below.
 - `paw.draw.braille(bits)`: A braille character from its eight dots: bit k is dot k + 1.
 - `paw.draw.chips(buf, x, y, list, gap)`: Small on/off marks side by side, each a letter on a cell of its own: `chips(buf, x, y, { { "M", on, "Mute" }, ... }, gap)`. Returns the columns used.
 - `paw.draw.clear_peak(id)`: Put out a track's clip light and let its loudest of late fall.
@@ -635,13 +641,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   pill                dark text on the colour
   plate               a name plate: light text on a deep shade
   ```
-- `paw.draw.jump_scroll(target, scroll, span, zoom, jumped)`: Where a view scrolls to for a move of its cursor to `target`, a beat, or nil when the move leaves the scroll to the caller. A step (`jumped` is false) is left to the caller, which scrolls just enough. A jump (it went into the jump list) to a target that is off screen, or in the last quarter of the view, puts the target at the left margin (`paw.opt.jumpview` "left", `paw.opt.jumpmargin` columns) or in the middle ("center"). `span` is the beats shown, `zoom` the columns a beat.
+- `paw.draw.jump_scroll(ax, target, span, jumped)`: Where a view scrolls to for a move of its cursor to `target`, a beat, or nil when the move leaves the scroll to the caller. A step (`jumped` is false) is left to the caller, which scrolls just enough. A jump (it went into the jump list) to a target that is off screen, or in the last quarter of the view, puts the target at the left margin (`paw.opt.jumpview` "left", `paw.opt.jumpmargin` columns) or in the middle ("center"). `target` is a place in the beats of the view's axis `ax` (paw/axis.tl), whose left edge is `ax.left`; `span` is the beats shown. Gives the new left edge.
 - `paw.draw.keys(buf, x, y, entries, width, groups)`: A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`, with a faint dot between them. `? keys` is always the last when it is in the list. Returns the columns used. The entries that do not fit are not shown.
 - `paw.draw.level(peak)`: How far up a meter a linear peak reaches, from 0 to 1 over 60 dB.
 - `paw.draw.meter(buf, x, y, width, peak, hold)`: A level meter `width` cells wide for a linear peak: a thin rail, lit from the left, green then yellow then red. With `hold` (a linear peak), the loudest of late is marked.
 - `paw.draw.meter_shown(width, peak, hold)`: What `meter` shows for these values in `width` cells, as a text: the cells lit full and half, and the cell of the peak held (-1: none).
 - `paw.draw.meters_falling()`: True while a track meter drawn lately (`track_peak`) still shows a level: it is not at rest yet.
-- `paw.draw.miniroll(notes, width, rows, zoom, from)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`. A column covers `1 / zoom` beats from `from`.
+- `paw.draw.miniroll(notes, width, rows, ax, phase)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`, in beats from the start of the box. The box begins `phase` of a cell into its first column on the axis `ax` (paw/axis.tl): each note takes the cells that the axis gives its time, so that it is under the ruler's beat.
 - `paw.draw.mix(a, b, t)`: A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 - `paw.draw.nearest256(hex)`: The nearest of the 256 colors to `#rrggbb`, from the 6x6x6 cube (16 to 231) or the grays (232 to 255). A color with little hue gets a gray. Returns its index and the color that the index shows.
 - `paw.draw.note_style(hue, velocity)`: The shade of a note by how hard it is played.
@@ -810,7 +816,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.folds.row_stop`: the same as `paw.cursor.stop`.
 - `paw.folds.set_group(group, on, win)`: Fold a group into its row, or open it, in a window: `on` nil flips it.
 - `paw.folds.time_at(beat, win)`: The closed time fold that a beat is on (`from` up to `to`), in a window.
-- `paw.folds.time_map(zoom, win)`: The map from beats to the places of a view at `zoom` columns a beat, with the closed time folds of a window (the one a view shows by default). Each folded span takes the columns of its label and two more.
 - `paw.folds.time_spans(win)`: The closed time folds of a window (the one a view shows by default), in order of time: the outermost of folds inside each other, and folds that overlap as one. A fold that holds all the time of the window's scope is open there.
 - `paw.folds.toggle(id, win)`: Toggle the fold at a track (the cursor's by default), as `za`. Returns it, or nil and the reason.
 - `paw.folds.track_names(f)`: The names of the tracks of a block fold: `Piano, Pad`, or with more than three, the first and how many more: `Piano +4`.
@@ -1000,7 +1005,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.chords(from, to, latest)`: The chords that sound between `from` and `to` (project beats; all of them when nil), in time order. With `latest`, of the reading as it stands, without waiting for a new one.
 - `paw.harmony.degree(key, pitch)`: A pitch as an absolute scale degree (0 is the root in octave -1) and the semitones it lies above that degree (non-zero for notes outside it).
 - `paw.harmony.degree_pitch(key, degree)`: The pitch of an absolute scale degree.
-- `paw.harmony.draw(buf, scroll, span, zoom, origin, how)`: Draw the chords on a row of cells. `buf` is one row high, and shows `span` beats from `scroll` at `zoom` columns for each beat. Beats count from `origin` (the start of a clip, or 0 for the song). Each symbol starts on the left edge of the cell where its chord starts. It stops where the next symbol starts. The labels are as `paw.opt.chords` (or `how`) tells. It draws the reading as it stands: after an edit, the one before it until the new one lands.
+- `paw.harmony.draw(buf, ax, span, origin, how)`: Draw the chords on a row of cells. `buf` is one row high, and shows `span` beats on the time axis `ax` (paw/axis.tl, from its `scroll`). Beats count from `origin` (the start of a clip, or 0 for the song). Each symbol starts in the cell where its chord starts. It stops where the next symbol starts. The labels are as `paw.opt.chords` (or `how`) tells. It draws the reading as it stands: after an edit, the one before it until the new one lands.
 - `paw.harmony.fresh()`: True if the reading agrees with the project, so `key` and `chords` answer immediately. A view that paw draws on each key asks this first, because to read a long song again takes some time.
 - `paw.harmony.in_key(key, pitch)`: True if a pitch (or pitch class) is in a key.
 - `paw.harmony.invalidate()`: Forget the reading: a provider whose answer changed calls this.
@@ -1556,7 +1561,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.mouse
 
-- `paw.mouse.beat(x, scroll, zoom)`: The beat at the left edge of column `x` of a timeline whose column 0 is beat `scroll`, at `zoom` columns a beat.
 - `paw.mouse.done(event)`: Called by `paw.ui.mouse` last: a move over nothing that says what it is under the pointer clears what the status line said.
 - `paw.mouse.forget()`: Forget the last press and any gesture under way: the next press is not the second of a double click.
 - `paw.mouse.gesture()`: The gesture under way, if any: what was handed to `grab`.
@@ -1566,7 +1570,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.mouse.hint_text()`: What the status line says about the pointer, if anything; and the shape of the pointer, if it has one.
 - `paw.mouse.mark_double(event)`: True if a press is the second press of a double click. That is the same button on the same cell soon after the first press, which was not a second press itself. For the pointer of a window, in fractions of a cell, the cell that contains it counts.
 - `paw.mouse.mode(event)`: How a click with modifiers chooses: "toggle" with Ctrl, "add" with Shift, else "only".
-- `paw.mouse.on_grid(x, scroll, zoom, grid)`: The same, on the grid: the step the column's left edge falls in, which is the one drawn there.
 - `paw.mouse.take(event)`: Called by `paw.ui.mouse` first: true when the event was taken here and goes no further.
 - `paw.mouse.to_surface(target, event)`: `paw.ui.mouse` calls this for the view that gets an event. Over the pixels that the view shows (`buf:surface`), the event goes to the `pointer` function of the view, in pixels of its drawing. A window gives it the same way (`paw.canvas`). Where the terminal reports the pointer in pixels, the position is exact. In other terminals, it is the middle of the cell. `kind` is "down", "up", "move" (with a button held), "hover", "double" (after the second press) or "wheel" (`dx`, `dy`). The modifiers are `ctrl`, `shift` and `alt`. `col` and `row` are the screen cell under the pointer, where a menu opens. A drag and its release go to the surface of the press, at any pointer position. True when the event went there.
 - `paw.mouse.to_view(view, event)`: Give an event in the cells of a view to the view, for a view drawn in a separate window (`paw.canvas.pointer`). A gesture in progress gets it first, as in the terminal.

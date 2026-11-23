@@ -17,6 +17,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local type axis = require("paw.axis")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
@@ -1107,23 +1108,24 @@ function M.label(chord: Chord, how?: LabelHow): string
 end
 
 --- Draw the chords on a row of cells. `buf` is one row high, and shows
---- `span` beats from `scroll` at `zoom` columns for each beat. Beats count
---- from `origin` (the start of a clip, or 0 for the song). Each symbol
---- starts on the left edge of the cell where its chord starts. It stops
---- where the next symbol starts. The labels are as `paw.opt.chords` (or
---- `how`) tells. It draws the reading as it stands: after an edit, the
---- one before it until the new one lands.
-function M.draw(buf: Buf, scroll: number, span: number, zoom: number, origin: number, how?: LabelHow)
+--- `span` beats on the time axis `ax` (paw/axis.tl, from its `scroll`).
+--- Beats count from `origin` (the start of a clip, or 0 for the song). Each
+--- symbol starts in the cell where its chord starts. It stops where the
+--- next symbol starts. The labels are as `paw.opt.chords` (or `how`)
+--- tells. It draws the reading as it stands: after an edit, the one before
+--- it until the new one lands.
+function M.draw(buf: Buf, ax: axis.Axis, span: number, origin: number, how?: LabelHow)
   how = how or opt.chords
   if not how then
     return
   end
+  local scroll = ax.scroll
   local list = M.chords(origin + scroll, origin + scroll + span, true)
   local g = paw.draw.g
   for i, c in ipairs(list) do
-    local x0 = math.floor((c.at - origin - scroll) * zoom + 0.5)
+    local x0 = ax:x_of(c.at - origin)
     local nxt = list[i + 1]
-    local x1 = nxt and math.floor((nxt.at - origin - scroll) * zoom + 0.5) or buf.width
+    local x1 = nxt and ax:x_of(nxt.at - origin) or buf.width
     local label = M.label(c, how)
     if x0 < 0 then
       -- Begun before the view: named at its left edge if there is room.

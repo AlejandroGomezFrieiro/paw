@@ -388,23 +388,6 @@ function M.done(event: MouseEvent)
   end
 end
 
--- Cells to beats, with the precision a cell has: a cell stands for the
--- stretch of time from its left edge, so a press on it means that edge, or
--- the grid step it falls in.
-
---- The beat at the left edge of column `x` of a timeline whose column 0
---- is beat `scroll`, at `zoom` columns a beat.
-function M.beat(x: number, scroll: number, zoom: number): number
-  return scroll + x / zoom
-end
-
---- The same, on the grid: the step the column's left edge falls in, which
---- is the one drawn there.
-function M.on_grid(x: number, scroll: number, zoom: number, grid: number): number
-  local beat = scroll + x / zoom
-  return math.floor(beat / grid + 1e-6) * grid
-end
-
 --- A wheel event as a step: 1 down or right, -1 up or left. The second
 --- value tells if it goes to the side.
 function M.wheel(event: MouseEvent): integer, boolean

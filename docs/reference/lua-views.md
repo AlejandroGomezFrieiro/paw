@@ -504,9 +504,19 @@ The articulations extension uses all four.
 
 ## Layers of other views, and locators
 
+A beat is in the column of the cell that holds it, in every view. The time
+axis of a view, `paw.axis`, gives that column, so what a layer draws lines
+up with the ruler, the clips and the playhead. `p.x(beat)` uses it, and
+`p.axis` is the axis itself, with these functions:
+
+- `p.axis:x_of(beat)` gives the column of a beat.
+- `p.axis:range(from, to)` gives the first column of a stretch of time and
+  the column after it.
+- `p.axis:beat_of(x)` gives the beat at the left edge of a column.
+
 | Function | Draws on |
 | --- | --- |
-| `paw.ui.views:get("pianoroll").layer(name, order, paint)` | the piano roll, in order. Below 20 is under the notes of the clip. `paint(p)` gets the cells of the roll and the ruler, the clip, `p.x(beat)` and `p.row(pitch)` |
+| `paw.ui.views:get("pianoroll").layer(name, order, paint)` | the piano roll, in order. Below 20 is under the notes of the clip. `paint(p)` gets the cells of the roll and the ruler, the clip, `p.x(beat)`, `p.axis` and `p.row(pitch)` |
 | `paw.ui.views:get("arrange").layers[name] = function(view, layer)` | the timeline and its ruler |
 | `paw.ui.layer(view, part, name, order, paint)` | a part of a view, where the view calls `paw.ui.paint(view, part, ctx)`: the `header` and `clip` of the arrange view, the `strip` and `strip_foot` of the mixer, the `device` and `param` of the device panel |
 

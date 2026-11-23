@@ -9,6 +9,8 @@
 -- the roll or act on it (paw/roll_draw.tl, paw/frontend.tl) name this one's
 -- types, so this one declares only the part of them that it calls.
 local api = require("paw.api")
+local axis = require("paw.axis")
+local type CursorModule = require("paw.cursor")
 local events = require("paw.events")
 local options = require("paw.options")
 local util = require("paw.util")
@@ -42,8 +44,9 @@ local KEYS = 5 -- columns for the note names on the left
 --- Where a window of the roll drew its parts last: the pitches shown
 --- (`rows`) and the grid's lines (`lines`), the rows of a pitch (`per`),
 --- the zoom, the columns of the keyboard (`keys`), the rows above the notes
---- (`head`) and of the velocity strip (`vel`), and the beats shown (`span`).
---- The pointer reads it to find what is under it.
+--- (`head`) and of the velocity strip (`vel`), the beats shown (`span`),
+--- and the time axis that placed the beats (`axis`, paw/axis.tl). The
+--- pointer reads it to find what is under it.
 local record Geometry
   rows: integer
   lines: integer
@@ -53,6 +56,7 @@ local record Geometry
   head: integer
   vel: integer
   span: number
+  axis: axis.Axis
 end
 
 --- What a layer of the roll gets (`view.layer`). `roll` and `ruler` are
@@ -76,6 +80,7 @@ local record Layer
   rows: integer
   per: integer
   zoom: number
+  axis: axis.Axis
   width: integer
   focused: boolean
   hue: DrawModule.Hue
@@ -386,6 +391,7 @@ end
 
 local record Paw is partial.Paw
   ui: UiModule
+  cursor: CursorModule
   draw: DrawModule
   keymap: KeymapModule
   harmony: HarmonyModule
@@ -659,7 +665,8 @@ view.layers = {}
 --- (the roll as a plane of beats along and pitches up, see `buf:plane`:
 --- what is marked there a window paints where it is, between cells),
 --- `clip` (the active one), `data` (its fields), `parts` (every clip
---- edited, see `paw.roll_clips`), `x(beat)` (a column of the roll),
+--- edited, see `paw.roll_clips`), `x(beat)` (a column of the roll) and
+--- `axis` (the roll's time axis, paw/axis.tl, which gives it),
 --- `row(pitch)` (its first row, nil when off screen), `scroll`, `from`
 --- and `to` (the beats that show), `zoom`, `top`, `rows` (the pitches
 --- shown), `per` (the rows of a pitch: the window's vertical zoom),
@@ -778,9 +785,8 @@ view.layer(
     for _, n in ipairs(clips.context()) do
       local row = L.row(n.pitch)
       if row and n.start < L.to and n.start + n.length > L.from then
-        local x0 = math.floor((n.start - L.from) * L.zoom + 0.5)
-        local x1 = math.floor((n.start + n.length - L.from) * L.zoom + 0.5)
-        L.roll:fill(x0, row, math.max(1, x1 - x0), L.per, glyph, paw.draw.hue(n.color).body)
+        local x0, x1 = L.axis:range(n.start, n.start + n.length)
+        L.roll:fill(x0, row, x1 - x0, L.per, glyph, paw.draw.hue(n.color).body)
       end
     end
   end
@@ -1083,7 +1089,7 @@ local function keep_cursor(self: PianoRoll, f: Frame, ctx: contracts.RenderConte
   local jumped = paw.keymap.jump_serial ~= self.seen_jump
   self.seen_jump = paw.keymap.jump_serial
   if not ctx.follower then
-    local to = paw.draw.jump_scroll(self.beat, self.scroll, span, zoom, jumped)
+    local to = paw.draw.jump_scroll(axis.new(self.scroll, zoom), self.beat, span, jumped)
     if to then
       self.scroll = math.floor(to)
     elseif self.beat < self.scroll then
@@ -1146,7 +1152,7 @@ local function draw_ruler(
   self: PianoRoll, buf: Buf, f: Frame, clip: objects.Clip, c: types.Clip
 ): {DrawModule.RulerLine}
   local g = f.geometry
-  local w, head, keys, tw, zoom, span = f.w, g.head, g.keys, f.tw, g.zoom, g.span
+  local w, head, keys, tw, ax, span = f.w, g.head, g.keys, f.tw, g.axis, g.span
   buf:fill(0, head - 1, w, 1, " ", "Ruler")
   buf:hit(0, head - 1, w, 1, {kind = "ruler"})
   local ruler = buf:sub(keys, head - 1, tw, 1)
@@ -1155,9 +1161,9 @@ local function draw_ruler(
     buf:fill(0, row, w, 1, " ", "Ruler")
     local key = paw.harmony.key(c.start + self.scroll, true)
     buf:text(0, row, (key.name:gsub(" major", ""):gsub(" minor", "m")):sub(1, keys - 1), "RulerChordEdge")
-    paw.harmony.draw(buf:sub(keys, row, tw, 1), self.scroll, span, zoom, c.start)
+    paw.harmony.draw(buf:sub(keys, row, tw, 1), ax, span, c.start)
   end
-  local lines = paw.draw.beats(ruler, self.scroll, span, zoom, c.start)
+  local lines = paw.draw.beats(ruler, ax, span, c.start)
   local bands = f.bands
   for i, band in ipairs(bands) do
     local y = head - 1 - #bands + i - 1
@@ -1171,10 +1177,10 @@ local function draw_ruler(
         data = c,
         from = self.scroll,
         to = self.scroll + span,
-        zoom = zoom,
+        zoom = ax.zoom,
         width = tw,
         lines = lines,
-        x = function(beat: number): integer return math.floor((beat - self.scroll) * zoom + 0.5) end,
+        x = function(beat: number): integer return ax:x_of(beat) end,
       } as BandContext
     ) as (boolean, string)
     if not ok then
@@ -1188,8 +1194,8 @@ end
 --- the same on every row: one line of text, drawn row by row. Nil when
 --- they do not show.
 local function steps_line(f: Frame, lines: {DrawModule.RulerLine}): string
-  local zoom, grid, tw = f.geometry.zoom, f.grid, f.tw
-  if not (zoom >= 8 and grid < 1) then
+  local ax, grid, tw = f.geometry.axis, f.grid, f.tw
+  if not (ax:cells(1) >= 8 and grid < 1) then
     return nil
   end
   local cells: {string} = {}
@@ -1198,7 +1204,7 @@ local function steps_line(f: Frame, lines: {DrawModule.RulerLine}): string
   end
   for _, line in ipairs(lines) do
     for k = 1, math.floor(1 / grid + 0.5) - 1 do
-      local x = line.x + math.floor(k * grid * zoom + 0.5)
+      local x = ax:x_of(line.beat + k * grid)
       if x >= 0 and x < tw then
         cells[x + 1] = paw.draw.g.step
       end
@@ -1215,12 +1221,11 @@ local function draw_rows(
   self: PianoRoll, buf: Buf, roll: Buf, f: Frame, c: types.Clip, lines: {DrawModule.RulerLine}, sounding: {integer}
 )
   local g = f.geometry
-  local tw, zoom, per = f.tw, g.zoom, g.per
+  local tw, per = f.tw, g.per
   local glyphs = paw.draw.g
   local steps = steps_line(f, lines)
   local key_names = paw.plugins.key_names(c.track)
-  local start_x = math.floor((f.lo - self.scroll) * zoom + 0.5)
-  local end_x = math.floor((f.hi - self.scroll) * zoom + 0.5)
+  local start_x, end_x = g.axis:x_of(f.lo), g.axis:x_of(f.hi)
   local names, labels: {{integer | string}}, {{integer | string}} = {}, {}
   for row = 0, g.rows * per - 1 do
     local pitch = self.top - math.floor(row / per)
@@ -1280,7 +1285,7 @@ end
 --- at its left that chooses what the strip shows.
 local function draw_velocities(self: PianoRoll, buf: Buf, f: Frame, L: Layer, lines: {DrawModule.RulerLine})
   local g = f.geometry
-  local vel, keys, tw, zoom, top = g.vel, g.keys, f.tw, g.zoom, g.head + g.lines
+  local vel, keys, tw, top = g.vel, g.keys, f.tw, g.head + g.lines
   local glyphs = paw.draw.g
   local lane = buf:sub(keys, top, tw, vel)
   buf:fill(0, top, f.w, vel, " ", "VelocityLane")
@@ -1304,7 +1309,7 @@ local function draw_velocities(self: PianoRoll, buf: Buf, f: Frame, L: Layer, li
     local fg = i == 1 and L.hue.fg or paw.draw.track_hue(api.track_get(part.track)).fg
     local all, places = part.clip:notes({from = self.scroll - part.offset, to = self.scroll + g.span - part.offset})
     for k, note in ipairs(all) do
-      local x0 = math.floor((note.start + part.offset - self.scroll) * zoom + 0.5)
+      local x0 = g.axis:x_of(note.start + part.offset)
       local level = note.velocity / 127 * vel * 8
       local at_cursor = L.under_part and L.under_part.id == part.id and places[k] == L.under_place
       for row = 0, vel - 1 do
@@ -1325,12 +1330,12 @@ end
 --- selection or insert mode is under way.
 local function draw_cursor(self: PianoRoll, roll: Buf, f: Frame, ctx: contracts.RenderContext, under_place: integer)
   local g = f.geometry
-  local rows, per, zoom, tw = g.rows, g.per, g.zoom, f.tw
+  local rows, per, ax, tw = g.rows, g.per, g.axis, f.tw
   local selection = ctx.focused and paw.keymap.selection()
   -- One that names its notes shows on the notes themselves.
   if selection and not selection.notes then
-    local x0 = math.max(0, math.floor((selection.c0 - self.scroll) * zoom + 0.5))
-    local x1 = math.min(tw, math.floor((selection.c1 - self.scroll) * zoom + 0.5))
+    local x0 = math.max(0, ax:x_of(selection.c0))
+    local x1 = math.min(tw, ax:x_of(selection.c1))
     local y0, y1 = math.max(0, self.top - selection.r1), math.min(rows - 1, self.top - selection.r0)
     if selection.kind == "line" then
       x0, x1 = 0, tw
@@ -1342,8 +1347,8 @@ local function draw_cursor(self: PianoRoll, roll: Buf, f: Frame, ctx: contracts.
     end
   end
   local inserting = ctx.focused and paw.keymap.mode == "i"
-  local cx = math.floor((self.beat - self.scroll) * zoom + 0.5)
-  local cw = math.max(1, math.floor(f.grid * zoom))
+  local cx, after = ax:range(self.beat, self.beat + f.grid)
+  local cw = after - cx
   if not under_place or selection or inserting then
     roll:fill(cx, (self.top - self.pitch) * per, cw, per, nil, inserting and "InsertCursor" or "RollCursor")
   end
@@ -1374,9 +1379,11 @@ local function draw_roll(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: con
   local f = frame_of(buf, clip)
   local g = f.geometry
   fit_zoom(self, f, c)
-  g.span = f.tw / g.zoom
+  g.span = axis.new(self.scroll, g.zoom):beats(f.tw)
   self.head = g.head
   keep_cursor(self, f, ctx)
+  -- The roll's axis, at the scroll it has now: every row draws on it.
+  g.axis = axis.new(self.scroll, g.zoom)
   self.geometry = g
 
   local sounding, chord = clips.sounding(self.beat)
@@ -1404,7 +1411,8 @@ local function draw_roll(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: con
 
   -- The layers, back to front. Only what is on screen crosses over from the core.
   local _, under_place, under_part = self:note_at(self.pitch, self.beat)
-  local scroll, zoom, top, rows, per = self.scroll, g.zoom, self.top, g.rows, g.per
+  local scroll, top, rows, per = self.scroll, self.top, g.rows, g.per
+  local ax = g.axis
   local L: Layer = {
     roll = roll,
     ruler = buf:sub(g.keys, g.head - 1, f.tw, 1),
@@ -1417,14 +1425,15 @@ local function draw_roll(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: con
     top = top,
     rows = rows,
     per = per,
-    zoom = zoom,
+    zoom = ax.zoom,
+    axis = ax,
     width = f.tw,
     focused = ctx.focused,
     parts = clips.parts(),
     hue = paw.draw.track_hue(api.track_get(c.track)),
     under_place = under_place,
     under_part = under_part,
-    x = function(beat: number): integer return math.floor((beat - scroll) * zoom + 0.5) end,
+    x = function(beat: number): integer return ax:x_of(beat) end,
     row = function(pitch: integer): integer
       local row = top - pitch
       return row >= 0 and row < rows and row * per or nil
@@ -1498,7 +1507,13 @@ function view:move(dbeat: number, dpitch: integer)
   end
   -- One step past the last is allowed, so that a selection can reach the end.
   local lo, hi = self:span()
-  self.beat = util.clamp(self.beat + dbeat, lo, hi)
+  -- Whole steps of the grid count from its lines, so that no sum of
+  -- steps drifts off them (paw/cursor.tl `step`).
+  local grid = opt.note_grid
+  local steps = math.floor(dbeat / grid + 0.5)
+  local to = math.abs(dbeat - steps * grid) < grid * 1e-6 and paw.cursor.step(self.beat, steps, grid)
+    or self.beat + dbeat
+  self.beat = util.clamp(to, lo, hi)
   local pitch = math.floor(util.clamp(self.pitch + dpitch, 0, 127))
   if pitch ~= self.pitch then
     self.pitch = pitch
