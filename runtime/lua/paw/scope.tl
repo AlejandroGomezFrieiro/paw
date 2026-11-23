@@ -119,11 +119,23 @@ local record Item
   label: string
 end
 
+--- The payload of `scope.changed`: the window, the group of its scope if
+--- any, and the level that the window shows now (nil for the song).
+local record Changed
+  scope: integer
+  win: integer
+  level: Scope
+end
+
 local record M
   type Scope = Scope
   type Kind = Kind
   type Item = Item
+  type Changed = Changed
   source: contracts.PickSource<Item>
+  --- The event `scope.changed`: a window shows a different scope, or the
+  --- whole song.
+  changed: events.Event<Changed>
 end
 
 local opt = options.opt
@@ -135,12 +147,8 @@ options.define(
 ) -- bar numbers in a scope with time: "local" (from 1 at its start), "song", or "both" (local, and the song's on a second ruler row)
 options.define("scopeloop", true) -- entering a scope with time loops its time while its window is in front
 
---- The payload of `scope.changed`: the window, and the group of its scope if any.
-local record Changed
-  scope: integer
-  win: integer
-end
 local changed: events.Event<Changed> = events.event("scope.changed")
+M.changed = changed
 --- `track.added`, which says whether undo or a load put the track back.
 local record Added
   id: integer
@@ -988,7 +996,7 @@ end
 --- Show a scope in a window, in place of the one it shows.
 local function set(win: Window, s: Scope)
   win.scope = s
-  events.emit(changed, {scope = s and M.group(s) or nil, win = win.id})
+  events.emit(changed, {scope = s and M.group(s) or nil, win = win.id, level = s})
   api.ui_redraw()
 end
 

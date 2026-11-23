@@ -17,6 +17,8 @@
 local api = require("paw.api")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local events = require("paw.events")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -62,6 +64,9 @@ local record NewOptions
   to: number
   --- The track its row goes below: the cursor's when nil.
   below: integer
+  --- A kind of subproject (`paw.nest.define_kind`): its `create` makes
+  --- the tracks, in place of the one empty track.
+  kind: string
 end
 
 --- What `paw.nest.new` made.
@@ -86,12 +91,45 @@ local record Item
   label: string
 end
 
+--- A kind's data as this module keeps it: it gives it to the kind's own
+--- functions and never reads it.
+local record Data
+end
+
+--- The payload of `nest.enter` and `nest.leave`: the subproject, the
+--- window, and the block that the window went in through (nil when none).
+local record Crossed
+  nest: integer
+  win: integer
+  clip: integer
+end
+
+--- The payload of `nest.changed`: the subproject, and the undo step of
+--- the edit (`paw.api.undo_current`).
+local record Changed
+  nest: integer
+  state: integer
+end
+
 local record M
   type NewOptions = NewOptions
   type Made = Made
   type Block = Block
   type Item = Item
+  type Data = Data
+  type Crossed = Crossed
+  type Changed = Changed
   source: contracts.PickSource<Item>
+  --- The kinds of subproject that are defined, by name, with the
+  --- extension that defined each one.
+  kinds: registry.Registry<contracts.NestKind<Data>>
+  --- The event `nest.enter`: a window went inside a subproject.
+  entered: events.Event<Crossed>
+  --- The event `nest.leave`: a window came out of a subproject.
+  left: events.Event<Crossed>
+  --- The event `nest.changed`: an edit changed the tracks, clips, devices
+  --- or lanes of a subproject. It comes once for each undo step.
+  changed: events.Event<Changed>
 end
 
 local opt = options.opt
@@ -117,6 +155,216 @@ function M.get(id: integer): types.Nest
   end
   return nil
 end
+
+-- Kinds of subproject, and its events -------------------------------------------------
+
+M.kinds = registry.new("nest_kinds", "kinds of subproject")
+M.entered = events.event("nest.enter")
+M.left = events.event("nest.leave")
+M.changed = events.event("nest.changed")
+
+--- Define a kind of subproject that `:nest.new kind=<name>` makes, such
+--- as a drum pattern that opens in a step grid. `spec` gives `title`,
+--- `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each
+--- optional (`paw.contracts.NestKind`). The kind's data is in the
+--- subproject's `meta` under the kind's name: read it with
+--- `paw.nest.data(nest)`. Without the kind, the subproject plays and the
+--- arrange view edits it. Returns the spec.
+function M.define_kind<D>(name: string, spec: contracts.NestKind<D>): contracts.NestKind<D>
+  if not (name is string and name:match("^[%w_][%w_.-]*$")) then
+    error("a kind of subproject has a name of letters, digits, `_`, `-` and `.`: " .. tostring(name), 2)
+  end
+  spec.name = name
+  spec.title = spec.title or name
+  spec.letter = spec.letter or name:sub(1, 1):upper()
+  M.kinds:put(name, spec as contracts.NestKind<Data>)
+  return spec
+end
+
+--- The kind of subproject `nest` as defined, or nil: for a plain
+--- subproject, and for one whose kind no extension here defines.
+function M.kind<D>(nest: integer): contracts.NestKind<D>
+  local n = M.get(nest)
+  if n and n.kind then
+    return M.kinds:get(n.kind) as contracts.NestKind<D>
+  end
+  return nil
+end
+
+--- The data of subproject `nest`'s kind: what its `create` gave, or what
+--- `paw.nest.set_data` stored last. Nil for a plain subproject.
+function M.data<D>(nest: integer): D
+  local n = M.get(nest)
+  if n and n.kind and n.meta then
+    return n.meta[n.kind] as D
+  end
+  return nil
+end
+
+--- Store the data of subproject `nest`'s kind, as one undo step.
+function M.set_data<D>(nest: integer, data: D)
+  local n = M.get(nest)
+  if not (n and n.kind) then
+    error("subproject " .. tostring(nest) .. " has no kind to keep data for", 2)
+  end
+  local meta = n.meta or {}
+  meta[n.kind] = data
+  api.nest_set(nest, {meta = meta} as types.Nest)
+end
+
+--- The letter of the kind of subproject `nest`, which its blocks show
+--- after `⧉`, or nil for a plain subproject.
+function M.letter(nest: integer): string
+  local kind = M.kind(nest) as contracts.NestKind<Data>
+  return kind and kind.letter
+end
+
+--- Make the tracks of a new subproject of `kind` with its `create`, and
+--- keep the data it gives. A kind that makes no track gets one empty
+--- track. Gives the first track of the subproject.
+local function create(kind: contracts.NestKind<Data>, region: contracts.NestRegion): integer
+  if kind.create then
+    local data, why = kind.create(region)
+    if why then
+      error(kind.title .. ": " .. why, 0)
+    end
+    if data ~= nil then
+      M.set_data(region.nest, data)
+    end
+  end
+  local tracks = api.nest_get(region.nest).tracks
+  if #tracks == 0 then
+    return api.track_add({nest = region.nest} as types.TrackOptions)
+  end
+  return tracks[1]
+end
+
+-- The subproject of each track of a subproject, as the last edit left
+-- them: a track that an edit removes is no longer in the kernel.
+local nest_tracks: {integer: integer} = {}
+
+--- Read the tracks of every subproject again into `nest_tracks`.
+local function remember_tracks()
+  nest_tracks = {}
+  for _, n in ipairs(api.nest_list()) do
+    local got = api.nest_get(n)
+    nest_tracks[got.master] = n
+    for _, id in ipairs(got.tracks) do
+      nest_tracks[id] = n
+    end
+  end
+end
+
+-- The subprojects that each window is inside, outermost first, by the
+-- window's id: the levels of its scope of kind `nest`. `scope.changed`
+-- changes it. A window that closes keeps its entry.
+local inside: {integer: {contracts.Scope}} = {}
+
+--- The levels of kind `nest` from the song to `level`, outermost first.
+local function nest_levels(level: contracts.Scope): {contracts.Scope}
+  local out: {contracts.Scope} = {}
+  while level do
+    if level.kind == "nest" then
+      table.insert(out, 1, level)
+    end
+    level = level.parent
+  end
+  return out
+end
+
+--- Run the `enter` of the kind of subproject `nest`, if it has one. A
+--- failure is a message: the window stays inside, in the arrange view.
+local function enter_kind(nest: integer)
+  local kind = M.kind(nest) as contracts.NestKind<Data>
+  if not (kind and kind.enter) then
+    return
+  end
+  local ok, err = pcall(kind.enter, nest) as (boolean, string)
+  if not ok then
+    paw.notify(kind.title .. ": " .. tostring(err), "warn")
+  end
+end
+
+-- A window that shows another scope leaves the subprojects that it is no
+-- longer inside, innermost first, and enters the new ones, outermost first.
+-- A move between two blocks of one subproject is no leave. The kind of the
+-- innermost subproject that it entered opens its view.
+events.on(
+  paw.scope.changed, function(e: ScopeModule.Changed)
+    local was = inside[e.win] or {}
+    local now = nest_levels(e.level)
+    inside[e.win] = #now > 0 and now or nil
+    local kept = 0
+    while kept < #was and kept < #now and was[kept + 1].id == now[kept + 1].id do
+      kept = kept + 1
+    end
+    for i = #was, kept + 1, -1 do
+      events.emit(M.left, {nest = was[i].id, win = e.win, clip = was[i].clip})
+    end
+    for i = kept + 1, #now do
+      events.emit(M.entered, {nest = now[i].id, win = e.win, clip = now[i].clip})
+    end
+    if #now > kept then
+      remember_tracks()
+      enter_kind(now[#now].id)
+    end
+  end
+)
+
+--- The fields of a change's payload that name a track: `id` for the
+--- events of a track, `track` for a clip, device, lane or cue.
+local record Touched
+  id: integer
+  track: integer
+end
+--- One change of an edit, as `edit.after` gives it (paw/hooks.tl).
+local record EditChange
+  name: string
+  payload: Touched
+end
+--- The payload of `edit.after`.
+local record EditDone
+  changes: {EditChange}
+  state: integer
+end
+-- paw/hooks.tl sends `edit.after` and declares its name. That module is in
+-- a higher layer, so this one names the event by its own descriptor.
+local edit_after: events.Event<EditDone> = events.event("edit.after")
+
+--- The subproject of a track, or nil for a track of the song.
+local function nest_of_track(id: integer): integer
+  local ok, n = pcall(api.track_get as (function(integer, string): integer), id, "nest") as (boolean, integer)
+  if ok then
+    return n
+  end
+  return nest_tracks[id]
+end
+
+-- `nest.changed` once for each subproject that an edit changed, in the
+-- order of its first change. Only while something listens to it: the work
+-- reads each change's track.
+events.on(
+  edit_after, function(e: EditDone)
+    if not events.listened(M.changed.name) then
+      return
+    end
+    local order: {integer} = {}
+    local seen: {integer: boolean} = {}
+    for _, change in ipairs(e.changes) do
+      local p = change.payload
+      local track = change.name:match("^track%.") and p.id or p.track
+      local nest = track and nest_of_track(track)
+      if nest and not seen[nest] then
+        seen[nest] = true
+        order[#order + 1] = nest
+      end
+    end
+    for _, nest in ipairs(order) do
+      events.emit(M.changed, {nest = nest, state = e.state})
+    end
+    remember_tracks()
+  end
+)
 
 -- Making one ----------------------------------------------------------------------------
 
@@ -231,7 +479,8 @@ end
 --- top): the subproject over the time given, a return row below the
 --- track `below` with one block, the meter in the song's map when one is
 --- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`). Call it in one undo step (a command is one).
+--- (`paw.opt.nest_track`), or with the tracks that the `create` of its
+--- kind (`o.kind`) makes. Call it in one undo step (a command is one).
 function M.new(o: NewOptions): Made
   local from = o.from or paw.time.bar_floor(paw.cursor.beat)
   local to = o.to
@@ -262,6 +511,25 @@ function M.new(o: NewOptions): Made
   if name == "" then
     name = "Subproject " .. (#api.nest_list() + 1)
   end
+  local kind: contracts.NestKind<Data>
+  if o.kind then
+    kind = M.kinds:get(o.kind)
+    if not kind then
+      local names: {string} = {}
+      for known in pairs(M.kinds:entries()) do
+        names[#names + 1] = known
+      end
+      table.sort(names)
+      error(
+        string.format(
+          "no kind of subproject `%s` here%s",
+          o.kind,
+          #names > 0 and (": the kinds are " .. table.concat(names, ", ")) or ""
+        ),
+        0
+      )
+    end
+  end
   local place = paw.scope.nest()
   local song_from = paw.time.song_beat(from)
   local meter: types.NestMeter = nil
@@ -283,7 +551,7 @@ function M.new(o: NewOptions): Made
   end
   -- The words of the message: the song's bars, the meter written.
   local where = bars_text(from, to)
-  local nest = api.nest_add({name = name, length = to - from, meter = meter, tempo = tempo})
+  local nest = api.nest_add({name = name, length = to - from, meter = meter, tempo = tempo, kind = o.kind})
   -- The return row, below the track given (in the place the window shows).
   local below = o.below or paw.cursor.track_id()
   local index: integer
@@ -294,13 +562,22 @@ function M.new(o: NewOptions): Made
   end
   local row = paw.add_track({name = name, index = index})
   local clip = api.clip_add(row.id, {nest = nest, start = from} as types.ClipOptions)
-  paw.scope.enter({kind = "nest", id = nest, clip = clip})
-  local track = first_track()
-  paw.cursor.set_track(track.id)
+  local track: integer
+  if kind then
+    -- The kind makes the tracks before the window enters, so that its
+    -- `enter` finds them and its data.
+    track = create(kind, {nest = nest, row = row.id, clip = clip, name = name, from = from, to = to})
+    paw.scope.enter({kind = "nest", id = nest, clip = clip})
+  else
+    paw.scope.enter({kind = "nest", id = nest, clip = clip})
+    track = first_track().id
+  end
+  paw.cursor.set_track(track)
   paw.cursor.set_beat(0)
   local message = string.format(
-    "added the subproject %s over %s%s%s, on its own row; inside it now: `zw` goes back",
+    "added the subproject %s%s over %s%s%s, on its own row; inside it now: `zw` goes back",
     name,
+    kind and (" (" .. kind.title .. ")") or "",
     where,
     o.num and string.format(" in %d/%d", o.num, o.den) or "",
     (o.polymeter and o.num) and " (the song's meter stays)" or ""
@@ -317,7 +594,7 @@ function M.new(o: NewOptions): Made
         moved < 0 and "earlier" or "later"
       )
   end
-  return {nest = nest, row = row.id, clip = clip, track = track.id, message = message}
+  return {nest = nest, row = row.id, clip = clip, track = track, message = message}
 end
 
 --- `:nest.new`'s words: a meter (`6/8`), a number of bars (`8`), and the
@@ -356,6 +633,9 @@ local function parse(args: contracts.CommandArgs): NewOptions
   if named.bars then
     o.bars = math.tointeger(tonumber(named.bars))
   end
+  if named.kind then
+    o.kind = tostring(named.kind)
+  end
   o.name = named.name and tostring(named.name) or table.concat(words, " ")
   if o.bars and o.bars < 1 then
     error("a subproject is a bar long at least", 0)
@@ -382,13 +662,23 @@ commands.define(
         end
       end
     end
-    local made = M.new(o)
+    -- A failure leaves the project as the command found it: a kind's
+    -- `create` can fail after the subproject is there.
+    local clean = not api.undo_pending()
+    local ok, made = pcall(M.new, o) as (boolean, Made)
+    if not ok then
+      if clean and api.undo_pending() then
+        api.undo_discard()
+        paw.flush()
+      end
+      error(made, 0)
+    end
     paw.notify(made.message)
   end,
   {
     range = true,
     label = "Add a subproject",
-    desc = "Add a subproject with its own row and tracks, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar; `meter=own` keeps the song's meter, `tempo=own` gives it its own tempo); over the selection or the region at the cursor when no bars are given",
+    desc = "Add a subproject with its own row and tracks, and go inside: `nest.new Ballad 8 6/8` (8 bars of 6/8 from the cursor's bar; `meter=own` keeps the song's meter, `tempo=own` gives it its own tempo, `kind=` makes a kind of subproject that an extension defines); over the selection or the region at the cursor when no bars are given",
   }
 )
 
@@ -517,6 +807,25 @@ function M.content_key(c: types.Clip): string
   return string.format("nest|%d|%.17g|%.17g|%.17g", c.nest, c.offset or 0, c.length, sum)
 end
 
+--- What `K` says of a subproject's kind: ` (Drum pattern: 16 steps)`,
+--- or the kind's name when no extension here defines it. Empty for a
+--- plain subproject.
+local function kind_text(n: types.Nest): string
+  if not n.kind then
+    return ""
+  end
+  local kind = M.kinds:get(n.kind)
+  if not kind then
+    return string.format(" (%s, which no extension here defines)", n.kind)
+  end
+  local words: string
+  if kind.describe then
+    local ok, said = pcall(kind.describe, n.id) as (boolean, string)
+    words = ok and said or nil
+  end
+  return string.format(" (%s%s)", kind.title, words and (": " .. words) or "")
+end
+
 --- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
 --- 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
 function M.describe(c: types.Clip): string
@@ -538,8 +847,9 @@ function M.describe(c: types.Clip): string
   end
   local count = instances(c.nest)
   return string.format(
-    "nest %s · %s · %g bar%s · %s · %d track%s · %d instance%s · live%s",
+    "nest %s%s · %s · %g bar%s · %s · %d track%s · %d instance%s · live%s",
     n.name,
+    kind_text(n),
     meter,
     bars,
     bars == 1 and "" or "s",

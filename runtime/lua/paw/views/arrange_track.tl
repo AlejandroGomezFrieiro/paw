@@ -716,9 +716,11 @@ local function clip_label(clip: Clip): string
   if (clip.velocity or 0) ~= 0 then
     label = label .. string.format(" v%+d", clip.velocity)
   end
-  -- A block of a subproject: its name after `⧉`, in a frame.
+  -- A block of a subproject: its name after `⧉`, in a frame; the letter
+  -- of its kind after `⧉` for a kind of subproject (`⧉D Groove`).
   if clip.kind == "nest" then
-    label = draw.g.nest .. label
+    local letter = paw.nest.letter(clip.nest)
+    label = (letter and (draw.g.nest:gsub("%s+$", "") .. letter .. " ") or draw.g.nest) .. label
   end
   -- Stretched, shifted, looped: `×1.5 ↻ drums`.
   local mark = paw.stretch.badge(clip) as string
