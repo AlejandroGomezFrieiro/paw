@@ -11634,8 +11634,8 @@ function paw.api.now() end
 --- The work that is not done yet, by kind: timers due now and all the
 --- timers, the time until the next timer or delay is due (`next_ms`),
 --- bakes, files of stretched clips being hashed, plugins being loaded,
---- renders, changed files, MIDI that came in, and helper processes. A
---- test waits until nothing is in flight.
+--- renders, measurements, changed files, MIDI that came in, and helper
+--- processes. A test waits until nothing is in flight.
 function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the
@@ -12507,7 +12507,7 @@ function paw.api.wait(ms) end
 --- moves to the end of the last of them, the timers due on the way
 --- fire, and the engine plays exactly that many blocks. Gives the
 --- number of blocks, or 0 when the engine plays on its own and
---- nothing was done.
+--- nothing was done. More than 60 seconds of blocks is an error.
 ---@param blocks integer
 function paw.api.wait_blocks(blocks) end
 
