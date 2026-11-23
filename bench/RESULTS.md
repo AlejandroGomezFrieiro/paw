@@ -97,6 +97,21 @@ change: binary of main at cd367da1 (dev profile, optimized), `bench/quality.lua
 Edit quality cuts the audio thread time of this project by a factor of
 about 8. The ranges do not overlap.
 
+## 2026-11-23: the link of the paw-engine tests, one binary against many
+
+`cargo nextest run -p paw-engine --no-run -j 8` after a touch of
+`crates/paw-engine/src/lib.rs`, three times each, dev profile with mold,
+under external load (load average 15 to 21). Before: the commit before
+the change to one integration-test binary (2cb36c4c^). After: 2cb36c4c.
+
+| Build | Seconds, three runs |
+| --- | --- |
+| many test binaries | 2.78, 2.77, 2.61 |
+| one test binary | 2.06, 2.12, 2.04 |
+
+The ranges do not overlap: about 25 % less time for each change of the
+engine.
+
 ## 2026-11-23: glibc against mimalloc as the global allocator
 
 `bench/profile/allocator.sh`, 5 pairs in turns, under `flock` and
