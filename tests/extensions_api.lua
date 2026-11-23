@@ -486,7 +486,7 @@ end)
     end
     paw.emit("later.ping")
     eq(_G.later_heard, nil, "the hook added later no longer runs")
-    eq(paw.timers[_G.later_timer], nil, "its timer waiting is cancelled")
+    eq(paw.timers.waiting[_G.later_timer], nil, "its timer waiting is cancelled")
     local ticks = _G.later_ticks
     paw.wait(60)
     eq(_G.later_ticks, ticks, "the repeating one stopped")
@@ -516,7 +516,7 @@ paw.luadev.watch()
     )
     local before = paw.option.definitions().lua_devices_watch
     local timers = 0
-    for _ in pairs(paw.timers) do
+    for _ in pairs(paw.timers.waiting) do
       timers = timers + 1
     end
     eq(paw.ext.load(dir("redef")).ok, true, "loads")
@@ -525,7 +525,7 @@ paw.luadev.watch()
     eq(paw.option.definitions().lua_devices_watch, before, "the core's definition is back")
     eq(paw.opt.lua_devices_watch, before.default, "with its default")
     local after = 0
-    for _ in pairs(paw.timers) do
+    for _ in pairs(paw.timers.waiting) do
       after = after + 1
     end
     eq(after, timers, "the core's watch, started again while it loaded, is not taken away")

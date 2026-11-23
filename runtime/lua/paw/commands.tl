@@ -8,23 +8,17 @@ local type contracts = require("paw.contracts")
 local options = require("paw.options")
 local util = require("paw.util")
 local registry = require("paw.registry")
+local command_registry = require("paw.command")
 
--- The types that a command's function and options have are contracts
--- (paw/contracts.tl), so that `paw.command` is typed for the modules in
--- Lua as well.
-local type Arg = contracts.CommandArg
-local type Args = contracts.CommandArgs
-local type Range = contracts.CommandRange
-local type Context = contracts.CommandContext
-local type Result = contracts.CommandResult
-
---- A candidate of completion: `text`, and what it is (`desc`).
-local record Item
-  text: string
-  desc: string
-end
-
-local type Info = contracts.CompleteInfo
+-- The command registry and its types are in paw/command.tl, a lower
+-- module. This module runs the commands and completes command lines.
+local type Arg = command_registry.Arg
+local type Args = command_registry.Args
+local type Range = command_registry.Range
+local type Context = command_registry.Context
+local type Result = command_registry.Result
+local type Item = command_registry.Item
+local type Info = command_registry.Info
 local type Candidate = contracts.CompleteCandidate
 
 --- What a function of `complete` gives: candidates, and `ranked = true`
@@ -33,37 +27,12 @@ local record Candidates is {string | Candidate}
   ranked: boolean
 end
 
-local type Completer = function(string, ?Info): {Item}
+local type Completer = command_registry.Completer
 local type CompleteFn = contracts.CompleteFn
-local type Complete = contracts.Complete
+local type Spec = command_registry.Spec
+local type Options = command_registry.Options
 
---- A command, as `paw.command` makes it. `ex` marks a command of Ex,
---- which takes its text whole after a range, and `items` one that also
---- works on the matches that `:g` hands it (paw/ex.tl).
-local record Spec
-  name: string
-  run: function(Context): Result
-  desc: string
-  raw: boolean
-  complete: Complete
-  label: string
-  range: boolean
-  alias_of: string
-  ext: string
-  ex: boolean
-  items: boolean
-  adjust: {contracts.AdjustParam}
-end
-
-local type Options = contracts.CommandOptions
-
---- A completion of a command line: the whole line it makes (`text`), the
---- part shown (`label`), and what it is.
-local record Entry
-  text: string
-  label: string
-  desc: string
-end
+local type Entry = command_registry.Entry
 
 local record M
   type Arg = Arg
@@ -84,6 +53,11 @@ local record M
   --- `paw.command` and `alias` put one, and `specs:remove(name)` takes
   --- one away.
   specs: registry.Registry<Spec>
+  --- The functions of the command registry (paw/command.tl), here too.
+  define: function<C is Context>(name: string, run: function(C): (Result), opts?: Options)
+  alias: function(alias: string, target: string)
+  get: function(name: string): Spec
+  list: function(): {Spec}
   owner: function(): string
   line_handlers: {function(string, Context): boolean}
   --- The completers by name, with the extension that added each one.
@@ -143,17 +117,7 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
--- The commands of `M.specs` sorted by name, or nil when it changed since
--- (`M.list`). Completion asks for the list after each typed character.
-local sorted: {Spec}
-M.specs = registry.new(
-  "commands",
-  "commands",
-  {
-    label = function(name: string): string return ":" .. name end,
-    changed = function() sorted = nil end,
-  }
-)
+M.specs = command_registry.specs
 local specs = M.specs
 
 --- The last command that can be adjusted, as it ran: what `adjust` runs
@@ -170,42 +134,8 @@ local last: Adjustable
 local about: string -- what the command that runs says it worked on
 local running = 0 -- how many commands run inside each other
 
---- Define or replace a command.
----   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
---- The handler gets `ctx` with `ctx.args` (positional and named arguments)
---- and `ctx.count` (the number typed before a key mapping, or nil). With
---- `opts.raw`, the command line gives its text as one string in
---- `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it
---- (`:5,8name`) as `ctx.range`. See Ranges below.
-function M.define<C is Context>(name: string, run: function(C): (Result), opts?: Options)
-  assert(name is string and run is function, "usage: paw.command(name, function, opts)")
-  opts = opts or {}
-  specs:put(
-    name,
-    {
-      name = name,
-      run = run as function(Context): (Result),
-      desc = opts.desc or "",
-      raw = opts.raw,
-      complete = opts.complete,
-      label = opts.label,
-      range = opts.range,
-      adjust = opts.adjust,
-      ext = opts.ext or M.owner(),
-    }
-  )
-end
-
---- The extension that paw loads now, or whose code registers these commands
---- and keys later. `:help` goes to its page for them, and an unload removes them.
-function M.owner(): string
-  local ext = rawget(paw as {string: partial.Ext}, "ext")
-  if not ext then
-    return nil
-  end
-  -- While it loads, or later from code of its own files.
-  return ext.current and ext.current.name or ext.caller()
-end
+M.define = command_registry.define
+M.owner = command_registry.owner
 
 --- What an undo step made by a command is called: its `label`, or the
 --- start of its description, before any example or alternative.
@@ -219,30 +149,8 @@ function M.label(spec: Spec): string
   return text ~= "" and text or spec.name
 end
 
---- Make `alias` another name for `target`.
-function M.alias(alias: string, target: string)
-  local spec = assert(specs:get(target), "no command " .. target)
-  specs:put(
-    alias,
-    {
-      name = alias,
-      run = spec.run,
-      desc = spec.desc,
-      raw = spec.raw,
-      complete = spec.complete,
-      label = spec.label,
-      range = spec.range,
-      adjust = spec.adjust,
-      alias_of = target,
-      ext = spec.ext,
-    }
-  )
-end
-
---- The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
-function M.get(name: string): Spec
-  return specs:get(name)
-end
+M.alias = command_registry.alias
+M.get = command_registry.get
 
 --- Count a use of a command selected by name (typed, or selected in a
 --- picker). Pickers then show the commands used most first. paw keeps the
@@ -264,22 +172,7 @@ function M.uses(name: string): integer
   return uses is {string: integer} and uses[name] or 0
 end
 
---- Every command, sorted by name.
-function M.list(): {Spec}
-  if not sorted then
-    sorted = {}
-    for _, spec in pairs(specs:entries()) do
-      sorted[#sorted + 1] = spec
-    end
-    table.sort(sorted, function(a: Spec, b: Spec): boolean return a.name < b.name end)
-  end
-  -- A copy: the caller may change its list.
-  local out: {Spec} = {}
-  for i = 1, #sorted do
-    out[i] = sorted[i]
-  end
-  return out
-end
+M.list = command_registry.list
 
 --- What a bare extension name (`:notation`) stands for: its `.open` or
 --- `.show` command, where it has one.
@@ -826,7 +719,7 @@ local function by_text(out: {Item}): {Item}
   return out
 end
 
-M.completers = registry.new("completers", "completers")
+M.completers = command_registry.completers
 local builtin: {string: Completer} = {
   commands = function(): {Item}
     local out: {Item} = {}
@@ -1044,5 +937,10 @@ M.define(
     complete = complete_adjust,
   }
 )
+
+-- A module below this one in the layers runs a command through the
+-- command registry (paw/command.tl).
+command_registry.run = M.run as function(string, ?Args, ?Context): Result
+command_registry.exec = M.exec
 
 return M

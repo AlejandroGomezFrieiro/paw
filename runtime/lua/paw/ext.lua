@@ -148,7 +148,9 @@ end
 -- entry of another extension goes in `overrides`, which `:checkhealth
 -- extensions` reads. paw.ext reads the owners at an unload and in
 -- `provides`, and makes no copies.
-registry.owner = M.caller
+--- The extension that loads now, or whose code calls: the owner of an
+--- entry that it puts. paw/command.tl reads it for the commands too.
+function registry.owner() return M.current and M.current.name or M.caller() end
 --- Records that the extension `owner` put an entry over an entry of the
 --- extension `previous`. `:checkhealth extensions` gives a warning for it.
 function registry.replaced(reg, what, owner, previous)
@@ -317,7 +319,7 @@ M.registries = {
   },
   -- Only its own timers: the core's started while it loaded (a watch the
   -- core starts again) are not.
-  keyed("timers", "timers", function() return paw.timers end, function(key, value)
+  keyed("timers", "timers", function() return paw.timers.waiting end, function(key, value)
     if not value then paw.cancel(key) end
   end, function() return "timer" end),
   keyed(

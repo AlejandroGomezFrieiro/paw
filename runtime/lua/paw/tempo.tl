@@ -18,7 +18,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local type types = require("paw.types")
-local type commands = require("paw.commands")
+local type CommandModule = require("paw.command")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -36,7 +36,7 @@ end
 
 --- How `paw.tempo.commands` defines a command: as `paw.command` does.
 local type Define = function(
-  name: string, run: function(ctx: commands.Context): (commands.Result), opts?: commands.Options
+  name: string, run: function(ctx: CommandModule.Context): (CommandModule.Result), opts?: CommandModule.Options
 )
 
 -- What this module reads of `paw`, which paw/init.lua makes.
@@ -205,7 +205,7 @@ end
 --- when nothing is given. In a scope with time (`paw.scope`), bars are its
 --- own, from 1 at its start; `@19` is bar 19 of the song all the same.
 --- The beat is of the window's time (in a subproject, from its start).
-function M.place(text?: commands.Arg): number
+function M.place(text?: CommandModule.Arg): number
   if text == nil or text == "cursor" or text == "here" then
     return paw.cursor.beat
   end
@@ -313,7 +313,7 @@ end
 local taps: {number} = {}
 
 --- Completion for a place: `at`, `here`, and the bars where something changes.
-local function places(_: string, info: commands.Info): {string}
+local function places(_: string, info: CommandModule.Info): {string}
   if info.words[#info.words] == "at" then
     local out = {"cursor"}
     for _, p in ipairs(M.points()) do
@@ -333,7 +333,7 @@ local SIGNATURES = {"4/4", "3/4", "6/8", "2/4", "5/4", "7/8", "12/8", "9/8"}
 function M.commands(command: Define)
   command(
     "tempo",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local a = ctx.args
       local bpm = tonumber(a[1])
       if a.by then
@@ -373,7 +373,7 @@ function M.commands(command: Define)
     {
       desc = "Show or set the tempo: `tempo 140` (at the start), `tempo 96 at 17` (bar 17), `tempo 96 here`, `tempo by=-1`",
       label = "Set the tempo",
-      complete = function(text: string, info: commands.Info): {string}
+      complete = function(text: string, info: CommandModule.Info): {string}
         if info.index == 1 then
           return {tostring(math.floor(M.at(paw.cursor.beat) + 0.5))}
         end
@@ -384,7 +384,7 @@ function M.commands(command: Define)
 
   command(
     "tempo.ramp",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local a = ctx.args
       local beat = (a[1] or a.at) and M.place(a.at or (a[1] == "at" and a[2] or a[1])) or paw.cursor.beat
       local p = paw.tempolane.point_at(beat)
@@ -404,7 +404,7 @@ function M.commands(command: Define)
 
   command(
     "tempo.remove",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local a = ctx.args
       local beat = a[1] and M.place(a[1]) or paw.cursor.beat
       local p, index = paw.tempolane.point_at(beat)
@@ -417,8 +417,8 @@ function M.commands(command: Define)
     {
       desc = "Remove the tempo change at or before the cursor, or at a bar: `tempo.remove 17`",
       label = "Remove a tempo change",
-      complete = function(): {commands.Candidate}
-        local out: {commands.Candidate} = {}
+      complete = function(): {CommandModule.Candidate}
+        local out: {CommandModule.Candidate} = {}
         for i, p in ipairs(M.points()) do
           if i > 1 then
             out[#out + 1] = {text = tostring(M.bar_of(p.beat)), desc = string.format("%g bpm", p.bpm)}
@@ -431,17 +431,17 @@ function M.commands(command: Define)
 
   command(
     "tempo.list",
-    function(): commands.Result
+    function(): CommandModule.Result
       local lines = M.describe()
       paw.notify(table.concat(lines, " · "))
-      return lines as commands.Result
+      return lines as CommandModule.Result
     end,
     {desc = "List the tempo and time signature changes"}
   )
 
   command(
     "tempo.tap",
-    function(): commands.Result
+    function(): CommandModule.Result
       local now = api.now()
       -- A pause of 2 s starts again, and so does a clock that went back
       -- (another clock: a test steps its own).
@@ -467,7 +467,7 @@ function M.commands(command: Define)
 
   command(
     "timesig",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local a = ctx.args
       local text = a[1]
       if text == nil then
@@ -487,7 +487,7 @@ function M.commands(command: Define)
     {
       desc = "Set the time signature from the cursor's bar on, or from a bar: `timesig 6/8`, `timesig 3/4 at 9`",
       label = "Set the time signature",
-      complete = function(text: string, info: commands.Info): {string}
+      complete = function(text: string, info: CommandModule.Info): {string}
         if info.index == 1 then
           return SIGNATURES
         end
@@ -498,7 +498,7 @@ function M.commands(command: Define)
 
   command(
     "timesig.remove",
-    function(ctx: commands.Context): commands.Result
+    function(ctx: CommandModule.Context): CommandModule.Result
       local beat = ctx.args[1] and M.place(ctx.args[1]) or paw.cursor.beat
       local found, index: types.SigPoint, integer
       for i, s in ipairs(paw.time.signature_points()) do
@@ -515,8 +515,8 @@ function M.commands(command: Define)
     {
       desc = "Remove the time signature change at or before the cursor, or at a bar",
       label = "Remove a time signature change",
-      complete = function(): {commands.Candidate}
-        local out: {commands.Candidate} = {}
+      complete = function(): {CommandModule.Candidate}
+        local out: {CommandModule.Candidate} = {}
         for i, sig in ipairs(M.signatures()) do
           if i > 1 then
             out[#out + 1] = {text = tostring(sig.bar), desc = sig.num .. "/" .. sig.den}

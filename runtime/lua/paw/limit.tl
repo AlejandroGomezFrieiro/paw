@@ -33,6 +33,7 @@
 local api = require("paw.api")
 local events = require("paw.events")
 local options = require("paw.options")
+local messages = require("paw.messages")
 
 --- A value this module passes on and never reads.
 local record Value
@@ -59,6 +60,13 @@ local maxn = (table as LuaTable).maxn
 local jit = (_G as Globals).jit
 
 local type Fn = function(...: Value): Value...
+
+-- `paw.try` (paw/messages.tl), read at each call: the test runner puts a
+-- wrapper of it in `paw`, to see each error that it reports.
+local record Paw
+  try: Fn
+end
+local paw = (_G as {string:Paw}).paw
 local type Body<A> = function(A...): (Value...)
 local type Call<A> = function(Body<A>, A...): (Value...)
 
@@ -79,14 +87,6 @@ local record M
 end
 M.slow = {}
 
--- What this module reads of `paw`, which paw/init.lua makes. A module of the
--- runtime in Teal does not see the global `paw`: runtime/types/paw.d.tl
--- declares it from these modules.
-local record Paw
-  try: Fn
-  notify: function(string, string)
-end
-local paw = (_G as {string:Paw}).paw
 
 local CHECK_EVERY = 100000  -- instructions between looks at the clock
 
@@ -131,7 +131,7 @@ local function report(name: string, fn: function, ms: number)
   seen = { name = name, ms = ms, last = ms, times = 1 }
   warned[name] = seen
   M.slow[#M.slow + 1] = seen
-  paw.notify(string.format("slow: %s %d ms (budget %g ms)", name, math.floor(ms + 0.5), slow_ms), "warn")
+  messages.notify(string.format("slow: %s %d ms (budget %g ms)", name, math.floor(ms + 0.5), slow_ms), "warn")
 end
 
 --- The end of a call timed against the budget: what it returned, passed on.

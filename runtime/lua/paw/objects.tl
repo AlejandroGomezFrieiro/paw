@@ -199,8 +199,9 @@ local record BarLine
   bar: integer
 end
 
---- A command as `paw.commands.get` gives it, as far as `allow_discard`
---- reads it.
+--- A command as `paw.command.get` gives it, as far as `allow_discard`
+--- reads it. paw/contracts.tl names the types of this module, so this
+--- module cannot name the types of paw/command.tl.
 local record CommandSpec
   run: function(Value): Value
   desc: string
@@ -228,8 +229,10 @@ local record Paw
   record Routes
     set_output: function(device: integer, pair: integer, track: integer)
   end
-  record Commands
+  --- The command registry (paw/command.tl).
+  record Command
     get: function(name: string): CommandSpec
+    metamethod __call: function(self: Command, name: string, run: function(Value), opts: CommandOptions)
   end
   --- paw/scope.tl: the subproject the window is in.
   record ScopeLevel
@@ -244,8 +247,7 @@ local record Paw
   scope: Scope
   stretch: Stretch
   routes: Routes
-  commands: Commands
-  command: function(name: string, run: function(Value), opts: CommandOptions)
+  command: Command
   defer: function(fn: function(), ms?: number): integer
   notify: function(text: string, level?: string)
 end
@@ -1908,12 +1910,12 @@ rawset(
   project as {string: Value},
   "allow_discard",
   function(name: string)
-    local spec = paw.commands.get(name)
+    local spec = paw.command.get(name)
     paw.command(
       name .. "!",
       function(ctx: Value)
         discarding = true
-        local ok, err = pcall(paw.commands.get(name).run, ctx)
+        local ok, err = pcall(paw.command.get(name).run, ctx)
         discarding = false
         if not ok then
           error(err, 0)

@@ -39,7 +39,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.is_audio_file(path)`: True if a path names a sound file, from its file ending.
 - `paw.is_chain_file(path)`: True if a path names a chain file of devices: a `devices.json`.
 - `paw.lane(id)`: The automation lane of an id, as a `paw.Lane`.
-- `paw.notify(text, level)`: Show a message. `level` is "info" (default), "warn" or "error".
+- `paw.notify(text, level)`: Give a message. `level` is "info" (the default), "warn" or "error".
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 - `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name or a pattern as text that matches no event that a part of paw declares goes in the log (`:checkhealth events`).
 - `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
@@ -404,6 +404,22 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.clip_kinds.split(clip, at)`: What the two halves of a clip of a kind hold when it is split `at` beats after its start, as `paw.api.clip_set_custom` takes it: by the kind's `split`, or (without it, or without the kind) the same data, with the right half starting where the cut is in it. The caller makes the halves.
 - `paw.clip_kinds.trim(clip, from, to)`: What a clip of a kind holds when it is cut to the beats `from` to `to` after its start: by the kind's `trim`, or the same data with its offset moved to `from`. The caller moves the clip's start and length.
 
+## Module paw.command
+
+- `paw.command.alias(alias, target)`: Make `alias` another name for `target`.
+- `paw.command.define(name, run, opts)`: Define or replace a command.
+
+  ```lua
+  paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
+  ```
+
+  The handler gets `ctx` with `ctx.args` (positional and named arguments) and `ctx.count` (the number typed before a key mapping, or nil). With `opts.raw`, the command line gives its text as one string in `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it (`:5,8name`) as `ctx.range`. See Ranges below.
+- `paw.command.exec(line, ctx)`: Run a command line, as typed after `:`, with a range in front if it has one.
+- `paw.command.get(name)`: The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
+- `paw.command.list()`: Every command, sorted by name.
+- `paw.command.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.command.run`: the same as `paw.cmd`.
+
 ## Module paw.commands
 
 - `paw.commands.about(text)`: A command that can be adjusted says the range it changed, as the panel of `<leader>.` shows it (`Quantize · 48 notes`). Call it from the handler.
@@ -413,25 +429,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.commands.adjust(given)`: Run the last command that has `adjust` again with other parameters, in place of its undo step: `paw.commands.adjust({ grid = "1/8" })`, or positional ones, by the order of its `adjust`. The project goes back to before the command, the command runs again with its first parameters and these laid over them, and the undo step is the new result. It works only on the last change: after `undo`, or another change, it says so.
 - `paw.commands.adjusting()`: The line `adjust a=1 b=2` that holds the parameters of the last command that can be adjusted, as they are now; nil when no command ran that can be adjusted. `<leader>.` puts it on the command line.
-- `paw.commands.alias(alias, target)`: Make `alias` another name for `target`.
+- `paw.commands.alias`: the same as `paw.command.alias`.
 - `paw.commands.complete(line)`: What could finish a command line: a list of `{ text, label, desc }` with `text` the whole line it would become and `label` the part shown.
 
   ```lua
   paw.commands.complete("track.co")   --> { { text = "track.color", label = "track.color", desc = ... } }
   ```
-- `paw.commands.define(name, run, opts)`: Define or replace a command.
-
-  ```lua
-  paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
-  ```
-
-  The handler gets `ctx` with `ctx.args` (positional and named arguments) and `ctx.count` (the number typed before a key mapping, or nil). With `opts.raw`, the command line gives its text as one string in `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it (`:5,8name`) as `ctx.range`. See Ranges below.
-- `paw.commands.exec(line, ctx)`: Run a command line, as typed after `:`, with a range in front if it has one.
-- `paw.commands.get(name)`: The command of a name: `{ name, run, desc, ... }` as `paw.command` made it, or nil.
+- `paw.commands.define`: the same as `paw.command.define`.
+- `paw.commands.exec`: the same as `paw.command.exec`.
+- `paw.commands.get`: the same as `paw.command.get`.
 - `paw.commands.label(spec)`: What an undo step made by a command is called: its `label`, or the start of its description, before any example or alternative.
-- `paw.commands.list()`: Every command, sorted by name.
+- `paw.commands.list`: the same as `paw.command.list`.
 - `paw.commands.main(name)`: What a bare extension name (`:notation`) stands for: its `.open` or `.show` command, where it has one.
-- `paw.commands.owner()`: The extension that paw loads now, or whose code registers these commands and keys later. `:help` goes to its page for them, and an unload removes them.
+- `paw.commands.owner`: the same as `paw.command.owner`.
 - `paw.commands.panel()`: What the panel of `<leader>.` shows: the title, the parameters of the last command that can be adjusted, and their values now. Nil when there is no such command.
 - `paw.commands.params(ctx)`: The parameters of the command that runs: what the user gave, by the names that its `adjust` lists. A parameter not given is not in the table.
 
@@ -1559,6 +1569,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
+- `paw.nest.show(id)`: Put the window in front inside subproject `id`, as if you entered it from the song through each subproject that holds it. It does nothing when the window shows that subproject already. With no `id`, the window goes back to the song. Returns false and why when the project has no such subproject.
 - `paw.nest.shown_under(track)`: The return row that a track of a subproject is shown under, in place (`za`), or nil for any other track.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
@@ -1733,7 +1744,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.fix_title(e)`: The title of an entry's fix, or nil.
 - `paw.qf.format(e, list)`: An entry in one line, as said when going to it: `(2 of 7) error: …`.
 - `paw.qf.from_diagnostics(target, filter)`: Diagnostics as entries (as `paw.diagnostic.get` takes `target` and `filter`).
-- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
+- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
 - `paw.qf.jump(n, stack)`: Make entry `n` of a stack's current list the current entry and go to it.
 - `paw.qf.last(stack)`: Go to the list's last entry.
 - `paw.qf.loc_stack(win, make)`: The location lists of a window (of the current window without `win`), made when you ask with `make`. A window that shows a location list uses the list that it shows, as in Neovim.
@@ -1795,7 +1806,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.registry.all()`: The registries made so far, in the order they were made.
 - `paw.registry.new(kind, title, options)`: A new registry: entries by key, each with the extension that put it there. `kind` names it in `paw.ext.provides` and `title` in `:extensions`. Its functions are `put(key, value)`, `get(key)`, `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes away the entries of an extension, and an entry that one of them replaced comes back.
-- `paw.registry.owner`: the same as `paw.ext.caller`.
+- `paw.registry.owner()`: The extension that loads now, or whose code calls: the owner of an entry that it puts. paw/command.tl reads it for the commands too.
 - `paw.registry.replaced(reg, what, owner, previous)`: Records that the extension `owner` put an entry over an entry of the extension `previous`. `:checkhealth extensions` gives a warning for it.
 
 ## Module paw.remote
@@ -2296,6 +2307,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.textbuf.unquote(cell)`: A cell's text without the quotes `quote` put round it.
 - `paw.textbuf.width(s)`: How many characters a string has (UTF-8).
 - `paw.textbuf.write(buf, force)`: `:w` in a text buffer: the plan, to confirm. With `force`, also when the project changed after paw read the buffer.
+
+## Module paw.timers
+
+- `paw.timers.cancel`: the same as `paw.cancel`.
+- `paw.timers.defer`: the same as `paw.defer`.
+- `paw.timers.every`: the same as `paw.every`.
+- `paw.timers.wait`: the same as `paw.api.wait`.
 
 ## Module paw.track_kinds
 

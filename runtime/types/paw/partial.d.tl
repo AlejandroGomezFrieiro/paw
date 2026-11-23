@@ -41,7 +41,6 @@ local record partial
    interface Paw
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       cancel: function(handle: integer)
-      command: contracts.Command
       controls: Controls
       defer: function(fn: function(), ms?: number): integer
       device_types: function(): {types.DeviceType}
@@ -56,8 +55,8 @@ local record partial
       plugins: Plugins
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
-      timers: {integer:function()}
       track_kinds: TrackKinds
+      wait: function(ms: number)
    end
 end
 

@@ -4,7 +4,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
@@ -40,8 +40,8 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
-local type Context = commands.Context
-local type Result = commands.Result
+local type Context = command.Context
+local type Result = command.Result
 
 local record M
   type ClipRef = ClipRef
@@ -198,7 +198,7 @@ function M.relink_pick()
   )
 end
 
-commands.define(
+command.define(
   "media.relink",
   function(ctx: Context): Result
     local a, b = ctx.args[1], ctx.args[2]
@@ -226,7 +226,7 @@ commands.define(
   }
 )
 
-commands.define(
+command.define(
   "media.collect",
   function(): Result
     local result = api.media_collect()
@@ -244,7 +244,7 @@ commands.define(
   {desc = "Copy every sound file from outside the project's folder into its `media` folder"}
 )
 
-commands.define(
+command.define(
   "collect",
   function(): Result
     if not api.project_get().path then
@@ -303,7 +303,7 @@ events.on(
   end
 )
 
-commands.define(
+command.define(
   "media.missing",
   function(): Result
     local missing = api.media_missing()
@@ -393,7 +393,7 @@ function M.glue(clips: {ClipRef}): types.ClipGlued
   return api.clip_glue(ids)
 end
 
-commands.define(
+command.define(
   "clip.reverse",
   function(): Result
     local clip = need_audio_clip()
@@ -413,7 +413,7 @@ commands.define(
   {desc = "Play the audio clip under the cursor backwards: an edit in its list; the file stays as it is"}
 )
 
-commands.define(
+command.define(
   "clip.gain",
   function(ctx: Context): Result
     local clip = need_audio_clip()
@@ -437,7 +437,7 @@ commands.define(
   {desc = "A gain on a part of the audio clip under the cursor, in seconds of the clip: `clip.gain 1.2 1.3 -12`"}
 )
 
-commands.define(
+command.define(
   "clip.edits",
   function(): Result
     local clip = need_audio_clip()
@@ -465,7 +465,7 @@ commands.define(
   {desc = "List the edit list of the audio clip under the cursor"}
 )
 
-commands.define(
+command.define(
   "clip.edits.clear",
   function(): Result
     local clip = need_audio_clip()
@@ -481,7 +481,7 @@ commands.define(
   {desc = "Take away the edit list of the audio clip under the cursor: it plays its file again"}
 )
 
-commands.define(
+command.define(
   "clip.normalize",
   function(ctx: Context): Result
     local clip = need_audio_clip()
@@ -494,7 +494,7 @@ commands.define(
   {desc = "Bring the audio clip's loudest sample to a level by its gain: `clip.normalize -1`"}
 )
 
-commands.define(
+command.define(
   "clip.glue",
   function(): Result
     local clip = need_audio_clip()

@@ -39,7 +39,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
@@ -131,8 +131,8 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
-local type Context = commands.Context
-local type Result = commands.Result
+local type Context = command.Context
+local type Result = command.Result
 
 local record M
   type Take = Take
@@ -1071,7 +1071,7 @@ local record Choice
   index: integer
 end
 
-commands.define(
+command.define(
   "take",
   function(ctx: Context): Result
     local word = ctx.args[1] as string
@@ -1111,7 +1111,7 @@ commands.define(
   {desc = "Play another take of the clip: `take 2`, `take next`, `take prev`; over a selected stretch, only there"}
 )
 
-commands.define(
+command.define(
   "take.list",
   function(): Result
     local clip = need_clip()
@@ -1134,7 +1134,7 @@ commands.define(
   {desc = "Choose the take that plays from a list"}
 )
 
-commands.define(
+command.define(
   "take.new",
   function(ctx: Context): Result
     local clip = paw.cursor.clip()
@@ -1147,7 +1147,7 @@ commands.define(
   {desc = "Keep what the clip plays as a take and carry on in a copy"}
 )
 
-commands.define(
+command.define(
   "take.remove",
   function(ctx: Context): Result
     local clip = need_clip()
@@ -1164,7 +1164,7 @@ commands.define(
   {desc = "Throw away the playing take, or the one numbered: `take.remove 1`"}
 )
 
-commands.define(
+command.define(
   "take.keep",
   function(): Result
     local clip = need_clip()
@@ -1177,7 +1177,7 @@ commands.define(
   {desc = "Throw away every take but the one that plays"}
 )
 
-commands.define(
+command.define(
   "take.lanes",
   function(ctx: Context): Result
     local track = paw.cursor.track_id()
@@ -1206,7 +1206,7 @@ commands.define(
   {desc = "Show the track's takes as lanes under its clips, or hide them: `take.lanes`, `take.lanes on`"}
 )
 
-commands.define(
+command.define(
   "take.explode",
   function(): Result
     local clip = need_clip()

@@ -20,7 +20,7 @@ local api = require("paw.api")
 local A = require("paw.address")
 local derived = require("paw.derived")
 local tree = require("paw.query.tree")
-local commands = require("paw.commands")
+local command = require("paw.command")
 local registry = require("paw.registry")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -574,12 +574,12 @@ function M.vimgrep(line: string, opts?: VimgrepOptions): {Found}
   return found
 end
 
-local type Context = commands.Context
-local type Result = commands.Result
-local function complete_fields(_: string, info: commands.Info): {string}
+local type Context = command.Context
+local type Result = command.Result
+local function complete_fields(_: string, info: command.Info): {string}
   return info.index > 1 and M.fields() or {}
 end
-commands.define(
+command.define(
   "vimgrep",
   function(ctx: Context): Result M.vimgrep(ctx.args[1] as string) end,
   {
@@ -588,12 +588,12 @@ commands.define(
     desc = "Every piece of text in the project that matches a regular expression, in the quickfix list: `vimgrep /pizz/`, `vimgrep /^la/ lyric`; `/j` stays where it is",
   }
 )
-commands.define(
+command.define(
   "lvimgrep",
   function(ctx: Context): Result M.vimgrep(ctx.args[1] as string, {loc = true}) end,
   {raw = true, complete = complete_fields, desc = "As `vimgrep`, into the window's location list"}
 )
-commands.define(
+command.define(
   "vimgrepadd",
   function(ctx: Context): Result M.vimgrep(ctx.args[1] as string, {add = true}) end,
   {
@@ -602,6 +602,6 @@ commands.define(
     desc = "As `vimgrep`, adding to the quickfix list rather than making a new one",
   }
 )
-commands.alias("vim", "vimgrep")
+command.alias("vim", "vimgrep")
 
 return M

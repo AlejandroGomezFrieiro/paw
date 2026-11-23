@@ -22,6 +22,7 @@ local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
 local registry = require("paw.registry")
+local messages = require("paw.messages")
 local Buf = require("paw.buf")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -30,7 +31,7 @@ local type KeymapModule = require("paw.keymap")
 local type KeybarModule = require("paw.keybar")
 local type role_props = require("paw.role_props")
 local type MouseModule = require("paw.mouse")
-local type commands = require("paw.commands")
+local type command = require("paw.command")
 local type DrawModule = require("paw.draw")
 
 local type View = contracts.View
@@ -50,12 +51,8 @@ local record Bar
   hidden: boolean
 end
 
---- A message on the command line (`paw.ui.notify`).
-local record Message
-  text: string
-  level: string
-  time: number
-end
+--- A message on the command line (`paw.notify`).
+local type Message = messages.Message
 
 --- What `paw.ui.titlebar` takes.
 local record TitlebarOptions
@@ -141,7 +138,7 @@ local record InputOptions
   text: string
   history: string
   label: string
-  complete: function(text: string): {string | commands.Entry}
+  complete: function(text: string): {string | command.Entry}
   preview: function(text: string): string, string
   on_change: function(text: string): string, string
   anchor: function(): types.Point
@@ -276,6 +273,8 @@ local record M
   messages: {Message}
   --- The one on the command line now.
   message: Message
+  --- Give a message: the same as `paw.notify` (paw/messages.tl).
+  notify: function(text: string, level?: string)
   --- A function that takes every key while set (prompts).
   grabber: function(key: string, pasted?: boolean)
   --- The floating view, if one is open.
@@ -357,7 +356,7 @@ M.views = registry.new("views", "views", {
   changed = function() api.ui_redraw() end,
 })
 M.stamp_misses = {}
-M.messages = {}
+M.messages = messages.list
 M.rects = {}
 rawset(M as {string:Buf}, "Buf", Buf)
 
@@ -1866,22 +1865,15 @@ local function clear_later(ms: number)
   end, ms)
 end
 
---- Show a message. `level` is "info" (default), "warn" or "error".
-function M.notify(text: string, level?: string)
-  -- What the kernel refused, as it said it, without the prefix its errors
-  -- carry through Lua.
-  text, level = (tostring(text):gsub("runtime error: ", "")), level or "info"
-  local message: Message = { text = text, level = level, time = api.now() }
-  M.messages[#M.messages + 1] = message
-  if #M.messages > 500 then table.remove(M.messages, 1) end
-  api.log(string.format("[%s] %s", level, text))
-  -- Without a terminal the message also goes to stderr; a graphical
-  -- frontend shows `M.message` like the command line does.
-  if not api.ui_attached() then io.stderr:write(text, "\n") end
+-- A message that came (paw/messages.tl) goes on the command line, until
+-- `paw.opt.message_time` passed. A graphical frontend shows `M.message`
+-- as the command line does.
+messages.show = function(message: Message)
   M.message = message
   if not clearing then clear_later(opt.message_time) end
   api.ui_redraw()
 end
+M.notify = messages.notify
 
 -- Every group as it was defined, so that the colours can be made again for
 -- a terminal that shows fewer of them (`paw.opt.termcolors`).
