@@ -141,6 +141,13 @@ function M.round(v: number, step?: number): number
   return math.floor(v / step + 0.5) * step
 end
 
+--- An amount with its word, in the plural unless it is 1:
+--- `paw.util.amount(1, "beat")` is "1 beat", `paw.util.amount(0.5, "beat")`
+--- is "0.5 beats".
+function M.amount(n: number, word: string): string
+  return string.format("%g %s%s", n, word, n == 1 and "" or "s")
+end
+
 --- A deep copy of a value: tables are copied all the way down (their
 --- metatables are not), anything else is given back as it is.
 function M.copy<T>(value: T): T

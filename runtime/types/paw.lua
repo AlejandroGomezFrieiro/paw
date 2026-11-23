@@ -9939,6 +9939,13 @@ function paw.ui.keybar.show(lhs) end
 ---@param path any
 function paw.undofile.dir(path) end
 
+--- An amount with its word, in the plural unless it is 1:
+--- `paw.util.amount(1, "beat")` is "1 beat", `paw.util.amount(0.5, "beat")`
+--- is "0.5 beats".
+---@param n any
+---@param word any
+function paw.util.amount(n, word) end
+
 --- The order of the entries that extensions add to a list of keys (the
 --- pencil's keys, the insert kinds): by `order`, then by key.
 ---@param a any

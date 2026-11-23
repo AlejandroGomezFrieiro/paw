@@ -497,7 +497,7 @@ aop("y", function(region, ctx)
       #value.tracks == 1 and "yanked track " .. value.tracks[1].name or "yanked " .. #value.tracks .. " tracks"
     )
   else
-    paw.notify(string.format("yanked %g beats", value.length))
+    paw.notify("yanked " .. util.amount(value.length, "beat"))
   end
 end, "Yank")
 aop("c", function(region, ctx)

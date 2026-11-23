@@ -2466,14 +2466,16 @@ ex(
       end
     end
     if n == 0 then
-      return paw.notify(string.format("%s on the grid of %g beats already", plural(#items, "note"), grid))
+      return paw.notify(
+        string.format("%s on the grid of %s already", plural(#items, "note"), util.amount(grid, "beat"))
+      )
     end
     api.notes_set(moved)
     paw.notify(
       string.format(
-        "snapped %s to %g beats%s",
+        "snapped %s to %s%s",
         plural(#items, "note"),
-        grid,
+        util.amount(grid, "beat"),
         strength < 100 and string.format(" at %g%%", strength) or ""
       )
     )

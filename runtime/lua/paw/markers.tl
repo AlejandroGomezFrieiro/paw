@@ -993,7 +993,7 @@ end
 
 local function add_region(from: number, to: number, name: string)
   local m = M.add(from, name, {length = to - from})
-  paw.notify(describe(m) .. ", " .. string.format("%g", to - from) .. " beats")
+  paw.notify(describe(m) .. ", " .. util.amount(to - from, "beat"))
 end
 
 commands.define(

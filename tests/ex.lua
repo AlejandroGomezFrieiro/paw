@@ -288,7 +288,7 @@ test("ex: :quantize moves the notes that play in its bars, and says so when they
 
   keys(":3quantize 1/4<CR>")
   local said = paw.ui.messages[#paw.ui.messages].text
-  eq(said, "4 notes on the grid of 1 beats already", "nothing moves")
+  eq(said, "4 notes on the grid of 1 beat already", "nothing moves")
   eq(#api.undo_tree().states, steps, "and nothing is an undo step")
 
   c:set_note(2, { start = 1.3 })
