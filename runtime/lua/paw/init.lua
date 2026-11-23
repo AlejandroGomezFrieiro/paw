@@ -394,6 +394,10 @@ function K.startup()
   -- paw.nest is below this module (tools/layers.txt): it gets paw.flush here.
   paw.nest.flush = paw.flush
   paw.pick.sources:put("nests", paw.nest.source)
+  -- Workspaces: a named screen for each task (paw/workspace.tl). It
+  -- follows paw.layout.setup, so that a project's screen is back before
+  -- the project's workspace opens.
+  paw.workspace = require("paw.workspace")
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.

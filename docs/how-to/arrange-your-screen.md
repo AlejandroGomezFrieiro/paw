@@ -107,6 +107,28 @@ If you want the screen to stay as it is when you open a project, type
 To keep a layout for many projects, type `:layout save write`. To use
 it again, type `:layout write`.
 
+## Switch between screens for each task
+
+A workspace is a screen for one task, and you go from one workspace to
+another with `<Space>w` and a letter. paw has four workspaces:
+
+- `<Space>wr` goes to the record workspace, with the arrange view and the mixer. The cursor goes to the first armed track, so `R` records there.
+- `<Space>we` goes to the edit workspace, with the arrange view and the piano roll.
+- `<Space>wm` goes to the mix workspace, with the mixer and the device panel.
+- `<Space>wn` goes to the score workspace, with the notation view. It needs the notation extension.
+
+The status line shows the name of the workspace that you are in. When
+you leave a workspace, paw keeps its tabs and windows, so when you come
+back to it, the screen is as you left it. For example, you can open a
+second tab in the edit workspace, press `<Space>wm` to mix, and press
+`<Space>we` to find both tabs again.
+
+To keep the screen that you have now as a workspace of your own, press
+`<Space>ws` and type its name. `<Space>ww` lists every workspace, and you
+choose one with `Enter`. To keep a workspace in the project instead,
+type `:workspace.save! tracking`. The project then has a change to save,
+and after you save it, the project opens in that workspace.
+
 ## In the graphical window
 
 The graphical window shows the same tabs and windows as the terminal, and

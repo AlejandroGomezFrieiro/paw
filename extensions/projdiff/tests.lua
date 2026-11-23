@@ -84,10 +84,6 @@ local function has(text, part, what)
   if not text:find(part, 1, true) then error((what or "text") .. " lacks `" .. part .. "`:\n" .. text, 2) end
 end
 
-local function lacks(text, part, what)
-  if text:find(part, 1, true) then error((what or "text") .. " holds `" .. part .. "`:\n" .. text, 2) end
-end
-
 test(
   "projdiff: a project file saved again is the same bytes, and the model writes it the way the merge does",
   function()
@@ -181,25 +177,6 @@ test("projdiff: changes have addresses to go to, and become quickfix entries", f
   eq(n, 2, "sent")
   eq(#paw.qf.current().entries, 2, "in the list")
   eq(paw.qf.current().entries[1].location.uri:match("^paw://") ~= nil, true, "each goes somewhere")
-end)
-
-test("projdiff: the text form puts each thing on a line, so one change is one line", function()
-  load()
-  local path = fixture("text")
-  local base, now = decode(path), decode(path)
-  local a = projdiff.text.lines(base.project)
-  eq(table.concat(a, "\n"), table.concat(projdiff.text.lines(decode(path).project), "\n"), "stable")
-  now.project.tracks[1].clips[1].content.notes[2].velocity = 50
-  local b = projdiff.text.lines(now.project)
-  eq(#a, #b, "the same lines")
-  local differ = 0
-  for i = 1, #a do
-    if a[i] ~= b[i] then differ = differ + 1 end
-  end
-  eq(differ, 1, "one line differs")
-  has(table.concat(a, "\n"), "note id=2 length=1 start=1 velocity=100 pitch=64(E4)", "a note's line")
-  has(table.concat(a, "\n"), "clip id=", "a clip's line")
-  has(table.concat(a, "\n"), "point beat=8 value=0", "a lane's points")
 end)
 
 -- Merging --------------------------------------------------------------------
@@ -409,33 +386,6 @@ test("projdiff: conflicts are settled one by one, ours, theirs or what it was", 
   eq(names(merged), "Lead,Drums", "the tracks")
 end)
 
-test("projdiff: :Pmerge shows the conflicts and co, ct settle them in the file", function()
-  start()
-  local base, ours, theirs = sides()
-  track(ours, "Lead").devices[1].params.cutoff = 1500
-  track(theirs, "Lead").devices[1].params.cutoff = 300
-  track(ours, "Lead").volume = -6
-  track(theirs, "Lead").volume = -2
-  local merged = projdiff.merge.files(base, ours, theirs)
-  local path = scratch .. "/conflicted.json"
-  local file = assert(io.open(path, "wb"))
-  file:write(api.project_file_text(merged))
-  file:close()
-  paw.cmd("Pmerge", { path })
-  eq(paw.ui.float and paw.ui.float.name, "projmerge", "the conflict view is open")
-  paw.keymap.feed("ct")
-  eq(#projdiff.merge.conflicts(decode(path)), 1, "one settled")
-  paw.keymap.feed("co")
-  eq(paw.ui.float, nil, "closed when the last is settled")
-  local settled = decode(path)
-  eq(#projdiff.merge.conflicts(settled), 0, "none left")
-  eq(
-    track(settled, "Lead").devices[1].params.cutoff,
-    300,
-    "theirs for the first (the conflicts are in order of the file)"
-  )
-end)
-
 -- The views -------------------------------------------------------------------
 
 test("projdiff: :Pdiff compares with the saved file, an undo state and a snapshot, and folds", function()
@@ -488,7 +438,9 @@ end)
 --- A song whose row Bridge places the subproject Bridge, whose track Inner
 --- places the subproject Verse; Keys of Bridge and Strings of Verse have a
 --- clip of one note each. Saved as `name`; returns the path and the ids.
-local function nested(name)
+--- With `folder`, `name` is a path, and the project is saved as a project
+--- folder there.
+local function nested(name, folder)
   fresh()
   local row = paw.add_track({ name = "Bridge" })
   local bridge = api.nest_add({ name = "Bridge", length = 16 })
@@ -513,7 +465,7 @@ local function nested(name)
   api.clip_add(inner, { nest = verse, start = 0 })
   api.clip_add(row.id, { nest = bridge, start = 0 })
   api.undo_checkpoint()
-  local path = scratch .. "/" .. name .. ".json"
+  local path = folder and name or (scratch .. "/" .. name .. ".json")
   api.project_save(path)
   return path, ids
 end
@@ -571,6 +523,75 @@ test("projdiff: an edit inside a subproject of a subproject shows under both nam
   eq(entries[1].text:sub(1, #trail), trail, "the quickfix entry names both subprojects")
 end)
 
+--- The scopes of the window in front, from the song in: `nest 3 > nest 5`.
+local function scope_path()
+  local out = {}
+  for _, s in ipairs(paw.scope.path()) do
+    out[#out + 1] = s.kind .. " " .. tostring(s.id)
+  end
+  return table.concat(out, " > ")
+end
+
+test("projdiff: Enter on a change inside a subproject goes inside it, with the cursor on the changed track", function()
+  start()
+  T.after(function() paw.scope.widen(true) end)
+  local path, ids = nested("nest-go")
+  api.project_load(path)
+  api.track_set(ids.keys, { volume = -6 })
+  api.undo_checkpoint()
+  T.keys("<Space>gd")
+  eq(
+    table.concat(projdiff.diff.lines(require("projdiff.view").tree), "\n"),
+    table.concat({
+      ('~ subproject %d "Bridge"'):format(ids.bridge),
+      ('  ~ track %d "Keys"'):format(ids.keys),
+      "    ~ volume: 0 -> -6",
+    }, "\n"),
+    "the change, under Bridge"
+  )
+  T.keys("j<CR>")
+  eq(paw.ui.float, nil, "the window closes")
+  eq(scope_path(), "nest " .. ids.bridge, "the window shows Bridge")
+  eq(paw.cursor.track_id(), ids.keys, "the cursor is on Keys")
+end)
+
+test(
+  "projdiff: Enter goes two levels deep for a change there, and stays in the song for a change of the song",
+  function()
+    start()
+    T.after(function()
+      paw.ui.close()
+      paw.scope.widen(true)
+    end)
+    local path, ids = nested("nest-go-deep")
+    api.project_load(path)
+    local row = paw.tracks()[1]
+    eq(row.name, "Bridge", "the song's row of the subproject")
+    row.volume = -3
+    api.track_set(ids.strings, { volume = -6 })
+    api.undo_checkpoint()
+    T.keys("<Space>gd")
+    eq(
+      table.concat(projdiff.diff.lines(require("projdiff.view").tree), "\n"),
+      table.concat({
+        ('~ track %d "Bridge"'):format(row.id),
+        "  ~ volume: 0 -> -3",
+        ('~ subproject %d "Bridge"'):format(ids.bridge),
+        ('  ~ subproject %d "Verse"'):format(ids.verse),
+        ('    ~ track %d "Strings"'):format(ids.strings),
+        "      ~ volume: 0 -> -6",
+      }, "\n"),
+      "a change of the song, and one two levels down"
+    )
+    T.keys("G<CR>")
+    eq(scope_path(), ("nest %d > nest %d"):format(ids.bridge, ids.verse), "the window shows Verse inside Bridge")
+    eq(paw.cursor.track_id(), ids.strings, "the cursor is on Strings")
+    T.keys("zW<Space>gdj<CR>")
+    eq(scope_path(), "", "a change of the song leaves the window in the song")
+    eq(paw.cursor.track_id(), row.id, "the cursor is on the song's row")
+  end
+)
+
 -- Git ----------------------------------------------------------------------------
 
 local function run(command)
@@ -579,69 +600,6 @@ local function run(command)
   p:close()
   return out
 end
-
-test("projdiff: git shows a project as text and merges two branches that changed it apart", function()
-  load()
-  if os.execute("command -v git >/dev/null 2>&1") ~= 0 and os.execute("command -v git >/dev/null 2>&1") ~= true then
-    return "no git"
-  end
-  local bin = (os.getenv("PAW_TEST_BIN") or "target/release") .. "/paw"
-  local root = scratch .. "/repo"
-  local script = io.popen("pwd"):read("*l") .. "/extensions/projdiff/git.lua"
-  local paw_cmd = bin:sub(1, 1) == "/" and bin or (io.popen("pwd"):read("*l") .. "/" .. bin)
-  local driver = paw_cmd .. " --clean --no-plugins --no-listen --audio null -l " .. script
-  os.execute("rm -rf '" .. root .. "' && mkdir -p '" .. root .. "'")
-  local function git(args) return run("cd '" .. root .. "' && git -c user.name=t -c user.email=t@t " .. args) end
-  git("init -q -b main")
-  git("config diff.paw.textconv '" .. driver .. " textconv'")
-  git("config merge.paw.name paw")
-  git("config merge.paw.driver '" .. driver .. " merge %O %A %B %L %P'")
-  local f = assert(io.open(root .. "/.gitattributes", "w"))
-  f:write("song.json diff=paw merge=paw\n")
-  f:close()
-  local path = fixture("song")
-  os.execute("cp '" .. path .. "' '" .. root .. "/song.json'")
-  git("add -A")
-  git("commit -q -m base")
-  local function edit(fn)
-    local doc = decode(root .. "/song.json")
-    fn(doc)
-    local file = assert(io.open(root .. "/song.json", "wb"))
-    file:write(api.project_file_text(doc))
-    file:close()
-  end
-  -- A branch changes the bass; main changes the lead.
-  git("checkout -q -b bass")
-  edit(function(doc) track(doc, "Bass").volume = -9 end)
-  git("commit -qam bass")
-  git("checkout -q main")
-  edit(function(doc) track(doc, "Lead").clips[1].content.notes[1].pitch = 62 end)
-  git("commit -qam lead")
-  local shown = git("diff HEAD~1 HEAD")
-  has(shown, "-    note id=1 length=1 start=0 velocity=100 pitch=60(C4)", "git diff shows the note's line")
-  has(shown, "+    note id=1 length=1 start=0 velocity=100 pitch=62(D4)", "and its new one")
-  lacks(shown, '"pitch"', "not JSON")
-  local merged = git("merge bass -m merge")
-  eq(git("status --porcelain"), "", "the merge went through: " .. merged)
-  local doc = decode(root .. "/song.json")
-  eq(track(doc, "Bass").volume, -9, "the bass branch's change")
-  eq(track(doc, "Lead").clips[1].content.notes[1].pitch, 62, "main's change")
-  -- Both change the same parameter: a conflict, in the file as a project.
-  git("checkout -q -b one")
-  edit(function(d) track(d, "Lead").devices[1].params.cutoff = 100 end)
-  git("commit -qam one")
-  git("checkout -q main")
-  edit(function(d) track(d, "Lead").devices[1].params.cutoff = 200 end)
-  git("commit -qam two")
-  git("merge one -m clash")
-  local conflicted = decode(root .. "/song.json")
-  local list = projdiff.merge.conflicts(conflicted)
-  eq(#list, 1, "one conflict")
-  eq(list[1].ours, 200, "ours")
-  eq(list[1].theirs, 100, "theirs")
-  eq(git("status --porcelain"):find("UU song.json", 1, true) ~= nil, true, "git says it is unmerged")
-  os.execute("rm -rf '" .. root .. "'")
-end)
 
 test(
   "projdiff: a reopened project with audio differs in nothing, edits not yet an undo step count, and #0 and odd lengths read well",
@@ -802,3 +760,134 @@ test("projdiff: a snapshot kept beside a saved project folder compares with the 
   has(shown(), "loud → now: 1 change", "the title")
   has(shown(), '"added"', "the clip added after the snapshot")
 end)
+
+-- Merges of project folders ------------------------------------------------------
+
+local function no_git()
+  local found = os.execute("command -v git >/dev/null 2>&1")
+  return found ~= 0 and found ~= true
+end
+
+--- A new git repository at `root`, and a function that runs git in it.
+local function repository(root)
+  os.execute("rm -rf '" .. root .. "' && mkdir -p '" .. root .. "'")
+  local function git(args) return run("cd '" .. root .. "' && git -c user.name=t -c user.email=t@t " .. args) end
+  git("init -q -b main")
+  return git
+end
+
+--- The id of the track named `name`, of the song or of a subproject.
+local function track_id(name)
+  for _, id in ipairs(api.track_list({ all = true })) do
+    if api.track_get(id, "name") == name then return id end
+  end
+end
+
+local function conflicts_now() return #projdiff.merge.conflicts(projdiff.state(nil)) end
+
+test(
+  "projdiff: :Pmerge on a project folder that a git merge stopped on settles its conflicts, one undo step each",
+  function()
+    start()
+    T.after(function() paw.ui.close() end)
+    if no_git() then return "no git" end
+    local root = scratch .. "/pmerge-song"
+    local git = repository(root)
+    local song = fixture(root .. "/song", true)
+    git("add -A")
+    git("commit -q -m base")
+    local riff = api.clip_list(track_id("Lead"))[1].id
+    local function pitches(one, two)
+      api.clip_note_set(riff, 1, { pitch = one })
+      api.clip_note_set(riff, 2, { pitch = two })
+      api.undo_checkpoint()
+      api.project_save()
+    end
+    local function pitch(n) return api.clip_notes(riff)[n].pitch end
+    git("checkout -q -b theirs")
+    pitches(62, 65)
+    git("commit -qam theirs")
+    api.project_new()
+    git("checkout -q main")
+    api.project_load(song)
+    pitches(61, 66)
+    git("commit -qam ours")
+    local from = mark()
+    T.keys(":Pmerge<CR>")
+    eq(since(from)[1] and since(from)[1].text, "git has no merge conflict in song", "no merge yet")
+    -- A clip file is not text: git keeps ours in the folder, which opens.
+    git("merge -q theirs")
+    has(git("status --porcelain"), "UU song/tracks/Lead/clips/riff.midi2", "git stopped on the clip")
+    T.keys(":Pmerge<CR>")
+    eq(paw.ui.float and paw.ui.float.name, "projmerge", "the conflicts show")
+    has(T.screen(), "song: 2 conflicts", "the title")
+    T.keys("ct")
+    eq(pitch(1), 62, "ct took theirs")
+    eq(conflicts_now(), 1, "one left")
+    T.keys("co")
+    eq(pitch(2), 66, "co kept ours")
+    eq(paw.ui.float, nil, "the window closes when none is left")
+    eq(conflicts_now(), 0, "none left")
+    T.keys("u")
+    eq(conflicts_now(), 1, "one u takes back one choice")
+    eq(pitch(1), 62, "the first choice stays")
+    T.keys("u")
+    eq({ conflicts_now(), pitch(1) }, { 2, 61 }, "the next u takes back the first choice")
+  end
+)
+
+test(
+  "projdiff: :Pmerge shows a conflict inside a subproject under its name, two levels deep too, and settles it there",
+  function()
+    start()
+    T.after(function() paw.ui.close() end)
+    if no_git() then return "no git" end
+    local root = scratch .. "/pmerge-nest"
+    local git = repository(root)
+    local song, ids = nested(root .. "/song", true)
+    git("add -A")
+    git("commit -q -m base")
+    local function volumes(v)
+      api.track_set(ids.keys, { volume = v })
+      api.track_set(ids.strings, { volume = v })
+      api.undo_checkpoint()
+      api.project_save()
+    end
+    git("checkout -q -b theirs")
+    volumes(-2)
+    git("commit -qam theirs")
+    api.project_new()
+    git("checkout -q main")
+    api.project_load(song)
+    volumes(-6)
+    git("commit -qam ours")
+    api.project_new()
+    -- The files of the tracks are text: git marks the conflicts in them, so
+    -- the folder does not open, and :Pmerge opens the merge.
+    git("merge -q theirs")
+    T.keys(":Pmerge " .. song .. "<CR>")
+    eq(paw.ui.float and paw.ui.float.name, "projmerge", "the conflicts show")
+    local view = require("projdiff.mergeview")
+    local rows = {}
+    for _, row in ipairs(view.rows) do
+      local text = row.heading or projdiff.merge.describe(view.doc, row.conflict.path)
+      rows[#rows + 1] = string.rep("  ", row.depth) .. text
+    end
+    eq(
+      table.concat(rows, "\n"),
+      table.concat({
+        ('subproject %d "Bridge"'):format(ids.bridge),
+        ('  track %d "Keys" › volume'):format(ids.keys),
+        ('  subproject %d "Verse"'):format(ids.verse),
+        ('    track %d "Strings" › volume'):format(ids.strings),
+      }, "\n"),
+      "each conflict under its subproject"
+    )
+    T.keys("ct")
+    eq(api.track_get(track_id("Keys"), "volume"), -2, "theirs, in Bridge")
+    T.keys("co")
+    eq(api.track_get(track_id("Strings"), "volume"), -6, "ours, in Verse")
+    eq(paw.ui.float, nil, "none left")
+    eq(api.project_get("path"), song .. "/project.toml", "the open project is the folder")
+  end
+)

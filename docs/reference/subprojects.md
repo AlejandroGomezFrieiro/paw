@@ -238,6 +238,7 @@ subproject. While a frozen block is stale, the status line says
 | --- | --- |
 | `<Space>zw`, `:scope.write [name]` | Save the view of the window as a subproject, per track. One undo step. `.` then goes to the next view beside it, as `]z` does, and saves that one too. |
 | `<Space>zW`, `:scope.write! [name]` | Save the view of the window as a subproject with its own row. One undo step. |
+| `:scope.write! [name] stems` | The same, with a stem row for each track when the tracks played into more than one bus, so that each bus still gets its tracks. |
 
 A view is a part of the song that the window shows, for example the
 region that `znar` enters (see [Narrowing](narrowing.md)). Both commands
@@ -254,12 +255,15 @@ so the song's bars stay where they are. Inside a subproject with a meter
 of its own, a view saves that meter instead: a view of a 6/8 subproject
 gives a subproject in 6/8. The markers and regions inside
 the time move into the subproject. A region over the whole time stays in
-the song. A view with no time takes the song from its start to the end
-of the last clip of its tracks, and the subproject then follows the
-meter of the song.
+the song. A view with no time, such as a group over the whole song, takes
+the song from its start to the end of the last clip of its tracks. The
+subproject then follows the meter of the song, and every marker and
+region stays in the song.
 
 The message says what moved, for example `nested 2 tracks, bars 5-10, as
-Bridge (6/8)`. `u` gives back the project as it was before.
+Bridge (6/8)` per track, or `made the subproject ⧉Bridge from Piano and
+Pad, bars 9-16 (4/4)` with its own row. When markers or regions move in,
+the message gives how many. `u` gives back the project as it was before.
 
 Per track (`<Space>zw`), each track keeps its devices, fader, sends and
 lanes. The subproject gets a track of the same name for each track that
@@ -269,21 +273,36 @@ track, as before, so the song sounds the same to the sample. The window
 stays in the view.
 
 With its own row (`<Space>zW`), the tracks go into the subproject, and a
-new return row plays its mix:
+new return row plays its mix. The routes of the song stay as they were,
+and the message names each route that has to change:
 
-- A track with nothing outside the time moves in as it is, with its
-  devices. A track with clips or lanes outside the time stays in the
-  song with them, and a copy goes in, with copies of its devices and of
-  its lanes over the time.
-- The return row goes at the place of the first track, with the name of
-  the subproject. It plays where the tracks played, or into the master
-  when they played into different tracks.
+- A track moves in as it is, with its devices, when nothing of it is
+  outside the time and every track that plays into it moves in too. Any
+  other track with clips in the time stays in the song with the rest of
+  its clips, and a copy goes in, with copies of its devices and of its
+  lanes over the time. So a group whose tracks have clips outside the
+  time stays in the song, and so does a bus that other tracks of the
+  song send to.
+- The return row has the name of the subproject, and it plays where the
+  tracks played. When they played into a group, the row goes into that
+  group, after its last track, so the group's devices process the
+  subproject as they processed the clips. The message says so, for
+  example `its row is in the group Keys, so it plays as before`.
+  Otherwise the row goes at the place of the first track, above its
+  group.
+- When the tracks played into more than one bus, the row plays into the
+  master, and the message names the buses that no longer process the
+  time, for example `the Drums bus and the Keys bus no longer process
+  bars 9-16`. With the word `stems` (`:scope.write! Bridge stems`), the
+  subproject gets a stem row for each track under its row, and each stem
+  plays into the bus that its track played into, so the song sounds the
+  same.
 - When the view is a group whose tracks all move in, the group track
-  becomes the return row, with its devices, fader, sends and lanes.
-- A group in the view becomes a group inside the subproject.
+  becomes the return row, with its devices, fader, sends and lanes. A
+  group that moves in whole stays a group inside the subproject.
 - A send to a track that stays out becomes a send of the return row at
   the same level, and the message names each one, for example `the send
-  of Bass to Verb (-6 dB) is now Bridge's`.
+  Bass → Verb (-6 dB) is now Bridge's`.
 - A VCA over a track that moves in now moves the return row, and the
   message says so.
 - A side-chain from a track outside the view is refused, with the route

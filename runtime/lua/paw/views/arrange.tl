@@ -1403,6 +1403,9 @@ local record Frame
   punch: Span
   cursor_track: integer
   cursor_lane: integer
+  --- The cursor's beat in this window's time, or nil when the current
+  --- window is elsewhere in the song (`paw.scope.cursor_beat`).
+  cursor_beat: number
   --- The spans of the clips of each track's row, and of the names of
   --- each take lane's, for the playhead.
   covered: {Row: {Span}}
@@ -1410,33 +1413,40 @@ local record Frame
 end
 
 --- Keep the playhead in view while playing, and the cursor whenever it
---- moves; unless another window leads this one's time (`timebind`).
+--- moves; unless another window leads this one's time (`timebind`). Each
+--- window follows them in its own time, and only while they are inside
+--- the time it shows: a window inside a subproject stays in its bars
+--- while the cursor or the playhead is elsewhere in the song.
 local function follow(self: Arrange, F: Frame, led: boolean)
   local t, tmap, span, zoom = F.t, F.tmap, F.span, F.zoom
-  local cursor = paw.cursor
   local function ahead(beat: number): number
     return tmap.view(beat) - tmap.view(self.scroll)
   end
+  local from, to = paw.scope.span()
+  local function shown(beat: number): boolean
+    return not from or (beat >= from - 1e-9 and beat <= to + 1e-9)
+  end
+  local beat = F.cursor_beat
   if t.playing and paw.opt.follow and not led then
     local position = F.here(t.position)
-    if position < self.scroll or ahead(position) >= span then
+    if shown(position) and (position < self.scroll or ahead(position) >= span) then
       self.scroll = paw.time.bar_floor(position)
     end
-  elseif cursor.beat ~= self.seen_beat and not led then
+  elseif beat and beat ~= self.seen_beat and not led then
     -- A jump aligns the cursor in the view's beats, through the folds.
     local jumped = paw.keymap.jump_serial ~= self.seen_jump
-    local to = draw.jump_scroll(tmap.view(cursor.beat), tmap.view(self.scroll), span, zoom, jumped)
-    if to then
-      self.scroll = math.max(0, tmap.beat(to))
-    elseif cursor.beat < self.scroll then
-      self.scroll = paw.time.bar_floor(cursor.beat)
-    elseif ahead(cursor.beat) >= span - 1 / zoom then
-      local back = tmap.beat(tmap.view(cursor.beat) - span)
+    local target = draw.jump_scroll(tmap.view(beat), tmap.view(self.scroll), span, zoom, jumped)
+    if target then
+      self.scroll = math.max(0, tmap.beat(target))
+    elseif beat < self.scroll then
+      self.scroll = paw.time.bar_floor(beat)
+    elseif ahead(beat) >= span - 1 / zoom then
+      local back = tmap.beat(tmap.view(beat) - span)
       local bar = paw.time.bar()
       self.scroll = math.max(0, math.ceil(back / bar + 1) * bar)
     end
   end
-  self.seen_beat, self.seen_jump = cursor.beat, paw.keymap.jump_serial
+  self.seen_beat, self.seen_jump = beat, paw.keymap.jump_serial
 end
 
 --- True if the column `x` is in `span` (`{ from, to }`), when there is one.
@@ -1457,12 +1467,13 @@ local function ruler_style(F: Frame, x: integer, punch: string, loop: string, lo
   return plain
 end
 
---- The ruler's corner over the headers: where the cursor is.
-local function ruler_corner(buf: Buf, hw: integer)
-  if hw < 12 then
+--- The ruler's corner over the headers: where the cursor is, at `beat`
+--- of the window's time; nothing when it is outside that time.
+local function ruler_corner(buf: Buf, hw: integer, beat: number)
+  if hw < 12 or not beat then
     return
   end
-  local pos = paw.scope.format(paw.cursor.beat)
+  local pos = paw.scope.format(beat)
   if hw - 2 >= #pos + 5 then
     local label: contracts.LabelMark = {text = "cur", style = "RulerCornerLabel", font = "sans", tone = "text_3"}
     buf:mark("label", 1, 0, 3, 1, label)
@@ -1599,7 +1610,7 @@ local function draw_ruler(self: Arrange, F: Frame)
   buf:fill(0, 0, hw - 1, L.ruler_rows, " ", "Ruler")
   F.ruler = buf:sub(hw, 0, tw, 1)
   F.ruler:fill(0, 0, tw, 1, " ", "Ruler")
-  ruler_corner(buf, hw)
+  ruler_corner(buf, hw, F.cursor_beat)
   ruler_ranges(self, F)
   F.lines = grid_lines(self, tw)
   local label_end = ruler_bars(self, F)
@@ -1645,8 +1656,11 @@ end
 --- The cursor's cell on a row, in the mode's colour where the clips'
 --- names are, a shadow below.
 local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
+  if not F.cursor_beat then
+    return
+  end
   local zoom = F.zoom
-  local x = self:col(paw.cursor.beat)
+  local x = self:col(F.cursor_beat)
   local cw = math.max(1, math.floor(paw.opt.grid * zoom))
   local mode = paw.keymap.mode
   F.lanes:fill(x, y, cw, 1, nil, mode == "x" and "CursorVisual" or mode == "i" and "InsertCursor" or "Cursor")
@@ -1863,9 +1877,9 @@ local function draw_master(self: Arrange, F: Frame)
   track_parts.header(
     F.headers, mst.y, mst.h, master, nil, on_master, api.lane_list(0), draw.track_hue(master), self.column_width
   )
-  if on_master then
+  if on_master and F.cursor_beat then
     local cw = math.max(1, math.floor(paw.opt.grid * zoom))
-    F.lanes:fill(self:col(paw.cursor.beat), mst.y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+    F.lanes:fill(self:col(F.cursor_beat), mst.y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
   end
   for _, l in ipairs(api.lane_list(0)) do
     if l.target == "volume" and l.point_count > 0 then
@@ -2022,6 +2036,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
     tmap = tmap,
     cursor_track = paw.cursor.track_id(),
     cursor_lane = paw.cursor.lane_id(),
+    cursor_beat = paw.scope.cursor_beat(ctx.win),
   }
   follow(self, F, ctx.follower)
   -- In a scope with time, the view starts no earlier than the bar it starts in.

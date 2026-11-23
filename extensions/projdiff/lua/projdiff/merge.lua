@@ -470,18 +470,34 @@ function M.resolve_all(doc, side)
   end
 end
 
---- A path in words for a file: `tracks › track 3 "Lead" › volume`.
+-- The word for an item of each list of things with ids, as the diff names them.
+local ITEM_WORDS = {
+  tracks = "track",
+  devices = "device",
+  clips = "clip",
+  lanes = "lane",
+  cues = "cue",
+  notes = "note",
+  markers = "marker",
+  nests = "subproject",
+}
+
+--- A path in words for a file: `track 3 "Lead" › device 5 "synth" › params › cutoff`.
 function M.describe(doc, path)
   local parts, here = {}, doc
-  for _, seg in ipairs(path) do
+  for i, seg in ipairs(path) do
     if type(seg) == "string" then
       here = type(here) == "table" and here[seg] or nil
-      if seg ~= "project" then parts[#parts + 1] = seg end
+      -- A list of things with ids is named by its item: `track 3`.
+      local next_seg = path[i + 1]
+      local by_id = type(next_seg) == "table" and next_seg.id ~= nil and ITEM_WORDS[seg]
+      if seg ~= "project" and not by_id then parts[#parts + 1] = seg end
     else
       local item = type(here) == "table" and find(here, seg) or nil
       local field, key = unsegment(seg)
       local name = item and (item.name or item.kind)
-      parts[#parts + 1] = (field == "id" and "" or (field == 1 and "beat " or (field .. " ")))
+      local word = field == "id" and ITEM_WORDS[path[i - 1]]
+      parts[#parts + 1] = (word and (word .. " ") or field == "id" and "" or (field == 1 and "beat " or (field .. " ")))
         .. tostring(key)
         .. (name and (' "' .. tostring(name) .. '"') or "")
       here = item

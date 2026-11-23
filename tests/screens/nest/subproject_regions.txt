@@ -13,4 +13,4 @@
     ▌ Master   │
     ▌ ▀▀▀▀ 0.0 │
  NOR  ■ @1.1.00 │ loop 1–8        Song › ⧉Bridge 1.1 (9.1) │ ● untitled
-nested 1 track, bars 9-16, as Bridge (4/4); on its own row Bridge
+made the subproject ⧉Bridge from Bass, bars 9-16 (4/4)

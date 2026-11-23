@@ -55,42 +55,21 @@ Type `:Pdiff`, or press `<Space>gd`.
 Type `:Pdiff.qf`, or press `Q` in the window of `:Pdiff`, and then use
 `:copen` and `]q`.
 
-### How to diff and merge projects with git
+### How to settle the conflicts of a git merge
 
-1. Type `:Pgit`, and paw shows the lines below, with the paths of this
-   machine.
-2. Add this line to `.gitattributes`:
+git merges a project folder file by file. When both branches changed the
+same file, for example the same clip or the same track, git stops with
+conflicts in those files.
 
-   ```
-   *.json diff=paw merge=paw          # or the names of your project files
-   ```
-
-3. Add these lines to the git configuration of the repository, or to
-   `~/.gitconfig`:
-
-   ```
-   [diff "paw"]
-     textconv = paw --clean --no-plugins --no-listen --audio null -l /path/to/extensions/projdiff/git.lua textconv
-   [merge "paw"]
-     name = paw project merge
-     driver = paw --clean --no-plugins --no-listen --audio null -l /path/to/extensions/projdiff/git.lua merge %O %A %B %L %P
-   ```
-
-After that, `git diff`, `git log -p` and `git show` print a project as lines, with one line for each
-track, device, clip, note, lane point and marker:
-
-```
--    note id=1 length=1 start=0 velocity=100 pitch=60(C4)
-+    note id=1 length=1 start=0 velocity=100 pitch=62(D4)
-```
-
-### How to settle the conflicts of a merge
-
-1. Open the project, and paw tells you that it has conflicts.
-2. Type `:Pmerge`, or press `<Space>gm`.
-3. For each conflict, press `co` for ours, `ct` for theirs, or `cb` for the
+1. Open the project, and type `:Pmerge`, or press `<Space>gm`. If paw can't
+   open the project because git marked conflicts in its files, type
+   `:Pmerge song` with the name of the project folder, and paw opens the
+   merged project.
+2. For each conflict, press `co` for ours, `ct` for theirs, or `cb` for the
    value before both.
-4. When no conflict is left, type `git add` and the name of the file in a shell.
+3. When no conflict is left, save the project with `:w`.
+4. In a shell, type `git add song` with the name of the folder, and then
+   `git commit`.
 
 ## Reference
 
@@ -106,8 +85,7 @@ track, device, clip, note, lane point and marker:
 | `:Pdiff a b` | | the first with the second (any of the above, and `now` is the project now) |
 | `:Pdiff.qf …` | | the same, as a quickfix list, one entry for each change |
 | `:Psnapshot name` | `<leader>gs` | keeps the project as it is, to compare later |
-| `:Pmerge [file]` | `<leader>gm` | shows the conflicts of a merge |
-| `:Pgit` | | shows how to configure git, with the paths of this machine |
+| `:Pmerge [folder]` | `<leader>gm` | merges the project folder that a git merge stopped on, and shows the conflicts |
 
 A snapshot is a checkpoint (see the undotree extension). When the project
 is saved, paw writes the snapshot in the project folder, in
@@ -127,7 +105,7 @@ come from the folder on the disk.
 | `za` `zo` `zc` | open and close a fold, and so do `Tab` and a click on its arrow |
 | `zR` `zM` | open and close all folds |
 | `]c` `[c` | the next and the previous change |
-| `Enter` | closes the window and puts the cursor on the change (the track, the clip, the note, the parameter, the lane, the marker or the tempo map) |
+| `Enter` | closes the window and puts the cursor on the change (the track, the clip, the note, the parameter, the lane, the marker or the tempo map), inside its subproject when the change is in one |
 | `Q`, `gq` | sends every change to the quickfix list |
 | `q` | closes |
 
@@ -168,6 +146,11 @@ A subproject that the song places shows at the top level, also when another
 subproject places it too. The master track of a subproject shows as `master`
 under its name.
 
+`Enter` on a change inside a subproject puts the window in that subproject,
+as a choice of `:nest.list` does, and then puts the cursor on the change. For
+a change two levels down, the window goes into the inner subproject. `zw`
+goes up one level, and `zW` goes back to the song.
+
 A field that the model gets later shows as a `field: old -> new` line, and the
 extension does not need to know about the field.
 
@@ -185,10 +168,29 @@ beats.
   and removed on the other. The merged project holds ours there, and it loads
   and plays.
 - `meta.merge_conflicts` lists each conflict: its place, the value before,
-  ours and theirs. git reports the file as conflicted, and paw tells you
-  when you open the project.
+  ours and theirs. A project saved with conflicts in it keeps them, and paw
+  tells you when you open the project.
 
-The window of `:Pmerge`:
+`:Pmerge` reads the three versions of the project folder from the index of
+git: the version before both branches, ours and theirs. A file that git
+merged on its own is the same in the three versions. paw puts each version
+together from its files, and merges the three. When the project folder is
+the open project, the merged project takes its place, and `u` takes the
+merge back. When it isn't, paw opens the folder with the merged project in
+it, and the project shows as changed until you save it. `:Pmerge` with no
+folder, in a project that holds conflicts, shows them again.
+
+The window of `:Pmerge` lists the conflicts of the song first. A conflict
+inside a subproject shows under the name of the subproject, as in the
+window of `:Pdiff`, also two levels down:
+
+```
+song: 2 conflicts
+subproject 2 "Bridge"
+  track 6 "Keys" › volume
+  subproject 4 "Verse"
+    track 8 "Strings" › volume
+```
 
 | Keys | Effect |
 | --- | --- |
@@ -199,8 +201,9 @@ The window of `:Pmerge`:
 | `cO` `cT` | take ours or theirs for all |
 | `q` | close |
 
-Each choice writes the file, and a project that is open from that file, with
-no changes after, opens again from it.
+Each choice changes the open project, inside the subproject when the
+conflict is there, and each choice is one undo step. `:w` writes the
+project folder over the files that git marked.
 
 ### Values
 
@@ -227,8 +230,8 @@ local old = pd.file("a.json", true)                    -- a project in one file,
 local tree = pd.diff.diff(from.project, to.project)   -- { children, count }
 pd.diff.lines(tree)                                    -- the text of the view
 pd.diff.entries(tree)                                  -- { address, text } for paw.qf
-pd.text.text(to.project)                               -- the text that git shows
-local merged, conflicts = pd.merge.files(base, ours, theirs)
+local sides = pd.git_merge("song")                      -- { base, ours, theirs } of a git merge
+local merged, conflicts = pd.merge.files(sides.base, sides.ours, sides.theirs)
 pd.merge.resolve(merged, conflicts[1], "theirs")
 paw.api.project_file_text(merged)                      -- the text of the file, as paw writes it
 ```
@@ -238,12 +241,16 @@ paw.api.project_file_text(merged)                      -- the text of the file, 
 - `paw.api.project_read(path, files)` (in the core) reads a project folder
   in the same form, without opening it. `files` gives the files of the
   folder from memory, for example from git.
+- `paw.api.project_replace(project)` (in the core) puts a whole project in
+  the same form in place of the open one, as one undo step.
 - `pd.version("#7")` and `pd.version("snap:x")` change the words of
   `:Pdiff` into a version.
 
 ## About
 
-Projects are text, so git keeps them, but a line diff of JSON tells
-little, and a merge of two lines of JSON breaks the file. The extension
-gives git a script for its two hooks, and paw runs the script without a
-window and compares projects by what they hold.
+A project is a folder of small files, so git shows and merges a change to
+one track or one clip on its own. paw writes a `.gitattributes` file that
+lets `git diff` show a clip file as notes (see
+[Project files](../../docs/reference/project-files.md)). git still can't
+tell what two changes to one file mean. projdiff reads the whole folder, as
+paw opens it, and compares and merges projects by what they hold.

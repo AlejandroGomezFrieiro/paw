@@ -1122,6 +1122,9 @@ function M.outputs(nest: integer, row: integer, how: string): string
     -- sends and devices act on their sum, as on the stereo return.
     m.group_head, m.nest_stems = true, nest
     set_meta(row, m)
+    -- The bus each track played into in the song before `:scope.write!`
+    -- took it, when they played into several: its stem plays there again.
+    local buses = (m.nest_buses or {}) as {string: integer}
     local names: {string} = {}
     for i, t in ipairs(n.tracks) do
       local name = name_of(t)
@@ -1140,6 +1143,10 @@ function M.outputs(nest: integer, row: integer, how: string): string
         end
       end
       paw.groups.add(stem, row)
+      local bus = buses[tostring(t)]
+      if bus and pcall(track_name, bus, "name") then
+        api.track_set(stem, {output = bus})
+      end
     end
     for _, c in ipairs(blocks) do
       api.clip_remove(c.id)
@@ -1673,15 +1680,79 @@ local function move_markers(nest: integer, from: number, to: number): integer
   return #moved
 end
 
+--- The names of `ids` as a message lists them: "Piano and Pad", "Kick,
+--- Snare and Bass", or "8 tracks" when there are more than three.
+local function names_text(ids: {integer}): string
+  if #ids > 3 then
+    return #ids .. " tracks"
+  end
+  local names: {string} = {}
+  for i, id in ipairs(ids) do
+    names[i] = name_of(id)
+  end
+  if #names == 1 then
+    return names[1]
+  end
+  return table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
+end
+
+--- The buses of `ids` as a message names them: "the Drums bus and the
+--- Keys bus".
+local function buses_text(ids: {integer}): string
+  local names: {string} = {}
+  for i, id in ipairs(ids) do
+    names[i] = "the " .. name_of(id) .. " bus"
+  end
+  if #names == 1 then
+    return names[1]
+  end
+  return table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
+end
+
+--- What `:scope.write!` says about where its return row plays, or nil
+--- when it plays where the tracks played and that is not a group. `view`
+--- is the view's tracks: the group track of a view whose tracks all moved
+--- is the return row.
+local function route_words(saved: types.NestSaved, view: {integer}, name: string, span: string, stems: boolean): string
+  for _, id in ipairs(view) do
+    if id == saved.row then
+      return string.format("the group track %s is its row now, so it plays as before", name_of(id))
+    end
+  end
+  if saved.group then
+    return string.format("its row is in the group %s, so it plays as before", name_of(saved.group))
+  end
+  if #saved.buses == 0 then
+    return nil
+  end
+  local buses = buses_text(saved.buses)
+  if stems then
+    return string.format("a stem row for each track, so %s still process %s", buses, span)
+  end
+  local one = #saved.buses == 1
+  return string.format(
+    "%s no longer process%s %s: `:scope.write! %s stems` keeps %s",
+    buses,
+    one and "es" or "",
+    span,
+    name,
+    one and "it" or "them"
+  )
+end
+
 --- Save the window's view as a subproject, as `:scope.write` does: per
 --- track, or with a row of its own (`own_row`, `:scope.write!`). The
 --- view's clips move into the subproject (`paw.api.nest_save`); the rows
---- get its blocks; its markers and regions inside move in, and a region
---- over its time stays. The meter of the time is the subproject's own.
---- Per track, the window stays in the view; with a row of its own, it is
---- inside the subproject at the same place. Call it in one undo step.
---- Returns the message.
-function M.save(name?: string, own_row?: boolean): string
+--- get its blocks. In a view with time, its markers and regions inside
+--- move in, and a region over its time stays; a view with no time takes
+--- none of them. The meter of the time is the subproject's own. With a
+--- row of its own, no route of the song changes: the row plays where the
+--- tracks played, in their group; when they played into several buses, it
+--- plays into the master, and `stems` gives a stem row for each track,
+--- into its bus. Per track, the window stays in the view; with a row of
+--- its own, it is inside the subproject at the same place. Call it in one
+--- undo step. Returns the message.
+function M.save(name?: string, own_row?: boolean, stems?: boolean): string
   local s = paw.scope.current()
   if not s then
     error("the window shows the whole song: enter a view first, for example `znar` on a region", 0)
@@ -1691,8 +1762,9 @@ function M.save(name?: string, own_row?: boolean): string
   end
   local tracks = paw.scope.tracks()
   local from, to = paw.scope.span()
+  local timed = from ~= nil
   local meter: types.NestMeter = {mode = "follow"}
-  if from then
+  if timed then
     meter = meter_over(from, to)
   else
     from, to = 0, extent(tracks)
@@ -1712,6 +1784,9 @@ function M.save(name?: string, own_row?: boolean): string
   local saved = api.nest_save({name = name, tracks = tracks, from = from, to = to, meter = meter, own_row = own_row})
   if own_row then
     api.clip_add(saved.row, {nest = saved.nest, start = from} as types.ClipOptions)
+    if stems and #saved.buses > 0 then
+      M.outputs(saved.nest, saved.row, "stems")
+    end
   else
     for _, r in ipairs(saved.rows) do
       api.clip_add(
@@ -1719,35 +1794,36 @@ function M.save(name?: string, own_row?: boolean): string
       )
     end
   end
-  -- The markers of the song; a view inside a subproject keeps them there.
-  local markers = paw.scope.nest() and 0 or move_markers(saved.nest, from, to)
+  -- The markers of the song, when the view has a time of its own: a view
+  -- with none (a group over the whole song) leaves them all in the song.
+  -- A view inside a subproject keeps them there.
+  local markers = (timed and not paw.scope.nest()) and move_markers(saved.nest, from, to) or 0
   local first = meter.changes and meter.changes[1]
-  local words = {
-    string.format(
-      "nested %d track%s, %s, as %s%s",
-      #saved.tracks,
-      #saved.tracks == 1 and "" or "s",
-      bars_text(paw.time.song_beat(from), paw.time.song_beat(to), true),
-      name,
-      first and string.format(" (%d/%d)", first.num, first.den) or ""
-    ),
-  }
+  local span = bars_text(paw.time.song_beat(from), paw.time.song_beat(to), true)
+  local signature = first and string.format(" (%d/%d)", first.num, first.den) or ""
+  local words: {string} = {}
   if own_row then
-    words[#words + 1] = "on its own row " .. name_of(saved.row)
-  end
-  if markers > 0 then
-    words[#words + 1] = string.format(
-      "%d marker%s and region%s inside it", markers, markers == 1 and "" or "s", markers == 1 and "" or "s"
+    words[1] = string.format("made the subproject ⧉%s from %s, %s%s", name, names_text(saved.tracks), span, signature)
+    words[#words + 1] = route_words(saved, tracks, name, span, stems)
+  else
+    words[1] = string.format(
+      "nested %d track%s, %s, as %s%s", #saved.tracks, #saved.tracks == 1 and "" or "s", span, name, signature
     )
   end
   for _, change in ipairs(saved.changes) do
     words[#words + 1] = change
   end
+  if markers > 0 then
+    words[#words + 1] = string.format(
+      "%d marker%s and region%s moved in", markers, markers == 1 and "" or "s", markers == 1 and "" or "s"
+    )
+  end
   if own_row then
-    -- The view's tracks went in: the window goes inside, at the same place.
-    local block = block_on(saved.row, saved.nest)
+    -- The view's tracks went in: the window goes inside, at the same place,
+    -- through its block (on the row, or on its first stem).
+    local block = M.blocks(saved.nest)[1]
     paw.scope.widen()
-    paw.scope.enter({kind = "nest", id = saved.nest, clip = block and block.id})
+    paw.scope.enter({kind = "nest", id = saved.nest, clip = block and block.clip.id})
     local inside = false
     for _, id in ipairs(saved.tracks) do
       inside = inside or id == track
@@ -1860,13 +1936,18 @@ for _, bang in ipairs({"", "!"}) do
         paw.notify(M.write(text))
         return
       end
-      paw.notify(M.save(text, bang == "!"))
+      -- `stems` as the last word of `:scope.write!` keeps the buses.
+      local stems = bang == "!" and words[#words] == "stems"
+      if stems then
+        text = table.concat(words, " ", 1, #words - 1)
+      end
+      paw.notify(M.save(text, bang == "!", stems))
     end,
     {
       label = bang == "" and "Save the view as a subproject, per track"
         or "Save the view as a subproject with its own row",
       desc = bang == ""
-        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`); with a path, write it as a project folder of its own and change nothing (`scope.write ~/lib/bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix (`scope.write! Bridge`)",
+        and "Save this window's view as a subproject: its clips move in, and the rows they came from play them through their own devices (`scope.write Bridge`); with a path, write it as a project folder of its own and change nothing (`scope.write ~/lib/bridge`)" or "Save this window's view as a subproject with its own row: its tracks, their devices and lanes go in, and one row plays its mix where the tracks played (`scope.write! Bridge`); `stems` gives a row for each track when they played into several buses (`scope.write! Bridge stems`)",
     }
   )
 end
