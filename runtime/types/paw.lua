@@ -12133,6 +12133,15 @@ function paw.api.view_ranges_set(ranges) end
 ---@param ms number
 function paw.api.wait(ms) end
 
+--- On the stepped audio backend (`paw --audio step --clock manual`,
+--- the tests), let the time of `blocks` audio blocks pass: the clock
+--- moves to the end of the last of them, the timers due on the way
+--- fire, and the engine plays exactly that many blocks. Gives the
+--- number of blocks, or 0 when the engine plays on its own and
+--- nothing was done.
+---@param blocks integer
+function paw.api.wait_blocks(blocks) end
+
 function paw.api.warnings() end
 
 --- Where a program is on `PATH`, as `command -v` says; nil when it

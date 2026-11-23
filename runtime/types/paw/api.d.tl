@@ -397,6 +397,7 @@ local record api
    view_ranges: function(): {types.ViewRange}
    view_ranges_set: function(ranges: {types.ViewRange})
    wait: function(ms: number)
+   wait_blocks: function(blocks: integer): integer
    warnings: function(): {string}
    which: function(program: string): string
    xml_decode: function(text: string, opts?: types.XmlDecodeOptions): types.XmlElement, string
