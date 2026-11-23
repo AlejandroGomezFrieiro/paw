@@ -126,6 +126,8 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   eq(L.tab_title(paw.ui.tabs[1]), "Strings", "the tab is named after its window's scope")
   eq(names(paw.groups.rows()), "Strings Violins Cellos", "the arrange view's rows")
   eq(paw.cursor.track_id(), o.strings.id, "the cursor came inside")
+  -- The message line can still name a track of an earlier test.
+  paw.ui.message = nil
   local text = screen()
   eq(
     text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil and text:find("Drums", 1, true) == nil,

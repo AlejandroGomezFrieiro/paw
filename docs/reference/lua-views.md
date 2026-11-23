@@ -44,6 +44,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | `redraw_every` | the milliseconds between two scenes of a view that moves while the song plays |
 | `scene_key(self)` | a string that says what the drawing of the view in a window shows, without the live values (see [Roles](#roles)) |
 | `scene_roles` | the roles that a window must paint for `scene_key` (see [Roles](#roles)) |
+| `caret` | the screen cell `{ x, y, w, h }` of the cursor at the last draw, or nil. The float of `K` opens under it, else at the top left of the window |
 | `title_of(self)` | the title of its pane in the graphical window, for what the view shows now |
 | `window_state` | the names of the fields of the view that each window has for itself (see [A state for each window](#a-state-for-each-window)) |
 | `window_fresh` | the fields of `window_state` that a new window starts without, e.g., caches |
