@@ -97,6 +97,30 @@ change: binary of main at cd367da1 (dev profile, optimized), `bench/quality.lua
 Edit quality cuts the audio thread time of this project by a factor of
 about 8. The ranges do not overlap.
 
+## 2026-11-23: glibc against mimalloc as the global allocator
+
+`bench/profile/allocator.sh`, 5 pairs in turns, under `flock` and
+`taskset -c 16-23`. Two dev-profile builds of main at cd367da1: one as
+it is (mimalloc), and one with the `#[global_allocator]` line removed
+(glibc). Measured under heavy external load: load average 18 to 29.
+Median (range) of the pairs.
+
+| Measure | glibc | mimalloc |
+| --- | ---: | ---: |
+| help index: slices | 237 (220 to 263) | 214 (194 to 311) |
+| help index: slices over 5 ms | 3 (1 to 6) | 2 (0 to 2) |
+| help index: longest slice, ms | 8.0 (5.8 to 12.0) | 5.8 (4.7 to 8.1) |
+| help index: build, ms | 969 (895 to 1072) | 865 (781 to 1260) |
+| `j` on the large project: kernel ms a round | 8.35 (8.15 to 9.60) | 7.52 (7.50 to 8.21) |
+| `j`: callbacks over the 5 ms budget | 19 (16 to 22) | 15 (10 to 18) |
+| `j`: first frame, ms | 7.40 (6.60 to 8.20) | 6.00 (5.70 to 7.10) |
+
+mimalloc is better in each median. Only the kernel time of `j` has
+ranges that do not overlap (about 10 % less). The other ranges overlap
+under this load, so they show a direction, not a size. The audio
+thread allocates nothing, so the allocator does not change it (the
+`no_alloc` tests pass with mimalloc).
+
 ## 2026-11-23: the trace compiler in the first press of a key
 
 An earlier profile found about 45 % of the `jit.profile` samples of each
