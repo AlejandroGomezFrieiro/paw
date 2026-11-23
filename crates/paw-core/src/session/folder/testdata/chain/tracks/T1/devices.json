@@ -1,0 +1,52 @@
+[
+  {
+    "bypass": false,
+    "id": 11,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -4.0,
+      "pan": -0.5
+    }
+  },
+  {
+    "bypass": false,
+    "id": 12,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -2.0,
+      "pan": 0.0
+    }
+  },
+  {
+    "bypass": false,
+    "id": 13,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -2.0,
+      "pan": 0.0
+    }
+  },
+  {
+    "bypass": false,
+    "id": 14,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -2.0,
+      "pan": 0.0
+    }
+  },
+  {
+    "bypass": false,
+    "id": 15,
+    "kind": "gain",
+    "meta": {},
+    "params": {
+      "gain": -2.0,
+      "pan": 0.0
+    }
+  }
+]

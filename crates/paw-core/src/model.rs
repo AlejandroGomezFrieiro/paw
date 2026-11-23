@@ -14,24 +14,26 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 mod clips;
+pub mod chain;
 mod custom;
-pub mod graph;
+pub mod ids;
 pub mod kinds;
-mod linked;
+pub mod linked;
 mod links;
 pub(crate) mod nest;
 mod notes;
 mod overrides;
-mod racks;
+pub mod owner;
+pub mod racks;
 
 #[cfg(test)]
 mod props;
 pub(crate) use clips::Clips;
 pub(crate) use custom::{
-    ClipKindId, CustomContent, KindData, MediaRef, Signal, Sound, Timeline, Word,
+    ClipKindId, CustomContent, KindData, MediaRef, Signal, Sound, Timeline,
 };
 pub(crate) use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
-pub(crate) use graph::Graph;
+pub(crate) use chain::Chain;
 pub(crate) use links::Links;
 pub(crate) use notes::Notes;
 pub(crate) use overrides::Overrides;
@@ -86,8 +88,8 @@ pub struct Project {
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub export: Map<String, Value>,
     /// The definitions of the linked racks: see `model/racks.rs`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub racks: Vec<Arc<RackDef>>,
+    #[serde(default, skip_serializing_if = "linked::Defs::is_empty")]
+    pub racks: linked::Defs<RackDef>,
     /// Where clips were last found: see [`Project::find_clip`].
     #[serde(skip)]
     places: Places,
@@ -126,7 +128,7 @@ impl Default for Project {
             nests: BTreeMap::new(),
             meta: Map::new(),
             export: Map::new(),
-            racks: Vec::new(),
+            racks: linked::Defs::default(),
             places: Places::default(),
         }
     }
@@ -146,13 +148,15 @@ pub struct Track {
     /// The track this one feeds, or `None` for the master track.
     pub output: Option<Id>,
     pub(crate) sends: Vec<Send>,
-    /// Every device of the track. With no `graph`, the devices play in
-    /// series in this order. With one, this is the graph's signal order.
+    /// Every device of the track. With no chain, the devices play in
+    /// series in this order. With one, this is the chain's signal order.
     pub(crate) devices: Vec<Arc<DeviceInst>>,
-    /// The shape of the chain: splits and branches that name the devices
-    /// by id (`model/graph.rs`). `None` plays the devices in series.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) graph: Option<Arc<Graph>>,
+    /// The chain of the track's devices: splits and branches that name the
+    /// devices by id (`model/chain.rs`). `None` plays the devices in
+    /// series. Its key in `track.json` stays `graph` until the strips of
+    /// the mix hold it.
+    #[serde(rename = "graph", default, skip_serializing_if = "Option::is_none")]
+    pub(crate) chain: Option<Arc<Chain>>,
     pub clips: Clips,
     /// At most one lane per target.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -368,7 +372,7 @@ impl Track {
             output: None,
             sends: Vec::new(),
             devices: Vec::new(),
-            graph: None,
+            chain: None,
             clips: Clips::new(),
             lanes: Vec::new(),
             color: None,
@@ -406,7 +410,7 @@ impl Track {
             ("output", self.output == before.output),
             ("sends", self.sends == before.sends),
             ("devices", same_arcs(&self.devices, &before.devices)),
-            ("graph", self.graph == before.graph),
+            ("graph", self.chain == before.chain),
             ("clips", self.clips.same(&before.clips)),
             ("lanes", same_arcs(&self.lanes, &before.lanes)),
             ("color", self.color == before.color),
@@ -1588,12 +1592,12 @@ impl Project {
                     .chain(t.clips.iter().map(|c| c.id))
                     .chain(t.cues.iter().map(|c| c.id))
                     .chain(t.lanes.iter().map(|l| l.id))
-                    .chain(t.graph.iter().flat_map(|g| g.root.ids()))
+                    .chain(t.chain.iter().flat_map(|g| g.root.ids().into_iter().map(ids::NodeId::get)))
             })
             .chain(self.nests.keys().map(|n| n.0))
             .chain(self.racks.iter().flat_map(|r| {
-                std::iter::once(r.id)
-                    .chain(r.split.ids())
+                std::iter::once(r.id.get())
+                    .chain(r.split.ids().into_iter().map(ids::NodeId::get))
                     .chain(r.devices.iter().map(|d| d.id))
             }))
             .max()

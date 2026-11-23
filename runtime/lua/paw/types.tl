@@ -583,41 +583,47 @@ local record types
     ports: DevicePorts
   end
 
-  --- A node of a devices graph (`Node` in model/graph.rs): a device of
-  --- the track by id, or a split.
-  record GraphNode
+  --- The owner of a chain, as a handle of `paw.chain` (`OwnerRef` in
+  --- model/owner.rs): a track, `{ track = id }`.
+  record ChainOwner
+    track: integer
+  end
+
+  --- A node of a chain (`Node` in model/chain.rs): a device of the owner
+  --- by id, or a split.
+  record ChainNode
     device: integer
-    split: GraphSplit
+    split: ChainSplit
   end
 
   --- One path through a split (`Branch`): its nodes in series. `gain` in
   --- dB, `pan` from -1 to 1, `zone` the notes or velocities it hears.
-  record GraphBranch
+  record ChainBranch
     id: integer
     name: string
     gain: number
     pan: number
     mute: boolean
     solo: boolean
-    zone: GraphZone
-    nodes: {GraphNode}
+    zone: ChainZone
+    nodes: {ChainNode}
   end
 
   --- A range of notes or velocities, 0 to 127.
-  record GraphZone
+  record ChainZone
     low: integer
     high: integer
   end
 
   --- A macro of a split (`Macro`), 0 to 1.
-  record GraphMacro
+  record ChainMacro
     id: integer
     name: string
     value: number
   end
 
   --- A macro that moves a parameter of a device in its split (`Link`).
-  record GraphLink
+  record ChainLink
     source: integer
     device: integer
     param: string
@@ -625,8 +631,9 @@ local record types
   end
 
   --- The definition a linked rack follows, and what it has of its own
-  --- (`RackLink`).
-  record GraphLinked
+  --- (`Linked<RackDef>` and `RackOwn`). `values` are the keys of the
+  --- values it keeps, as the file has them (`5.mix`, `7.params.ratio`).
+  record ChainLinked
     record Own
       ids: {integer: integer}
       values: {string}
@@ -635,79 +642,77 @@ local record types
     overrides: Own
   end
 
-  --- A split of a devices graph (`Split`): `kind` is a word (`chain`,
-  --- `layer`, `band`, `ms`, `lr`, `key`, `vel`, `select`, `outs`, or a kind
-  --- of an extension), `values` the values of its kind (`xover` of a band
-  --- split), `mix` 0 to 1 and `gain` in dB.
-  record GraphSplit
+  --- A split of a chain (`Split`): `kind` is the name of its kind
+  --- (`chain`, `layer`, `band`, `ms`, `lr`, `key`, `vel`, `select`,
+  --- `outs`, or a kind of an extension), `values` the values of its kind
+  --- (`xover` of a band split), `mix` 0 to 1 and `gain` in dB.
+  record ChainSplit
     id: integer
     kind: string
     values: Meta
     name: string
     mix: number
     gain: number
-    branches: {GraphBranch}
-    macros: {GraphMacro}
-    links: {GraphLink}
-    linked: GraphLinked
-    meta: Meta
+    branches: {ChainBranch}
+    macros: {ChainMacro}
+    links: {ChainLink}
+    linked: ChainLinked
   end
 
-  --- A device that takes its key from inside its graph (`Tap`): `from`
-  --- is a node, nil for the input of the graph.
-  record GraphTap
+  --- A device that takes its key from inside its chain (`Tap`): `from`
+  --- is a node, nil for the input of the chain.
+  record ChainTap
     device: integer
     from: integer
   end
 
-  --- The devices graph of a track (`Graph` in model/graph.rs).
-  record Graph
-    root: GraphSplit
-    taps: {GraphTap}
+  --- The chain of an owner's devices (`Chain` in model/chain.rs).
+  record Chain
+    root: ChainSplit
+    taps: {ChainTap}
   end
 
   --- What a kind of split takes (`KindSpec`): the fewest and the most
   --- branches, and how many a new split gets.
-  record GraphKindSpec
+  record SplitKindSpec
     min: integer
     max: integer
     first: integer
   end
 
-  --- What `paw.api.graph_wrap` takes besides the kind (`WrapOpts`).
-  record GraphWrapOptions
+  --- What `paw.api.chain_wrap` takes besides the kind (`WrapOpts`).
+  record ChainWrapOptions
     branches: integer
     name: string
     values: Meta
   end
 
-  --- What `paw.api.graph_branch_add` takes: `index` from 1.
-  record GraphBranchOptions
+  --- What `paw.api.chain_branch_add` takes: `index` from 1.
+  record ChainBranchOptions
     name: string
     index: integer
   end
 
-  --- A place in a graph (`Place`): before or after a node, or in a
+  --- A place in a chain (`Place`): before or after a node, or in a
   --- branch at `index` (from 1; the end when nil).
-  record GraphPlace
+  record ChainPlace
     before: integer
     after: integer
     branch: integer
     index: integer
   end
 
-  --- What `paw.api.graph_set` changes: of a split, a branch or a macro.
-  record GraphPatch
+  --- What `paw.api.chain_set` changes: of a split, a branch or a macro.
+  record ChainPatch
     name: string
     mix: number
     gain: number
     kind: string
     values: Meta
-    meta: Meta
     pan: number
     mute: boolean
     solo: boolean
-    zone: GraphZone
+    zone: ChainZone
     value: number
   end
 
@@ -715,7 +720,7 @@ local record types
   record RackDef
     id: integer
     name: string
-    split: GraphSplit
+    split: ChainSplit
   end
 
   --- What `paw.api.device_add` takes (`DeviceOpts`): `index` from 1.

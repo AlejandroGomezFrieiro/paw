@@ -469,7 +469,7 @@ mod screen;
 mod timers;
 mod processes;
 mod formats;
-mod graph;
+mod chain;
 mod system;
 
 pub(crate) use screen::{render, render_live};
@@ -485,7 +485,7 @@ pub(crate) fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
     project::install(lua, &api, shared)?;
     tracks::install(lua, &api, shared)?;
     devices::install(lua, &api, shared)?;
-    graph::install(lua, &api, shared)?;
+    chain::install(lua, &api, shared)?;
     clips::install(lua, &api, shared)?;
     automation::install(lua, &api, shared)?;
     transport::install(lua, &api, shared)?;

@@ -51,10 +51,10 @@ impl Document {
             }
             let source = p.track_mut(from).unwrap();
             let device = source.devices.remove(at);
-            // In a graph, the device goes where the list puts it: after the
-            // top node that holds the device before it (`Graph::fit`).
-            if let Some(graph) = &mut source.graph {
-                std::sync::Arc::make_mut(graph).root.take(id);
+            // In a chain, the device goes where the list puts it: after the
+            // top node that holds the device before it (`Chain::fit`).
+            if let Some(chain) = &mut source.chain {
+                std::sync::Arc::make_mut(chain).root.take(id.into());
             }
             // A device's lanes live on the track it is on, so they go with it.
             let (lanes, keep) = std::mem::take(&mut source.lanes)
