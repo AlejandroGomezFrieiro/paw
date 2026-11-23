@@ -339,15 +339,38 @@ test("a render takes a range, a tail, a rate, a channel count and a sample size"
   eq(u16(head, 23), 1, "one channel")
   eq(u32(head, 25), 44100, "at the rate asked for")
   eq(u16(head, 35), 16, "of 16 bits")
-  -- (At 44.1 kHz the file is converted, and its sudden start rings a little.)
-  T.near(
-    paw.render(T.scratch .. "/mono48.wav", { channels = 1, ["end"] = 2, tail = 0 }).peak,
-    0.5,
-    0.002,
-    "both sides mixed at half each"
-  )
   T.fails(function() paw.render(T.scratch .. "/x.flac", { bits = 32 }) end, "16, 24", "FLAC has no float samples")
-  T.fails(function() paw.render(T.scratch .. "/x.wav", { channels = 6 }) end, "mono", "only mono and stereo")
+  T.fails(function() paw.render(T.scratch .. "/x.wav", { channels = "quad" }) end, "mono", "only stereo, mono and auto")
+end)
+
+test("a mono render is (left + right) / 2, and auto is mono only when both sides are equal", function()
+  fresh()
+  local t = paw.add_track()
+  t:add_clip({ file = steady(T.scratch .. "/same.wav", 2, 0.5), start = 0, length = 4 })
+  local function file(channels)
+    local info = paw.render(T.scratch .. "/" .. channels .. ".wav", { channels = channels, bits = 16, tail = 0 })
+    return info, u16(T.read_file(info.path), 23)
+  end
+  -- A source that is the same on both sides, in the center.
+  local info, count = file("mono")
+  eq(count, 1, "mono writes one channel")
+  T.near(info.peak, 0.5, 1e-4, "a mono source in the center keeps its level")
+  info, count = file("auto")
+  eq(count .. " " .. info.channels, "1 1", "auto: equal sides give one channel, and the result says so")
+  T.near(info.peak, 0.5, 1e-4, "at the level of the source")
+  -- Panned off center, the sides differ.
+  t.pan = -1
+  local left, right = T.channel_peaks(paw.render(T.scratch .. "/wide.wav", { bits = 16, tail = 0 }))
+  T.eq(left > 0.6 and right < 1e-3, true, "hard left: " .. left .. " " .. right)
+  T.near(file("mono").peak, (left + right) / 2, 1e-3, "mono is (left + right) / 2")
+  info, count = file("auto")
+  eq(count .. " " .. info.channels, "2 2", "auto keeps two channels for a source panned off center")
+  -- In the center again, through a device that makes the sides differ.
+  t.pan = 0
+  t:add_device("utility", { invert_r = 1 })
+  count = select(2, file("auto"))
+  eq(count, 2, "and for a source through a stereo device")
+  T.near(file("mono").peak, 0, 1e-4, "where opposite sides cancel in mono")
 end)
 
 test("FLAC renders read back as what was rendered", function()
@@ -355,19 +378,19 @@ test("FLAC renders read back as what was rendered", function()
   local t = paw.add_track()
   t:add_clip({ file = steady(T.scratch .. "/flac-src.wav", 3, 0.5), start = 0, length = 4 })
   for _, bits in ipairs({ 16, 24 }) do
-    for _, channels in ipairs({ 1, 2 }) do
-      local path = string.format("%s/out-%d-%d.flac", T.scratch, bits, channels)
+    for _, channels in ipairs({ "mono", "stereo" }) do
+      local path = string.format("%s/out-%d-%s.flac", T.scratch, bits, channels)
       local info = paw.render(path, { bits = bits, channels = channels, tail = 0 })
       eq(T.read_file(path):sub(1, 4), "fLaC", "a FLAC file")
       local back = paw.add_track()
       local clip = back:add_clip({ file = path, start = 0 })
-      T.near(clip.length, 4, 1e-3, string.format("as long as rendered (%d bits, %d channels)", bits, channels))
+      T.near(clip.length, 4, 1e-3, string.format("as long as rendered (%d bits, %s)", bits, channels))
       eq(info.format, "FLAC", "and says so")
       back:remove()
     end
   end
   local back = paw.add_track()
-  back:add_clip({ file = T.scratch .. "/out-24-2.flac", start = 0 })
+  back:add_clip({ file = T.scratch .. "/out-24-stereo.flac", start = 0 })
   t.mute = true
   T.near(T.render({ tail = 0, ["end"] = 3 }).peak, 0.5, 0.0001, "the level comes back")
 end)

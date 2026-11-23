@@ -1500,6 +1500,14 @@ local record types
     "master"
   end
 
+  --- The channels of a rendered file (`render::Channels`): `auto` is one
+  --- channel when the two sides are equal to the bit, else two.
+  enum RenderChannels
+    "stereo"
+    "mono"
+    "auto"
+  end
+
   --- What `paw.api.render` and `render_start` take (`RenderOpts`): `start`
   --- and `end` in beats, `tail` and `settle` in seconds.
   record RenderOptions
@@ -1515,7 +1523,7 @@ local record types
     dither: boolean
     normalize: number
     loudness: number
-    channels: integer
+    channels: RenderChannels
     tap: RenderTap
     master: boolean
     threads: integer

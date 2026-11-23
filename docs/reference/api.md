@@ -11,7 +11,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw
 
 - `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...). In a window inside a subproject, the track is made in that subproject unless `opts.nest` says another.
-- `paw.bounce(track, opts)`: Render a track with its devices to audio, as one clip on a new track immediately below it, and mute the original. The new track sends its sound where the original sent it. The render has the track's fader and pan but not the master's devices and fader, because the new track plays through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track ("<name> (bounced)" by default). `opts.tail` is the seconds rendered after its last clip (2). Returns the new track, or nil when the track has no clips.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
   ```lua
@@ -305,6 +304,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.autosave.offer(path, err)`: Offer the alternatives to a project that would not open, if there are any: `:recover` lists them first. Returns how many there are.
 - `paw.autosave.orphan_takes()`: Recorded takes in the `media` directory of the project that no clip uses, written after the last save of the project. A session that stopped during or after a take, without a save, leaves them. A take that you undid before a save is not one of them. { file, name }.
 - `paw.autosave.recover(file, opts)`: Open a copy that a session left, as the project that it is a copy of. `opts.as_path` opens it under that file name (a `.bak`, which paw keeps). `opts.plugins_offline` opens it with all plugins offline, if a plugin possibly stopped the session.
+
+## Module paw.bounce
+
+- `paw.bounce.describe(clip)`: What `K` says of a clip that a bounce muted: the track that plays it now. Nil for another clip.
+- `paw.bounce.track(track, opts)`: Render a track (its id, or the track) to audio, as one clip on a new track below it, and mute it. `paw.bounce(track, opts)` is the same. The new track plays its sound where the old one sends it. `opts.tap` is where the render listens: `"post"` (the default) holds the track's devices, fader and pan, but not its groups or the master, and the new track's fader starts at 0 dB. `"pre"` is before the fader: the new track gets the volume, pan and sends of the old one, and the automation of its volume and pan. `opts.start` and `opts["end"]` are the beats to render. Without them, it renders from the first clip to the end of the last, and mutes the whole track. With them, it cuts the clips at those beats and mutes only the parts between them, and `K` on such a part names the new track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name> (bounced)" by default). It uses `paw.render`, so `render.before` runs. Returns the new track, or nil when there is nothing to render.
+- `paw.bounce.tracks(ids, opts)`: Render the tracks of `ids` to audio, as one clip on a new track below the last of them, and mute them. The new track plays its sound where the first track sends its sound. `opts` is as for `paw.bounce.track`, and `opts.tap = "pre"` takes one track only. Returns the new track, or nil when there is nothing to render.
 
 ## Module paw.bytes
 
@@ -1805,7 +1810,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   tail        seconds after the end, for reverbs and delays to ring out (1)
   sample_rate (or rate) Hz; the engine's by default
   bits        16, 24 or 32 (float; WAV only); 24 by default
-  channels    2 (or "stereo") or 1 (or "mono")
+  channels    "stereo" (the default), "mono" (one channel: (left + right) / 2) or
+              "auto" (one channel when the two sides are equal to the bit, else two)
   dither      true to add dither when writing 16 or 24 bits
   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
               default) or "best"; `bitrate` (kbit/s) instead of it for a number

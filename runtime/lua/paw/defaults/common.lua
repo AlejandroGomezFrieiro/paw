@@ -12,6 +12,21 @@ function M.need_track()
   return track
 end
 
+--- The tracks of the selection in the arrange view, or else the track of
+--- the cursor: ids, empty when there is no track.
+function M.chosen_tracks()
+  local selection = paw.keymap.selection()
+  if selection and selection.view == "arrange" then
+    local rows, out = paw.groups.rows(), {}
+    for row = math.max(1, selection.r0), selection.r1 do
+      if rows[row] then out[#out + 1] = rows[row] end
+    end
+    if #out > 0 then return out end
+  end
+  local id = cursor.track_id()
+  return id and { id } or {}
+end
+
 function M.need_clip()
   local clip = cursor.clip()
   if not clip then paw.notify("no clip under the cursor", "warn") end

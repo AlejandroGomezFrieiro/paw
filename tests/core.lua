@@ -705,7 +705,7 @@ test("a track is bounced to audio, and takes MIDI messages by hand", function()
   t:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
   local before = render({ tail = 0 }).peak
   paw.cursor.set_track(t)
-  paw.commands.exec("track.bounce")
+  paw.commands.exec("bounce")
   local bounced = paw.cursor.track()
   eq(bounced.name .. " " .. tostring(t.mute), "Sine (bounced) true", "a new track beside a muted original")
   local clip = bounced:clips()[1]

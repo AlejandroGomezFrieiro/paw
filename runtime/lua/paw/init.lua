@@ -181,41 +181,6 @@ function paw.device_types()
   return list
 end
 
---- Render a track with its devices to audio, as one clip on a new track
---- immediately below it, and mute the original. The new track sends its
---- sound where the original sent it. The render has the track's fader and
---- pan but not the master's devices and fader, because the new track plays
---- through the master again. It uses `paw.render`, so `render.before` runs. `opts.name` is the name of the new track
---- ("<name> (bounced)" by default). `opts.tail` is the seconds rendered
---- after its last clip (2). Returns the new track, or nil when the track
---- has no clips.
-function paw.bounce(track, opts)
-  opts = opts or {}
-  track = type(track) == "table" and track or paw.track(track)
-  local finish = 0
-  for _, clip in ipairs(track:clips()) do
-    finish = math.max(finish, clip.start + clip.length)
-  end
-  if finish <= 0 then return nil end
-  local dir = api.media_dir()
-  pcall(paw.api.fs_mkdir, dir)
-  local path = string.format("%s/%s-bounce-%d-%d.wav", dir, track.name:gsub("[^%w%-_]", "_"), os.time(), track.id)
-  -- Without the master: the new track goes through it when it plays.
-  paw.render(
-    path,
-    { tracks = { track.id }, start = 0, ["end"] = finish, tail = opts.tail or 2, bits = 32, master = false }
-  )
-  local index = 0
-  for i, id in ipairs(api.track_list()) do
-    if id == track.id then index = i end
-  end
-  local bounced =
-    paw.add_track({ name = opts.name or (track.name .. " (bounced)"), index = index + 1, output = track.output })
-  bounced:add_clip({ file = path, start = 0, name = track.name })
-  track.mute = true
-  return bounced
-end
-
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
 paw.edit = require("paw.edit")
@@ -385,6 +350,8 @@ function K.startup()
   -- window: a part of the song.
   paw.freeze_block = require("paw.freeze_block")
   paw.freeze = require("paw.freeze")
+  -- Tracks rendered into the project as a new audio track (paw/bounce.tl).
+  paw.bounce = require("paw.bounce")
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)
   paw.markers = require("paw.markers")

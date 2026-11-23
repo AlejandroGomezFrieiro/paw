@@ -244,7 +244,7 @@ function A.render(o: RenderRequest)
     bits = tonumber(o.bits) as integer,
     dither = o.dither and true or nil,
     normalize = tonumber(o.normalize),
-    channels = o.mono and 1 or nil,
+    channels = o.mono and "mono" or nil,
     background = true,
   }
   local format = lossy_formats[o.format] or "wav"

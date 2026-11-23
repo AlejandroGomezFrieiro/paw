@@ -49,12 +49,9 @@ local paw = (_G as {string: Paw}).paw
 local type Range = contracts.CommandRange
 local type Args = commands.Args
 
---- What `channels=` takes: two channels, one, or one when both sides are equal.
-local enum Channels
-  "stereo"
-  "mono"
-  "auto"
-end
+--- What `channels=` takes: two channels, one, or one when both sides are
+--- equal (the kernel's `render::Channels`).
+local type Channels = types.RenderChannels
 
 --- What `each=` takes: one render for each of these.
 local enum Each

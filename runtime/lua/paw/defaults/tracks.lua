@@ -271,18 +271,7 @@ end, {
 
 --- The tracks a group command is about: those of the selection, else the
 --- cursor track.
-local function chosen_tracks()
-  local selection = keymap.selection()
-  if selection and selection.view == "arrange" then
-    local rows, out = paw.groups.rows(), {}
-    for row = math.max(1, selection.r0), selection.r1 do
-      if rows[row] then out[#out + 1] = rows[row] end
-    end
-    if #out > 0 then return out end
-  end
-  local id = cursor.track_id()
-  return id and { id } or {}
-end
+local chosen_tracks = common.chosen_tracks
 
 command("track.group", function(ctx)
   local tracks = chosen_tracks()

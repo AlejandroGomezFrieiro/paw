@@ -361,6 +361,11 @@ for lhs, name in pairs({ ["<leader>tf"] = "freeze", ["<leader>tF"] = "unfreeze" 
   })
 end
 amap("<leader>to", "track.output", "Choose where the track's sound goes")
+map("<leader>tb", "bounce", {
+  view = "arrange",
+  mode = nx,
+  desc = "Bounce the track, or the selected tracks, to a new audio track and mute them",
+})
 amap("zM", "fold.closeall", "Fold every group and fold of this window")
 amap("zR", "fold.openall", "Open every group and fold of this window")
 amap("zl", function(ctx) paw.ui.views:get("arrange"):scroll_by(ctx.count or 1) end, "Scroll a bar later")

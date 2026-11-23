@@ -11,6 +11,7 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 - A thin amber playhead. Over the body of a clip, the playhead shades its column instead, so the notes or the waveform under it stay in view.
 - The track headers. Each has the chips `M` `S` `R` `I` (mute, solo, arm, monitor). If there are enough rows, a header also shows the level and volume and the pan. It can also show the devices, the output (`→ Bus`), the sends (`↗ Reverb -9`) and the input.
 - A letter before the name of a track of a kind that an extension defines.
+- A muted clip has `⊘` before its name (`x` with `paw.opt.ascii`) and a faint body, as in `⊘ riff`.
 - The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
 The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).

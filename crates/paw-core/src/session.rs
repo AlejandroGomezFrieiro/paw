@@ -417,8 +417,8 @@ pub struct RenderOpts {
     /// Bring the integrated loudness to this level in LUFS. With `normalize`
     /// as well, the peak level is a ceiling the loudness gives way to.
     pub loudness: Option<f64>,
-    /// 1 for mono (both sides mixed at half level each), 2 for stereo.
-    pub channels: u16,
+    /// How many channels the file has: see [`render::Channels`].
+    pub channels: render::Channels,
     /// Where in the signal the render listens: see [`render::Tap`]. `master`
     /// when not given.
     pub tap: Option<render::Tap>,
@@ -461,7 +461,7 @@ impl Default for RenderOpts {
             dither: false,
             normalize: None,
             loudness: None,
-            channels: 2,
+            channels: render::Channels::Stereo,
             tap: None,
             master: true,
             threads: None,
