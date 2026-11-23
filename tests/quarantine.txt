@@ -11,4 +11,6 @@
 #
 # The runner does not read this file yet. Until it does, a failure of a test
 # in this list still fails the run, and the person who merges reads the list.
-a clip plays a rough preview until its stretch is made, then the stretch	the stretch preview holds its bake
+a clip plays a rough preview until its stretch is made, then the stretch	the stretch tests move to steps (the stretch preview flake)
+the terminal marks a stretched, shifted, following or looped clip in its label	the stretch tests move to steps (the stretch preview flake)
+a long stretched clip is heard at once, while its sound is still being made	the stretch tests move to steps (the stretch preview flake)
