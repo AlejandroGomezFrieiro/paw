@@ -556,6 +556,7 @@ local registries = {
     reg = paw.clip_kinds.kinds,
     put = "paw.clip_kinds.define(%q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
   },
+  { reg = paw.nest.kinds, put = "paw.nest.define_kind(%q, { title = 'Mine' })" },
   { reg = paw.roles.registry, core = "chip", put = "paw.ui.role(%q, { cells = function() end })" },
   {
     reg = paw.query.fields,

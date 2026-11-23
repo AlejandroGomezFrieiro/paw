@@ -77,7 +77,6 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `tab.enter` | `{ tab }` | a different tab |
 | `ui.resized` | `{ width, height }` | the screen changed size |
 | `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it |
-| `scope.changed` | `{ scope }` | the tab shows a different scope (`paw.scope`), or the whole song. `scope` is the innermost group of the scope, if any |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
 | `annotation.changed` | `{ namespace, document, ... }` | annotations changed |
 | `plugins.scanned` | `{ notes, ... }` | a scan for plugins ended |
@@ -111,12 +110,16 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 | `lsp.analysis` | `{ clip, client }` | the analysis of a clip arrived from a language server | `paw.lsp.analysed` |
 | `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped | `paw.lsp.status_changed` |
 | `mode.changed` | `{ mode, old }` | the mode of the keymap changed | `paw.keymap.mode_changed` |
+| `nest.changed` | `{ nest, state }` | an edit changed the tracks, clips, devices or lanes of a subproject. It comes once for each undo step | `paw.nest.changed` |
+| `nest.enter` | `{ nest, win, clip }` | a window went inside a subproject | `paw.nest.entered` |
+| `nest.leave` | `{ nest, win, clip }` | a window came out of a subproject | `paw.nest.left` |
 | `option.changed` | `{ name, value, old }` | an option got a different value | `paw.option.changed` |
 | `pianoroll.opened` | `{ clip }` | the piano roll opened a clip | `require("paw.views.pianoroll").opened` |
 | `qf.changed` | `{ title, win }` | the quickfix list or a location list changed | `paw.qf.event` |
 | `render.before` | `{ path, opts, measure }` | a render will start | `paw.render.before` |
 | `render.finished` | `{ path, frames, seconds, sample_rate, peak, format, bits, channels, gain, loudness, nonfinite, elapsed, processing, blocks, threads, device_runs, device_sleeps, left_out }` | what a render in the foreground wrote | `paw.render.finished` |
 | `roll_clips.changed` | `{ active, count }` | the clips that the piano roll edits changed | `paw.roll_clips.changed` |
+| `scope.changed` | `{ scope, win, level }` | a window shows a different scope (`paw.scope`), or the whole song. `scope` is the innermost group of the scope, if any, and `level` is the scope that the window shows now, or nil for the song | `paw.scope.changed` |
 | `snippet.expanded` | `{ name, clip }` | a snippet went into a clip | `paw.snippet.expanded` |
 | `snippet.finished` | `{ name }` | a snippet stopped, and the notes that it wrote stay | `paw.snippet.finished` |
 | `startup` | `{}` | the runtime, the extensions and the configuration loaded | `paw.events.startup` |

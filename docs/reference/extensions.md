@@ -111,6 +111,7 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.textbuf.kinds` | kinds of text buffer |
 | `paw.track_kinds.kinds` | kinds of track |
 | `paw.clip_kinds.kinds` | kinds of clip |
+| `paw.nest.kinds` | kinds of subproject |
 | `paw.ui.roles` | roles |
 | `paw.pick.sources` | picker sources |
 | `paw.statusline.components` | status line components |
@@ -340,6 +341,29 @@ The functions of a kind must be fast, and each one stops after `paw.opt.clip_kin
 | `paw.clip_kinds.list()`, `spec(name)`, `remove(name)` | the kinds |
 
 Each clip keeps the version of its data. When the project opens, and when the kind is defined, paw migrates a clip with an older version, and a message tells how many clips changed. A clip with a newer version does not change, and paw shows a message such as `this clip was made by a newer film extension (data 2, this one knows 1)`. Without the extension, the clip keeps its data and its sound, and you can move, copy and delete it. When paw unloads the extension, its kinds go too.
+
+### Kinds of subproject
+
+`paw.nest.define_kind(name, spec)` defines a kind of [subproject](subprojects.md), for example a drum pattern that opens in a step grid. `:nest.new kind=<name>` makes one. In Teal, the spec is `paw.contracts.NestKind<D>`, and `D` is the record of the data of the kind.
+
+| Field | Value |
+| --- | --- |
+| `title` | the name of the kind, which messages and `K` show |
+| `letter` | shown after `⧉` on the blocks of the subproject, for example `⧉D Groove`. The first letter of the name if not given |
+| `create(region)` | adds the tracks and clips of a new subproject, and gives the data of the kind, or nil and a reason to stop. `region` has `nest`, `row` and `clip` (the subproject, its return row and its block), `name`, and `from` and `to` in beats. A kind that adds no track gets one empty track |
+| `enter(nest)` | runs when a window goes inside the subproject, for example to open the view of the kind in place of the arrange view |
+| `describe(nest)` | a few words for `K` on a block |
+
+The project keeps the kind in the `kind` of the subproject, and the data in its `meta` under the name of the kind. The tracks and the clips are the music: without the extension, the subproject plays, the arrange view edits it, and `K` gives the kind that it was. When `create` fails, `:nest.new` leaves the project as it was and shows the reason. When paw unloads the extension, its kinds go too.
+
+| Function | Effect |
+| --- | --- |
+| `paw.nest.data(nest)` | gives the data of the kind of a subproject |
+| `paw.nest.set_data(nest, data)` | changes the data. One undo step |
+| `paw.nest.kind(nest)` | gives the spec of the kind of a subproject, or nil |
+| `paw.nest.letter(nest)` | gives the letter of the kind of a subproject, or nil |
+
+The events `nest.enter` and `nest.leave` come when a window goes inside a subproject and when it comes out, and `nest.changed` comes once for each undo step that changes the tracks, clips, devices or lanes of a subproject. See [Events](events.md).
 
 ### Plugins of an extension
 

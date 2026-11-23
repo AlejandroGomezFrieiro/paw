@@ -6216,6 +6216,22 @@ function paw.nest.blocks(nest) end
 ---@param c any
 function paw.nest.content_key(c) end
 
+--- The data of subproject `nest`'s kind: what its `create` gave, or what
+--- `paw.nest.set_data` stored last. Nil for a plain subproject.
+---@param nest any
+function paw.nest.data(nest) end
+
+--- Define a kind of subproject that `:nest.new kind=<name>` makes, such
+--- as a drum pattern that opens in a step grid. `spec` gives `title`,
+--- `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each
+--- optional (`paw.contracts.NestKind`). The kind's data is in the
+--- subproject's `meta` under the kind's name: read it with
+--- `paw.nest.data(nest)`. Without the kind, the subproject plays and the
+--- arrange view edits it. Returns the spec.
+---@param name any
+---@param spec any
+function paw.nest.define_kind(name, spec) end
+
 --- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
 --- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
 --- block. `c` is the clip, in the window's time.
@@ -6239,6 +6255,16 @@ function paw.nest.get(id) end
 ---@param row any
 function paw.nest.is_open(row) end
 
+--- The kind of subproject `nest` as defined, or nil: for a plain
+--- subproject, and for one whose kind no extension here defines.
+---@param nest any
+function paw.nest.kind(nest) end
+
+--- The letter of the kind of subproject `nest`, which its blocks show
+--- after `⧉`, or nil for a plain subproject.
+---@param nest any
+function paw.nest.letter(nest) end
+
 --- Every subproject, in the order they were made: { id, name, length,
 --- tempo, meter, master, tracks, kind, meta, used }.
 function paw.nest.list() end
@@ -6247,7 +6273,8 @@ function paw.nest.list() end
 --- top): the subproject over the time given, a return row below the
 --- track `below` with one block, the meter in the song's map when one is
 --- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`). Call it in one undo step (a command is one).
+--- (`paw.opt.nest_track`), or with the tracks that the `create` of its
+--- kind (`o.kind`) makes. Call it in one undo step (a command is one).
 ---@param o any
 function paw.nest.new(o) end
 
@@ -6288,6 +6315,11 @@ function paw.nest.promote(clip, deep) end
 ---@param name any
 ---@param own_row any
 function paw.nest.save(name, own_row) end
+
+--- Store the data of subproject `nest`'s kind, as one undo step.
+---@param nest any
+---@param data any
+function paw.nest.set_data(nest, data) end
 
 --- Give subproject `nest` a meter of its own (`6/8`), with the song's map
 --- as it is (polymeter), or the song's meter again (`follow`), as

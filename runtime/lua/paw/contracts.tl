@@ -1797,6 +1797,40 @@ local record contracts
     formats: {string}
   end
 
+  -- Kinds of subproject ----------------------------------------------------------
+
+  --- What a kind of subproject's `create` gets: the new subproject
+  --- (`nest`), its return row and the block on it (`row`, `clip`), its
+  --- name, and its time (`from` and `to`, in beats of the window that
+  --- makes it).
+  record NestRegion
+    nest: integer
+    row: integer
+    clip: integer
+    name: string
+    from: number
+    to: number
+  end
+
+  --- A kind of subproject (`paw.nest.define_kind`), such as a drum
+  --- pattern that opens in a step grid. `D` is the record of its data,
+  --- which paw keeps in the subproject's `meta` under the kind's name.
+  --- `title` and `letter` say how the kind is offered and shown.
+  --- `create` adds the tracks and clips of a new subproject and gives
+  --- its data, or nil and why it cannot. `enter` runs when a window goes
+  --- inside one, to open the kind's view, and `describe` gives a few
+  --- words for `K`. Each is optional. The tracks and clips are the
+  --- truth: without the kind, the subproject plays and the arrange view
+  --- edits it.
+  record NestKind<D>
+    name: string
+    title: string
+    letter: string
+    create: function(region: NestRegion): D, string
+    enter: function(nest: integer)
+    describe: function(nest: integer): string
+  end
+
   -- Roles ------------------------------------------------------------------------
 
   --- What a role's `cells` gets besides the buffer and the props.
