@@ -6270,6 +6270,15 @@ function paw.nest.export(nest, folder) end
 ---@param id any
 function paw.nest.get(id) end
 
+--- Bring the project folder `folder` (`~/` is the home folder) into the
+--- song as a subproject, as `:import <folder>` does: a subproject that
+--- refers to the folder (`paw.api.nest_import`), on a row of its own below
+--- the cursor's track with one block from the cursor's bar. It plays at
+--- once. Its first edit, or `:nest.own`, makes it the song's own copy.
+--- Call it in one undo step (a command is one). Returns the message.
+---@param folder any
+function paw.nest.import(folder) end
+
 --- Whether a row is open in place.
 ---@param row any
 function paw.nest.is_open(row) end
@@ -6303,6 +6312,14 @@ function paw.nest.new(o) end
 ---@param limit any
 function paw.nest.notes(c, limit) end
 
+--- Open the song of `path`, a path inside a song (`song/nests/Bridge`, see
+--- `song_of`), and enter that subproject in the window, as `:e` of the path
+--- does. The song opens only when it is not open already; `opts` go to
+--- `paw.loading.open`. Returns the message.
+---@param path any
+---@param opts any
+function paw.nest.open(path, opts) end
+
 --- Give a subproject one row of its own for each of its tracks (`stems`),
 --- or one stereo return again (`master`), on its return row `row`. Call it
 --- in one undo step. Returns the message.
@@ -6310,6 +6327,13 @@ function paw.nest.notes(c, limit) end
 ---@param row any
 ---@param how any
 function paw.nest.outputs(nest, row, how) end
+
+--- Make subproject `nest`, which refers to a project folder, the song's own
+--- copy now, as `:nest.own` does: the subprojects that came with it too.
+--- One undo step: `u` makes it refer to the folder again. Returns the
+--- message.
+---@param nest any
+function paw.nest.own(nest) end
 
 --- Promote the subproject of block `clip` to a view, as `:nest.promote`
 --- does: its tracks come back in a group named after it at the place of
@@ -6357,6 +6381,12 @@ function paw.nest.set_meter(nest, meter) end
 function paw.nest.set_time(nest, how, bpm) end
 
 paw.nest.shift = paw.cursor.shift
+
+--- The song and the subproject that a path inside a song names
+--- (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the
+--- subproject's id. Nil for any other path.
+---@param path any
+function paw.nest.song_of(path) end
 
 --- `za` on a return row: open its subproject's tracks under it, in the
 --- song's time, or close them. On a track shown in place: close its row.
@@ -9766,6 +9796,11 @@ function paw.util.merge(base, extra) end
 ---@param step any
 function paw.util.round(v, step) end
 
+--- A path with the home folder as `~` at its start, for a message: the
+--- other way of `expand_path`.
+---@param path any
+function paw.util.tilde(path) end
+
 --- Break text into lines of at most `width` columns, at spaces. A word
 --- wider than `width` gets a line of its own. Empty text gives one empty
 --- line.
@@ -10912,9 +10947,26 @@ function paw.api.nest_export(id, dir) end
 ---@param key string?
 function paw.api.nest_get(id, key) end
 
+--- Make the project folder `dir` a subproject, as one undo step with
+--- the block that places it. The subproject refers to the folder: the
+--- song keeps no copy and reads the folder again when it opens. Its
+--- tracks, its master and the subprojects inside come from the folder.
+--- It follows the song's tempo (its own is kept, for `nest.time own`)
+--- and keeps the meter of the folder. Its first edit, or `nest_own`,
+--- makes it the song's own copy. Nothing places it yet: add a block.
+--- Returns its id.
+---@param dir string
+function paw.api.nest_import(dir) end
+
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
+
+--- Make subproject `id`, which refers to a project folder, the song's
+--- own copy now, as one undo step, with the subprojects that came with
+--- it. Returns the folder it referred to, which it keeps as `origin`.
+---@param id integer
+function paw.api.nest_own(id) end
 
 --- Whether the subproject that block `clip` places counts its own time:
 --- true with its own tempo, false with only its own meter, nil when it
