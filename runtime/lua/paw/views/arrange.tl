@@ -1940,6 +1940,12 @@ local function draw_playhead(self: Arrange, F: Frame)
   F.buf:mark("playhead", L.hw, 0, L.tw, L.master.y, playhead)
 end
 
+--- With lanes open, the counts at the left count lane rows in normal mode
+--- and tracks after an operator (`counted_lines`).
+function view:operator_shown(): boolean
+  return paw.lanes.any_open()
+end
+
 function view:render(buf: Buf, ctx: contracts.RenderContext)
   local w, h = buf.width, buf.height
   local zoom = paw.opt.zoom

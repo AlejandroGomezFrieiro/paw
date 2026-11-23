@@ -256,6 +256,10 @@ local record Ui
   focused: string
   views: {string: contracts.View}
   grabber: function(key: string)
+  rects: {contracts.ScreenRect}
+end
+local record Statusline
+  winbar: function(view: string, focused: boolean): string
 end
 local record Commands
   exec: function(line: string, ctx?: contracts.CommandContext)
@@ -263,6 +267,7 @@ local record Commands
 end
 local record Paw is partial.Paw
   ui: Ui
+  statusline: Statusline
   commands: Commands
   limit: LimitModule
   seats: SeatsModule
@@ -304,7 +309,9 @@ local record M
   --- The operator that a motion runs for, while it runs (`paw.cursor`
   --- then keeps to the tracks).
   motion_for: Map
-  --- True when a prompt drew only its line for this key (`paw.views.cmdline`).
+  --- True when this key drew only lines: a prompt's line
+  --- (`paw.views.cmdline`), or the status line and the command line after
+  --- a key that only waits for the next one. Else the key's frame is whole.
   screen_kept: boolean
   --- The registers by name.
   registers: {string: registers.Register}
@@ -928,6 +935,50 @@ local function stop_timer()
   end
 end
 
+-- What the key being handled did, for the frame after it (`dispatch`): nil
+-- when nothing yet, true when it only changed what waits for the next key
+-- (the keys typed so far, a count, a register, an operator), false when it
+-- did more. A key that only waits draws the lines that show the keys, not
+-- the views (`lines_show_waiting`).
+local only_waits: boolean
+
+--- The key acted: its frame draws the whole screen.
+local function acted()
+  only_waits = false
+end
+
+--- The key changed only what waits for the next key, unless it acted before.
+local function waited()
+  if only_waits == nil then
+    only_waits = true
+  end
+end
+
+--- True when the screen shows a change of what waits on its lines only
+--- (the keymap decides the frame of a key, so it asks the screen here):
+--- no list of the keys that can follow is up (`hint_up`), no title bar of
+--- a window shows the status line's sections, and when the mode changed
+--- between normal and an operator (`mode_before`), no view on the screen
+--- draws that change (`View.operator_shown`).
+local function lines_show_waiting(mode_before: Mode, hint_up: boolean): boolean
+  if hint_up then
+    return false
+  end
+  local status = paw.statusline
+  if status and (status.winbar(paw.ui.focused, true) or status.winbar(paw.ui.focused, false)) then
+    return false
+  end
+  if M.mode ~= mode_before then
+    for _, r in ipairs(paw.ui.rects or {}) do
+      local view = paw.ui.views[r.name]
+      if view and view.operator_shown and view:operator_shown() then
+        return false
+      end
+    end
+  end
+  return true
+end
+
 -- The undo state current when insert mode began. What is done from then
 -- until insert mode ends (the clip `i` made, the notes drawn into it) is
 -- one undo step, as an insert is in Vim: the steps after the first join it.
@@ -956,8 +1007,9 @@ local function closed(v: Visual, row: number, col: number): Visual
   }
 end
 
---- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
-function M.set_mode(mode: Mode)
+--- Change mode, and say so (`mode.changed`), but ask for no frame. True
+--- when the mode changed.
+local function change_mode(mode: Mode): boolean
   if mode == "v" then
     mode = "x"
   end
@@ -971,7 +1023,7 @@ function M.set_mode(mode: Mode)
     M.visual = nil
   end
   if mode == old then
-    return
+    return false
   end
   if mode == "i" then
     insert_undo = api.undo_current()
@@ -993,21 +1045,33 @@ function M.set_mode(mode: Mode)
     left_insert = {undo = insert_undo, key = key_serial}
     insert_undo = nil
   end
-  api.ui_redraw()
+  return true
+end
+
+--- Change mode. When visual mode stops, the selection closes. `gv` opens it again.
+function M.set_mode(mode: Mode)
+  if change_mode(mode) then
+    api.ui_redraw()
+  end
 end
 
 -- A key that ran at once though longer mappings start with it (`nowait`),
 -- until the next key or the wait ends.
 local eager: Eager
 
-local function reset()
+-- Drop what waits for the next key, and leave the mode of an operator.
+local function clear()
   eager = nil
   pending, count, register, awaiting, hint_at = {}, nil, nil, nil, nil
   stop_timer()
   if op then
     op = nil
-    M.set_mode("n")
+    change_mode("n")
   end
+end
+
+local function reset()
+  clear()
   api.ui_redraw()
 end
 
@@ -1319,10 +1383,12 @@ local function run_operator(map: Map, ctx: Context, g: Grid)
     return map.operator(reg, ctx)
   end
   if not g then
+    acted()
     return paw.notify("nothing in this view for `" .. map.lhs .. "` to act on", "warn")
   end
   op = {map = map, count = ctx.count, register = ctx.register, key = map.keys[#map.keys]}
-  M.set_mode("o")
+  change_mode("o")
+  waited()
 end
 
 -- A text object outside an operator: in visual mode it becomes the
@@ -1382,6 +1448,10 @@ local function run(map: Map, char?: string)
   stop_timer()
   if map.norepeat then
     command.norepeat = true
+  end
+  -- Only an operator in normal mode waits (for its motion).
+  if not map.operator or M.mode == "o" or M.mode == "x" then
+    acted()
   end
   if M.mode == "o" then
     return run_for_operator(map, ctx, g)
@@ -1505,6 +1575,7 @@ local function take(map: Map)
   if not map.char then
     return run(map)
   end
+  waited()
   awaiting = function(key: string)
     if key == "<Esc>" or key == "<C-c>" then
       return reset()
@@ -1574,13 +1645,15 @@ end
 local function command_start(key: string): boolean
   if key:match("^%d$") and (count or key ~= "0") then
     count = (count or 0) * 10 + math.floor(tonumber(key))
-    api.ui_redraw()
+    waited()
     return true
   end
   if key == '"' then
+    waited()
     awaiting = function(name: string)
       if name:match('^[%w_"]$') then
         register = name
+        waited()
       else
         reset()
       end
@@ -1698,6 +1771,7 @@ handle = function(key: string)
   end
   local focused = paw.ui.views[paw.ui.focused]
   if focused and focused.modal then
+    acted()
     focused:on_key(key)
     return
   end
@@ -1707,12 +1781,14 @@ handle = function(key: string)
     return fn(key)
   end
   if eager then
+    acted()
     after_eager(key)
   end
 
   local escape = key == "<Esc>" or key == "<C-c>"
   if escape and (#pending > 0 or count or register or op) then
-    return reset()
+    clear()
+    return waited()
   end
   -- Escape leaves visual and insert mode, unless something that holds keys
   -- for a while (a suggestion showing: see `view:subscope()`) maps it first.
@@ -1738,8 +1814,11 @@ handle = function(key: string)
       return run_eager(key, exact)
     end
     if exact then
-      timer = api.timer_start(opt.timeoutlen, false, function() timer = nil; take(exact); finish_command() end)
+      timer = api.timer_start(
+        opt.timeoutlen, false, function() timer = nil; take(exact); finish_command(); api.ui_redraw() end
+      )
     end
+    waited()
   elseif #pending > 1 then
     dead_end()
   else
@@ -1762,7 +1841,15 @@ end
 
 --- Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
 function M.dispatch(key: string)
-  if #next_key > 0 and depth == 0 then
+  -- What the frame after a key that only waits must draw: what the screen
+  -- showed and was asked for before it (`lines_show_waiting`).
+  local outer = depth == 0
+  local redraws, mode_before = api.ui_redraws(), M.mode
+  local hint_up = hint_at ~= nil and api.now() >= hint_at
+  if outer then
+    only_waits = nil
+  end
+  if #next_key > 0 and outer then
     local due = next_key
     next_key = {}
     local grabber = paw.ui.grabber
@@ -1805,8 +1892,20 @@ function M.dispatch(key: string)
   else
     hint_at = nil
   end
-  -- A prompt that drew only its line (`paw.views.cmdline`) has asked for that.
-  if not M.screen_kept then
+  -- A key that only waits, outside insert mode, and that nothing else
+  -- asked a frame for, draws the status line and the command line only:
+  -- the views did not change (`d` before its motion, a count, `"a`).
+  if
+    outer
+    and only_waits
+    and mode_before ~= "i"
+    and api.ui_redraws() == redraws
+    and lines_show_waiting(mode_before, hint_up)
+  then
+    M.screen_kept = true
+    api.ui_redraw_line()
+  elseif not M.screen_kept then
+    -- Unless a prompt drew only its line (`paw.views.cmdline`), all of it.
     api.ui_redraw()
   end
   finish_command()

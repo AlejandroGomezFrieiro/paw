@@ -2055,7 +2055,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   which: "status" (default), "winbar", "inactive_winbar" or "tabline"
   ```
 - `paw.statusline.setup(opts)`: Change the line: only what is given changes. `sections` replaces the sections it names, `views` and the other bars likewise.
-- `paw.statusline.stamp(width, which, extra)`: A text of what the line for `width` columns is drawn from, between two whole frames: `moves` (or else `key`) of each component that is not `still`. Nil when a component shown has none of them (it may change at any time). Between whole frames, the screen draws the line again only when this text changes.
+- `paw.statusline.stamp(width, which, extra)`: A text of what the line for `width` columns is drawn from, between two whole frames: the mode, the keys typed so far, and `moves` (or else `key`) of each component that is not `still`. A key that only waits for the next key, such as `d`, draws no whole frame. Nil when a component shown has none of them (it may change at any time). Between whole frames, the screen draws the line again only when this text changes.
 - `paw.statusline.tabline(width)`: What the tab line holds at its right end, as pieces, for `width` columns.
 - `paw.statusline.tabline_always()`: True if the tab line shows with one tab.
 - `paw.statusline.winbar(view, focused)`: What the window with the keys (or another) adds to its title bar: the text of the `winbar` (or `inactive_winbar`), or nil when there is none.
@@ -2810,7 +2810,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.ui_line_redraws()`: How many of the redraws (`ui_redraws`) were `ui_redraw_line`.
 - `paw.api.ui_mouse(on)`: True if the terminal reports the pointer (`paw.opt.mouse`), for the screen that paw draws now.
 - `paw.api.ui_redraw()`: --- screen ---
-- `paw.api.ui_redraw_line()`: The prompt on the command line changed: draw its live parts again (the line and the list), on the frame drawn last, and tell the windows that show state that something moved. Cheaper than `ui_redraw`: the views under it are not drawn again.
+- `paw.api.ui_redraw_line()`: The prompt on the command line changed, or a key only waits for the next one: draw the live parts again (the status line, the command line and its list), on the frame drawn last, and tell the windows that show state that something moved. Cheaper than `ui_redraw`: the views under it are not drawn again.
 - `paw.api.ui_redraw_live()`: Draw only the live parts of the screen again (the playhead, the meters, the status line), on the frame drawn last; a whole frame when one is asked for too, or the runtime says it is needed.
 - `paw.api.ui_redraws()`
 - `paw.api.ui_seat(seat)`

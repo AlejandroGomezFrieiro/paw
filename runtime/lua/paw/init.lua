@@ -106,6 +106,8 @@ paw.wait = api.wait
 
 -- Long work in slices between keys (paw/slices.tl): `paw.slices(name, step)`.
 paw.slices = require("paw.slices")
+-- The cycles of the garbage collector run in slices too (paw/collector.tl).
+local collector = require("paw.collector")
 
 paw.commands = require("paw.commands")
 -- The types of what an extension gives paw (a view, a picker, ...) for an
@@ -444,14 +446,20 @@ function K.exit() paw.emit(events.exit, {}) end
 
 function K.key(key)
   if paw.remote and paw.remote.touch then paw.remote.touch() end
-  if not paw.hooks.key(key) then return end
-  -- The keys of a finished command (`dd`, `3>ic`) label the undo step it makes.
-  -- Keys typed into a prompt are text, not commands.
-  local typed = not paw.ui.grabber and paw.keymap.pending() .. key
-  -- A key acts in the window with the keyboard, with its state.
-  paw.layout.settle()
-  paw.limit.guard("the key " .. key, paw.keymap.dispatch, key)
-  if typed and paw.keymap.pending() == "" then api.undo_keys(typed) end
+  paw.keymap.screen_kept = false
+  if paw.hooks.key(key) then
+    -- The keys of a finished command (`dd`, `3>ic`) label the undo step it makes.
+    -- Keys typed into a prompt are text, not commands.
+    local typed = not paw.ui.grabber and paw.keymap.pending() .. key
+    -- A key acts in the window with the keyboard, with its state.
+    paw.layout.settle()
+    paw.limit.guard("the key " .. key, paw.keymap.dispatch, key)
+    if typed and paw.keymap.pending() == "" then api.undo_keys(typed) end
+  end
+  -- The kernel draws no frame for a key by itself: the whole screen,
+  -- unless the keymap drew only the lines (the key of a prompt, a key
+  -- that only waits for the next one).
+  if not paw.keymap.screen_kept then api.ui_redraw() end
 end
 
 function K.paste(text)
@@ -507,6 +515,7 @@ function K.settle()
   paw.limit.guard("the end of a turn", paw.hooks.turn)
   if paw.scene then paw.limit.guard("sending scenes", paw.scene.turn) end
   if paw.remote and paw.remote.turn then paw.limit.guard("sending the state", paw.remote.turn) end
+  collector.turn()
 end
 
 function K.timer(fn) paw.limit.guard("a timer", fn) end

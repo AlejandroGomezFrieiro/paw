@@ -253,6 +253,107 @@ rest is `read.part` for the 2 048 windows and the 64 tracks made again.
 A decode that starts at the first changed window would save less than
 0.5 ms, so the branch does not do it.
 
+## 2026-11-23: the key d, the collector between keys, and `events_take` after u of dd (TASK-163)
+
+Setup: the shared binary of b48920a4 (dev profile), with the Lua of
+b404646a ("main") and of this branch in turns (`PAW_RUNTIME`), under the
+measure lock on cores 16 to 23. The project of `bench/profile/project.lua`
+(64 tracks, 2 000 clips, 50 000 notes). A key is the processor time of the
+kernel thread from the key until the screen is quiet for 300 ms. The script
+and its probes are not in the repository: they use `drive.py` of TASK-190
+(`measure_key`, the `paw.limit.slow` list, `handlers.lua`). All values were
+measured under external load.
+
+### The key d
+
+The key `d` (an operator before its motion) draws one whole frame, and that
+frame is the cost. `jit.profile` of 15 presses of `d` (main, load 7.1):
+74 % of the samples are in the arrange view (`arrange.lua:render`, its
+`lane` 39 %), 6.5 % in the status line, 57 % in the state J (the trace
+compiler: TASK-195). The keymap itself takes 0.2 ms.
+
+Now a key that only waits for the next key (an operator, a count, a
+register, a prefix, Escape out of them) draws only the status line and the
+command line, as live parts (`ui_redraw_line`). A view that draws the mode
+of an operator (the arrange view with lanes open) says so with
+`operator_shown`, and gets a whole frame.
+
+`d` then Escape, 15 rounds a run, 4 runs each in turns (load 3.8 to 5.1).
+The key comes over the control socket (`keys`): the shared binary does not
+have the kernel change of this branch, and a key of the terminal there
+always draws a whole frame. The median of each run, and the smallest and
+largest press of all runs:
+
+| Key | Main | Branch |
+| --- | ---: | ---: |
+| `d` | 5.3, 5.6, 6.1, 6.4 ms (3.8 to 47.4) | 1.4, 1.5, 1.6, 1.6 ms (0.8 to 32.8) |
+| `Esc` after `d` | 10.3 to 13.2 ms | 6.5 to 7.7 ms |
+
+The largest values are the first press of a run. `Esc` also pays the
+whole frame of the list of keys that `d` asks for after
+`paw.opt.hint_delay` (500 ms).
+
+The kernel change (`crates/paw-core/src/kernel.rs`): a key of the terminal
+sets no whole frame by itself. `K.key` asks for it, unless the keymap drew
+only the lines. Before, each key of the terminal drew a whole frame, also
+a key typed in the `:` line, which only the tests (keys over the socket)
+drew as a line.
+
+### The collector after an edit
+
+In main, LuaJIT's incremental collector ends some cycles inside a key.
+The turn of the key then pays the atomic step and the sweep, and
+`paw.opt.budget_ms` names "an event handler" or a frame. Now the cycle
+runs as the job `collector` of `paw.slices` (paw/collector.tl), in slices
+of 2 ms between keys, after a turn in which the heap grew to 2 times its
+size after the last cycle. LuaJIT's own pause is 300 %, so it starts a
+cycle in a turn only when one turn makes more garbage than that room.
+Between two slices, the job stops the collector. Without that, the turns in
+between paid steps as they allocated, and the next slice paid what they
+left owed (slices of 5 to 13 ms).
+
+`repeat` of `x`, `u`, `dd`, `u`, 10 rounds a run with `handlers.lua`, 4
+runs each in turns (load 3.7 to 7.7):
+
+| | Main | Branch |
+| --- | ---: | ---: |
+| Ends of a turn over 4 ms in which the heap fell (160 presses of `u` after `dd` a side) | 3 (4.7, 6.9 and 15.7 ms; the heap fell 5 to 6 MB) | 0 |
+| Runs that name "an event handler" | 2 of 4 (6.9 and 15.7 ms) | 1 of 4 (19.1 ms, the heap did not fall) |
+| Cycles that the job ended in a run | none | 6 to 7 |
+| Slices of the job over 5 ms in a run | none | 1 to 3 (5.3 to 15.4 ms) |
+| `dd`, median of the runs | 58.0 to 70.9 ms | 54.9 to 69.9 ms |
+| `u` after `dd`, median of the runs | 54.7 to 79.6 ms | 47.4 to 82.4 ms |
+
+The key costs show no measurable difference: the work moves, and the
+cycles come as often as before. A probe of each call of
+`collectgarbage("step", 0)` in the job found one step of 9.6 and one of
+15.3 ms of processor time in a run, with a heap of 36 MB. That is one
+indivisible step of the cycle (the atomic step or one large table), and a
+key that comes then waits for it. The slow event handler of the branch was
+not the collector: in a probe run, the two calls of `events_take` over 3
+ms took 5.1 and 3.6 ms on the clock and 1.2 and 0.7 ms of processor time
+(the thread did not run).
+
+### `events_take` after u of dd
+
+`u` after `dd` gives 35 events in one call (32 `clip.added`,
+`track.added`, `device.added`, `changed`). `events_take` first sends the
+edits to the engine (the 32 clips of the track that comes back), then
+makes a table for each event. A script (`-l`, 30 rounds a run, 2 runs
+each, load 3.5 to 4.5) timed each call:
+
+| | Main | Branch |
+| --- | ---: | ---: |
+| `events_take` after `u` of `dd` | 0.224 ms median (0.200 to 0.377) | 0.221 ms median (0.185 to 0.282) |
+| An empty call | about 1 µs | about 1 µs |
+
+In the terminal it is called on each turn, about 27 times a press. The
+sum for a press was 0.76 to 1.22 ms in main and 0.78 to 0.88 ms in the
+branch, and the largest call 0.54 to 3.87 ms in main and 0.55 to 0.99 ms
+in the branch. The large calls of main (TASK-116: up to 4.6 ms) are steps
+of the collector that its allocations ran: the heap fell in that call. In
+the branch they come in the job.
+
 ## 2026-11-23: the group tree and the marks of groups in a frame (TASK-184)
 
 The scenario `scope` of `bench/profile/drive.py`, with the Lua of the

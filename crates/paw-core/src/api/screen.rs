@@ -186,10 +186,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // The ranges that `view_ranges_set` gave last.
         // @return {types.ViewRange}
         fn view_ranges(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().view_ranges()) }
-        // The prompt on the command line changed: draw its live parts again
-        // (the line and the list), on the frame drawn last, and tell the
-        // windows that show state that something moved. Cheaper than
-        // `ui_redraw`: the views under it are not drawn again.
+        // The prompt on the command line changed, or a key only waits for the
+        // next one: draw the live parts again (the status line, the command
+        // line and its list), on the frame drawn last, and tell the windows
+        // that show state that something moved. Cheaper than `ui_redraw`:
+        // the views under it are not drawn again.
         // @return nil
         fn ui_redraw_line(_, sh, () => ()) {
             sh.live_dirty.set(true);

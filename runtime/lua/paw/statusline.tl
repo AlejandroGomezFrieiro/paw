@@ -1138,15 +1138,16 @@ function M.segments(width: integer, which?: string, extra?: Extra): Segments
 end
 
 --- A text of what the line for `width` columns is drawn from, between two
---- whole frames: `moves` (or else `key`) of each component that is not
---- `still`. Nil when a component shown has none of them (it may change at
---- any time). Between whole frames, the screen draws the line again only
---- when this text changes.
+--- whole frames: the mode, the keys typed so far, and `moves` (or else
+--- `key`) of each component that is not `still`. A key that only waits for
+--- the next key, such as `d`, draws no whole frame. Nil when a component shown has
+--- none of them (it may change at any time). Between whole frames, the
+--- screen draws the line again only when this text changes.
 function M.stamp(width: integer, which?: string, extra?: Extra): string
   which = which or "status"
   local ctx = context(width, which, extra)
   local sections = sections_for(which, ctx.view, ctx.active)
-  local out: {string} = {}
+  local out: {string} = {ctx.mode as string, paw.keymap.pending()}
   for _, letters in ipairs({LEFT, RIGHT}) do
     for _, letter in ipairs(letters) do
       for _, entry in ipairs(sections[letter] or {}) do
