@@ -1509,6 +1509,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.blocks(nest)`: Every clip that places subproject `nest`, in order of time.
 - `paw.nest.content_key(c)`: A key that changes when what a block plays changes: the stamps of the clips of its subproject, and the block's own place in it.
 - `paw.nest.describe(c)`: `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen block. `c` is the clip, in the window's time.
+- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder), as `:nest.export` does: its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
 - `paw.nest.is_open(row)`: Whether a row is open in place.
 - `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
@@ -1523,6 +1524,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
+- `paw.nest.write(folder)`: Write the window's view as a project folder of its own at `folder` (`~/` is the home folder), as `:scope.write <folder>` does: copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media copied in (`paw.api.scope_export`). Inside a subproject, the subproject, as `paw.nest.export` writes it. The song does not change. Returns the message.
 
 ## Module paw.notes
 
@@ -2665,6 +2667,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
 - `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
 - `paw.api.nest_beat(clip, beat)`: The subproject's beat of the song's beat `beat`, for block `clip`.
+- `paw.api.nest_export(id, dir)`: Write a subproject as a project folder of its own at `dir`, a new or empty folder. Its tracks become the project's tracks and its master the master. A subproject that follows the song's tempo or meter gets the song's from its first block. Its media are copied into `media/`. The song does not change. Returns `path` (the new `project.toml`), `tracks`, `media` (the files copied), `missing` and `changes`.
 - `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
 - `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
 - `paw.api.nest_own_tempo(clip)`: Whether the subproject that block `clip` places counts its own time: true with its own tempo, false with only its own meter, nil when it follows the song's tempo and meter (the song's map from the block's start is its time then). The `nest_tempo_*` functions give its map.
@@ -2706,6 +2709,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.proc_write(id, data)`
 - `paw.api.project_backup(path, note)`: Write the project as it is now to a different file. The path of the project and its modified flag do not change. The file keeps `note` under `recovery`.
 - `paw.api.project_changed_files()`: The files of the open project that changed outside paw and are not acted on yet: paths in its folder, or full paths outside it.
+- `paw.api.project_file_managed(rel)`: Whether `rel`, a path in a project folder, is one of the files that paw writes there (`project_read` takes these from `files`).
 - `paw.api.project_file_text(value)`
 - `paw.api.project_files()`: The files of a project kept in a folder, with what each holds and if it differs from the disk (see `:ls`).
 - `paw.api.project_get(key)`: --- project --- The project as a table. With `key`, only that entry of the table: this is quicker (`edits`, which goes up with each change, is asked for on each key and each edit).
@@ -2713,6 +2717,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_load(path, opts)`: `opts.plugins_offline` opens it with all plugins offline. `opts.offline` is a list of devices (by id) to open offline.
 - `paw.api.project_mark_saved()`: Count the project as it is now as saved, for a script that wrote what it holds somewhere itself (a clip opened alone, written back to its file).
 - `paw.api.project_new()`
+- `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.
 - `paw.api.project_recover(path, opts)`: Open a file written by `project_backup` as the project it was a copy of: under that project's own file name, and as changed. `opts`: `as_path` opens it under that file name instead (for a `.bak`, which has no note), and what `project_load` takes.
 - `paw.api.project_reload()`: Read a project kept in a folder again, as one undo step.
 - `paw.api.project_save(path)`
@@ -2749,6 +2754,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.scene_open(rect, opts)`: While a view is drawn for a scene: a node over a rectangle of it, in units of the scene, that what is written until `scene_close` goes into. `opts`: `role` (a group without), `props`, `hit` (a press on it is on that), `bind` (`meter:4`), `key` (its name; the role and where it is without), `clip` (the part that shows). With `plane` (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see `paw_scene::Axis`) it is a plane, whose kids are placed in its domain; with `into` (the key a plane was made with) it goes into that plane, `rect` in the plane's domain. False when paw draws no scene now, or there is no such plane, with nothing to close.
 - `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
 - `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
+- `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `tracks` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a track outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
 - `paw.api.signature_remove(beat)`
 - `paw.api.signature_set(beat, num, den)`
 - `paw.api.sleep(ms)`

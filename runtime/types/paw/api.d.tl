@@ -231,6 +231,7 @@ local record api
    proc_write: function(id: integer, data: string)
    project_backup: function(path: string, note: any)
    project_changed_files: function(): {string}
+   project_file_managed: function(rel: string): boolean
    project_file_text: function(value: types.ProjectData): string
    project_files: function(): {types.ProjectFile}
    project_get: function(): types.Project
@@ -238,6 +239,7 @@ local record api
    project_load: function(path: string, opts?: types.OpenOptions)
    project_mark_saved: function()
    project_new: function()
+   project_read: function(path: string, files?: {string:string}): types.ProjectData
    project_recover: function(path: string, opts?: types.OpenOptions): any
    project_reload: function()
    project_save: function(path?: string): string

@@ -11023,6 +11023,11 @@ function paw.api.project_backup(path, note) end
 --- acted on yet: paths in its folder, or full paths outside it.
 function paw.api.project_changed_files() end
 
+--- Whether `rel`, a path in a project folder, is one of the files that
+--- paw writes there (`project_read` takes these from `files`).
+---@param rel string
+function paw.api.project_file_managed(rel) end
+
 ---@param value any
 function paw.api.project_file_text(value) end
 
@@ -11052,6 +11057,15 @@ function paw.api.project_load(path, opts) end
 function paw.api.project_mark_saved() end
 
 function paw.api.project_new() end
+
+--- Read a project folder (`song` or `song/project.toml`) without
+--- opening it, in the form that `undo_project` gives. `files` holds
+--- the files that paw writes in the folder, by their path in it, for
+--- a version that is not on the disk, such as a revision of git. paw
+--- reads the media from the disk. See extensions/projdiff.
+---@param path string
+---@param files any?
+function paw.api.project_read(path, files) end
 
 --- Open a file written by `project_backup` as the project it was a
 --- copy of: under that project's own file name, and as changed.
