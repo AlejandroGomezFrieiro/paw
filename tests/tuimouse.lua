@@ -366,7 +366,8 @@ local function in_cue(time)
   api.undo_checkpoint()
   paw.cursor.set_track(row.id)
   paw.cursor.set_beat(17)
-  paw.keymap.feed(":nest.time " .. time .. "<CR>")
+  -- A new subproject follows the song's time already.
+  if time ~= "follow" then paw.keymap.feed(":nest.time " .. time .. "<CR>") end
   paw.keymap.feed("znn")
   paw.tempolane.show(true)
   T.after(function() paw.tempolane.show(false) end)

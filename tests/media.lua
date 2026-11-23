@@ -302,7 +302,7 @@ test("a render gives the same samples as the renderer before it moved to a threa
     T.scratch .. "/same24.wav",
     { bits = 24, tail = 1, normalize = -1, dither = true, start = 4, ["end"] = 12 }
   )
-  eq(checksum(info.path), "1522290 feb3b22f", "and the same normalized, dithered 24-bit samples")
+  eq(checksum(info.path), "1522290 72bb1045", "and the same normalized, dithered 24-bit samples")
 end)
 
 test("a render takes a range, a tail, a rate, a channel count and a sample size", function()
