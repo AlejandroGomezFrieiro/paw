@@ -6260,6 +6260,14 @@ function paw.nest.unique(clip) end
 ---@param opts any
 function paw.notes.quantize(notes, opts) end
 
+--- The start that `quantize` gives a note that starts at `start`, with
+--- the same options (`lengths` changes no start). It makes no copy of a
+--- note, for code that snaps thousands of notes and keeps only their
+--- starts.
+---@param start any
+---@param opts any
+function paw.notes.snap(start, opts) end
+
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
 ---@param name any

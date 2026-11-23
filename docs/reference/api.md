@@ -1515,6 +1515,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.notes
 
 - `paw.notes.quantize(notes, opts)`: Snap the starts of the notes to a grid. `opts.strength` says how far a note moves, `opts.swing` moves every second grid line later, and `opts.lengths` snaps the lengths too. With `opts.within`, a note stays inside a clip of that length. No start goes below 0.
+- `paw.notes.snap(start, opts)`: The start that `quantize` gives a note that starts at `start`, with the same options (`lengths` changes no start). It makes no copy of a note, for code that snaps thousands of notes and keeps only their starts.
 
 ## Module paw.option
 
