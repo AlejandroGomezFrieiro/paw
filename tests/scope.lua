@@ -1,6 +1,6 @@
 -- Tests of narrowing to a group (paw.scope), freezing tracks, groups and
 -- blocks of subprojects (paw.freeze, paw.freeze_block,
--- crates/paw-core/src/freeze.rs) and stems by group (paw.stems). Loaded by
+-- crates/paw-core/src/freeze.rs) and stems by group (paw.export). Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
 local test, eq, near, fails, fresh = T.test, T.eq, T.near, T.fails, T.fresh
