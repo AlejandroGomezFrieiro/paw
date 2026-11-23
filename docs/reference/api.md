@@ -508,7 +508,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
 - `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0, and in the scope's time).
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
-- `paw.cursor.shift(track)`: For a track of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is. Nil for any other track. The arrange view draws its clips that much later, and the cursor finds them there.
+- `paw.cursor.shift(track, beat)`: For a track of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is, for the block of the row at `beat` (the first block when none is there). Nil for any other track. The arrange view draws its clips that much later, and the cursor finds them there.
 - `paw.cursor.snap(beat)`: Round a position to the arrange grid.
 - `paw.cursor.track()`: The track the cursor is on, as a `paw.Track`, or nil.
 - `paw.cursor.track_id()`: The id of the track of the cursor, or of the first track when that track does not exist now. Nil when the project has no tracks. 0 when the cursor is on the master track (`on_master`).
@@ -1409,7 +1409,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.depth(id)`: The level of a region: 1 at the top, 2 inside one region, and so on. Nil for a marker.
 - `paw.markers.find(which)`: The marker or region of a number (its place in the song), of an id given as `{ id = n }`, or of a name. Nil if there is none.
 - `paw.markers.label(marker)`: What a marker is called on screen: its name, or its number in the song.
-- `paw.markers.lane_row(id)`: The row of the regions' lane that a marker or region is on: 0 for the first row (the top level, and the markers).
+- `paw.markers.lane_row(id, time)`: The row of the regions' lane that a marker or region is on: 0 for the first row (the top level, and the markers). With `time`, the window's time (`paw.ruler.lane_time()`), the regions that cover all the time of the window's scope are not on the lane, and the regions inside them go up a row.
 - `paw.markers.list()`: Each marker and region, in order of time: { id, beat, name, length, color }. A region has a `length` in beats. A marker has no length.
 - `paw.markers.move(id, beat, alone)`: Move a marker or a region so that it starts at `beat`. A region takes the regions and the markers inside it along, in one undo step, unless `alone`. Returns it and how many moved with it.
 - `paw.markers.next(beat)`: The first marker after a beat, and the last before it.
@@ -1529,16 +1529,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.open(path, opts)`: Open the song of `path`, a path inside a song (`song/nests/Bridge`, see `song_of`), and enter that subproject in the window, as `:e` of the path does. The song opens only when it is not open already; `opts` go to `paw.loading.open`. Returns the message.
 - `paw.nest.outputs(nest, row, how)`: Give a subproject one row of its own for each of its tracks (`stems`), or one stereo return again (`master`), on its return row `row`. Call it in one undo step. Returns the message.
 - `paw.nest.own(nest)`: Make subproject `nest`, which refers to a project folder, the song's own copy now, as `:nest.own` does: the subprojects that came with it too. One undo step: `u` makes it refer to the folder again. Returns the message.
+- `paw.nest.places(nest)`: How many places the song plays subproject `nest` in: `×2` on its return row and on each of its blocks.
 - `paw.nest.promote(clip, deep)`: Promote the subproject of block `clip` to a view, as `:nest.promote` does: its tracks come back in a group named after it at the place of its return row (`paw.api.nest_promote`); its regions come back as children of a region named after it over the block (made if there is none); its own meter goes into the song's map over the block; and the window that was inside it is now inside a view of the group's tracks over the region's time, at the same place. With `deep`, the subprojects inside it too. Call it in one undo step. Returns the message.
+- `paw.nest.returns(row)`: The subproject that a row returns, when the window shows the row's place: what `za` shows under it. Nil for any other row.
 - `paw.nest.save(name, own_row, stems)`: Save the window's view as a subproject, as `:scope.write` does: per track, or with a row of its own (`own_row`, `:scope.write!`). The view's clips move into the subproject (`paw.api.nest_save`); the rows get its blocks. In a view with time, its markers and regions inside move in, and a region over its time stays; a view with no time takes none of them. The meter of the time is the subproject's own. With a row of its own, no route of the song changes: the row plays where the tracks played, in their group; when they played into several buses, it plays into the master, and `stems` gives a stem row for each track, into its bus. Per track, the window stays in the view; with a row of its own, it is inside the subproject at the same place. Call it in one undo step. Returns the message.
 - `paw.nest.set_data(nest, data)`: Store the data of subproject `nest`'s kind, as one undo step.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
+- `paw.nest.shown_under(track)`: The return row that a track of a subproject is shown under, in place (`za`), or nil for any other track.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
+- `paw.nest.windows(track)`: For a track shown in place under its return row: each block of the row that plays the whole subproject, in order of time. The arrange view draws the track's clips in each of them, and nothing outside them. Nil for any other track.
 - `paw.nest.write(folder)`: Write the window's view as a project folder of its own at `folder` (`~/` is the home folder), as `:scope.write <folder>` does: copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media copied in (`paw.api.scope_export`). Inside a subproject, the subproject, as `paw.nest.export` writes it. The song does not change. Returns the message.
 
 ## Module paw.notes
@@ -1993,7 +1997,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
 - `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
 - `paw.scope.cursor_beat(win)`: The cursor's beat in the time of window `win` (the one being drawn, else the current one). The cursor counts in the time of the current window, so another window that shows another timeline (a split with one window inside a subproject) has it at the same place of the song, in its own beats. Nil when that place is outside the time the window shows: such a window keeps its place.
-- `paw.scope.describe(s, extra)`: What a scope (the current one by default) shows, in words: its path, its bars (its own, and the song's), its meter, its tracks, and whether it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 12 tracks · named`.
+- `paw.scope.describe(s, extra)`: What a scope (the current one by default) shows, in words: its path, its bars (its own, and the song's), its meter, its tracks, and whether it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named`.
 - `paw.scope.describe_fold(f)`: A fold of the current window in words, as a scope inside the one the window shows, and whether it is folded: `Song › Strings · 3 tracks · folded`.
 - `paw.scope.enter(spec, win)`: Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the current one by default). In a window that shows a scope, it becomes its child: it shows what both show, and an empty one is refused with the reason. Changes nothing in the project; a jump. Returns the scope.
 - `paw.scope.find(which)`: A group by its id, its track, or its name (or part of it).
@@ -2019,6 +2023,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.origin()`: The song's beat of beat 0 of the time the window shows (the window being drawn, else the current one): in a subproject, where its block starts; else 0. `paw.time` adds it, so that a subproject's bars are the song's bars at its place.
 - `paw.scope.own_time()`: The own time of the subproject that the window (the one being drawn, else the current one) is in, when it has its own tempo or meter (`paw.api.nest_own_tempo` of the block it was entered through); else nil. `paw.time` counts in it then.
 - `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
+- `paw.scope.place(beat)`: A place of the window being drawn (else the current one), as its window bar and the status line give it: `bar.beat` as the scope numbers it, then the song's with `@` where they differ (`1.2 @9.2`), as a bar typed with `@` is the song's.
 - `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
 - `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
 - `paw.scope.saved_names()`: The named scopes as the project's screen keeps them (paw/layout.tl).
@@ -2028,6 +2033,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset), and for a subproject inside another, that clip's place in the song too; else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
 - `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
+- `paw.scope.where(s)`: Where a window is, in words, for its window bar and the status line: the path without the song, which is always there (`Verse › Keys`, `⧉Bridge`), or `Song` with no scope.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 - `paw.scope.window(win)`: The window whose scope and folds a view shows: the one given, else the one being drawn, else the current one; for a view that keeps no stack of its own (the mixer), the arrange window of its tab.
 

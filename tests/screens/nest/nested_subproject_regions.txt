@@ -1,16 +1,16 @@
- cur 1.1.00    │1      ▕3       5       7       9       11      13
-               │▏Verse
- 1 ›█ Track 1  │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
-    █ ──── 0.0 │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
-    █          │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
-    █          │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
-      o new tra│
-               │
-               │
-               │
-               │
-               │
-    ▌ Master   │
-    ▌ ▀▀▀▀ 0.0 │
- NOR  ■ @1.1.00          Song › ⧉Bridge › ⧉Roll 1.1 (11.1) │ ● untitled
+ …› ⧉Roll     │1       ┃
+ cur 1.1 @11.1│@11     ┃ end of ⧉Roll · zW: the song
+ 1 █ Track 1  │▏   ▏   ┃
+   █ ──── 0.0 │▏   ▏   ┃
+   █          │▏   ▏   ┃
+   █          │▏   ▏   ┃
+     o new tra│
+              │
+              │
+              │
+              │
+              │
+   ▌ Master   │
+   ▌ ▀▀▀▀ 0.0 │
+ NOR  ■ @1.1.00 │ loop 1–2       ⧉Bridge › ⧉Roll 1.1 @11.1 │ ● untitled
 added the subproject Roll over bars 3-4, on its own row; inside it now…

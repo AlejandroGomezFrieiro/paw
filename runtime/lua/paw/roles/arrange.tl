@@ -157,8 +157,9 @@ end
 --- the cut at its end. `ghost`
 --- is where a drag will put one. With `take` it is that take of the clip
 --- in a take lane (`paw.frontend.take_preview`), lit when `active`. With
---- `nest` it is a block of a subproject: a frame around it, and in its
---- body the notes that the subproject plays there.
+--- `nest` it is a block of a subproject: a frame around it (`╭⧉ Bridge
+--- ──╮`, its edges down the body), and in its body the notes that the
+--- subproject plays there.
 role(
   "clip",
   {
@@ -213,7 +214,7 @@ role(
       end
       buf:fill(0, 0, w, 1, " ", p.title_style)
       local x0 = w > 2 and 1 or 0
-      buf:text(x0, 0, title(p, w - x0))
+      local title_end = x0 + buf:text(x0, 0, title(p, w - x0))
       if h >= 2 then
         buf:fill(0, 1, w, h - 1, " ", p.body_style)
         if p.body then
@@ -238,10 +239,19 @@ role(
       -- apart. It is on the name row only: each cell of the body shows the
       -- notes or the sound of exactly its time, the first cell too.
       buf:fill(0, 0, 1, 1, g.clip_start, "ClipEdge")
-      -- A block of a subproject has a frame: a line where it ends too, on
-      -- the name row for the same reason.
+      -- A block of a subproject has a frame around all of it: `╭⧉ Bridge
+      -- ──╮` on the name row, and its edges down the body in its first and
+      -- last columns.
       if p.nest and w > 2 then
-        buf:fill(w - 1, 0, 1, 1, g.clip_start, "ClipEdge")
+        if title_end + 1 < w - 1 then
+          buf:fill(title_end + 1, 0, w - 1 - (title_end + 1), 1, g.h, "ClipEdge")
+        end
+        buf:text(0, 0, g.tl, "ClipEdge")
+        buf:text(w - 1, 0, g.tr, "ClipEdge")
+        if h >= 2 then
+          buf:fill(0, 1, 1, h - 1, g.v, "ClipEdge")
+          buf:fill(w - 1, 1, 1, h - 1, g.v, "ClipEdge")
+        end
       end
       -- Where a scope cuts it: `‹` and the name where the scope starts (the
       -- start of the clip is out of sight), `›` where it ends.

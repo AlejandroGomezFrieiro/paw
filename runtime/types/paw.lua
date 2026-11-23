@@ -2055,11 +2055,13 @@ function paw.cursor.set_beat(beat) end
 function paw.cursor.set_track(track, lane) end
 
 --- For a track of a subproject shown in place under its return row: the
---- beat of the window where the subproject's beat 0 is. Nil for any other
---- track. The arrange view draws its clips that much later, and the
---- cursor finds them there.
+--- beat of the window where the subproject's beat 0 is, for the block of
+--- the row at `beat` (the first block when none is there). Nil for any
+--- other track. The arrange view draws its clips that much later, and
+--- the cursor finds them there.
 ---@param track any
-function paw.cursor.shift(track) end
+---@param beat any
+function paw.cursor.shift(track, beat) end
 
 --- Round a position to the arrange grid.
 ---@param beat any
@@ -5828,10 +5830,14 @@ function paw.markers.find(which) end
 ---@param marker any
 function paw.markers.label(marker) end
 
---- The row of the regions' lane that a marker or region is on: 0 for the
---- first row (the top level, and the markers).
+--- The row of the regions' lane that a marker or region is on: 0 for
+--- the first row (the top level, and the markers). With `time`, the
+--- window's time (`paw.ruler.lane_time()`), the regions that cover all the
+--- time of the window's scope are not on the lane, and the regions inside
+--- them go up a row.
 ---@param id any
-function paw.markers.lane_row(id) end
+---@param time any
+function paw.markers.lane_row(id, time) end
 
 --- Each marker and region, in order of time: { id, beat, name, length, color }.
 --- A region has a `length` in beats. A marker has no length.
@@ -6348,6 +6354,11 @@ function paw.nest.outputs(nest, row, how) end
 ---@param nest any
 function paw.nest.own(nest) end
 
+--- How many places the song plays subproject `nest` in: `×2` on its
+--- return row and on each of its blocks.
+---@param nest any
+function paw.nest.places(nest) end
+
 --- Promote the subproject of block `clip` to a view, as `:nest.promote`
 --- does: its tracks come back in a group named after it at the place of
 --- its return row (`paw.api.nest_promote`); its regions come back as
@@ -6359,6 +6370,11 @@ function paw.nest.own(nest) end
 ---@param clip any
 ---@param deep any
 function paw.nest.promote(clip, deep) end
+
+--- The subproject that a row returns, when the window shows the row's
+--- place: what `za` shows under it. Nil for any other row.
+---@param row any
+function paw.nest.returns(row) end
 
 --- Save the window's view as a subproject, as `:scope.write` does: per
 --- track, or with a row of its own (`own_row`, `:scope.write!`). The
@@ -6400,6 +6416,11 @@ function paw.nest.set_time(nest, how, bpm) end
 
 paw.nest.shift = paw.cursor.shift
 
+--- The return row that a track of a subproject is shown under, in place
+--- (`za`), or nil for any other track.
+---@param track any
+function paw.nest.shown_under(track) end
+
 --- The song and the subproject that a path inside a song names
 --- (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the
 --- subproject's id. Nil for any other path.
@@ -6420,6 +6441,13 @@ paw.nest.under = paw.groups.under
 --- copy. Call it in one undo step. Returns the message.
 ---@param clip any
 function paw.nest.unique(clip) end
+
+--- For a track shown in place under its return row: each block of the
+--- row that plays the whole subproject, in order of time. The arrange view
+--- draws the track's clips in each of them, and nothing outside them.
+--- Nil for any other track.
+---@param track any
+function paw.nest.windows(track) end
 
 --- Write the window's view as a project folder of its own at `folder`
 --- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
@@ -7924,7 +7952,7 @@ function paw.scope.cursor_beat(win) end
 
 --- What a scope (the current one by default) shows, in words: its path,
 --- its bars (its own, and the song's), its meter, its tracks, and whether
---- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
 --- 6/8 · 12 tracks · named`.
 ---@param s any
 ---@param extra any
@@ -8059,6 +8087,13 @@ function paw.scope.own_time() end
 ---@param s any
 function paw.scope.path(s) end
 
+--- A place of the window being drawn (else the current one), as its
+--- window bar and the status line give it: `bar.beat` as the scope
+--- numbers it, then the song's with `@` where they differ (`1.2 @9.2`),
+--- as a bar typed with `@` is the song's.
+---@param beat any
+function paw.scope.place(beat) end
+
 --- The parts of the rest of the song that paw can freeze for a scope. These
 --- are the tracks outside it at the top of their branch (a whole group, not
 --- its members). They are not the tracks that the sound of the scope goes
@@ -8109,6 +8144,12 @@ function paw.scope.span(s) end
 --- the song; in a subproject, its tracks.
 ---@param s any
 function paw.scope.tracks(s) end
+
+--- Where a window is, in words, for its window bar and the status line:
+--- the path without the song, which is always there (`Verse › Keys`,
+--- `⧉Bridge`), or `Song` with no scope.
+---@param s any
+function paw.scope.where(s) end
 
 --- Leave the scope of a window (the current one by default): up one level,
 --- or with `top` to the song. False when it shows the song.

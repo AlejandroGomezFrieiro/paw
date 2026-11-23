@@ -1285,13 +1285,6 @@ local function levels(): integer
   return math.max(1, math.tointeger((options.opt as {string: number}).regionlevels) or 3)
 end
 
---- The row of the regions' lane that a marker or region is on: 0 for the
---- first row (the top level, and the markers).
-function M.lane_row(id: integer): integer
-  local depth = M.depth(id)
-  return depth and math.min(depth, levels()) - 1 or 0
-end
-
 local record Label
   x: integer
   text: string
@@ -1331,13 +1324,42 @@ function M.placed(m: Marker, time: contracts.RulerLaneContext): number, number
   return placed(time, m.beat, m.length)
 end
 
+--- Whether a region covers all the time of the window's scope: it only
+--- says again what the window bar says (`Verse` in `Verse`), so the lane
+--- does not show it, and the regions inside it go up a row.
+local function repeats_scope(ctx: contracts.RulerLaneContext, r: Marker): boolean
+  if not (ctx.from and r.length) then
+    return false
+  end
+  return ctx.here(r.beat) <= ctx.from + 1e-9 and ctx.here(r.beat + r.length) >= ctx.to - 1e-9
+end
+
+--- The row level of a region in the lane: its depth, less the regions
+--- around it (itself too) that cover the scope's time. Nil for a region
+--- that covers it.
+local function shown_depth(ctx: contracts.RulerLaneContext, node: Node): integer
+  if repeats_scope(ctx, node.region) then
+    return nil
+  end
+  local depth = node.depth
+  local up = node.parent
+  while up do
+    if repeats_scope(ctx, up.region) then
+      depth = depth - 1
+    end
+    up = up.parent
+  end
+  return depth
+end
+
 --- The rows of the lane: one for each level of the regions that show, at
 --- most `levels()`; one for markers alone; none when nothing shows.
 local function lane_rows(ctx: contracts.RulerLaneContext): integer
   local deepest = 0
   for _, node in ipairs(M.walk()) do
-    if placed(ctx, node.region.beat, node.region.length) then
-      deepest = math.max(deepest, node.depth)
+    local depth = shown_depth(ctx, node)
+    if depth and placed(ctx, node.region.beat, node.region.length) then
+      deepest = math.max(deepest, depth)
     end
   end
   if deepest == 0 then
@@ -1349,6 +1371,22 @@ local function lane_rows(ctx: contracts.RulerLaneContext): integer
     return 0
   end
   return math.min(deepest, levels())
+end
+
+--- The row of the regions' lane that a marker or region is on: 0 for
+--- the first row (the top level, and the markers). With `time`, the
+--- window's time (`paw.ruler.lane_time()`), the regions that cover all the
+--- time of the window's scope are not on the lane, and the regions inside
+--- them go up a row.
+function M.lane_row(id: integer, time?: contracts.RulerLaneContext): integer
+  time = time or {here = function(beat: number): number return beat end}
+  for _, node in ipairs(M.walk()) do
+    if node.region.id == id then
+      local depth = shown_depth(time, node)
+      return depth and math.min(depth, levels()) - 1 or 0
+    end
+  end
+  return 0
 end
 
 local function render(ctx: contracts.RulerLaneContext)
@@ -1377,15 +1415,16 @@ local function render(ctx: contracts.RulerLaneContext)
   for _, node in ipairs(M.walk()) do
     local r = node.region
     local start, stop = placed(ctx, r.beat, r.length)
-    if start and not hidden(node, start) then
-      local row = math.min(node.depth, last) - 1
-      local style = node.depth == 1 and s.level1 or node.depth == 2 and s.level2 or s.deep
+    local depth = shown_depth(ctx, node)
+    if start and depth and not hidden(node, start) then
+      local row = math.min(depth, last) - 1
+      local style = depth == 1 and s.level1 or depth == 2 and s.level2 or s.deep
       local x0, x1 = math.max(0, ctx.x(start)), math.min(width, ctx.x(stop))
       if x1 > x0 then
         buf:fill(x0, row, x1 - x0, 1, " ", style)
       end
       local mark = closed(r.id) and (g.closed or "▸") or #node.children > 0 and g.open or g.start
-      put(row, {x = ctx.x(start), text = (node.depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
+      put(row, {x = ctx.x(start), text = (depth > last and g.deeper or "") .. mark .. M.label(r), style = style})
     end
   end
   for _, m in ipairs(M.list()) do

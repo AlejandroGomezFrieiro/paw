@@ -18,7 +18,7 @@ tracks, and a block of tracks over some bars are scopes too.
 
 Scopes go inside each other. When you enter the strings inside the
 bridge, you see what both have in common, the strings in the time of the
-bridge, and the status line shows the path, `Song › Bridge › Strings`.
+bridge, and the status line shows the path, `Bridge › Strings`.
 `zw` goes up one level of the path, and `zW` goes up to the song.
 
 A scope belongs to a window and not to the project, in the same way that

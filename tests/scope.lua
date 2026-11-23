@@ -132,7 +132,7 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
     true,
     "drawn: only the strings"
   )
-  eq(text:find("Song › Strings", 1, true) ~= nil, true, "the status line says so")
+  eq(text:find("Strings 1.1", 1, true) ~= nil, true, "the window bar says so\n" .. text)
   -- The rest of the program sees the scope too.
   local items = paw.pick.sources:get("tracks").items()
   eq(#items, 3, "the track picker lists its tracks")
@@ -364,8 +364,8 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   local t = api.transport_get()
   eq(t.loop_enabled and t.loop_start == from and t.loop_end == to, true, "the loop is the region")
   local text = screen()
-  eq(text:find("Song › Bridge 1.1 (17.1)", 1, true) ~= nil, true, "the status line: the path, and both places")
-  eq(text:find("1.1.00", 1, true) ~= nil, true, "the ruler's corner counts from 1")
+  eq(text:find("Bridge 1.1 @17.1", 1, true) ~= nil, true, "the status line: the path, and both places")
+  eq(text:find("cur 1.1 @17.1", 1, true) ~= nil, true, "the window bar: the place in its bars and the song's")
   eq(text:find("loop 1%D+8%D") ~= nil, true, "the status line's loop in its bars")
   eq(paw.ruler.label(18, from + 3, "RulerBar", from)[1][1], "2", "the song's bar 18 is its bar 2")
   -- Motions stop at its edges.
@@ -378,7 +378,7 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   -- Bars typed are its own.
   keys("3|")
   eq(paw.cursor.beat, paw.time.bar_start(19), "3| is the song's bar 19")
-  eq(screen():find("Song › Bridge 3.1 (19.1)", 1, true) ~= nil, true, "and the status line says both")
+  eq(screen():find("Bridge 3.1 @19.1", 1, true) ~= nil, true, "and the status line says both\n" .. screen())
   keys(":2<CR>")
   eq(paw.cursor.beat, paw.time.bar_start(18), ":2 is the song's bar 18")
   eq(api.project_get().edits, edits, "nothing in the project changed")
@@ -395,28 +395,34 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   reset()
 end)
 
--- One numbering on the ruler of a scope: the scope's bars on the bar row,
--- the regions that show in its time on the regions' row, and the place in
--- the song only in the status line, next to the scope's place.
-test("the ruler of a region scope counts its bars only, and the playhead's place is in its bars too", function()
+-- The ruler of a scope: the window bar in its left cells (the scope's
+-- path and the cursor's place in its bars and the song's), the scope's
+-- bars on the bar row and the song's under them with `@`, no region row
+-- for the region that is the scope, and a hard end: `┃` down every row,
+-- nothing after it, and what the ruler says there.
+test("a region scope: the window bar, the song's bars with @, and its end ┃ with nothing after it", function()
   start()
   paw.opt.zoom = 1
-  local bass = paw.add_track({ name = "Bass" })
-  bass:add_clip({ name = "Bass", start = 0, length = 96 })
+  local tracks = {}
+  for _, name in ipairs({ "Kick", "Snare", "Bass" }) do
+    local t = paw.add_track({ name = name })
+    t:add_clip({ name = name, start = 0, length = 96 })
+    tracks[#tracks + 1] = t
+  end
+  paw.groups.make({ tracks[1], tracks[2] }, "Drums")
   paw.markers.add(0, "Intro", { length = 32 })
   paw.markers.add(32, "Verse", { length = 32 })
   paw.markers.add(64, "Chorus", { length = 32 })
   paw.flush()
   api.undo_checkpoint()
   paw.ui.views:get("arrange").scroll = 0
-  paw.cursor.set_track(bass)
+  paw.cursor.set_track(tracks[3])
   paw.cursor.set_beat(32)
   keys(":narrow Verse<CR>")
   api.transport_seek(36)
   T.after(function() api.transport_seek(0) end)
-  -- The bars 1 to 9 of the scope, the region Verse over its bars 1 to 8 and
-  -- no Chorus after it, and the playhead at bar 2 of the scope.
-  T.expect_screen("region_scope", 72, 16, { styles = false })
+  T.expect_screen("region_scope", 100, 30, { styles = false, rows = { 1, 28 } })
+  eq(screen():find("Verse 1.1 @9.1", 1, true) ~= nil, true, "the status line: the path, and both places")
   keys("zw")
   reset()
 end)
@@ -433,7 +439,7 @@ test("K in a region scope, with no clip under the cursor: its path, its bars and
     lines[#lines + 1] = line.text
   end
   local text = table.concat(lines, "\n")
-  eq(text:find("Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil, true, text)
+  eq(text:find("Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil, true, text)
   eq(text:find("Track  Violins", 1, true) ~= nil, true, "then the track")
   reset()
 end)
@@ -532,10 +538,10 @@ test("in Song › Bridge › Strings dar deletes only the strings' clips in the 
   keys(":narrow Strings<CR>")
   paw.cursor.set_track(o.violins)
   paw.cursor.set_beat(from + 2)
-  -- The track column: the scope's tracks from 1, and the sign of a scope.
+  -- The track column: the scope's tracks from 1.
   local text = screen()
   local first = line_with(text, "Strings")
-  eq(first:find("›", 1, true) ~= nil and first:find("1", 1, true) ~= nil, true, "row 1, with ›: " .. first)
+  eq(first:find("1", 1, true) ~= nil, true, "row 1: " .. first)
   eq(line_with(text, "Cellos"):find("3", 1, true) ~= nil, true, "Cellos is row 3: " .. line_with(text, "Cellos"))
   keys("vie")
   local sel = paw.keymap.selection()

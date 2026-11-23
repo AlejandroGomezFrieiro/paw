@@ -92,6 +92,15 @@ local record Block
   row: integer
 end
 
+--- A stretch of the window where a block of a return row plays its
+--- subproject: from `from` up to `to`, beats of the window, and `shift`,
+--- the beat of the window where the subproject's beat 0 is for it.
+local record Window
+  from: number
+  to: number
+  shift: number
+end
+
 --- An entry of `:nest.list`: a block, or a subproject that no block plays.
 local record Item
   nest: integer
@@ -123,6 +132,7 @@ local record M
   type NewOptions = NewOptions
   type Made = Made
   type Block = Block
+  type Window = Window
   type Item = Item
   type Data = Data
   type Crossed = Crossed
@@ -752,8 +762,8 @@ local function instance_key(c: types.Clip): string
   return string.format("%.9g:%.9g", c.start, c.offset or 0)
 end
 
---- How many times the song plays a subproject: its blocks, counting the
---- stems of one block once.
+--- How many times the song plays a subproject (its places): its blocks,
+--- counting the stems of one block once.
 local function instances(nest: integer): integer
   local seen: {string: boolean} = {}
   local n = 0
@@ -785,6 +795,27 @@ local function other_places(c: types.Clip): string
   end
   local last = table.remove(bars)
   return "bars " .. table.concat(bars, ", ") .. " and " .. last
+end
+
+--- The places of each subproject, kept while the project has no new
+--- edit: the arrange view asks for them for each block on each frame.
+local places_of: {integer: integer} = {}
+local places_edits: integer = -1
+local edits_field = api.project_get as function(key: string): integer
+
+--- How many places the song plays subproject `nest` in: `×2` on its
+--- return row and on each of its blocks.
+function M.places(nest: integer): integer
+  local edits = edits_field("edits")
+  if edits ~= places_edits then
+    places_of, places_edits = {}, edits
+  end
+  local n = places_of[nest]
+  if not n then
+    n = instances(nest)
+    places_of[nest] = n
+  end
+  return n
 end
 
 --- The notes that a block plays, from its start, for the small picture
@@ -926,11 +957,9 @@ function M.under(row: integer): {integer}
   return api.track_list({nest = n})
 end
 
---- For a track of a subproject shown in place under its return row: the
---- beat of the window where the subproject's beat 0 is. Nil for any other
---- track. The arrange view draws its clips that much later, and the
---- cursor finds them there.
-function M.shift(track: integer): number
+--- The return row that a track of a subproject is shown under, in place
+--- (`za`), or nil for any other track.
+function M.shown_under(track: integer): integer
   if next(open) == nil then
     return nil
   end
@@ -939,14 +968,93 @@ function M.shift(track: integer): number
     return nil
   end
   for row, shown in pairs(open) do
-    if shown == n and shows_place_of(row) then
-      local c = block_on(row, n)
-      if c then
-        return c.start - (c.offset or 0)
-      end
+    if shown == n and shows_place_of(row) and block_on(row, n) then
+      return row
     end
   end
   return nil
+end
+
+--- For a track shown in place under its return row: each block of the
+--- row that plays the whole subproject, in order of time. The arrange view
+--- draws the track's clips in each of them, and nothing outside them.
+--- Nil for any other track.
+function M.windows(track: integer): {Window}
+  local row = M.shown_under(track)
+  if not row then
+    return nil
+  end
+  local out: {Window} = {}
+  for _, c in ipairs(clip_list(row)) do
+    if c.nest == open[row] and not stem_of(c) then
+      out[#out + 1] = {from = c.start, to = c.start + c.length, shift = c.start - (c.offset or 0)}
+    end
+  end
+  table.sort(out, function(a: Window, b: Window): boolean return a.from < b.from end)
+  return out
+end
+
+--- For a track of a subproject shown in place under its return row: the
+--- beat of the window where the subproject's beat 0 is, for the block of
+--- the row at `beat` (the first block when none is there). Nil for any
+--- other track. The arrange view draws its clips that much later, and
+--- the cursor finds them there.
+function M.shift(track: integer, beat: number): number
+  local windows = M.windows(track)
+  if not windows or #windows == 0 then
+    return nil
+  end
+  for _, win in ipairs(windows) do
+    if beat >= win.from and beat < win.to then
+      return win.shift
+    end
+  end
+  return windows[1].shift
+end
+
+--- The subproject that a row returns, when the window shows the row's
+--- place: what `za` shows under it. Nil for any other row.
+function M.returns(row: integer): integer
+  if not shows_place_of(row) then
+    return nil
+  end
+  return returned(row)
+end
+
+--- What `za` on a return row says: the tracks shown, and that an edit
+--- there changes each place the song plays the subproject in, by the
+--- song's bars (`@9`).
+local function shown_words(nest: integer): string
+  local n = M.get(nest)
+  local count = #api.track_list({nest = nest})
+  local words = string.format(
+    "showing the %d track%s of ⧉%s under its row", count, count == 1 and "" or "s", n and n.name or "?"
+  )
+  local places = M.places(nest)
+  if places < 2 then
+    return words
+  end
+  local bars: {string} = {}
+  local seen: {string: boolean} = {}
+  for _, b in ipairs(M.blocks(nest)) do
+    local key = instance_key(b.clip)
+    if not seen[key] then
+      seen[key] = true
+      bars[#bars + 1] = "@" .. tostring(api.tempo_bar_of(paw.time.song_beat(b.clip.start)) + 1)
+    end
+  end
+  return string.format(
+    "%s: an edit here changes %s places (%s)",
+    words,
+    places == 2 and "both" or ("all " .. places),
+    table.concat(bars, ", ")
+  )
+end
+
+--- What `za` says when it closes the rows of a subproject.
+local function closed_words(nest: integer): string
+  local n = M.get(nest)
+  return string.format("closed ⧉%s under its row", n and n.name or "?")
 end
 
 --- `za` on a return row: open its subproject's tracks under it, in the
@@ -956,6 +1064,7 @@ function M.toggle(track: integer): boolean
   for row, n in pairs(open) do
     if nest_of(track) == n and row ~= track then
       open[row] = nil
+      paw.notify(closed_words(n))
       paw.cursor.set_track(row)
       api.ui_redraw()
       return true
@@ -967,8 +1076,10 @@ function M.toggle(track: integer): boolean
   end
   if open[track] then
     open[track] = nil
+    paw.notify(closed_words(n))
   else
     open[track] = n
+    paw.notify(shown_words(n))
   end
   api.ui_redraw()
   return true

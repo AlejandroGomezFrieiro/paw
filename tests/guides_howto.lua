@@ -1417,10 +1417,10 @@ test("guide: work on a section in another meter", function()
   keys("<Esc>20|znar")
   eq(
     said(),
-    "Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 3 tracks · `zw` goes back",
+    "Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 3 tracks · `zw` goes back",
     "znar enters the bridge and describes it"
   )
-  shows("Song › Bridge 1.1 (17.1)", "the status line gives both places")
+  shows("Bridge 1.1 @17.1", "the status line gives both places")
   shows("1‖6/8", "the ruler counts from 1 in 6/8")
   local tr = paw.transport
   eq(tr.loop_enabled and tr.loop_start .. "-" .. tr.loop_end, "64-88", "the loop is the bridge")
@@ -1429,7 +1429,7 @@ test("guide: work on a section in another meter", function()
   keys("@19|")
   eq(paw.cursor.beat, 70, "@19| is bar 19 of the song")
   keys("K")
-  shows("bars 1-8 (song 17-24) · 6/8", "K describes the bridge")
+  shows("bars 1-8 (song @17-24) · 6/8", "K describes the bridge")
   keys("<Esc>]z")
   eq(paw.scope.breadcrumb(), "Song › Outro", "]z goes to the next region")
   keys("[z")

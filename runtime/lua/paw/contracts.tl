@@ -1014,6 +1014,14 @@ local record contracts
     move_down: string
     remove: string
     editor: string
+    --- The end of a scope's time, on the ruler and down every row.
+    scope_end: string
+    --- The guide down the rows of a subproject shown under its return row.
+    nest_guide: string
+    --- The dotted line that closes the rows of a subproject shown in place.
+    nest_close: string
+    --- After the name of a subproject that the song plays in more places: `×2`.
+    places: string
     --- A cell filled from the bottom, one eighth to eight.
     eighths: {string}
   end
@@ -1098,7 +1106,9 @@ local record contracts
   --- the track's number (its place among the tracks drawn, what `5G`
   --- takes); `line` 0 for the first line of the track's row, then 1, 2,
   --- for the lines under it; `kind` `track`, or `lane` (an automation
-  --- lane shown as a row, `lane` its id) or `take` (a take lane);
+  --- lane shown as a row, `lane` its id) or `take` (a take lane), or
+  --- `end` (the line that closes the tracks of a subproject shown under
+  --- its return row, which is the track given);
   --- `relative` how many `j` or `k` reach the line, nil for a line the
   --- counts skip; `cursor` true on the cursor's line; `width` the
   --- component's columns; `x` the column clicked, for `click` only;

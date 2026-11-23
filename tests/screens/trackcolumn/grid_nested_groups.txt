@@ -1,4 +1,4 @@
- cur 1.1.00             │▼ ▏ ▏
+ Song 1.1               │▼ ▏ ▏
  1   █ Drums   0.0 MSRI │▏
  2 ▾ ▌ Strings 0.0 MSRI │▏
  3 │ ▌ Violins 0.0 MSRI │▏
