@@ -151,6 +151,9 @@ command("info", function()
       lines[#lines + 1] = "  " .. paw.nest.describe(c)
     elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
+      if c.link then lines[#lines + 1] = string.format("  linked: %s, %d clips", c.link, c.link_count) end
+      local overrides = common.overrides_text(c)
+      if overrides then lines[#lines + 1] = "  plays with " .. overrides end
       -- A clip from a file outside the project, or a copy of one.
       if c.source then
         lines[#lines + 1] = string.format("  refers to %s%s", c.source, c.offline and " (missing)" or "")
@@ -214,7 +217,7 @@ command("info", function()
     )
   end
   paw.ui.page("Under the cursor", lines)
-end, { desc = "Describe the clip and track under the cursor" })
+end, { desc = "Describe what is under the cursor: a fold or the scope, the clip, the track" })
 command("wq", function(ctx)
   paw.commands.run("write", ctx.args)
   api.quit(0)

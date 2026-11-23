@@ -33,6 +33,7 @@ local derived = require("paw.derived")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type RulerModule = require("paw.ruler")
 local type MouseModule = require("paw.mouse")
@@ -40,7 +41,6 @@ local type objects = require("paw.objects")
 local type TextbufModule = require("paw.textbuf")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
-local type TempoModule = require("paw.tempo")
 
 local type Context = contracts.StatusContext
 local type Theme = contracts.StatusContext.Theme
@@ -54,14 +54,6 @@ end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules in Lua that it calls: their parts that it uses.
-local record Visual
-  kind: string
-end
-local record Keymap
-  visual: Visual
-  recording: function(): string
-  pending: function(): string
-end
 --- paw/scope.tl, the part of it that this module reads (it names types
 --- that lead back here).
 local record ScopeLevel
@@ -90,6 +82,7 @@ local record Lister
   status: function(): StatusText
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   textbuf: TextbufModule
   audio: Audio
@@ -101,7 +94,6 @@ local record Paw is partial.Paw
   ruler: RulerModule
   scope: Scope
   folds: Folds
-  tempo: TempoModule
   time: objects.Time
 end
 local paw = (_G as {string: Paw}).paw
@@ -427,7 +419,7 @@ spec(
     pill = true,
     fn = function(ctx: Context): StatusText
       local mode = ctx.mode
-      local km = (paw.keymap as Keymap)
+      local km = paw.keymap
       local name = mode == "x" and km.visual and visual[km.visual.kind] or modes[mode] or mode:upper()
       if ctx.width < 80 then
         name = short[name] or short[mode] or name:sub(1, 3)
@@ -446,7 +438,7 @@ spec(
     still = true,
     rank = 1,
     fn = function(): StatusText
-      local recording = (paw.keymap as Keymap).recording()
+      local recording = paw.keymap.recording()
       if recording then
         return {{"@" .. recording, "StatusMacro"}}
       end
@@ -471,7 +463,7 @@ spec(
         -- Counting in: the beats left before the take starts, in place of the time.
         return {state, {" count " .. t.counting, "StatusRec"}}
       end
-      return {state, {" " .. paw.time.format(t.position - paw.time.origin()), "StatusTime"}}
+      return {state, {" " .. paw.time.format(paw.time.local_beat(t.position)), "StatusTime"}}
     end,
   }
 )
@@ -484,12 +476,13 @@ spec(
     min = 90,
     rank = 8,
     fn = function(ctx: Context): StatusText
-      return {{paw.time.clock(ctx.transport.position - paw.time.origin()), "StatusDim"}}
+      return {{paw.time.clock(paw.time.local_beat(ctx.transport.position)), "StatusDim"}}
     end,
   }
 )
 
--- Tempo and time signature where the playhead is.
+-- Tempo and time signature where the playhead is, in the window's time:
+-- inside a subproject with its own tempo or meter, its own.
 spec(
   "tempo",
   {
@@ -497,9 +490,9 @@ spec(
     min = 70,
     rank = 5,
     fn = function(ctx: Context): StatusText
-      local position = ctx.transport.position
-      local num, den = paw.tempo.signature_at(position)
-      local bpm = math.floor(paw.tempo.at(position) * 10 + 0.5) / 10
+      local position = paw.time.local_beat(ctx.transport.position)
+      local num, den = paw.time.signature_at(position)
+      local bpm = math.floor(paw.time.tempo_at(position) * 10 + 0.5) / 10
       return {{string.format("%g bpm %d/%d", bpm, num, den), "StatusLine"}}
     end,
   }
@@ -697,7 +690,7 @@ spec(
   {
     still = true,
     fn = function(): StatusText
-      local pending = (paw.keymap as Keymap).pending()
+      local pending = paw.keymap.pending()
       if pending ~= "" then
         return {{pending, "StatusOn"}}
       end
@@ -728,8 +721,15 @@ spec(
       if paw.scope.span(scope) then
         local beat = paw.cursor.beat
         local here = paw.scope.format(beat):match("^(%d+%.%d+)")
-        local song = paw.time.format(beat):match("^(%d+%.%d+)")
+        local bar, unit = api.tempo_bbt(paw.time.song_beat(beat))
+        local song = string.format("%d.%d", bar + 1, unit + 1)
         out[#out + 1] = {" " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim"}
+      end
+      -- A subproject with a tempo of its own says so: the song's tempo
+      -- does not change it.
+      local own = paw.time.own()
+      if own and own.own_tempo then
+        out[#out + 1] = {" own tempo", "StatusDim"}
       end
       local rest = opt.scope_rest
       if rest ~= "play" and ctx.width >= 100 then

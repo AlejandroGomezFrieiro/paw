@@ -5,14 +5,20 @@ local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
 local act = paw.frontend.act
 
---- A short sound file called `name` in a folder whose name has a space in it.
+--- A folder whose name has a space in it, made if it is not there.
+local function some_where()
+  local dir = T.scratch .. "/some where"
+  os.execute("mkdir -p '" .. dir .. "'")
+  return dir
+end
+
+--- A short sound file called `name` in the folder with a space.
 local function sound(name)
-  os.execute("mkdir -p '" .. T.scratch .. "/some where'")
   local s = {}
   for i = 1, 4800 do
     s[i] = 0.25
   end
-  return T.write_wav(T.scratch .. "/some where/" .. name, s)
+  return T.write_wav(some_where() .. "/" .. name, s)
 end
 
 local function start()
@@ -79,7 +85,7 @@ end)
 
 test("a project chosen in the dialog opens through the leave question", function()
   start()
-  local path = T.scratch .. "/some where/other.json"
+  local path = some_where() .. "/other.json"
   paw.project.save(path)
   paw.add_track({ name = "c" })
   paw.project.new()

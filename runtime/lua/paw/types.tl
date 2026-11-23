@@ -617,6 +617,15 @@ local record types
     control_count: integer
     stamp: integer
     control_stamp: integer
+    --- A linked clip's link, and how many clips it has (`link_count` only
+    --- from `clip_get`).
+    link: string
+    link_count: integer
+    --- A MIDI clip's overrides: semitones up (down below 0), and what is
+    --- added to the velocity of each note. They change what plays, not
+    --- the notes.
+    transpose: integer
+    velocity: integer
     edits: integer
     file: string
     offset: number
@@ -670,6 +679,8 @@ local record types
     loop_length: number
     loop_start: number
     cue: boolean
+    transpose: integer
+    velocity: integer
     version: integer
     timeline: Timeline
     data: KindData
@@ -922,6 +933,29 @@ local record types
     index: integer
   end
 
+  --- `paw.scope.own_time()`: the time of a subproject with its own tempo
+  --- or meter, in its own beats, as the window inside it counts it, for
+  --- the block `clip` it was entered through. The methods are the
+  --- `paw.api.nest_tempo_*` functions of its map (bars from 0), and
+  --- `song_beat` and `nest_beat` convert between its beats and the song's.
+  record NestTime
+    clip: integer
+    own_tempo: boolean
+    song_beat: function(self: NestTime, beat: number): number
+    nest_beat: function(self: NestTime, song_beat: number): number
+    seconds: function(self: NestTime, beat: number): number
+    tempo: function(self: NestTime, beat: number): number
+    signature: function(self: NestTime, beat: number): integer, integer
+    bar_of: function(self: NestTime, beat: number): integer
+    bar_start: function(self: NestTime, bar: integer): number
+    bar_length: function(self: NestTime, beat: number): number
+    is_bar_line: function(self: NestTime, beat: number): boolean
+    bbt: function(self: NestTime, beat: number): integer, integer, number
+    from_bbt: function(self: NestTime, bar: integer, beat: integer, fraction?: number): number
+    points: function(self: NestTime): TempoPoints
+    lines: function(self: NestTime, from: number, to: number, limit?: integer): {TempoLine}
+  end
+
   --- A tempo point placed in seconds, for `tempo_from_seconds`.
   record TempoSecondsPoint
     seconds: number
@@ -971,6 +1005,14 @@ local record types
     record_offset: number
     write: boolean
     take: integer
+  end
+
+  --- What a window shows of the song (`ViewRange`, stretched.rs): the
+  --- beats from `from` up to `to`, and the tracks shown (all when nil).
+  record ViewRange
+    from: number
+    to: number
+    tracks: {integer}
   end
 
   --- The process times of the audio blocks, in milliseconds (`BlockTimes`).
@@ -1543,6 +1585,7 @@ local record types
     sound_start: number
     sound_end: number
     bands: {SpectrumBand}
+    centroid: number
     series: MeasureSeries
     tracks: {TrackPeak}
     elapsed: number
@@ -1615,6 +1658,13 @@ local record types
     rate: integer
     channels: integer
     seconds: number
+  end
+
+  --- What a build of paw has (`build`): its Lua and the features that
+  --- the `needs` of a manifest names.
+  record Build
+    vm: string
+    features: {string}
   end
 
   --- The space of a disk, in bytes (`fs_space`).

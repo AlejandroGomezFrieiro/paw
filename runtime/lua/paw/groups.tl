@@ -84,9 +84,43 @@ local track_meta = api.track_get as function(integer, string): types.Meta
 local track_integer = api.track_get as function(integer, string): integer
 local track_number = api.track_get as function(integer, string): number
 
-local function meta(id: integer): Marks
+-- What the kernel says of a track's marks: an empty table for a track
+-- that is not there.
+local function read_marks(id: integer): Marks
   local ok, m = pcall(track_meta, id, "meta")
   return ok and m as Marks or {}
+end
+
+-- The marks and the group of each track that was asked for, kept until the
+-- project or an event changes. A frame asks for them many times for each
+-- track drawn (the rows, the headers, the tree of the track column), and
+-- each read is a call into the kernel. The key is the one that the screen
+-- keeps its windows by (`frame_stamp` in paw/ui.tl) and paw/scope.tl keeps
+-- its regions by: the edits of the project, which every change counts, and
+-- the events sent. The tables are only read: a change starts from
+-- `read_marks`.
+local project_field = api.project_get as function(key: string): integer
+-- In `kept_group`, a track in no group: no track has a negative id.
+local NO_GROUP = -1
+local kept_marks: {integer: Marks} = {}
+local kept_group: {integer: integer} = {}
+local kept_edits, kept_events = -1, -1
+
+local function keep_current()
+  local edits, sent = project_field("edits"), events.emitted()
+  if edits ~= kept_edits or sent ~= kept_events then
+    kept_marks, kept_group, kept_edits, kept_events = {}, {}, edits, sent
+  end
+end
+
+local function meta(id: integer): Marks
+  keep_current()
+  local m = kept_marks[id]
+  if not m then
+    m = read_marks(id)
+    kept_marks[id] = m
+  end
+  return m
 end
 
 local function set_meta(id: integer, m: Marks)
@@ -114,9 +148,21 @@ end
 
 --- The group a track belongs to (its id), or nil.
 function M.of(track: TrackRef): integer
-  local group = meta(id_of(track)).group
-  if group and pcall(track_id_of, group, "id") and M.is_group(group) then
-    return group
+  local id = id_of(track)
+  keep_current()
+  local kept = kept_group[id]
+  if kept == nil then
+    local group = meta(id).group
+    -- A member keeps the id of a group that is gone, or no longer a group.
+    if group and pcall(track_id_of, group, "id") and M.is_group(group) then
+      kept = group
+    else
+      kept = NO_GROUP
+    end
+    kept_group[id] = kept
+  end
+  if kept ~= NO_GROUP then
+    return kept
   end
 end
 
@@ -148,7 +194,7 @@ function M.folded(group: TrackRef): boolean
 end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
---- (the group of a narrowed tab), only the groups inside it count. `top`
+--- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
 function M.hidden(track: TrackRef, top?: integer): boolean
   if top and id_of(track) == top then
@@ -250,7 +296,7 @@ function M.add(track: TrackRef, group: TrackRef)
   if t.output == nil or t.output == old then
     set_output(tid, gid)
   end
-  local m = meta(tid)
+  local m = read_marks(tid)
   m.group = gid
   set_meta(tid, m)
   gather(gid)
@@ -268,7 +314,7 @@ function M.remove(track: TrackRef, stay?: boolean): boolean
   if track_integer(tid, "output") == group then
     set_output(tid, track_integer(group, "output"))
   end
-  local m = meta(tid)
+  local m = read_marks(tid)
   m.group = M.of(group)
   set_meta(tid, m)
   -- Out of the group's block of rows: after its last member.
@@ -295,7 +341,7 @@ function M.make(tracks?: {TrackRef}, name?: string): contracts.TrackHandle
     end
   end
   local group = paw.add_track({name = name or "Group", index = first})
-  local gm = meta(group.id)
+  local gm = read_marks(group.id)
   gm.group_head = true
   set_meta(group.id, gm)
   -- Tracks that were together in a group stay in it, one level down.
@@ -325,7 +371,7 @@ function M.dissolve(group: TrackRef): boolean
     if track_integer(id, "output") == gid then
       set_output(id, track_integer(gid, "output"))
     end
-    local m = meta(id)
+    local m = read_marks(id)
     m.group = outer
     set_meta(id, m)
   end
@@ -333,7 +379,7 @@ function M.dissolve(group: TrackRef): boolean
   if #t.clips == 0 and #t.devices == 0 then
     api.track_remove(gid)
   else
-    local m = meta(gid)
+    local m = read_marks(gid)
     m.group_head = nil
     set_meta(gid, m)
   end
@@ -370,7 +416,7 @@ function M.link(group: TrackRef, on?: boolean)
   if on == nil then
     on = not M.linked(gid)
   end
-  local m = meta(gid)
+  local m = read_marks(gid)
   m.group_link = on and true or nil
   set_meta(gid, m)
   note(gid)
@@ -379,6 +425,10 @@ end
 events.on(
   events.pattern("track.*"),
   function(payload: events.Payload, name: string)
+    -- A removed track has no group to read: the read would only fail.
+    if name == "track.removed" then
+      return
+    end
     local event = payload as kernel.TrackId
     local group = event.id and M.of(event.id)
     if not group or not M.linked(group) then
@@ -416,8 +466,8 @@ events.on(
       return
     end
     for _, id in ipairs(api.track_list({all = true})) do
-      local m = meta(id)
-      if m.group == event.id then
+      if meta(id).group == event.id then
+        local m = read_marks(id)
         m.group = nil
         set_meta(id, m)
       end

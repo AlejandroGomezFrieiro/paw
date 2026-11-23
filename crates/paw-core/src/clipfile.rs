@@ -24,7 +24,7 @@ use paw_engine::EventKind;
 use paw_engine::ump::{self, scale_down, scale_up};
 use serde_json::{Map, Value, json};
 
-use crate::model::{Control, ControlKind, Note, NoteAttr};
+use crate::model::{Control, ControlKind, Note, NoteAttr, check_clip_beat};
 
 /// The magic bytes a clip file starts with.
 pub const MAGIC: &[u8; 8] = b"SMF2CLIP";
@@ -118,12 +118,19 @@ struct Message {
 
 /// The bytes of a clip file for a clip's notes and controller moves, in
 /// the order they come in, and its length in beats.
+///
+/// # Errors
+///
+/// A time out of the range that a clip holds
+/// ([`MAX_BEATS`](crate::model::MAX_BEATS)): far times
+/// would take billions of clockstamps.
 pub fn encode<'a>(
     notes: impl IntoIterator<Item = &'a Note>,
     controls: &[Control],
     length: f64,
-) -> Vec<u8> {
+) -> Result<Vec<u8>> {
     let notes: Vec<&Note> = notes.into_iter().collect();
+    check_times(notes.iter().copied(), controls, length)?;
     let mut messages = Vec::new();
     for c in controls {
         if let Some(words) = ump::encode(0, c.event(0)) {
@@ -146,7 +153,26 @@ pub fn encode<'a>(
     for w in sequence_words(messages, length) {
         bytes.extend_from_slice(&w.to_be_bytes());
     }
-    bytes
+    Ok(bytes)
+}
+
+/// An error unless each time of a clip is in the range that a clip holds.
+/// In that range a clip file has a bounded number of clockstamps, and no
+/// count of ticks overflows. Only the start and the end of each note
+/// matter: the length is the gap between them.
+fn check_times<'a>(
+    notes: impl IntoIterator<Item = &'a Note>,
+    controls: &[Control],
+    length: f64,
+) -> Result<()> {
+    for n in notes {
+        check_clip_beat("a note", n.start)?;
+        check_clip_beat("the end of a note", n.start + n.length)?;
+    }
+    for c in controls {
+        check_clip_beat("a controller move", c.start)?;
+    }
+    check_clip_beat("the end of the clip", length)
 }
 
 /// The start tick of a note and the tick where it ends (at least one later).
@@ -281,7 +307,9 @@ struct Reader {
     open: HashMap<u8, Vec<Open>>,
     done: Vec<(usize, Note)>,
     count: usize,
-    text: String,
+    /// The bytes of the Flex Data text read so far. Bytes, not characters:
+    /// a character of UTF-8 can be cut between two packets.
+    text: Vec<u8>,
     pending: Option<Map<String, Value>>,
     skipped: HashMap<&'static str, usize>,
 }
@@ -298,7 +326,7 @@ impl Reader {
             open: HashMap::new(),
             done: Vec::new(),
             count: 0,
-            text: String::new(),
+            text: Vec::new(),
             pending: None,
             skipped: HashMap::new(),
         }
@@ -316,7 +344,9 @@ impl Reader {
     fn utility(&mut self, w0: u32) {
         match (w0 >> 20) & 15 {
             0x3 => self.tpq = (w0 & 0xffff).max(1),
-            0x4 if self.started => self.tick += (w0 & 0xfffff) as i64,
+            // An origin from the file can be any number: the ticks stop at
+            // the largest one and do not overflow.
+            0x4 if self.started => self.tick = self.tick.saturating_add((w0 & 0xfffff) as i64),
             _ => {}
         }
     }
@@ -352,13 +382,13 @@ impl Reader {
         for w in &packet[1..] {
             for b in w.to_be_bytes() {
                 if b != 0 {
-                    self.text.push(b as char);
+                    self.text.push(b);
                 }
             }
         }
         if form == 0 || form == 3 {
-            if let Some(json) = self.text.strip_prefix("paw:")
-                && let Ok(Value::Object(map)) = serde_json::from_str::<Value>(json)
+            if let Some(json) = self.text.strip_prefix(b"paw:")
+                && let Ok(Value::Object(map)) = serde_json::from_slice::<Value>(json)
             {
                 if !self.started {
                     self.origin = map.get("origin").and_then(Value::as_i64).unwrap_or(0);
@@ -407,7 +437,7 @@ impl Reader {
         let end = extra
             .get("len")
             .and_then(Value::as_i64)
-            .map(|l| self.tick + l);
+            .map(|l| self.tick.saturating_add(l));
         self.open.entry(key).or_default().push(Open {
             seq: self.count,
             tick: self.tick,
@@ -426,7 +456,7 @@ impl Reader {
             .or_else(|| queue.iter().position(|o| o.end.is_none()));
         if let Some(pos) = pos {
             let mut o = queue.remove(pos);
-            o.note.length = self.beat(tick - o.tick);
+            o.note.length = self.beat(tick.saturating_sub(o.tick));
             self.done.push((o.seq, o.note));
         }
     }
@@ -457,7 +487,7 @@ impl Reader {
             for o in queue {
                 let mut note = o.note;
                 let end = o.end.unwrap_or(end_tick);
-                note.length = self.beat(end - o.tick);
+                note.length = self.beat(end.saturating_sub(o.tick));
                 self.done.push((o.seq, note));
             }
         }
@@ -517,7 +547,11 @@ pub fn decode(bytes: &[u8]) -> Result<Clip> {
             _ => {}
         }
     }
-    Ok(reader.finish())
+    let clip = reader.finish();
+    // A file from elsewhere can put a note at any tick: paw takes only the
+    // clips that it can write again.
+    check_times(&clip.notes, &clip.controls, clip.length)?;
+    Ok(clip)
 }
 
 /// The number with the fewest digits that is still the same 32-bit value:
@@ -617,6 +651,8 @@ fn fmt(x: f64) -> String {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -639,8 +675,10 @@ mod tests {
         notes
     }
 
-    #[test]
-    fn a_clip_comes_back_the_same() {
+    /// A clip with each thing a file holds: a triplet, a note's `meta`, a
+    /// MIDI 2.0 attribute, the lowest velocity, a controller, a bend on one
+    /// key, and a program change with a bank.
+    fn each_part() -> (Vec<Note>, Vec<Control>) {
         let mut notes = named(vec![
             note(0.0, 0.5, 60),
             note(0.5, 0.25, 64),
@@ -676,7 +714,39 @@ mod tests {
                 key: None,
             },
         ];
-        let bytes = encode(&notes, &controls, 4.0);
+        (notes, controls)
+    }
+
+    /// The words of a clip file after its magic bytes, one packet to a
+    /// line, in hexadecimal.
+    fn packets(bytes: &[u8]) -> String {
+        let words: Vec<u32> = bytes[MAGIC.len()..]
+            .chunks_exact(4)
+            .map(|c| u32::from_be_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let mut lines = Vec::new();
+        let mut i = 0;
+        while i < words.len() {
+            let n = packet_words(words[i] >> 28).min(words.len() - i);
+            let packet: Vec<String> = words[i..i + n].iter().map(|w| format!("{w:08x}")).collect();
+            lines.push(packet.join(" "));
+            i += n;
+        }
+        lines.join("\n")
+    }
+
+    #[test]
+    fn a_clip_file_has_the_packets_of_the_golden_file() {
+        let (notes, controls) = each_part();
+        let bytes = encode(&notes, &controls, 4.0).unwrap();
+        let clip = decode(&bytes).unwrap();
+        insta::assert_snapshot!(format!("{}{}", text(&clip), packets(&bytes)));
+    }
+
+    #[test]
+    fn a_clip_comes_back_the_same() {
+        let (notes, controls) = each_part();
+        let bytes = encode(&notes, &controls, 4.0).unwrap();
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.length, 4.0);
         assert_eq!(clip.controls.len(), 3);
@@ -694,7 +764,7 @@ mod tests {
             assert!((a.length - b.length).abs() < 1e-4);
         }
         // Its bytes, read and written again, are the same bytes.
-        let again = encode(&clip.notes, &clip.controls, clip.length);
+        let again = encode(&clip.notes, &clip.controls, clip.length).unwrap();
         assert_eq!(again, bytes);
     }
 
@@ -705,7 +775,7 @@ mod tests {
             note(0.0, 4.0, 62),
             note(0.5, 1.0, 62),
         ]);
-        let bytes = encode(&notes, &[], 4.0);
+        let bytes = encode(&notes, &[], 4.0).unwrap();
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.notes.len(), 3);
         assert_eq!(clip.notes[0].start, -1.0);
@@ -713,7 +783,7 @@ mod tests {
         assert_eq!(long.length, 4.0);
         let short = clip.notes.iter().find(|n| n.start == 0.5).unwrap();
         assert_eq!(short.length, 1.0);
-        assert_eq!(encode(&clip.notes, &[], clip.length), bytes);
+        assert_eq!(encode(&clip.notes, &[], clip.length).unwrap(), bytes);
     }
 
     #[test]
@@ -721,7 +791,7 @@ mod tests {
         let mut notes = vec![note(0.0, 1.0, 60), note(1.0, 1.0, 61)];
         notes[0].id = 7;
         notes[1].id = 3;
-        let clip = decode(&encode(&notes, &[], 2.0)).unwrap();
+        let clip = decode(&encode(&notes, &[], 2.0).unwrap()).unwrap();
         assert_eq!(clip.notes[0].id, 7);
         assert_eq!(clip.notes[1].id, 3);
     }
@@ -761,7 +831,42 @@ mod tests {
     #[test]
     fn long_gaps_take_several_clockstamps() {
         let notes = named(vec![note(0.0, 1.0, 60), note(100.0, 1.0, 60)]);
-        let clip = decode(&encode(&notes, &[], 101.0)).unwrap();
+        let clip = decode(&encode(&notes, &[], 101.0).unwrap()).unwrap();
         assert_eq!(clip.notes[1].start, 100.0);
     }
+
+    /// The bytes of a clip file of one tick to a beat: `paw:` text before
+    /// Start of Clip, then `body` and End of Clip.
+    fn file_with(before_start: &str, body: &[u32]) -> Vec<u8> {
+        let mut words = vec![utility(0x4, 0), utility(0x3, 1), utility(0x4, 0)];
+        flex_text(&mut words, before_start);
+        words.push(utility(0x4, 0));
+        words.extend(stream(0x20));
+        words.extend_from_slice(body);
+        words.push(utility(0x4, 0));
+        words.extend(stream(0x21));
+        let mut bytes = MAGIC.to_vec();
+        for w in words {
+            bytes.extend_from_slice(&w.to_be_bytes());
+        }
+        bytes
+    }
+
+    // Found while writing the fuzz target `clip_file` (TASK-159): ticks
+    // past the largest number overflowed, and a dev build panicked.
+    #[test]
+    fn an_origin_or_a_length_past_the_largest_tick_reads_without_a_panic() {
+        let far_origin = file_with(&format!("paw:{{\"origin\":{}}}", i64::MAX), &[utility(0x4, 1)]);
+        assert!(decode(&far_origin).is_ok());
+
+        let mut note = vec![utility(0x4, 1)];
+        flex_text(&mut note, &format!("paw:{{\"len\":{}}}", i64::MAX));
+        note.extend([utility(0x4, 0), 0x2090_3C64]);
+        let clip = decode(&file_with("", &note)).unwrap();
+        assert_eq!(clip.notes.len(), 1, "{}", text(&clip));
+    }
 }
+
+// The range of times a clip holds (TASK-173).
+#[cfg(test)]
+mod far_times;

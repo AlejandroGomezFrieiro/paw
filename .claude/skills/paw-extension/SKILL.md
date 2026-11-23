@@ -23,7 +23,7 @@ the source of truth; this page is the map):
   `runtime/types/paw.lua` is the LuaLS meta file: point LuaLS's
   `workspace.library` at `runtime/types` to get completion while writing.
 - `docs/reference/key-rule.md`, `docs/reference/grammar.md` and `docs/reference/keys.md` — the keys a user expects;
-  `runtime/lua/paw/keyrule.lua` — the key rule your keys must follow.
+  `runtime/lua/paw/keyrule.tl` — the key rule your keys must follow.
 - A bundled extension close to what you want, as a model (below).
 
 The manual's contents are `docs/README.md`, by kind (tutorials, how-to,
@@ -107,7 +107,7 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
 
 ```
 extensions/<name>/
-  manifest.lua      return { name, version, description, requires = { paw = "^1.0" } }
+  manifest.lua      return { name, version, description, requires = { paw = "^1.0" }, needs = {} }
   init.tl           runs at load (or init.lua): require your modules, register things
   lua/<name>/…      your modules (on the require path), .tl or .lua
   devices/*.lua     Lua devices (JSFX-style DSP), optional
@@ -165,6 +165,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 | per-note data, roll layers, popovers | `extensions/articulations` |
 | a native engine / CLAP plugin built by Nix | `extensions/sampler`, `extensions/utau` |
 | parts and signs of the track column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
+| an extension in Teal with many modules (`lua/<name>/*.tl`), formats of other programs | `extensions/interop` |
 | a buffer type (e.g. a tracker, time top→down) | docs/reference/lua-views.md `paw.buftype` example ("tally") |
 
 ## Tests and checks (do these before calling it done)
@@ -197,6 +198,12 @@ extension, the runner unloads the extensions that the tests loaded, and
 removes the event handlers, timers and key mappings that test code made. A
 handler, timer or key mapping that is still there fails
 "`extensions/<name>/` leaves no state behind".
+
+The check also compares the audio engine, the MIDI ports and the step
+input controls. The MIDI ports are the test ports and the ports of the
+program. A change of one of them fails the check. The message names the
+test that made the change.
+
 Remove what a test adds with `T.after(fn)`. Do not add lines to
 `tests/leaks-allowed.txt`.
 

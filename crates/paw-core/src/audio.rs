@@ -28,9 +28,8 @@ pub struct Remembered {
 }
 
 /// Where the choice is kept.
-pub fn file() -> PathBuf {
-    let base = paw_proto::dirs::state().unwrap_or_else(std::env::temp_dir);
-    base.join("paw").join("audio.json")
+pub fn file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+    dirs.paw_state().join("audio.json")
 }
 
 /// The choice kept in `path`; nothing chosen when there is no such file or it

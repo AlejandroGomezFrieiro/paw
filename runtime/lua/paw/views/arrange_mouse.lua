@@ -695,19 +695,21 @@ local function automation(row)
   }
 end
 
+-- The lane's points are of the window's time, as it draws them: inside a
+-- subproject, its own tempo or the song's from its start.
 local tempo = {
   points = function()
     local out = {}
-    for i, p in ipairs(paw.tempo.points()) do
+    for i, p in ipairs(paw.tempolane.points()) do
       out[i] = { p.beat, paw.tempolane.fraction(p.bpm), p = p }
     end
     return out
   end,
   add = function(beat, f) A.tempo_point_add(beat, f) end,
   draw = function(stroke) A.tempo_draw(stroke) end,
-  move = function(i, beat, f) A.tempo_point_move(paw.tempo.points()[i].beat, beat, f) end,
-  remove = function(i) A.tempo_point_remove(paw.tempo.points()[i].beat) end,
-  ramp = function(i) A.tempo_point_ramp(paw.tempo.points()[i].beat) end,
+  move = function(i, beat, f) A.tempo_point_move(paw.tempolane.points()[i].beat, beat, f) end,
+  remove = function(i) A.tempo_point_remove(paw.tempolane.points()[i].beat) end,
+  ramp = function(i) A.tempo_point_ramp(paw.tempolane.points()[i].beat) end,
   say = function(beat, f) return paw.time.format(math.max(0, beat)) .. "  " .. paw.tempolane.bpm(f) .. " bpm" end,
 }
 

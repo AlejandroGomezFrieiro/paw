@@ -62,7 +62,7 @@ local function render(win, canvas, ctx)
   local w, h = body.width, body.height
   local s = state(win)
   local p, t = api.project_get(), api.transport_get()
-  local at = paw.time.format(t.position - paw.time.origin())
+  local at = paw.time.format(paw.time.local_beat(t.position))
   local where = t.playing and ("playing at " .. at) or ("stopped at " .. at)
   local line = string.format("%s  ·  %g bpm %d/%d  ·  %s", p.name, p.tempo, p.sig_num, p.sig_den, where)
   body:text(2, 1, util.fit(line, math.max(1, w - 4)), "Bright")

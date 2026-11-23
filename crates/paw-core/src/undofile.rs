@@ -437,6 +437,8 @@ pub fn read_tree(dir: &Path) -> Result<Option<TreeFile>> {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -459,6 +461,32 @@ mod tests {
             keep: false,
             files,
         }
+    }
+
+    #[test]
+    fn an_undo_folder_has_the_files_of_the_golden_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path());
+        let state = |store: &mut Store, tempo: &str| {
+            let files: BTreeMap<PathBuf, String> = [
+                (PathBuf::from("project.toml"), format!("tempo = {tempo}\n")),
+                (PathBuf::from("tracks/Bass/track.json"), "{ \"name\": \"Bass\" }\n".into()),
+            ]
+            .into_iter()
+            .collect();
+            store.put_files(&files).unwrap()
+        };
+        // Two states that share the track's folder: the second one set the
+        // tempo, and is the state on the disk.
+        let (before, after) = (state(&mut store, "120"), state(&mut store, "100"));
+        let mut set_tempo = entry(1, Some(0), vec![], after);
+        set_tempo.label = Some("set the tempo".into());
+        set_tempo.keys = Some(":tempo 100<CR>".into());
+        let mut tree = TreeFile::new(0, 1, vec![entry(0, None, vec![1], before), set_tempo]).unwrap();
+        store.commit(&mut tree, u64::MAX).unwrap();
+        crate::golden::settings(dir.path()).bind(|| {
+            insta::assert_snapshot!(crate::golden::folder_text(dir.path()));
+        });
     }
 
     #[test]

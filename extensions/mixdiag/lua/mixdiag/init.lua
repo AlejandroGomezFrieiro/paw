@@ -13,6 +13,9 @@ local M = {
   rank = { error = 1, warn = 2, info = 3, hint = 4 },
 }
 
+--- The event `mixdiag.done`: the findings of a measurement are ready.
+M.done = paw.events.event("mixdiag.done")
+
 --- Delivery targets. `kind` says how a target treats loudness:
 --- "normalize" (a service turns every track to `integrated`; louder or quieter
 --- is a consequence to report, not an error), "deliver" (the programme must
@@ -284,7 +287,7 @@ function M.finish(result, range, quiet)
     end
     paw.notify(M.line, worst == "error" and "warn" or "info")
   end
-  paw.emit("mixdiag.done", { count = #M.findings })
+  paw.emit(M.done, { count = #M.findings })
   require("mixdiag.lens").publish()
   M.show_strip()
   api.ui_redraw()

@@ -197,6 +197,9 @@ paw.music = {}
 ---@class paw.nest
 paw.nest = {}
 
+---@class paw.notes
+paw.notes = {}
+
 ---@class paw.option
 paw.option = {}
 
@@ -465,7 +468,9 @@ function paw.notify(text, level) end
 function paw.off(id) end
 
 --- Listen for an event: in Lua its name or a pattern as text, in Teal its
---- descriptor (`paw.events.event`). Returns a handle for `paw.off`.
+--- descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name
+--- or a pattern as text that matches no event that a part of paw declares
+--- goes in the log (`:checkhealth events`).
 ---@param event any
 ---@param fn any
 ---@param opts any
@@ -644,6 +649,14 @@ function paw.Clip:set_note(index, fields) end
 --- Replace every note of the clip with `notes` (as `add_note` takes each).
 ---@param notes any
 function paw.Clip:set_notes(notes) end
+
+--- A handle on the same clip whose pitches are `semitones` above the
+--- stored ones. The notes that it reads, and the notes and pitches that it
+--- takes, are at those pitches. The piano roll edits a clip with a
+--- transpose through such a handle, so that it shows each note at the pitch
+--- it plays at.
+---@param semitones any
+function paw.Clip:shifted(semitones) end
 
 --- The clip as plain data, for `paw.restore_clip`.
 function paw.Clip:snapshot() end
@@ -2426,10 +2439,10 @@ function paw.diagnostic.where(d) end
 ---@param filter any
 function paw.diagnostic.worst(uri, filter) end
 
---- The bars and beats from `from` for `span` beats, as the project counts
---- them. `{ beat = b, bar = n }` is a bar line (n from 1), and
---- `{ beat = b }` is a beat inside a bar. Bar lines come from
---- `paw.time.bar_start`, so a change of time signature moves them.
+--- The bars and beats from `from` for `span` beats of the window's time, as
+--- the window counts them (`paw.time.lines`): in a subproject with its own
+--- meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and
+--- `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 ---@param from any
 ---@param span any
 function paw.draw.bar_lines(from, span) end
@@ -2727,11 +2740,22 @@ function paw.draw.wave_reach(a) end
 ---@param rows any
 function paw.draw.waveform(peaks, rows) end
 
+--- Check the names of events that `paw.on` got as text. paw calls it when
+--- it has started: the runtime, the extensions and the configuration have
+--- declared their events then. After that, `paw.on` checks each name as it
+--- gets it.
+function paw.events.check_names() end
+
 paw.events.emit = paw.emit
 
+--- How many events paw has sent since it started. A number that is the
+--- same as before means that no event came in between.
+function paw.events.emitted() end
+
 --- The descriptor of an event whose payload is a `P`: Teal checks the
---- handlers that `paw.on` is given for it, and what `paw.emit` sends.
----   local changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
+--- handlers that `paw.on` is given for it, and what `paw.emit` sends. It
+--- also declares the name, so `paw.on` with this name as text is not a typo.
+---   local filled: paw.events.Event<Filled> = paw.events.event("fill.done")
 ---@param name any
 function paw.events.event(name) end
 
@@ -2753,6 +2777,11 @@ paw.events.once = paw.once
 --- read nothing of the payload without a cast.
 ---@param pattern any
 function paw.events.pattern(pattern) end
+
+--- The names and patterns (`undo.*`) of events that `paw.on` got as text
+--- and that match no event that a part of paw declares, sorted.
+--- `:checkhealth events` lists them.
+function paw.events.undeclared() end
 
 --- The address of an item, for the quickfix list and for going to it.
 ---@param item any
@@ -2873,6 +2902,11 @@ function paw.ex.substitution(r, pattern, replacement, flags) end
 ---@param name any
 ---@param spec any
 function paw.ex.view(name, spec) end
+
+--- True if this build of paw has `feature`, one of the names of
+--- `paw.api.build().features` such as `"processes"`. An extension that
+--- works without a feature, but has one part that uses it, checks it here.
+function paw.ext.build_has(feature) end
 
 --- The names of the bundled extensions, loaded or not, sorted.
 function paw.ext.bundled() end
@@ -3040,6 +3074,12 @@ function paw.folds.clear(win) end
 ---@param id any
 ---@param win any
 function paw.folds.close(id, win) end
+
+--- The closed fold at the cursor, in a window: the time fold that the
+--- cursor is in, else the fold that the cursor's row stands for. Nil when
+--- the cursor is on no closed fold.
+---@param win any
+function paw.folds.closed_at(win) end
 
 --- The rows that a window draws, from the rows of its tracks without
 --- its folds of tracks: each closed fold of tracks keeps its first row,
@@ -3693,7 +3733,7 @@ function paw.groups.folded(group) end
 function paw.groups.gather(group) end
 
 --- True if a track is hidden: inside a folded group. Inside group `top`
---- (the group of a narrowed tab), only the groups inside it count. `top`
+--- (the group of a narrowed window), only the groups inside it count. `top`
 --- itself is open there.
 ---@param track any
 ---@param top any
@@ -4066,6 +4106,10 @@ function paw.harmony.voice.voice(tones, opts) end
 ---@param names any
 function paw.health.check(names) end
 
+--- The name of a font for Japanese and Chinese text on this computer, or nil.
+--- `:checkhealth fonts` reports it.
+function paw.health.cjk_font() end
+
 --- An executable on the PATH, or at a path: where it is, or nil.
 ---@param name any
 function paw.health.executable(name) end
@@ -4198,8 +4242,9 @@ function paw.help.owned(index, topic, exact) end
 ---@param topic any
 function paw.help.owners(topic) end
 
---- Make the index of help at idle, in slices. A page that did not change
---- since the last build is not made again.
+--- Make the index of help at idle, in slices (the job `help` of
+--- `paw.slices`). A page that did not change since the last build is not
+--- made again. Returns the job.
 function paw.help.prepare() end
 
 --- True while paw makes the index of help at idle.
@@ -4271,8 +4316,9 @@ function paw.hooks.turn() end
 function paw.hooks.views_shown() end
 
 --- Add a key, or put a new kind in place of the one on it. It goes into
---- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
----   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+--- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
+--- it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
 ---@param key any
 ---@param spec any
 function paw.insert.add(key, spec) end
@@ -4946,6 +4992,23 @@ function paw.layout.hand_over(from, to) end
 ---@param spec any
 function paw.layout.import(spec) end
 
+--- The instance of the view that a window shows, made the first time:
+--- a split takes a fresh copy of the bound window's state, a window after
+--- one that went takes all of its state, and the first window takes the
+--- home state. Nil for a view without instances.
+---@param win any
+function paw.layout.instance_of(win) end
+
+--- Give a view an instance for each window. `def` is the view's table and
+--- `keys` the fields of each window (`fresh`: the ones a split starts
+--- without). The fields leave `def` for the home state. Returns the proxy
+--- that `paw.ui.views` holds.
+---@param name any
+---@param def any
+---@param keys any
+---@param fresh any
+function paw.layout.instances(name, def, keys, fresh) end
+
 --- The names of the layouts there are: the configuration's and those saved.
 function paw.layout.layout_names() end
 
@@ -4993,6 +5056,11 @@ function paw.layout.only(win) end
 ---@param node any
 ---@param target any
 function paw.layout.parent_of(node, target) end
+
+--- True if a view keeps a state for each window: by fields that `bind`
+--- swaps (`window_keep`), or by instances (`instances`).
+---@param name any
+function paw.layout.per_window(name) end
 
 --- Map the items that `def` declares in key scope `scope` (the name of a
 --- view, or a part of a view: see `paw.keymap.scopes`). So a buffer type
@@ -5545,10 +5613,10 @@ function paw.lsp.sync() end
 function paw.lsp.document_module.beats(ticks) end
 
 --- The document for a clip, as `midi/didOpen` and `midi/didChange` send it,
---- under `hash` (from `key_of`). Nil when the clip is gone.
+--- under `key` (from `key_of`). Nil when the clip is gone.
 ---@param id any
----@param hash any
-function paw.lsp.document_module.build(id, hash) end
+---@param key any
+function paw.lsp.document_module.build(id, key) end
 
 --- The clip a URI names, or nil.
 ---@param uri any
@@ -5565,6 +5633,11 @@ function paw.lsp.document_module.key(beat) end
 --- the clip does not exist.
 ---@param id any
 function paw.lsp.document_module.key_of(id) end
+
+--- Stop updating the key of clip `id` after each edit, when no server
+--- has its document.
+---@param id any
+function paw.lsp.document_module.release(id) end
 
 --- Beats as ticks of `M.PPQ` a beat, the language server's unit.
 ---@param beats any
@@ -5608,9 +5681,11 @@ function paw.luadev.watch() end
 function paw.markdown.inline(s, style, link, out) end
 
 --- Markdown as a list of blocks (headings, paragraphs, lists, code, tables)
---- for `render`.
+--- for `render`. `pause()`, if given, is called for each line, where a
+--- long parse may stop for a while (help made at idle, paw/help.tl).
 ---@param text any
-function paw.markdown.parse(text) end
+---@param pause any
+function paw.markdown.parse(text, pause) end
 
 --- The text of runs without their marks: a heading as it reads.
 ---@param s any
@@ -6144,6 +6219,22 @@ function paw.nest.promote(clip, deep) end
 ---@param own_row any
 function paw.nest.save(name, own_row) end
 
+--- Give subproject `nest` a meter of its own (`6/8`), with the song's map
+--- as it is (polymeter), or the song's meter again (`follow`), as
+--- `:nest.meter` does. Returns the message.
+---@param nest any
+---@param meter any
+function paw.nest.set_meter(nest, meter) end
+
+--- Give subproject `nest` a tempo of its own (`own`: the song's over its
+--- first block, or `bpm` throughout) or the song's again (`follow`), as
+--- `:nest.time` does. Its blocks keep their start; their length in the
+--- song follows. Call it in one undo step. Returns the message.
+---@param nest any
+---@param how any
+---@param bpm any
+function paw.nest.set_time(nest, how, bpm) end
+
 paw.nest.shift = paw.cursor.shift
 
 --- `za` on a return row: open its subproject's tracks under it, in the
@@ -6153,6 +6244,21 @@ paw.nest.shift = paw.cursor.shift
 function paw.nest.toggle(track) end
 
 paw.nest.under = paw.groups.under
+
+--- Make the block `clip` a subproject of its own, as `:nest.unique` does:
+--- a copy of its subproject that only this block plays; the others keep
+--- the subproject. A window inside it through this block goes inside the
+--- copy. Call it in one undo step. Returns the message.
+---@param clip any
+function paw.nest.unique(clip) end
+
+--- Snap the starts of the notes to a grid. `opts.strength` says how far a
+--- note moves, `opts.swing` moves every second grid line later, and
+--- `opts.lengths` snaps the lengths too. With `opts.within`, a note stays
+--- inside a clip of that length. No start goes below 0.
+---@param notes any
+---@param opts any
+function paw.notes.quantize(notes, opts) end
 
 --- Tells if option `name` accepts `value`: true, or nil and an error that
 --- tells what it accepts. An option with no default accepts any value.
@@ -6985,8 +7091,9 @@ function paw.roll_clips.active() end
 --- other clips of the active clip's track, and of the clips of the shown
 --- tracks (not the editable clips), that sound in the range of the editable
 --- clips. Each is `{ pitch, start, length, velocity, clip, track, color }`,
---- at most `paw.opt.roll_context_max` of them. paw keeps them until the
---- project, the set of clips or the toggles change.
+--- at most `paw.opt.roll_context_max` of them. paw finds them again only
+--- when those clips, the shown tracks, the edited clips or their span change:
+--- an edit of the notes of an edited clip keeps them.
 function paw.roll_clips.context() end
 
 --- The context note on `pitch` that sounds at roll beat `beat`, if any.
@@ -7039,7 +7146,8 @@ function paw.roll_clips.only() end
 function paw.roll_clips.open(ids, active) end
 
 --- The editable clips, the active one first: `{ id, clip, offset, start,
---- length, track, name }` each, `clip` a handle (`paw.clip`).
+--- length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches
+--- are those that the clip plays (`Clip:shifted`).
 function paw.roll_clips.parts() end
 
 --- `:roll.tracks`: a list of the tracks near the roll and of their clips.
@@ -7061,7 +7169,9 @@ function paw.roll_clips.show_track(id, on) end
 
 --- The pitches that sound at roll beat `beat`, in the editable clips and
 --- the context, lowest first. The second value is the name of the chord
---- that they make, when `paw.harmony` can tell it.
+--- that they make, when `paw.harmony` can tell it. The name comes from
+--- the chords that paw has read so far, so right after an edit it can be
+--- the name from before the edit.
 ---@param beat any
 function paw.roll_clips.sounding(beat) end
 
@@ -7089,7 +7199,7 @@ function paw.roll_clips.target(beat, parts) end
 function paw.roll_clips.toggle(id) end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
---- the tracks with MIDI clips (of the scope, in a narrowed tab), but not the
+--- the tracks with MIDI clips (of the scope, in a narrowed window), but not the
 --- track of the active clip. `{ id, name, color, drums, on }` each. `on`
 --- tells if its notes show.
 function paw.roll_clips.tracks() end
@@ -7201,8 +7311,10 @@ function paw.roll_draw.hidden(clip) end
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
---- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
----   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar
+--- shows it after the pencil's own keys, by `spec.order` (50 when not
+--- given), then by key.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
 ---@param lhs any
 ---@param spec any
 function paw.roll_draw.key(lhs, spec) end
@@ -7214,6 +7326,9 @@ function paw.roll_draw.label() end
 --- sets the notes being drawn that long at once.
 ---@param char any
 function paw.roll_draw.length_key(char) end
+
+--- The keys that extensions added to the pencil, by `order`, then by key.
+function paw.roll_draw.list() end
 
 --- Put a mark of the song at the pencil's start (`m` then its kind): `k`
 --- a key change, `t` a tempo, `s` a time signature from the bar, `'` a
@@ -7555,9 +7670,19 @@ function paw.scope.contains(track, s) end
 ---@param win any
 function paw.scope.current(win) end
 
---- What a scope shows, in words: its path, its tracks and its bars.
+--- What a scope (the current one by default) shows, in words: its path,
+--- its bars (its own, and the song's), its meter, its tracks, and whether
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- 6/8 · 12 tracks · named`.
 ---@param s any
-function paw.scope.describe(s) end
+---@param extra any
+function paw.scope.describe(s, extra) end
+
+--- A fold of the current window in words, as a scope inside the one the
+--- window shows, and whether it is folded: `Song › Strings · 3 tracks ·
+--- folded`.
+---@param f any
+function paw.scope.describe_fold(f) end
 
 --- Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the
 --- current one by default). In a window that shows a scope, it becomes its
@@ -7627,6 +7752,11 @@ function paw.scope.narrow(which) end
 ---@param s any
 function paw.scope.nest(s) end
 
+--- The own time of the subproject of block `clip`, or nil when it follows
+--- the song's tempo and meter.
+---@param clip any
+function paw.scope.nest_time(clip) end
+
 --- Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`),
 --- in the same parent. A jump. Returns the scope.
 ---@param n any
@@ -7636,6 +7766,11 @@ function paw.scope.next(n) end
 --- nil when the clip places no subproject.
 ---@param id any
 function paw.scope.of_clip(id) end
+
+--- A fold of a window (paw/folds.tl) as a scope to enter: its group, its
+--- region, its tracks or its bars, with the name it shows.
+---@param f any
+function paw.scope.of_fold(f) end
 
 --- The scope an operator's region covers (`zn{motion}`, `{Visual}zn`):
 --- the region, group or track its text object names (`ar`, `ag`, `it`),
@@ -7660,6 +7795,12 @@ function paw.scope.open(how, spec) end
 --- starts; else 0. `paw.time` adds it, so that a subproject's bars are the
 --- song's bars at its place.
 function paw.scope.origin() end
+
+--- The own time of the subproject that the window (the one being drawn,
+--- else the current one) is in, when it has its own tempo or meter
+--- (`paw.api.nest_own_tempo` of the block it was entered through); else nil.
+--- `paw.time` counts in it then.
+function paw.scope.own_time() end
 
 --- The levels of a scope's path (the current one by default), from the
 --- outermost to it.
@@ -8009,7 +8150,7 @@ function paw.stems.names_group(word) end
 --- order of the track list. `opts`: `dir` (where; `stems` in the renders
 --- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
 --- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed tab, the parts of its group.
+--- (that group, or track, alone). In a narrowed window, the parts of its scope.
 ---@param opts any
 function paw.stems.plan(opts) end
 
@@ -8534,6 +8675,15 @@ function paw.tempolane.fraction(bpm) end
 ---@param bpm any
 function paw.tempolane.move(beat, to, bpm) end
 
+--- The point of the lane in effect at a beat of the window's time (the
+--- last one at or before it, else the first), and its index.
+---@param beat any
+function paw.tempolane.point_at(beat) end
+
+--- The tempo points the lane shows and edits, the start's first, in beats
+--- of the window's time: `paw.time.tempo_points`.
+function paw.tempolane.points() end
+
 --- Make the change at `beat` ramp to the next, or hold again.
 ---@param beat any
 ---@param on any
@@ -8542,7 +8692,8 @@ function paw.tempolane.ramp(beat, on) end
 --- The tempo at the bottom and at the top of the row. The range keeps a
 --- small space around the slowest and the fastest tempo of the map, in tens
 --- of beats a minute. The range is at least 80 and centered. So a steady
---- song does not show as a wall.
+--- song does not show as a wall. The map is the window's: inside a
+--- subproject with its own tempo, its own.
 function paw.tempolane.range() end
 
 --- Remove the change at `beat`. You cannot remove the change at the start.
@@ -8627,7 +8778,9 @@ function paw.textbuf.join(ctx) end
 
 --- Make a kind of text buffer. It shows for the names that its `pattern`
 --- matches (`paw://` and the others). See `docs/reference/lua-views.md`. A kind with
---- `readonly` (the message for a change) cannot change. `gutter = false`
+--- `readonly` (the message for a change) cannot change. A kind with
+--- `scratch` (the message for `:w`) is never written, and `:q` closes it
+--- with its changes. `gutter = false`
 --- removes the line numbers. paw does not read a `static` kind again when
 --- the project changes. `paint(canvas, x, y, text, kind, width, row, buf)`
 --- draws a line in place of the usual colors.
@@ -8939,6 +9092,18 @@ function paw.ui.hl(name, def) end
 ---@param on_submit any
 function paw.ui.input(opts, on_submit) end
 
+--- The state of a view in its window with the keyboard, else in the
+--- window that had it last, else in any window of the view. With no window,
+--- the view itself (its proxy). Nil for a view without `window_instances`.
+---@param name any
+function paw.ui.instance(name) end
+
+--- The state of a view for one window (a view with `window_instances`):
+--- a table with the fields of `window_state` that takes the rest from the
+--- view. Nil for another view.
+---@param win any
+function paw.ui.instance_of(win) end
+
 --- Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`).
 --- It replaces a layer with the same name (nil removes it). The view tells
 --- what `ctx` contains where it calls `paw.ui.paint`.
@@ -9162,6 +9327,12 @@ function paw.ui.transport() end
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
 --- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
+--- 
+--- With `window_instances`, each window has its own table of the
+--- `window_state` fields, which takes the rest from the view
+--- (`paw.ui.instance_of`), and the view draws with that table as `self`.
+--- The view that `paw.ui.view` returns then reads and writes those fields
+--- in the window that drew or acted last.
 ---@param name any
 ---@param def any
 function paw.ui.view(name, def) end
@@ -9319,6 +9490,12 @@ function paw.ui.keybar.show(lhs) end
 ---@param path any
 function paw.undofile.dir(path) end
 
+--- The order of the entries that extensions add to a list of keys (the
+--- pencil's keys, the insert kinds): by `order`, then by key.
+---@param a any
+---@param b any
+function paw.util.by_order(a, b) end
+
 --- `v`, kept between `lo` and `hi`.
 ---@param v any
 ---@param lo any
@@ -9358,6 +9535,13 @@ function paw.util.merge(base, extra) end
 ---@param v any
 ---@param step any
 function paw.util.round(v, step) end
+
+--- Break text into lines of at most `width` columns, at spaces. A word
+--- wider than `width` gets a line of its own. Empty text gives one empty
+--- line.
+---@param text any
+---@param width any
+function paw.util.wrap(text, width) end
 
 --- Put a track under a VCA.
 ---@param track any
@@ -9409,10 +9593,10 @@ function paw.vzoom.define(view, zoomer) end
 ---@param opts any
 function paw.vzoom.fit(opts) end
 
---- Rows per key in the piano roll: 1 unzoomed.
+--- Rows per key in the piano roll: 1 at no zoom.
 function paw.vzoom.key_rows() end
 
---- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+--- Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 function paw.vzoom.lane_rows() end
 
 --- The rows of a track of its own in the arrange view's window, or nil.
@@ -9541,6 +9725,14 @@ function paw.api.base64_encode(data, opts) end
 ---@param device integer?
 function paw.api.blocks(device) end
 
+--- What this build of paw has: `{ vm, features }`. `vm` is the Lua
+--- that runs the code, `"luajit"` or `"lua52"`. `features` lists
+--- what an extension can name in the `needs` of its manifest:
+--- `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs,
+--- `io.popen`), `"network"` (sockets and requests over the network)
+--- and `"native"` (parts that Nix builds, such as plugins).
+function paw.api.build() end
+
 --- Write drawings (the operations of `paw.canvas.paint`) to a file:
 --- `format` "pdf" (one page for each drawing), "svg" or "png" (the first).
 --- Each page is `{ ops, width, height }` in pixels. `scale` is the points
@@ -9649,6 +9841,14 @@ function paw.api.clip_kind_remove(name) end
 --- The kinds of clip that extensions defined, by name (sorted).
 function paw.api.clip_kinds() end
 
+--- Put a linked copy of a MIDI clip right after it, and return the
+--- id of the copy. The clips of a link share their notes and
+--- controller moves: an edit of one changes all of them. A clip that
+--- has no link yet starts one, named after the clip. `clip_get`
+--- gives a linked clip's `link` and `link_count`.
+---@param id integer
+function paw.api.clip_link(id) end
+
 --- --- clips ---
 --- The clips of a track, in timeline order. With `from` and `to`
 --- (beats), only those that overlap that stretch: a view that shows
@@ -9748,6 +9948,11 @@ function paw.api.clip_source_length(id) end
 ---@param id integer
 ---@param track integer
 function paw.api.clip_to_cues(id, track) end
+
+--- Take a clip out of its link. It keeps its notes, and edits of it no
+--- longer change the other clips.
+---@param id integer
+function paw.api.clip_unlink(id) end
 
 --- Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 ---@param id integer
@@ -10422,6 +10627,11 @@ function paw.api.midi_ump(event) end
 ---@param opts any
 function paw.api.nest_add(opts) end
 
+--- The subproject's beat of the song's beat `beat`, for block `clip`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_beat(clip, beat) end
+
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
 --- without its master) and `used` (whether the song plays it). With
 --- `key`, only that field of its own (`name`, `length`, `master`...):
@@ -10433,6 +10643,13 @@ function paw.api.nest_get(id, key) end
 --- --- nests (subprojects): tracks with a timeline of their own ---
 --- The ids of the subprojects, in the order they were made.
 function paw.api.nest_list() end
+
+--- Whether the subproject that block `clip` places counts its own time:
+--- true with its own tempo, false with only its own meter, nil when it
+--- follows the song's tempo and meter (the song's map from the block's
+--- start is its time then). The `nest_tempo_*` functions give its map.
+---@param clip integer
+function paw.api.nest_own_tempo(clip) end
 
 --- Promote the subproject of a block (`clip`) to song data, as one
 --- undo step: its tracks come back in a group named after it at the
@@ -10468,6 +10685,61 @@ function paw.api.nest_save(opts) end
 ---@param key any
 ---@param value any
 function paw.api.nest_set(id, key, value) end
+
+--- The song's beat of beat `beat` of the subproject of block `clip`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_song_beat(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_at(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bar_length(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bar_of(clip, beat) end
+
+---@param clip integer
+---@param bar integer
+function paw.api.nest_tempo_bar_start(clip, bar) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_bbt(clip, beat) end
+
+---@param clip integer
+---@param bar integer
+---@param beat integer
+---@param fraction number?
+function paw.api.nest_tempo_from_bbt(clip, bar, beat, fraction) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_is_bar_line(clip, beat) end
+
+---@param clip integer
+function paw.api.nest_tempo_points(clip) end
+
+--- The `tempo_*` conversions in the own map of the subproject of block
+--- `clip`, in its beats: `nest_tempo_bbt(clip, beat)`.
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_seconds(clip, beat) end
+
+---@param clip integer
+---@param beat number
+function paw.api.nest_tempo_signature(clip, beat) end
+
+--- Make the block `clip` a subproject of its own, as one undo step: a
+--- copy of its subproject (tracks, devices, lanes and clips) named
+--- `Ballad 2`, which the block and the stems of the same block then
+--- play. The other blocks keep the subproject. Returns the copy's id.
+---@param clip integer
+function paw.api.nest_unique(clip) end
 
 ---@param track integer
 ---@param pitch integer?
@@ -11224,6 +11496,16 @@ function paw.api.undo_travel(seconds) end
 
 --- The undo tree and checkpoints: crate::history, session/undo.rs.
 function paw.api.undo_tree() end
+
+--- The ranges that `view_ranges_set` gave last.
+function paw.api.view_ranges() end
+
+--- Tell paw which part of the song each window shows: a list of ranges of
+--- beats, each with the tracks shown (all tracks when `tracks` is nil). The
+--- stretched clips there bake before the others. paw.derived sends this
+--- after each frame.
+---@param ranges any
+function paw.api.view_ranges_set(ranges) end
 
 --- Let `ms` milliseconds pass. Timers fire and events come, as between the
 --- key presses of a person. `sleep` stops all of that. A script that waits

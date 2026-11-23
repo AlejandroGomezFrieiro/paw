@@ -24,7 +24,7 @@
 //! and ended instead of freezing the program.
 //!
 //! The helper finds the plugin the way the DAW does (`register`, from the
-//! same cache), creates it, and opens its editor in a window of its own, so
+//! same cache and the same folders), creates it, and opens its editor in a window of its own, so
 //! plugin windows work exactly as they do in-process.
 
 use std::path::{Path, PathBuf};
@@ -104,7 +104,9 @@ pub(crate) fn host_command() -> Option<&'static Vec<String>> {
 
 /// Replace every plugin's factory with one that makes it in a helper.
 /// Built-in devices are this program's own code and stay where they are.
-pub fn wrap(registry: &mut Registry) {
+/// Each helper gets the folders added in `dirs` now, the folders where its
+/// plugin was found.
+pub fn wrap(registry: &mut Registry, dirs: &crate::PluginDirs) {
     if !enabled() {
         return;
     }
@@ -113,11 +115,13 @@ pub fn wrap(registry: &mut Registry) {
         .map(|factory| factory.info().clone())
         .filter(|info| info.format.is_plugin())
         .collect();
+    let added_dirs = dirs.added_for_helper();
     for info in plugins {
         registry.register(Rc::new(RemoteFactory {
             info,
             argv: None,
             env: Vec::new(),
+            added_dirs: added_dirs.clone(),
         }));
     }
 }
@@ -135,6 +139,7 @@ pub fn remote(
         info,
         argv: Some(argv),
         env,
+        added_dirs: None,
     })
 }
 

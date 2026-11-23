@@ -164,18 +164,14 @@ end
 --- snapped to the grid too, never shorter than one step.
 function M.quantize(notes, opts)
   opts = opts or {}
-  local grid, strength, swing = opts.grid or 0.25, opts.strength or 1, opts.swing or 0
-  local out = sorted(notes)
-  for _, n in ipairs(out) do
-    local k = math.floor(n.start / grid + 0.5)
-    local target = k * grid + (k % 2 == 1 and swing * grid or 0)
-    n.start = n.start + (target - n.start) * strength
-    if opts.lengths then
-      local want = math.max(grid, math.floor(n.length / grid + 0.5) * grid)
-      n.length = n.length + (want - n.length) * strength
-    end
-  end
-  return finish(out)
+  -- The rule is the core's (`paw.notes.quantize`), so that the keys of
+  -- paw and of musicops snap a note to the same place.
+  return finish(paw.notes.quantize(sorted(notes), {
+    grid = opts.grid or 0.25,
+    strength = opts.strength or 1,
+    swing = opts.swing or 0,
+    lengths = opts.lengths,
+  }))
 end
 
 --- Hold each note until the next note starts, less `gap` beats (default 0).

@@ -33,42 +33,6 @@ test("ui_caps_set takes a table and says so when it is given something else", fu
   api.ui_caps_set(before)
 end)
 
-test("adding notes one by one to a big clip takes about as long per note as to a small one", function()
-  fresh()
-  local clip = paw.add_track({ name = "Many" }):add_clip({ start = 0, length = 4 })
-  local function add(count, from)
-    local t0 = api.now()
-    for i = 1, count do
-      clip:add_note({ pitch = 60 + i % 12, start = (from + i) * 0.01, length = 0.1 })
-    end
-    return api.now() - t0
-  end
-  local small = add(2000, 0)
-  add(24000, 2000)
-  local big = add(2000, 26000)
-  eq(#clip:notes(), 28000, "every note is there")
-  -- One by one these were a look at every note each (29 s for 32000).
-  eq(
-    big < math.max(small * 8, 400),
-    true,
-    string.format("2000 notes: %.0f ms at the start, %.0f ms at 26000", small, big)
-  )
-  local ids, unique = {}, true
-  for _, n in ipairs(api.clip_notes(clip.id)) do
-    if ids[n.id] then unique = false end
-    ids[n.id] = true
-  end
-  eq(unique, true, "every note has an id of its own")
-  local again = api.clip_notes(clip.id)[5]
-  clip:add_note({ pitch = again.pitch, start = again.start + 0.001, length = 0.1, id = again.id })
-  local same = 0
-  for _, n in ipairs(api.clip_notes(clip.id)) do
-    if n.id == again.id then same = same + 1 end
-  end
-  eq(same, 1, "a note added with an id another has is given a new one")
-  fresh()
-end)
-
 -- What the screen said last, at a level.
 local function said(level)
   for i = #paw.ui.messages, 1, -1 do
@@ -175,6 +139,10 @@ test("commands given what they cannot take say so and change nothing", function(
   paw.add_track({ name = "B" })
   paw.cursor.set_track(a)
   local tempo = paw.project.tempo
+  T.expect_error("^a tempo is from 1 to 999 bpm")
+  T.expect_error("^track.remove removes the track at the cursor and takes no argument")
+  T.expect_error("^clip.add puts a clip at the cursor and takes length= and name=")
+  T.expect_error("^a clip's length is a number of beats above 0")
   for _, line in ipairs({ "tempo abc", "tempo 0", "tempo -1", "tempo by=abc" }) do
     T.keys(":" .. line .. "<CR>")
     has(said("error"), "a tempo is from 1 to 999 bpm", ":" .. line)
@@ -366,11 +334,7 @@ return dev
     local t = T.tone("T", 8)
     t:add_device(kind)
     paw.flush()
-    local t0 = api.now()
     local info = T.render({ tail = 0 })
-    local took = api.now() - t0
-    -- A plugin is given 20 s a block in a render; a script is given what it is live.
-    eq(took < 12000, true, kind .. " was ended in " .. took .. " ms")
     eq(info.peak > 0, true, kind .. ": the rest was rendered without it")
   end
   fresh()

@@ -16,3 +16,7 @@ base64 = "0.22"
 hex.workspace = true
 # SHA-256 for proofs and fingerprints, at the version rustls links.
 ring = "0.17"
+
+[dev-dependencies]
+insta.workspace = true
+tempfile = "3"

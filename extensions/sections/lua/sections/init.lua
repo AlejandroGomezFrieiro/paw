@@ -17,6 +17,8 @@
 -- `move`, `duplicate`, `delete`, `yank`, `insert`, `copy`.
 local api = paw.api
 local M = {}
+--- The event `sections.changed`: the list of sections changed.
+M.changed = paw.events.event("sections.changed")
 local EPS = 1e-9
 local KEY = "sections"
 
@@ -204,7 +206,7 @@ local function check()
   local now = fingerprint(read())
   if now == seen then return end
   seen = now
-  paw.emit("sections.changed", { sections = M.list() })
+  paw.emit(M.changed, { sections = M.list() })
   api.ui_redraw()
 end
 paw.on("project.changed", check)

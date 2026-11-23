@@ -1,19 +1,19 @@
 //! The main thread's half of an LV2 plugin: parameters, state, editor.
 
 use std::collections::HashMap;
-use std::ffi::{CStr, CString, c_char, c_void};
+use std::ffi::{CStr, CString, c_void};
 use std::ptr;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use paw_engine::device::Change;
 use paw_engine::{Controller, ParamInfo, Ports};
 use lilv_sys::*;
 
 use crate::echo::Echo;
 use crate::lv2_patch::{self, Kind, Property};
-use crate::window::{GtkWindow, HostWindow, WindowEvent, ui_scale};
+use crate::window::{HostWindow, WindowEvent};
 use super::*;
 use super::urid::*;
 use super::world::*;
@@ -279,26 +279,13 @@ impl Controller for Lv2Controller {
             .ui
             .as_ref()
             .context("this plugin has no editor this host can show")?;
-        // SAFETY: The editor library is opened by `open_library` and never unloaded, so the descriptor
-        // and everything it points to stay valid; `lv2ui_descriptor` has the signature given by the
-        // LV2 UI spec. The features handed to `instantiate` point into boxes and vectors that move
-        // into `Ui` below and live until `cleanup`; the `link` pointer is the controller's Box<UiLink>.
-        // The calls run on the main thread. A UI whose `instantiate` fails drops everything and returns.
+        // SAFETY: The descriptor stays valid, since the editor library is never unloaded
+        // (`ui_descriptor`). The features handed to `instantiate` point into boxes and vectors that
+        // move into `Ui` below and live until `cleanup`; the `link` pointer is the controller's
+        // Box<UiLink>. The calls run on the main thread. A UI whose `instantiate` fails drops
+        // everything and returns.
         unsafe {
-            // Never unloaded, like the plugins themselves.
-            let lib = std::mem::ManuallyDrop::new(libloading::Library::from(
-                crate::libs::open_library(&info.binary)
-                    .with_context(|| format!("loading {}", info.binary.display()))?,
-            ));
-            let get = lib
-                .get::<unsafe extern "C" fn(u32) -> *const UiDescriptor>(b"lv2ui_descriptor\0")
-                .context("not an LV2 editor")?;
-            let descriptor = (0..)
-                .map(|index| get(index))
-                .take_while(|d| !d.is_null())
-                .find(|d| CStr::from_ptr((**d).uri) == info.uri.as_c_str())
-                .context("the editor is not in its library")?;
-
+            let descriptor = ui_descriptor(info)?;
             let window = match info.kind {
                 UiKind::X11 => Some(HostWindow::new(title, 640, 480)?),
                 _ => None,
@@ -306,111 +293,7 @@ impl Controller for Lv2Controller {
             let link = &*self.link as *const UiLink as *mut c_void;
             self.link.closed.set(false);
             let title = CString::new(title).unwrap_or_default();
-            let mut resize = Box::new(UiResize {
-                handle: link,
-                ui_resize,
-            });
-            let mut port_map = Box::new(UiPortMap {
-                handle: link,
-                port_index: ui_port_index,
-            });
-            let mut external = Box::new(ExternalHost {
-                ui_closed,
-                plugin_human_id: title.as_ptr(),
-            });
-            let host = &shared.host;
-            // The plugin's options, plus how much to magnify the editor.
-            let scale = Box::new(ui_scale() as f32);
-            let u = urids();
-            let mut options: Vec<OptionsOption> = host.options[..3]
-                .iter()
-                .map(|o| OptionsOption {
-                    context: 0,
-                    subject: 0,
-                    key: o.key,
-                    size: o.size,
-                    type_: o.type_,
-                    value: o.value,
-                })
-                .collect();
-            options.push(OptionsOption {
-                context: 0,
-                subject: 0,
-                key: u.scale_factor,
-                size: 4,
-                type_: u.float,
-                value: (&*scale as *const f32).cast(),
-            });
-            // For editors that make their own window.
-            options.push(OptionsOption {
-                context: 0,
-                subject: 0,
-                key: u.window_title,
-                size: title.as_bytes_with_nul().len() as u32,
-                type_: u.string,
-                value: title.as_ptr().cast(),
-            });
-            options.push(OptionsOption {
-                context: 0,
-                subject: 0,
-                key: 0,
-                size: 0,
-                type_: 0,
-                value: ptr::null(),
-            });
-
-            let feature = |uri: &'static CStr, data: *mut c_void| Feature {
-                uri: uri.as_ptr(),
-                data,
-            };
-            let mut features = vec![
-                feature(URID_MAP, &host.map as *const UridMap as *mut c_void),
-                feature(URID_UNMAP, &host.unmap as *const UridUnmap as *mut c_void),
-                feature(OPTIONS, options.as_mut_ptr() as *mut c_void),
-                feature(
-                    c"http://lv2plug.in/ns/extensions/ui#resize",
-                    &mut *resize as *mut UiResize as *mut c_void,
-                ),
-                feature(
-                    c"http://lv2plug.in/ns/extensions/ui#portMap",
-                    &mut *port_map as *mut UiPortMap as *mut c_void,
-                ),
-                feature(IDLE_INTERFACE, ptr::null_mut()),
-                feature(
-                    c"http://lv2plug.in/ns/ext/instance-access",
-                    lilv_instance_get_handle(shared.instance).cast(),
-                ),
-                feature(
-                    EXTERNAL_HOST,
-                    &mut *external as *mut ExternalHost as *mut c_void,
-                ),
-            ];
-            if let Some(window) = &window {
-                features.push(feature(
-                    c"http://lv2plug.in/ns/extensions/ui#parent",
-                    window.id() as usize as *mut c_void,
-                ));
-            }
-            // Some editors read the plugin's extension data directly.
-            let mut data_access = (*(*shared.instance).lv2_descriptor)
-                .extension_data
-                .map(|get| {
-                    Box::new(DataAccess {
-                        data_access: std::mem::transmute::<
-                            extern "C" fn(*const c_char) -> *const c_void,
-                            unsafe extern "C" fn(*const c_char) -> *const c_void,
-                        >(get),
-                    })
-                });
-            if let Some(access) = data_access.as_mut() {
-                features.push(feature(
-                    c"http://lv2plug.in/ns/ext/data-access",
-                    &mut **access as *mut DataAccess as *mut c_void,
-                ));
-            }
-            let mut feature_list: Vec<*const Feature> =
-                features.iter().map(|f| f as *const Feature).collect();
-            feature_list.push(ptr::null());
+            let features = UiFeatures::new(shared, link, title, window.as_ref());
 
             let plugin_uri = lilv_node_as_uri(lilv_plugin_get_uri(shared.plugin));
             let mut widget = ptr::null_mut();
@@ -421,53 +304,18 @@ impl Controller for Lv2Controller {
                 ui_write,
                 link,
                 &mut widget,
-                feature_list.as_ptr(),
+                features.list(),
             );
             if handle.is_null() {
                 bail!("the plugin's editor could not be created");
             }
-            let extension = |uri: &CStr| -> *const c_void {
-                (*descriptor)
-                    .extension_data
-                    .map_or(ptr::null(), |data| data(uri.as_ptr()))
-            };
-            let idle = Some(extension(IDLE_INTERFACE))
+            let idle = Some(ui_extension(descriptor, IDLE_INTERFACE))
                 .filter(|interface| !interface.is_null())
                 .map(|interface| *(interface as *const unsafe extern "C" fn(*mut c_void) -> i32));
 
-            let surface = match (info.kind, window) {
-                (UiKind::X11, Some(mut window)) => {
-                    // Fit the window to the editor: what it asked for, else what it made.
-                    if let Some((width, height)) = self
-                        .link
-                        .resize
-                        .take()
-                        .or_else(|| window.child_size(widget as usize as u32))
-                    {
-                        window.resize(width, height);
-                    }
-                    // LV2 editors size themselves; the host has no way to ask
-                    // them to follow a window.
-                    window.set_fixed(true);
-                    Ok(Surface::Embedded(window))
-                }
-                (UiKind::External, _) if !widget.is_null() => {
-                    let widget = widget as *mut ExternalWidget;
-                    ((*widget).show)(widget);
-                    Ok(Surface::External(widget))
-                }
-                (UiKind::Shows, _) => {
-                    match (extension(SHOW_INTERFACE) as *const ShowInterface).as_ref() {
-                        Some(show) => {
-                            (show.show)(handle);
-                            Ok(Surface::Own(show))
-                        }
-                        None => Err(anyhow!("the editor does not say how to show itself")),
-                    }
-                }
-                (UiKind::Gtk, _) => GtkWindow::wrap(widget, &title).map(Surface::Gtk),
-                _ => Err(anyhow!("the editor gave back no window")),
-            };
+            let resize = &self.link.resize;
+            let surface =
+                show_editor(info.kind, window, descriptor, handle, widget, resize, &features.title);
             let surface = match surface {
                 Ok(surface) => surface,
                 Err(err) => {
@@ -483,14 +331,6 @@ impl Controller for Lv2Controller {
                 // Not-a-number never equals a value, so everything is sent once.
                 shown: vec![f32::NAN; shared.control_ports.len()],
                 _features: features,
-                _feature_list: feature_list,
-                _resize: resize,
-                _port_map: port_map,
-                _external: external,
-                _data_access: data_access,
-                _options: options,
-                _scale: scale,
-                _title: title,
             });
             shared.ui_open.store(true, Relaxed);
         }

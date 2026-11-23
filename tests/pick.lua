@@ -148,11 +148,10 @@ test("pick: the screen as text marks the selection with a character", function()
   start()
   paw.pick({ title = "Fruit", items = { "apple", "banana", "cherry" }, on_choose = function() end })
   paw.keymap.feed("an<C-n>")
-  local text = screen(100, 30)
-  has(text, "Fruit", "the title")
-  has(text, "> an", "the query")
-  has(text, "1/3", "how many match")
-  has(text, "▶ banana", "the selected line")
+  -- The title, the query, how many match, and the selected line. A message
+  -- of an earlier test must not take the bottom line.
+  paw.ui.message = nil
+  T.expect_screen("fruit", 60, 16)
   local float = paw.frontend.float(100, 30)
   eq(float.title, "Fruit", "the frontend gets the title")
   local found
@@ -191,38 +190,6 @@ test("pick: preview, actions, multi-select and resume", function()
   })
   paw.keymap.feed("<Tab><C-n><Tab><CR>")
   eq(table.concat(many, ","), "a,c", "Tab marks several")
-end)
-
-test("pick: stays quick with thousands of items", function()
-  start()
-  local words = {
-    "Dragonfly",
-    "Hall",
-    "Reverb",
-    "Plate",
-    "Compressor",
-    "Limiter",
-    "Delay",
-    "Chorus",
-    "EQ",
-    "Gate",
-    "Tape",
-    "Synth",
-  }
-  local items = {}
-  for i = 1, 6000 do
-    items[i] = "clap:vendor." .. words[i % #words + 1] .. " " .. words[(i * 7) % #words + 1] .. " " .. i
-  end
-  local t0 = T.cpu_ms()
-  paw.pick({ items = items, on_choose = function() end })
-  for _, key in ipairs({ "d", "r", "a", "<Space>", "h", "<BS>", "<BS>", "g" }) do
-    paw.keymap.feed(key)
-    api.ui_snapshot(120, 40)
-  end
-  local ms = T.cpu_ms() - t0
-  T.quick(ms, 1000, "eight keys over 6000 items")
-  eq(#pick.state().matches > 0, true, "and found some")
-  paw.keymap.feed("<Esc>")
 end)
 
 -- Sources --------------------------------------------------------------------

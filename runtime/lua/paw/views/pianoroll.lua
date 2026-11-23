@@ -15,16 +15,26 @@ local view = {
   top = 72, -- pitch of the first row
   scroll = 0, -- beat at the left edge
   -- Each window of the roll has its own clip, cursor and scroll: two
-  -- windows show two clips, or one clip twice.
-  window_state = { "clip_id", "pitch", "beat", "top", "scroll", "seen_jump", "geometry", "length" },
+  -- windows show two clips, or one clip twice. Each window has an instance
+  -- that holds them (paw/layout.tl), and each seat its own instances.
+  -- `edited` and `context_shown` are the state of paw/roll_clips.lua: the
+  -- clips edited with the active one, and the toggles of the tracks shown
+  -- behind them.
+  window_state = {
+    "clip_id",
+    "pitch",
+    "beat",
+    "top",
+    "scroll",
+    "seen_jump",
+    "geometry",
+    "length",
+    "edited",
+    "context_shown",
+  },
   window_fresh = { "geometry" },
+  window_instances = true,
 }
-paw.seats.fields(
-  "pianoroll",
-  view,
-  { "clip_id", "pitch", "beat", "top", "scroll", "seen_jump", "geometry", "length" },
-  { pitch = 60, beat = 0, top = 72, scroll = 0 }
-)
 
 function view:clip()
   if self.clip_id and pcall(api.clip_get, self.clip_id) then return paw.clip(self.clip_id) end
@@ -786,6 +796,23 @@ function view:render(buf, ctx)
   end
 end
 
+--- What a window of the roll shows besides what events announce (the
+--- screen keeps the window while it is the same): its clip, its cursor,
+--- its scroll, and whether a jump or another window moves its time.
+function view:stamp(ctx)
+  return table.concat({
+    tostring(self.clip_id),
+    self.pitch,
+    self.beat,
+    tostring(self.top),
+    self.scroll,
+    tostring(self.length),
+    tostring(self.fit_next),
+    tostring(self.seen_jump == paw.keymap.jump_serial),
+    tostring(ctx.follower),
+  }, " ")
+end
+
 --- Play the pitch under the cursor on the track of the clip it is in.
 function view:audition(pitch)
   local part = clips.target(self.beat)
@@ -1063,7 +1090,9 @@ view.titled = true
 -- What moves on its own as the song plays is the playhead: a frontend that
 -- paints it with the live values needs no new scene of the roll for it.
 view.live_roles = { "playhead" }
-paw.ui.view("pianoroll", view)
+-- From here on, `view` is the proxy that `paw.ui.view` gives: the code
+-- above reads `view.pitch` in the window that drew or acted last.
+view = paw.ui.view("pianoroll", view)
 -- Insert mode's drawing, which draws on the roll as one of its layers.
 paw.roll_draw = require("paw.roll_draw")
 return view

@@ -320,7 +320,7 @@ local record M
   --- Moves on every change, for whoever caches what is drawn.
   revision: integer
   severity_of: function(value: Level): integer
-  --- The event `diagnostic.changed`.
+  --- The event `diagnostic.changed`: the diagnostics of a document changed.
   changed: events.Event<Changed>
 end
 

@@ -4,8 +4,10 @@ bench/profile.md.
 
     bench/profile/drive.py <scenario> [options]
 
-Scenarios: startup, idle, idle-armed, keys, play, record, long, and repeat
-(the keys of --keys, --times times, under the probes: to profile one key).
+Scenarios: startup, idle, idle-armed, keys, play, record, long, repeat
+(the keys of --keys, --times times, under the probes: to profile one key),
+and scope (the keys in a region and in a group of tracks, and the cost of a
+frame there against a frame of the song).
 
 paw runs with --clean --no-plugins --audio null, its XDG_* folders and HOME
 in a scratch folder, and a control socket of its own. The driver plays the
@@ -196,7 +198,9 @@ class Paw:
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/nonexistent/bus",
             "LANG": "C.UTF-8",
         }
-        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH"):
+        # PAW_RUNTIME: the Lua of a checkout (tools/dev-runtime.sh); LD_PRELOAD:
+        # another allocator, for example.
+        for k in ("LD_LIBRARY_PATH", "LUA_PATH", "LUA_CPATH", "PAW_RUNTIME", "LD_PRELOAD"):
             if k in os.environ:
                 env[k] = os.environ[k]
         env.update(env_extra or {})
@@ -501,7 +505,9 @@ KEYS = [
     ("x", b"x", None), ("u", b"u", None),
     ("dd", b"dd", None), ("u", b"u", None),
     ("open piano roll (CR)", b"\r", None), ("j in roll", b"j", None), ("l in roll", b"l", None),
-    ("close (Esc :q)", ESC + b":q\r", None),
+    # Two writes: in one, paw joins the Esc to the `:` after it and reads the
+    # `q` that is left as the start of a macro.
+    ("close (Esc, :q)", [ESC, b":q\r"], None),
     ("mixer <leader>mm", b" mm", None), ("j in mixer", b"j", None), ("mixer off", b" mm", None),
     ("picker <leader>ff", b" ff", None), ("type in picker", b"tra", None), ("picker Esc", ESC, None),
     ("picker <leader>fg", b" fg", None), ("picker Esc", ESC, None),
@@ -536,11 +542,23 @@ def slow_since(paw, before):
     return [[name, t - before.get(name, [0])[0], ms] for name, (t, ms) in now.items() if t > before.get(name, [0])[0]]
 
 
+# Longer than paw waits for the rest of a sequence after a lone Esc
+# (15 ms, crates/paw-tui/src/keys.rs), so that each write is its own key.
+APART_S = 0.1
+
+
 def measure_key(paw, name, data, quiet_ms=250):
-    frames0 = paw.screen.count()
+    """The cost of a key: `data` is the bytes of one write, or a list of
+    writes that paw must read apart (Esc, then a command). The processor
+    time counts all the writes; the frames are those after the last."""
     k0 = paw.kernel_ns()
+    writes = data if isinstance(data, list) else [data]
+    for part in writes[:-1]:
+        paw.key(part)
+        time.sleep(APART_S)
+    frames0 = paw.screen.count()
     t0 = now_ms()
-    paw.key(data)
+    paw.key(writes[-1])
     got = paw.screen.wait_frames(frames0 + 1, 10)
     paw.screen.wait_quiet(quiet_ms, 10)
     k1 = paw.kernel_ns()
@@ -587,6 +605,104 @@ def scenario_keys(opts, project):
         emit(opts, rec)
         results.append(rec)
     emit(opts, {"scenario": "keys", "memory_kb": paw.memory(), "lua_kb": round(paw.lua_kb())})
+    paw.quit()
+
+
+# --- the keys in a scope (TASK-6.7) ---
+# Regions over the 32 bars of the large project, one inside another, and a
+# group of the first 16 tracks. Made after the start, so the project file
+# and the other scenarios stay as they are.
+SCOPE_SETUP = r"""
+local m = paw.markers
+m.add(0, "Intro", { length = 32 })
+m.add(32, "Verse", { length = 32 })
+m.add(32, "Verse A", { length = 16 })
+m.add(48, "Verse B", { length = 16 })
+m.add(64, "Chorus", { length = 32 })
+m.add(96, "End", { length = 32 })
+local tracks = paw.api.track_list()
+local members = {}
+for i = 1, 16 do members[i] = tracks[i] end
+paw.groups.make(members, "Strings")
+paw.flush()
+paw.api.undo_checkpoint()
+paw.cursor.set_track(tracks[3])
+paw.cursor.set_beat(33)
+"""
+
+# The keys, in order: each starts where the one before left the window.
+# (name, bytes, repeated): a repeated key is a move, measured --reps times.
+SCOPE_KEYS = [
+    ("znar (enter Verse A)", b"znar", False),
+    ("j", b"j", True), ("k", b"k", True), ("w", b"w", True), ("b", b"b", True),
+    ("zfar", b"zfar", False), ("zm", b"zm", False), ("zr", b"zr", False),
+    ("znn (Strings in Verse A)", b"znn", False), ("zw", b"zw", False),
+    ("]z (Verse B)", b"]z", False),
+    # The notes of the project are on sixteenths: quarters move most of them.
+    (":%quantize 1/4", b":%quantize 1/4\r", False), ("u", b"u", False),
+    ("open piano roll (CR)", b"\r", False), ("j in roll", b"j", True),
+    ("close (:q)", b":q\r", False),
+    ("zW", b"zW", False),
+    ("znag (enter Strings)", b"znag", False),
+    ("j in group", b"j", True), ("k in group", b"k", True),
+    ("zw from group", b"zw", False),
+]
+
+# The time of a full frame of the screen after a move, in the kernel: the
+# moves alternate so that the window under the cursor draws again.
+FRAME_LUA = r"""
+local w, h, n = ...
+local api, times = paw.api, {}
+for i = 1, n do
+  paw.keymap.feed(i % 2 == 1 and "j" or "k")
+  local t = api.now()
+  api.ui_snapshot(w, h)
+  times[i] = api.now() - t
+end
+table.sort(times)
+return string.format("%.2f %.2f %.2f", times[math.ceil(n / 2)], times[1], times[n])
+"""
+
+
+def frame_cost(opts, paw, where, rounds=40):
+    """A frame of the whole screen in the window's scope: median, smallest
+    and largest of `rounds` frames."""
+    p50, lo, hi = (float(x) for x in paw.eval(FRAME_LUA, opts.cols, opts.rows, rounds).split())
+    paw.screen.wait_quiet(300, 30)
+    emit(opts, {"scenario": "scope", "frame": where, "frame_ms": p50, "frame_ms_min": lo, "frame_ms_max": hi,
+                "rounds": rounds, "scope": paw.eval("return paw.scope.breadcrumb()")})
+
+
+def scenario_scope(opts, project):
+    paw, first = start(opts, project)
+    paw.eval(SCOPE_SETUP)
+    paw.screen.wait_quiet(500, 30)
+    frame_cost(opts, paw, "song")
+    named = slow_counts(paw)
+    for name, data, repeated in SCOPE_KEYS:
+        recs = [measure_key(paw, name, data)]
+        for _ in range(opts.reps - 1 if repeated else 0):
+            recs.append(measure_key(paw, name, data))
+        rec = recs[0]
+        if len(recs) > 1:
+            for f in ("first_frame_ms", "kernel_cpu_ms", "bytes"):
+                vals = sorted(r.get(f, 0) for r in recs)
+                rec[f] = vals[len(vals) // 2]
+                rec[f + "_min"] = vals[0]
+                rec[f + "_max"] = vals[-1]
+            rec["reps"] = len(recs)
+        slow = slow_since(paw, named)
+        named = slow_counts(paw)
+        if slow:
+            rec["slow"] = slow
+        rec["scenario"] = "scope"
+        rec["scope"] = paw.eval("return paw.scope.breadcrumb()")
+        emit(opts, rec)
+        # The frames of a region and of a group, once the window is in each.
+        if name.startswith("znar"):
+            frame_cost(opts, paw, "region")
+        elif name.startswith("znag"):
+            frame_cost(opts, paw, "group")
     paw.quit()
 
 
@@ -806,6 +922,8 @@ def main():
         scenario_long(opts, project)
     elif s == "repeat":
         scenario_repeat(opts, project)
+    elif s == "scope":
+        scenario_scope(opts, project)
     else:
         sys.exit(f"unknown scenario {s}\n{__doc__}")
 

@@ -17,7 +17,9 @@ The suite writes its full output to `target/test-scratch/suite.out`.
 
 The tests never use your own files or plugins. Each test run gets a scratch
 home folder and empty plugin folders under `target/test-scratch`, so your
-plugins, your settings and your Wine prefix stay untouched. To run paw by
+plugins, your settings and your Wine prefix stay untouched. The run also
+gets its own folder for sockets and a user name that isn't yours, so a test
+can't reach a paw that you have open. To run paw by
 hand in the same setup, use `tests/tools/run.sh` in place of `paw`, for
 example `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check`.
 
@@ -63,8 +65,9 @@ Two suites, or a large `-j`, slow down the tests that wait for the audio.
 A test file must put back what its tests change, so that the next file
 starts in the same state, whatever ran before it. The runner gives back
 the options that paw had when the suite started after each test.
-`T.fresh()` gives a new project, the default layout, normal mode and no
-open float. `T.start()` also types `<Esc><Esc>` and moves the focus to the
+`T.fresh()` gives a new project and the default layout, with no view in a
+window of its own and no window before it for `<C-w>p`. It also gives
+normal mode, no open float and no quickfix list. `T.start()` also types `<Esc><Esc>` and moves the focus to the
 arrange view. `T.screen(w, h)` gives the text of the screen.
 
 The runner checks each file of `tests/`, and the test files of each
@@ -76,13 +79,21 @@ run:
 - the event handlers, timers and key mappings that the test code made
 - the loaded extensions, so it unloads each extension that the tests
   loaded
+- the audio engine, with its backend, sample rate and buffer size
+- the MIDI test ports that `api.midi_test_ports` lists
+- the step input controls that Lua code bound and no file saved
 
 If a handler, timer or key mapping of the test code was still there, or
 an extension can't be unloaded, the runner fails a test named
 `tests/<file>.lua leaves no state behind` or
-`extensions/<name>/ leaves no state behind`. The `changed:` line names
-what changed. To fix the failure, put back the change in the test that
-made it, with `T.after(function() ... end)`.
+`extensions/<name>/ leaves no state behind`. A change of the engine, the
+MIDI test ports or the step input controls fails the same test, whatever
+code made the change. The `changed:` line names what changed, and for the
+engine, the ports and the controls it also names the first test that left
+the change, for example
+`midi ports {} -> ports {Test Keys} (test "a song with a controller")`. To
+fix the failure, put back the change in the test that made it, with
+`T.after(function() ... end)`.
 
 The runner checks a file only when all of its tests ran, so a filter with
 `only` does not fail the check. The file `tests/leaks-allowed.txt` lists
@@ -91,41 +102,149 @@ the leaks that are known, one on each line, for example
 lines to the list. When a file no longer leaks, the runner fails until you
 remove its line.
 
-## Write a test that a loaded machine does not break
+## Expect an error on the message line
 
-The tests run on a machine that also builds and runs other programs, and a
-loaded machine is slow but not wrong. Follow these rules so that a slow
-machine does not fail a test:
+paw shows an error of an event handler, a timer or a key on the message
+line, and it does not stop. The runner keeps each such error while a test
+runs, and the test fails when an error came that the test did not expect.
+The failure names the error and where it came from, for example the
+event handler or the key, and then gives the whole error with its list of
+calls.
 
-- Wait for the event or the state, not for a time. `T.until_` waits for a
+When a test checks a message that a command gives on purpose, it says so
+first with `T.expect_error(pattern)`. The pattern is a Lua pattern of the
+message, and the test fails if no message matches it:
+
+```lua
+T.expect_error("^a tempo is from 1 to 999 bpm")
+T.keys(":tempo 0<CR>")
+```
+
+## Write a test that runs in any order
+
+A test makes all the state that it reads, so it gives the same result
+alone, under each `only` filter, and in each process of `-j`. The rules
+below keep a test independent of the tests that ran before it:
+
+- Start with `T.fresh()` or `T.start()`, and set each option that the
+  test needs.
+- Paint a view before a click in it, because a pointer handler can use
+  the size and place of the last paint, which an earlier test made.
+- Take the id of a track, a device, a clip or a lane from the value that
+  the kernel returns, and don't write a number. The kernel counts ids
+  across the tests, so a number in a test can be the id of another thing.
+- Make each file and folder that the test reads under `T.scratch` in the
+  test itself, and not in a test before it.
+- Put back with `T.after` what the test changes outside the project, for
+  example the MIDI test ports or the audio engine.
+
+## Check the screen with golden files
+
+A golden file holds the screen as a person read and accepted it. A test
+that checks a layout calls `T.expect_screen(name, width, height, opts)`,
+and the runner draws the screen at that size and compares it with the
+file `tests/screens/<file>/<name>.txt`, where `<file>` is the name of the
+test file. For a test file of an extension, the file is in
+`extensions/<extension>/screens/<file>/<name>.txt`. With
+`opts.rows = { first, last }` and `opts.cols = { first, last }`, the test
+keeps only part of the screen, and with `opts.styles = false`, it keeps
+only the text.
+
+Each line of a golden file is a row of the screen. Text in a style other
+than the most common one is marked with the number of its style, for
+example `{3:NOR}`. After the rows, a line `--` starts the list of the
+styles, with the colors and attributes of each number.
+
+To write or update the golden files of a test, follow these steps:
+
+1. Run the test with `PAW_BLESS=1`, for example
+   `PAW_BLESS=1 tests/tools/suite.sh only "a screen too small"`. The
+   output has a line `bless <path>` for each file that it wrote.
+2. Read each file and its diff, and check that the new screen is right.
+3. Commit the files with the change, and name them in the commit message.
+
+When a golden file is missing or different, the test fails. The message
+gives the path, the first rows that differ, and the command that writes
+the file. A golden file that no test uses also fails the run, with a test
+named `every golden screen has a test`. The runner checks a test file only
+when all of its tests ran to the end, so a filter with `only` doesn't fail
+the check. A run with `PAW_BLESS=1` removes the files that no test uses.
+
+A golden file must not hold anything that changes from one run or one
+machine to the next, such as a time, a path, the user name, the load of
+the processor or a list of the installed plugins. Choose a size and a
+part of the screen that leave those out. Use `T.screen(w, h)` and
+`find()` to check that one piece of text is on the screen, and use a
+golden file to check where things are.
+
+## Write a test that does not depend on time
+
+The tests run on a machine that also builds and runs other programs, so a
+test must give the same result on an idle machine and on a loaded one, in
+a dev build and in a release build, and in any order or filter of the
+tests. Follow these rules when you write a test:
+
+- Check the behavior and never the speed. A test does not compare a time
+  on the clock, a processor time or a count of frames with a number. When
+  the cost is the behavior, count the work, for example the builds of an
+  index or the compiles of a clip. To measure a speed, write a script in
+  `bench/`, for example `bench/heavy.lua`, which reports the processor
+  time with the load of the machine and does not fail.
+- Wait for an event or a state, not for a time. `T.until_` waits for a
   condition, `T.next_block` for the audio blocks, and `T.until_beat` for
-  the playhead. In the window tests, `expect` waits for a condition in the
-  kernel.
-- Set a limit on a wait to the time that the slowest machine needs, not
-  the usual time, which is 30 seconds for a wait in the kernel. A wait
-  that gets to its limit shows a fault.
-- Do not compare two drawings of a value that changes with the time, for
-  example a meter. Hold the value still while the test draws.
-- Measure the speed only when the speed is the behavior, as described
-  below.
+  the playhead. Don't call `api.sleep` or `paw.wait` to let time pass, and
+  don't put a `wait` step in a lesson of the tutor.
+- Don't set a limit of your own on a wait, and don't write a local wait
+  with a deadline. The waits of `T` share one limit, and a wait that gets
+  to it shows a fault.
+- Check that a thing does not happen only after the kernel did its work,
+  for example after `T.next_block`. A check that nothing happened in some
+  milliseconds passes on a slow machine for the wrong reason.
+- Check sound in an offline render with `T.render`, not in a live meter
+  after a wait.
+- Make a plugin or a helper process that the test controls wait for the
+  test, for example with a file that the test removes, and don't compare a
+  delay with a deadline.
+- Make all of the state that the test reads. Start from `T.fresh()`, and
+  put back what the test changes with `T.after`.
 
-When you measure the speed, measure the processor time of the thread with
-`T.cpu_ms()`, not the time on the clock. Then check it with
-`T.quick(ms, limit, what)`. Other programs share the caches and the memory
-of the processor. As a result, the same work takes more processor time on
-a loaded machine, up to four times more.
+`tools/testlint.lua` checks the test files for a sleep, a read of the clock
+or a speed check, and the suite and `nix flake check` run it. The file
+`tests/timing-allowed.txt` lists the uses that the tests have today, one
+line `<file> <pattern> <count>` for each. A count that goes up fails, so a
+new test can't add one. A count that goes down also fails until you make
+its line smaller, so the list only gets shorter. Run
+`luajit tools/testlint.lua` to check the tree, and
+`luajit tools/testlint.lua counts` to print the counts of today.
 
-`T.quick` runs a fixed piece of work three times, and it compares the best
-time with its time on an idle machine. It multiplies the limit by the
-larger of the slowdown and the load average per processor, at most 8
-times and at least 1. The message of a failure shows both numbers. Keep
-the limit a few times the target.
+The same check also fails on a test file that reads your computer: a read
+of `HOME`, `USER` or `LOGNAME`, a read of `/etc/passwd`, or a path that
+starts with `/home/`. The check has no allow-list for such a read. A Lua test of `~`
+uses `T.home()`, which gives the test a home folder of its own.
 
 ## Run the Rust tests
 
 1. Run `cargo test`, which also runs the Lua suite once, from
    `crates/paw-tui/tests/suite.rs`.
 2. To test one crate, run `cargo test -p <crate>`.
+3. If a test of a file format fails because its output changed, run
+   `cargo insta review`. It shows the difference from the saved file in
+   a `snapshots/` folder. Accept the change only when the new output is
+   correct, and commit the changed file with the code.
+
+## Run the fuzz targets
+
+The fuzz targets in `fuzz/` feed random input to the code that reads files
+and messages from outside paw, and they report each input that makes paw
+panic, stop responding or run out of memory. They need cargo-fuzz and a nightly Rust,
+which the dev shell doesn't have, so they are meant for CI.
+
+1. To check that the targets compile on stable Rust, run
+   `cargo check -p paw-fuzz`. A plain `cargo build` or `cargo test` skips them.
+2. With cargo-fuzz and a nightly Rust, run `tools/fuzz.sh` to run each target
+   for 200000 inputs, or `tools/fuzz.sh build` to only build them.
+3. If a target fails, its input is in `fuzz/artifacts/<target>/`. Write a
+   plain test in the crate that crashed, from that input, and fix the code.
 
 ## Run the end-to-end scenarios
 
@@ -212,12 +331,17 @@ checks that the API reference and the course agree with their sources.
 Run `nix flake check`, which builds paw and runs the following checks:
 
 - The Rust tests that need no display, audio device or Lua suite, with
-  cargo-nextest. They must pass.
+  cargo-nextest. They must pass, and a test fails when its output is not
+  the same as the saved file in a `snapshots/` folder.
 - Clippy and rustfmt, which report what they find and do not fail.
 - Vale on the documentation, which fails on an error.
 - The checks of the Lua and Teal code, which fail on a problem: the types
   of the Teal files with cyan, `luacheck` on the Lua files, and the format
   of both with StyLua and cerulean.
+- The check against tests that depend on time or on your computer,
+  `tools/testlint.lua`, which fails on a count over
+  `tests/timing-allowed.txt` and on any read of the home folder or the
+  user name.
 
 The Lua suite and the window tests do not run in the build. They need an X
 server, plugins and their own directories, and a build sandbox does not

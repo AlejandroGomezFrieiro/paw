@@ -230,19 +230,20 @@ impl AudioSide {
 
 /// Run as a plugin's helper: `args` are the plugin's kind, the socket and
 /// the shared memory handed over by the DAW, the sample rate, the largest
-/// block, and the plugin cache to read. Returns the process's exit code.
+/// block, and the plugin cache to read. `dirs` says where to look for the
+/// plugin: the program gives [`crate::PluginDirs::for_helper`]. Returns the
+/// process's exit code.
 ///
 /// # Safety
 ///
 /// As for [`serve_with`]: the socket and the shared memory in `args` are
 /// file descriptors that this process owns and that nothing else takes,
 /// and no other thread is running yet.
-pub unsafe fn serve(args: &[String]) -> i32 {
+pub unsafe fn serve(args: &[String], dirs: &crate::PluginDirs) -> i32 {
     let cache = args.get(5).map(PathBuf::from);
     let make = |kind: &str, rate: f32, max_block: usize| {
         let mut registry = Registry::default();
-        crate::adopt_added_dirs();
-        crate::register(&mut registry, cache.as_deref());
+        crate::register(&mut registry, cache.as_deref(), dirs);
         registry
             .get(kind)
             .with_context(|| format!("no plugin `{kind}` here"))
@@ -299,9 +300,6 @@ unsafe fn run(args: &[String], make: impl FnOnce(&str, f32, usize) -> Result<Ins
         bail!("the shared memory is not the DAW's");
     }
     follow_test_env(kind);
-    // SAFETY: No other thread is running yet, as the caller promised: the helper has only
-    // parsed its arguments and mapped the memory so far.
-    let _display_note = unsafe { crate::repair_display_env() };
     let instance = match make(kind, rate.parse()?, max_block) {
         Ok(instance) => instance,
         Err(err) => {

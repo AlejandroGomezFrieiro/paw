@@ -1142,6 +1142,8 @@ mod tests {
             meta: Default::default(),
             source: None,
             origin: None,
+            link: None,
+            overrides: Default::default(),
         }));
         let custom: Clip = serde_json::from_value(json!({
             "id": 9, "name": "cue", "start": 8.0, "length": 2.0, "muted": false,

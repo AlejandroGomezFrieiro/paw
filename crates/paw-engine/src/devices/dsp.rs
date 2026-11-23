@@ -210,7 +210,12 @@ pub const REST_LEVEL: f32 = 1e-6;
 /// holds below [`REST_LEVEL`]; once that has lasted as long as the effect
 /// remembers, the effect clears what it holds and rests. Resting, it returns
 /// at once from a silent block, so that it is the same whether the host calls
-/// it or not, until a block that is not silent or a new setting wakes it.
+/// it or not, and it holds through each silent frame of a block, until a
+/// frame that is not silent or a new setting wakes it.
+///
+/// An effect at rest stays as it is (its LFO and its counters too) until
+/// the first frame that wakes it. So its state when it wakes does not
+/// depend on where the blocks fall.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Rest {
     calm: u32,
@@ -234,14 +239,21 @@ impl Rest {
     }
 
     /// Whether a block goes by without the effect: it rests, and the block
-    /// is silent. A block that is not wakes it.
+    /// is silent. In a block that is not, the effect holds through the
+    /// silent frames before the first sound ([`holds`](Self::holds)), and
+    /// that sound wakes it ([`frame`](Self::frame)).
     #[inline]
-    pub fn sleeps(&mut self, io: &crate::device::Io) -> bool {
-        if self.resting && crate::device::quiet(io) {
-            return true;
-        }
-        self.resting = false;
-        false
+    pub fn sleeps(&self, io: &crate::device::Io) -> bool {
+        self.resting && crate::device::quiet(io)
+    }
+
+    /// Whether a frame goes by without the effect: it rests, and the frame
+    /// is silent. The effect then skips the frame and changes nothing, as
+    /// in a block it sleeps through. Its output for the frame is its input,
+    /// silence, as what it holds was cleared when it went to rest.
+    #[inline(always)]
+    pub fn holds(&self, l: f32, r: f32) -> bool {
+        self.resting && l == 0.0 && r == 0.0
     }
 
     /// A new setting: the effect works again until it is calm once more.

@@ -113,11 +113,8 @@ pub fn bake(source: SourceHash) -> (BakeJob, EntryKey) {
 
 /// The cache directory the decoded sound of long files is kept in and
 /// played from: `$XDG_CACHE_HOME/paw/media`.
-pub fn media_dir() -> PathBuf {
-    paw_proto::dirs::cache()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("paw")
-        .join("media")
+pub fn media_dir(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+    dirs.paw_cache().join("media")
 }
 
 /// As [`peaks`], from the overview alone, when each point covers at least a

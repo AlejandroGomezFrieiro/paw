@@ -5,7 +5,9 @@
 -- (an entry) records what it read while it was made: the sources (a
 -- track's fields, a track's clips, the tempo, an option), and the other
 -- entries. An edit marks its sources dirty (the kernel's events say which),
--- and the entries that read them, and those that read these, become stale.
+-- and the entries that read them, and those that read these, become stale:
+-- at the next read, or in the next slice of the job, not in the event
+-- handler.
 -- A job in slices (`derived`, paw.slices) makes again what is stale, the
 -- entries that someone waits for first, and nothing more:
 --
@@ -13,12 +15,22 @@
 --  - an entry with `inputs` compares them first: the same inputs, the same
 --    value (an early cutoff on the key);
 --  - a value made again that is the `same` as before tells no one (an
---    early cutoff on the value).
+--    early cutoff on the value);
+--  - an `eager` entry (a track, the track list) is made again before the
+--    entries that read it learn of the change: they are marked stale only
+--    when its value changed, and with `touched` only over that time.
+--
+-- A slice stops before each entry that it makes, at any depth: an entry
+-- that reads thousands of others does not hold a key for all of them.
 --
 -- A consumer reads a value as it stands (`node:get(key)`: the value, and
 -- whether it is fresh), or waits for it (`node:get(key, true)`, for a
 -- command and for tests). After each slice, `derived.changed` names the
 -- kinds whose values changed.
+--
+-- The views tell what they show as they draw (`visible`): the entries
+-- there come before the rest, and after each frame the kernel gets the
+-- same ranges for its bakes (`api.view_ranges_set`).
 --
 -- The module is internal for now: extensions get it when it is public.
 --
@@ -26,6 +38,7 @@
 local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
+local options = require("paw.options")
 local slices = require("paw.slices")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
@@ -49,8 +62,10 @@ end
 local FRESH, MAYBE, DIRTY, NEW = 0, 1, 2, 3
 
 -- The order in which the job makes what waits, as the bake scheduler has
--- it: what plays next, what shows, the rest.
-local PLAYING, VISIBLE, BACKGROUND = 1, 2, 3
+-- it: what plays next, what shows, the rest. The `eager` entries come
+-- before all: until they are made, the entries that read them do not know
+-- that they are stale.
+local EAGER, PLAYING, VISIBLE, BACKGROUND = 0, 1, 2, 3
 
 --- A value of an entry, its key or its inputs, as the graph keeps them: the
 --- graph never reads it. `Node<K, V, I>` gives it back with its type.
@@ -87,7 +102,8 @@ local record M
   type Stats = Stats
   type Changed = Changed
   type Progress = Progress
-  --- After a slice of the job: the kinds of node whose values changed.
+  --- The event `derived.changed`: a slice of the work that paw derives from
+  --- the project ended, and the values of these kinds of node changed.
   changed: events.Event<Changed>
   progress: function(after?: number): Progress
 
@@ -144,6 +160,12 @@ local record M
     --- of the entries that read it, those with a `span` elsewhere stay
     --- as they are. Nil: everywhere.
     touched: function(old: V, new: V): number, number
+    --- Make a stale entry again first, before the entries that read it
+    --- know: they are marked stale only when its value changed (and with
+    --- `touched`, only those over the time that changed). For a node that
+    --- is quick to make and that many entries read: a change of a track
+    --- does not mark every window of the song.
+    eager: boolean
     --- About how many bytes a value takes.
     bytes: function(v: V): integer
     --- The bytes of all values (with `bytes`), or how many values: past
@@ -159,6 +181,9 @@ local record M
     get: function(self: Node<K, V, I>, key: K, latest?: boolean): V, boolean
     --- Keep the value of `key` fresh: the job makes it after each change.
     want: function(self: Node<K, V, I>, key: K)
+    --- Stop keeping the value of `key` fresh: it goes when the node is past
+    --- its limit and no other value reads it.
+    unwant: function(self: Node<K, V, I>, key: K)
     --- Whether the value of `key` is fresh.
     fresh: function(self: Node<K, V, I>, key: K): boolean
     --- Forget every value of the node: they are made again from nothing.
@@ -206,7 +231,11 @@ end
 local cores: {Core} = {}
 local by_source: {string: {Entry: boolean}} = {} -- who read each source
 local queue: {Entry: boolean} = {} -- what the job makes, stale and wanted
-local pending: {string: boolean} = {} -- sources marked while a pass is under way
+-- Stale entries of an `eager` node: the job makes them first, and only then
+-- do the entries that read them learn of the change (`went_stale`). An
+-- entry is in it from when it goes stale until it is fresh or goes.
+local eager: {Entry: boolean} = {}
+local pending: {string: boolean} = {} -- sources marked and not yet applied (`apply_pending`)
 local changed_names: {string: boolean} = {} -- kinds whose values changed
 local current: Entry -- the entry being made, which records what it reads
 local pass: thread -- the pass under way
@@ -216,7 +245,8 @@ local tempo_seen: integer
 local started: number -- when the job started
 local done, todo = 0, 0 -- entries made fresh, and made stale, since then
 local label: string -- what the job makes now
-local ranges: {string: {number}} = {} -- what each window shows, in beats
+local ranges: {string: types.ViewRange} = {} -- what each window shows, in beats
+local told_ranges = "" -- the ranges the kernel has, as `range_text` writes them
 
 -- Entries that read an entry -------------------------------------------------------------
 
@@ -333,6 +363,14 @@ local schedule: function()
 --- makes it if it is wanted.
 local function went_stale(e: Entry)
   todo = todo + 1
+  if e.core.spec.eager then
+    -- The entries that read it are not marked: when it is made again,
+    -- `remake` marks them if its value changed.
+    eager[e] = true
+    queue[e] = true
+    schedule()
+    return
+  end
   if e.wanted or e.raised then
     queue[e] = true
     schedule()
@@ -355,15 +393,13 @@ end
 local function set_fresh(e: Entry)
   e.state = FRESH
   e.raised = nil
+  eager[e] = nil
   done = done + 1
 end
 
---- Source `name` changed: the entries that read it are stale.
-local function mark(name: string)
-  if pass then
-    pending[name] = true
-    return
-  end
+--- Source `name` changed: the entries that read it are stale, and so are
+--- the entries that read these, at any depth.
+local function stale_source(name: string)
   local set = by_source[name]
   if not set then
     return
@@ -379,11 +415,36 @@ local function mark(name: string)
   end
 end
 
+--- Source `name` changed. The entries that read it become stale later: at
+--- the next read of a value, or in the next slice of the job. An event
+--- handler only notes the name, because one source can have thousands of
+--- entries that read it (the track list: every window of the chord
+--- reading). While a pass is under way, the names wait for its end.
+local function mark(name: string)
+  if by_source[name] then
+    pending[name] = true
+    schedule()
+  end
+end
+
+--- Make stale what the sources marked since the last time read.
 local function apply_pending()
+  if next(pending) == nil then
+    return
+  end
   local names = pending
   pending = {}
   for name in pairs(names) do
-    mark(name)
+    stale_source(name)
+  end
+end
+
+--- Before a value is read as it stands: the sources marked since are
+--- applied, unless a pass is under way (they wait for its end, as in
+--- `M.run`).
+local function before_read()
+  if not pass then
+    apply_pending()
   end
 end
 
@@ -445,6 +506,10 @@ end
 
 --- Make `e` again: compare its inputs first, then make it.
 local function remake(e: Entry)
+  -- A slice whose time is up stops before each make, at any depth: one
+  -- entry that reads thousands of others does not make all of them in
+  -- one slice.
+  ctx:pause()
   local core = e.core
   local spec = core.spec
   local saved = current
@@ -607,6 +672,9 @@ end
 -- The job -------------------------------------------------------------------------------
 
 local function priority(e: Entry): integer
+  if eager[e] then
+    return EAGER
+  end
   local spec = e.core.spec
   local best = e.raised and VISIBLE or BACKGROUND
   if spec.span then
@@ -617,7 +685,7 @@ local function priority(e: Entry): integer
       return PLAYING
     end
     for _, r in pairs(ranges) do
-      if from < r[2] and to > r[1] then
+      if from < r.to and to > r.from then
         best = VISIBLE
       end
     end
@@ -636,6 +704,9 @@ local function next_wanted(): Entry
       local p = priority(e)
       if p < best_p then
         best, best_p = e, p
+        if p == EAGER then
+          break
+        end
       end
     end
   end
@@ -651,6 +722,19 @@ local function run_pass()
     label = e.core.spec.label or e.core.spec.name
     ensure(e)
     queue[e] = nil
+  end
+end
+
+--- Make the `eager` entries now (outside a pass): then each entry that one
+--- of them changed is marked stale.
+local function make_eager()
+  while true do
+    local e = next(eager)
+    if not e then
+      return
+    end
+    ensure(e)
+    eager[e] = nil
   end
 end
 
@@ -711,6 +795,7 @@ local function drop(e: Entry)
     end
   end
   queue[e] = nil
+  eager[e] = nil
 end
 
 local function over(core: Core): boolean
@@ -822,13 +907,14 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
         -- Edits whose events have not come yet: look at every source again.
         edits_seen = edits
         for name in pairs(by_source) do
-          mark(name)
+          pending[name] = true
         end
       end
       apply_pending()
       local e = entry_of(core, key as Value)
       local outer = until_ms
       until_ms = nil
+      make_eager()
       ensure(e)
       until_ms = outer
       if next(changed_names) then
@@ -836,15 +922,17 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       end
       return e.value as V, true
     end
+    before_read()
     local e = entry_of(core, key as Value)
     if e.state ~= FRESH then
       e.raised = true
       queue[e] = true
       schedule()
     end
-    return e.value as V, e.state == FRESH
+    return e.value as V, e.state == FRESH and next(eager) == nil
   end
   function node:want(key: K)
+    before_read()
     local e = entry_of(core, key as Value)
     e.wanted = true
     if e.state ~= FRESH then
@@ -852,10 +940,21 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       schedule()
     end
   end
-  function node:fresh(key: K): boolean
+  function node:unwant(key: K)
     local id = spec.id and (spec.id(key) as Value) or key as Value
     local e = core.entries[id]
-    return e ~= nil and e.state == FRESH and not pass
+    if e and e.wanted then
+      e.wanted = nil
+      if not held(e) then
+        core.orphans[#core.orphans + 1] = e
+      end
+    end
+  end
+  function node:fresh(key: K): boolean
+    local id = spec.id and (spec.id(key) as Value) or key as Value
+    before_read()
+    local e = core.entries[id]
+    return e ~= nil and e.state == FRESH and not pass and next(eager) == nil
   end
   function node:reset()
     if pass then
@@ -869,6 +968,7 @@ function M.node<K, V, I>(spec: M.Spec<K, V, I>): M.Node<K, V, I>
       each_user(e, push)
       forget(e)
       queue[e] = nil
+      eager[e] = nil
     end
     core.entries, core.orphans, core.count, core.bytes = {}, {}, 0, 0
     core.revision = core.revision + 1
@@ -920,7 +1020,7 @@ end
 function M.reset()
   pass, current = nil, nil
   slices.stop("derived")
-  by_source, queue, pending, changed_names = {}, {}, {}, {}
+  by_source, queue, pending, changed_names, eager = {}, {}, {}, {}, {}
   started, label, done, todo = nil, nil, 0, 0
   for i_core = 1, #cores do
     local core = cores[i_core]
@@ -946,10 +1046,38 @@ function M.reset()
   end
 end
 
---- A window shows the song from `from` to `to` (beats): what is there
---- comes before the rest. Nil `from` forgets the window.
-function M.visible(window: string, from?: number, to?: number)
-  ranges[window] = from and {from, to} or nil
+--- A window shows the song from `from` to `to` (beats), on `tracks`
+--- (all when nil): what is there comes before the rest, here and in the
+--- bakes. A view tells it each time it draws; nil `from` forgets the window.
+function M.visible(window: string, from?: number, to?: number, tracks?: {integer})
+  ranges[window] = from and {from = from, to = to, tracks = tracks} or nil
+end
+
+--- A frame starts: the windows that tell their range while it is drawn
+--- (`visible`) are all that show.
+function M.frame_start()
+  ranges = {}
+end
+
+local function range_text(r: types.ViewRange): string
+  return string.format("%.17g:%.17g:%s", r.from, r.to, r.tracks and table.concat(r.tracks, ",") or "*")
+end
+
+--- A frame ends: the kernel gets what the windows show when it changed,
+--- for the bake scheduler (`api.view_ranges_set`).
+function M.frame_end()
+  local list: {types.ViewRange} = {}
+  local texts: {string} = {}
+  for _, r in pairs(ranges) do
+    list[#list + 1] = r
+    texts[#texts + 1] = range_text(r)
+  end
+  table.sort(texts)
+  local text = table.concat(texts, ";")
+  if text ~= told_ranges then
+    told_ranges = text
+    api.view_ranges_set(list)
+  end
 end
 
 --- The job while it has run for `after` milliseconds (1000) or more: what
@@ -972,6 +1100,11 @@ function M.health(h: contracts.Health)
     h.info(string.format("the job runs: %d slices, the longest %.1f ms", job.slices, job.longest))
   else
     h.ok("nothing waits to be made")
+  end
+  -- What the bakes take as shown, as the kernel has it.
+  for _, r in ipairs(api.view_ranges()) do
+    local tracks = r.tracks and (#r.tracks .. " tracks") or "all tracks"
+    h.info(string.format("a window shows beats %.0f to %.0f, %s: what is there comes first", r.from, r.to, tracks))
   end
   for _, s in ipairs(M.stats()) do
     local amount: string
@@ -1037,13 +1170,7 @@ events.on(
     end
   end
 )
-local record OptionChanged
-  name: string
-end
-events.on(
-  events.event("option.changed") as events.Event<OptionChanged>,
-  function(e: OptionChanged) mark("option:" .. e.name) end
-)
+events.on(options.changed, function(e: options.Changed) mark("option:" .. e.name) end)
 events.on(kernel.changed, function() edits_seen = project_int("edits") end)
 events.on(kernel.project_loaded, function() M.reset() end)
 

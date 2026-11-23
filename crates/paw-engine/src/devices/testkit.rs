@@ -426,6 +426,15 @@ fn an_effect_sounds_the_same_whether_it_sleeps_or_not() {
                 assert_eq!(slept, 0, "{kind} slept");
             }
         }
+        // An effect that rests stays as it is (its LFO too) from the frame
+        // it rests on to the frame that wakes it, wherever the blocks fall.
+        if SLEEPERS.contains(&kind) {
+            let unchanged = (usize::MAX, 0, 0.0);
+            let (small, _) = run_resting(kind, &settings, &input, 64, unchanged, true);
+            let (large, _) = run_resting(kind, &settings, &input, 1000, unchanged, true);
+            let first = small.iter().zip(&large).position(|(a, b)| a != b);
+            assert_eq!(first, None, "{kind}: blocks of 64 and of 1000 differ from this sample on");
+        }
     }
 }
 

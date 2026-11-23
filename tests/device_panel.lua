@@ -158,6 +158,21 @@ test("the panel's foot: where the track plays into, its sends with their level, 
   eq(#a:get().sends, 0, "× removes the send")
 end)
 
+test("on another track, j goes from the panel's first device to its first parameter", function()
+  fresh()
+  T.after(done)
+  local a, b = paw.add_track({ name = "A" }), paw.add_track({ name = "B" })
+  a:add_device("synth")
+  b:add_device("saturation")
+  shown(a)
+  paw.ui.focus("devices")
+  T.keys("jjj")
+  paw.cursor.set_track(b)
+  T.keys("j")
+  local row = panel:rows()[panel.row]
+  eq(row.param and row.param.key, "drive", "the row under the first device of B, not one below the row on A")
+end)
+
 test("Ctrl and the wheel nudge a parameter, the wheel alone moves the row; A automates it and L learns it", function()
   fresh()
   T.after(function() paw.learn.cancel() end)

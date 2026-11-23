@@ -35,9 +35,12 @@ local kernel = require("paw.events.kernel")
 local A = require("paw.address")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local slices = require("paw.slices")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
+local type KeybarModule = require("paw.keybar")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type QfModule = require("paw.qf")
@@ -138,34 +141,8 @@ end
 local record NoFields
 end
 
---- A key mapping (paw/keymap.lua, in Lua): its keys as written (`lhs`)
---- and one by one, what it runs, what it is for, where it works and the
---- extension that made it.
-local record Map
-  lhs: string
-  rhs: string | function
-  desc: string
-  scope: string
-  keys: {string}
-  motion: boolean
-  ext: string
-end
-
---- What `paw.keymap.set` takes besides the keys and the function.
-local record MapOptions
-  view: string
-  desc: string
-  repeatable: boolean
-  role: string
-end
-
---- The key mappings (paw/keymap.lua, in Lua): what this module calls of them.
-local record Keymap
-  every: function(): {Map}
-  human: function(lhs: string): string
-  set: function(lhs: string, fn: function(ctx?: contracts.KeyContext), opts?: MapOptions)
-  push_jump: function()
-end
+--- A key mapping (paw/keymap.tl).
+local type Map = KeymapModule.Map
 
 --- A window that a split makes (paw/layout.tl): its size, which this
 --- module sets.
@@ -192,15 +169,9 @@ local record Layout
 end
 
 --- The lines of the key line of a view and mode: `{ keys, what }` each, or
---- a function that gives them.
-local type KeyRows = {{string}}
-local type KeyRowsFn = function(): KeyRows
-
---- The key line (paw/keybar.lua, in Lua): what this module calls of it.
-local record Keybar
-  lines: {string: {string: KeyRows | KeyRowsFn}}
-  set: function(view: string, mode: string, fn: KeyRowsFn)
-end
+--- a function that gives them (paw/keybar.tl).
+local type KeyRows = {KeybarModule.Entry}
+local type KeyRowsFn = KeybarModule.EntriesFn
 
 --- An extension as `paw.ext.list()` gives it.
 local record ExtInfo
@@ -216,6 +187,7 @@ local record Ext
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   qf: QfModule
@@ -224,7 +196,7 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 local layout = paw.layout as Layout
-local keymap = paw.keymap as Keymap
+local keymap = paw.keymap
 local textbuf = paw.textbuf
 local ext = paw.ext as Ext
 
@@ -794,8 +766,8 @@ local record Parsed
 end
 local parsed: {string: Parsed} = {}
 
---- The contents page, as Markdown.
-local function index_text(sources: {Source}): string
+--- The contents page, as Markdown. `pause()` as `build_now` says.
+local function index_text(sources: {Source}, pause: function()): string
   local out = {
     "# paw help",
     "",
@@ -829,6 +801,7 @@ local function index_text(sources: {Source}): string
   for _, group in ipairs(groups) do
     local any = false
     for _, source in ipairs(sources) do
+      pause()
       if source.group == group[1] then
         if not any then
           out[#out + 1] = ""
@@ -874,7 +847,44 @@ local function unloaded_note(source: Source): string
   )
 end
 
-local function heading_tags(sources: {Source})
+--- Sort `list` by name, as `table.sort` does, with `pause()` between
+--- pieces of the work: a merge sort from the bottom up. The thousands of
+--- tags of the manual take some milliseconds to sort.
+local function sort_by_name(list: {Tag}, pause: function())
+  local n = #list
+  local from: {Tag} = list
+  local to: {Tag} = {}
+  local width = 1
+  while width < n do
+    -- Each pass merges the sorted runs of `width` tags in pairs, from
+    -- `from` into `to`.
+    local lo = 1
+    while lo <= n do
+      local mid, hi = math.min(lo + width, n + 1), math.min(lo + 2 * width, n + 1)
+      local a, b = lo, mid
+      for k = lo, hi - 1 do
+        if k % 256 == 0 then
+          pause()
+        end
+        if a < mid and (b >= hi or from[a].name <= from[b].name) then
+          to[k], a = from[a], a + 1
+        else
+          to[k], b = from[b], b + 1
+        end
+      end
+      lo = hi
+    end
+    from, to = to, from
+    width = width * 2
+  end
+  if from ~= list then
+    for k = 1, n do
+      list[k] = from[k]
+    end
+  end
+end
+
+local function heading_tags(sources: {Source}, pause: function())
   local used: {string: boolean | Source} = {}
   local function take(name: string): string
     if used[name] then
@@ -893,6 +903,7 @@ local function heading_tags(sources: {Source})
   for _, source in ipairs(sources) do
     source.headings = {}
     for _, block in ipairs(source.blocks) do
+      pause()
       if block.type == "heading" then
         local base = slug(block.text)
         if block.level == 1 and not source.title then
@@ -916,8 +927,10 @@ end
 --- Read every page, give its headings their tags, make it into lines and
 --- gather the tags. Done again when a page changed, an extension was loaded
 --- or a page was added. `pause()`, if given, is called between pieces of
---- the work, where a build made at idle stops for a while.
+--- the work, at most a few hundred microseconds apart, where a build made
+--- at idle stops for a while.
 local function build_now(pause?: function()): Index
+  pause = pause or function() end
   -- The files are looked at again at most every two seconds.
   local names: {string} = {}
   for _, entry in ipairs(ext.list()) do
@@ -930,6 +943,7 @@ local function build_now(pause?: function()): Index
   local sources = M.sources()
   local parts: {string} = {}
   for _, source in ipairs(sources) do
+    pause()
     -- docs/README.md orders the contents.
     if source.readme then
       parts[#parts + 1] = read_file(source.readme) or ""
@@ -938,14 +952,11 @@ local function build_now(pause?: function()): Index
       local text = source.text and source.text() or read_file(source.path) or ""
       local cached = parsed[source.path]
       if not (cached and cached.text == text) then
-        cached = {text = text, blocks = md.parse(text)}
+        cached = {text = text, blocks = md.parse(text, pause)}
         parsed[source.path] = cached
       end
       source.blocks = cached.blocks
       source.loaded = not source.ext or ext_loaded(source.ext)
-      if pause then
-        pause()
-      end
       parts[#parts + 1] = source.path .. "\0" .. tostring(cached) .. "\0" .. tostring(source.loaded)
     end
   end
@@ -958,10 +969,10 @@ local function build_now(pause?: function()): Index
   known_keys, known_options = nil, nil
   -- The contents are made from the pages' titles and headings.
   sources[1].blocks = {}
-  heading_tags(sources)
-  sources[1].blocks = md.parse(index_text(sources))
+  heading_tags(sources, pause)
+  sources[1].blocks = md.parse(index_text(sources, pause), pause)
   sources[1].title = nil
-  heading_tags({sources[1]})
+  heading_tags({sources[1]}, pause)
   local tags: {string: Tag} = {}
   -- Each extension's pages' own tags too, for what the extension owns
   -- (`ext_tags[name][tag]`): its commands and keys are found there even
@@ -1019,6 +1030,7 @@ local function build_now(pause?: function()): Index
     end
     local heading_at = 0
     for _, a in ipairs(source.doc.anchors) do
+      pause()
       if a.kind == "heading" then
         heading_at = heading_at + 1
         local block = source.headings[heading_at]
@@ -1058,7 +1070,7 @@ local function build_now(pause?: function()): Index
   for _, tag in pairs(tags) do
     list[#list + 1] = tag
   end
-  table.sort(list, function(a: Tag, b: Tag): boolean return a.name < b.name end)
+  sort_by_name(list, pause)
   built = {
     checked = api.now(),
     loaded = loaded,
@@ -1077,13 +1089,20 @@ end
 --
 -- To read and render every page takes more than a second of processor time.
 -- An interactive session does it after it starts, in slices of a few
--- milliseconds between keys, so that the first `:help` finds it done. A
--- call that needs the index before then finishes it at once.
+-- milliseconds between keys (the job `help` of `paw.slices`), so that the
+-- first `:help` finds it done. A call that needs the index before then
+-- finishes it at once.
+--
+-- The build is a coroutine: `build_now(pause)` yields in `pause()` when
+-- the slice is over, deep inside a parse or a render, and the next slice
+-- resumes it there.
 
---- Milliseconds of work in one slice, and between two slices.
-local SLICE_MS, GAP_MS = 4, 10
+--- The name of the job in `paw.slices`.
+local JOB = "help"
 
 --- The build being made at idle, and when its slice ends (`api.now()`).
+--- `slice_end` is `math.huge` outside a slice, so that `pause()` never
+--- yields in a build made at once.
 local preparing: thread
 local slice_end = math.huge
 
@@ -1093,18 +1112,30 @@ local function pause()
   end
 end
 
---- Finish the build being made at idle, now.
-local function finish_preparing()
-  local co = preparing
-  if not co or coroutine.status(co) ~= "suspended" then
-    return
-  end
-  slice_end = math.huge
+--- Resume the build being made at idle until it ends or its slice is over
+--- (`ms` milliseconds; `math.huge` to finish it). Returns true when it ended.
+local function resume(co: thread, ms: number): boolean
+  slice_end = api.now() + ms
   local ok, err = coroutine.resume(co)
+  slice_end = math.huge
+  if ok and coroutine.status(co) == "suspended" then
+    return false
+  end
   preparing = nil
   if not ok then
     api.log("help: the index made at idle failed: " .. tostring(err))
   end
+  return true
+end
+
+--- Finish the build being made at idle, now.
+local function finish_preparing()
+  local co = preparing
+  if not co then
+    return
+  end
+  slices.stop(JOB)
+  resume(co, math.huge)
 end
 
 local function build(): Index
@@ -1112,31 +1143,16 @@ local function build(): Index
   return build_now()
 end
 
---- Make the index of help at idle, in slices. A page that did not change
---- since the last build is not made again.
-function M.prepare()
+--- Make the index of help at idle, in slices (the job `help` of
+--- `paw.slices`). A page that did not change since the last build is not
+--- made again. Returns the job.
+function M.prepare(): slices.Job
   if preparing then
-    return
+    return slices.job(JOB)
   end
   local co = coroutine.create(function() build_now(pause) end)
   preparing = co
-  local function step()
-    if preparing ~= co then
-      return
-    end
-    slice_end = api.now() + SLICE_MS
-    local ok, err = coroutine.resume(co)
-    slice_end = math.huge
-    if not ok then
-      preparing = nil
-      api.log("help: the index made at idle failed: " .. tostring(err))
-    elseif coroutine.status(co) == "dead" then
-      preparing = nil
-    else
-      paw.defer(step, GAP_MS)
-    end
-  end
-  paw.defer(step, GAP_MS)
+  return slices(JOB, function(ms: number): boolean return resume(co, ms) end)
 end
 
 --- True while paw makes the index of help at idle.
@@ -1152,10 +1168,9 @@ local function prepare_soon()
     paw.defer(M.prepare, 1000)
   end
 end
-local startup: events.Event<kernel.Nothing> = events.event("startup")
 local ext_loaded_event: events.Event<kernel.Nothing> = events.event("ext.loaded")
 local ext_unloaded: events.Event<kernel.Nothing> = events.event("ext.unloaded")
-events.on(startup, prepare_soon)
+events.on(events.startup, prepare_soon)
 events.on(ext_loaded_event, prepare_soon)
 events.on(ext_unloaded, prepare_soon)
 
@@ -1781,21 +1796,6 @@ function M.for_map(map: Map): contracts.Window
   return help_for(names, human)
 end
 
---- A line cut into pieces of at most `width` columns at spaces.
-local function wrapped(text: string, width: integer): {string}
-  local out: {string} = {}
-  local line = ""
-  for word in text:gmatch("%S+") do
-    if line ~= "" and api.str_width(line .. " " .. word) > width then
-      out[#out + 1], line = line, word
-    else
-      line = line == "" and word or line .. " " .. word
-    end
-  end
-  out[#out + 1] = line
-  return out
-end
-
 --- The section of help that `for_map` would go to, as at most `rows` lines
 --- `{ text, style }` wrapped to `width`. It is for a pane next to a list of keys.
 --- The name of the page comes first. Nil when there is no help for the key.
@@ -1812,7 +1812,7 @@ function M.excerpt_for_map(map: Map, width: integer, rows: integer): {contracts.
     if blank == 2 then
       break
     end
-    for _, part in ipairs(wrapped(text, width)) do
+    for _, part in ipairs(util.wrap(text, width)) do
       if #out >= rows then
         return out
       end
@@ -1828,7 +1828,7 @@ function M.for_command(name: string): contracts.Window
 end
 
 -- The key line of a help window: its own keys, not those that edit.
-local keybar = paw.ui.keybar as Keybar
+local keybar = paw.ui.keybar
 local text_keys = keybar.lines.textbuf and keybar.lines.textbuf.n
 keybar.set(
   "textbuf",

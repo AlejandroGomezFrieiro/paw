@@ -9,6 +9,8 @@ package.loaded["paw"] = paw
 
 paw.util = require("paw.util")
 paw.inspect = paw.util.inspect
+-- Pure transforms of lists of notes (paw/notes.tl).
+paw.notes = require("paw.notes")
 
 --- What a user sees of an error: one line, without the list of calls.
 --- The place in the code (`paw/x.lua:12:`) moves to the end, where it does
@@ -26,7 +28,10 @@ function paw.failure(err)
   if file then
     -- An error raised by the code itself (`attempt to index a nil value`)
     -- says where; one raised on purpose says what to do, and that is enough.
-    local internal = rest:match("^attempt to ") or rest:match("^bad argument") or rest:match("^stack overflow")
+    local internal = rest:match("^attempt to ")
+      or rest:match("^bad argument")
+      or rest:match("^stack overflow")
+      or rest:match("^table index is ")
     short = internal and string.format("%s (%s:%s)", rest, file, line) or rest
   end
   return short
@@ -49,6 +54,8 @@ end
 local events = require("paw.events")
 paw.on, paw.once, paw.off, paw.emit = events.on, events.once, events.off, events.emit
 paw.events = events
+-- The descriptors of the kernel's events declare their names.
+require("paw.events.kernel")
 
 local options = require("paw.options")
 paw.opt, paw.option = options.opt, options
@@ -327,6 +334,8 @@ function K.startup()
   paw.insert = require("paw.insert")
   -- Listings edited as text (`:e paw://tracks`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
+  -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).
+  require("paw.cmdwin")
   require("paw.views.tracklist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")
@@ -378,11 +387,14 @@ function K.startup()
     paw.snippet.load_dir(env.config_dir .. "/snippets", "config")
   end
   warn()
-  paw.emit("startup", {})
+  -- All modules, extensions and the configuration declared their events
+  -- now: check the names that subscriptions gave as text (paw/events.tl).
+  events.check_names()
+  paw.emit(events.startup, {})
 end
 
 --- The program is about to end.
-function K.exit() paw.emit("exit", {}) end
+function K.exit() paw.emit(events.exit, {}) end
 
 function K.key(key)
   if paw.remote and paw.remote.touch then paw.remote.touch() end

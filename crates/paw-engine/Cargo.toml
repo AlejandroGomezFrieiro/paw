@@ -35,12 +35,18 @@ rustix = { version = "1", default-features = false, features = ["std", "event", 
 
 [dev-dependencies]
 serde_json.workspace = true
+proptest.workspace = true
 rtrb = "0.4"
 alsa-sys = "0.4"
 
 [[bench]]
 name = "regions"
 harness = false
+
+[[bench]]
+name = "midi_lateness"
+harness = false
+required-features = ["midi"]
 
 # A BrowserPod pod is the target vendor `browserpod` (backend/page.rs).
 [lints.rust]

@@ -107,6 +107,14 @@ pub struct KernelOpts {
     pub registry: Registry,
     pub config_dir: PathBuf,
     pub runtime_dir: Option<PathBuf>,
+    /// The user's home folder, which `~/` names in a project's files: the
+    /// program reads it once at its start (`HOME`). `None` keeps every path
+    /// outside a project absolute.
+    pub home: Option<PathBuf>,
+    /// The user's base directories (data, state, cache, runtime): the
+    /// program resolves them once at its start, and the kernel keeps its
+    /// files in them.
+    pub dirs: paw_proto::dirs::Dirs,
     pub clean: bool,
     /// Running a script (`-l`), not a session somebody works in.
     pub scripted: bool,
@@ -148,12 +156,15 @@ impl Kernel {
     pub fn new(opts: KernelOpts) -> Result<Self> {
         // The devices chosen on this machine before, unless the command line
         // names others.
-        let device_file = crate::audio::file();
+        let device_file = crate::audio::file(&opts.dirs);
         let mut backend = opts.backend.clone();
         crate::audio::apply(&mut backend, &crate::audio::load(&device_file));
         let mut session = Session::new(&backend, opts.registry)?;
         session.device_file = Some(device_file);
-        session.set_bakes(Some(crate::bake::Store::user()));
+        session.home = crate::session::folder::Home::new(opts.home);
+        session.set_bakes(Some(crate::bake::Store::user(&opts.dirs)));
+        session.sources.keep_index_in(crate::media::index::LocalIndex::default_file(&opts.dirs));
+        session.dirs = opts.dirs;
         let (tx, rx) = channel();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties

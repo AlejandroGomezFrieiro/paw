@@ -85,6 +85,160 @@ impl Lv2Device {
             at += 12 + len;
         }
     }
+
+    /// Put the block's sound on the audio inputs, as mono or stereo, and the
+    /// side-chain on the key inputs.
+    fn read_input(&mut self, io: &Io, n: usize) {
+        match self.audio_in.as_mut_slice() {
+            [] => {}
+            [mono] => {
+                for (m, (l, r)) in mono.iter_mut().zip(io.left.iter().zip(io.right.iter())) {
+                    *m = (l + r) * 0.5;
+                }
+            }
+            [left, right, ..] => {
+                left[..n].copy_from_slice(io.left);
+                right[..n].copy_from_slice(io.right);
+            }
+        }
+        self.keyed = crate::put_key(self.key_in.as_mut_slice(), io.sidechain, self.keyed, n);
+    }
+
+    /// Fill the atom inputs for the block: the messages of state lanes, the
+    /// time position, the notes and what the editor sent.
+    fn fill_atoms(&mut self, ctx: &ProcessCtx, io: &mut Io, n: usize) {
+        for atom in &mut self.atoms {
+            atom.reset();
+        }
+        // What state lanes handed for the block's first frame.
+        self.push_queued(n, false);
+        if let Some(port) = self.time_in {
+            self.tell_time(port, ctx, n);
+        }
+        if let Some(port) = self.midi_in {
+            let atom = &mut self.atoms[port];
+            self.held.expand(io.events.as_slice(), |frame, kind| {
+                ump::midi1(kind, |bytes, len| atom.push_midi(frame, bytes, len));
+            });
+        } else {
+            // Keep the held-note bookkeeping in step even with nowhere to send.
+            self.held.expand(io.events.as_slice(), |_, _: EventKind| {});
+        }
+        // What the editor sent, such as the path of a file to load.
+        while read_message(&mut self.from_ui, &mut self.message) {
+            let Some((port, atom)) = self.message.split_at_checked(4) else {
+                continue;
+            };
+            let port = u32::from_le_bytes(port.try_into().unwrap());
+            if let Some(index) = self.shared.atom_ports.iter().position(|p| *p == port)
+                && self.atoms[index].input
+            {
+                self.atoms[index].push_atom(0, atom);
+            }
+        }
+        // What state lanes handed for a later frame: after the rest, so
+        // that each sequence stays in the order of its frames.
+        self.push_queued(n, true);
+        self.queued.clear();
+    }
+
+    /// Tell the time port where the song is and how fast it goes.
+    fn tell_time(&mut self, port: usize, ctx: &ProcessCtx, n: usize) {
+        // Told when something changes: starting, stopping, a jump, a new
+        // tempo. In between, the plugin counts on from what it was told.
+        let beats = n as f64 * ctx.tempo / (60.0 * ctx.sample_rate as f64);
+        let expected = self.time_sent.map(|(.., next)| next);
+        let state = (ctx.playing, ctx.tempo, ctx.sig_num, ctx.sig_den);
+        let unchanged = self
+            .time_sent
+            .is_some_and(|(p, t, n, d, _)| (p, t, n, d) == state)
+            && expected.is_some_and(|next| (next - ctx.position).abs() < 1e-6);
+        if !unchanged {
+            self.atoms[port].push_atom(0, &time_position(ctx));
+        }
+        let next = ctx.position + if ctx.playing { beats } else { 0.0 };
+        self.time_sent = Some((ctx.playing, ctx.tempo, ctx.sig_num, ctx.sig_den, next));
+    }
+
+    /// The call: run the plugin for `n` frames, then give it what its
+    /// worker answered.
+    fn run(&mut self, n: usize) {
+        let shared = &self.shared;
+        // SAFETY: `shared.instance` is an instantiated and activated plugin that this device runs on the audio
+        // thread only; its ports were connected to buffers owned by this device and `shared` for
+        // the life of the instance, and each is at least `n` frames. The worker interface and its
+        // handle belong to the same instance; the worker's responses queue has only this thread as
+        // consumer (`finish` waits on atomics only).
+        unsafe {
+            lilv_instance_run(shared.instance, n as u32);
+            if let (Some(worker), Some(interface)) =
+                (shared.host.worker.get(), shared.worker_interface.as_ref())
+            {
+                let handle = lilv_instance_get_handle(shared.instance).cast();
+                worker.finish();
+                while read_message(&mut *worker.responses.get(), &mut self.response) {
+                    (interface.work_response)(
+                        handle,
+                        self.response.len() as u32,
+                        self.response.as_ptr().cast(),
+                    );
+                }
+                if let Some(end_run) = interface.end_run {
+                    end_run(handle);
+                }
+            }
+        }
+    }
+
+    /// Pass on what the plugin sent from its atom outputs. An open editor
+    /// hears everything the plugin sends; with none open, the controller
+    /// still hears the new values of its properties.
+    fn send_output_events(&mut self) {
+        let shared = &self.shared;
+        let ui_open = shared.ui_open.load(Relaxed);
+        if ui_open || shared.patch_port.is_some() {
+            for (atom, port) in self
+                .atoms
+                .iter()
+                .zip(&shared.atom_ports)
+                .filter(|(atom, _)| !atom.input)
+            {
+                atom.each_event(|event| {
+                    if !ui_open && !lv2_patch::is_set(&urids().patch, event) {
+                        return;
+                    }
+                    self.message.clear();
+                    self.message.extend_from_slice(&port.to_le_bytes());
+                    self.message.extend_from_slice(event);
+                    write_message(&mut self.to_ui, &self.message);
+                });
+            }
+        }
+    }
+
+    /// Note whether the plugin may sleep, and give the block's sound from
+    /// the audio outputs.
+    fn write_output(&mut self, io: &mut Io, n: usize) {
+        let shared = &self.shared;
+        let latency = shared.latency.map_or(0, |slot| shared.control(slot).max(0.0) as u64);
+        self.rest.end_after_tail(
+            Some(self.tail + latency),
+            self.audio_out.iter().all(|c| paw_engine::device::silent(&c[..n])),
+        );
+
+        let add = self.audio_in.is_empty();
+        match self.audio_out.as_slice() {
+            [] => {}
+            [mono] => write_output(io.left, io.right, &[&mono[..n]], add),
+            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], add),
+        }
+        crate::write_pairs(
+            &self.out_pairs,
+            std::slice::from_ref(&self.audio_out),
+            io.outputs,
+            n,
+        );
+    }
 }
 
 impl Device for Lv2Device {
@@ -120,132 +274,14 @@ impl Device for Lv2Device {
         let n = io.left.len();
         // Woken: its tail starts again from here.
         self.rest.begin(io, self.shared.wake.swap(false, Relaxed));
-        match self.audio_in.as_mut_slice() {
-            [] => {}
-            [mono] => {
-                for (m, (l, r)) in mono.iter_mut().zip(io.left.iter().zip(io.right.iter())) {
-                    *m = (l + r) * 0.5;
-                }
-            }
-            [left, right, ..] => {
-                left[..n].copy_from_slice(io.left);
-                right[..n].copy_from_slice(io.right);
-            }
-        }
-        self.keyed = crate::put_key(self.key_in.as_mut_slice(), io.sidechain, self.keyed, n);
-        for atom in &mut self.atoms {
-            atom.reset();
-        }
-        // What state lanes handed for the block's first frame.
-        self.push_queued(n, false);
-        if let Some(port) = self.time_in {
-            // Told when something changes: starting, stopping, a jump, a new
-            // tempo. In between, the plugin counts on from what it was told.
-            let beats = n as f64 * ctx.tempo / (60.0 * ctx.sample_rate as f64);
-            let expected = self.time_sent.map(|(.., next)| next);
-            let state = (ctx.playing, ctx.tempo, ctx.sig_num, ctx.sig_den);
-            let unchanged = self
-                .time_sent
-                .is_some_and(|(p, t, n, d, _)| (p, t, n, d) == state)
-                && expected.is_some_and(|next| (next - ctx.position).abs() < 1e-6);
-            if !unchanged {
-                self.atoms[port].push_atom(0, &time_position(ctx));
-            }
-            let next = ctx.position + if ctx.playing { beats } else { 0.0 };
-            self.time_sent = Some((ctx.playing, ctx.tempo, ctx.sig_num, ctx.sig_den, next));
-        }
-        if let Some(port) = self.midi_in {
-            let atom = &mut self.atoms[port];
-            self.held.expand(io.events.as_slice(), |frame, kind| {
-                ump::midi1(kind, |bytes, len| atom.push_midi(frame, bytes, len));
-            });
-        } else {
-            // Keep the held-note bookkeeping in step even with nowhere to send.
-            self.held.expand(io.events.as_slice(), |_, _: EventKind| {});
-        }
-        // What the editor sent, such as the path of a file to load.
-        while read_message(&mut self.from_ui, &mut self.message) {
-            let Some((port, atom)) = self.message.split_at_checked(4) else {
-                continue;
-            };
-            let port = u32::from_le_bytes(port.try_into().unwrap());
-            if let Some(index) = self.shared.atom_ports.iter().position(|p| *p == port)
-                && self.atoms[index].input
-            {
-                self.atoms[index].push_atom(0, atom);
-            }
-        }
-        // What state lanes handed for a later frame: after the rest, so
-        // that each sequence stays in the order of its frames.
-        self.push_queued(n, true);
-        self.queued.clear();
-
-        let shared = &self.shared;
-        // SAFETY: `shared.instance` is an instantiated and activated plugin that this device runs on the audio
-        // thread only; its ports were connected to buffers owned by this device and `shared` for
-        // the life of the instance, and each is at least `n` frames. The worker interface and its
-        // handle belong to the same instance; the worker's responses queue has only this thread as
-        // consumer (`finish` waits on atomics only).
-        unsafe {
-            lilv_instance_run(shared.instance, n as u32);
-            if let (Some(worker), Some(interface)) =
-                (shared.host.worker.get(), shared.worker_interface.as_ref())
-            {
-                let handle = lilv_instance_get_handle(shared.instance).cast();
-                worker.finish();
-                while read_message(&mut *worker.responses.get(), &mut self.response) {
-                    (interface.work_response)(
-                        handle,
-                        self.response.len() as u32,
-                        self.response.as_ptr().cast(),
-                    );
-                }
-                if let Some(end_run) = interface.end_run {
-                    end_run(handle);
-                }
-            }
-        }
-
-        // An open editor hears everything the plugin sends; with none open,
-        // the controller still hears the new values of its properties.
-        let ui_open = shared.ui_open.load(Relaxed);
-        if ui_open || shared.patch_port.is_some() {
-            for (atom, port) in self
-                .atoms
-                .iter()
-                .zip(&shared.atom_ports)
-                .filter(|(atom, _)| !atom.input)
-            {
-                atom.each_event(|event| {
-                    if !ui_open && !lv2_patch::is_set(&urids().patch, event) {
-                        return;
-                    }
-                    self.message.clear();
-                    self.message.extend_from_slice(&port.to_le_bytes());
-                    self.message.extend_from_slice(event);
-                    write_message(&mut self.to_ui, &self.message);
-                });
-            }
-        }
-
-        let latency = shared.latency.map_or(0, |slot| shared.control(slot).max(0.0) as u64);
-        self.rest.end_after_tail(
-            Some(self.tail + latency),
-            self.audio_out.iter().all(|c| paw_engine::device::silent(&c[..n])),
-        );
-
-        let add = self.audio_in.is_empty();
-        match self.audio_out.as_slice() {
-            [] => {}
-            [mono] => write_output(io.left, io.right, &[&mono[..n]], add),
-            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], add),
-        }
-        crate::write_pairs(
-            &self.out_pairs,
-            std::slice::from_ref(&self.audio_out),
-            io.outputs,
-            n,
-        );
+        // 1. The events and the audio in.
+        self.read_input(io, n);
+        self.fill_atoms(ctx, io, n);
+        // 2. The call.
+        self.run(n);
+        // 3. The events and the audio out.
+        self.send_output_events();
+        self.write_output(io, n);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {

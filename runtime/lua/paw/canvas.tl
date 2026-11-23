@@ -58,6 +58,7 @@ local events = require("paw.events")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type LayoutModule = require("paw.layout")
 local type LimitModule = require("paw.limit")
@@ -73,7 +74,7 @@ local type CanvasOp = types.CanvasOp
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
 -- modules that it calls (paw/layout.tl, paw/panes.tl, paw/mouse.tl,
--- paw/ui.tl, paw/keymap.lua): their parts that it uses. It keeps a window
+-- paw/ui.tl, paw/keymap.tl): their parts that it uses. It keeps a window
 -- of the layout as a `contracts.Window`. paw/panes.tl names this module's
 -- types, so this one cannot name its.
 
@@ -89,11 +90,6 @@ local record Tab
   prev: integer
 end
 
---- How a view keeps a state of its own for each window (paw/layout.tl),
---- which this module only looks for.
-local record Keeper
-end
-
 --- A buffer type: its window of its own, if it has one.
 local record BufferType
   window: function(): Window
@@ -105,7 +101,7 @@ local record SplitOptions
 end
 
 local record Layout
-  keepers: {string: {Keeper}}
+  per_window: function(name: string): boolean
   types: {string: BufferType}
   homes: {string: {string: string | number}}
   current: function(): Window
@@ -168,6 +164,7 @@ local record Mouse
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   layout: LayoutModule
   panes: Panes
@@ -871,7 +868,7 @@ local function own_window(name: string): Window, Window
   end
   local L = (paw.layout as Layout)
   -- A view with one state, or a buffer type, needs none.
-  if not L.keepers[name] or L.types[name] then
+  if not L.per_window(name) or L.types[name] then
     return nil
   end
   local here = L.current()

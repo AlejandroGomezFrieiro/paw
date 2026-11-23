@@ -649,6 +649,7 @@ test(":scope.write takes a name; a word with a slash is a path, and the song doe
   local before = project_text()
   keys("6|")
   keys("znar")
+  T.expect_error("~/lib/bridge is a path")
   keys(":scope.write ~/lib/bridge<CR>")
   eq(paw.ui.message.text:find("~/lib/bridge is a path", 1, true) ~= nil, true, paw.ui.message.text)
   eq(project_text(), before, "nothing saved")
@@ -715,6 +716,7 @@ test(
     paw.flush()
     api.undo_checkpoint()
     paw.scope.enter({ kind = "range", tracks = { t.Bass }, from = 16, to = 34, name = "Bridge" })
+    T.expect_error("^compressor on Bass listens to Kick")
     keys("<Space>zW")
     eq(paw.ui.message.text, "compressor on Bass listens to Kick: take Kick in too, or use <Space>zw", "refused")
     eq(#api.nest_list(), 0, "nothing saved")
@@ -774,3 +776,334 @@ test("promote keeps the subproject's key on its region, as a key over its time",
   eq(region.name .. " " .. tostring(region.key), "Ballad D minor", "the region has its key")
   eq(paw.ui.message.text:find("the region Ballad is in D minor", 1, true) ~= nil, true, paw.ui.message.text)
 end)
+
+-- Its own tempo and meter ------------------------------------------------------------------
+
+--- A song at 120 bpm with a return row Cue, and a subproject Cue of 16
+--- beats whose synth plays a short note on its beats 0, 4, 8 and 12. Its
+--- block starts at bar 5 (beat 16, 8 s).
+local function cue()
+  start()
+  local row = paw.add_track({ name = "Cue" })
+  local nest = api.nest_add({ name = "Cue", length = 16 })
+  local synth = api.track_add({ name = "Synth", nest = nest })
+  paw.track(synth):add_device("synth", { attack = 0.001, release = 0.01 })
+  local notes = {}
+  for i = 0, 3 do
+    notes[#notes + 1] = { pitch = 69, start = i * 4, length = 0.25 }
+  end
+  api.clip_add(synth, { start = 0, length = 16, notes = notes })
+  local clip = api.clip_add(row.id, { nest = nest, start = 16 })
+  paw.flush()
+  api.undo_checkpoint()
+  return { row = row.id, nest = nest, clip = clip }
+end
+
+--- Where sound starts after a silence in a 16-bit render, in seconds with
+--- two decimals ("8.00 10.00"), or with `digits` decimals.
+local function onsets(info, digits)
+  local data = T.read_file(info.path)
+  local at = data:find("data", 1, true) + 8
+  local out, quiet, gap = {}, 0, math.floor(info.sample_rate * 0.05)
+  for i = at, #data - 3, 4 do
+    local v = data:byte(i) + data:byte(i + 1) * 256
+    if v >= 32768 then v = v - 65536 end
+    if math.abs(v) > 300 then
+      if quiet >= gap then
+        out[#out + 1] = string.format("%." .. (digits or 2) .. "f", (i - at) / 4 / info.sample_rate)
+      end
+      quiet = 0
+    else
+      quiet = quiet + 1
+    end
+  end
+  return table.concat(out, " ")
+end
+
+test(
+  "a ritardando of the song over a block moves the notes of a subproject that follows the tempo, not those of one with its own",
+  function()
+    local b = cue()
+    local function heard() return onsets(T.render({ tail = 0, bits = 16, ["end"] = 40 })) end
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(17)
+    keys(":nest.time own<CR>")
+    eq(paw.ui.message.text:find("Cue has its own tempo, 120 bpm", 1, true) ~= nil, true, paw.ui.message.text)
+    eq(heard(), "8.00 10.00 12.00 14.00", "at 120 bpm, a note each 2 s from 8 s")
+    -- From bar 5 the song slows down to 60 bpm at bar 9.
+    paw.tempo.set(16, 120, { ramp = true })
+    paw.tempo.set(32, 60)
+    eq(heard(), "8.00 10.00 12.00 14.00", "its own tempo: the same seconds")
+    local c = api.clip_get(b.clip)
+    T.near(api.tempo_seconds(c.start + c.length), 16, 1e-6, "the block still lasts 8 s")
+    keys(":nest.time follow<CR>")
+    local follows = {}
+    for t in heard():gmatch("%S+") do
+      follows[#follows + 1] = tonumber(t)
+    end
+    eq(follows[1], 8, "the first note on the block's start")
+    eq(follows[2] > 10.05 and follows[3] > 12.05 and follows[4] > 14.05, true, "the song's tempo: later notes")
+    keys("u")
+    eq(api.nest_get(b.nest).tempo.mode, "own", "u: its own tempo again")
+  end
+)
+
+test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars are 6/8 and K says 6/8", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+  eq(signatures(), "0:4/4", "the song's map as it was")
+  eq(
+    paw.ui.message.text:find("over bars 33-38 in 6/8 (the song's meter stays)", 1, true) ~= nil,
+    true,
+    paw.ui.message.text
+  )
+  local lines = {}
+  for _, l in ipairs(paw.time.bars(0, 10)) do
+    lines[#lines + 1] = l.beat .. ":" .. l.bar
+  end
+  eq(table.concat(lines, " "), "0:1 3:2 6:3 9:4", "its bars: three beats each, from 1")
+  eq(paw.ruler.label(2, 3, "RulerBar", 0)[1][1], "2", "the ruler numbers its bar 2 at beat 3")
+  local text = screen()
+  eq(text:find("Song › ⧉Ballad 1.1 (33.1)", 1, true) ~= nil, true, "its place and the song's\n" .. text)
+  keys("zw")
+  paw.cursor.set_track(api.track_list()[2])
+  paw.cursor.set_beat(129)
+  keys("K")
+  local said = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    said[#said + 1] = line.text
+  end
+  paw.ui.close()
+  eq(table.concat(said, "\n"):find("nest Ballad · 6/8 · 8 bars", 1, true) ~= nil, true, table.concat(said, "\n"))
+end)
+
+test(
+  "inside a meter=own 6/8 subproject, the ruler, the grid and the status line count 6/8; the song's stay 4/4",
+  function()
+    metal()
+    paw.opt.zoom = 2
+    -- The columns between the bar numbers of the ruler, and between the grid's
+    -- bar lines on the track's row, and the meter in the status line.
+    local function counted()
+      local rows = api.ui_snapshot(W, H)
+      local ruler = rows[1]:match("│(.*)$"):gsub("▏", "'")
+      local lane = rows[3]:match("│(.*)$"):gsub("▏", "|")
+      local function gaps(row, pattern)
+        local at, out = {}, {}
+        for x in row:gmatch("()" .. pattern) do
+          at[#at + 1] = x
+        end
+        for i = 2, math.min(#at, 4) do
+          out[#out + 1] = at[i] - at[i - 1]
+        end
+        return table.concat(out, " ")
+      end
+      local meter = table.concat(rows, "\n"):match("bpm (%d+/%d+)")
+      return gaps(ruler, "%f[%d]%d+") .. " | " .. gaps(lane, "|") .. " | " .. meter
+    end
+    keys("33|")
+    keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+    eq(counted(), "6 6 6 | 6 6 6 | 6/8", "inside: a bar every 3 beats (6 eighths)")
+    keys("zw")
+    eq(counted(), "8 8 8 | 8 8 8 | 4/4", "the song outside: a bar every 4 beats")
+  end
+)
+
+test("<Space>zw on a view inside a meter=own 6/8 subproject saves it in 6/8", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+  local inside = paw.scope.tracks()
+  api.clip_add(inside[1], { start = 3, length = 6, notes = { { pitch = 60, start = 0, length = 1 } } })
+  paw.flush()
+  api.undo_checkpoint()
+  -- Bars 2-3 of Ballad: three beats each.
+  paw.scope.enter({ kind = "range", tracks = inside, from = 3, to = 9, name = "Verse" })
+  keys("<Space>zw")
+  local verse = api.nest_get(api.nest_list()[2])
+  local changes = {}
+  for _, c in ipairs(verse.meter.changes) do
+    changes[#changes + 1] = string.format("%g:%d/%d", c.beat, c.num, c.den)
+  end
+  eq(verse.name .. " " .. verse.meter.mode .. " " .. table.concat(changes, " "), "Verse own 0:6/8", "Ballad's meter")
+  eq(paw.ui.message.text:find("as Verse (6/8)", 1, true) ~= nil, true, paw.ui.message.text)
+  eq(signatures(), "0:4/4", "the song's map as it was")
+end)
+
+test("inside a subproject with its own tempo, :tempo sets its tempo and the status line says own tempo", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  keys(":tempo 90<CR>")
+  eq(paw.ui.message.text, "90 bpm: the subproject's own tempo", "the message")
+  eq(api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo, "90 120", "its tempo, not the song's")
+  eq(screen():find("own tempo", 1, true) ~= nil, true, "the status line")
+end)
+
+test("inside a subproject with its own tempo, the tempo lane shows its tempo, not the song's", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  keys(":tempo 90<CR>")
+  keys("zT")
+  T.after(function() paw.tempolane.show(false) end)
+  local rows = api.ui_snapshot(120, 24)
+  local header
+  for i, row in ipairs(rows) do
+    if row:find("^%s*tempo%s") and rows[i + 1] then header = rows[i + 1]:match("^%s*(%d+ bpm)") end
+  end
+  eq(header, "90 bpm", "the lane's header: its tempo at the cursor\n" .. table.concat(rows, "\n"))
+  local lo, hi = paw.tempolane.range()
+  eq(lo .. " " .. hi, "50 130", "the lane's range round 90")
+end)
+
+test("inside a subproject with its own tempo, grt types its tempo, not the song's, and u takes it back", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  api.undo_checkpoint()
+  keys("grt96<CR>")
+  local function tempos() return api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo end
+  eq(tempos(), "96 120", "its tempo, not the song's")
+  api.undo_checkpoint()
+  keys("u")
+  eq(tempos(), "120 120", "one step back")
+end)
+
+test(
+  "<Space>zp of a subproject with its own tempo writes its tempo into the song's map: the same render, and the message says so",
+  function()
+    local b = cue()
+    local drums = paw.add_track({ name = "Drums" })
+    drums:add_device("synth", { attack = 0.001, release = 0.01 })
+    drums:add_clip({ start = 40, length = 1, notes = { { pitch = 57, start = 0, length = 0.25 } } })
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(17)
+    keys(":nest.time own 90<CR>")
+    T.near(api.clip_get(b.clip).length, 64 / 3, 1e-9, "16 of its beats at 90 are 21.33 of the song's at 120")
+    -- The same sound: each note at the same millisecond, as loud. A note
+    -- can start one frame apart, as its beat in the song is another.
+    local function heard()
+      local info = T.render({ tail = 0, bits = 16 })
+      local peak = T.channel_peaks(info)
+      return onsets(info, 3) .. string.format(" peak %.3f", peak)
+    end
+    local before = heard()
+    keys("<Space>zp")
+    eq(heard(), before, "the same render")
+    local tempos = {}
+    for _, p in ipairs(paw.tempo.points()) do
+      tempos[#tempos + 1] = string.format("%g:%g", p.beat, p.bpm)
+    end
+    eq(table.concat(tempos, " "), "0:120 16:90 32:120", "90 over its 16 beats, 120 back after")
+    T.near(api.clip_list(drums.id)[1].start, 40 - 16 / 3, 1e-9, "the song after it moved with its beats")
+    eq(
+      paw.ui.message.text:find(
+        "its own tempo, 90 bpm, in the song's map over bars 5-8, and 120 bpm back after it",
+        1,
+        true
+      ) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+  end
+)
+
+-- One subproject placed twice ---------------------------------------------------------------
+
+--- The Ballad of `ballad` with a synth on its Piano, and a second block
+--- pasted with keys: `yic` on the block at bar 9, then `p` at bar 97.
+local function linked()
+  start()
+  local b = ballad()
+  paw.track(b.piano):add_device("synth", { attack = 0.001, release = 0.01 })
+  api.undo_checkpoint()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(32)
+  keys("yic")
+  keys("97|")
+  keys("p")
+  local blocks = api.clip_list(b.row)
+  b.second = blocks[#blocks].id
+  return b
+end
+
+--- The peak of the song over two beats from `from`.
+local function level(from) return (T.channel_peaks(T.render({ tail = 0, bits = 16, start = from, ["end"] = from + 2 }))) end
+
+--- Mute the Piano clip of the subproject of the block at `beat` of the row, with keys from inside it.
+local function mute_inside(b, beat)
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(beat)
+  keys("znn")
+  paw.cursor.set_track(paw.scope.tracks()[1])
+  paw.cursor.set_beat(0)
+  keys("~")
+  keys("zw")
+end
+
+test(
+  "y on a block and p at bar 97 make a second block of the same subproject: an edit inside is heard in both",
+  function()
+    local b = linked()
+    eq(
+      api.clip_get(b.second).start .. " " .. api.clip_get(b.second).nest,
+      "384 " .. b.nest,
+      "a block of Ballad at bar 97"
+    )
+    eq(#api.nest_list(), 1, "one subproject")
+    eq(level(32) > 0.01 and level(384) > 0.01, true, "both blocks play the piano")
+    mute_inside(b, 33)
+    eq(level(32) < 1e-3, true, "the piano muted at bar 9")
+    eq(level(384) < 1e-3, true, "and at bar 97")
+  end
+)
+
+test(":nest.unique on the second block: an edit inside it leaves the first as it was; u links them again", function()
+  local b = linked()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(385)
+  keys(":nest.unique<CR>")
+  eq(
+    paw.ui.message.text,
+    "Ballad 2: the block at bar 97 is a subproject of its own; Ballad still plays at bar 9",
+    "the message"
+  )
+  keys("u")
+  eq(api.clip_get(b.second).nest, b.nest, "u: the same subproject again")
+  keys("<C-r>")
+  local copy = api.clip_get(b.second).nest
+  eq(copy ~= b.nest and api.nest_get(copy).name, "Ballad 2", "a copy of its own")
+  mute_inside(b, 385)
+  eq(level(32) > 0.01, true, "the first block plays as it did")
+  eq(level(384) < 1e-3, true, "the second is muted")
+end)
+
+test(
+  "K on a block placed twice says 2 instances; <Space>zp on one says that the subproject still plays at the other",
+  function()
+    local b = linked()
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(33)
+    keys("K")
+    local said = {}
+    for _, line in ipairs(paw.ui.views.pager.lines) do
+      said[#said + 1] = line.text
+    end
+    paw.ui.close()
+    eq(table.concat(said, "\n"):find("· 2 instances ·", 1, true) ~= nil, true, table.concat(said, "\n"))
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(33)
+    keys("<Space>zp")
+    eq(paw.ui.message.text:find("Ballad still plays at bar 97", 1, true) ~= nil, true, paw.ui.message.text)
+    eq(api.clip_get(b.second).nest .. " " .. #api.nest_list(), b.nest .. " 1", "the block at bar 97 keeps Ballad")
+    eq(level(32) > 0.01 and level(384) > 0.01, true, "both play as before")
+  end
+)

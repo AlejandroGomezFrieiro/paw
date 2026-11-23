@@ -24,6 +24,7 @@ local api = require("paw.api")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 
 local type Window = contracts.Window
 local type VZoom = contracts.VZoom
@@ -58,6 +59,7 @@ local record Opt
   track_height: integer | string
 end
 local record Paw is partial.Paw
+  keymap: KeymapModule
   layout: Layout
   ui: Ui
   groups: Groups
@@ -149,12 +151,12 @@ function M.any_own(): boolean
   return list ~= nil and #list > 0
 end
 
---- Rows per automation lane shown as a row in the arrange view: 2 unzoomed.
+--- Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
 function M.lane_rows(): integer
   return of("arrange").lane_rows or 2
 end
 
---- Rows per key in the piano roll: 1 unzoomed.
+--- Rows per key in the piano roll: 1 at no zoom.
 function M.key_rows(): integer
   return of("pianoroll").key_rows or 1
 end

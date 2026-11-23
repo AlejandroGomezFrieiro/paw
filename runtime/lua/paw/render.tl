@@ -14,6 +14,7 @@ local options = require("paw.options")
 local util = require("paw.util")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 local type GroupsModule = require("paw.groups")
@@ -62,10 +63,13 @@ local record Status
   queued: integer
 end
 
---- The payload of `render.before`: the file, and the options as the kernel takes them.
+--- The payload of `render.before`: the file, and the options as the kernel
+--- takes them. A measure of the sound (`paw.api.measure`) writes no file:
+--- it has no `path`, and `measure` is true.
 local record Before
   path: string
   opts: types.RenderOptions
+  measure: boolean
 end
 
 --- An entry of `M.options`: the key with its `=`, the values to complete, and what it is.
@@ -89,6 +93,7 @@ local record Files
 end
 local type UiModule = require("paw.ui")
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   cursor: CursorModule
   groups: GroupsModule
@@ -109,7 +114,7 @@ local record M
   tag_names: {string}
   --- What `:render` takes, for its description and completion: `{ key=, values, what }`.
   options: {Option}
-  --- The event `render.before`: its handlers run before rendering starts.
+  --- The event `render.before`: a render will start.
   before: events.Event<Before>
   --- The event `render.finished`: what a render in the foreground wrote.
   finished: events.Event<types.RenderResult>

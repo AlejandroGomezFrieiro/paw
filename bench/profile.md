@@ -34,6 +34,11 @@ folders and `HOME`, and a control socket of its own. It answers the
 terminal probe, writes the keys and reads what paw draws. A frame is
 what paw writes between the start and the end of a synchronized update.
 
+The driver gives paw the variables `PAW_RUNTIME` and `LD_PRELOAD` of its
+own environment. Use `PAW_RUNTIME` to measure the Lua of a checkout with
+a binary of main (`tools/dev-runtime.sh`). Use `LD_PRELOAD` to measure
+another allocator.
+
 The first run makes the large project with
 [profile/project.lua](profile/project.lua). It has 64 tracks with a synth
 each, 2 000 MIDI clips and 50 000 notes. Each fourth track has a volume
@@ -52,6 +57,7 @@ when it is not set), one JSON line for each measurement in
 | `record` | A take on a new armed track from the test input. | As `play`. |
 | `long` | Edits, keys and playback in turns for `--secs` seconds (600). | Resident memory and the Lua heap every five rounds; the heap after a full collection; the undo history. |
 | `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round, and the time from each key to its first frame (median, smallest and largest value). Use it with the probes to profile one key. |
+| `scope` | Adds regions (Intro, Verse with Verse A and Verse B in it, Chorus, End) and a group Strings of the first 16 tracks after the start. The project file does not change. Then the keys of a scope in order: `znar`, moves, `zfar`, `zm`, `zr`, `znn`, `zw`, `]z`, `:%quantize 1/4` and `u`, the piano roll, `zW`, `znag`, moves, `zw`. | As `keys`, with the path of the scope after each key. Also the time of a full frame (`paw.api.ui_snapshot`, 40 frames after `j` or `k`) in the song, in the region and in the group: the median, smallest and largest value. |
 
 The thread named `kernel` is the main thread: Lua, the views, the
 drawing and the terminal output. The thread of the null backend
@@ -114,6 +120,7 @@ Two tools in paw itself give the same view without `drive.py`:
 | [profile/compare.py](profile/compare.py) `<paw A> <paw B> <pairs> <scenario> [options]` | Two builds in turns, A B A B, and the median, smallest and largest value of each measure. |
 | [profile/frame.lua](profile/frame.lua) `<project> [rounds] [keys] [size]` | The time of a full frame of the arrange view after each key (`j,k` by default), with no terminal. With `PAW_FRAME_PROF=<file>`, the folded Lua stacks of the frames, for `top.py`. Under `perf stat`, run it with 0 rounds and with N: the difference divided by N is the instructions of a key and its frame. The frame is drawn as the terminal draws it (`paw.api.ui_snapshot`), and it is not written to a terminal. Run it with [profile/headless.py](profile/headless.py). |
 | [profile/harmony.lua](profile/harmony.lua) | The time to read all the chords and keys of a project, as when paw opens it, with a hash of the result to compare two builds. Run it with [profile/headless.py](profile/headless.py), which gives paw scratch folders. |
+| [profile/help.lua](profile/help.lua) `[project] [alloc]` | The slices of the help index that paw makes at idle (the job `help`): their number, the longest slice, the mean slice and the time of the build. With `alloc`, the collector is stopped, and it also gives the MB that one build allocates. Each run makes the index once, as at the start: run it a few times for the spread. Run it with [profile/headless.py](profile/headless.py). |
 
 ## Numbers on a shared machine
 

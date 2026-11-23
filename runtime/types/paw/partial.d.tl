@@ -23,13 +23,6 @@ local record partial
       register: function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
       metamethod __index: function(Health, string): Untyped
    end
-   record Keymap
-      mode: string
-      parse: function(lhs: string): {string}
-      repeat_as: function(keys: {string})
-      selection: function(): contracts.Region
-      metamethod __index: function(Keymap, string): Untyped
-   end
    record TrackKinds
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
       metamethod __index: function(TrackKinds, string): Untyped
@@ -47,7 +40,6 @@ local record partial
       files: Files
       flush: function()
       health: Health
-      keymap: Keymap
       notify: function(text: string, level?: string)
       off: function(id: integer)
       render_cancel: function(): boolean

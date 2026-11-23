@@ -301,6 +301,9 @@ impl Device for Reverb {
         let drift = DRIFT_MS * ms;
         let steps = DRIFT_HZ.map(|hz| hz / self.sr as f64 * UPDATE as f64);
         for (l, r) in io.left.iter_mut().zip(io.right.iter_mut()) {
+            if self.rest.holds(*l, *r) {
+                continue;
+            }
             if self.clock.is_multiple_of(UPDATE) {
                 if self.scale.moving() || self.decay.moving() {
                     self.update_gains();

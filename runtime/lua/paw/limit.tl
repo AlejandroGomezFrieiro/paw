@@ -107,12 +107,9 @@ local inner_slow = false  -- a call inside the running one went over the budget
 local paused = 0.0        -- the milliseconds spent waiting in the kernel, in all
 local warned: {string: M.Slow} = {}
 
-local record OptionChanged
-  name: string
-end
 events.on(
-  events.event("option.changed") as events.Event<OptionChanged>,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "budget_ms" then
       slow_ms = (opt.budget_ms as number) or 0
     end

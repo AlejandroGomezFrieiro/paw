@@ -27,6 +27,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | Field | Effect |
 | --- | --- |
 | `render(self, buf, ctx)` | draws the view in cells |
+| `stamp(self, ctx)` | a text of what `render` reads that no event tells, so that a window without the keyboard keeps its cells while the text stays the same (see [A stamp for each window](#a-stamp-for-each-window)) |
 | `on_key(self, key)` | gets the keys that have no mapping |
 | `on_mouse(self, event)` | gets the pointer (see [The pointer](#the-pointer)) |
 | `gestures` | functions for the hit regions of roles (see [Roles](#roles)) |
@@ -45,6 +46,7 @@ A view has the same fields in both frontends, and the graphical window shows a v
 | `title_of(self)` | the title of its pane in the graphical window, for what the view shows now |
 | `window_state` | the names of the fields of the view that each window has for itself (see [A state for each window](#a-state-for-each-window)) |
 | `window_fresh` | the fields of `window_state` that a new window starts without, e.g., caches |
+| `window_instances` | true to give each window its own table of the `window_state` fields (see [A state for each window](#a-state-for-each-window)) |
 | `open_target(self, target)` | opens a thing by name in the window, for `:e view://target`. It returns false and a message when it cannot |
 | `window_target(self)` | the name of what the window shows, for a saved layout. It gives nil when that thing is gone (undone or deleted) |
 | `share` | the part of the room that the view keeps: `column`, `least` and `most`, fractions (see [Windows, buffers and tabs](windows.md#sizes)) |
@@ -70,8 +72,12 @@ paw.ui.view("score", {
 })
 ```
 
+With `window_instances = true`, each window has its own table, which holds the fields of `window_state` and takes the other fields and the functions from the view. The view draws in a window with that table as `self`. The view that `paw.ui.view` returns reads and writes the fields of `window_state` in the window that drew or acted last, as before. The piano roll works this way.
+
 | Function | Effect |
 | --- | --- |
+| `paw.ui.instance(view)` | the table of a view with `window_instances` in its window with the keyboard, else in the window that had it last. With no window, it gives the view |
+| `paw.ui.instance_of(win)` | the table of the window `win`, for a view with `window_instances` |
 | `paw.layout.window_keep(view, get, set, fresh)` | keeps other state of a view for each window, e.g., locals of a module. `get()` gives one value, `set(value)` puts it back, `fresh(value)` gives the value of a new window |
 | `paw.layout.within(win, fn, ...)` | runs `fn` with the state of the window `win` in the table, then puts the state before back |
 | `paw.layout.bound(view)` | the window whose state the table of the view has now |
@@ -82,6 +88,29 @@ paw.ui.view("score", {
 | `paw.seats.kind(seat)` | the kind of a seat, `"window"` or `"terminal"`: the key of its layout in the project |
 
 A command can act on a view from a different window, e.g., `Enter` on a clip in the arrange view, and it then acts in the window of that view that had the keyboard last. A view in a window of its own of the graphical window has a state of its own too, which starts from the state of the pane that it left. When the view returns to the main window, that pane takes its state.
+
+### A stamp for each window
+
+A view with `stamp(self, ctx)` gives a text of what its drawing reads, and paw keeps the cells of each of its windows under that text. On a later frame, a window that doesn't have the keyboard and has the same text gets its cells back, and paw doesn't call `render`. The playhead and the meters of the window still move. The window with the keyboard is always drawn.
+
+```lua
+stamp = function(self, ctx)
+  return table.concat({ tostring(self.clip_id), self.beat, self.scroll, tostring(ctx.follower) }, " ")
+end,
+```
+
+paw adds to the text what each window can read, so `stamp` gives only the rest:
+
+| paw adds | Example |
+| --- | --- |
+| the count of events so far (`paw.events.emitted()`) | an edit, an option, the mode, the cursor of the arrange view, a chord that paw reads again |
+| the count of edits of the project | a note, a fader |
+| the transport | play, record, the playhead, the loop and the punch range |
+| the place and the size of the window, its background, and its winbar | a window made larger |
+
+What `stamp` gives is the state of the window that changes without an event, for example its cursor and its scroll, and what its drawing reads from other modules without an event. A change of a highlight group draws every window again. A window that shows pixels (`buf:surface`, `buf:strip`) is always drawn. A view without `stamp` is drawn on each frame.
+
+A stamp that misses something shows an old picture. With `paw.opt.check_stamps`, paw draws each window anyway and logs each window that drew other cells with the same stamp. The test suite runs with it on, and a test fails on such a window. The arrange view, the piano roll and the mixer give a stamp.
 
 ### Pictures
 
@@ -315,6 +344,7 @@ Other fields of a kind:
 | Field | Effect |
 | --- | --- |
 | `readonly` | the message when you try a change, and the text cannot change, as in help |
+| `scratch` | the message of `:w`. paw never writes the lines, and `:q` closes the window with its changes, as in the command-line window |
 | `gutter = false` | no line numbers |
 | `static` | paw does not read it again when the project changes |
 | `paint(canvas, x, y, text, kind, width, row, buf)` | draws a line |

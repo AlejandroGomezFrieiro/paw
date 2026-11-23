@@ -129,6 +129,14 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let promoted = sh.session.borrow_mut().nest_promote(clip).lua()?;
             to_lua(lua, &serde_json::to_value(promoted).map_err(mlua::Error::external)?)
         }
+        // Make the block `clip` a subproject of its own, as one undo step: a
+        // copy of its subproject (tracks, devices, lanes and clips) named
+        // `Ballad 2`, which the block and the stems of the same block then
+        // play. The other blocks keep the subproject. Returns the copy's id.
+        // @return integer
+        fn nest_unique(_, sh, clip => Id) {
+            sh.session.borrow_mut().nest_unique(clip).map(|n| n.0).lua()
+        }
         // Save a view as a subproject, as one undo step: the clips of
         // `tracks` from `from` to `to` (beats of their place) move into a
         // new subproject named `name` with the meter `meter`. Per track,

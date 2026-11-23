@@ -158,6 +158,26 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 None => Ok(LuaValue::Nil),
             }
         }
+        // The folders where paw looks for plugins, for each format, in the order
+        // that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`.
+        // They include the folders that `plugins_add_dir` added. Returns nil where
+        // paw cannot find plugins.
+        // @return {string: {string}}
+        fn plugins_dirs(lua, sh, () => ()) {
+            let dirs = sh.session.borrow().registry.plugin_dirs();
+            match dirs {
+                Some(dirs) => {
+                    let table = lua.create_table()?;
+                    for (format, folders) in dirs {
+                        let folders: Vec<String> =
+                            folders.iter().map(|f| f.to_string_lossy().into_owned()).collect();
+                        table.raw_set(format, folders)?;
+                    }
+                    Ok(LuaValue::Table(table))
+                }
+                None => Ok(LuaValue::Nil),
+            }
+        }
         // Load an attachment: a native library that an extension ships, which
         // paw offers each CLAP plugin that it makes from now on (see
         // `crates/paw-plugins/include/paw_attach.h`). Returns the name of the

@@ -26,6 +26,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local render = require("paw.render")
 local kernel = require("paw.events.kernel")
 local util = require("paw.util")
 local type types = require("paw.types")
@@ -128,15 +129,10 @@ local record Changed
   rendered: Rendered
 end
 
---- The payload of `render.before`.
-local record RenderBefore
-  path: string
-  opts: RenderOptions
-end
-
 --- The payload of the kernel's events of a track, clip, device or lane.
 local record WithId
   id: integer
+  track: integer -- the track of a clip, lane or device, when the event names it
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes.
@@ -164,7 +160,7 @@ local record M
   type Changed = Changed
   --- The kinds of address of extensions, by name.
   schemes: {string: Scheme}
-  --- The event `address.changed`.
+  --- The event `address.changed`: things with addresses changed.
   changed: events.Event<Changed>
   --- What was rendered, by path.
   renders: {string: Rendered}
@@ -788,11 +784,16 @@ local function edits(): integer
   return (api.project_get as function(string): integer)("edits")
 end
 
-local render_before: events.Event<RenderBefore> = events.event("render.before")
-local render_finished: events.Event<types.RenderResult> = events.event("render.finished")
-
 local pending_opts: {string: RenderOptions} = {}
-events.on(render_before, function(e: RenderBefore) pending_opts[e.path] = e.opts end)
+-- A measure of the sound also emits `render.before`, with no path: it writes no file.
+events.on(
+  render.before,
+  function(e: render.Before)
+    if e.path then
+      pending_opts[e.path] = e.opts as RenderOptions
+    end
+  end
+)
 local function rendered(info: types.RenderResult)
   if not (info is types.RenderResult) or not info.path then
     return
@@ -805,7 +806,7 @@ local function rendered(info: types.RenderResult)
   events.emit(M.changed, {uris = {M.render(info.path)}, revision = edits(), rendered = entry})
 end
 events.on(kernel.render_done, rendered)
-events.on(render_finished, rendered)
+events.on(render.finished, rendered)
 -- Another project, other renders.
 events.on(kernel.project_loaded, function() M.renders = {} end)
 
@@ -868,8 +869,14 @@ events.on(
     if not e.id then
       return
     end
-    local ok, d = pcall(api.device_get, e.id)
-    changed({ok and ("paw://track/" .. d.track .. "/device/" .. e.id) or M.project()})
+    -- The event names the track: a removed device has none to ask, and a
+    -- failed read costs much more than a good one.
+    local track = e.track
+    if not track then
+      local ok, d = pcall(api.device_get, e.id)
+      track = ok and d.track or nil
+    end
+    changed({track and ("paw://track/" .. track .. "/device/" .. e.id) or M.project()})
   end
 )
 events.on(

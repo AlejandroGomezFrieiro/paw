@@ -20,6 +20,8 @@ local m2 = require("articulations.m2")
 local maps = require("articulations.maps")
 
 local M = { m2 = m2, maps = maps, toml = require("articulations.toml") }
+--- The event `articulations.bound`: a track got an articulation map, or lost it.
+M.bound = paw.events.event("articulations.bound")
 
 -- Notes' attributes ----------------------------------------------------------------
 --
@@ -164,7 +166,7 @@ function M.bind(track, which)
     info.shift = shift
   end)
   M.set_attr_map(id, M.compile(played, default))
-  paw.emit("articulations.bound", { track = id, map = map.id })
+  paw.emit(M.bound, { track = id, map = map.id })
   return map
 end
 
@@ -198,7 +200,7 @@ function M.unbind(track)
       info[k] = nil
     end
   end)
-  paw.emit("articulations.bound", { track = id })
+  paw.emit(M.bound, { track = id })
 end
 
 --- The articulation of a map an attribute plays, by M2-123's fallback, and

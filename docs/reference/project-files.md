@@ -30,6 +30,7 @@ song/
 │       ├── clips/intro.signals.json the signals of a custom clip, if it has some
 │       ├── clips/intro.sound.midi2  the sound of a custom clip, if it is MIDI
 │       └── clips/verse.lyrics.lrc   the data of a custom clip that is text
+├── linked/riff.midi2       the notes of the linked clips of the link `riff`
 ├── media/take1.wav         sound files
 │   └── derived/            files that a kind of clip makes from other files
 ├── nests/
@@ -55,6 +56,17 @@ song/
   file outside the folder by its full path, or from the home folder as
   `~/…`.
 - Clips with the same notes, controller moves and length share one file.
+- Each clip of a link has `"link": "riff"` in `track.json`, and all the
+  clips of the link name one file, `linked/riff.midi2`, wherever their
+  tracks are. The file holds the notes and the controller moves, and each
+  clip keeps its own start and length in `track.json`. Without its `link`,
+  a clip is a plain MIDI clip with the notes of that file. paw refuses a
+  project whose linked clips have different notes. See
+  [Linked clips](arrange-view.md#linked-clips).
+- A MIDI clip with overrides has them in its entry in `track.json`, for
+  example `"overrides": { "transpose": 3 }`. They change how the clip plays,
+  and its file keeps the notes as they are. See
+  [Overrides of a clip](arrange-view.md#overrides-of-a-clip).
 - A custom clip is a clip of a kind that an extension defines. `track.json`
   keeps its kind, its version, its timeline, its offset, its media and the
   names of its files. Its data is a file of its own:
@@ -163,6 +175,9 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 
 - A beat has 61440 ticks. paw rounds the time of a note and of a
   controller move to a tick.
+- A clip holds times up to a million beats from its start, before or
+  after it, and a clip is at most a million beats long. paw refuses an edit
+  that goes further, and it refuses to read or write a clip file that does.
 - Notes are MIDI 2.0 note-on and note-off messages with velocities of 16
   bits and their attribute. Controller moves are MIDI 2.0 messages with
   values of 32 bits.

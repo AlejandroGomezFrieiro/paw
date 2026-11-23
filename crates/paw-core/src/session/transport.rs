@@ -172,7 +172,7 @@ impl Session {
             Some(path) => std::path::absolute(path)
                 .unwrap_or_else(|_| path.clone())
                 .with_file_name("media"),
-            None => scratch_media_dir(),
+            None => scratch_media_dir(&self.dirs),
         }
     }
 
@@ -841,7 +841,7 @@ impl Session {
     /// beside the project and points the clips there. The originals stay,
     /// because earlier undo steps still refer to them.
     pub(super) fn adopt_recordings(&mut self, path: &Path) -> Result<()> {
-        let scratch = scratch_media_dir();
+        let scratch = scratch_media_dir(&self.dirs);
         let media = std::path::absolute(path)?.with_file_name("media");
         let mut moved: HashMap<PathBuf, PathBuf> = HashMap::new();
         for file in media::files(&self.project) {
