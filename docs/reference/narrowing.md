@@ -58,6 +58,13 @@ The same words show in the message when you enter a scope.
 - The other windows of a tab (the mixer, the device panel, the piano roll)
   show the scope of the arrange window of the tab that had the keyboard last.
 - The tab has the name of the scope of its current window.
+- Each arrange window shows where it is in the two left cells of its
+  ruler, over the track headers. The first line is the path of its scope
+  without `Song`, for example `Bridge › Strings`, or `Song` in the whole
+  song. The second line is the place of the cursor, for example
+  `cur 3.2 @19.2`. When the ruler has one row, both are on it. A long path
+  loses its first levels: `…› Bridge › Strings`. So two splits each say
+  where they are.
 - The status line shows the path of the scope of the current window.
 - The project keeps the scope of each window and the named scopes with its
   windows (`screen.json`). They are not in the song and not in undo.
@@ -67,7 +74,7 @@ The same words show in the message when you enter a scope.
 In a narrowed window, a new scope goes one level down. It shows only
 what both scopes show. For example, `:narrow Bridge`, then `:narrow
 Strings`, shows the strings in the time of the bridge. The status line
-shows the path: `Song › Bridge › Strings`. `zw` goes up one level, and
+shows the path: `Bridge › Strings`. `zw` goes up one level, and
 `zW` goes up to the song.
 
 If the two scopes have no track or no time in common, paw does not go
@@ -83,8 +90,7 @@ Strings`.
 - Only the tracks of the scope show in these: the arrange view, the
   mixer, the device panel, the session view of the clip launcher,
   `paw://tracks`, the pickers.
-- The track column numbers the tracks of the scope from 1. A `›` on its
-  first row says that the window is in a scope.
+- The track column numbers the tracks of the scope from 1.
 - The track motions (`gg`, `G`, `j`) and the Ex ranges use only these
   tracks. `t1` is the first track of the scope, `t*` and `%` are its
   tracks, and `:g` and `:s` look only in them.
@@ -105,17 +111,21 @@ A scope of a region, or a block with time, shows that time.
 - The cursor stays in that time. `0` goes to its start, and `$`, `W` and
   `l` stop at its end.
 - The arrange view starts at the bar that the scope starts in. It dims
-  the time after the end.
+  the rest of that bar before the start.
+- The scope ends at a `┃` on the ruler and down every track, and the
+  view draws nothing after it. The ruler says what is after it and the key
+  that shows it, for example `end of Bridge · zw: the song`.
 - The bars count from 1 at the start of the scope, from the meter map of
   the song. A region in 6/8 shows its bars in 6/8.
-- The ruler has one row of bar numbers, the bars of the scope. The
-  status line gives the place of the cursor in both, the bar of the scope
-  first and the bar of the song in brackets: `Song › Bridge 3.2 (19.2)`.
-  Two rows of bar numbers under each other were hard to read, so the song
-  bar is only in the status line and in what `K` says.
+- The ruler has the bars of the scope, and under them the bars of the song
+  with `@`, for example `@17`, when they are not the same. The status line
+  and the window bar give the place of the cursor in both, the bar of the
+  scope first and then the bar of the song: `Bridge 3.2 @19.2`.
 - The row of regions under the bar numbers shows the regions in the time
   of the scope, cut at its edges. A region that starts before the scope
-  has its name at the start of the scope.
+  has its name at the start of the scope. A region that covers all the
+  time of the scope does not show there, because the window bar names it
+  already, and the regions inside it move up a row.
 - The place of the playhead in the status line is in the bars of the
   scope while the playhead is in the time of the scope. When the playhead
   is outside that time, the scope has no bar there, so the status line
@@ -153,13 +163,13 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
 - The song does not show the tracks of a subproject. The arrange view,
   the mixer, `paw://tracks`, the pickers, `t*` and `%` list the tracks of
   the song only. In the subproject, they list its tracks only.
-- The status line marks a subproject with `⧉`, for example
-  `Song › ⧉Ballad 1.2 (9.2)`. The first place is in the bars of the
-  subproject, and the place in brackets is in the bars of the song, at the
+- The status line and the window bar mark a subproject with `⧉`, for
+  example `⧉Ballad 1.2 @9.2`. The first place is in the bars of the
+  subproject, and the place after `@` is in the bars of the song, at the
   clip that you entered through. In a subproject inside a subproject, the
-  place in brackets is still in the bars of the song, for example
-  `Song › ⧉Bridge › ⧉Roll 1.1 (11.1)`, and the ruler and the loop are at
-  that place of the song too.
+  place after `@` is still in the bars of the song, for example
+  `⧉Bridge › ⧉Roll 1.1 @11.1`, and the ruler and the loop are at that
+  place of the song too.
 - The bars count from 1 at the start of the subproject, and they are the
   bars of the song at that clip: over a 6/8 section of the song, bars of
   6/8. See [Subprojects](subprojects.md) for how to

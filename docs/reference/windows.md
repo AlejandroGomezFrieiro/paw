@@ -231,7 +231,7 @@ including the mixer, the device panel, the session view of the clip
 launcher, `paw://tracks`, the pickers, `:query`, the motions and the Ex
 ranges. `:widen` (`zw`) goes up one level.
 
-The status line shows `Song › Strings`, the tab has the name of the scope,
+The status line shows `Strings`, the tab has the name of the scope,
 and a split can show the whole song beside the strings.
 `paw://tracks` in a narrowed window lists the tracks of the group, and `:w`
 does not change the other tracks. The project keeps the scope of each

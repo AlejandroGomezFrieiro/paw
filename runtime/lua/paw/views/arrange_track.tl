@@ -291,6 +291,13 @@ local function draw_states(buf: Buf, y: integer, height: integer, t: Track, lane
   end
 end
 
+--- ` ×2` after the name of a subproject that the song plays in more
+--- places than one; else nothing.
+local function places_text(nest: integer): string
+  local n = paw.nest.places(nest)
+  return n > 1 and (" " .. draw.g.places .. n) or ""
+end
+
 --- The name a header shows. A folded group says how many tracks it holds,
 --- and a group with linked faders has `≡` after its name.
 --- The track column's `fold` shows the groups as a tree; without it, a
@@ -304,10 +311,14 @@ local function name_text(t: Track): string
   local g, groups = draw.g, paw.groups
   -- The first row of a fold of tracks stands for all of it, by its name.
   local fold = paw.folds.row(t.id)
+  local returned = not fold and paw.nest.returns(t.id)
   if fold then
     name = paw.folds.name(fold) .. " +" .. paw.folds.count(fold)
   elseif groups.is_group(t.id) and groups.folded(t.id) then
     name = name .. " +" .. #groups.members(t.id)
+  elseif returned then
+    -- A return row: `⧉ Bridge ×2`, the places the song plays it in.
+    name = g.nest .. name .. places_text(returned)
   end
   -- A group whose members' faders move together: `Drums ≡`, as a linked
   -- clip says it.
@@ -881,7 +892,9 @@ local function clip_label(clip: Clip): string
   -- of its kind after `⧉` for a kind of subproject (`⧉D Groove`).
   if clip.kind == "nest" then
     local letter = paw.nest.letter(clip.nest)
-    label = (letter and (draw.g.nest:gsub("%s+$", "") .. letter .. " ") or draw.g.nest) .. label
+    label = (letter and (draw.g.nest:gsub("%s+$", "") .. letter .. " ") or draw.g.nest)
+      .. label
+      .. places_text(clip.nest)
   end
   -- Stretched, shifted, looped: `×1.5 ↻ drums`.
   local mark = paw.stretch.badge(clip) as string

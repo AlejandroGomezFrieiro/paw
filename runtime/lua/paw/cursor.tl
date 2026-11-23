@@ -69,7 +69,7 @@ local record M
   bounds: function(): number, number
   over: function(old: number, new: number): number
   stop: function(track: integer, beat: number): integer
-  shift: function(track: integer): number
+  shift: function(track: integer, beat: number): number
   master_reachable: function(): boolean
 end
 
@@ -327,8 +327,9 @@ function M.snap(beat: number): number
 end
 
 --- A function that gives, for a track whose clips the window draws later
---- than their beats, how much later; or nil: paw/nest.tl sets it, for the
---- tracks of a subproject open in place under its return row.
+--- than their beats, how much later at a beat of the window; or nil:
+--- paw/nest.tl sets it, for the tracks of a subproject open in place under
+--- its return row (each block of the row draws them at its own place).
 M.shift = nil
 
 --- The clip under the cursor, if any.
@@ -337,7 +338,7 @@ function M.clip(): objects.Clip
   if not track then
     return nil
   end
-  local shift = M.shift and M.shift(track.id) or 0
+  local shift = M.shift and M.shift(track.id, M.beat) or 0
   return track:clip_at(M.beat - shift)
 end
 

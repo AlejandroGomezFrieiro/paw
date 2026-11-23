@@ -22,6 +22,7 @@ local type FoldsModule = require("paw.folds")
 local type RolesModule = require("paw.roles")
 local type FrontendModule = require("paw.frontend")
 local type TrackcolumnModule = require("paw.trackcolumn")
+local type NestModule = require("paw.nest")
 local type Buf = contracts.Buf
 local type Hue = DrawModule.Hue
 local type Data = util_t.Data
@@ -39,8 +40,10 @@ local track_name = api.track_get as function(id: integer, key: string): string
 
 --- A row of the timeline: a track's (`kind` "track"), one of its take
 --- lanes ("take", `take` its number), one of its automation lanes shown
---- as a row ("lane", `lane`), or the master's ("master"). `index` is the
---- track's place among the tracks drawn; `y` and `h` its lines.
+--- as a row ("lane", `lane`), the line that closes the tracks of a
+--- subproject shown under its return row ("end", `id` the return row), or
+--- the master's ("master"). `index` is the track's place among the tracks
+--- drawn (for "end", the last track it closes); `y` and `h` its lines.
 local record Row
   kind: string
   id: integer
@@ -53,16 +56,19 @@ end
 
 --- Where everything goes on the view (`view:layout`): the headers'
 --- columns with the rule (`hw`), the timeline's (`tw`), the track
---- column, rows a track (`th`), the ruler's rows (`ruler_rows`, the tempo
---- lane's `tempo_rows` and the bands' from `band_y` among them), the rows
---- of the timeline from the first track shown, the tracks, the line after
---- the last row (`used`) and the master's row.
+--- column, rows a track (`th`), the ruler's rows (`ruler_rows`: the row
+--- of the song's bars when `song_bars`, the regions' rows from `lanes_y`,
+--- the bands' from `band_y` and the tempo lane's `tempo_rows` among them),
+--- the rows of the timeline from the first track shown, the tracks, the
+--- line after the last row (`used`) and the master's row.
 local record Layout
   hw: integer
   tw: integer
   column: TrackcolumnModule.Layout
   th: integer
   ruler_rows: integer
+  song_bars: boolean
+  lanes_y: integer
   tempo_rows: integer
   rows: {Row}
   tracks: {integer}
@@ -251,6 +257,18 @@ end
 ---   paw.ui.views:get("arrange").ruler2.marks = function(view) return #my_marks > 0 end
 view.ruler2 = {}
 
+--- Whether the ruler has a row of the song's bars (`@9`) under the bars
+--- of the window's scope: in a scope with time whose bars count from 1
+--- (`scopebars=local`) and are not the song's. A region scope counts from
+--- its first bar (`bar_offset`); a subproject counts from where its block
+--- plays in the song (`origin`).
+local function shows_song_bars(): boolean
+  if paw.opt.scopebars == "song" or not paw.scope.span() then
+    return false
+  end
+  return paw.scope.bar_offset() ~= 0 or paw.scope.origin() ~= 0
+end
+
 local function wants_ruler2(self: Arrange): boolean
   for _, wants in pairs(self.ruler2) do
     local ok, yes = pcall(wants, self) as (boolean, boolean)
@@ -269,11 +287,28 @@ function view.row_height(id: integer, th: number): integer
   return paw.vzoom.rows_of(id) or math.max(1, math.floor(th * (track_number(id, "height") or 1) + 0.5))
 end
 
+--- The tracks of `tracks` that end the tracks of a subproject shown
+--- under its return row (paw/nest.tl), each with that return row: a
+--- closing line goes under each.
+local function closing_lines(tracks: {integer}): {integer: integer}
+  local out: {integer: integer} = {}
+  for i, id in ipairs(tracks) do
+    local under = paw.nest.shown_under(id)
+    local next_id = tracks[i + 1]
+    if under and not (next_id and paw.nest.shown_under(next_id) == under) then
+      out[id] = under
+    end
+  end
+  return out
+end
+
 --- The rows from `self.top` when some tracks show their take lanes or their
---- automation lanes: each track, then a row `{ kind = "take", id, take,
---- index, y, h }` for each of its take lanes, then a row `{ kind =
---- "lane", id, lane, index, y, h }` for each of its automation lanes (`h`
---- 2 for each lane, or as the window's vertical zoom says).
+--- automation lanes, or the tracks of a subproject under its return row:
+--- each track, then a row `{ kind = "take", id, take, index, y, h }` for
+--- each of its take lanes, then a row `{ kind = "lane", id, lane, index,
+--- y, h }` for each of its automation lanes (`h` 2 for each lane, or as
+--- the window's vertical zoom says), then the closing line `{ kind =
+--- "end", id, index, y, h = 1 }` under the last track of a subproject.
 --- Scrolls so that the cursor's row is in view. Returns the rows and the
 --- line after the last.
 function view:rows_with_lanes(
@@ -281,6 +316,7 @@ function view:rows_with_lanes(
 ): {Row}, integer
   local bottom = ruler_rows + room
   local lane_rows = paw.vzoom.lane_rows()
+  local closing = closing_lines(tracks)
   -- The rows from track `top` down, the line after them, and whether
   -- every row of the tracks placed fits.
   local function place(top: integer): {Row}, integer, boolean
@@ -307,6 +343,13 @@ function view:rows_with_lanes(
         end
         out[#out + 1] = {kind = "lane", id = id, lane = l, index = index, y = y, h = lane_rows}
         y = y + lane_rows
+      end
+      if closing[id] then
+        if y + 1 > bottom then
+          return out, y, false
+        end
+        out[#out + 1] = {kind = "end", id = closing[id], index = index, y = y, h = 1}
+        y = y + 1
       end
     end
     return out, y, true
@@ -368,12 +411,15 @@ function view:layout(w: integer, h: integer): Layout
     {rows = tracks, count = count}, math.max(0, w - header - 8), math.max(0, header - NARROW_HEADER)
   )
   local hw = header + column.width - column.from_header
-  -- The ruler, its second row if something asks for one, a row for each
-  -- band of an extension's (`paw.frontend.bands`) that has entries, and
-  -- the tempo lane's two rows when it is shown.
+  -- The ruler, the song's bars under the scope's (`song_bars`), its
+  -- second row if something asks for one, a row for each band of an
+  -- extension's (`paw.frontend.bands`) that has entries, and the tempo
+  -- lane's two rows when it is shown.
   local tempo_rows = paw.tempolane.shown() and 2 or 0
   local bands = paw.frontend.band_state()
-  local band_y = 1 + math.max(paw.ruler.lane_rows(), wants_ruler2(self) and 1 or 0)
+  local song_bars = shows_song_bars()
+  local lanes_y = song_bars and 2 or 1
+  local band_y = lanes_y + math.max(paw.ruler.lane_rows(), wants_ruler2(self) and 1 or 0)
   local ruler_rows = band_y + bands.rows + tempo_rows
   local master_rows = 2
   local room = math.max(1, h - ruler_rows - master_rows)
@@ -396,6 +442,8 @@ function view:layout(w: integer, h: integer): Layout
     column = column,
     th = th,
     ruler_rows = ruler_rows,
+    song_bars = song_bars,
+    lanes_y = lanes_y,
     tempo_rows = tempo_rows,
     tracks = tracks,
     master = {kind = "master", id = 0, y = h - master_rows, h = master_rows},
@@ -403,8 +451,9 @@ function view:layout(w: integer, h: integer): Layout
     band_y = band_y,
   }
   local cursor_index = paw.cursor.row() or 1
-  -- Tracks of heights of their own are placed one by one, as lanes are.
-  if lane_lines > 0 or own then
+  -- Tracks of heights of their own are placed one by one, as lanes and
+  -- the closing lines of subprojects shown in place are.
+  if lane_lines > 0 or own or next(closing_lines(tracks)) then
     L.rows, L.used = self:rows_with_lanes(tracks, th, ruler_rows, room, cursor_index)
     return L
   end
@@ -772,34 +821,69 @@ local record Shown
   to: number
 end
 
+--- Where a clip of a track shown under its return row is drawn: the
+--- block of the return row it plays in (`from` up to `to`, beats of the
+--- window), and which block it is (`k`).
+local record InBlock
+  from: number
+  to: number
+  k: integer
+end
+
 --- The clips of a track's row that its timeline shows, and a column more
---- each side. The tracks of a subproject open in place under its return
---- row draw their clips where the subproject plays them (`paw.nest.shift`).
-local function row_clips(self: Arrange, track: types.Track, last: number): {types.Clip}
+--- each side. The tracks of a subproject shown in place under its return
+--- row (`windows`, paw/nest.tl) draw their clips in each block of the
+--- row, where the subproject plays them there, and nowhere else: a copy
+--- of each clip moved to its place, with the block it is cut at.
+local function row_clips(
+  self: Arrange, track: types.Track, last: number, windows: {NestModule.Window}
+): {types.Clip}, {types.Clip: InBlock}
   local scroll, zoom = self.scroll, self.geometry.zoom
-  local shift = paw.nest.shift(track.id)
-  local clips = api.clip_list(track.id, scroll - (shift or 0) - 1 / zoom, last - (shift or 0) + 1 / zoom)
-  if shift then
-    for i, clip in ipairs(clips) do
-      local moved: {string: Data} = {}
-      for k, v in pairs(clip as {string: Data}) do
-        moved[k] = v
+  if not windows then
+    return api.clip_list(track.id, scroll - 1 / zoom, last + 1 / zoom), nil
+  end
+  local clips: {types.Clip} = {}
+  local blocks: {types.Clip: InBlock} = {}
+  for k, win in ipairs(windows) do
+    local from, to = math.max(scroll - 1 / zoom, win.from), math.min(last + 1 / zoom, win.to)
+    if to > from then
+      for _, clip in ipairs(api.clip_list(track.id, from - win.shift, to - win.shift)) do
+        local moved: {string: Data} = {}
+        for key, v in pairs(clip as {string: Data}) do
+          moved[key] = v
+        end
+        moved.start = clip.start + win.shift
+        local copy = moved as types.Clip
+        clips[#clips + 1] = copy
+        blocks[copy] = {from = win.from, to = win.to, k = k}
       end
-      moved.start = clip.start + shift
-      clips[i] = moved as types.Clip
     end
   end
-  return clips
+  return clips, blocks
 end
 
 --- The clips in view, and the columns each takes: a piece each, cut at the
---- time folds. Gives the pieces and their spans of columns.
+--- time folds, at the edges of the scope, and at the edges of the block a
+--- clip of a subproject shown in place is drawn in (`blocks`). Gives the
+--- pieces and their spans of columns.
 local function shown_pieces(
-  self: Arrange, clips: {types.Clip}, w: integer, folds: boolean, scope_from: number, scope_to: number
+  self: Arrange,
+  clips: {types.Clip},
+  w: integer,
+  folds: boolean,
+  from: number,
+  to: number,
+  blocks: {types.Clip: InBlock}
 ): {Shown}, {Span}
   local spans: {Span} = {}
   local shown: {Shown} = {}
   for _, clip in ipairs(clips) do
+    local scope_from, scope_to = from, to
+    local block = blocks and blocks[clip]
+    if block then
+      scope_from = math.max(scope_from or block.from, block.from)
+      scope_to = math.min(scope_to or block.to, block.to)
+    end
     local finish = clip.start + clip.length
     local pieces = folds and self:unfolded(clip.start, finish) or {{clip.start, finish}}
     for k, piece in ipairs(pieces) do
@@ -848,6 +932,39 @@ local function keep_key_of(
   return "arrange:row:" .. track.id .. ":" .. buf.x .. ":" .. buf.y
 end
 
+--- The ground of the row of a track shown under its return row: the
+--- bars only in the blocks of the row, blank outside them, as no clip of
+--- the subproject can be there.
+local function nest_ground(
+  self: Arrange, buf: Buf, row: Row, windows: {NestModule.Window}, beats: roles.BeatsProps, last: number
+)
+  buf:fill(0, row.y, buf.width, row.h, " ", "Lane")
+  for _, win in ipairs(windows) do
+    local from, to = math.max(self.scroll, win.from), math.min(last, win.to)
+    if to > from then
+      local ground: roles.BeatsProps = {}
+      for k, v in pairs(beats as {string: Data}) do
+        (ground as {string: Data})[k] = v
+      end
+      ground.from = self:v(from)
+      self.plane:mark("beats", self:v(from), row.y, self:v(to) - self:v(from), row.h, ground)
+    end
+  end
+end
+
+--- The dotted edges of each block of a return row (`windows`) down a row
+--- of the tracks its subproject shows in place: in the first and the last
+--- column of the block, as the block's frame on the return row.
+local function nest_edges(self: Arrange, buf: Buf, row: Row, windows: {NestModule.Window}, style: string, glyph: string)
+  for _, win in ipairs(windows) do
+    for _, x in ipairs({self:col(win.from), self:col(win.to) - 1}) do
+      if x >= 0 and x < buf.width then
+        buf:fill(x, row.y, 1, row.h, glyph, style)
+      end
+    end
+  end
+end
+
 --- What the timeline of a track's row draws, besides the row itself: is
 --- it the cursor's track, the cursor's clip, the lanes of its automation
 --- whose curve it draws, its hue, the bar lines, the loop, and the clips
@@ -879,8 +996,9 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
   -- across a fold is drawn in pieces, each cut at the fold.
   local folds = #time_map(self).spans > 0
   local last = folds and self:beat(w) or scroll + w / zoom
-  local clips = row_clips(self, track, last)
-  local shown, spans = shown_pieces(self, clips, w, folds, scope_from, scope_to)
+  local windows = paw.nest.windows(track.id)
+  local clips, blocks = row_clips(self, track, last, windows)
+  local shown, spans = shown_pieces(self, clips, w, folds, scope_from, scope_to, blocks)
   --- What other modules mark on each clip (`paw.ui.layer("arrange",
   --- "clip", ...)`), in its cells.
   local function paint_layers()
@@ -891,7 +1009,7 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
     end
   end
   local keep_key: string
-  if not (paw.ui.scene_drawing or o.selected or (self.rec and track.armed)) then
+  if not (paw.ui.scene_drawing or o.selected or (self.rec and track.armed) or windows) then
     keep_key = keep_key_of(track, buf, clips, spans, o.cursor_clip)
   end
   local ground: RowGround
@@ -922,13 +1040,20 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
     lines = o.marks,
     beats = zoom >= 4 or nil,
   }
-  plane:mark("beats", vscroll, y, w / zoom, height, beats)
+  if windows then
+    nest_ground(self, buf, row, windows, beats, last)
+  else
+    plane:mark("beats", vscroll, y, w / zoom, height, beats)
+  end
   for _, s in ipairs(shown) do
     local clip = s.clip
     local kind = clip.muted and "_off" or clip.id == o.cursor_clip and "_cur" or ""
     local props = view.clip_props(clip, track, o.hue, kind, zoom, o.chosen[clip.id], s.from, s.to, colour)
     if s.k > 1 then
       props.key = props.key .. ":" .. s.k
+    end
+    if blocks then
+      props.key = props.key .. ":block" .. blocks[clip].k
     end
     local box = plane:mark("clip", s.v, y, clip.length, height, props)
     if painted and not keep_key then
@@ -950,6 +1075,9 @@ local function track_lane(self: Arrange, buf: Buf, row: Row, track: types.Track,
     }
     local width = math.max((rec.to and self:v(rec.to) or (vscroll + w / zoom)) - v0, 1 / zoom)
     plane:mark("recording", v0, y, width, height, recording)
+  end
+  if windows then
+    nest_edges(self, buf, row, windows, "NestGuide", draw.g.nest_guide)
   end
   -- The volume curve runs over the empty lane, never over clips, and only
   -- on the track the cursor is on: drawn on every track it ran along the
@@ -1091,7 +1219,7 @@ local function counted_lines(L: Layout, cursor_track: integer, cursor_lane: inte
       index[l.track .. ":" .. (l.lane and tostring(l.lane) or "")] = i
     end
     for _, row in ipairs(L.rows) do
-      if row.kind ~= "take" then
+      if row.kind == "track" or row.kind == "lane" then
         line_of[row] = index[row.id .. ":" .. (row.lane and tostring(row.lane.id) or "")]
       end
     end
@@ -1468,19 +1596,56 @@ local function ruler_style(F: Frame, x: integer, punch: string, loop: string, lo
   return plain
 end
 
---- The ruler's corner over the headers: where the cursor is, at `beat`
---- of the window's time; nothing when it is outside that time.
-local function ruler_corner(buf: Buf, hw: integer, beat: number)
-  if hw < 12 or not beat then
+--- A path of scopes cut at its left to `room` columns: the outer levels
+--- go first (`…› Verse › Keys`), then the innermost name is cut.
+local function fit_path(path: string, room: integer): string
+  if api.str_width(path) <= room then
+    return path
+  end
+  local levels: {string} = {}
+  for level in (path .. " › "):gmatch("(.-) › ") do
+    levels[#levels + 1] = level
+  end
+  for i = 2, #levels do
+    local rest = "…› " .. table.concat(levels, " › ", i)
+    if api.str_width(rest) <= room then
+      return rest
+    end
+  end
+  return util.fit(levels[#levels] or path, room)
+end
+
+--- The window bar, in the ruler's two left cells over the headers, each
+--- window its own: where the window is (its scope's path, `Song` with
+--- none) and where the cursor is in it, at `beat` of the window's time
+--- (`cur 1.2 @9.2`, nothing when the cursor is outside that time). With
+--- one row of ruler, both on it: `Verse 1.2 @9.2`, as the status line.
+local function window_bar(buf: Buf, hw: integer, two_rows: boolean, beat: number)
+  if hw < 12 then
     return
   end
-  local pos = paw.scope.format(beat)
-  if hw - 2 >= #pos + 5 then
+  local room = hw - 2
+  local path = paw.scope.where()
+  local place = beat and paw.scope.place(beat)
+  if not two_rows then
+    local after = place and (" " .. place) or ""
+    local fitted = fit_path(path, math.max(1, room - api.str_width(after)))
+    local x = 1 + buf:text(1, 0, fitted, "RulerWhere")
+    if api.str_width(fitted .. after) <= room then
+      buf:text(x, 0, after, "RulerCorner")
+    end
+    return
+  end
+  buf:text(1, 0, fit_path(path, room), "RulerWhere")
+  if not place then
+    return
+  end
+  if room >= api.str_width(place) + 4 then
     local label: contracts.LabelMark = {text = "cur", style = "RulerCornerLabel", font = "sans", tone = "text_3"}
-    buf:mark("label", 1, 0, 3, 1, label)
-    buf:text(5, 0, pos, "RulerCorner")
+    buf:mark("label", 1, 1, 3, 1, label)
+    buf:text(5, 1, place, "RulerCorner")
   else
-    buf:text(1, 0, util.fit(pos, hw - 2), "RulerCorner")
+    buf:text(1, 1, util.fit(place, room), "RulerCorner")
   end
 end
 
@@ -1512,12 +1677,13 @@ end
 
 --- The bars' labels and the beats' ticks on the ruler. Bar numbers that
 --- would run into each other when zoomed out are skipped. Gives where
---- each bar's label ends, by its column.
-local function ruler_bars(self: Arrange, F: Frame): {integer: integer}
+--- each bar's label ends, by its column, and the bar lines with a label.
+local function ruler_bars(self: Arrange, F: Frame): {integer: integer}, {GridLine}
   local ruler, zoom = F.ruler, F.zoom
   local every = math.max(1, math.ceil(5 / (paw.time.bar(self.scroll) * zoom)))
   local free = 0 -- the first column a label has not taken
   local label_end: {integer: integer} = {}
+  local labelled: {GridLine} = {}
   for _, line in ipairs(F.lines) do
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
@@ -1530,13 +1696,33 @@ local function ruler_bars(self: Arrange, F: Frame): {integer: integer}
           x = x + ruler:text(x, 0, piece[1], piece[2])
         end
         free, label_end[line.x] = x + 1, x
+        labelled[#labelled + 1] = line
       end
     elseif zoom >= 2 and line.x >= free then
       local style = ruler_style(F, line.x, "RulerPunchTick", "RulerLoopTick", "RulerLoopOffTick", "RulerTick")
       ruler:text(line.x, 0, draw.g.tick, style)
     end
   end
-  return label_end
+  return label_end, labelled
+end
+
+--- Under the scope's bars, the song's (`@9`): the bar of the song where
+--- each labelled bar of the scope is, as a bar typed with `@` is the
+--- song's. Each label has the room up to the next one. In a subproject
+--- with a meter of its own, two of its bars can start in one bar of the
+--- song: only the first of them gets the label.
+local function song_bars(F: Frame, labelled: {GridLine})
+  local row = F.buf:sub(F.L.hw, 1, F.L.tw, 1)
+  row:fill(0, 0, row.width, 1, " ", "Ruler")
+  local last: integer
+  for i, line in ipairs(labelled) do
+    local stop = labelled[i + 1] and labelled[i + 1].x - 1 or row.width
+    local bar = math.floor(api.tempo_bar_of(paw.time.song_beat(line.beat))) + 1
+    if line.x >= 0 and stop - line.x >= 1 and bar ~= last then
+      row:text(line.x, 0, util.fit("@" .. tostring(bar), stop - line.x), "RulerBar")
+    end
+    last = bar
+  end
 end
 
 --- The marks of the loop's and the punch range's edges on the ruler.
@@ -1547,8 +1733,11 @@ local function ruler_edges(self: Arrange, F: Frame)
     if start >= 1 then
       ruler:text(start - 1, 0, g.loop_in, F.loop and "RulerLoopEdge" or "RulerLoopOffEdge")
     end
-    -- The end's mark sits in the band's last cell, clear of the next bar's number.
-    if finish >= 1 and finish <= tw then
+    -- The end's mark sits in the band's last cell, clear of the next bar's
+    -- number; at the end of the scope, its `┃` marks it.
+    local _, scope_to = paw.scope.span()
+    local at_end = scope_to and math.abs(F.here(t.loop_end) - scope_to) < 1e-9
+    if finish >= 1 and finish <= tw and not at_end then
       ruler:text(finish - 1, 0, g.loop_out, F.loop and "RulerLoopEdgeIn" or "RulerLoopOffEdge")
     end
   end
@@ -1601,26 +1790,31 @@ local function draw_bands(self: Arrange, F: Frame)
   end
 end
 
---- The ruler: where the cursor is in the corner; bars, beat ticks, the
---- loop and the punch range, the tempo's marks; under it the regions'
---- rows and a second row (`view.ruler2`), the bands of extensions and the
---- tempo lane.
+--- The ruler: the window bar in the corner; bars, beat ticks, the loop
+--- and the punch range, the tempo's marks; under it the song's bars in a
+--- scope, the regions' rows and a second row (`view.ruler2`), the bands of
+--- extensions and the tempo lane.
 local function draw_ruler(self: Arrange, F: Frame)
   local buf, L = F.buf, F.L
   local hw, tw = L.hw, L.tw
   buf:fill(0, 0, hw - 1, L.ruler_rows, " ", "Ruler")
   F.ruler = buf:sub(hw, 0, tw, 1)
   F.ruler:fill(0, 0, tw, 1, " ", "Ruler")
-  ruler_corner(buf, hw, F.cursor_beat)
+  -- The window bar has two rows over the second row of the ruler or a
+  -- band's row; the tempo lane's header has the rows under them.
+  window_bar(buf, hw, L.band_y + L.bands.rows >= 2, F.cursor_beat)
   ruler_ranges(self, F)
   F.lines = grid_lines(self, tw)
-  local label_end = ruler_bars(self, F)
+  local label_end, labelled = ruler_bars(self, F)
   ruler_edges(self, F)
   ruler_tempo_marks(self, F, label_end)
-  if L.band_y > 1 then
+  if L.song_bars then
+    song_bars(F, labelled)
+  end
+  if L.band_y > L.lanes_y then
     -- The lanes of markers and regions under the ruler (paw/ruler.tl).
-    F.ruler2 = buf:sub(hw, 1, tw, L.band_y - 1)
-    F.ruler2:fill(0, 0, tw, L.band_y - 1, " ", "Ruler")
+    F.ruler2 = buf:sub(hw, L.lanes_y, tw, L.band_y - L.lanes_y)
+    F.ruler2:fill(0, 0, tw, L.band_y - L.lanes_y, " ", "Ruler")
     paw.ruler.draw_lanes(
       F.ruler2,
       function(beat: number): integer return self:col(beat) end,
@@ -1669,6 +1863,30 @@ local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   F.lanes:fill(x, y, cw, 1, nil, mode == "x" and "CursorVisual" or mode == "i" and "InsertCursor" or "Cursor")
   if h > 1 then
     F.lanes:fill(x, y + 1, cw, h - 1, nil, "CursorTail")
+  end
+end
+
+--- The line that closes the tracks of a subproject shown under its
+--- return row (`row.id`): `end of ⧉Bridge` in the headers, and under each
+--- block of the row a dotted line between its edges; blank outside them.
+local function draw_closing_line(self: Arrange, F: Frame, row: Row)
+  local g = draw.g
+  local headers, lanes = F.headers, F.lanes
+  headers:fill(0, row.y, headers.width, 1, g.nest_close, "NestGuide")
+  local nest = paw.nest.get(paw.nest.returns(row.id))
+  local words = " end of ⧉" .. (nest and nest.name or "?") .. " "
+  if api.str_width(words) > headers.width - 2 then
+    words = util.fit(words, math.max(1, headers.width - 2))
+  end
+  headers:text(1, row.y, words, "TrackFold")
+  lanes:fill(0, row.y, lanes.width, 1, " ", "Lane")
+  for _, win in ipairs(paw.nest.windows(F.L.tracks[row.index]) or {}) do
+    local x0, x1 = self:col(win.from), self:col(win.to) - 1
+    if x1 > x0 then
+      lanes:fill(x0, row.y, x1 - x0, 1, g.nest_close, "NestGuide")
+      lanes:text(x0, row.y, g.bl, "NestGuide")
+      lanes:text(x1, row.y, g.br, "NestGuide")
+    end
   end
 end
 
@@ -1826,6 +2044,9 @@ local function draw_rows(self: Arrange, F: Frame)
     if row.kind == "take" then
       F.names_of[row], F.covered[row] = self:draw_take_row(F.headers, F.lanes, row, F.lines)
     end
+    if row.kind == "end" then
+      draw_closing_line(self, F, row)
+    end
   end
   for _, row in ipairs(L.rows) do
     if row.kind == "track" then
@@ -1886,19 +2107,43 @@ local function draw_selection(self: Arrange, F: Frame)
   end
 end
 
---- The time outside a scope, dimmed: it is not part of what the tab shows.
-local function draw_scope_outside(self: Arrange, F: Frame, scope_from: number, scope_to: number)
+--- The time outside a scope. Before it (the rest of the bar it starts
+--- in), dimmed. At its end, a hard edge: `┃` on the ruler and down every
+--- row, nothing after it, and on the ruler what is there and the key to
+--- see it (`end of Verse · zw: the song`).
+local function draw_scope_edges(self: Arrange, F: Frame, scope_from: number, scope_to: number)
   if not scope_from then
     return
   end
   local L = F.L
   local tw, top, rows = L.tw, L.ruler_rows, L.master.y - L.ruler_rows
-  local a, b = math.max(0, self:col(scope_from)), math.min(tw, self:col(scope_to))
+  local a = math.max(0, self:col(scope_from))
   if a > 0 then
     F.lanes:fill(0, top, a, rows, nil, "ScopeOutside")
   end
-  if b < tw then
-    F.lanes:fill(math.max(0, b), top, tw - math.max(0, b), rows, nil, "ScopeOutside")
+  local b = self:col(scope_to)
+  if b >= tw then
+    return
+  end
+  b = math.max(0, b)
+  F.lanes:fill(b, 0, tw - b, L.master.y, " ", "ScopeOutside")
+  local bottom = math.max(L.ruler_rows, L.used)
+  F.lanes:fill(b, 0, 1, bottom, draw.g.scope_end, "ScopeEnd")
+  -- The level whose time ends here: the innermost one with time.
+  local path = paw.scope.path()
+  local name = "the scope"
+  for i = #path, 1, -1 do
+    local level = path[i]
+    if level.kind == "region" or level.kind == "nest" or level.from then
+      name = (level.kind == "nest" and "⧉" or "") .. level.name
+      break
+    end
+  end
+  local back = #path > 1 and "zW" or "zw"
+  local words = string.format(" end of %s · %s: the song", name, back)
+  local y = L.ruler_rows >= 2 and 1 or 0
+  if tw - b - 1 > 1 then
+    F.lanes:text(b + 1, y, util.fit(words, tw - b - 1), "ScopeEndText")
   end
 end
 
@@ -2250,7 +2495,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
     self:draw_column(column, L, F.cursor_track, F.cursor_lane)
   end
   draw_selection(self, F)
-  draw_scope_outside(self, F, scope_from, scope_to)
+  draw_scope_edges(self, F, scope_from, scope_to)
   draw_time_folds(self, F)
   draw_block_folds(self, F)
   draw_below(F)

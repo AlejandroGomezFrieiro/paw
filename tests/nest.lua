@@ -74,11 +74,7 @@ test(
     eq(names(paw.groups.rows()), "Piano Strings", "the arrange shows its two tracks")
     eq(paw.cursor.beat, 1, "the cursor keeps its place: beat 1 of the subproject")
     local text = screen()
-    eq(
-      text:find("Song › ⧉Ballad 1.2 (9.2)", 1, true) ~= nil,
-      true,
-      "the status line: its place and the song's\n" .. text
-    )
+    eq(text:find("⧉Ballad 1.2 @9.2", 1, true) ~= nil, true, "the status line: its place and the song's\n" .. text)
     eq(paw.ruler.label(9, 0, "RulerBar", 1)[1][1], "1", "its bars count from 1: song bar 9 is its bar 1")
     keys("zw")
     eq(paw.scope.current(), nil, "zw: the song")
@@ -253,7 +249,7 @@ test(
     eq(api.clip_list(row)[1].start, 128, "its block starts at bar 33")
     eq(#paw.scope.tracks(), 1, "one empty track inside")
     local text = screen()
-    eq(text:find("Song › ⧉Ballad 1.1 (33.1)", 1, true) ~= nil, true, "its bars and the song's\n" .. text)
+    eq(text:find("⧉Ballad 1.1 @33.1", 1, true) ~= nil, true, "its bars and the song's\n" .. text)
     eq(paw.time.bar(0), 3, "its bars are 6/8: three beats")
     eq(paw.time.bar_start(34) - paw.time.bar_start(33), 3, "bar 2 of it starts 3 beats in")
     keys(":tempo 60<CR>")
@@ -320,10 +316,25 @@ test(
   function()
     start()
     local b = ballad()
+    -- The subproject in a second place, at bar 25.
+    api.clip_add(b.row, { nest = b.nest, start = 96 })
+    paw.flush()
+    api.undo_checkpoint()
+    paw.opt.zoom = 1
+    paw.ui.views:get("arrange").scroll = 28
     paw.cursor.set_track(b.row)
     paw.cursor.set_beat(32)
     keys("za")
     eq(names(paw.groups.rows()), "Drums Ballad Piano Strings", "its tracks under the row")
+    eq(
+      paw.ui.message.text,
+      "showing the 2 tracks of ⧉Ballad under its row: an edit here changes both places (@9, @25)",
+      "the message says that an edit changes both places"
+    )
+    -- `▾⧉ Ballad ×2` on the row and its blocks, the `┆` guide down its
+    -- tracks, no song numbers on them, their clips only in the blocks,
+    -- and the closing line.
+    T.expect_screen("return_row_open", 100, 30, { styles = false, rows = { 1, 28 } })
     eq(paw.scope.current(), nil, "the window still shows the song")
     keys("j")
     eq(paw.cursor.track_id(), b.piano, "the cursor on the piano, in place")
@@ -331,7 +342,10 @@ test(
     eq(clip and clip.id, api.clip_list(b.piano)[1].id, "its clip at bar 9 of the song: its beat 0")
     keys("~")
     eq(api.clip_get(clip.id).muted, true, "~ mutes the clip of the subproject")
+    keys("25|")
+    eq(paw.cursor.clip() and paw.cursor.clip().id, clip.id, "the same clip in the second block, at bar 25")
     keys("za")
+    eq(paw.ui.message.text, "closed ⧉Ballad under its row", "the message says that it closed")
     eq(names(paw.groups.rows()), "Drums Ballad", "za again: one row")
     eq(paw.cursor.track_id(), b.row, "the cursor back on the row")
   end
@@ -1248,7 +1262,7 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
   eq(table.concat(lines, " "), "0:1 3:2 6:3 9:4", "its bars: three beats each, from 1")
   eq(paw.ruler.label(2, 3, "RulerBar", 0)[1][1], "2", "the ruler numbers its bar 2 at beat 3")
   local text = screen()
-  eq(text:find("Song › ⧉Ballad 1.1 (33.1)", 1, true) ~= nil, true, "its place and the song's\n" .. text)
+  eq(text:find("⧉Ballad 1.1 @33.1", 1, true) ~= nil, true, "its place and the song's\n" .. text)
   keys("zw")
   paw.cursor.set_track(api.track_list()[2])
   paw.cursor.set_beat(129)

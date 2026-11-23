@@ -1,6 +1,6 @@
- cur 1.1.00             │▼ ▏ ▏
- 1 ›▾ █ Strin… 0.0 MSRI │▏
- 2  │ ▌ Violi… 0.0 MSRI │▏
- 3  │▾▌ Low    0.0 MSRI │▏
- 4  ││▌ Cellos 0.0 MSRI │▏
- 5  ╰╰▌ Violas 0.0 MSRI │▏
+ Strings 1.1            │▼ ▏ ▏
+ 1 ▾ █ Strings 0.0 MSRI │▏
+ 2 │ ▌ Violins 0.0 MSRI │▏
+ 3 │▾▌ Low     0.0 MSRI │▏
+ 4 ││▌ Cellos  0.0 MSRI │▏
+ 5 ╰╰▌ Violas  0.0 MSRI │▏

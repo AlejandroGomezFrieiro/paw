@@ -255,7 +255,7 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   -- The ruler marks the stretch, on the left edge of its first cell.
   local ruler
   for _, line in ipairs(api.ui_snapshot(140, 50)) do
-    if line:find("cur", 1, true) then
+    if line:find("Song", 1, true) then
       ruler = line
       break
     end

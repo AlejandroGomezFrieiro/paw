@@ -630,6 +630,17 @@ function M.breadcrumb(s?: Scope): string
   return table.concat(names, " › ")
 end
 
+--- Where a window is, in words, for its window bar and the status line:
+--- the path without the song, which is always there (`Verse › Keys`,
+--- `⧉Bridge`), or `Song` with no scope.
+function M.where(s?: Scope): string
+  local names: {string} = {}
+  for _, level in ipairs(M.path(s)) do
+    names[#names + 1] = (level.kind == "nest" and "⧉" or "") .. level.name
+  end
+  return #names == 0 and "Song" or table.concat(names, " › ")
+end
+
 --- What a subproject's clip places: where its start is in the song, and
 --- the beat of the subproject that starts there.
 local clip_field = api.clip_get as function(id: integer): types.Clip
@@ -853,6 +864,17 @@ function M.format(beat: number): string
     part = 99
   end
   return string.format("%d.%d.%02d", bar + 1 - M.bar_offset(), b + 1, part)
+end
+
+--- A place of the window being drawn (else the current one), as its
+--- window bar and the status line give it: `bar.beat` as the scope
+--- numbers it, then the song's with `@` where they differ (`1.2 @9.2`),
+--- as a bar typed with `@` is the song's.
+function M.place(beat: number): string
+  local here = M.format(beat):match("^(%d+%.%d+)")
+  local bar, unit = api.tempo_bbt(paw.time.song_beat(beat))
+  local song = string.format("%d.%d", bar + 1, unit + 1)
+  return here == song and here or (here .. " @" .. song)
 end
 
 -- Finding scopes ---------------------------------------------------------------------

@@ -25,7 +25,7 @@ paw.complete paw 2
 paw.complete paw.frontend 1
 paw.complete paw.views.pianoroll 1
 paw.contracts paw.objects 1
-paw.cursor paw.keymap 1
+paw.cursor paw.keymap 2
 paw.cursor paw.ui 1
 paw.curves paw.frontend 1
 paw.device_rows paw 1

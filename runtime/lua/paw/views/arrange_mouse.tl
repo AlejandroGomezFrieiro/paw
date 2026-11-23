@@ -214,7 +214,7 @@ local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule
   local time = paw.ruler.lane_time()
   for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
     local start, stop = paw.markers.placed(m, time)
-    if start and paw.markers.lane_row(m.id) == (row or 0) then
+    if start and paw.markers.lane_row(m.id, time) == (row or 0) then
       list[#list + 1] = {m = m, x0 = self:col(start), x1 = self:col(stop)}
     end
   end
@@ -265,10 +265,10 @@ local function hit(self: Arrange, x: number, y: number, fine: boolean): Hit
   local out: Hit = {x = x, y = y, tx = x - g.hw, header = x < g.hw - 1, timeline = x >= g.hw, fine = fine}
   out.beat = self:beat(out.tx)
   local tempo_y = L.ruler_rows - L.tempo_rows
-  if y < 1 then
+  if y < L.lanes_y then
     out.area = "ruler"
   elseif y < L.band_y then
-    out.area, out.lane_row = "markers", math.floor(y) - 1
+    out.area, out.lane_row = "markers", math.floor(y - L.lanes_y)
   elseif y < tempo_y then
     out.area = "band"
     out.band = band_at(self, L.bands, math.floor(y - L.band_y), out.tx)

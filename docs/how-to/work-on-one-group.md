@@ -5,7 +5,7 @@ The rules are in [Scopes](../reference/narrowing.md).
 
 1. Move the cursor to the header of the group, or to one of its tracks,
    and press `znag`. The window shows the group and its tracks only, and
-   the status line shows `Song › Strings`.
+   the status line shows `Strings`.
 2. Edit, mix and add tracks as usual. A new track goes into the group.
 3. If you want to hear only the group, type `:set scope_rest=mute`.
 4. To return to the full project, press `zw`.

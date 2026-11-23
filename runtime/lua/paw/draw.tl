@@ -308,6 +308,10 @@ local unicode: Glyphs = {
   move_down = "↓",
   remove = "×",
   editor = "⧉",
+  scope_end = "┃",
+  nest_guide = "┆",
+  nest_close = "┄",
+  places = "×",
   overview = "━",
   eighths = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"},
 }
@@ -375,6 +379,10 @@ local ascii: Glyphs = {
   move_down = "v",
   remove = "x",
   editor = "#",
+  scope_end = "|",
+  nest_guide = ":",
+  nest_close = ".",
+  places = "x",
   overview = "=",
   eighths = {".", ".", "-", "-", "=", "=", "#", "#"},
 }

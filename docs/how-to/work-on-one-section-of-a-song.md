@@ -13,7 +13,7 @@ bridge, in a narrowed window. The section is a region, and the rules are in
    `Bridge`. The details are in
    [How to loop a part of the song](loop-a-part-of-the-song.md#loop-a-region-by-name).
 2. Type `:narrow Bridge`. The window shows the time of the region and
-   every track in it, and the status line shows `Song › Bridge`. With the
+   every track in it, and the status line shows `Bridge`. With the
    cursor in the region, `znar` does the same.
 3. Work in the section:
    - The cursor stays in the time of the section. `0` goes to its start,
@@ -34,7 +34,7 @@ bridge, in a narrowed window. The section is a region, and the rules are in
 To see only some tracks of the section, narrow again in the same window. For
 example, after `:narrow Bridge`, type `:narrow Strings` to see the strings
 in the time of the bridge. The status line then shows
-`Song › Bridge › Strings`.
+`Bridge › Strings`.
 
 - `zw` goes up one level, and `zW` goes up to the whole song.
 - `]z` goes to the next region, and `[z` to the region before.

@@ -170,6 +170,8 @@ local function build(): Groups
     RulerPunchEdge = {fg = c.red, bg = alt, bold = true},
     RulerCorner = {fg = c.fg, bg = alt},
     RulerCornerLabel = {fg = c.faint, bg = alt},
+    -- The window bar in the ruler's left cells: where the window is.
+    RulerWhere = {fg = c.bright, bg = alt, bold = true},
     RulerPlayhead = {fg = c.accent, bg = alt, bold = true},
     Ruler2 = {fg = c.faint, bg = c.bg},
     -- Markers and regions, under the ruler's bar numbers: a row for each
@@ -233,6 +235,12 @@ local function build(): Groups
     CursorTail = {bg = "#2a3a50"},
     Visual = {bg = "#3a3352", fg = c.bright},
     ScopeOutside = {fg = c.faint, bg = c.bg},
+    -- The end of a scope's time (`┃`), and what the ruler says after it.
+    ScopeEnd = {fg = c.dim, bg = c.bg, bold = true},
+    ScopeEndText = {fg = c.dim, bg = c.bg},
+    -- The tracks of a subproject shown under its return row: the dotted
+    -- edges of its blocks down them, and their closing line.
+    NestGuide = {fg = c.line_hi},
     -- A time fold (paw/folds.tl): its column, its name on the ruler and on each track.
     TimeFold = {fg = c.bright, bg = c.sel, bold = true},
     TimeFoldBody = {fg = c.faint, bg = c.sel},

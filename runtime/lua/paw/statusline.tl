@@ -62,7 +62,8 @@ local record ScopeLevel
 end
 local record Scope
   current: function(): ScopeLevel
-  breadcrumb: function(s?: ScopeLevel): string
+  where: function(s?: ScopeLevel): string
+  place: function(beat: number): string
   span: function(s?: ScopeLevel): number, number
   format: function(beat: number): string
   bar_offset: function(): integer
@@ -738,9 +739,9 @@ spec(
   }
 )
 
--- The scope shown, as its path (`Song › Bridge › Strings`); in a scope
--- with time, the cursor's place in its bars and in the song's
--- (`3.2 (19.2)`); and what the rest of the song does. On a time fold
+-- The scope shown, as its path without the song (`Bridge › Strings`); in
+-- a scope with time, the cursor's place in its bars and in the song's
+-- (`3.2 @19.2`); and what the rest of the song does. On a time fold
 -- (paw/folds.tl), its name and its bars (`Bridge ▸ 8`), in a scope or not.
 spec(
   "scope",
@@ -754,16 +755,12 @@ spec(
       if not scope then
         return fold and {{fold.label, "StatusOn"}} or nil
       end
-      local out: {Piece} = {{paw.scope.breadcrumb(scope), "StatusOn"}}
+      local out: {Piece} = {{paw.scope.where(scope), "StatusOn"}}
       if fold then
         out[#out + 1] = {" " .. fold.label, "StatusOn"}
       end
       if paw.scope.span(scope) then
-        local beat = paw.cursor.beat
-        local here = paw.scope.format(beat):match("^(%d+%.%d+)")
-        local bar, unit = api.tempo_bbt(paw.time.song_beat(beat))
-        local song = string.format("%d.%d", bar + 1, unit + 1)
-        out[#out + 1] = {" " .. here .. (here ~= song and (" (" .. song .. ")") or ""), "StatusDim"}
+        out[#out + 1] = {" " .. paw.scope.place(paw.cursor.beat), "StatusDim"}
       end
       -- A subproject with a tempo of its own says so: the song's tempo
       -- does not change it.

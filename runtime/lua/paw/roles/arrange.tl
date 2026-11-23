@@ -173,8 +173,9 @@ end
 --- the cut at its end. `ghost`
 --- is where a drag will put one. With `take` it is that take of the clip
 --- in a take lane (`paw.frontend.take_preview`), lit when `active`. With
---- `nest` it is a block of a subproject: a frame around it, and in its
---- body the notes that the subproject plays there.
+--- `nest` it is a block of a subproject: a frame around it (`╭⧉ Bridge
+--- ──╮`, its edges down the body), and in its body the notes that the
+--- subproject plays there.
 role(
   "clip",
   {
@@ -243,6 +244,9 @@ role(
       -- its time. The curve and the notches are after the label, so that
       -- it stays whole.
       local free = x0 + api.str_width(text)
+      if p.nest and w > 2 and free + 1 < w - 1 then
+        buf:fill(free + 1, 0, w - 1 - (free + 1), 1, g.h, "ClipEdge")
+      end
       -- The controller moves of a MIDI clip: a small curve, a cell's
       -- height in each column, a space after the label.
       for x = free + 1, w - 1 do
@@ -269,10 +273,17 @@ role(
       -- A hairline where the clip starts, so that clips side by side stay
       -- apart.
       buf:fill(0, 0, 1, 1, g.clip_start, "ClipEdge")
-      -- A block of a subproject has a frame: a line at the right edge of
-      -- its last cell too, which stands against the next cell's lines.
+      -- A block of a subproject has a frame around all of it: `╭⧉ Bridge
+      -- ──╮` on the name row (its line drawn before the notches, which
+      -- stay on it), and its edges down the body in its first and last
+      -- columns.
       if p.nest and w > 2 then
-        buf:fill(w - 1, 0, 1, 1, g.clip_end, "ClipEdge")
+        buf:text(0, 0, g.tl, "ClipEdge")
+        buf:text(w - 1, 0, g.tr, "ClipEdge")
+        if h >= 2 then
+          buf:fill(0, 1, 1, h - 1, g.v, "ClipEdge")
+          buf:fill(w - 1, 1, 1, h - 1, g.v, "ClipEdge")
+        end
       end
       -- Where a scope cuts it: `‹` and the name where the scope starts (the
       -- start of the clip is out of sight), `›` where it ends.

@@ -56,7 +56,16 @@ local record Scope
   current: function(): Field
   window: function(): contracts.Window
 end
+--- paw/nest.tl, the part of it that this module reads: the rows of a
+--- subproject shown under its return row (`za`).
+local record Nest
+  shown_under: function(track: integer): integer
+  returns: function(row: integer): integer
+  is_open: function(row: integer): boolean
+  toggle: function(track: integer): boolean
+end
 local record Paw is partial.Paw
+  nest: Nest
   groups: GroupsModule
   folds: FoldsModule
   draw: DrawModule
@@ -262,6 +271,140 @@ local function first(cells: Cells): string, string
   end
 end
 
+-- The folds of groups, as a tree: an open group has `▾` on its line and a
+-- guide down its members, `╰` on the last; a folded one has `▸`. Each
+-- level of nesting is a column. A subproject's return row (paw/nest.tl)
+-- is a fold too: `za` shows the subproject's tracks under it, with the
+-- dotted guide `┆` down them in its column and their own groups to the
+-- right of it, and a closing line (`kind` `end`) that has `╰` there.
+-- Worked out at most once for each layout, from the tracks that it draws
+-- (`width`), and read by `render` for each line and by `click`. It is kept
+-- while its key is the same: the tracks drawn, the window and the change
+-- count of its folds, and the edits of the project (the groups).
+local record Tree
+  key: string
+  depth: {integer: integer}
+  chain: {integer: {integer}}
+  group: {integer: boolean}
+  folded: {integer: boolean}
+  fold: {integer: contracts.Fold}
+  last: {integer: integer}
+  --- The return rows in the tree: their guide is dotted, and their last
+  --- row has the closing line under it, not `╰`.
+  returns: {integer: boolean}
+  --- Each song track's number: its place among the song's tracks drawn.
+  --- The tracks of a subproject shown in place have none.
+  number: {integer: integer}
+  width: integer
+end
+
+local project_field = api.project_get as function(key: string): integer
+
+local function tree_key(rows: {integer}): string
+  local folds = paw.folds
+  return table.concat(rows as {string}, ",")
+    .. "|"
+    .. tostring(paw.scope.window())
+    .. "|"
+    .. folds.generation
+    .. "|"
+    .. project_field("edits")
+end
+
+--- The groups a track is in, the outermost first.
+local function groups_of(groups: GroupsModule, id: integer): {integer}
+  local chain: {integer} = {}
+  local at = groups.of(id)
+  while at and #chain < 16 do
+    table.insert(chain, 1, at)
+    at = groups.of(at)
+  end
+  return chain
+end
+
+local function tree_of(rows: {integer}, key: string): Tree
+  M.tree_builds = M.tree_builds + 1
+  local groups, folds, nest = paw.groups, paw.folds, paw.nest
+  local t: Tree = {
+    key = key,
+    depth = {},
+    chain = {},
+    group = {},
+    folded = {},
+    fold = {},
+    last = {},
+    returns = {},
+    number = {},
+    width = 0,
+  }
+  local songs = 0
+  for i, id in ipairs(rows) do
+    -- A track of a subproject shown in place: under the chain of its
+    -- return row and the row itself, then its own groups.
+    local under = nest.shown_under(id)
+    local chain: {integer}
+    -- The groups of the chain that this row is a member of: the song's
+    -- groups above a return row end at it.
+    local own_from = 1
+    if under and t.chain[under] then
+      own_from = #t.chain[under] + 1
+      chain = {}
+      for _, g in ipairs(t.chain[under]) do
+        chain[#chain + 1] = g
+      end
+      chain[#chain + 1] = under
+      for _, g in ipairs(groups_of(groups, id)) do
+        chain[#chain + 1] = g
+      end
+    else
+      chain = groups_of(groups, id)
+      songs = songs + 1
+      t.number[id] = songs
+    end
+    t.chain[id], t.depth[id] = chain, #chain
+    if groups.is_group(id) then
+      t.group[id], t.folded[id] = true, groups.folded(id)
+    elseif not under and nest.returns(id) then
+      t.group[id], t.folded[id], t.returns[id] = true, not nest.is_open(id), true
+    end
+    -- The first row of a fold of tracks stands for all of it.
+    local fold = folds.row(id)
+    if fold then
+      t.group[id], t.folded[id], t.fold[id] = true, true, fold
+    end
+    for d = own_from, #chain do
+      t.last[chain[d]] = i
+    end
+    t.width = math.max(t.width, #chain + (t.group[id] and 1 or 0))
+  end
+  return t
+end
+
+-- The tracks of the last layout, for a part that needs them all.
+local frame_rows: {integer} = {}
+-- The tree of the last layout's tracks.
+local tree: Tree
+
+-- The tree of `rows`: the kept one while its key is the same.
+local function tree_for(rows: {integer}): Tree
+  local key = tree_key(rows)
+  if not (tree and tree.key == key) then
+    tree = tree_of(rows, key)
+  end
+  return tree
+end
+
+-- The tree for `render` and `click`, of the last layout.
+local function current_tree(): Tree
+  return tree or tree_for(frame_rows)
+end
+
+--- A track's number among the song's tracks drawn, or nil for a track of
+--- a subproject shown under its return row.
+local function song_number(track: integer): integer
+  return current_tree().number[track]
+end
+
 -- The components that come with paw ---------------------------------------------
 
 --- Columns of the number component: wide enough for the largest number, and
@@ -279,21 +422,25 @@ M.add(
   {
     order = 10,
     width = number_width,
-    render = function(_: integer, ctx: Context): Cells
+    render = function(track: integer, ctx: Context): Cells
       if ctx.line ~= 0 then
         return nil
       end
       local text: string
       local group = style(ctx, "number", "TrackNr")
+      -- A track's number is its place among the song's tracks (what `5G`
+      -- takes): the rows of a subproject shown under its return row have
+      -- none, and the song's tracks after them keep theirs.
+      local number = ctx.kind == "track" and song_number(track) or nil
       if ctx.cursor then
         -- The cursor's track: its number (with 'number'), else 0, as Neovim.
-        text = opt.number and ctx.kind == "track" and tostring(ctx.row) or (opt.relativenumber and "0" or nil)
+        text = opt.number and number and tostring(number) or (opt.relativenumber and "0" or nil)
         group = style(ctx, "cursor", "TrackNrCursor")
       elseif opt.relativenumber and ctx.relative then
         text = tostring(ctx.relative)
         group = style(ctx, "relative", group)
-      elseif opt.number and ctx.kind == "track" then
-        text = tostring(ctx.row)
+      elseif opt.number and number then
+        text = tostring(number)
       end
       if not text then
         return nil
@@ -379,99 +526,6 @@ M.add(
   }
 )
 
--- A window in a scope (`paw.scope`) says so with `›` on its first row:
--- the rows and their numbers are the scope's, not the song's.
-M.sign(
-  "scope",
-  {
-    priority = 100,
-    glyphs = {scope = "›"},
-    render = function(_: integer, ctx: Context): Cells
-      if ctx.row == 1 and paw.scope and paw.scope.current() then
-        return {{glyph(ctx, "scope") or "›", style(ctx, "sign", "TrackSign")}}
-      end
-    end,
-  }
-)
-
--- The folds of groups, as a tree: an open group has `▾` on its line and a
--- guide down its members, `╰` on the last; a folded one has `▸`. Each
--- level of nesting is a column. Worked out at most once for each layout,
--- from the tracks that it draws (`width`), and read by `render` for each
--- line and by `click`. It is kept while its key is the same: the tracks
--- drawn, the window and the change count of its folds, and the edits of
--- the project (the groups).
-local record Tree
-  key: string
-  depth: {integer: integer}
-  chain: {integer: {integer}}
-  group: {integer: boolean}
-  folded: {integer: boolean}
-  fold: {integer: contracts.Fold}
-  last: {integer: integer}
-  width: integer
-end
-
-local project_field = api.project_get as function(key: string): integer
-
-local function tree_key(rows: {integer}): string
-  local folds = paw.folds
-  return table.concat(rows as {string}, ",")
-    .. "|"
-    .. tostring(paw.scope.window())
-    .. "|"
-    .. folds.generation
-    .. "|"
-    .. project_field("edits")
-end
-
-local function tree_of(rows: {integer}, key: string): Tree
-  M.tree_builds = M.tree_builds + 1
-  local groups, folds = paw.groups, paw.folds
-  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
-  for i, id in ipairs(rows) do
-    local chain: {integer} = {}
-    local at = groups.of(id)
-    while at and #chain < 16 do
-      table.insert(chain, 1, at)
-      at = groups.of(at)
-    end
-    t.chain[id], t.depth[id] = chain, #chain
-    if groups.is_group(id) then
-      t.group[id], t.folded[id] = true, groups.folded(id)
-    end
-    -- The first row of a fold of tracks stands for all of it.
-    local fold = folds.row(id)
-    if fold then
-      t.group[id], t.folded[id], t.fold[id] = true, true, fold
-    end
-    for _, g in ipairs(chain) do
-      t.last[g] = i
-    end
-    t.width = math.max(t.width, #chain + (t.group[id] and 1 or 0))
-  end
-  return t
-end
-
--- The tracks of the last layout, for a part that needs them all.
-local frame_rows: {integer} = {}
--- The tree of the last layout's tracks.
-local tree: Tree
-
--- The tree of `rows`: the kept one while its key is the same.
-local function tree_for(rows: {integer}): Tree
-  local key = tree_key(rows)
-  if not (tree and tree.key == key) then
-    tree = tree_of(rows, key)
-  end
-  return tree
-end
-
--- The tree for `render` and `click`, of the last layout.
-local function current_tree(): Tree
-  return tree or tree_for(frame_rows)
-end
-
 M.add(
   "fold",
   {
@@ -488,21 +542,36 @@ M.add(
         return nil
       end
       local guide, last_mark = glyph(ctx, "guide") or ctx.g.v, glyph(ctx, "last") or ctx.g.bl
+      local dotted = glyph(ctx, "nest_guide") or ctx.g.nest_guide
       local first_line = ctx.line == 0 and ctx.kind == "track"
       local out: {string} = {}
       for d, group in ipairs(t.chain[track]) do
         local last = t.last[group] == ctx.row
-        if first_line then
+        if t.returns[group] then
+          -- Down the rows of a subproject: the closing line ends them.
+          out[d] = dotted
+        elseif t.last[group] < ctx.row then
+          -- A group that ended above: the rows of a subproject under its
+          -- last member, and their closing line.
+          out[d] = " "
+        elseif first_line then
           out[d] = last and last_mark or guide
         else
           out[d] = last and " " or guide
         end
       end
-      if t.group[track] then
+      if ctx.kind == "end" then
+        -- The line that closes the rows of a return row (`track`): `╰` in
+        -- its column, then the dotted line to the headers.
+        out[#out + 1] = last_mark
+        while #out < ctx.width do
+          out[#out + 1] = glyph(ctx, "nest_close") or ctx.g.nest_close
+        end
+      elseif t.group[track] then
         if first_line then
           out[#out + 1] = t.folded[track] and glyph(ctx, "closed") or glyph(ctx, "open")
         elseif not t.folded[track] and t.last[track] then
-          out[#out + 1] = guide
+          out[#out + 1] = t.returns[track] and dotted or guide
         end
       end
       if #out == 0 then
@@ -510,11 +579,16 @@ M.add(
       end
       return {{table.concat(out), style(ctx, "fold", "TrackFold")}}
     end,
-    -- A click on the mark of a group folds it away or opens it, as `za`.
+    -- A click on the mark of a group folds it away or opens it, as `za`;
+    -- on a return row's, it shows or hides the subproject's tracks.
     click = function(track: integer, ctx: Context)
       local t = current_tree()
       if t.group[track] and ctx.line == 0 and ctx.kind == "track" and ctx.x == t.depth[track] then
-        paw.frontend.act.fold(track)
+        if t.returns[track] then
+          paw.nest.toggle(track)
+        else
+          paw.frontend.act.fold(track)
+        end
       end
     end,
     -- What `K` says: the group a track is in, and of a group what it holds.
@@ -572,7 +646,11 @@ function M.layout(frame: Frame, room: integer, header_room: integer): Layout
   end
   table.sort(list, by_order)
   local out: Layout = {parts = {}, width = 0, from_header = 0, frame = frame}
+  -- The tree of this frame's rows, before any component draws: the
+  -- number component reads the song's numbers from it, also when the
+  -- fold component is not in the column.
   frame_rows = frame.rows
+  tree_for(frame.rows)
   for _, c in ipairs(list) do
     local w: integer
     local spec = c.width

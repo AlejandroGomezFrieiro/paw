@@ -102,13 +102,14 @@ block, counted from 1, so a subproject over a 6/8 section shows bars of
   tempo map of the song at that place.
 - The status line, the ruler and the playhead show the song's time at the
   place of the block, as for the cursor. The ruler counts the bars of the
-  subproject from 1, and the status line gives the bar of the song in
-  brackets after the bar of the subproject, for example `1.2 (9.2)`.
+  subproject from 1, with the bars of the song under them with `@`, for
+  example `@9`. The status line gives the bar of the song after the bar
+  of the subproject, for example `1.2 @9.2`.
 - The row of regions under the bar numbers shows the regions of the song
   that the block covers, at their place in the subproject and cut at its
-  edges. A subproject saved from the region Verse shows Verse over all of
-  its bars. A subproject over a time with no region shows no row of
-  regions. The regions belong to the song, so they show where the block
+  edges. A region over all the bars of the subproject does not show,
+  because the window bar names the subproject. A subproject over a time
+  with no other region shows no row of regions. The regions belong to the song, so they show where the block
   you entered through plays.
 - When the playhead is outside the time of the block, the status line
   gives its place in the song with `@` before it, for example `@1.1.00`,
@@ -171,10 +172,14 @@ tempo at the same place in the song.
 ## The return row and its blocks
 
 The arrange view draws each block of a subproject on its return row in a
-frame, with `⧉` and the name of the subproject, and under the name a small
-piano roll of the notes that the subproject plays there. A kind of
-subproject puts its letter after `⧉`, for example `⧉D Groove`. The graphical
-window draws the same blocks.
+frame, `╭⧉ Bridge ──╮` on the first line and its edges down the block,
+and under the name a small piano roll of the notes that the subproject
+plays there. When the song plays the subproject in more places than one,
+the name ends with the number of places, for example `⧉ Bridge ×2`. A
+kind of subproject puts its letter after `⧉`, for example `⧉D Groove`.
+The header of the return row has `⧉` before the name too, and the track
+column has `▸` beside it, or `▾` while its tracks show under it. The
+graphical window draws the same blocks.
 
 | Keys or command | Effect |
 | --- | --- |
@@ -184,8 +189,19 @@ window draws the same blocks.
 | `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
 | `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |
 
-The tracks that `za` shows under a return row belong to the subproject.
-The cursor finds their clips where the subproject plays them, so a key
+The tracks that `za` shows under a return row belong to the subproject,
+and the screen marks them so that you can tell them from the tracks of
+the song:
+
+- A dotted line `┆` goes down the track column beside them, and a line
+  `╰┄ end of ⧉Bridge` closes them.
+- They have no track number. The tracks of the song keep their numbers.
+- They show their clips only in the blocks of the return row, with a
+  dotted edge at each side of a block, and nothing outside the blocks.
+- The message names the places where the song plays the subproject, for
+  example `an edit here changes both places (@9, @25)`.
+
+The cursor finds the clips of those tracks in each block, so a key
 that works on the clip at the cursor, for example `~` to mute it,
 changes the subproject. The window still shows the song:
 `znn` on the block goes inside the subproject. The rows that `za` opens
