@@ -1134,10 +1134,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.keymap
 
-- `paw.keymap.after_next(fn)`: Run `fn` after paw gets and does the next whole command. Insert mode uses it for Ctrl-o, to return to insert mode after one command.
+- `paw.keymap.after_next(fn)`: Run `fn` after paw gets and does the next whole command. Insert mode uses
 - `paw.keymap.all(view)`: Every mapping that can be typed while `view` has focus, each once: normal mode, then what only a selection, an operator or insert mode takes. Each comes with `kind`: "key", "motion", "operator", "object", "visual" or "insert".
 - `paw.keymap.change(n)`: Go to where an earlier edit happened (`n` back, a negative `n` forward again). The first step from the place of the last edit goes to the one before.
-- `paw.keymap.changed()`: Record a change that is not an edit of the project (the lines of a text buffer). Then `.` repeats the command that made it.
+- `paw.keymap.changed()`: Record a change that is not an edit of the project (the lines of a text
 - `paw.keymap.changes(view)`: The places edits happened in a view, oldest first.
 - `paw.keymap.classic(lhs, rhs, opts)`: A mapping as it was before the key rule. paw makes it when `paw.opt.keys` is "classic", now or later. It goes over the mapping that the rule gives the same keys. paw removes it again when the option changes back. A false `rhs` removes the keys.
 
@@ -1146,12 +1146,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.keymap.del(lhs, opts)`: Remove a mapping: `opts.mode` and `opts.view` as `set` took them.
 - `paw.keymap.delmarks(spec, all)`: Remove marks from every view, as Vim's `:delmarks` does: `spec` lists letters and ranges (`"a b"`, `"a-d"`), and `all` removes every lowercase one. Returns how many were removed, or nil and what is wrong.
-- `paw.keymap.dispatch(key)`: Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
+- `paw.keymap.dispatch(key)`
 - `paw.keymap.each(fn)`: Call `fn(map, mode, scope, keys)` for each mapping, in no order, with `keys` joined as `put` takes them. It is `every` without the sort.
-- `paw.keymap.escape_hint()`: After an Escape that had nothing to cancel: a second one within two seconds outside the arrange view says how to leave.
+- `paw.keymap.escape_hint()`: After an Escape that had nothing to cancel in the view: the listeners of the `escape` event end what goes on (a count-in, a take, a render, a snippet). When none of them ended anything, a second one within two seconds outside the arrange view says how to leave: `how`, or the keys that leave any view. A view that maps `<Esc>` calls it when it has
 - `paw.keymap.every()`: Every mapping in every mode and scope, sorted by scope, mode and keys. What checks the key rules walks (`tests/keys_constitution.lua`).
 - `paw.keymap.expand(lhs)`: Write `<leader>` and `<localleader>` as the keys the options name.
-- `paw.keymap.feed(keys)`: Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
+- `paw.keymap.feed(keys)`
 - `paw.keymap.first(mode, test, view)`: The first mapping of `mode` (in `view`, then global) that `test(map)` is true for, in the order of `list`, with no list made and sorted.
 - `paw.keymap.getreg(name)`: What a register holds (the unnamed one when `name` is nil).
 - `paw.keymap.goto_mark(name)`: Move to a mark. With `'` or a backtick as the name, return to the start of the last jump. With `.`, go to the place of the last edit.
@@ -1162,18 +1162,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   With `opts.view`, the name applies only while that view has focus.
-- `paw.keymap.group_name(keys)`: The name given to a prefix with `group`, if any.
+- `paw.keymap.group_name(keys)`
 - `paw.keymap.groups()`: The names given to prefixes with `group`: scope -> keys -> name.
 - `paw.keymap.has(mode, map)`: True if a mapping with the same keys and scope is also made in `mode`.
-- `paw.keymap.hints()`: The keys that can come after the typed keys, when the user stops to type: a list of { key, desc }, and a title. Nil when there is nothing to show.
+- `paw.keymap.hints()`: The keys that can come after the typed keys, when the user stops to
 - `paw.keymap.human(keys)`: Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`, `<localleader>d` is `\d`, `<C-w>o` is `Ctrl-w o`, `<CR>` is `Enter`. Takes an `lhs` or a list of keys.
 - `paw.keymap.jump(n)`: Return through the places of the jumps (with a negative `n`, go forward again).
 - `paw.keymap.last_selection()`: The last selection made in the focused view, as `'<,'>` names it: the one open now, or the one visual mode last closed. Nil if there is none.
 - `paw.keymap.list(mode, view)`: Mappings that apply in `mode` for `view`, the view's own first.
 - `paw.keymap.mark(name)`: Set mark `name` (a letter) at the cursor of the focused view.
 - `paw.keymap.marks(view)`: The marks of a view: name -> position.
-- `paw.keymap.normal(keys)`: Type keys from inside a mapping, as `:normal` does. The keys run as a part of the current command, not as a separate command.
-- `paw.keymap.on_next_key(fn)`: Run `fn` once, before the next key is handled: for what waits until the person is back at the keyboard (a file changed outside paw).
+- `paw.keymap.normal(keys)`: Type keys from inside a mapping, as `:normal` does. The keys run as a
+- `paw.keymap.on_next_key(fn)`: Run `fn` once, before the next key is handled: for what waits until the
 - `paw.keymap.operator(lhs, fn, opts)`: Define an operator: `fn(region, ctx)` acts on a region of the focused view. A region has `r0`, `r1` (rows, inclusive), `c0`, `c1` (beats, the end not included) and `kind`: "char" for a stretch of time, "line" for whole rows, "block" for a rectangle.
 
   ```lua
@@ -1182,14 +1182,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
   With `count = "operator"`, the count typed before the operator is its own, as `ctx.op_count`. It tells how far or how many times: `3gUib` is three steps up over a bar. `ctx.count` is the count of the motion or object alone.
 - `paw.keymap.parse(lhs)`: Split `gg<C-x>` into { "g", "g", "<C-x>" }, and expand `<leader>` and `<localleader>`.
-- `paw.keymap.pending()`: The keys typed for a command that is not complete, for display: `"a2d3`.
+- `paw.keymap.pending()`
 - `paw.keymap.play(name, n)`: Play the keys in a register `n` times. `@` as the name plays the last register again.
 - `paw.keymap.push_jump()`: Remember where the cursor is before it goes somewhere far away.
 - `paw.keymap.put(mode, scope, keys, map)`: Put a mapping back as `map` (a mapping that `every` gave), or remove it with nil. The mapping is found by its mode, scope and joined keys (`table.concat(map.keys)`). An extension that unloads does this with the keys that it mapped.
 - `paw.keymap.record(name)`: Start recording keys into a register, or stop with no name.
 - `paw.keymap.recording()`: The register being recorded into, if any.
-- `paw.keymap.repeat_as(keys)`: Make `.` repeat `keys` (a list of keys), not the keys typed for the command that runs now. `:adjust` does it, so that `.` does the adjusted command again.
-- `paw.keymap.repeat_last(n)`: Do the last change again, with `n` in place of its count if given.
+- `paw.keymap.repeat_as(keys)`: Make `.` repeat `keys` (a list of keys), not the keys typed for the command that runs now. `:adjust` does it, so that `.` does the adjusted
+- `paw.keymap.repeat_last(n)`
 - `paw.keymap.scopes()`: Where paw finds mappings, first to last. First comes the part of the focused view that has the cursor, if the view has such parts (`view:subscope()`). For example, "arrange.lane" on an automation lane row, or a list of parts, the first part first. Then comes the view, then all views.
 - `paw.keymap.search(text, dir)`: Search the focused view for `text`, forward (`dir` 1) or back (-1).
 - `paw.keymap.search_next(dir, n)`: Move to the next (`dir` 1) or previous (-1) thing in the focused view that matches the last search. Views say what matches through `grid.search`.

@@ -496,18 +496,18 @@ In the browser, paw has no sound input or MIDI keyboard, so do the lesson in paw
    - ✓ Voice gets its sound from the input that you selected, and the header shows the input and its level. With `<A-i>`, you hear the input without a recording.
 2. `r` arms the track for a recording, and its `R` becomes red. Press `r`.
    - ✓ The track is armed, and you also hear the input of an armed track.
-3. `R` starts the recording from the cursor, as `<Space><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `R` to stop the recording, and `<Space><Space>` to stop the song.
-   - *Hint:* Press `R` before `<Space><Space>`. If you press only `<Space><Space>`, record mode stays on, with `rec` lit in the status line, and the next `<Space><Space>` records again.
-   - ✓ A new audio clip with your take shows where the recording started, and the clip shows its waveform.
+3. `R` starts the recording from the cursor, as `<Space><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `<Esc>` to stop the recording and the song.
+   - *Hint:* If the song still plays, `<Esc>` canceled something else first, such as a selection. Press `<Esc>` again.
+   - ✓ The message line names the take. A new audio clip with your take shows where the recording started, and the clip shows its waveform.
 4. Now we record MIDI. Press `r` to disarm Voice, `j` to go to Keys, and `r` to arm Keys.
    - *Hint:* `:midi.inputs` shows the MIDI ports that paw finds.
    - ✓ Keys is armed and has no audio input, so it records MIDI. When you play your keyboard, you hear the synth.
-5. Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `R` and `<Space><Space>` to stop.
+5. Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `<Esc>` to stop.
    - ✓ A MIDI clip contains the notes that you played, and `<CR>` on the clip opens it in the piano roll.
 6. Press `r` to disarm Keys. Then press `gs` and `<Space><Space>` to listen, and `<Space><Space>` to stop.
    - ✓ Your recordings play with the drums.
 
-We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Space><Space>`, and we made an audio take and a MIDI take.
+We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Esc>`, and we made an audio take and a MIDI take.
 
 [Lesson 12](12-recording.md) has the same steps with the idea of the lesson and notes for Vim users.
 

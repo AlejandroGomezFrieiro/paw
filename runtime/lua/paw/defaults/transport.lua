@@ -289,9 +289,18 @@ send_undo_limits()
 paw.on("option.changed", function(e)
   if e.name == "undo_steps" or e.name == "undo_memory" then send_undo_limits() end
 end)
--- Esc while counting in calls the take off, as stopping does.
-paw.on("escape", function()
-  if (api.transport_get().counting or 0) > 0 then transport.stop() end
+-- Esc with nothing else to cancel ends what records, as leaving insert mode
+-- in Vim keeps the text. During the count-in it calls the take off. While a
+-- take records, it stops the song, which ends record mode as `R` does: the
+-- take is kept. It never stops a song that does not record. It sets
+-- `cancelled`, so no hint follows its message.
+paw.on("escape", function(e)
+  local t = api.transport_get()
+  if not (t.recording and t.playing) and (t.counting or 0) == 0 then return end
+  transport.stop()
+  e.cancelled = true
+  if (t.counting or 0) > 0 then return paw.notify("recording called off in the count-in: nothing recorded") end
+  paw.notify(t.take and string.format("recording stopped: take %d kept (u removes it)", t.take) or "recording stopped")
 end)
 local last_count = 1
 command("countin", function(ctx)

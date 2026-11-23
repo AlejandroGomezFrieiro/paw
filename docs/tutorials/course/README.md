@@ -25,7 +25,7 @@ You can also do the course without an install. [The course in your browser](in-t
 | 9 | [Devices, parameters and plugins](09-devices.md) | We used the device panel to select and change parameters. We added and bypassed a device, and we found where plugin windows open. |
 | 10 | [The mix: faders, pan, buses, sends, automation](10-mixing.md) | We used the faders, pan, solo and mute of the mixer. We made a bus with `:track.output`, and we added a send and volume automation with `A`. |
 | 11 | [Loops, marks and jumps](11-loops.md) | We set the loop with `gL`, `glic` and `gl2W`, and the click with `gm`. We used `/` to find clips, and `ma`, `'a` and `''` to jump. |
-| 12 | [Record audio and MIDI](12-recording.md) | We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Space><Space>`, and we made an audio take and a MIDI take. |
+| 12 | [Record audio and MIDI](12-recording.md) | We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Esc>`, and we made an audio take and a MIDI take. |
 | 13 | [Save and export](13-saving.md) | We saved with `:w`, and we saw `[+]` for changes that are not saved. Then we exported with `:export name.wav tail=2` and read `:messages`. |
 | 14 | [Find a command or a key](14-finding.md) | We used key hints, `?`, `:commands`, Tab on the command line, the `<Space>f` pickers and `K`. |
 | 15 | [Make paw your own: options, keys, commands](15-your-own.md) | We set an option, made a mapping and a command with `:lua`, and found where to keep them. |

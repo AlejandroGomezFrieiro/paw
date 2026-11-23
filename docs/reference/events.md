@@ -67,7 +67,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `render.progress` | `{ path, fraction, ... }` | a render in the background moved forward |
 | `render.done`, `render.failed`, `render.cancelled` | `{ path, ... }` | a render in the background stopped |
 | `key.pre` | `{ key, mode, view }` | a key, before the keymap gets it. A handler can refuse: then the key does nothing more |
-| `escape` | `{}` | Escape had nothing to cancel |
+| `escape` | `{ cancelled }` | `Esc` in normal mode had nothing to cancel in the view. A handler that ends something, such as a recording, sets `cancelled` to true, and paw then shows no hint about how to leave the view |
 | `selection.changed` | `{ view, kind, region, clips, notes }` | the selection changed. `kind` is `region` (visual mode, `region` as an operator gets it), `clips` (ids, selected with the pointer), `notes` (notes of the clips that the piano roll edits, `{ clip, place }`) or nil |
 | `command.pre`, `command.post` | `{ name, command, args }` | before and after a command |
 | `view.focused` | `{ view, old }` | another view gets the keys |
