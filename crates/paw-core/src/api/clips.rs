@@ -287,21 +287,21 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // The kinds of clip that extensions defined, by name (sorted).
         // @return {string}
-        fn clip_kinds(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().clip_kinds()) }
+        fn clip_kinds(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().doc.clip_kinds()) }
         // Let `clip_add` make clips of the kind `name`: a lowercase word that
         // is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
         // @return nil
-        fn clip_kind_define(_, sh, name => String) { sh.session.borrow_mut().clip_kind_define(&name).lua() }
+        fn clip_kind_define(_, sh, name => String) { sh.session.borrow_mut().doc.clip_kind_define(&name).lua() }
         // Stop making clips of the kind `name`. Clips of it that the project has stay.
         // @return nil
-        fn clip_kind_remove(_, sh, name => String) { sh.session.borrow_mut().clip_kind_remove(&name).lua() }
+        fn clip_kind_remove(_, sh, name => String) { sh.session.borrow_mut().doc.clip_kind_remove(&name).lua() }
         // The content of a clip of a defined kind, as the project saves it:
         // `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
         // `data` is `{ json = value }`, a plain value (tables, strings, numbers,
         // booleans; a JSON null reads as nil), or `{ text = { ext, text } }`,
         // UTF-8 text in the kind's own format.
         // @return types.CustomContent
-        fn clip_custom(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_custom(id).lua()?) }
+        fn clip_custom(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().doc.clip_custom(id).lua()?) }
         // Replace what a custom clip's kind compiled, as one undo step: `data`
         // (required), `media`, `sound` (a MIDI or audio content) and `signals`
         // are all replaced (absent: none); `version`, `timeline` and `offset`
@@ -316,10 +316,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let (set, data) = kind_data::split(lua, set)?;
             let mut set: crate::session::CustomSet = from_lua(lua, set)?;
             set.data = data.or(set.data);
-            sh.session.borrow_mut().clip_set_custom(id, set).lua()
+            sh.session.borrow_mut().doc.clip_set_custom(id, set).lua()
         }
         // @return nil
-        fn clip_remove(_, sh, id => Id) { sh.session.borrow_mut().clip_remove(id).lua() }
+        fn clip_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_remove(id).lua() }
         // Put a linked copy of a MIDI clip right after it, and return the
         // id of the copy. The clips of a link share their notes and
         // controller moves: an edit of one changes all of them. A clip that
@@ -388,7 +388,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn clip_notes(lua, sh, (id, range) => (Id, LuaValue)) {
             let session = sh.session.borrow();
             if range.is_nil() {
-                let notes = notes_to_lua(lua, session.clip_notes(id).lua()?)?;
+                let notes = notes_to_lua(lua, session.doc.clip_notes(id).lua()?)?;
                 return Ok(mlua::Variadic::from_iter([notes]));
             }
             let range: NoteRange = from_lua(lua, range)?;
@@ -461,23 +461,23 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return nil
         fn clip_set_notes(lua, sh, (id, notes) => (Id, LuaValue)) {
             let notes = notes_from_lua(lua, notes)?;
-            sh.session.borrow_mut().clip_set_notes(id, notes, false).lua()
+            sh.session.borrow_mut().doc.clip_set_notes(id, notes, false).lua()
         }
         // @param notes {types.Note}
         // @return nil
         fn clip_add_notes(lua, sh, (id, notes) => (Id, LuaValue)) {
             let notes = notes_from_lua(lua, notes)?;
-            sh.session.borrow_mut().clip_set_notes(id, notes, true).lua()
+            sh.session.borrow_mut().doc.clip_set_notes(id, notes, true).lua()
         }
         // Controller, pitch wheel and pressure moves of a MIDI clip:
         // { start, type = "cc" | "bend" | "pressure", number, value }.
         // @return {types.Control}
-        fn clip_controls(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().clip_controls(id).lua()?) }
+        fn clip_controls(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().doc.clip_controls(id).lua()?) }
         // @param controls {types.Control}
         // @return nil
         fn clip_set_controls(lua, sh, (id, controls) => (Id, LuaValue)) {
             let controls: Vec<Control> = from_lua(lua, controls)?;
-            sh.session.borrow_mut().clip_set_controls(id, controls).lua()
+            sh.session.borrow_mut().doc.clip_set_controls(id, controls).lua()
         }
 
     }

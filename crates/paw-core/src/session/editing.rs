@@ -60,26 +60,9 @@ impl Session {
     }
 
     /// Make every clip that refers to a file outside the project the
-    /// project's own (`:collect`): the next save writes their files into
-    /// its folder. Returns how many.
+    /// project's own ([`Document::clip_collect`]), each whose file is there.
     pub fn clip_collect(&mut self) -> usize {
-        let ids: Vec<Id> = self
-            .doc.project
-            .all_tracks()
-            .flat_map(|t| t.clips.iter().chain(&t.cues))
-            .filter(|c| c.source.as_ref().is_some_and(|s| s.is_file()))
-            .map(|c| c.id)
-            .collect();
-        for id in &ids {
-            if let Some(clip) = self.doc.project.clip_mut(*id) {
-                clip.origin = clip.source.take();
-            }
-        }
-        if !ids.is_empty() {
-            self.doc.undo.touched = true;
-            self.doc.dirty = true;
-        }
-        ids.len()
+        self.doc.clip_collect(Path::is_file)
     }
 
     pub fn undo(&mut self) -> bool {
