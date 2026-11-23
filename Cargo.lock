@@ -3248,6 +3248,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "bitflags 2.13.2",
  "blake3",
  "chain-syntax",
  "flacenc",
@@ -3256,6 +3257,7 @@ dependencies = [
  "include_dir",
  "insta",
  "libc",
+ "mio",
  "mlua",
  "paw-engine",
  "paw-luadev",

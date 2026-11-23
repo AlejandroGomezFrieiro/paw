@@ -10,6 +10,7 @@
 mod alsa;
 pub mod automation;
 pub mod backend;
+pub mod bell;
 pub mod clip;
 pub mod device;
 pub mod devices;
@@ -33,6 +34,7 @@ pub mod wav;
 
 pub use automation::{AutoLane, AutoTarget, Automation, StateChange, StateLane};
 pub use backend::no_denormals;
+pub use bell::Bell;
 pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Part, PartEdit, Switch};
 pub use device::{
     Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,

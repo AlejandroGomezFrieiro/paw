@@ -33,6 +33,7 @@ impl Session {
             warnings: &mut self.doc.warnings,
             offline: false,
             waker: self.engine.handle.waker(),
+            bell: self.bell.bell(crate::doorbell::Woken::PLUGINS),
             now: self.now,
         };
         let handle = &mut self.engine.handle;

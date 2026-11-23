@@ -15,7 +15,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
 
-use crate::clock::ScheduleTime;
+use crate::clock::{Agenda, ScheduleTime};
+use crate::doorbell::Woken;
 
 use anyhow::{Result, bail};
 use paw_engine::{AudioData, Msg, Preview};
@@ -188,10 +189,12 @@ impl Session {
             None => {
                 let (tx, rx) = std::sync::mpsc::channel();
                 let (path, store) = (file.to_path_buf(), self.audio.store.clone());
+                let bell = self.bell.bell(Woken::PREVIEW);
                 std::thread::Builder::new()
                     .name("preview".into())
                     .spawn(move || {
                         let _ = tx.send(AudioData::load_with(&path, store.as_ref()));
+                        bell.ring();
                     })?;
                 Stage::Loading(rx)
             }
@@ -236,10 +239,12 @@ impl Session {
     }
 
     /// Take up a file decoded since the last look, and ask for what is
-    /// played next to be read in from the disk. Called from `idle`.
-    pub(super) fn poll_preview(&mut self) {
+    /// played next to be read in from the disk. Called from `idle`. Gives
+    /// true when the file came in, or could not be read: the news that
+    /// the thread that reads it rings for.
+    pub(super) fn poll_preview(&mut self) -> bool {
         let Some(preview) = &mut self.audition.preview else {
-            return;
+            return false;
         };
         let id = preview.id;
         match &mut preview.stage {
@@ -249,10 +254,15 @@ impl Session {
                     if let Some(preview) = &mut self.audition.preview {
                         preview.stage = stage;
                     }
+                    return true;
                 }
-                Ok(Err(err)) => preview.stage = Stage::Failed(format!("{err:#}")),
+                Ok(Err(err)) => {
+                    preview.stage = Stage::Failed(format!("{err:#}"));
+                    return true;
+                }
                 Err(TryRecvError::Disconnected) => {
-                    preview.stage = Stage::Failed("it could not be read".into())
+                    preview.stage = Stage::Failed("it could not be read".into());
+                    return true;
                 }
                 Err(TryRecvError::Empty) => {}
             },
@@ -265,6 +275,22 @@ impl Session {
                 }
             }
             Stage::Failed(_) => {}
+        }
+        false
+    }
+
+    /// What the file heard on its own leaves for the loop: the thread that
+    /// reads it is in flight, and while the engine plays it the loop looks
+    /// now and then to ask for what comes next to be read in.
+    pub(super) fn preview_agenda(&self) -> Agenda {
+        let Some(preview) = &self.audition.preview else {
+            return Agenda::default();
+        };
+        let plays = || self.engine.handle.shared.preview().is_some_and(|(id, _)| id == preview.id);
+        match preview.stage {
+            Stage::Loading(_) => Agenda { in_flight: 1, ..Agenda::default() },
+            Stage::Playing { .. } if plays() => Agenda { tick: Some(super::upkeep::READ_AHEAD), ..Agenda::default() },
+            _ => Agenda::default(),
         }
     }
 

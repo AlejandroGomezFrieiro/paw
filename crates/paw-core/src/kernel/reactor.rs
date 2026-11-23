@@ -9,17 +9,22 @@
 //! 1. Messages: the input of the terminals, the requests and closes of
 //!    connections, then the MIDI that came in and the output of helpers.
 //! 2. Upkeep: the session looks after the engine, the plugins, the bakes,
-//!    the renders and the watched files (`Session::idle`). The stepped
-//!    engine first plays its blocks up to the time of the turn.
+//!    the renders and the watched files (`Session::idle`, the parts of
+//!    `session/upkeep.rs`). The stepped engine first plays its blocks up
+//!    to the time of the turn.
 //! 3. Timers: the Lua timers due at the time of the turn, in due order.
 //! 4. Close: push the edits to the engine (the sync), run the jobs of
 //!    extensions (none yet), deliver the events, run the edit hooks, send
 //!    the scenes and the state, and close the undo step.
 //! 5. Agenda: what is ready now, what is in flight, and when the next
 //!    timer or delay is due.
+//!
+//! Between two turns the loop sleeps in one wait ([`Reactor::wait`]): until
+//! a message comes or a worker rings (`crate::doorbell`), the next due
+//! time, or a tick while a part has news that rings no bell. With nothing
+//! ready, nothing in flight and nothing due, it sleeps with no limit.
 
 use std::collections::HashMap;
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -29,15 +34,16 @@ use serde_json::Value;
 use super::{Frontend, InputEvent, KernelMsg, told};
 use crate::api::{self, Shared};
 use crate::clock::{Agenda, ScheduleTime};
+use crate::doorbell::Woken;
 use crate::grid::{Caps, Color, Grid, Style};
 use crate::remote::{self, RemoteFrontend};
 use crate::rpc::ClientId;
 
-/// How long the loop sleeps at most while the session needs looking after
-/// (`Session::needs_idle`: a plugin, a load, a render, a watched device)
-/// or work is in flight on other threads: plugin editors draw in the
-/// upkeep, so this is also their frame rate.
-const IDLE_PERIOD: Duration = Duration::from_millis(16);
+/// How long the loop sleeps at most while work is in flight: the safety
+/// tick. A worker rings when its work ends; a result that a turn after
+/// this tick finds with no ring is a missed wake, which is counted and
+/// told (`paw.api.pending().missed_wakes`), and the suite fails on it.
+const SAFETY_TICK: Duration = Duration::from_millis(250);
 
 /// The turns at one instant of the manual clock before it moves on. A job
 /// that looks again at no delay (`paw.defer(fn, 0)`) for a state that a
@@ -50,44 +56,15 @@ const TURNS_AT_ONE_INSTANT: u32 = 1000;
 /// before it plays more.
 const AUDIO_TURN: Duration = Duration::from_millis(100);
 
-/// The most wall time that the manual clock waits for the writers of the
-/// takes that closed. A writer ends in milliseconds; a disk that hangs
-/// does not stop the clock for ever.
-const MOST_TAKE_WAIT: Duration = Duration::from_secs(30);
+/// The most wall time that a wait for work in flight takes: the manual
+/// clock's wait for the writers of the takes that closed, and
+/// `paw.api.settle`. A worker ends in milliseconds or seconds; one that
+/// hangs does not stop the loop for ever.
+const STALL: Duration = Duration::from_secs(30);
 
 /// The request that first ends the turn of the terminal keys before it
 /// (`frontend.sync`).
 const SYNC_METHOD: &str = "frontend.sync";
-
-/// The next message, if one comes within `wait`.
-#[cfg(not(target_vendor = "browserpod"))]
-fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
-    rx.recv_timeout(wait)
-}
-
-/// The next message, if one comes within `wait`. In a BrowserPod pod a
-/// wait with a timeout does not end at its time, only when a message comes,
-/// so the timers would fire only after a key. A short sleep does end: the
-/// loop asks the channel again after each one.
-#[cfg(target_vendor = "browserpod")]
-#[expect(clippy::disallowed_methods, reason = "a wait on the wall clock in a pod, where a timeout does not end")]
-fn recv_timeout<T>(rx: &Receiver<T>, wait: Duration) -> Result<T, RecvTimeoutError> {
-    use std::sync::mpsc::TryRecvError;
-    const STEP: Duration = Duration::from_millis(5);
-    let end = std::time::Instant::now() + wait;
-    loop {
-        match rx.try_recv() {
-            Ok(msg) => return Ok(msg),
-            Err(TryRecvError::Disconnected) => return Err(RecvTimeoutError::Disconnected),
-            Err(TryRecvError::Empty) => {}
-        }
-        let left = end.saturating_duration_since(std::time::Instant::now());
-        if left.is_zero() {
-            return Err(RecvTimeoutError::Timeout);
-        }
-        std::thread::sleep(left.min(STEP));
-    }
-}
 
 /// What the kernel keeps for the terminals that show the screen and for
 /// the connections: a turn reaches it also when a script turns the loop.
@@ -143,8 +120,10 @@ impl<'a> Reactor<'a> {
         // the requests for the turn around it.
         let nested = self.shared.turning.replace(true);
         self.begin(now);
+        let woken = self.shared.waiter.doorbell().take();
         self.take_messages(nested);
-        self.shared.session.borrow_mut().idle();
+        let news = self.shared.session.borrow_mut().idle();
+        self.note_missed_wakes(woken, news);
         self.fire_timers(now);
         self.close_turn();
         // What is played goes to the connections that listen.
@@ -212,59 +191,122 @@ impl<'a> Reactor<'a> {
         self.shared.session.borrow_mut().checkpoint();
     }
 
-    /// Step 5: what is ready at `now`, what is in flight, and the first
-    /// time after `now` when a timer or a delay is due.
+    /// After a wait that ended on the safety tick: the news of a kind
+    /// whose workers ring, found with no ring before the turn or during
+    /// it, is a missed wake. Each kind is told once in the log.
+    pub(super) fn note_missed_wakes(&self, woken: Woken, news: Woken) {
+        if !self.shared.looked_on_a_tick.replace(false) {
+            return;
+        }
+        let rang = woken | self.shared.waiter.doorbell().peek();
+        let missed = news & Woken::RINGING & !rang;
+        if missed.is_empty() {
+            return;
+        }
+        self.shared.missed_wakes.set(self.shared.missed_wakes.get() + 1);
+        let new = missed & !self.shared.missed.get();
+        if !new.is_empty() {
+            self.shared.missed.set(self.shared.missed.get() | new);
+            self.shared.log(format!("missed wake: {new:?} came with no ring, and waited for the safety tick"));
+        }
+    }
+
+    /// Step 5: what is ready at `now`, what is in flight, and the next time
+    /// when a timer or a delay is due. An idle timer (a job of
+    /// `paw.slices` with `idle`) that is due is not ready: it is due at
+    /// `now`, so the loop turns again at once, and a wait of a test does
+    /// not wait for it.
     pub(crate) fn agenda(&self, now: ScheduleTime) -> Agenda {
         let timers = {
             let timers = self.shared.timers.borrow();
-            Agenda {
-                ready: timers.iter().any(|t| t.due <= now),
-                in_flight: 0,
-                next_due: timers.iter().map(|t| t.due).filter(|&due| due > now).min(),
-            }
+            let next_due = timers
+                .iter()
+                .filter_map(|t| if t.idle { Some(t.due.max(now)) } else { (t.due > now).then_some(t.due) })
+                .min();
+            Agenda { ready: timers.iter().any(|t| !t.idle && t.due <= now), next_due, ..Agenda::default() }
         };
         let messages = Agenda {
             ready: !self.shared.inbox.borrow().is_empty() || !self.shared.midi_in.lock().unwrap().is_empty(),
             ..Agenda::default()
         };
-        let work = self.shared.session.borrow().work();
-        let session = Agenda {
-            ready: work.next_due.is_some_and(|due| due <= now),
-            in_flight: u32::try_from(work.bakes_running + work.hashing + work.plugin_loads + work.renders)
-                .unwrap_or(u32::MAX),
-            next_due: work.next_due.filter(|&due| due > now),
+        let measures = Agenda {
+            in_flight: u32::try_from(self.shared.measures.count()).unwrap_or(u32::MAX),
+            ..Agenda::default()
         };
-        timers | messages | session
+        let session = self.shared.session.borrow().agenda(now);
+        // A delay of the session that is due now is work for the next turn.
+        let session = Agenda {
+            ready: session.ready || session.next_due.is_some_and(|due| due <= now),
+            next_due: session.next_due.filter(|&due| due > now),
+            ..session
+        };
+        timers | messages | measures | session
     }
 
     /// The longest the loop may sleep at `now` before its next turn: until
-    /// the next due time, and at most [`IDLE_PERIOD`] while the session
-    /// needs looking after or work is in flight. None: until a message.
-    fn sleep_for(&self, agenda: &Agenda, now: ScheduleTime) -> Option<Duration> {
+    /// the next due time, at most a tick, and at most [`SAFETY_TICK`] while
+    /// work is in flight. None: until a ring. Also gives whether the safety
+    /// tick is the limit.
+    pub(super) fn sleep_for(agenda: &Agenda, now: ScheduleTime) -> (Option<Duration>, bool) {
         if agenda.ready {
-            return Some(Duration::ZERO);
+            return (Some(Duration::ZERO), false);
         }
         let due = agenda.next_due.map(|due| due - now);
-        let looked_after = self.shared.session.borrow().needs_idle() || agenda.in_flight > 0;
-        let tick = looked_after.then_some(IDLE_PERIOD);
-        due.into_iter().chain(tick).min()
+        let safety = (agenda.in_flight > 0).then_some(SAFETY_TICK);
+        let others = due.into_iter().chain(agenda.tick).min();
+        let on_safety = safety.is_some_and(|safety| others.is_none_or(|other| safety < other));
+        (others.into_iter().chain(safety).min(), on_safety)
     }
 
-    /// The one wait of the loop: sleep until a message comes or `limit`
-    /// passes (None: until a message), as the agenda allows. A message
-    /// that comes waits in the inbox for the next turn.
+    /// The one wait of the loop: sleep until a message comes, a worker
+    /// rings or `limit` passes (None: no limit), as the agenda allows.
     pub(crate) fn wait(&self, agenda: &Agenda, now: ScheduleTime, limit: Option<Duration>) -> Result<()> {
-        let timeout = self.sleep_for(agenda, now).into_iter().chain(limit).min();
-        let msg = match timeout {
-            Some(timeout) => match recv_timeout(&self.shared.rx, timeout) {
-                Ok(msg) => msg,
-                Err(RecvTimeoutError::Timeout) => return Ok(()),
-                Err(RecvTimeoutError::Disconnected) => return Err(anyhow!("kernel channel closed")),
-            },
-            None => self.shared.rx.recv()?,
-        };
-        self.shared.inbox.borrow_mut().push_back(msg);
+        let (sleep, on_safety) = Self::sleep_for(agenda, now);
+        let on_safety = on_safety && limit.is_none_or(|limit| sleep.is_some_and(|sleep| sleep <= limit));
+        self.sleep(sleep.into_iter().chain(limit).min(), on_safety)
+    }
+
+    /// Sleep in the waiter for at most `timeout`. A wait that ends on its
+    /// time with no ring, when the time was the safety tick, makes the
+    /// next turn look for missed wakes.
+    fn sleep(&self, timeout: Option<Duration>, on_safety: bool) -> Result<()> {
+        let woke = self.shared.waiter.wait(timeout).context("the wait of the loop")?;
+        self.shared.looked_on_a_tick.set(!woke && on_safety);
         Ok(())
+    }
+
+    /// Turn the loop until nothing is ready and no work is in flight
+    /// (`paw.api.settle`): the timers due now fire, the messages that came
+    /// are handled, and the loop sleeps until the work of other threads
+    /// and processes rings, at most a tick at a time. No schedule time
+    /// passes. A job that is ready again and again (`paw.defer(fn, 0)` that
+    /// looks for a state that a later timer makes) stops it after
+    /// [`TURNS_AT_ONE_INSTANT`] turns. Fails when work is still in flight
+    /// after [`STALL`] of wall time.
+    #[expect(clippy::disallowed_methods, reason = "the stall guard: a budget of wall time for the work of other threads")]
+    pub(crate) fn settle(&self) -> Result<Agenda> {
+        let deadline = std::time::Instant::now() + STALL;
+        let mut turns_here = 0;
+        loop {
+            let now = self.shared.clock.now();
+            let agenda = self.turn(now);
+            turns_here += 1;
+            if agenda.ready && turns_here < TURNS_AT_ONE_INSTANT {
+                continue;
+            }
+            if agenda.in_flight == 0 {
+                return Ok(agenda);
+            }
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            if left.is_zero() {
+                let in_flight = self.shared.session.borrow().in_flight(now);
+                bail!("stalled: work in flight after {} s of wall time: {in_flight:?}", STALL.as_secs());
+            }
+            // A due time does not come while this waits: only the rings
+            // and the ticks end the sleep.
+            let tick = agenda.tick.map_or(SAFETY_TICK, |tick| tick.min(SAFETY_TICK));
+            self.sleep(Some(tick.min(left)), tick == SAFETY_TICK)?;
+        }
     }
 
     /// Let `by` of schedule time pass (`paw.api.wait`), with turns as the
@@ -299,7 +341,7 @@ impl<'a> Reactor<'a> {
                 continue;
             }
             turns_here = 0;
-            let mut next = agenda.next_due;
+            let mut next = agenda.next_due.filter(|&due| due > now);
             if self.shared.session.borrow().is_audio_stepped() {
                 let audio = now + AUDIO_TURN;
                 next = Some(next.map_or(audio, |due| due.min(audio)));
@@ -314,16 +356,20 @@ impl<'a> Reactor<'a> {
     }
 
     /// Wait on the wall clock while the writers of a take that closed
-    /// write its files, with a turn each millisecond at the same `now`:
-    /// the take becomes clips before the manual clock moves on, so that a
-    /// wait in song time for those clips (the doctor's recording) sees
-    /// them. Gives the agenda of the last turn.
+    /// write their files, with a turn at each ring at the same `now`: the
+    /// take becomes clips before the manual clock moves on, so that a wait
+    /// in song time for those clips (the doctor's recording) sees them.
+    /// Gives the agenda of the last turn.
     #[expect(clippy::disallowed_methods, reason = "a budget of wall time for the writer threads of a take")]
     fn wait_for_take_writers(&self, now: ScheduleTime) -> Agenda {
-        let deadline = std::time::Instant::now() + MOST_TAKE_WAIT;
+        let deadline = std::time::Instant::now() + STALL;
         let mut agenda = self.agenda(now);
-        while self.shared.session.borrow().takes_writing() > 0 && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
+        while self.shared.session.borrow().takes_writing() > 0 {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            // A writer rings as it ends.
+            if left.is_zero() || self.sleep(Some(SAFETY_TICK.min(left)), true).is_err() {
+                break;
+            }
             agenda = self.turn(now);
         }
         agenda

@@ -22,6 +22,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 hex.workspace = true
 smallvec.workspace = true
+# The kinds of news that wake the kernel's loop (doorbell.rs).
+bitflags.workspace = true
 include_dir = "0.7"
 unicode-width = "0.2"
 base64 = "0.22"
@@ -62,6 +64,10 @@ rcgen = { version = "0.14", default-features = false, features = ["crypto", "rin
 # WebAssembly, and a pod has no sound device (web/browserpod/README.md).
 [target.'cfg(not(target_vendor = "browserpod"))'.dependencies]
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }
+# The one wait of the kernel's loop (doorbell.rs): a waker that worker
+# threads ring, and the descriptors that wake it (inotify). Not in a pod,
+# whose WASI has no waker: there the loop looks at the bits now and then.
+mio = { version = "1", features = ["os-poll", "os-ext"] }
 paw-engine = { workspace = true, features = ["cpal", "midi"] }
 
 # In a pod: PUC Lua 5.2, which has LuaJIT's numbers (runtime/lua/paw/portable.lua).

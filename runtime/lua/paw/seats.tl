@@ -260,13 +260,13 @@ end
 local start = api.timer_start
 -- The kernel calls a timer with no arguments, and does not read what it
 -- returns.
-api.timer_start = function(ms: number, repeat_: boolean, fn: function()): integer
+api.timer_start = function(ms: number, repeat_: boolean, fn: function(), idle?: boolean): integer
   local seat = M.current
   if seat ~= 0 and fn is function then
     local inner = fn
     fn = function() M.within(seat, inner) end
   end
-  return start(ms, repeat_, fn)
+  return start(ms, repeat_, fn, idle)
 end
 
 return M

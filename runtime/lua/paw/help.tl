@@ -1186,7 +1186,7 @@ function M.prepare(): slices.Job
   end
   local co = coroutine.create(function() build_now(pause) end)
   preparing = co
-  return slices(JOB, function(ms: number): boolean return resume(co, ms) end)
+  return slices(JOB, function(ms: number): boolean return resume(co, ms) end, {idle = true})
 end
 
 --- True while paw makes the index of help at idle.

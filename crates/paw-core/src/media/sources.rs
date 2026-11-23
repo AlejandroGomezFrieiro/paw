@@ -32,6 +32,8 @@ pub struct Sources {
     noticed: HashSet<PathBuf>,
     /// When [`due`](Self::due) last said yes.
     looked: Option<ScheduleTime>,
+    /// What the worker rings as it learns a file.
+    bell: paw_engine::Bell,
 }
 
 /// How often the project is looked through for files that are new.
@@ -127,7 +129,7 @@ impl Sources {
 
     fn queue(&mut self, path: &Path, known: Option<(Stamp, SourceHash)>) {
         if self.worker.is_none() {
-            self.worker = Worker::start().ok();
+            self.worker = Worker::start(self.bell.clone()).ok();
         }
         let Some(worker) = &self.worker else { return };
         if worker.send(Job { path: path.to_path_buf(), known }) {
@@ -135,17 +137,30 @@ impl Sources {
         }
     }
 
-    /// Take what the worker learned. The index is written when the worker
-    /// has nothing left to do.
-    pub(crate) fn poll(&mut self) -> Vec<Changed> {
-        let Some(worker) = self.worker.take() else {
-            return Vec::new();
-        };
+    /// Take what the worker learned: None when it learned nothing since the
+    /// last call, else the files that hold other bytes than recorded. The
+    /// index is written when the worker has nothing left to do.
+    pub(crate) fn poll(&mut self) -> Option<Vec<Changed>> {
+        let worker = self.worker.take()?;
         let learned: Vec<Learned> = worker.take().collect();
         self.worker = Some(worker);
+        if learned.is_empty() {
+            return None;
+        }
         let changed = learned.into_iter().filter_map(|l| self.apply(l)).collect();
         self.settle();
-        changed
+        Some(changed)
+    }
+
+    /// How many files the worker has and has not answered for yet.
+    pub(crate) fn hashing(&self) -> usize {
+        self.pending.len()
+    }
+
+    /// The worker rings `bell` each time it learned a file. For a worker
+    /// that starts after this call.
+    pub(crate) fn set_bell(&mut self, bell: paw_engine::Bell) {
+        self.bell = bell;
     }
 
     /// Wait for the worker to finish what it has (for tests).
@@ -220,7 +235,7 @@ impl Sources {
     /// now: a save names every file it can by its hash. The worker's files
     /// keep the record they have until it answers.
     pub(crate) fn complete<'a>(&mut self, files: impl IntoIterator<Item = &'a Path>) -> Vec<Changed> {
-        let mut changed = self.poll();
+        let mut changed = self.poll().unwrap_or_default();
         for path in files {
             if self.table.get(path).is_some() {
                 continue;

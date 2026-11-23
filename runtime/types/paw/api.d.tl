@@ -80,6 +80,7 @@ local record api
    clip_warp_add: function(id: integer, beat: number): integer
    clip_warp_move: function(id: integer, index: integer, beat: number): integer
    clip_warp_remove: function(id: integer, index: integer)
+   clock: function(): string
    crc32: function(data: string): integer
    cue: function(list: {types.Cue})
    cue_list: function(track: integer): {types.Clip}
@@ -309,6 +310,7 @@ local record api
    scene_picture: function(rect: types.Rect, opts: types.ScenePictureOptions)
    scene_roles: function(client: integer, roles: {string})
    scope_export: function(opts: types.ScopeExportOptions, dir: string): types.NestExported
+   settle: function(): types.Pending
    signature_remove: function(beat: number)
    signature_set: function(beat: number, num: integer, den: integer)
    sleep: function(ms: number)
@@ -349,7 +351,7 @@ local record api
    tempo_signature: function(beat: number): integer, integer
    test_devices: function()
    test_panic: function(why: string, inside?: boolean)
-   timer_start: function(ms: number, repeat_: boolean, func: function()): integer
+   timer_start: function(ms: number, repeat_: boolean, func: function(), idle?: boolean): integer
    timer_stop: function(id: integer)
    toml_decode: function(text: string): any, string
    toml_encode: function(value: any, inline?: boolean): string

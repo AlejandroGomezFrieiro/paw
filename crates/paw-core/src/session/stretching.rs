@@ -24,6 +24,8 @@ use super::{ClipKind, MAX_PEAKS, Session, de};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
 use crate::bake::scheduler::{Busy, Priority, Status};
+use crate::clock::Agenda;
+use crate::doorbell::Woken;
 use crate::events::{BakeProgress, KernelEvent as E};
 use crate::stretched::{Key, SETTLE, ViewRange};
 use crate::media::Sources;
@@ -415,8 +417,10 @@ impl Session {
         }
         let pins = self.bake_pins();
         let (tell, told) = std::sync::mpsc::channel();
+        let bell = self.bell.bell(Woken::BAKES);
         let thread = std::thread::Builder::new().name("tidy".into()).spawn(move || {
             let _ = tell.send(store.tidy(&pins));
+            bell.ring();
         });
         if thread.is_ok() {
             self.audio.upkeep.tidying = Some(told);
@@ -424,17 +428,17 @@ impl Session {
     }
 
     /// Take in a tidy that ended: when the pinned bakes alone are over
-    /// the cache's limit, say so, once.
-    fn poll_tidy(&mut self) {
+    /// the cache's limit, say so, once. Gives true when one ended.
+    fn poll_tidy(&mut self) -> bool {
         let Some(told) = &self.audio.upkeep.tidying else {
-            return;
+            return false;
         };
         let tidied = match told.try_recv() {
             Ok(tidied) => tidied,
-            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return false,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 self.audio.upkeep.tidying = None;
-                return;
+                return true;
             }
         };
         self.audio.upkeep.tidying = None;
@@ -452,6 +456,7 @@ impl Session {
         if std::mem::take(&mut self.audio.upkeep.tidy_again) {
             self.tidy_bakes();
         }
+        true
     }
 
     /// Send `bake.progress` when it changed: at most 4 times a second of
@@ -475,9 +480,11 @@ impl Session {
     /// Take in the bakes that ended or started, start those that have
     /// waited long enough, drop those no clip wants any more, and build
     /// again the tracks whose clips play one that changed. Called
-    /// regularly, from [`idle`](Self::idle).
-    pub(super) fn poll_bakes(&mut self) {
-        self.poll_tidy();
+    /// regularly, from [`idle`](Self::idle). Gives true when a bake or a
+    /// tidy ended, or a bake has sound to play: the news that they ring
+    /// for.
+    pub(super) fn poll_bakes(&mut self) -> bool {
+        let tidied = self.poll_tidy();
         if self.render_job.is_none() {
             self.audio.upkeep.exporting.clear();
         }
@@ -489,16 +496,16 @@ impl Session {
             .collect();
         let renders = &self.audio.renders;
         if !renders.busy() && renders.finished.is_empty() && hashed.is_empty() {
-            return;
+            return tidied;
         }
         let rate = self.engine.handle.sample_rate as u32;
         let wants = self.bake_wants();
-        self.audio.renders.poll(&wants, SETTLE, self.now);
+        let news = self.audio.renders.poll(&wants, SETTLE, self.now) || tidied;
         self.doc.warnings.append(&mut self.audio.renders.failures);
         self.report_bakes();
         let finished: HashSet<Key> = self.audio.renders.finished.drain(..).collect();
         if finished.is_empty() && hashed.is_empty() {
-            return;
+            return news;
         }
         if finished.iter().any(|k| self.audio.renders.status(k) == Status::Ready) {
             self.tidy_bakes();
@@ -532,6 +539,19 @@ impl Session {
         }
         self.doc.dirty = true;
         self.flush();
+        news
+    }
+
+    /// What the bakes leave for the loop: those on threads and in helpers
+    /// are in flight, with a tidy of the cache; those that wait for their
+    /// settle are due then.
+    pub(super) fn bakes_agenda(&self) -> Agenda {
+        let running = self.audio.renders.summary().running + usize::from(self.audio.upkeep.tidying.is_some());
+        Agenda {
+            in_flight: u32::try_from(running).unwrap_or(u32::MAX),
+            next_due: self.audio.renders.next_due(SETTLE),
+            ..Agenda::default()
+        }
     }
 
     /// Wait up to `limit` for every version `project`'s clips play at

@@ -1,6 +1,7 @@
 //! `paw.api`: timers, the schedule clock, one turn of the loop, time
 //! limits, and the kernel's quit, reload and log.
 
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -42,28 +43,31 @@ pub(crate) fn due_timers(shared: &Shared, now: ScheduleTime) -> Vec<Rc<mlua::Reg
 /// The work that is not done yet (`paw.api.pending`): what the next turn
 /// does, what other threads and processes do now, and what waits for the
 /// schedule clock.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub(crate) struct Pending {
+    /// The next turn has work: a timer is due, a message came, a delay
+    /// ended. An idle timer is not work.
+    pub ready: bool,
+    /// Nothing is in flight, no helper process is at work, and the engine
+    /// plays nothing that changes the state: only the timers are left, the
+    /// ones due now (`ready`) and the ones that wait for the clock
+    /// (`next_ms`). After `settle`, a timer due now is a job that looks
+    /// again and again at no delay.
+    pub quiet: bool,
+    /// Milliseconds of schedule time until the next timer or settle delay
+    /// is due; none when nothing waits for the clock.
+    pub next_ms: Option<f64>,
+    /// The work in flight on other threads and in other processes, by
+    /// kind: `bakes`, `hashes`, `loads` (plugins), `renders`, `takes`
+    /// (their writers), `preview`, `plugins` (a state not taken on yet),
+    /// `measures`. A kind with none is left out.
+    pub in_flight: BTreeMap<&'static str, u32>,
     /// Timers due now: the next turn fires them.
     pub timers_due: usize,
     /// All the timers, also the ones that wait for the clock.
     pub timers: usize,
-    /// Milliseconds of schedule time until the next timer or settle delay
-    /// is due; none when nothing waits for the clock.
-    pub next_ms: Option<f64>,
-    /// Bakes being made on other threads or in helper processes.
-    pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
     pub bakes_waiting: usize,
-    /// Files of stretched clips being hashed: their bakes are asked for
-    /// after.
-    pub hashing: usize,
-    /// Plugins being made apart from the main loop.
-    pub plugin_loads: usize,
-    /// Renders running on a thread of their own.
-    pub renders: usize,
-    /// Measurements of the mix running on threads of their own.
-    pub measures: usize,
     /// Files changed outside paw that wait for their settle.
     pub files: usize,
     /// MIDI that came in from ports and is not heard yet.
@@ -75,6 +79,10 @@ pub(crate) struct Pending {
     /// what paw wrote to it, or one that works on its own until it ends.
     /// A language server that answered and waits for more is not counted.
     pub helpers_busy: usize,
+    /// How many times a turn found the result of a worker that did not
+    /// ring the loop: it waited for the safety tick. A bug of that worker;
+    /// the log names its kind.
+    pub missed_wakes: u64,
 }
 
 impl Shared {
@@ -85,8 +93,16 @@ impl Shared {
             let timers = self.timers.borrow();
             (timers.iter().filter(|t| t.due <= now).count(), timers.len())
         };
-        let next_due = Reactor::new(self, lua).agenda(now).next_due;
-        let work = self.session.borrow().work();
+        let agenda = Reactor::new(self, lua).agenda(now);
+        let (in_flight, waiting, plays) = {
+            let session = self.session.borrow();
+            (session.in_flight(now), session.waiting(), session.plays())
+        };
+        let mut in_flight: BTreeMap<&'static str, u32> = in_flight.into_iter().collect();
+        let measures = u32::try_from(self.measures.count()).unwrap_or(u32::MAX);
+        if measures > 0 {
+            in_flight.insert("measures", measures);
+        }
         // One borrow each: a struct literal keeps its temporaries to the end,
         // so two `borrow_mut` calls in it would clash.
         let midi = self.midi_in.lock().unwrap().len();
@@ -95,19 +111,18 @@ impl Shared {
             (io.working(), io.awaited())
         };
         Pending {
+            ready: agenda.ready,
+            quiet: agenda.in_flight == 0 && helpers == 0 && !plays,
+            next_ms: agenda.next_due.map(|due| super::as_ms(due - now)),
+            in_flight,
             timers_due,
             timers,
-            next_ms: next_due.map(|due| super::as_ms(due - now)),
-            bakes_running: work.bakes_running,
-            bakes_waiting: work.bakes_waiting,
-            hashing: work.hashing,
-            plugin_loads: work.plugin_loads,
-            renders: work.renders,
-            measures: self.measures.count(),
-            files: work.files,
+            bakes_waiting: waiting.bakes,
+            files: waiting.files,
             midi,
             helpers,
             helpers_busy,
+            missed_wakes: self.missed_wakes.get(),
         }
     }
 }
@@ -115,16 +130,22 @@ impl Shared {
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- timers ---
+
+        // Start a timer: `func` runs after `ms` milliseconds, and again
+        // each `ms` when `repeat` is true. An `idle` timer is idle work (the
+        // collector of garbage): when it is due, a wait of a test
+        // (`settle`) does not wait for it, and `pending().quiet` holds.
         // @return integer
         // @param func function()
-        fn timer_start(lua, sh, (ms, repeat, func) => (f64, bool, Function)) {
+        fn timer_start(lua, sh, (ms, repeat, func, idle) => (f64, bool, Function, Option<bool>)) {
             let func = Rc::new(lua.create_registry_value(func)?);
             let id = sh.next_timer.get() + 1;
             sh.next_timer.set(id);
             let period = super::millis(ms);
             // A repeating timer with no period would starve everything else.
             let repeat = repeat.then(|| period.max(Duration::from_millis(1)));
-            sh.timers.borrow_mut().push(Timer { id, due: sh.clock.now() + period, repeat, func });
+            let idle = idle.unwrap_or(false);
+            sh.timers.borrow_mut().push(Timer { id, due: sh.clock.now() + period, repeat, idle, func });
             Ok(id)
         }
         // @return nil
@@ -198,13 +219,30 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Reactor::new(&sh, lua).advance(time);
             Ok(blocks)
         }
-        // The work that is not done yet, by kind: timers due now and all the
-        // timers, the time until the next timer or delay is due (`next_ms`),
-        // bakes, files of stretched clips being hashed, plugins being loaded,
-        // renders, measurements, changed files, MIDI that came in, and helper
-        // processes. A test waits until nothing is in flight.
+        // The work that is not done yet: whether the next turn has work
+        // (`ready`), whether only due times are left (`quiet`), the time
+        // until the next timer or delay is due (`next_ms`), the work in
+        // flight on other threads and processes by kind (`in_flight`), the
+        // timers, the bakes and changed files that wait for their settle,
+        // MIDI that came in, helper processes, and the wakes that a worker
+        // missed (`missed_wakes`).
         // @return types.Pending
         fn pending(lua, sh, () => ()) { super::to_lua(lua, &sh.pending(lua)) }
+        // Turn the loop until nothing is ready and no work is in flight:
+        // the timers due now fire, and the loop waits for the bakes, the
+        // hashes, the plugin loads, the renders and the other work of
+        // threads and processes to end. No schedule time passes, and an
+        // idle timer is not waited for. Gives what `pending` gives then. It
+        // fails when work is still in flight after 30 seconds.
+        // @return types.Pending
+        fn settle(lua, sh, () => ()) {
+            let _ = Reactor::new(&sh, lua).settle().lua()?;
+            super::to_lua(lua, &sh.pending(lua))
+        }
+        // The schedule clock of the process: "manual" when it moves only
+        // when a script waits (`paw --clock manual`, the tests), else "wall".
+        // @return string
+        fn clock(_, sh, () => ()) { Ok(if sh.clock.is_manual() { "manual" } else { "wall" }) }
 
         // --- kernel ---
         // @return nil

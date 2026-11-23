@@ -2145,7 +2145,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.slices
 
 - `paw.slices.job(name)`: The job `name` while it runs, or nil.
-- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
+- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). With `opts.idle`, the job is idle work: a wait of a test does not wait for it. A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
 - `paw.slices.running()`: The jobs that run, by name.
 - `paw.slices.stop(name)`: Stop the job `name`. Returns true if it was running.
 
@@ -2691,6 +2691,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_warp_add(id, beat)`: Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 - `paw.api.clip_warp_move(id, index, beat)`
 - `paw.api.clip_warp_remove(id, index)`
+- `paw.api.clock()`: The schedule clock of the process: "manual" when it moves only when a script waits (`paw --clock manual`, the tests), else "wall".
 - `paw.api.crc32(data)`: The CRC-32 of bytes, as zip and gzip use it.
 - `paw.api.cue(list)`: `{ { track =, clip = id }, { track =, stop = true }, { track =, timeline = true }, ... }`, each with `quantize` (`bar` when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato` and `from`: all on their boundary, timed together by the engine.
 - `paw.api.cue_list(track)`: --- cues (session/cues.rs) --- A clip goes off the timeline with `clip_add(track, { cue = true, ... })`: it starts at 0, loops over its length, and plays only when cued. You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
@@ -2841,7 +2842,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.notes_set(columns)`: Many notes of many clips at once, as one edit, given as lists of the same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`. Entry i is about the note at place `place[i]` of clip `clip[i]`, its place before the call. A list left out of `start`, `length`, `pitch` and `velocity` keeps that value of each note.
 - `paw.api.now()`: The schedule time in milliseconds since paw started: the time that timers, delays and throttles wait for. In a test that runs with `paw --clock manual`, it moves only when the test waits. To measure how long work takes, use `real_ms`.
-- `paw.api.pending()`: The work that is not done yet, by kind: timers due now and all the timers, the time until the next timer or delay is due (`next_ms`), bakes, files of stretched clips being hashed, plugins being loaded, renders, measurements, changed files, MIDI that came in, and helper processes. A test waits until nothing is in flight.
+- `paw.api.pending()`: The work that is not done yet: whether the next turn has work (`ready`), whether only due times are left (`quiet`), the time until the next timer or delay is due (`next_ms`), the work in flight on other threads and processes by kind (`in_flight`), the timers, the bakes and changed files that wait for their settle, MIDI that came in, helper processes, and the wakes that a worker missed (`missed_wakes`).
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
 - `paw.api.plugins_dirs()`: The folders where paw looks for plugins, for each format, in the order that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`. They include the folders that `plugins_add_dir` added. Returns nil where paw cannot find plugins.
@@ -2916,6 +2917,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
 - `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
 - `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `tracks` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a track outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
+- `paw.api.settle()`: Turn the loop until nothing is ready and no work is in flight: the timers due now fire, and the loop waits for the bakes, the hashes, the plugin loads, the renders and the other work of threads and processes to end. No schedule time passes, and an idle timer is not waited for. Gives what `pending` gives then. It fails when work is still in flight after 30 seconds.
 - `paw.api.signature_remove(beat)`
 - `paw.api.signature_set(beat, num, den)`
 - `paw.api.sleep(ms)`
@@ -2956,7 +2958,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.tempo_signature(beat)`
 - `paw.api.test_devices()`: Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use them to see what a bad device does to the other devices.
 - `paw.api.test_panic(why, inside)`: Panic, as a bug in the program does. Tests use it to see what paw keeps. The panic ends the program, as a bug outside `paw.api` does, and paw writes a safety copy. With `inside`, it is a bug in this function: the call gives an error, and the program goes on.
-- `paw.api.timer_start(ms, repeat, func)`: --- timers ---
+- `paw.api.timer_start(ms, repeat, func, idle)`: Start a timer: `func` runs after `ms` milliseconds, and again each `ms` when `repeat` is true. An `idle` timer is idle work (the collector of garbage): when it is due, a wait of a test (`settle`) does not wait for it, and `pending().quiet` holds.
 - `paw.api.timer_stop(id)`
 - `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.
 - `paw.api.toml_encode(value, inline)`: The TOML text of a table; with `inline`, of any value on one line (`{ a = 1, b = "x" }`). The keys of a table come in the order of its metatable's `__keys`, then the others by name. A list of tables is an array of tables.

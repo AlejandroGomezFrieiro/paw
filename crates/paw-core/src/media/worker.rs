@@ -31,7 +31,8 @@ pub(super) struct Worker {
 }
 
 impl Worker {
-    pub(super) fn start() -> std::io::Result<Self> {
+    /// Start the thread. It rings `bell` after each file it learned.
+    pub(super) fn start(bell: paw_engine::Bell) -> std::io::Result<Self> {
         let (jobs, todo) = mpsc::channel::<Job>();
         let (tell, done) = mpsc::channel();
         std::thread::Builder::new()
@@ -42,6 +43,7 @@ impl Worker {
                     if tell.send(Learned { path: job.path, result }).is_err() {
                         break;
                     }
+                    bell.ring();
                 }
             })?;
         Ok(Self { jobs, done })
@@ -75,4 +77,21 @@ fn learn(job: &Job) -> std::io::Result<(Stamp, SourceHash, Probe)> {
         return Err(changed());
     }
     Ok((stamp, hash, probe))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::doorbell::{Waiter, Woken};
+
+    #[test]
+    fn the_worker_rings_once_a_file_is_learned_and_its_result_is_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let waiter = Waiter::new().unwrap();
+        let worker = Worker::start(waiter.doorbell().bell(Woken::HASHES)).unwrap();
+        assert!(worker.send(Job { path: dir.path().join("gone.wav"), known: None }));
+        waiter.wait(None).unwrap();
+        assert_eq!(waiter.doorbell().take(), Woken::HASHES);
+        assert_eq!(worker.take().count(), 1, "the ring comes after the result");
+    }
 }

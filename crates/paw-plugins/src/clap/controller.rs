@@ -134,6 +134,16 @@ impl Controller for ClapController {
         let _ = self.shared.flags.engine.set(waker);
     }
 
+    fn set_bell(&mut self, bell: paw_engine::Bell) {
+        // Set once: a device goes into one session.
+        let _ = self.shared.flags.bell.set(bell);
+    }
+
+    fn wants_idle(&self) -> bool {
+        let flags = &self.shared.flags;
+        self.editor_open() || self.state_pending() || flags.callback.load(Relaxed) || flags.restart.load(Relaxed)
+    }
+
     fn health(&mut self) -> Option<String> {
         self.failed.clone()
     }

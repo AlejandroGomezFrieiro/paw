@@ -42,6 +42,10 @@ pub(crate) struct Timer {
     /// When it fires, on the schedule clock (`Shared::clock`).
     pub due: ScheduleTime,
     pub repeat: Option<Duration>,
+    /// Idle work (a job of `paw.slices` with `idle`, as the collector of
+    /// garbage): when it is due, it is not work that a wait of a test
+    /// waits for (`paw.api.settle`, `paw.api.pending().quiet`).
+    pub idle: bool,
     /// In the registry, not held as a `Function`: each Lua value that Rust
     /// holds takes a slot of a stack that has room for about 8000, and a
     /// script that never lets the timers fire can start more than that.
@@ -127,6 +131,16 @@ pub(crate) struct Shared {
     /// The scenes graphical frontends are sent (`crate::scene`).
     /// The measurements that run on threads of their own.
     pub measures: crate::measure::Running,
+    /// The one wait of the loop, and the doorbell that the workers ring.
+    pub(crate) waiter: crate::doorbell::Waiter,
+    /// The kinds of news that a turn found with no ring before it, each
+    /// told once in the log; and how many times that happened
+    /// (`paw.api.pending().missed_wakes`). The suite fails on one.
+    pub(crate) missed: Cell<crate::doorbell::Woken>,
+    pub(crate) missed_wakes: Cell<u64>,
+    /// The last wait of the loop ended on the safety tick, with no ring:
+    /// the next turn counts the news it finds with no ring as missed.
+    pub(crate) looked_on_a_tick: Cell<bool>,
     pub scenes: RefCell<crate::scene::Scenes>,
     pub env: Env,
 }

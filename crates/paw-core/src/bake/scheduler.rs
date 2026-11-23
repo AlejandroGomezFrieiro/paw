@@ -19,6 +19,8 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
+
+use paw_engine::Bell;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
@@ -103,6 +105,8 @@ pub(crate) struct Task {
     shared: Arc<Shared>,
     serial: u64,
     ended: Sender<Ended>,
+    /// Tells the main loop that the bake ended, or has sound to play.
+    bell: Bell,
 }
 
 struct Ended {
@@ -136,7 +140,9 @@ impl Task {
     /// Sound that plays while it is made (a growing sink's): what plays the
     /// bake switches to it.
     pub(crate) fn partial(&self, data: Arc<AudioData>) {
-        let _ = self.shared.partial.set(data);
+        if self.shared.partial.set(data).is_ok() {
+            self.bell.ring();
+        }
     }
 
     /// The cache entry the bake makes or found (`EntryKey::id`).
@@ -153,6 +159,7 @@ impl Task {
     pub(crate) fn end(self, result: Result<Made>) {
         // A scheduler that is gone wants nothing.
         let _ = self.ended.send(Ended { serial: self.serial, result });
+        self.bell.ring();
     }
 }
 
@@ -249,6 +256,8 @@ pub(crate) struct Scheduler<K> {
     lanes: [usize; 2],
     serial: u64,
     ended: (Sender<Ended>, Receiver<Ended>),
+    /// What each bake rings as it ends ([`set_bell`](Self::set_bell)).
+    bell: Bell,
     /// Why bakes failed, not yet told.
     pub failures: Vec<String>,
     /// Keys started (with sound to play), made or failed since the session
@@ -275,10 +284,19 @@ impl<K> Scheduler<K> {
             lanes: [native.max(1), helpers.max(1)],
             serial: 0,
             ended: channel(),
+            bell: Bell::none(),
             failures: Vec::new(),
             finished: Vec::new(),
             started: 0,
         }
+    }
+}
+
+impl<K> Scheduler<K> {
+    /// The bakes started from now ring `bell` as they end, or as they
+    /// have sound to play.
+    pub(crate) fn set_bell(&mut self, bell: Bell) {
+        self.bell = bell;
     }
 }
 
@@ -392,17 +410,22 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
 
     /// Take in the bakes that ended, drop what `wants` lacks, start what has
     /// waited `settle` at `now`, the most wanted first, and drop spare
-    /// bakes.
-    pub(crate) fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration, now: ScheduleTime) {
-        self.take_ended(wants);
+    /// bakes. Gives true when a bake ended or has sound to play: the news
+    /// that a bake rings for.
+    pub(crate) fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration, now: ScheduleTime) -> bool {
+        let ended = self.take_ended(wants);
         self.drop_unwanted(wants);
-        self.tell_partials();
+        let partial = self.tell_partials();
         self.start_due(settle, now);
         self.drop_spare(wants);
+        ended || partial
     }
 
-    fn take_ended(&mut self, wants: &HashMap<K, Priority>) {
+    /// Gives true when a bake ended.
+    fn take_ended(&mut self, wants: &HashMap<K, Priority>) -> bool {
+        let mut news = false;
         while let Ok(Ended { serial, result }) = self.ended.1.try_recv() {
+            news = true;
             let key = self.jobs.iter().find_map(|(key, job)| match &job.state {
                 State::Running { serial: s, .. } if *s == serial => Some(key.clone()),
                 // A bake preempted, or dropped: its end is no news.
@@ -436,6 +459,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
             self.jobs.insert(key.clone(), Job { bake: None, priority: job.priority, state });
             self.finished.push(key);
         }
+        news
     }
 
     /// Drop the waiting bakes nothing wants and tell the running ones to
@@ -459,17 +483,21 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
         });
     }
 
-    /// Note the running bakes whose sound plays from now.
-    fn tell_partials(&mut self) {
+    /// Note the running bakes whose sound plays from now. Gives true when
+    /// one has.
+    fn tell_partials(&mut self) -> bool {
+        let mut news = false;
         for (key, job) in &mut self.jobs {
             if let State::Running { shared, told, .. } = &mut job.state
                 && !*told
                 && shared.partial.get().is_some()
             {
                 *told = true;
+                news = true;
                 self.finished.push(key.clone());
             }
         }
+        news
     }
 
     /// Start the bakes that have waited `settle`, the most wanted and then
@@ -549,7 +577,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
         let bake = job.bake.clone().expect("a waiting bake has its bake");
         self.serial += 1;
         let shared = Arc::new(Shared::default());
-        let task = Task { shared: shared.clone(), serial: self.serial, ended: self.ended.0.clone() };
+        let task = Task { shared: shared.clone(), serial: self.serial, ended: self.ended.0.clone(), bell: self.bell.clone() };
         let what = bake.what();
         let State::Waiting(since) = job.state else { unreachable!("only a waiting bake starts") };
         match bake.start(task) {
@@ -639,6 +667,24 @@ mod tests {
 
     fn hold() -> Option<Arc<dyn Bake>> {
         Some(Arc::new(Hold::default()))
+    }
+
+    #[test]
+    fn a_bake_that_ends_rings_and_the_next_poll_has_news() {
+        let waiter = crate::doorbell::Waiter::new().unwrap();
+        let mut bakes: Scheduler<u32> = Scheduler::new(1, 1);
+        bakes.set_bell(waiter.doorbell().bell(crate::doorbell::Woken::BAKES));
+        let held = Arc::new(Hold::default());
+        let bake = held.clone();
+        bakes.ask(&1, ScheduleTime::ZERO, move || Some(bake as Arc<dyn Bake>));
+        let wants = HashMap::from([(1, Priority::Background)]);
+        bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO);
+        let task = held.0.lock().unwrap().pop().expect("the bake started");
+        std::thread::spawn(move || task.end(Err(anyhow::anyhow!("it failed")))).join().unwrap();
+        waiter.wait(None).unwrap();
+        assert_eq!(waiter.doorbell().take(), crate::doorbell::Woken::BAKES);
+        assert!(bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO), "the end is news");
+        assert!(!bakes.poll(&wants, Duration::ZERO, ScheduleTime::ZERO), "once");
     }
 
     #[test]

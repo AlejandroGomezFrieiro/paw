@@ -120,6 +120,10 @@ pub struct SyncCtx<'a> {
     /// ([`Controller::set_waker`](paw_engine::Controller::set_waker)), and
     /// a state given to a device wakes it.
     pub waker: paw_engine::Waker,
+    /// Tells the kernel's loop that a plugin asked for a call on the main
+    /// thread: each new controller keeps it
+    /// ([`Controller::set_bell`](paw_engine::Controller::set_bell)).
+    pub bell: paw_engine::Bell,
     /// The schedule time of the turn: a bake asked for waits its settle
     /// from it.
     pub now: crate::clock::ScheduleTime,

@@ -14,7 +14,7 @@ use crate::events::{FilesChanged, KernelEvent as E};
 use std::collections::{BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::mem::MaybeUninit;
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -26,6 +26,7 @@ use rustix::fs::inotify;
 
 use super::folder::{self, PROJECT_FILE};
 use crate::clock::ScheduleTime;
+use crate::doorbell::{Doorbell, Woken};
 use crate::model::{ClipContent, Project, Track};
 
 /// Changes that come closer together than this are one burst.
@@ -60,6 +61,8 @@ pub(super) struct FileWatch {
     last: ScheduleTime,
     /// Files changed outside paw that are not acted on yet.
     pub changed: BTreeSet<PathBuf>,
+    /// Wakes the loop when the descriptor can be read.
+    pub doorbell: Doorbell,
 }
 
 impl Default for FileWatch {
@@ -74,6 +77,7 @@ impl Default for FileWatch {
             pending: BTreeSet::new(),
             last: ScheduleTime::ZERO,
             changed: BTreeSet::new(),
+            doorbell: Doorbell::default(),
         }
     }
 }
@@ -94,7 +98,11 @@ impl FileWatch {
     fn set_dirs(&mut self, dirs: BTreeSet<PathBuf>) {
         if self.fd.is_none() && !dirs.is_empty() {
             match inotify::init(inotify::CreateFlags::NONBLOCK | inotify::CreateFlags::CLOEXEC) {
-                Ok(fd) => self.fd = Some(fd),
+                Ok(fd) => {
+                    // A loop that cannot watch it looks at the next turn.
+                    let _ = self.doorbell.watch(fd.as_raw_fd(), Woken::FILES);
+                    self.fd = Some(fd);
+                }
                 Err(_) => return,
             }
         }
@@ -163,15 +171,21 @@ impl FileWatch {
         self.written.insert(path, hash_of(bytes));
     }
 
-    /// Read what happened by `now`. Returns the files changed outside paw,
+    /// Read what happened by `now`: whether the descriptor had something
+    /// (the news that wakes the loop), and the files changed outside paw,
     /// once a burst of changes has settled.
-    pub(super) fn poll(&mut self, now: ScheduleTime) -> Option<Vec<PathBuf>> {
-        let fd = self.fd.as_ref()?;
+    pub(super) fn poll(&mut self, now: ScheduleTime) -> (bool, Option<Vec<PathBuf>>) {
+        let Some(fd) = self.fd.as_ref() else {
+            return (false, None);
+        };
+        let mut read = false;
         let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
         let mut events = inotify::Reader::new(fd, &mut buf);
         // The descriptor does not block: an error ends the reading, and
-        // so does "nothing more to read".
+        // so does "nothing more to read". The loop is woken only when it
+        // gets more, so it is read to its end.
         while let Ok(event) = events.next() {
+            read = true;
             // An overflow (watch -1) and a watch we dropped match no folder.
             let Some(dir) = self.dirs.get(&event.wd()) else {
                 continue;
@@ -187,7 +201,7 @@ impl FileWatch {
             }
         }
         if self.next_due().is_none_or(|due| now < due) {
-            return None;
+            return (read, None);
         }
         let mut changed = Vec::new();
         for path in std::mem::take(&mut self.pending) {
@@ -200,7 +214,7 @@ impl FileWatch {
                 changed.push(path);
             }
         }
-        (!changed.is_empty()).then_some(changed)
+        (read, (!changed.is_empty()).then_some(changed))
     }
 }
 
@@ -330,9 +344,11 @@ impl super::Session {
         self.files_watch.set_dirs(dirs);
     }
 
-    /// Look for changes made outside paw: called from `idle`.
-    pub(super) fn poll_file_changes(&mut self) {
-        if let Some(paths) = self.files_watch.poll(self.now) {
+    /// Look for changes made outside paw: called from `idle`. Gives true
+    /// when the watch read a change: the news that wakes the loop.
+    pub(super) fn poll_file_changes(&mut self) -> bool {
+        let (read, paths) = self.files_watch.poll(self.now);
+        if let Some(paths) = paths {
             self.files_there.forget();
             let root = self.files_watch.root.clone();
             let names: Vec<PathBuf> = paths
@@ -341,6 +357,7 @@ impl super::Session {
                 .collect();
             self.doc.emit(E::FilesChanged(FilesChanged { paths: names }));
         }
+        read
     }
 
     /// The files changed outside paw that are not acted on yet: paths in

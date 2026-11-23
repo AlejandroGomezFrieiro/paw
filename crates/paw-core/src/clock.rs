@@ -135,6 +135,10 @@ pub struct Agenda {
     pub in_flight: u32,
     /// The first time after the turn when a timer or a delay is due.
     pub next_due: Option<ScheduleTime>,
+    /// The longest the loop may sleep while a part has news that rings no
+    /// bell: a plugin's window draws in the upkeep, the audio thread only
+    /// marks. None: the part needs no tick.
+    pub tick: Option<Duration>,
 }
 
 impl Agenda {
@@ -149,11 +153,18 @@ impl std::ops::BitOr for Agenda {
 
     /// The work of both parts.
     fn bitor(self, other: Self) -> Self {
-        let next_due = match (self.next_due, other.next_due) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        };
-        Self { ready: self.ready || other.ready, in_flight: self.in_flight.saturating_add(other.in_flight), next_due }
+        fn first<T: Ord>(a: Option<T>, b: Option<T>) -> Option<T> {
+            match (a, b) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            }
+        }
+        Self {
+            ready: self.ready || other.ready,
+            in_flight: self.in_flight.saturating_add(other.in_flight),
+            next_due: first(self.next_due, other.next_due),
+            tick: first(self.tick, other.tick),
+        }
     }
 }
 
@@ -177,9 +188,10 @@ mod tests {
 
     #[test]
     fn an_agenda_of_two_parts_has_the_work_of_both_and_the_first_due_time() {
-        let timers = Agenda { ready: false, in_flight: 0, next_due: Some(at(40)) };
-        let session = Agenda { ready: false, in_flight: 2, next_due: Some(at(30)) };
-        assert_eq!(timers | session, Agenda { ready: false, in_flight: 2, next_due: Some(at(30)) });
+        let tick = Some(Duration::from_millis(16));
+        let timers = Agenda { next_due: Some(at(40)), ..Agenda::default() };
+        let session = Agenda { in_flight: 2, next_due: Some(at(30)), tick, ..Agenda::default() };
+        assert_eq!(timers | session, Agenda { ready: false, in_flight: 2, next_due: Some(at(30)), tick });
         assert!(!(timers | session).quiet(), "work in flight");
         assert!(timers.quiet(), "a due time is not work");
         assert_eq!(Agenda::default() | timers, timers, "an empty part adds nothing");

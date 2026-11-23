@@ -99,7 +99,7 @@ function M.turn()
     M.base = kb
   end
   if kb >= M.base * M.grow then
-    slices.run("collector", step, {ms = SLICE_MS})
+    slices.run("collector", step, {ms = SLICE_MS, idle = true})
   end
 end
 

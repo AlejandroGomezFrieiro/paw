@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -18,6 +18,7 @@ use atomic_float::AtomicF64;
 use paw_types::EventKind;
 use rtrb::{Consumer, Producer};
 
+use crate::bell::Bell;
 use crate::slot::TrackSlot;
 
 /// What the engine captures while a take is installed and the transport plays.
@@ -101,9 +102,24 @@ pub struct TakeShared {
     dropped: AtomicU64,
     /// A writer could not write: the take should stop.
     failed: AtomicBool,
+    /// Writer threads that have not finished their files.
+    writing: AtomicU32,
+    /// Tells the main loop that the engine let go of the take, or that a
+    /// writer finished its file.
+    bell: Bell,
 }
 
 impl TakeShared {
+    /// A take whose news goes to the main loop with `bell`.
+    pub fn with_bell(bell: Bell) -> Self {
+        Self { bell, ..Self::default() }
+    }
+
+    /// Writer threads that have not finished their files.
+    pub fn writing(&self) -> u32 {
+        self.writing.load(Ordering::Acquire)
+    }
+
     /// Where capturing began, once the transport has played with the take installed.
     pub fn start(&self) -> Option<f64> {
         self.started
@@ -134,6 +150,8 @@ impl TakeShared {
         if !self.closed.load(Ordering::Relaxed) {
             self.end.store(end, Ordering::Relaxed);
             self.closed.store(true, Ordering::Release);
+            // Maybe on the audio thread: a mark, no system call.
+            self.bell.mark();
         }
     }
 
@@ -291,9 +309,21 @@ pub fn spawn_writer(
     shared: Arc<TakeShared>,
 ) -> Result<JoinHandle<Written>> {
     let mut file = TakeFile::create(path, sample_rate, channels)?;
+    shared.writing.fetch_add(1, Ordering::AcqRel);
+    /// Says that the writer finished, at the end of the thread's work
+    /// however it ends: the count first, then the bell.
+    struct Finished(Arc<TakeShared>);
+    impl Drop for Finished {
+        fn drop(&mut self) {
+            self.0.writing.fetch_sub(1, Ordering::AcqRel);
+            self.0.bell.ring();
+        }
+    }
+    let finished = Finished(shared.clone());
     let thread = std::thread::Builder::new()
         .name("paw-recorder".into())
         .spawn(move || {
+            let _finished = finished;
             let mut buf = vec![0f32; 16384];
             let mut bytes = Vec::with_capacity(buf.len() * 4);
             let mut updated = Instant::now();
@@ -428,6 +458,29 @@ mod tests {
         let error = written.error.expect("the writer stopped on the error");
         assert!(error.contains("too large"), "{error}");
         assert_eq!(written.frames, (300_000 - 44) / 4);
+    }
+
+    #[test]
+    fn a_writer_rings_its_bell_when_it_ends_and_a_close_only_marks_it() {
+        use std::sync::atomic::{AtomicU32, AtomicUsize};
+        let dir = std::env::temp_dir().join(format!("paw-record-bell-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bits = Arc::new(AtomicU32::new(0));
+        let rings = Arc::new(AtomicUsize::new(0));
+        let rung = rings.clone();
+        let ringer = Arc::new(move || {
+            rung.fetch_add(1, Ordering::AcqRel);
+        });
+        let shared = Arc::new(TakeShared::with_bell(Bell::new(bits.clone(), 1, ringer)));
+        let (_tx, rx) = rtrb::RingBuffer::new(16);
+        let thread = spawn_writer(&dir.join("take.wav"), 48000, 1, rx, shared.clone()).unwrap();
+        assert_eq!(shared.writing(), 1, "the writer is counted as it starts");
+        shared.close(0.0);
+        thread.join().unwrap();
+        assert_eq!(shared.writing(), 0, "the count is down before the ring");
+        assert_eq!(crate::bell::bits_of(bits.load(Ordering::Acquire)), 1, "a mark and a ring of one kind");
+        assert_eq!(rings.load(Ordering::Acquire), 1, "the close of the audio thread rings nothing");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

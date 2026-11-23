@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
+use paw_engine::Bell;
 use paw_engine::device::{Category, DeviceFactory, DeviceInfo, Instance, Ports, Rest, StartTest, Starting};
 use rustix::process::Signal;
 use super::*;
@@ -209,6 +210,7 @@ fn wait_for_helper(
     state: Option<Vec<u8>>,
     limit: Duration,
     tell: std::sync::mpsc::Sender<Result<Hello, HelperError>>,
+    ready: Bell,
 ) {
     let heard = (|| {
         let broken = |err: std::io::Error| HelperError::Broken(err.to_string());
@@ -246,6 +248,8 @@ fn wait_for_helper(
         Ok(hello)
     })();
     let _ = tell.send(heard);
+    // After the answer: the turn that the bell wakes finds it.
+    ready.ring();
 }
 
 impl DeviceFactory for RemoteFactory {
@@ -283,24 +287,28 @@ impl DeviceFactory for RemoteFactory {
         max_block: usize,
         state: Option<Vec<u8>>,
         test: StartTest,
+        ready: Bell,
     ) -> Option<Box<dyn Starting>> {
         let factory = self.clone();
         let (tell, answer) = std::sync::mpsc::channel();
         let limit = test.deadline.unwrap_or(CREATE_LIMIT);
+        // A start that fails at once has its answer now: the loop looks.
+        let failed = |err: anyhow::Error, ready: &Bell| -> Option<Box<dyn Starting>> {
+            ready.ring();
+            Some(Box::new(Failed(Some(err))))
+        };
         let controller = match self.spawn(sample_rate, max_block, test.hang) {
             Ok((controller, ours)) => {
+                let bell = ready.clone();
                 let spawned = std::thread::Builder::new()
                     .name("plugin-start".into())
-                    .spawn(move || wait_for_helper(ours, state, limit, tell));
+                    .spawn(move || wait_for_helper(ours, state, limit, tell, bell));
                 if let Err(err) = spawned {
-                    return Some(Box::new(Failed(Some(anyhow!(
-                        "{} could not be started: {err}",
-                        self.info.name
-                    )))));
+                    return failed(anyhow!("{} could not be started: {err}", self.info.name), &ready);
                 }
                 controller
             }
-            Err(err) => return Some(Box::new(Failed(Some(err)))),
+            Err(err) => return failed(err, &ready),
         };
         Some(Box::new(RemoteStarting {
             factory,
@@ -319,3 +327,21 @@ impl Starting for Failed {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn a_start_rings_its_bell_after_its_answer_is_sent() {
+        let (ours, theirs) = UnixStream::pair().unwrap();
+        // A helper that is gone before its first word.
+        drop(theirs);
+        let bits = Arc::new(AtomicU32::new(0));
+        let (tell, answer) = std::sync::mpsc::channel();
+        wait_for_helper(ours, None, CREATE_LIMIT, tell, Bell::new(bits.clone(), 1, Arc::new(|| {})));
+        assert!(answer.try_recv().unwrap().is_err(), "a helper that is gone is an answer");
+        assert_eq!(bits.load(Ordering::Acquire), 1, "and the loop is rung for it");
+    }
+}

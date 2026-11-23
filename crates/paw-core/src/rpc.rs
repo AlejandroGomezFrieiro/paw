@@ -24,7 +24,6 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
@@ -38,7 +37,7 @@ use tokio::net::{TcpListener, TcpStream, UnixListener};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::timeout;
 
-use crate::kernel::KernelMsg;
+use crate::kernel::{KernelMsg, KernelSender};
 
 /// How much may wait to be written to one connection. One that does not
 /// read what it asked for (a program that stopped, a network that went
@@ -142,7 +141,7 @@ pub fn default_path(dirs: &Dirs) -> PathBuf {
 }
 
 /// Listen on `path` and forward calls to the kernel.
-pub fn serve(path: &Path, kernel: Sender<KernelMsg>, clients: Clients) -> Result<Server> {
+pub fn serve(path: &Path, kernel: KernelSender, clients: Clients) -> Result<Server> {
     if path.exists() {
         if UnixStream::connect(path).is_ok() {
             bail!(
@@ -183,7 +182,7 @@ pub fn serve_tcp(
     address: &str,
     token: String,
     tls: Option<Arc<rustls::ServerConfig>>,
-    kernel: Sender<KernelMsg>,
+    kernel: KernelSender,
     clients: Clients,
 ) -> Result<std::net::SocketAddr> {
     if token.len() < 16 {
@@ -216,7 +215,7 @@ pub fn serve_tcp(
 async fn network(
     stream: TcpStream,
     tls: Option<tokio_rustls::TlsAcceptor>,
-    kernel: Sender<KernelMsg>,
+    kernel: KernelSender,
     clients: Clients,
     token: String,
 ) {
@@ -359,7 +358,7 @@ async fn write_out(
 async fn connection(
     reader: impl AsyncRead + Unpin,
     writer: impl AsyncWrite + Unpin + Send + 'static,
-    kernel: Sender<KernelMsg>,
+    kernel: KernelSender,
     clients: Clients,
     token: Option<String>,
 ) {
@@ -392,7 +391,7 @@ async fn connection(
 async fn requests(
     id: ClientId,
     reader: impl AsyncRead + Unpin,
-    kernel: &Sender<KernelMsg>,
+    kernel: &KernelSender,
     clients: &Clients,
     token: Option<String>,
 ) {
