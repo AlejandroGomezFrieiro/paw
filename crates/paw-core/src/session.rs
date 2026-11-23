@@ -406,6 +406,10 @@ pub struct RenderOpts {
     /// and nothing else: what freezing the block plays (see
     /// [`crate::freeze::block_alone`]).
     pub block: Option<Id>,
+    /// For a `block` inside a subproject: the blocks that place it in the
+    /// song, where it has more than one place (see
+    /// [`crate::freeze::block_path`]).
+    pub through: Vec<Id>,
     /// Add dither when writing 16 or 24 bits.
     pub dither: bool,
     /// Bring the loudest sample to this level in dB.
@@ -450,6 +454,7 @@ impl Default for RenderOpts {
             tracks: Vec::new(),
             freeze: None,
             block: None,
+            through: Vec::new(),
             dither: false,
             normalize: None,
             loudness: None,

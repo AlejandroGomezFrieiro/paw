@@ -211,7 +211,7 @@ The rules are the rules of a frozen track, in
 
 | Command | Effect |
 | --- | --- |
-| `:freeze` on a block | Render what the block plays into its row, and play the file from now on. On a stale block, render it again. One undo step. |
+| `:freeze` on a block | Render what the block plays into its row, and play the file from now on. On a stale block, render it again. Inside a subproject, the block is rendered at the place in the song that the window went in through. One undo step. |
 | `:freeze tail=4` on a block | Render 4 seconds after the end of the block (default: 2). |
 | `:unfreeze` on a block | Play the subproject live again. One undo step. |
 

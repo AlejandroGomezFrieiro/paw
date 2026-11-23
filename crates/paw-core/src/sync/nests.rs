@@ -32,7 +32,8 @@
 //! A frozen block (`crate::freeze`) places nothing of its nest: its row
 //! plays the block's file as an audio clip in its place. A nest that only
 //! frozen blocks place rests: the sync holds its tracks, as it holds the
-//! tracks inside a frozen group.
+//! tracks inside a frozen group. So does each nest that a resting nest
+//! places, at any depth, where no live block places it.
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -81,8 +82,8 @@ impl Instance {
 /// The instances of every nest the song plays, by nest, in the order of
 /// their places; the track each nest's master plays into: the track of its
 /// first clip that plays its mix; the row each stem plays into: the track
-/// of the first clip that plays that one track; and the nests of the
-/// frozen blocks that would have played.
+/// of the first clip that plays that one track; and the nests that frozen
+/// blocks would have played, with the nests inside them.
 #[derive(Default)]
 pub(crate) struct Placed {
     pub instances: HashMap<NestId, Vec<Instance>>,
@@ -124,6 +125,9 @@ impl Placed {
             row: crate::model::MASTER_ID,
         };
         let mut stack: Vec<(Option<NestId>, Instance, usize)> = vec![(None, song, 0)];
+        // The nests that a frozen block places, with the one track of each
+        // that it plays (None: all), and their depth.
+        let mut resting: Vec<(NestId, Option<Id>, usize)> = Vec::new();
         while let Some((place, outer, depth)) = stack.pop() {
             if depth > crate::model::MAX_DEPTH {
                 continue;
@@ -136,15 +140,12 @@ impl Placed {
                 if c.muted || !outer.plays(t.id) {
                     continue;
                 }
+                let only = stem_of(*play);
                 // A frozen block plays its file: nothing of its nest.
                 if crate::freeze::block_file(c).is_some() {
-                    placed.frozen.insert(*nest);
+                    resting.push((*nest, only, depth + 1));
                     continue;
                 }
-                let only = match play {
-                    NestPlay::Track(stem) => Some(*stem),
-                    NestPlay::Master => None,
-                };
                 let Some(held) = project.nest(*nest) else {
                     continue;
                 };
@@ -162,15 +163,32 @@ impl Placed {
                 stack.push((Some(*nest), inner, depth + 1));
             }
         }
+        // A frozen block holds the sound of every nest that its nest places,
+        // at any depth: these rest too where no live block places them.
+        let mut seen: HashSet<(NestId, Option<Id>)> = HashSet::new();
+        while let Some((nest, only, depth)) = resting.pop() {
+            if depth > crate::model::MAX_DEPTH || !seen.insert((nest, only)) {
+                continue;
+            }
+            placed.frozen.insert(nest);
+            for (t, c) in clips.get(&Some(nest)).into_iter().flatten() {
+                let ClipContent::Nest { nest: inner, play, .. } = &c.content else {
+                    continue;
+                };
+                if c.muted || only.is_some_and(|o| o != t.id) {
+                    continue;
+                }
+                resting.push((*inner, stem_of(*play), depth + 1));
+            }
+        }
         for list in placed.instances.values_mut() {
             list.sort_by(|a, b| a.from.total_cmp(&b.from).then(a.key.cmp(&b.key)));
         }
         placed
     }
 
-    /// The nests that frozen blocks place and no live block does: their
-    /// devices rest. A nest that only such a nest places has no instance
-    /// either, but it is not held: its tracks play no clips.
+    /// The nests that frozen blocks place, at any depth, and no live block
+    /// does: their devices rest.
     pub fn resting(&self) -> impl Iterator<Item = NestId> + '_ {
         self.frozen.iter().copied().filter(|n| !self.instances.contains_key(n))
     }
@@ -213,6 +231,14 @@ impl Local {
     /// As the engine takes it.
     pub fn time(&self) -> paw_engine::LocalTime {
         paw_engine::LocalTime::new(self.places.clone(), &self.meter).with_tempo(&self.tempo)
+    }
+}
+
+/// The one track of its nest that a block plays (a stem), or None for all.
+fn stem_of(play: NestPlay) -> Option<Id> {
+    match play {
+        NestPlay::Track(stem) => Some(stem),
+        NestPlay::Master => None,
     }
 }
 

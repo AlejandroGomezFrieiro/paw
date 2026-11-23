@@ -3298,8 +3298,9 @@ function paw.freeze.unfreeze(track) end
 function paw.freeze_block.describe(clip) end
 
 --- Freeze block `clip`: render what it plays into its row, and play the
---- file from now on. A block frozen before is made current. One undo step.
---- Returns the file.
+--- file from now on. A block inside a subproject is rendered at the place
+--- in the song of `opts.through`, else of the first blocks that place it.
+--- A block frozen before is made current. One undo step. Returns the file.
 ---@param clip any
 ---@param opts any
 function paw.freeze_block.freeze(clip, opts) end
@@ -3308,10 +3309,12 @@ function paw.freeze_block.freeze(clip, opts) end
 ---@param clip any
 function paw.freeze_block.frozen(clip) end
 
---- The key of what block `c` plays now, with a tail of `tail` seconds.
+--- The key of what block `c` plays now, with a tail of `tail` seconds, on
+--- `path` (`paw.api.block_path`).
 ---@param c any
 ---@param tail any
-function paw.freeze_block.key(c, tail) end
+---@param path any
+function paw.freeze_block.key(c, tail, path) end
 
 --- The names of the subprojects that have a frozen block that is stale,
 --- for the status line. Empty when there is none.
@@ -7107,6 +7110,8 @@ function paw.render.default_path() end
 ---   freeze      a track id: that track alone, before its fader, as a freeze renders it
 ---   block       a clip id of a block of a subproject: what the block plays into its row,
 ---               and nothing else, as a freeze of the block renders it
+---   through     with `block` inside a subproject: the blocks that place it in the song,
+---               outer first (`paw.api.block_path`); its first ones when left out
 ---   threads     threads to render on
 ---   background  true to return at once and render on a thread of its own:
 ---               `render.progress` ({ path, fraction, seconds }) follows now
@@ -9900,6 +9905,27 @@ function paw.api.base64_decode(text) end
 ---@param data any
 ---@param opts table?
 function paw.api.base64_encode(data, opts) end
+
+--- The beat of the place of the last block of `path` (a `block_path`)
+--- at the song's beat `beat`: the inverse of `block_song_beat`.
+---@param path integer[]
+---@param beat number
+function paw.api.block_beat(path, beat) end
+
+--- The blocks that place block `clip` in the song: a block of the
+--- song first, and `clip` last. For a block inside a subproject, its
+--- block in `through` places each subproject on the way, or else its
+--- first block does. Fails when no block of the song plays it.
+---@param clip integer
+---@param through integer[]?
+function paw.api.block_path(clip, through) end
+
+--- The song's beat of beat `beat` of the place of the last block of
+--- `path` (a `block_path`): the song, or the subproject that holds
+--- the block.
+---@param path integer[]
+---@param beat number
+function paw.api.block_song_beat(path, beat) end
 
 --- The number of audio blocks that the engine finished since it
 --- started. With a device id, the number of blocks that this device

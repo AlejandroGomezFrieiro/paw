@@ -35,10 +35,12 @@ A frozen track plays a rendered file instead of its clips and devices. The devic
 
 - The file holds what the block plays into its return row: the tracks of the subproject and its master, with their devices and faders, and the subprojects inside it. The devices, fader, lanes and sends of the return row stay live.
 - The return row plays the file in place of the block. While no block of the subproject plays it live, its tracks are held, so its devices rest.
-- Only a block of the song can be frozen. A block inside another subproject cannot. A block that plays one track of the subproject with no devices or fader of its own plays its notes through the devices of its row, so freeze the row instead.
+- A block inside another subproject can be frozen too. The file is rendered where a block of the song places it, in the time of that place. With the window inside the subproject, the place is the one of the blocks that the window went in through. Otherwise it is the first block of each subproject on the way. The other places of the subproject play the same file.
+- While a frozen block makes its subproject rest, the subprojects inside it rest too, unless a live block plays them somewhere else. When you unfreeze the block, they play again.
+- A stem block with devices or a fader of its own on its track freezes to a file of its own, so each stem row has one file. A stem block whose track has no devices, no lanes, and its fader and pan at the middle plays its notes through the devices of its row, so the sound is made on the row and not in the subproject. `:freeze` refuses such a block with a message that names the row, for example `freeze Pad instead`. Freeze the row as a track.
 - The file goes to `media/baked` in the project, and its name comes from the key of what it was made from. Two blocks that play the same part of a subproject at places with the same tempo have the same key, so they share one file.
-- The `meta` of the block keeps the freeze (`frozen = { file, key, length, tail }`), so a freeze is one undo step, and the project saves it. `length` is the beats of the file, with the tail.
-- The key has the same parts as the key of a frozen track. The `clips` part also holds where the block starts in the subproject and how long it is. The `tempo` part holds the tempo and meter from the start of the block to the end of its tail, and the own tempo of the subproject, if it has one.
+- The `meta` of the block keeps the freeze (`frozen = { file, key, length, tail, path }`), so a freeze is one undo step, and the project saves it. `length` is the beats of the file, with the tail, in the beats of the place that holds the block. `path` lists the blocks that the file was rendered through, from the song down to the block.
+- The key has the same parts as the key of a frozen track. The `clips` part also holds where the block starts in the subproject and how long it is. The `tempo` part holds the tempo and meter from the start of the block to the end of its tail, and the own tempo of each subproject on its path that has one.
 - `K` on a frozen block says `frozen, up to date`, or `frozen, stale` with the parts that changed. The status line names each subproject with a stale frozen block, for example `stale: Ballad`. `:freeze` on a stale block renders it again.
 - An edit inside the subproject does not ask to unfreeze the block. You hear the edit after `:unfreeze`, or after `:freeze` renders the block again.
 
@@ -51,10 +53,10 @@ A frozen track plays a rendered file instead of its clips and devices. The devic
 | `paw.freeze.state(track)` | `"frozen"`, `"held"` or nil. |
 | `paw.freeze.describe(track)` | What `K` says of the freeze: `"frozen, up to date"`, `"frozen, stale: Drums changed since: devices"`, or nil for a track that plays live. |
 | the `freeze` option of a render | `paw.render(path, { freeze = id })` renders what a freeze of `id` renders. |
-| `paw.freeze_block.freeze(clip, { tail = 2 })` | Freeze the block with the clip id `clip`, or render a stale one again. Returns the file. |
+| `paw.freeze_block.freeze(clip, { tail = 2, through = { block } })` | Freeze the block with the clip id `clip`, or render a stale one again. For a block inside a subproject, `through` gives the blocks that place it in the song. Returns the file. |
 | `paw.freeze_block.unfreeze(clip)` | Unfreeze it. |
-| `paw.freeze_block.frozen(clip)` | `{ file, key, length, tail }`, or nil for a block that plays live. |
+| `paw.freeze_block.frozen(clip)` | `{ file, key, length, tail, path }`, or nil for a block that plays live. |
 | `paw.freeze_block.describe(clip)` | What `K` says of the freeze: `"frozen, up to date"`, `"frozen, stale: Ballad changed since: clips"`, or nil. |
-| the `block` option of a render | `paw.render(path, { block = clip })` renders what a freeze of the block renders. |
+| the `block` option of a render | `paw.render(path, { block = clip })` renders what a freeze of the block renders. With `through = { block }`, a block inside a subproject is rendered through those blocks. |
 
 The core part is `crates/paw-core/src/freeze.rs`.

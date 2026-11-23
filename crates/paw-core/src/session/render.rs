@@ -61,7 +61,7 @@ fn select_render_tracks(project: &mut Project, opts: &RenderOpts) -> Result<()> 
         crate::freeze::alone(project, id)?;
     }
     if let Some(clip) = opts.block {
-        crate::freeze::block_alone(project, clip)?;
+        crate::freeze::block_alone(project, clip, &opts.through)?;
     }
     if !opts.tracks.is_empty() {
         if let Some(id) = opts.tracks.iter().find(|id| project.track(**id).is_none()) {

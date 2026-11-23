@@ -6,7 +6,11 @@
 --   paw.freeze_block.unfreeze(clip)   -- play the subproject live again
 --   paw.freeze_block.describe(clip)   -- "frozen, up to date" or "frozen, stale: ..."
 --
--- The block's meta holds `frozen = { file, key, length, tail }`, so a freeze is
+-- A block inside a subproject is rendered where a block of the song places
+-- it: through the blocks that the window was entered through, or else the
+-- first ones (`paw.api.block_path`), in the time of that place.
+--
+-- The block's meta holds `frozen = { file, key, length, tail, path }`, so a freeze is
 -- saved with the project and undone like any edit. The `key` says what the
 -- file was made from (paw/bake_state.tl): the clips, devices, automation
 -- and mix of the subproject's tracks (and of the subprojects inside it),
@@ -14,7 +18,9 @@
 -- its tail, from its start. Two blocks that play the same part of the
 -- subproject at places with the same tempo have the same key, and use one
 -- file: `media/baked/<subproject>-<key>.wav`. `length` is the beats of the
--- file, the tail included, and `tail` its seconds after the block's end. The kernel plays the file and holds the
+-- file, the tail included, in the beats of the block's place, and `tail` its
+-- seconds after the block's end. `path` is the blocks that the file was
+-- rendered through, from the song to the block. The kernel plays the file and holds the
 -- subproject's tracks while no live block plays it:
 -- crates/paw-core/src/freeze.rs and crates/paw-core/src/sync/nests.rs.
 --
@@ -33,12 +39,15 @@ local record Frozen
   key: bake_state.Key
   length: number
   tail: number
+  path: {integer}
 end
 
 --- What `M.freeze` takes: `tail`, the seconds rendered after the block's
---- end (2).
+--- end (2); `through`, for a block inside a subproject, the blocks that
+--- place it in the song (the window's way in), outer first.
 local record Options
   tail: number
+  through: {integer}
 end
 
 local record M
@@ -49,7 +58,6 @@ end
 local nest_field = api.nest_get as function(id: integer, key: string): integer
 local nest_name = api.nest_get as function(id: integer, key: string): string
 local clip_list = api.clip_list as function(track: integer): {types.Clip}
-local track_nest = api.track_get as function(id: integer, key: string): integer
 
 -- The seconds a freeze renders after the block's end when nothing is given.
 local TAIL = 2
@@ -117,16 +125,25 @@ local function tracks_of(c: types.Clip): {integer}
   return out
 end
 
--- The song's beat where the tail of block `c` ends.
-local function tail_end(c: types.Clip, tail: number): number
-  return api.tempo_beat(api.tempo_seconds(c.start + c.length) + tail)
+-- The blocks that place block `c` in the song (`paw.api.block_path`),
+-- through `through`. A block that no block of the song plays any more
+-- counts as a block of the song: its key then says that it is stale.
+local function path_of(c: types.Clip, through: {integer}): {integer}
+  local ok, path = pcall(api.block_path, c.id, through) as (boolean, {integer})
+  return ok and path or {c.id}
+end
+
+-- The song's beat where the tail of block `c` ends, on `path`.
+local function tail_end(c: types.Clip, tail: number, path: {integer}): number
+  return api.tempo_beat(api.tempo_seconds(api.block_song_beat(path, c.start + c.length)) + tail)
 end
 
 -- The tempo and meter that a block plays in, from its start to the end of
 -- its tail, as text: the song's (from the block's start, so that two places
--- with the same tempo give the same text), and the subproject's own.
-local function tempo_text(c: types.Clip, tail: number): string
-  local from, to = c.start, tail_end(c, tail)
+-- with the same tempo give the same text), and the own ones of the
+-- subproject and of the subprojects on its path.
+local function tempo_text(c: types.Clip, tail: number, path: {integer}): string
+  local from, to = api.block_song_beat(path, c.start), tail_end(c, tail, path)
   local num_at, den_at = api.tempo_signature(from)
   local out: {string} = {num(api.tempo_at(from)), num(api.tempo_at(to)), num_at .. "/" .. den_at, num(to - from)}
   local song = api.tempo_points()
@@ -140,20 +157,23 @@ local function tempo_text(c: types.Clip, tail: number): string
       out[#out + 1] = num(p.beat - from) .. "=" .. p.num .. "/" .. p.den
     end
   end
-  if api.nest_own_tempo(c.id) ~= nil then
-    local own = api.nest_tempo_points(c.id)
-    for _, p in ipairs(own.tempos) do
-      out[#out + 1] = "own " .. num(p.beat) .. "=" .. num(p.bpm) .. tostring(p.ramp)
-    end
-    for _, p in ipairs(own.signatures) do
-      out[#out + 1] = "own " .. num(p.beat) .. "=" .. p.num .. "/" .. p.den
+  for _, block in ipairs(path) do
+    if api.nest_own_tempo(block) ~= nil then
+      local own = api.nest_tempo_points(block)
+      for _, p in ipairs(own.tempos) do
+        out[#out + 1] = "own " .. num(p.beat) .. "=" .. num(p.bpm) .. tostring(p.ramp)
+      end
+      for _, p in ipairs(own.signatures) do
+        out[#out + 1] = "own " .. num(p.beat) .. "=" .. p.num .. "/" .. p.den
+      end
     end
   end
   return table.concat(out, ",")
 end
 
---- The key of what block `c` plays now, with a tail of `tail` seconds.
-function M.key(c: types.Clip, tail: number): bake_state.Key
+--- The key of what block `c` plays now, with a tail of `tail` seconds, on
+--- `path` (`paw.api.block_path`).
+function M.key(c: types.Clip, tail: number, path: {integer}): bake_state.Key
   local offset = c.offset or 0
   local key = bake_state.make({tracks = tracks_of(c), from = offset, to = offset + c.length})
   -- The block's own place in the subproject is a part of its clips.
@@ -167,7 +187,7 @@ function M.key(c: types.Clip, tail: number): bake_state.Key
     num(tail),
   }
   key.clips = bake_state.stamp(key.clips .. "|" .. table.concat(place, ","))
-  key.tempo = bake_state.stamp(tempo_text(c, tail))
+  key.tempo = bake_state.stamp(tempo_text(c, tail, path))
   return key
 end
 
@@ -183,7 +203,8 @@ function M.describe(clip: integer): string
     return "frozen"
   end
   local c = block(clip)
-  return "frozen, " .. bake_state.describe(nest_name(c.nest, "name"), frozen.key, M.key(c, frozen.tail or TAIL))
+  local now = M.key(c, frozen.tail or TAIL, path_of(c, frozen.path))
+  return "frozen, " .. bake_state.describe(nest_name(c.nest, "name"), frozen.key, now)
 end
 
 --- The file that a freeze with `key` of a block of subproject `nest`
@@ -199,29 +220,32 @@ local function file_for(nest: integer, key: bake_state.Key): string
 end
 
 --- Freeze block `clip`: render what it plays into its row, and play the
---- file from now on. A block frozen before is made current. One undo step.
---- Returns the file.
+--- file from now on. A block inside a subproject is rendered at the place
+--- in the song of `opts.through`, else of the first blocks that place it.
+--- A block frozen before is made current. One undo step. Returns the file.
 function M.freeze(clip: integer, opts?: Options): string
   local c = block(clip)
   if not c then
     error("no block of a subproject here: `:freeze` freezes a track or a block", 0)
   end
-  if track_nest(c.track, "nest") then
-    error("this block is inside a subproject: freeze the block of the song that holds it", 0)
-  end
   local tail = opts and opts.tail or TAIL
-  local key = M.key(c, tail)
-  local path = file_for(c.nest, key)
+  -- Fails when no block of the song plays it: nothing to render.
+  local path = api.block_path(clip, opts and opts.through)
+  local key = M.key(c, tail, path)
+  local file = file_for(c.nest, key)
+  local from, to = api.block_song_beat(path, c.start), api.block_song_beat(path, c.start + c.length)
   -- A block with the same key rendered it already.
-  if not api.fs_exists(path) then
+  if not api.fs_exists(file) then
     render.render(
-      path, {block = clip, start = c.start, ["end"] = c.start + c.length, tail = tail, bits = 32, master = false}
+      file, {block = clip, through = path, start = from, ["end"] = to, tail = tail, bits = 32, master = false}
     )
   end
+  -- The file's length in the beats of the block's place, where it plays.
+  local length = api.block_beat(path, tail_end(c, tail, path)) - c.start
   local meta = c.meta or {}
-  meta.frozen = {file = path, key = key, length = tail_end(c, tail) - c.start, tail = tail} as Frozen
+  meta.frozen = {file = file, key = key, length = length, tail = tail, path = path} as Frozen
   api.clip_set(clip, {meta = meta})
-  return path
+  return file
 end
 
 --- Play block `clip`'s subproject live again. The file stays, as undo can
@@ -243,8 +267,8 @@ function M.stale(): {string}
     return out
   end
   local seen: {string: boolean} = {}
-  -- Only a block of the song can be frozen: the song's tracks are enough.
-  for _, id in ipairs(api.track_list()) do
+  -- A block can be frozen on the song's tracks and inside subprojects.
+  for _, id in ipairs(api.track_list({all = true})) do
     for _, c in ipairs(clip_list(id)) do
       local said = c.nest and M.describe(c.id)
       if said and said:find("stale", 1, true) then

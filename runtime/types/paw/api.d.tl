@@ -16,6 +16,9 @@ local record api
    automation_hold: function(track: integer, target: string, device?: integer, param?: string, on: boolean)
    base64_decode: function(text: string): string, string
    base64_encode: function(data: string, opts?: types.Base64Options): string
+   block_beat: function(path: {integer}, beat: number): number
+   block_path: function(clip: integer, through?: {integer}): {integer}
+   block_song_beat: function(path: {integer}, beat: number): number
    blocks: function(device?: integer): integer
    build: function(): types.Build
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)

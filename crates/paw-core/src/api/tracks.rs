@@ -138,6 +138,35 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn nest_unique(_, sh, clip => Id) {
             sh.session.borrow_mut().doc.nest_unique(clip).map(|n| n.0).lua()
         }
+        // The blocks that place block `clip` in the song: a block of the
+        // song first, and `clip` last. For a block inside a subproject, its
+        // block in `through` places each subproject on the way, or else its
+        // first block does. Fails when no block of the song plays it.
+        // @param through? {integer}
+        // @return {integer}
+        fn block_path(_, sh, (clip, through) => (Id, Option<Vec<Id>>)) {
+            let session = sh.session.borrow();
+            crate::freeze::block_path(&session.doc.project, clip, &through.unwrap_or_default()).lua()
+        }
+        // The song's beat of beat `beat` of the place of the last block of
+        // `path` (a `block_path`): the song, or the subproject that holds
+        // the block.
+        // @param path {integer}
+        // @return number
+        fn block_song_beat(_, sh, (path, beat) => (Vec<Id>, f64)) {
+            let session = sh.session.borrow();
+            let timing = crate::freeze::path_timing(&session.doc.project, &path).lua()?;
+            Ok(timing.map_or(beat, |t| t.song_beat(beat)))
+        }
+        // The beat of the place of the last block of `path` (a `block_path`)
+        // at the song's beat `beat`: the inverse of `block_song_beat`.
+        // @param path {integer}
+        // @return number
+        fn block_beat(_, sh, (path, beat) => (Vec<Id>, f64)) {
+            let session = sh.session.borrow();
+            let timing = crate::freeze::path_timing(&session.doc.project, &path).lua()?;
+            Ok(timing.map_or(beat, |t| t.nest_beat(beat)))
+        }
         // Save a view as a subproject, as one undo step: the clips of
         // `tracks` from `from` to `to` (beats of their place) move into a
         // new subproject named `name` with the meter `meter`. Per track,

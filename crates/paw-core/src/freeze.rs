@@ -19,7 +19,8 @@
 //! `frozen.length`, the beats of that file. The engine plays the file as an
 //! audio clip of the row in place of the block ([`block_sound`]), and the
 //! subproject's devices rest when no live block plays it
-//! (`sync/nests.rs`).
+//! (`sync/nests.rs`). A block inside a subproject is rendered where the
+//! blocks of its [`block_path`] place it in the song ([`block_alone`]).
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -28,7 +29,8 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use serde_json::{Map, Value};
 
-use crate::model::{Clip, ClipContent, Id, MASTER_ID, NestPlay, Project, Target, Timebase, Track};
+use crate::model::nest::Timing;
+use crate::model::{Clip, ClipContent, Id, MASTER_ID, NestId, NestPlay, Project, Target, Timebase, Track};
 
 /// What the engine plays of a track.
 #[derive(Clone, Debug, PartialEq)]
@@ -234,75 +236,167 @@ pub fn alone(project: &mut Project, id: Id) -> Result<()> {
     Ok(())
 }
 
+/// The block `clip` and the track that holds it, or None when `clip` is
+/// no block of a subproject.
+fn block_on(project: &Project, clip: Id) -> Option<(&Arc<Track>, &Arc<Clip>)> {
+    let (track, index) = project.find_clip(clip)?;
+    let track = project.track(track)?;
+    let c = track.clips.get(index)?;
+    matches!(c.content, ClipContent::Nest { .. }).then_some((track, c))
+}
+
+/// The blocks that place block `clip` in the song, from a block of the
+/// song down to `clip` itself. For a block inside a subproject, each
+/// subproject on the way is placed by its block in `through`, or else by
+/// its first block that plays the track that the block below is on.
+pub fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<Vec<Id>> {
+    let Some((mut track, _)) = block_on(project, clip) else {
+        bail!("no block of a subproject {clip}");
+    };
+    let mut path = vec![clip];
+    while let Some(nest) = track.nest {
+        // The model keeps subprojects at most this deep; the bound is a guard.
+        if path.len() > crate::model::MAX_DEPTH {
+            bail!("block {clip} is too deep inside subprojects");
+        }
+        // A block of `nest` that is not muted and plays this track.
+        let row = track.id;
+        let plays = |c: &Clip| {
+            !c.muted
+                && matches!(c.content, ClipContent::Nest { nest: n, play, .. }
+                    if n == nest && (play == NestPlay::Master || play == NestPlay::Track(row)))
+        };
+        let given = through
+            .iter()
+            .filter_map(|id| block_on(project, *id))
+            .find(|(_, c)| plays(c));
+        let first = || {
+            project
+                .tracks
+                .iter()
+                .find_map(|t| t.clips.iter().find(|c| plays(c)).map(|c| (t, c)))
+        };
+        let Some((holder, block)) = given.or_else(first) else {
+            let name = project.nest(nest).map_or(String::new(), |n| n.name.clone());
+            bail!("no block plays {name}: put a block of {name} in the song first");
+        };
+        path.push(block.id);
+        track = holder;
+    }
+    path.reverse();
+    Ok(path)
+}
+
+/// Where the beats of the place of the last block of `path` (a
+/// [`block_path`]) are in the song: None for a block of the song.
+pub fn path_timing(project: &Project, path: &[Id]) -> Result<Option<Timing>> {
+    let mut timing: Option<Timing> = None;
+    for &id in path.iter().take(path.len().saturating_sub(1)) {
+        let Some((_, c)) = block_on(project, id) else {
+            bail!("no block of a subproject {id}");
+        };
+        let ClipContent::Nest { nest, offset, .. } = c.content else {
+            unreachable!("block_on gives blocks only");
+        };
+        let Some(held) = project.nest(nest) else {
+            bail!("no subproject {} for block {id}", nest.0);
+        };
+        timing = Some(held.timing(project.tempo_map(), timing.as_ref(), c.start, offset));
+    }
+    Ok(timing)
+}
+
 /// Turn a copy of the project into what freezing block `clip` renders:
 /// what the block plays into its row, before the row's devices and fader,
-/// and nothing else. The song keeps no other block, so that the
-/// subproject plays at this place alone; every other song track is silent;
-/// the row keeps the block alone, with no devices, lanes or sends, and
-/// plays into the master. The block itself plays live, even when it is
-/// frozen now; blocks frozen inside its subproject play their files.
-pub fn block_alone(project: &mut Project, clip: Id) -> Result<()> {
-    let found = project.tracks.iter().find_map(|t| {
-        let c = t.clips.iter().find(|c| c.id == clip)?;
-        match c.content {
-            ClipContent::Nest { play, .. } => Some((t.id, t.nest.is_some(), play)),
-            _ => None,
-        }
-    });
-    let Some((row, inside, play)) = found else {
-        bail!("no block of a subproject {clip} to freeze");
+/// and nothing else. The block plays through the blocks of its
+/// [`block_path`] (from `through`). On the song and in each subproject on
+/// the way, the rows of the path keep their block alone and pass its sound
+/// on unchanged (no devices, lanes, sends or fader), as do the masters of
+/// those subprojects; every other track there is silent; and no other
+/// block places a subproject of the path. The block itself plays live,
+/// even when it is frozen now; blocks frozen inside its subproject play
+/// their files.
+pub fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Result<()> {
+    let path = block_path(project, clip, through)?;
+    let Some((row, ClipContent::Nest { play, .. })) = block_on(project, clip).map(|(t, c)| (t.id, &c.content)) else {
+        unreachable!("block_path found the block");
     };
-    if inside {
-        bail!("this block is inside a subproject: freeze the block of the song that holds it");
-    }
     // A stem in pass mode has no sound of its own: its notes play through
     // the devices of the row, so the row holds its sound.
-    if let NestPlay::Track(stem) = play
+    if let NestPlay::Track(stem) = *play
         && project.track(stem).is_some_and(|t| crate::sync::passes(t))
     {
         let name = project.track(row).map_or(String::new(), |t| t.name.clone());
         bail!("this block plays its notes through the devices of {name}: freeze {name} instead");
     }
-    let is_vca = |t: &Track| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
-    // Which clips of a song track the render keeps: on the row, the block
-    // alone; elsewhere, every clip but the blocks.
-    let kept = |track: Id, c: &Clip| {
-        c.id == clip || !(track == row || matches!(c.content, ClipContent::Nest { .. }))
-    };
-    for track in project.tracks.iter_mut() {
-        if track.nest.is_some() {
-            if track.solo {
-                Arc::make_mut(track).solo = false;
+    // The places that the sound goes through on its way to the song: the
+    // song (None) and each subproject that a block of the path above
+    // `clip` places. And the subprojects that the path places.
+    let mut on_way: HashSet<Option<NestId>> = HashSet::from([None]);
+    let mut placed: HashSet<NestId> = HashSet::new();
+    for (k, id) in path.iter().enumerate() {
+        if let Some(ClipContent::Nest { nest, .. }) = project.clip(*id).map(|c| &c.content) {
+            placed.insert(*nest);
+            if k + 1 < path.len() {
+                on_way.insert(Some(*nest));
             }
-            continue;
         }
-        let id = track.id;
+    }
+    // The tracks that pass the sound on: the row of each block of the
+    // path, and the master of each subproject on the way.
+    let mut passing: HashSet<Id> = path.iter().filter_map(|id| project.find_clip(*id).map(|(t, _)| t)).collect();
+    passing.extend(on_way.iter().flatten().filter_map(|n| project.nest(*n)).map(|n| n.master));
+    let is_vca = |t: &Track| t.meta.get("vca").and_then(Value::as_bool) == Some(true);
+    for track in project.tracks.iter_mut() {
+        let on = on_way.contains(&track.nest);
+        let passes = passing.contains(&track.id);
+        // Which clips the render keeps: on a track that passes the sound
+        // on, its block of the path alone; elsewhere on the way, every clip
+        // but the blocks; and nowhere another block of a subproject of the
+        // path, which could take the place of the path's.
+        let kept = |c: &Clip| match c.content {
+            _ if path.contains(&c.id) => true,
+            ClipContent::Nest { nest, .. } => !(on || placed.contains(&nest)),
+            _ => !passes,
+        };
         // A VCA carries no sound, and muting it would mute its members.
-        let mute = id != row && !is_vca(track);
-        let cut = track.clips.iter().any(|c| !kept(id, c));
+        let mute = on && !passes && !is_vca(track);
+        let cut = track.clips.iter().any(|c| !kept(c));
         if !(cut || track.solo || (mute && !track.mute)) {
             continue;
         }
         let t = Arc::make_mut(track);
-        t.clips.retain(|c| kept(id, c));
+        t.clips.retain(|c| kept(c));
         t.solo = false;
         t.mute |= mute;
     }
-    let track = project.track_mut(row).expect("found above");
-    // Before the row: its devices, fader, lanes and sends stay live.
-    track.devices.clear();
-    track.lanes.clear();
-    track.sends.clear();
-    track.volume = 0.0;
-    track.pan = 0.0;
-    track.mute = false;
-    track.output = None;
-    track.meta.remove("vcas");
-    track.meta.remove("frozen");
-    for c in track.clips.iter_mut() {
-        let c = Arc::make_mut(c);
-        c.muted = false;
-        c.meta.remove("frozen");
+    for id in passing {
+        let Some(track) = project.track_mut(id) else {
+            continue;
+        };
+        // Before the row: its devices, fader, lanes and sends stay live.
+        track.devices.clear();
+        track.lanes.clear();
+        track.sends.clear();
+        track.volume = 0.0;
+        track.pan = 0.0;
+        track.mute = false;
+        track.output = None;
+        track.meta.remove("vcas");
+        track.meta.remove("frozen");
+        for c in track.clips.iter_mut() {
+            let c = Arc::make_mut(c);
+            c.muted = false;
+            c.meta.remove("frozen");
+            // A block above `clip` plays all of its subproject, whose other
+            // tracks are silent: as a stem in pass mode, it would play
+            // through its row, which has no devices now.
+            if c.id != clip
+                && let ClipContent::Nest { play, .. } = &mut c.content
+            {
+                *play = NestPlay::Master;
+            }
+        }
     }
     Ok(())
 }
@@ -396,7 +490,7 @@ mod tests {
     #[test]
     fn a_block_freeze_renders_the_block_alone_before_its_row() {
         let mut p = blocks();
-        block_alone(&mut p, 100).unwrap();
+        block_alone(&mut p, 100, &[]).unwrap();
         let row = p.track(1).unwrap();
         let ids: Vec<Id> = row.clips.iter().map(|c| c.id).collect();
         assert_eq!(ids, vec![100], "the row keeps the block alone");
@@ -407,7 +501,31 @@ mod tests {
         assert_eq!((drums.mute, ids), (true, vec![103]), "the rest is silent, its blocks gone");
         let keys = p.track(12).unwrap();
         assert_eq!((keys.mute, keys.clips.len()), (false, 1), "the subproject plays as it is");
-        assert!(block_alone(&mut blocks(), 105).is_err(), "a block inside a subproject");
-        assert!(block_alone(&mut blocks(), 102).is_err(), "a clip that is not a block");
+        assert!(block_alone(&mut blocks(), 102, &[]).is_err(), "a clip that is not a block");
+    }
+
+    /// A block inside a subproject renders through the block of the song
+    /// that it is entered through, or else the first one.
+    #[test]
+    fn a_block_inside_a_subproject_renders_through_a_block_of_the_song() {
+        assert_eq!(block_path(&blocks(), 105, &[]).unwrap(), vec![100, 105], "the first block of the song");
+        assert_eq!(block_path(&blocks(), 105, &[101]).unwrap(), vec![101, 105], "the block it is entered through");
+        let mut p = blocks();
+        block_alone(&mut p, 105, &[101]).unwrap();
+        let row = p.track(1).unwrap();
+        let ids: Vec<Id> = row.clips.iter().map(|c| c.id).collect();
+        assert_eq!(ids, vec![101], "the song's row keeps the block of the path alone");
+        assert!(block_file(row.clips.iter().next().unwrap()).is_none(), "which plays live");
+        assert_eq!((row.volume, row.output), (0.0, None), "and passes the sound on");
+        let drums = p.track(4).unwrap();
+        let ids: Vec<Id> = drums.clips.iter().map(|c| c.id).collect();
+        assert_eq!((drums.mute, ids), (true, vec![103]), "the rest of the song is silent, its blocks gone");
+        let keys = p.track(12).unwrap();
+        let ids: Vec<Id> = keys.clips.iter().map(|c| c.id).collect();
+        assert_eq!((keys.mute, ids), (false, vec![105]), "the block's row plays it");
+        let mut alone = blocks();
+        Arc::make_mut(&mut alone.tracks[0]).clips.retain(|c| c.id == 102);
+        Arc::make_mut(&mut alone.tracks[1]).clips.retain(|c| c.id == 103);
+        assert!(block_path(&alone, 105, &[]).is_err(), "no block of the song plays it");
     }
 }

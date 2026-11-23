@@ -47,6 +47,7 @@ local record Options
   threads: integer
   freeze: integer
   block: integer
+  through: {integer}
   sleep: boolean
   settle: number
   ffmpeg: string
@@ -254,6 +255,8 @@ end
 ---   freeze      a track id: that track alone, before its fader, as a freeze renders it
 ---   block       a clip id of a block of a subproject: what the block plays into its row,
 ---               and nothing else, as a freeze of the block renders it
+---   through     with `block` inside a subproject: the blocks that place it in the song,
+---               outer first (`paw.api.block_path`); its first ones when left out
 ---   threads     threads to render on
 ---   background  true to return at once and render on a thread of its own:
 ---               `render.progress` ({ path, fraction, seconds }) follows now
