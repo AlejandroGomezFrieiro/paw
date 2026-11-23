@@ -25,6 +25,7 @@ local stepin = require("paw.step")
 local util = require("paw.util")
 local registry = require("paw.registry")
 local music = require("paw.music")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -382,7 +383,7 @@ local function take(beat: number, pitch: integer, how: string)
     end
   end
   if how == "a" then
-    beat = beat + opt.note_grid
+    beat = beat + timegrid.step("note")
   end
   session.pen, session.edge = {fresh(pitch, beat)}, "end"
 end
@@ -545,7 +546,7 @@ function M.grow(steps: integer)
   if not begin() then
     return
   end
-  local delta = steps * take_count() * opt.note_grid
+  local delta = steps * take_count() * timegrid.step("note")
   local hit = false
   for _, d in ipairs(session.pen) do
     local before, after = room(d)
@@ -582,7 +583,7 @@ function M.nudge(steps: integer)
   if not begin() then
     return
   end
-  local delta = steps * take_count() * opt.note_grid
+  local delta = steps * take_count() * timegrid.step("note")
   local hit = false
   for _, d in ipairs(session.pen) do
     local before, after = room(d)
@@ -2195,7 +2196,7 @@ events.on(
 
 --- A length in grid steps and in beats: "2 steps · 0.5 beats".
 local function length_text(length: number): string
-  local steps = length / opt.note_grid
+  local steps = length / timegrid.step("note")
   return string.format("%g step%s · %g beat%s", steps, steps == 1 and "" or "s", length, length == 1 and "" or "s")
 end
 

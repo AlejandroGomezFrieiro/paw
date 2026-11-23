@@ -33,6 +33,7 @@ local commands = require("paw.commands")
 local objects = require("paw.objects")
 local cursor = require("paw.cursor")
 local util = require("paw.util")
+local timegrid = require("paw.timegrid")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -352,7 +353,7 @@ local function beats(length: contracts.InsertLength, beat: number, point: boolea
     return amount * api.tempo_bar_length(beat)
   end
   if unit:match("^steps?$") then
-    return amount * (opt.grid as number)
+    return amount * timegrid.step()
   end
   if unit:match("^beats?$") then
     return amount
@@ -550,7 +551,7 @@ local function for_track(spec: Kind, kind: string): Kind
 end
 
 local function step_after(item: Item)
-  local length = item.length or opt.grid as number
+  local length = item.length or timegrid.step()
   cursor.set_beat(item.start + length)
 end
 

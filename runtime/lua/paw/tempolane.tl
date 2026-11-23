@@ -26,7 +26,7 @@
 local api = require("paw.api")
 local events = require("paw.events")
 local util = require("paw.util")
-local options = require("paw.options")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type TempoModule = require("paw.tempo")
 local type objects = require("paw.objects")
@@ -278,7 +278,7 @@ function M.move(beat: number, to?: number, bpm?: number): boolean
   if index > 1 then
     table.remove(map.tempos, index)
     -- Not onto another change, and never to the start.
-    local target = math.max(options.opt.grid, to and map.beat(to) or point.beat)
+    local target = math.max(timegrid.step(), to and map.beat(to) or point.beat)
     local there = index_at(map.tempos, target)
     while there do
       table.remove(map.tempos, there)
@@ -334,7 +334,7 @@ function M.draw(points: {StrokePoint}, step?: number)
     stroke[i] = {math.max(0, map.beat(p[1])), p[2]}
   end
   table.sort(stroke, function(a: StrokePoint, b: StrokePoint): boolean return a[1] < b[1] end)
-  step = step or math.max(0.5, options.opt.grid)
+  step = step or math.max(0.5, timegrid.step())
   local from, to = stroke[1][1], stroke[#stroke][1]
   local out: {types.TempoPoint} = {}
   for i, p in ipairs(map.tempos) do

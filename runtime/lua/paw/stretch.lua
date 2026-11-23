@@ -226,9 +226,9 @@ function M.warp_near(c, beat)
 end
 
 --- Move every warp marker of a clip onto the nearest line of a grid of
---- `step` beats (`paw.opt.grid` when left out), from the first on.
+--- `step` beats (`paw.timegrid.step()` when left out), from the first on.
 function M.warp_snap(id, step)
-  step = step or paw.opt.grid
+  step = step or paw.timegrid.step()
   local n = #(api.clip_get(id).warp or {})
   local i = 1
   while i <= n do

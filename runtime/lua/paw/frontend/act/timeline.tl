@@ -3,14 +3,13 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local options = require("paw.options")
 local util = require("paw.util")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
 local clips = require("paw.frontend.act.clips")
+local timegrid = require("paw.timegrid")
 
 local paw = host.paw
-local opt = options.opt
 local A = M.act
 local snap = host.snap
 local to_arrange = host.to_arrange
@@ -47,7 +46,7 @@ end
 --- which only moves the playhead.
 function A.set_loop(from: number, to: number)
   from, to = snap(math.min(from, to)), snap(math.max(from, to))
-  if to - from < opt.grid then
+  if to - from < timegrid.step() then
     return paw.transport.seek(from)
   end
   paw.transport.loop_start, paw.transport.loop_end = from, to
@@ -60,9 +59,9 @@ function A.set_loop_edge(edge: string, beat: number)
   local t = paw.transport
   beat = snap(beat)
   if edge == "start" then
-    t.loop_start = math.min(beat, t.loop_end - opt.grid)
+    t.loop_start = math.min(beat, t.loop_end - timegrid.step())
   else
-    t.loop_end = math.max(beat, t.loop_start + opt.grid)
+    t.loop_end = math.max(beat, t.loop_start + timegrid.step())
   end
 end
 
@@ -71,7 +70,7 @@ end
 function A.set_punch_edge(edge: string, beat: number, free?: boolean)
   local t = paw.transport
   beat = free and math.max(0, beat) or snap(beat)
-  local least = free and 1 / 64 or opt.grid
+  local least = free and 1 / 64 or timegrid.step()
   if edge == "start" then
     t.punch_start = math.min(beat, t.punch_end - least)
   else
@@ -82,7 +81,7 @@ end
 --- Punch in and out between two beats, on the grid, and turn punching on.
 function A.set_punch(from: number, to: number)
   from, to = snap(math.min(from, to)), snap(math.max(from, to))
-  if to - from < opt.grid then
+  if to - from < timegrid.step() then
     return
   end
   paw.transport.punch_start, paw.transport.punch_end = from, to
@@ -106,7 +105,7 @@ function A.comp(track: integer, take: integer, from: number, to: number, free?: 
     a, b = snap(a), snap(b)
   end
   a = math.max(0, a)
-  if b - a < (free and 1 / 64 or opt.grid) - 1e-9 then
+  if b - a < (free and 1 / 64 or timegrid.step()) - 1e-9 then
     return A.take_click(track, take, math.min(from, to)) and 1 or 0
   end
   local n = paw.takes.comp(track, take, a, b)

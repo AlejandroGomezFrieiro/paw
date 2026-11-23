@@ -213,7 +213,7 @@ return function(gui)
     local S = gui.S
     if not (S and S.curve) or e.y < gui.geo.curve_y + TABS or e.x < gui.KEYS then return end
     local info, x = S.curve.info, e.x - gui.KEYS
-    view.beat = util.clamp(gui.snap(beat_at(x) - paw.opt.note_grid / 2), 0, clip.length)
+    view.beat = util.clamp(gui.snap(beat_at(x) - paw.timegrid.step("note") / 2), 0, clip.length)
     if e.kind == "double" then
       gui.drag = nil
       local note = notes.near(clip.id, beat_at(x))

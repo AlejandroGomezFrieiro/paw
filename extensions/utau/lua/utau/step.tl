@@ -53,7 +53,7 @@ local pending: {number}
 local told = false
 
 local function step(): number
-  return length or paw.opt.note_grid * 2
+  return length or paw.timegrid.step("note") * 2
 end
 
 local function listening(): boolean

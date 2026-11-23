@@ -4,7 +4,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local options = require("paw.options")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type KeymapModule = require("paw.keymap")
 local type KeybarModule = require("paw.keybar")
@@ -34,8 +34,6 @@ local type registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type MouseModule = require("paw.mouse")
 local type NestModule = require("paw.nest")
-
-local opt = options.opt
 
 local type Region = EditModule.Region
 
@@ -344,7 +342,7 @@ local function snap(beat: number): number
 end
 
 local function note_snap(beat: number): number
-  local grid = opt.note_grid
+  local grid = timegrid.step("note")
   return math.max(0, math.floor(beat / grid + 0.5) * grid)
 end
 

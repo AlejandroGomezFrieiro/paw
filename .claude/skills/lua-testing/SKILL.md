@@ -158,6 +158,13 @@ the owner's computer or folders. Mock what it needs.
 - Where the result depends on a combination (mode, selection, view),
   write a small table of the cases that change the result, and test
   each row in one loop.
+- A position in time is a whole number of ticks (`paw.timegrid`, 61440
+  to a beat). Compare `paw.cursor.tick` with `T.eq`, not with `T.near`,
+  and write the value as ticks (`10 * TPQ`). The runner sets
+  `paw.timegrid.strict`: `paw.cursor.set_tick` with a fraction is an
+  error in the tests. To test a rule of the grid on many positions, use
+  `paw.timegrid.new(spec)` with positions from a fixed seed, as
+  `tests/timegrid.lua` does. Do not use `math.random` without a seed.
 - For a key test of tracks, clips and notes, use one check helper:
   `T.check_keys(fixture, keys, expected, what)`. The fixture is a small
   project in a Lua string. Its format has a reference comment in

@@ -1411,6 +1411,9 @@ end
 -- one drew other cells with the same stamp (paw/ui.tl). It is set
 -- before the snapshot of the options, so each test gets it back.
 paw.opt.check_stamps = true
+-- A position with a fraction of a tick is an error, not rounded
+-- (paw/timegrid.tl): the motions must give whole ticks.
+paw.timegrid.strict = true
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}

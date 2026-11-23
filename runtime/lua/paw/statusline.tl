@@ -31,6 +31,7 @@ local events = require("paw.events")
 local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
 local registry = require("paw.registry")
+local timegrid = require("paw.timegrid")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -397,11 +398,7 @@ local visual: {string: string} = {v = "VISUAL", V = "V-LINE", b = "V-BLOCK", cli
 
 --- A grid in beats as a note value: 1 is `1/4`, 0.25 is `1/16`.
 function M.grid_text(grid: number): string
-  local n = 4 / grid
-  if math.abs(n - math.floor(n + 0.5)) < 1e-6 and n >= 1 then
-    return "1/" .. math.floor(n + 0.5)
-  end
-  return string.format("%g beats", grid)
+  return timegrid.note_text(grid)
 end
 
 --- The position of the playhead, read without the transport's table: what
@@ -670,6 +667,7 @@ spec(
 -- The grid of the view that has focus: the roll and the drums keep their own.
 local record Steps
   step: function(): number
+  label: function(): string
   rows: number
 end
 spec(
@@ -681,10 +679,13 @@ spec(
     fn = function(): StatusText
       local focused = paw.ui.views:get(paw.ui.focused)
       local cells = focused and focused.grid as Steps
+      local text: string
       if not (cells and cells.step) or cells.rows then
-        cells = {step = function(): number return opt.grid end}
+        text = timegrid.label()
+      else
+        text = cells.label and cells.label() or M.grid_text(cells.step())
       end
-      return {{"grid " .. M.grid_text(cells.step()), "StatusDim"}}
+      return {{"grid " .. text, "StatusDim"}}
     end,
   }
 )

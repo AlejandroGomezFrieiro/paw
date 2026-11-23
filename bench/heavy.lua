@@ -15,6 +15,7 @@
 --   pattern_errors  the pattern text that asks for too many notes, refused
 --   help            the help index made at idle: the longest slice, then the first :help
 --   utau_block      400 blocks of 512 frames of the vocal device where four phrases sound
+--   grid_moves      500 bars with 50 meter changes on a 1/16 grid with swing: 20 `l`, `999l` and `999h`, each drawn at 150x45
 --
 -- The paint of the notation view is in extensions/notation/tools/paintbench.lua.
 local paw = require("paw")
@@ -92,6 +93,35 @@ end, function()
   for _ = 1, 20 do
     paw.keymap.feed("l")
   end
+  api.ui_snapshot(150, 45)
+end)
+
+-- Moves on the grid of time ---------------------------------------------------------
+
+-- 500 bars with 50 meter changes, a 1/16 grid with swing, and the cursor
+-- in the middle: the lines of the grid follow each change.
+case("grid_moves", function()
+  local meters = { { 7, 8 }, { 5, 4 }, { 3, 4 }, { 6, 8 }, { 4, 4 } }
+  for i = 1, 50 do
+    local m = meters[(i - 1) % #meters + 1]
+    paw.tempo.set_signature(i * 10, m[1], m[2])
+  end
+  local track = paw.add_track({ name = "Long" })
+  track:add_clip({ start = 0, length = paw.time.bar_start(501), name = "long" })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(track)
+  paw.cursor.set_beat(paw.time.bar_start(250))
+  paw.opt.grid, paw.opt.swing = "1/16", 60
+  api.ui_snapshot(150, 45)
+end, function()
+  for _ = 1, 20 do
+    paw.keymap.feed("l")
+    api.ui_snapshot(150, 45)
+  end
+  paw.keymap.feed("999l")
+  api.ui_snapshot(150, 45)
+  paw.keymap.feed("999h")
   api.ui_snapshot(150, 45)
 end)
 

@@ -13,6 +13,7 @@
 local api = require("paw.api")
 local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type Arrange = require("paw.views.arrange")
@@ -80,7 +81,7 @@ end
 -- folds (paw/axis.tl, `view:current_axis`): the step of the grid drawn in
 -- a column, and a move of the pointer in beats.
 local function grid_at(self: Arrange, tx: number): number
-  return self:current_axis():step_at(math.floor(tx), paw.opt.grid)
+  return self:current_axis():step_at(math.floor(tx), timegrid.step())
 end
 local function cells(self: Arrange, d: number): number
   return self:current_axis():beats(d)
@@ -548,9 +549,9 @@ local function ghost_trimmed(v: Arrange, row: Row, c: types.Clip, edge: string, 
   local to = free and math.max(0, at + dbeat) or math.max(0, paw.cursor.snap(at + dbeat))
   local a, b = c.start, c.start + c.length
   if edge == "start" then
-    a = math.min(to, b - paw.opt.grid)
+    a = math.min(to, b - timegrid.step())
   else
-    b = math.max(to, a + paw.opt.grid)
+    b = math.max(to, a + timegrid.step())
   end
   ghost(v, row, a, b - a, c.name)
 end
@@ -607,7 +608,7 @@ local function press_clip(self: Arrange, e: MouseEvent, h: Hit)
         if edge then
           return ghost_trimmed(v, h.row, c, edge, dbeat, free)
         end
-        ghosts_moved(v, c, free and dbeat or util.round(dbeat, paw.opt.grid), row_index(v, d.y) - h.row.index)
+        ghosts_moved(v, c, free and dbeat or util.round(dbeat, timegrid.step()), row_index(v, d.y) - h.row.index)
       end,
       drag = function(d: MouseEvent)
         held().d = d

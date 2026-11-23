@@ -483,7 +483,8 @@ test("mixdiag: the findings are diagnostics: ]d and [d go from one to the next",
   -- Past the last finding it wraps to the first.
   paw.cursor.set_beat(40)
   T.keys("]d")
-  eq(paw.cursor.beat, placed[1].beat, "wraps to the first")
+  -- The cursor is on the nearest whole tick of the finding.
+  eq(paw.cursor.tick, paw.timegrid.tick(placed[1].beat), "wraps to the first")
   -- <C-o> comes back from a jump.
   paw.cursor.set_beat(12)
   T.keys("]d")

@@ -458,7 +458,8 @@ local record contracts
   end
 
   --- The cursor of a view that the keymap moves (`view.grid`): `get` and
-  --- `set` its row and column. `step` is a step of the columns, `down` -1
+  --- `set` its row and column. `step` is a step of the columns, `label`
+  --- the grid as the status line shows it (`1/8t`), `down` -1
   --- for rows that count upwards. `extent(row, col)` is the end of what
   --- is at a place. `mark` and `jump` keep a place that moves with what is
   --- there (a mark), and `search(text)` gives the places that match.
@@ -466,6 +467,7 @@ local record contracts
     get: function(): number, number
     set: function(row: number, col: number)
     step: function(): number
+    label: function(): string
     down: integer
     extent: function(row: number, col: number): number
     mark: function(): GridMark

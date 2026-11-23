@@ -98,6 +98,8 @@ paw.restore_track, paw.restore_clip, paw.restore_device =
 paw.master, paw.project, paw.transport, paw.time = objects.master, objects.project, objects.transport, objects.time
 paw.midi = objects.midi
 paw.tempo = require("paw.tempo")
+-- The grid of time: positions in ticks, and the lines of the grid (paw/timegrid.tl).
+paw.timegrid = require("paw.timegrid")
 paw.midifile = require("paw.midifile")
 paw.audio = require("paw.audio")
 
