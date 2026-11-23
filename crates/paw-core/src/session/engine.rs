@@ -307,12 +307,13 @@ impl Session {
 
     /// Play a track from a sound file for now, as if it were frozen (see
     /// [`crate::freeze`]), or live again with `None`. The project is not
-    /// changed: nothing is saved or undone, and renders play it live.
+    /// changed: nothing is saved or undone, and renders play it live. A
+    /// track that is gone can be let go too.
     pub fn hold(&mut self, track: Id, file: Option<PathBuf>) -> Result<()> {
-        if track == MASTER_ID || self.project.track(track).is_none() {
-            bail!("no track {track} to hold");
-        }
         match file {
+            Some(_) if track == MASTER_ID || self.project.track(track).is_none() => {
+                bail!("no track {track} to hold");
+            }
             Some(file) => self.engine.map.held_files.insert(track, file),
             None => self.engine.map.held_files.remove(&track),
         };

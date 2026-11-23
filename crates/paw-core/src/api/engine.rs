@@ -107,7 +107,9 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(())
         }
         // Play a track from a sound file for now, as if it is frozen, or live
-        // again with nil. The project does not change (see `freeze.rs`).
+        // again with nil. Nil also works for a track that is gone. Another
+        // project plays all its tracks live. The project does not change
+        // (see `freeze.rs`).
         // @return nil
         fn engine_hold(_, sh, (track, file) => (Id, Option<String>)) {
             sh.session.borrow_mut().hold(track, file.map(PathBuf::from)).lua()

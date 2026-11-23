@@ -147,8 +147,11 @@ impl Session {
         // project file: in memory they share them.
         project.join_links();
         self.apply_open_opts(&mut project);
-        // Another project: a trial of this one's is over with it.
+        // Another project: a trial of this one's is over with it, and so
+        // are the files that played its tracks. A held id could name a
+        // track of the new project.
         self.audition.trial = None;
+        self.engine.map.held_files.clear();
         self.stop();
         // A take that closes belongs to this project, not the next one.
         self.finish_takes_now();

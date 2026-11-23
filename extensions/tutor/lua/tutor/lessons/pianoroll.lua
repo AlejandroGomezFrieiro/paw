@@ -64,7 +64,9 @@ cursor, as Vim repeats an insert.]],
     {
       say = "`j` and `k` move one semitone down and up, and you hear each pitch. `<C-d>` and `<C-u>` move one octave. Press `k` three times to go to G4.",
       keys = { "k", "k", "k" },
-      check = function() return paw.ui.views.pianoroll.pitch == 67 end,
+      -- The view keeps its pitch while it is closed: an earlier session
+      -- can have left it on G4.
+      check = function(_, look) return look.focused() == "pianoroll" and paw.ui.views.pianoroll.pitch == 67 end,
       done = "The cursor is on G4. The title row shows the name of the pitch, and the name on the left is highlighted.",
       hint = "Look at the title row of the piano roll, which shows the pitch under the cursor.",
     },

@@ -72,8 +72,10 @@ A test makes all the state that it reads.
 - After each file of `tests/`, and after the files of each extension, the
   runner unloads the extensions that the tests loaded and removes the
   hooks, timers and key mappings that test code made. It also puts back
-  the audio engine, the MIDI test ports and the step input controls that
-  Lua bound, and the leak check names the first test that changed them. A test file that
+  the audio engine, the MIDI test ports, the step input controls that
+  Lua bound, the tracks that the engine plays from a file, and the plugin
+  folders and plugin kinds. The leak check names the first test that
+  changed them (not for the plugins: it reads them once for each file). A test file that
   leaves one fails "`<part>` leaves no state behind". Do not add a line to
   `tests/leaks-allowed.txt`.
 - Take ids from the kernel (the value that a call returns). Never write
@@ -81,7 +83,8 @@ A test makes all the state that it reads.
 - Write files under `T.scratch`. Never write in the checkout or in the
   owner's folders.
 - Put back what you change with `T.after`: options, keys, hooks, timers,
-  MIDI test ports, the engine backend, extensions that you loaded.
+  MIDI test ports, the engine backend, extensions that you loaded, plugin
+  folders that you added (`paw.plugins.remove_dir`).
 - Paint a view before a click in it. A handler can use the geometry of
   the last paint, which an earlier test made.
 - A test passes alone, under each `only` filter, and in any order.

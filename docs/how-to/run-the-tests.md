@@ -82,15 +82,17 @@ run:
 - the audio engine, with its backend, sample rate and buffer size
 - the MIDI test ports that `api.midi_test_ports` lists
 - the step input controls that Lua code bound and no file saved
+- the tracks that the engine plays from a file (`api.engine_hold`)
+- the plugin folders that Lua code added, and the kinds of plugin devices
 
 If a handler, timer or key mapping of the test code was still there, or
 an extension can't be unloaded, the runner fails a test named
 `tests/<file>.lua leaves no state behind` or
 `extensions/<name>/ leaves no state behind`. A change of the engine, the
-MIDI test ports or the step input controls fails the same test, whatever
-code made the change. The `changed:` line names what changed, and for the
-engine, the ports and the controls it also names the first test that left
-the change, for example
+MIDI test ports, the step input controls, the held tracks or the plugins
+fails the same test, whatever code made the change. The `changed:` line
+names what changed, and for all of them except the plugins it also names
+the first test that left the change, for example
 `midi ports {} -> ports {Test Keys} (test "a song with a controller")`. To
 fix the failure, put back the change in the test that made it, with
 `T.after(function() ... end)`.

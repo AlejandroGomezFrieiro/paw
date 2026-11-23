@@ -34,8 +34,8 @@ local NOT_CALLED = {
 }
 
 -- What a call with a good value changes outside the project, and how the
--- test puts it back. `restore(result)` runs after each call that did not
--- fail.
+-- test puts it back. `restore(result, args)` runs after each call that did
+-- not fail.
 local seats = require("paw.seats")
 -- What the walk found before it started.
 local saved = {}
@@ -58,13 +58,17 @@ local SHAPES = {
   timer_start = { restore = function(id) api.timer_stop(id) end },
   sock_listen = { restore = function(id) api.sock_close(id) end },
   measure_start = { restore = function(id) api.measure_cancel(id) end },
+  engine_hold = { restore = function(_, args) api.engine_hold(args[1], nil) end },
+  -- Each folder that the call took, also one that is not there.
+  plugins_add_dir = {
+    restore = function(found, args) api.plugins_remove_dir(args[1], found and found.kinds or {}) end,
+  },
 }
 -- The ones whose good value is a name or a folder that the test gives.
 for name, remove in pairs({
   engine_midi_filter = function(key) api.engine_midi_filter(key, nil) end,
   clip_kind_define = api.clip_kind_remove,
   lua_devices_add = api.lua_devices_remove,
-  plugins_add_dir = function(dir) api.plugins_remove_dir(dir, {}) end,
   state_set = function(key) api.state_set(key, nil) end,
 }) do
   SHAPES[name] = { restore = function() remove(T.scratch .. "/boundary") end }
@@ -223,13 +227,13 @@ local function show(value)
 end
 
 -- Put back what a call can change outside the project.
-local function settle(name, ok, result)
+local function settle(name, args, ok, result)
   paw.transport.stop()
   api.preview_stop()
   api.render_cancel()
   if api.trial_active() then api.trial_end(false) end
   local restore = SHAPES[name] and SHAPES[name].restore
-  if ok and restore then restore(result) end
+  if ok and restore then restore(result, args) end
 end
 
 -- The calls of one function: none of its arguments, then each argument wrong
@@ -258,7 +262,7 @@ local function walk(name, entry, problems)
       end
       problems[#problems + 1] = string.format("paw.api.%s(%s) %s", name, table.concat(shown, ", "), problem)
     end
-    settle(name, ok, result)
+    settle(name, args, ok, result)
   end
   return #calls
 end

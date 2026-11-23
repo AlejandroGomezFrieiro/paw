@@ -98,9 +98,10 @@ pub fn register(
 }
 
 /// Look into plugin files again, as if they had changed: every one, or
-/// (with `name`) those whose file name or plugin names contain it. Their
-/// device kinds are registered again, in helper processes where those are
-/// used. Returns the notes [`register`] does.
+/// (with `name`) those whose file name or plugin names contain it. All
+/// plugins are then registered again, in helper processes where those are
+/// used, with the kinds that a new start gives them: a plugin that is not
+/// found again has no kind any more. Returns the notes [`register`] does.
 pub fn rescan(
     registry: &mut Registry,
     cache_file: Option<&Path>,
@@ -125,6 +126,11 @@ pub fn rescan(
         }
     }
     cache.write();
+    // The plugins are registered again from nothing, as a helper process
+    // registers them. A kind of the last scan that stays would take the
+    // name of a VST3 plugin, and the plugin would come back as
+    // `vst3:<name> (2)`: a kind that no helper knows.
+    registry.unregister_where(|info| info.format.is_plugin());
     let notes = register(registry, cache_file, dirs);
     sandbox::wrap(registry, dirs);
     notes
@@ -147,14 +153,32 @@ pub fn add_dir(
     // Only the new directory is looked into; the cache keeps what it knew
     // of the rest, which is why it is not saved (and pruned) here.
     let mut cache = Cache::load(cache_file);
+    // The scan starts from the plugins that are registered already, as a
+    // helper scans the added folder after the others: a VST3 plugin that
+    // is known already is not registered again, and a new one with the
+    // name of another gets the next free kind.
     let mut found = Registry::default();
+    for factory in registry.iter().filter(|f| f.info().format.is_plugin()) {
+        found.register(factory.clone());
+    }
+    let known = found.clone();
     let mut notes = Vec::new();
     let only = [dir.to_path_buf()];
     scan_in::<clap::Clap>(&mut found, &mut cache, &mut notes, dirs, &only);
     scan_in::<vst3::Vst3>(&mut found, &mut cache, &mut notes, dirs, &only);
-    sandbox::wrap(&mut found, dirs);
-    let mut kinds = Vec::new();
+    // Only the factories that the scan made are wrapped and registered.
+    let mut added = Registry::default();
     for factory in found.iter() {
+        let made_now = known
+            .get(&factory.info().kind)
+            .is_none_or(|was| !Rc::ptr_eq(was, factory));
+        if made_now {
+            added.register(factory.clone());
+        }
+    }
+    sandbox::wrap(&mut added, dirs);
+    let mut kinds = Vec::new();
+    for factory in added.iter() {
         kinds.push(factory.info().kind.clone());
         registry.register(factory.clone());
     }
@@ -248,7 +272,13 @@ pub(crate) fn scan_in<F: PluginFormat>(
     dirs: &PluginDirs,
     folders: &[PathBuf],
 ) {
-    let mut seen = std::collections::HashSet::new();
+    // The ids of the format that `registry` holds count as found already.
+    let mut seen: std::collections::HashSet<String> = registry
+        .iter()
+        .map(|factory| factory.info())
+        .filter(|info| info.format == F::FORMAT)
+        .map(|info| info.id.clone())
+        .collect();
     for bundle in find_bundles(folders, F::NAME) {
         let Some(library) = F::library(&bundle) else {
             continue;
@@ -735,5 +765,109 @@ mod tests {
         assert_eq!(noted, [true, true], "both folders are searched: {notes:?}");
         assert_eq!(notes.len(), 2, "no other folder is searched: {notes:?}");
         assert_eq!(registry.iter().count(), 0, "no plugin is registered");
+    }
+
+    /// A VST3 bundle `<name>.vst3` in `dir` with one plugin, `name` with
+    /// the class `id`, which the cache in `cache_file` knows already: a scan
+    /// registers it and loads nothing. The cache also knows that there are
+    /// no LV2 plugins.
+    fn known_vst3(dir: &Path, cache_file: &Path, name: &str, id: &str) {
+        let library = dir
+            .join(format!("{name}.vst3/Contents/{}-linux", std::env::consts::ARCH))
+            .join(format!("{name}.so"));
+        std::fs::create_dir_all(library.parent().unwrap()).unwrap();
+        std::fs::write(&library, b"never loaded").unwrap();
+        let real = std::fs::canonicalize(&library).unwrap();
+        let (modified, size) = stamp(&real);
+        let found = Found {
+            id: id.into(),
+            name: name.into(),
+            vendor: String::new(),
+            instrument: true,
+            version: String::new(),
+            features: Vec::new(),
+        };
+        let mut cache = Cache::load(Some(cache_file));
+        cache.files.insert(
+            real,
+            CachedFile {
+                modified,
+                size,
+                plugins: Ok(vec![found]),
+            },
+        );
+        cache.lv2 = Some(Lv2Cache {
+            bundles: Vec::new(),
+            plugins: Vec::new(),
+            skipped: 0,
+        });
+        cache.write();
+    }
+
+    const ONE: &str = "11111111111111111111111111111111";
+    const TWO: &str = "22222222222222222222222222222222";
+
+    /// The VST3 kinds in `registry`, each with the class of its plugin.
+    fn vst3_kinds(registry: &Registry) -> Vec<(String, String)> {
+        registry
+            .iter()
+            .map(|factory| factory.info())
+            .filter(|info| info.format == DeviceFormat::Vst3)
+            .map(|info| (info.kind.clone(), info.id.clone()))
+            .collect()
+    }
+
+    /// The VST3 kinds that a helper process finds with `dirs`: it registers
+    /// the plugins in a new registry.
+    fn helper_kinds(cache_file: &Path, dirs: &PluginDirs) -> Vec<(String, String)> {
+        let mut helper = Registry::default();
+        register(&mut helper, Some(cache_file), dirs);
+        vst3_kinds(&helper)
+    }
+
+    #[test]
+    fn a_rescan_gives_each_plugin_the_kind_that_a_helper_gives_it() {
+        let root = tempfile::tempdir().unwrap();
+        let cache_file = root.path().join("plugins.json");
+        known_vst3(&root.path().join("vst3"), &cache_file, "Same", ONE);
+        let dirs = PluginDirs {
+            vst3: vec![root.path().join("vst3")],
+            ..PluginDirs::default()
+        };
+        let mut registry = Registry::with_builtins();
+        register(&mut registry, Some(&cache_file), &dirs);
+
+        rescan(&mut registry, Some(&cache_file), Some("no such plugin"), &dirs);
+
+        let kinds = vst3_kinds(&registry);
+        assert_eq!(kinds, [("vst3:Same".to_string(), ONE.to_string())], "the plugin once");
+        assert_eq!(kinds, helper_kinds(&cache_file, &dirs), "as a helper names it");
+        assert!(registry.get("synth").is_some(), "the built-in devices stay");
+    }
+
+    #[test]
+    fn a_plugin_in_an_added_folder_gets_the_kind_that_a_helper_gives_it() {
+        let root = tempfile::tempdir().unwrap();
+        let cache_file = root.path().join("plugins.json");
+        let (usual, added) = (root.path().join("vst3"), root.path().join("extension"));
+        known_vst3(&usual, &cache_file, "Same", ONE);
+        let mut dirs = PluginDirs {
+            vst3: vec![usual],
+            ..PluginDirs::default()
+        };
+        let mut registry = Registry::default();
+        register(&mut registry, Some(&cache_file), &dirs);
+        // Another plugin with the name of the first, and a copy of the first.
+        known_vst3(&added, &cache_file, "Same", TWO);
+        known_vst3(&added, &cache_file, "Copy", ONE);
+
+        let (kinds, notes) = add_dir(&mut registry, Some(&cache_file), &mut dirs, &added);
+
+        assert_eq!(kinds, ["vst3:Same (2)"], "the new plugin only ({notes:?})");
+        assert_eq!(
+            vst3_kinds(&registry),
+            helper_kinds(&cache_file, &dirs),
+            "each kind names the plugin that a helper makes of it"
+        );
     }
 }
