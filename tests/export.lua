@@ -197,7 +197,7 @@ test("without ffmpeg a lossy format is refused before anything is rendered, and 
     "and how formats that need nothing are named"
   )
   fails(function() paw.cmd("render", { dir .. "/a.ogg" }) end, "ffmpeg", "the command too")
-  fails(function() paw.render_stems(dir .. "/stems", { format = "mp3" }) end, "ffmpeg", "stems too")
+  fails(function() paw.export.plan(dir .. "/stems/ each=track format=mp3") end, "ffmpeg", "an export too")
   paw.off(off)
   eq(heard, false, "nothing was rendered")
   local by = {}
@@ -221,7 +221,7 @@ test("stems and regions are rendered to a lossy format too", function()
   paw.project.tempo = 120
   paw.markers.add(0, "Intro", { length = 2 })
   local dir = fresh_dir("stems")
-  paw.render_stems(dir, { format = "ogg", tail = 0 })
+  paw.export.run(paw.export.plan(dir .. "/ each=track format=ogg tail=0 wait=true"))
   eq(names(dir), "Lead.ogg", "a stem is an Ogg file")
   local files = paw.markers.render_regions(dir .. "/regions", { format = "opus", tail = 0 })
   eq(#T.read_file(files[1]) > 500, true, "a region is an Opus file")

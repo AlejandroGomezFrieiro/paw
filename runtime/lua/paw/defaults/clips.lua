@@ -301,17 +301,8 @@ end, {
   complete = "files",
 })
 
-command("export", function(ctx)
-  local path = ctx.args[1] and tostring(ctx.args[1])
-  if not path or not paw.formats.for_path(path, "export") then
-    local ends = table.concat(paw.formats.extensions("export"), " .")
-    return paw.notify("usage: export <file> (." .. ends .. "); `:render` makes sound files", "warn")
-  end
-  return paw.formats.export(paw.files.path(path), { args = ctx.args })
-end, {
-  desc = "Write the project to a file of another program, its ending choosing the format (`:help formats`): `export song.mid`, `export riff.mid clip`, `export part.mid selection` (a MIDI file of the clip at the cursor, or of the selection's tracks)",
-  complete = { "exportable", function() return { "clip", "selection" } end },
-})
+-- `:export` (paw/export.tl) writes sound itself, and a file of another
+-- program, by its ending, through `paw.formats`.
 
 command("set", function(ctx)
   local name, value = ctx.args[1], ctx.args[2]

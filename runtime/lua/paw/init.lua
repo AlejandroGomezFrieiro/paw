@@ -376,10 +376,10 @@ function K.startup()
   paw.media = require("paw.media")
   paw.external = require("paw.external")
   -- Rendering: `paw.render(path, opts)` renders the project to a file, and
-  -- the module has stems, the tags and the render that runs in the
-  -- background (paw/render.tl). The other names are older.
+  -- the module has the tags and the render that runs in the background
+  -- (paw/render.tl). The other names are older.
   paw.render = require("paw.render")
-  paw.render_stems, paw.render_tags, paw.render_ranges = paw.render.stems, paw.render.tags, paw.render.ranges
+  paw.render_tags, paw.render_ranges = paw.render.tags, paw.render.ranges
   paw.render_status, paw.render_cancel = paw.render.status, paw.render.cancel
   -- Freezing tracks and blocks of subprojects, and the scope of each
   -- window: a part of the song.
@@ -387,7 +387,6 @@ function K.startup()
   paw.freeze = require("paw.freeze")
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)
-  paw.stems = require("paw.stems")
   paw.markers = require("paw.markers")
   -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
   paw.nest = require("paw.nest")
@@ -415,6 +414,9 @@ function K.startup()
   paw.qf = require("paw.qf")
   require("paw.views.qflist")
   paw.ex = require("paw.ex")
+  -- `:export`: the plan of the files, the queue and the message at the end
+  -- (paw/export.tl).
+  paw.export = require("paw.export")
   -- Searching the project: queries over its tree, and its text.
   paw.query = require("paw.query")
   paw.grep = require("paw.grep")

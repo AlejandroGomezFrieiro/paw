@@ -1112,7 +1112,7 @@ test(":render stems shows a plan of one file per group, and they add up to the m
   local mix = render({ master = false })
   local dir = T.scratch .. "/group-stems"
   keys(":render stems " .. dir .. " wait=true bits=32 tail=1<CR>")
-  eq(paw.ui.float and paw.ui.float.name, "render.plan", "a plan first")
+  eq(paw.ui.float and paw.ui.float.name, "export.plan", "a plan first")
   local text = screen()
   eq(
     text:find("Orchestra.wav", 1, true) ~= nil and text:find("Drums.wav", 1, true) ~= nil,
@@ -1133,24 +1133,17 @@ test(":render stems shows a plan of one file per group, and they add up to the m
     worst = math.max(worst, math.abs(x[i] + y[i] - m[i]))
   end
   eq(worst < 1e-5, true, "they add up to the mix: " .. worst)
-  -- Narrowed, the parts of the group; and one group on its own.
+  -- Narrowed, the parts of the group.
   paw.scope.narrow("Orchestra")
-  local plan = paw.stems.plan({ dir = dir })
-  local list = {}
-  for i, s in ipairs(plan) do
-    list[i] = s.file:match("([^/]+)$")
+  local function files(words)
+    local list = {}
+    for i, r in ipairs(paw.export.plan(words).renders) do
+      list[i] = r.file:match("([^/]+)$")
+    end
+    return table.concat(list, " ")
   end
-  eq(table.concat(list, " "), "Strings.wav Brass.wav", "in a scope: its groups")
-  plan = paw.stems.plan({ dir = dir, tracks = true })
-  list = {}
-  for i, s in ipairs(plan) do
-    list[i] = s.name
-  end
-  eq(table.concat(list, " "), "Violins Cellos Horns", "per track")
+  eq(files("stems"), "Strings.wav Brass.wav", "in a scope: its groups")
+  eq(files("tracks"), "Violins.wav Cellos.wav Horns.wav", "per track")
   paw.scope.widen()
-  keys(":render Strings bits=32 wait=true<CR>")
-  eq(paw.ui.float and paw.ui.float.name, "render.plan", "one group: a plan too")
-  keys("<Esc>")
-  eq(paw.ui.float, nil, "Esc leaves it")
   reset()
 end)

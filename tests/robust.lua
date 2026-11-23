@@ -198,7 +198,11 @@ test("stems add up to the mix with buses and returns on the way", function()
   d.volume = -4
   paw.flush()
   local mix = T.render({ master = false, bits = 32, tail = 0 })
-  local files = paw.render_stems(T.scratch .. "/bus-stems", { master = false, bits = 32, tail = 0 })
+  local files = {}
+  paw.export.run(paw.export.plan(T.scratch .. "/bus-stems/ each=track tap=groups bits=32 tail=0 wait=true"))
+  for i, r in ipairs(paw.export.last().results) do
+    files[i] = r.path
+  end
   eq(#files, 3, "a stem for each track with clips")
   local m, n = samples(mix.path)
   local sum = {}

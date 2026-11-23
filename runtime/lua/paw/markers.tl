@@ -118,8 +118,20 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 
+--- A region in the tree (`paw.markers.tree`): the region, its level (1 at
+--- the top), its place among its siblings (1 for the first), the region
+--- around it (nil at the top) and the regions inside it, in order of time.
+local record Node
+  region: Marker
+  depth: integer
+  place: integer
+  parent: Node
+  children: {Node}
+end
+
 local record M
   type Marker = Marker
+  type Node = Node
   type AddOptions = AddOptions
   type Fields = Fields
   type ById = ById
@@ -174,17 +186,6 @@ end
 -- same time, the one made first (the smaller id) holds the other. Two
 -- regions that overlap and do not nest are siblings. A marker belongs to
 -- the innermost region around its beat.
-
---- A region in the tree (`paw.markers.tree`): the region, its level (1 at
---- the top), its place among its siblings (1 for the first), the region
---- around it (nil at the top) and the regions inside it, in order of time.
-local record Node
-  region: Marker
-  depth: integer
-  place: integer
-  parent: Node
-  children: {Node}
-end
 
 local record Tree
   roots: {Node}

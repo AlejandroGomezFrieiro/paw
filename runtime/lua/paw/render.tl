@@ -1,4 +1,4 @@
--- Rendering: `paw.render`, stems, the `:render` command, and the render
+-- Rendering: `paw.render`, the `:render` command, the tags, and the render
 -- that runs in the background with its progress and cancelling. The work is
 -- in the kernel (crates/paw-core/src/session/render.rs).
 --
@@ -15,9 +15,9 @@ local util = require("paw.util")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
-local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 local type GroupsModule = require("paw.groups")
+local type ScopeModule = require("paw.scope")
 
 --- A range that a render can take: where it starts and ends, in beats (no
 --- end: the end of the last clip), or nil and why not.
@@ -25,7 +25,7 @@ local type Range = function(): number, number | string
 
 --- The options of `paw.render` (see `M.render`): what the kernel takes
 --- (`types.RenderOptions`), and what only Lua knows: `range`, `rate`,
---- `channels` as a word, `background`, and `format` for stems (false
+--- `channels` as a word, `background`, `quiet`, and `format` (false
 --- takes it out).
 local record Options
   range: string
@@ -54,6 +54,14 @@ local record Options
   ffmpeg: string
   background: boolean
   format: string | boolean
+  quiet: boolean
+end
+
+--- The export that renders its files one by one (paw/export.tl): which
+--- file of how many runs now. The status line shows it.
+local record Batch
+  index: integer
+  total: integer
 end
 
 --- The render that runs in the background, and how many wait after it.
@@ -84,11 +92,17 @@ local record Value
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes, and of the
--- modules in Lua that it calls: their parts that it uses.
---- `paw.stems` (paw/stems.lua), as far as `:render` calls it.
-local record Stems
-  names_group: function(word: commands.Arg): boolean
-  command: function(ctx: commands.Context, opts: Options)
+-- modules that it calls: their parts that it uses.
+--- A plan of `paw.export` (paw/export.tl), as far as `:render` reads it.
+local record ExportPlan
+  confirm: boolean
+end
+--- `paw.export` (paw/export.tl), which takes `:render stems` and the other
+--- forms of `:render` that write more than one file, until they go.
+local record Export
+  plan_args: function(args: commands.Args, range?: commands.Range): ExportPlan
+  run: function(plan: ExportPlan)
+  confirm: function(plan: ExportPlan)
 end
 --- `paw.files` (paw/views/files.lua): a path from the folder `:cd` set.
 local record Files
@@ -100,7 +114,7 @@ local record Paw is partial.Paw
   ui: UiModule
   cursor: CursorModule
   groups: GroupsModule
-  tracks: function(): {objects.Track}
+  scope: ScopeModule
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -109,6 +123,7 @@ local record M
   type Options = Options
   type Status = Status
   type Before = Before
+  type Batch = Batch
   --- Named ranges a render can take besides beats: each a function giving
   --- `start, end` in beats, or nil and why not. Extensions may add their own
   --- (`paw.render_ranges.chorus = function() return 32, 48 end`).
@@ -123,6 +138,8 @@ local record M
   finished: events.Event<types.RenderResult>
   --- The folder that renders go to when no place is named (defined below).
   renders_dir: function(): string
+  --- The export that runs, while it runs (paw/export.tl sets it).
+  batch: Batch
   --- `paw.render(path, opts)` is `paw.render.render(path, opts)`.
   metamethod __call: function(self: M, path: string, opts?: Options): types.RenderResult
 end
@@ -157,17 +174,12 @@ local function copy<T>(t: T): T
   return out as T
 end
 
---- A shallow copy of a record with the fields of `extra` laid over it.
-local function over<T>(base: T, extra: T): T
-  return util.merge(base as {string: Value}, extra as {string: Value}) as T
-end
-
 --- The options as the kernel takes them: `range` turned into `start` and
 --- `end`, and what only Lua knows taken out.
 local function kernel_opts(opts: Options): types.RenderOptions
   local out = copy(opts or {})
   local range = out.range
-  out.range, out.background, out.format = nil, nil, nil
+  out.range, out.background, out.format, out.quiet = nil, nil, nil, nil
   if out.channels == "mono" then
     out.channels = 1
   elseif out.channels == "stereo" then
@@ -222,8 +234,11 @@ local record Queued
   opts: types.RenderOptions
 end
 
--- Renders waiting for the one running: stems are rendered one at a time.
+-- Renders waiting for the one running: one render runs at a time.
 local queue: {Queued} = {}
+-- The files of renders in the background that say nothing when they end:
+-- the export that started them says what they came to.
+local quiet: {string: boolean} = {}
 
 local function start(path: string, opts: types.RenderOptions)
   events.emit(M.before, {path = path, opts = opts})
@@ -272,6 +287,8 @@ end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
+---   quiet       with `background`: no message when it ends, for a caller that
+---               says itself what it rendered
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
@@ -291,6 +308,7 @@ function M.render(path: string, opts?: Options): types.RenderResult
   local background = opts and opts.background
   local kopts = kernel_opts(opts)
   if background then
+    quiet[path] = opts.quiet or nil
     if api.render_status() then
       queue[#queue + 1] = {path = path, opts = kopts}
     else
@@ -357,49 +375,6 @@ function M.cancel(): boolean
   return api.render_cancel()
 end
 
---- Render each track on its own into a directory, one file per track named
---- after it: stems. A track is rendered with what it passes through on the
---- way to the master, as when it is soloed, so that the stems add up to the
---- mix. `opts` is as for `paw.render`, plus `tracks` to choose which (all
---- that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg"
---- or "opus"). With
---- `background`, they are rendered one after another. Returns the files.
-function M.stems(dir: string, opts?: Options): {string}
-  dir = util.expand_path(dir)
-  opts = opts or {}
-  local ext = opts.format as string or "wav"
-  check(dir .. "/stem." .. ext)
-  pcall(api.fs_mkdir, dir)
-  local out: {string} = {}
-  local used: {string: integer} = {}
-  local tracks = opts.tracks
-  if not tracks then
-    tracks = {}
-    for _, track in ipairs(paw.tracks()) do
-      if not track.mute and #track:clips() > 0 then
-        tracks[#tracks + 1] = track.id
-      end
-    end
-  end
-  for _, given in ipairs(tracks) do
-    -- A track as a table (from Lua) gives its id.
-    local id = type(given) == "table" and (given as objects.Track).id or given
-    local name = api.track_get(id).name:gsub("[^%w%-_ ]", "_")
-    -- Two tracks of one name get a number each.
-    used[name] = (used[name] or 0) + 1
-    if used[name] > 1 then
-      name = name .. " " .. used[name]
-    end
-    local path = string.format("%s/%s.%s", dir, name, ext)
-    -- A lossy stem is titled after its track, unless the options say otherwise.
-    local lossy = ext ~= "wav" and ext ~= "flac"
-    local tags = over(lossy and {title = name} or {}, opts.tags or {})
-    M.render(path, over(opts, {tracks = {id}, format = false, tags = tags}))
-    out[#out + 1] = path
-  end
-  return out
-end
-
 local function next_in_queue()
   local nxt = table.remove(queue, 1)
   if nxt then
@@ -431,7 +406,10 @@ events.on(kernel.render_progress, function() api.ui_redraw() end)
 events.on(
   kernel.render_done,
   function(info: types.RenderResult)
-    notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
+    if not quiet[info.path] then
+      notify_rendered(info.path, info, info.loudness and string.format(", %.1f LUFS", info.loudness) or "")
+    end
+    quiet[info.path] = nil
     for _, why in ipairs(info.left_out or {}) do
       paw.notify(why, "warn")
     end
@@ -441,7 +419,10 @@ events.on(
 events.on(
   kernel.render_failed,
   function(e: kernel.RenderEnd)
-    paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
+    if not quiet[e.path] then
+      paw.notify("render of " .. name_of(e.path) .. " failed: " .. tostring(e.error), "error")
+    end
+    quiet[e.path] = nil
     next_in_queue()
   end
 )
@@ -449,7 +430,10 @@ events.on(
   kernel.render_cancelled,
   function(e: kernel.RenderEnd)
     queue = {}
-    paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
+    if not quiet[e.path] then
+      paw.notify("render of " .. name_of(e.path) .. " cancelled; no file written")
+    end
+    quiet = {}
   end
 )
 -- `Esc` in normal mode, with nothing else to cancel, stops a render.
@@ -538,6 +522,43 @@ local function track_list(spec: commands.Arg): {integer}
   return ids
 end
 
+--- The words of `:render` that `:export` takes as they are.
+local EXPORT_WORDS = {"tail", "rate", "bits", "dither", "quality", "bitrate", "normalize", "loudness", "format", "wait"}
+
+--- `:render stems`, `:render <group>`, `stems=true` and `:stems` write
+--- through `paw.export`, with the meaning that they had: the files at the
+--- master (or the groups with `master=false`), in stereo, a tail of 1 s.
+--- `each` is the `each=` of the export; `show` shows the plan first.
+local function via_export(
+  positional: {string}, a: commands.Args, range: commands.Range, each: string, show: boolean
+): commands.Result
+  local export = (require as function(string): Export)("paw.export")
+  local args: commands.Args = {}
+  for i, word in ipairs(positional) do
+    args[i] = word
+  end
+  for _, key in ipairs(EXPORT_WORDS) do
+    args[key] = a[key]
+  end
+  for _, key in ipairs(M.tag_names) do
+    args[key] = a[key]
+  end
+  args.tap = a.master == false and "groups" or "master"
+  args.channels = a.channels or "stereo"
+  args.tail = a.tail or 1
+  args.each = each
+  local plan = export.plan_args(args, range)
+  if show and plan.confirm then
+    return export.confirm(plan)
+  end
+  export.run(plan)
+end
+
+--- A folder that the user typed, as a target of `:export`.
+local function folder(word: commands.Arg): string
+  return word and (tostring(word):gsub("/*$", "/")) or nil
+end
+
 commands.define(
   "render",
   function(ctx: commands.Context): commands.Result
@@ -569,16 +590,19 @@ commands.define(
     if opts.start or opts["end"] then
       opts.range = nil
     end
-    -- `:render stems` and `:render Strings`: by group, the plan shown first.
-    local stems = (require as function(string): Stems)("paw.stems")
-    if a[1] == "stems" or stems.names_group(a[1]) then
-      opts.tracks = nil
-      return stems.command(ctx, opts)
+    -- `:render stems [tracks] [dir]`: one file for each group (or track),
+    -- the plan shown first; `:render Strings`: that group alone.
+    if a[1] == "stems" then
+      local tracks = a[2] == "tracks"
+      local dir = folder(tracks and a[3] or not tracks and a[2] or nil)
+      return via_export({"stems", dir}, a, nil, tracks and "track" or nil, true)
+    end
+    local group = type(a[1]) == "string" and not tostring(a[1]):find("[./]") and paw.scope.find(tostring(a[1]))
+    if group then
+      return via_export({}, a, {tracks = {group}, text = tostring(a[1])}, nil, true)
     end
     if a.stems == true then
-      local dir = a[1] and (paw.files as Files).path(tostring(a[1])) or ((M.renders_dir() or ".") .. "/stems")
-      local made = M.stems(dir, over(opts, {format = a.format as string}))
-      return paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
+      return via_export({a[1] and folder(a[1]) or "stems"}, a, nil, "track", false)
     end
     -- A relative name goes beside the project, or to the folder `:cd` set.
     local path = a[1] and (paw.files as Files).path(tostring(a[1])) or M.default_path()
@@ -660,21 +684,7 @@ commands.define(
 commands.define(
   "stems",
   function(ctx: commands.Context): commands.Result
-    local dir = ctx.args[1] and (paw.files as Files).path(tostring(ctx.args[1]))
-      or ((M.renders_dir() or ".") .. "/stems")
-    local made = M.stems(
-      dir,
-      {
-        tail = tonumber(ctx.args.tail),
-        bits = tonumber(ctx.args.bits) as integer,
-        format = ctx.args.format as string,
-        quality = ctx.args.quality and tostring(ctx.args.quality) or nil,
-        bitrate = tonumber(ctx.args.bitrate) as integer,
-        master = ctx.args.master ~= false and nil or false,
-        background = ctx.args.wait ~= true,
-      }
-    )
-    paw.notify(string.format("rendering %d stem%s into %s", #made, #made == 1 and "" or "s", dir))
+    return via_export({ctx.args[1] and folder(ctx.args[1]) or "stems"}, ctx.args, nil, "track", false)
   end,
   {desc = "Render each track on its own into a directory: `stems out tail=2 bits=24 format=flac master=false`"}
 )

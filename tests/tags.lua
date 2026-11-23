@@ -243,6 +243,6 @@ test("the tags are given to :render, :render.tags and the window's dialog, and k
   api.project_save(project)
   api.project_load(project)
   eq(paw.render_tags().year, "1999", "they are saved with the project")
-  paw.render_stems(dir .. "/stems", { tail = 0 })
+  paw.export.run(paw.export.plan(dir .. "/stems/ each=track tail=0 wait=true"))
   eq(wav_info(T.read_file(dir .. "/stems/Synth.wav")).IART, "Cy", "a stem has the project's tags")
 end)

@@ -86,6 +86,9 @@ paw.events = {}
 ---@class paw.ex
 paw.ex = {}
 
+---@class paw.export
+paw.export = {}
+
 ---@class paw.ext
 paw.ext = {}
 
@@ -283,9 +286,6 @@ paw.snippet = {}
 
 ---@class paw.statusline
 paw.statusline = {}
-
----@class paw.stems
-paw.stems = {}
 
 ---@class paw.step
 paw.step = {}
@@ -512,17 +512,6 @@ function paw.render_cancel() end
 --- ffmpeg makes a lossy file from the render. Then `fraction` tells how
 --- far the encoding is.
 function paw.render_status() end
-
---- Render each track on its own into a directory, one file per track named
---- after it: stems. A track is rendered with what it passes through on the
---- way to the master, as when it is soloed, so that the stems add up to the
---- mix. `opts` is as for `paw.render`, plus `tracks` to choose which (all
---- that are not muted, by default) and `format` ("wav", "flac", "mp3", "ogg"
---- or "opus"). With
---- `background`, they are rendered one after another. Returns the files.
----@param dir any
----@param opts any
-function paw.render_stems(dir, opts) end
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
 --- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
@@ -2919,6 +2908,65 @@ function paw.ex.substitution(r, pattern, replacement, flags) end
 ---@param name any
 ---@param spec any
 function paw.ex.view(name, spec) end
+
+--- Run `:export` again as it was last typed. Returns false when there was none.
+function paw.export.again() end
+
+--- Stop the export that runs, and the files that wait after it. Returns
+--- true if an export ran.
+function paw.export.cancel() end
+
+--- Show a plan in a float; `y` writes it.
+---@param plan any
+function paw.export.confirm(plan) end
+
+--- True for a device that changes its level by the level that it hears: a
+--- compressor, a limiter or a gate, built in or a plugin with such a name.
+--- Such a device on a group or on the master that several files of an
+--- export pass makes the files differ a little from the mix. Replace it to
+--- name other devices.
+---@param device any
+function paw.export.is_dynamics(device) end
+
+--- What the last export did: `{ plan, results, failed, cancelled, message }`.
+--- `results` holds what `paw.render` gives for each file written. Nil
+--- before the first export ends.
+function paw.export.last() end
+
+--- The lines of a plan, as the float shows them: one for each file, with
+--- what it holds, when, where it listens and its channels; then what it
+--- leaves out, and the notes.
+---@param plan any
+function paw.export.lines(plan) end
+
+--- The plan of an export: the words as typed after `:export`, and the
+--- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
+--- nil for the song). Gives `{ renders, left_out, notes, options, confirm }`.
+--- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
+--- `when`, `tap` and `channels`. A plan that cannot be is an error with a
+--- clear message.
+---@param words any
+---@param range any
+function paw.export.plan(words, range) end
+
+--- The plan of the words of `:export`, as `commands.parse` gives them, and
+--- a range. See `M.plan`.
+---@param args any
+---@param range any
+function paw.export.plan_args(args, range) end
+
+--- The names of the presets, in order.
+function paw.export.preset_names() end
+
+--- Write the files of a plan, one render at a time, on the render thread:
+--- the status line shows how far it is, and one message at the end says
+--- what it wrote. A plan with `wait` renders in the foreground. When an
+--- export runs, the files of this one wait after it.
+---@param plan any
+function paw.export.run(plan) end
+
+--- True while an export runs.
+function paw.export.running() end
 
 --- True if this build of paw has `feature`, one of the names of
 --- `paw.api.build().features` such as `"processes"`. An extension that
@@ -7176,6 +7224,8 @@ function paw.render.default_path() end
 ---               and then, and `render.done` (what is returned below),
 ---               `render.failed` ({ path, error }) or `render.cancelled` at the end;
 ---               a render in the foreground emits `render.finished` with what it returns
+---   quiet       with `background`: no message when it ends, for a caller that
+---               says itself what it rendered
 --- When it is done, it returns `types.RenderResult`. The result has the path,
 --- the frames, the seconds, the peak, the gain and the loudness. It also has
 --- the format, the bits (nil for a lossy format) and the channels.
@@ -7194,8 +7244,6 @@ function paw.render.render(path, opts) end
 function paw.render.renders_dir() end
 
 paw.render.status = paw.render_status
-
-paw.render.stems = paw.render_stems
 
 paw.render.tags = paw.render_tags
 
@@ -8360,36 +8408,6 @@ function paw.statusline.tabline_always() end
 ---@param view any
 ---@param focused any
 function paw.statusline.winbar(view, focused) end
-
---- What `:render stems` and `:render <group>` do with the command's options.
----@param ctx any
----@param opts any
-function paw.stems.command(ctx, opts) end
-
---- Show a plan and render it on `y`.
----@param plan any
----@param dir any
----@param opts any
-function paw.stems.confirm(plan, dir, opts) end
-
---- True if `:render <word>` names a group to render alone, and not a file:
---- the name of a group, with no file ending.
----@param word any
-function paw.stems.names_group(word) end
-
---- What the stems would be: a list of `{ id, name, file, holds }`, in the
---- order of the track list. `opts`: `dir` (where; `stems` in the renders
---- folder by default, see `paw.render.renders_dir`), `format` ("wav", the default, "flac",
---- "mp3", "ogg", "opus"), `tracks` (one per track, not per group), `group`
---- (that group, or track, alone). In a narrowed window, the parts of its scope.
----@param opts any
-function paw.stems.plan(opts) end
-
---- Write the stems of a plan, with `paw.render`'s options (`background`
---- renders them one after another). Returns the files.
----@param plan any
----@param opts any
-function paw.stems.render(plan, opts) end
 
 --- A new action for the controls: `fn(count)` runs in a target that has
 --- no action of that name itself.

@@ -23,6 +23,7 @@ local motion, need_track, amap = common.motion, common.need_track, common.amap
 keymap.group("<leader>a", "automation")
 keymap.group("<leader>c", "clip", { view = "arrange" })
 keymap.group("<leader>d", "devices")
+keymap.group("<leader>e", "export")
 keymap.group("<leader>f", "find")
 keymap.group("<leader>l", "language servers")
 keymap.group("<leader>m", "mix")
@@ -143,7 +144,23 @@ map("<leader>rn", "region.new", { mode = nx, desc = "Make a region over the sele
 map("<leader>rx", "marker.remove", { desc = "Remove the marker at the cursor" })
 map("<leader>rX", "region.remove", { desc = "Remove the region the cursor is in; its clips stay" })
 map("<leader>rl", "region.loop", { desc = "Set the playback loop to the region the cursor is in" })
-map("<leader>rR", "render.regions", { desc = "Render every region to a file of its own: type the folder" })
+-- Export (paw/export.tl): the mix, the stems, the tracks, the regions, and
+-- the last export again. In visual mode, for the time and tracks of the
+-- selection, as `:'<,'>export` is.
+local function export_with(words)
+  return function()
+    local from_visual = keymap.mode == "x" and keymap.selection() ~= nil
+    if from_visual then keymap.set_mode("n") end
+    paw.commands.exec((from_visual and "'<,'>" or "") .. "export " .. words)
+  end
+end
+map("<leader>em", export_with(""), { mode = nx, desc = "Export the mix: the song, or the selection, to a WAV file" })
+map("<leader>es", export_with("stems"), { mode = nx, desc = "Export the stems: one file for each group" })
+map("<leader>et", export_with("tracks"), { mode = nx, desc = "Export the tracks: one file for each track" })
+map("<leader>er", export_with("regions"), { mode = nx, desc = "Export the regions: one file for each region" })
+map("<leader>ee", function()
+  if not paw.export.again() then paw.notify("no export yet: <Space>em exports the mix", "warn") end
+end, { desc = "Export again, with the words of the last export" })
 -- `.` repeats the last change; `<leader>.` adjusts it: a panel shows its parameters (paw/views/adjust.tl).
 -- With no command to adjust, the command line says why.
 map("<leader>.", function()
@@ -330,6 +347,19 @@ map("<leader>tr", "vca.release", { view = "arrange", mode = nx, desc = "Take the
 amap("<leader>tx", "vca.dissolve", "Take the VCA at the cursor away")
 amap("<leader>tl", "group.link", "Link the faders of the group's members")
 amap("<leader>ts", "send", "Send the track's sound to another as well")
+-- Freeze (paw/freeze.lua): the track, or the selected tracks, plays a render of itself.
+for lhs, name in pairs({ ["<leader>tf"] = "freeze", ["<leader>tF"] = "unfreeze" }) do
+  map(lhs, function()
+    local from_visual = keymap.mode == "x" and keymap.selection() ~= nil
+    if from_visual then keymap.set_mode("n") end
+    paw.commands.exec((from_visual and "t'<,'>" or "") .. name)
+  end, {
+    view = "arrange",
+    mode = nx,
+    desc = name == "freeze" and "Freeze the track, or the selected tracks: its devices rest"
+      or "Unfreeze the track, or the selected tracks: its devices play again",
+  })
+end
 amap("<leader>to", "track.output", "Choose where the track's sound goes")
 amap("zM", "fold.closeall", "Fold every group and fold of this window")
 amap("zR", "fold.openall", "Open every group and fold of this window")

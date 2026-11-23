@@ -42,6 +42,7 @@ local type objects = require("paw.objects")
 local type TextbufModule = require("paw.textbuf")
 local type CursorModule = require("paw.cursor")
 local type DrawModule = require("paw.draw")
+local type RenderModule = require("paw.render")
 
 local type Context = contracts.StatusContext
 local type Theme = contracts.StatusContext.Theme
@@ -96,6 +97,7 @@ local record Paw is partial.Paw
   scope: Scope
   folds: Folds
   time: objects.Time
+  render: RenderModule
 end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
@@ -577,13 +579,24 @@ spec(
 )
 
 -- A render in the background: how far it has got, and how to stop it;
--- only the percentage on a narrow screen.
+-- only the percentage on a narrow screen. An export of several files
+-- says which file of how many: `exporting 3/12 Bass.wav 43%`.
 spec(
   "render",
   {
     moves = function(_: Context): string
       local job = api.render_status()
-      return job and (tostring(job.stage) .. ":" .. tostring(job.fraction) .. ":" .. tostring(job.path)) or ""
+      local batch = paw.render.batch
+      return job
+        and (
+          tostring(job.stage)
+          .. ":"
+          .. tostring(job.fraction)
+          .. ":"
+          .. tostring(job.path)
+          .. ":"
+          .. tostring(batch and batch.index)
+        ) or ""
     end,
     fn = function(ctx: Context): StatusText
       local job = api.render_status()
@@ -594,6 +607,11 @@ spec(
       local pct = string.format("%d%%", math.floor(job.fraction * 100))
       local file = tostring(job.path):match("([^/]+)$") or tostring(job.path)
       local verb = job.stage == "encoding" and "encoding" or "rendering"
+      local batch = paw.render.batch
+      if batch then
+        verb = "exporting"
+        file = (batch.total > 1 and (batch.index .. "/" .. batch.total .. " ") or "") .. file
+      end
       local text = width >= 120 and (verb .. " " .. file .. " " .. pct .. " · Esc cancels")
         or width >= 80 and (verb:sub(1, 6) .. " " .. pct .. " · Esc")
         or (verb:sub(1, 6) .. " " .. pct)

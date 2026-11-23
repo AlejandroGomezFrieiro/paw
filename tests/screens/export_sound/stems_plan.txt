@@ -1,0 +1,7 @@
+╭─ Export 2 files ─────────────────────────────────────────────╮
+│ file                     holds        when  tap     channels │
+│ renders/stems/Drums.wav  Kick, Snare  song  master  stereo   │
+│ renders/stems/Bass.wav   Bass         song  master  stereo   │
+│ left out: Keys, muted                                        │
+│ y or Enter: export · n or Esc: back · j k: scroll            │
+╰──────────────────────────────────────────────────────────────╯
