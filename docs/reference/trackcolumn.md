@@ -48,6 +48,7 @@ that exists replaces the old part, and `paw.trackcolumn.remove("rec")` removes i
 | `describe(track, ctx)` | A line that `K` adds about the track of the cursor, or nothing. |
 | `glyphs` | The characters that the part draws, by name. |
 | `styles` | The highlight groups that the part draws in, by name. |
+| `from_header` | When `true`, the part takes its columns from the track headers and not from the timeline, so the timeline stays in place when the part shows or hides. `signs` and `fold` have it. In a narrow window, where the headers have no columns to give, the part takes them from the timeline. |
 
 `frame` has `rows`, the ids of the tracks that show, in order, and
 `count`, how many lines the counts of `j` and `k` go over.

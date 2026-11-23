@@ -73,6 +73,23 @@ test("track column: open and folded groups as a tree, nested", function()
   eq(row("Low"):find("Low +2", 1, true) ~= nil, true, "and says how many it holds")
 end)
 
+test("track column: the timeline starts in the same column with and without groups, and in a scope", function()
+  -- The left part of a 100 wide screen: the ruler and the first tracks.
+  local region = { rows = { 1, 6 }, cols = { 1, 30 }, styles = false }
+  fresh()
+  for _, n in ipairs({ "Drums", "Violins", "Cellos", "Violas", "Bass", "Keys" }) do
+    paw.add_track({ name = n })
+  end
+  paw.opt.track_height = 1
+  after(function() paw.opt.track_height = "auto" end)
+  paw.flush()
+  T.expect_screen("grid_no_groups", 100, 16, region)
+  orchestra()
+  T.expect_screen("grid_nested_groups", 100, 16, region)
+  T.keys(":narrow Strings<CR>")
+  T.expect_screen("grid_scope", 100, 16, region)
+end)
+
 test("track column: a draw works out the tree of groups once, whatever the count of tracks, and keeps it", function()
   local _, low = orchestra()
   lines()
