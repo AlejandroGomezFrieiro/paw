@@ -1220,8 +1220,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.instance_of(win)`: The instance of the view that a window shows, made the first time: a split takes a fresh copy of the bound window's state, a window after one that went takes all of its state, and the first window takes the home state. Nil for a view without instances.
 - `paw.layout.instances(name, def, keys, fresh)`: Give a view an instance for each window. `def` is the view's table and `keys` the fields of each window (`fresh`: the ones a split starts without). The fields leave `def` for the home state. Returns the proxy that `paw.ui.views` holds.
 - `paw.layout.layout_names()`: The names of the layouts there are: the configuration's and those saved.
+- `paw.layout.layout_spec(name)`: Layout `name` as `M.restore` takes it: the one saved with `:layout save`, else the configuration's (`paw.layouts`). Nil and the reason when there is none.
 - `paw.layout.leaf(view, fields)`: A new window that shows `view`, with fields such as `size` or `hidden`.
-- `paw.layout.load(name)`: Put back layout `name`: the configuration's, else one saved.
+- `paw.layout.load(name)`: Put back layout `name`: the one saved, else the configuration's.
 - `paw.layout.loose(name, from)`: A window in no tab for the view `name`: a view in a window of its own of a graphical frontend. It starts from the state of the window `from` (the pane that it leaves), else of the window whose state the view holds now. It keeps its own state from then on.
 - `paw.layout.maximize()`: Give the current window the whole tab, or put the others back.
 - `paw.layout.move_to_edge(edge)`: Move the current window to an edge of the tab ("H", "J", "K", "L"), the whole height or width of it.
@@ -2471,6 +2472,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vzoom.step(by, opts)`: Make the rows of a view `by` taller (shorter when negative): the focused view's, or `opts.view`'s.
 - `paw.vzoom.track_rows()`: Rows per track in the arrange view's window, or nil for the option's.
 - `paw.vzoom.window(view)`: The window of `view` whose zoom is meant: the one being drawn, the focused one, else the one whose state the view has now.
+
+## Module paw.workspace
+
+- `paw.workspace.current()`: The name of the workspace on the screen, or nil.
+- `paw.workspace.go(name)`: Go to workspace `name`. The tabs and windows of the workspace that you leave stay in memory. Returns false and the reason when `name` names no workspace or none of its windows can show.
+- `paw.workspace.names()`: The names of the workspaces there are: the defaults, the configuration's, those saved, the project's and those kept in memory.
+- `paw.workspace.save(name, project)`: Keep the tabs and windows as workspace `name` in the layouts folder. When `project` is true, keep them in the project's screen instead, so that the project opens in that workspace. The screen is now that workspace.
 
 ## Module paw.xml
 

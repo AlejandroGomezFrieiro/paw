@@ -332,6 +332,9 @@ paw.vca = {}
 ---@class paw.vzoom
 paw.vzoom = {}
 
+---@class paw.workspace
+paw.workspace = {}
+
 ---@class paw.xml
 paw.xml = {}
 
@@ -5072,12 +5075,18 @@ function paw.layout.instances(name, def, keys, fresh) end
 --- The names of the layouts there are: the configuration's and those saved.
 function paw.layout.layout_names() end
 
+--- Layout `name` as `M.restore` takes it: the one saved with `:layout
+--- save`, else the configuration's (`paw.layouts`). Nil and the reason
+--- when there is none.
+---@param name any
+function paw.layout.layout_spec(name) end
+
 --- A new window that shows `view`, with fields such as `size` or `hidden`.
 ---@param view any
 ---@param fields any
 function paw.layout.leaf(view, fields) end
 
---- Put back layout `name`: the configuration's, else one saved.
+--- Put back layout `name`: the one saved, else the configuration's.
 ---@param name any
 function paw.layout.load(name) end
 
@@ -9770,6 +9779,27 @@ function paw.vzoom.track_rows() end
 --- focused one, else the one whose state the view has now.
 ---@param view any
 function paw.vzoom.window(view) end
+
+--- The name of the workspace on the screen, or nil.
+function paw.workspace.current() end
+
+--- Go to workspace `name`. The tabs and windows of the workspace that you
+--- leave stay in memory. Returns false and the reason when `name` names
+--- no workspace or none of its windows can show.
+---@param name any
+function paw.workspace.go(name) end
+
+--- The names of the workspaces there are: the defaults, the
+--- configuration's, those saved, the project's and those kept in memory.
+function paw.workspace.names() end
+
+--- Keep the tabs and windows as workspace `name` in the layouts folder.
+--- When `project` is true, keep them in the project's screen instead, so
+--- that the project opens in that workspace. The screen is now that
+--- workspace.
+---@param name any
+---@param project any
+function paw.workspace.save(name, project) end
 
 --- The first child of an element with a name, or nil.
 ---@param el any
