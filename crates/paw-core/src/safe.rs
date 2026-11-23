@@ -5,7 +5,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 
 /// The file the previous version of `path` is kept in: `song.json.bak`.
 pub fn backup_path(path: &Path) -> PathBuf {
@@ -19,6 +19,10 @@ pub fn backup_path(path: &Path) -> PathBuf {
 /// flush it to the disk, rename it over `path` and flush the directory.
 /// With `keep_backup`, the old contents are kept as `<path>.bak` first.
 pub fn write_file(path: &Path, bytes: &[u8], keep_backup: bool) -> Result<()> {
+    // An empty path would write `.tmp` into the current folder.
+    if path.file_name().is_none() {
+        bail!("a file needs a name, not the path \"{}\"", path.display());
+    }
     let dir = match path.parent() {
         Some(dir) if !dir.as_os_str().is_empty() => dir.to_path_buf(),
         _ => PathBuf::from("."),
@@ -43,7 +47,10 @@ pub fn write_file(path: &Path, bytes: &[u8], keep_backup: bool) -> Result<()> {
     if keep_backup && path.is_file() {
         keep_previous(path).with_context(|| format!("keeping the previous {}", path.display()))?;
     }
-    std::fs::rename(&tmp, path).with_context(|| format!("writing {}", path.display()))?;
+    if let Err(err) = std::fs::rename(&tmp, path) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(err).with_context(|| format!("writing {}", path.display()));
+    }
     sync_dir(&dir);
     Ok(())
 }
@@ -87,6 +94,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn a_path_without_a_file_name_is_refused_and_writes_nothing() {
+        let dir = scratch("empty");
+        assert!(write_file(&dir.join(".."), b"x", false).is_err());
+        assert!(write_file(Path::new(""), b"x", false).is_err());
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        assert!(!Path::new(".tmp").exists(), "nothing in the current folder");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

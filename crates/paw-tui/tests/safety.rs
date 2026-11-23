@@ -318,7 +318,7 @@ paw.api.test_panic("a bug in the program")
         stderr.contains("`:recover` opens it"),
         "and where the copy is:\n{stderr}"
     );
-    let recovery = dir.join("xdg/paw/recovery");
+    let recovery = dir.join("xdg/state/paw/recovery");
     let copies: Vec<_> = std::fs::read_dir(&recovery).unwrap().flatten().collect();
     assert_eq!(copies.len(), 1, "one copy in {}", recovery.display());
     let text = std::fs::read_to_string(copies[0].path()).unwrap();

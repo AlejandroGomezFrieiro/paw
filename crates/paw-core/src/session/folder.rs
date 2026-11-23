@@ -2115,6 +2115,7 @@ mod tests {
         let dir = Path::new("/scratch/song");
         let chain = PathBuf::from("/scratch/home/chains/lead/devices.json");
         let mut track = Track::new(1);
+        track.name = "track".into();
         track.chain_source = Some(chain.clone());
         let mut project = Project::default();
         project.tracks.push(Arc::new(track));

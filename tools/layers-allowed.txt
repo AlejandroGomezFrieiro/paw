@@ -38,6 +38,7 @@ paw.edit paw.ui 1
 paw.events paw 1
 paw.ex paw.roll_clips 1
 paw.ex paw.views.cmdline 1
+paw.ex paw.views.pianoroll 1
 paw.ext paw 2
 paw.ext paw.pick.sources 1
 paw.ext paw.textbuf 1
@@ -84,9 +85,12 @@ paw.loading paw 1
 paw.loading paw.ui 1
 paw.loading paw.views.devices 1
 paw.locators paw.ui 3
+paw.locators paw.views.pianoroll 1
 paw.lsp paw 3
 paw.lsp paw.frontend 1
 paw.lsp paw.pick 1
+paw.lsp paw.roll_clips 1
+paw.lsp paw.views.pianoroll 1
 paw.lsp.subjects paw.roll_clips 1
 paw.lsp.subjects paw.views.pianoroll 1
 paw.luadev paw 3
@@ -161,6 +165,7 @@ paw.step paw.pick 1
 paw.step paw.pick.sources 1
 paw.structure paw.commands 1
 paw.structure paw.keymap 1
+paw.structure paw.roll_clips 1
 paw.structure paw.ui 1
 paw.structure paw.views.pianoroll 1
 paw.takes paw.commands 1
