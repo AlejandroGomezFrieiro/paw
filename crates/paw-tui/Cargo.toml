@@ -33,6 +33,14 @@ signal-hook = { version = "0.3", default-features = false }
 paw-plugins.workspace = true
 paw-listen = { workspace = true, features = ["device"] }
 
+# The global allocator of the native binary (main.rs): the C source is in
+# the crate and builds with cc, so no system library. mimalloc 3 (the
+# crate's default; `v2` selects the old one). A BrowserPod pod (target
+# family `unix`, vendor `browserpod`) and a WebAssembly build keep the
+# system allocator.
+[target.'cfg(not(any(target_family = "wasm", target_vendor = "browserpod")))'.dependencies]
+mimalloc = { version = "0.1.52", default-features = false }
+
 [dev-dependencies]
 paw-scene.workspace = true
 libc = "0.2"

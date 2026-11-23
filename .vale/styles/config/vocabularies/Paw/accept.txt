@@ -284,3 +284,5 @@ Zola
 [Ww]orklets?
 AudioWorklet
 Emscripten
+# The global allocator of the native binary (bench/profile.md).
+mimalloc
