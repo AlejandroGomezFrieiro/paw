@@ -6512,6 +6512,14 @@ function paw.nest.set_time(nest, how, bpm) end
 
 paw.nest.shift = paw.cursor.shift
 
+--- Put the window in front inside subproject `id`, as if you entered it
+--- from the song through each subproject that holds it. It does nothing
+--- when the window shows that subproject already. With no `id`, the
+--- window goes back to the song. Returns false and why when the project
+--- has no such subproject.
+---@param id any
+function paw.nest.show(id) end
+
 --- The return row that a track of a subproject is shown under, in place
 --- (`za`), or nil for any other track.
 ---@param track any
@@ -7045,7 +7053,8 @@ function paw.qf.format(e, list) end
 function paw.qf.from_diagnostics(target, filter) end
 
 --- Put the cursor on the address of an entry, in the view that shows it
---- best, and focus that view. A note goes to the piano roll, and a device
+--- best, and focus that view. A thing inside a subproject goes inside
+--- that subproject first. A note goes to the piano roll, and a device
 --- or a parameter to the device panel. A clip, a track, a lane or a range
 --- of time goes to the arrange view. Returns true if there was a place to go.
 ---@param e any
