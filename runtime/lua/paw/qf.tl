@@ -1546,7 +1546,7 @@ both(
 local function shown_target(): DiagnosticModule.Target
   local view = paw.ui.focused
   if view == "pianoroll" then
-    return (paw.ui.views.pianoroll as Roll.PianoRoll).clip_id
+    return (paw.ui.views:get("pianoroll") as Roll.PianoRoll).clip_id
   end
   if view == "mixer" or view == "devices" then
     local id = paw.cursor.track_id()

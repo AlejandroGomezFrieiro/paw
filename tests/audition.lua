@@ -332,7 +332,7 @@ test("a snippet is heard over the harmony around it, and nothing is written unti
   local clip = piano:add_clip({ start = 0, length = 8, notes = {} })
   paw.flush()
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
   paw.ui.focus("pianoroll")

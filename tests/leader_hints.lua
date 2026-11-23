@@ -225,7 +225,7 @@ test("roll.toggle: with no clip open it opens the clip under the cursor, or says
   paw.cursor.set_beat(1)
   paw.commands.exec("roll.toggle")
   eq(paw.ui.visible("pianoroll"), true, "with a clip under the cursor the roll is shown")
-  eq(paw.ui.views.pianoroll:clip() ~= nil, true, "on that clip")
+  eq(paw.ui.views:get("pianoroll"):clip() ~= nil, true, "on that clip")
   paw.commands.exec("roll.toggle")
   eq(paw.ui.visible("pianoroll"), false, "and again hides it")
 end)

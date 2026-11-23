@@ -44,7 +44,7 @@ test(
     paw.canvas.pointer("shared-hits", { kind = "down", x = 250, y = 80, button = "left" })
     eq(other, 1, "elsewhere, the view's pointer")
     eq(view.hits.list[1].label, "Press", "the button keeps its label")
-    paw.ui.views["shared-hits"] = nil
+    paw.ui.views:remove("shared-hits")
   end
 )
 

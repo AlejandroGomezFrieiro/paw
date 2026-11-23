@@ -129,7 +129,7 @@ paw.command("device.reload", function()
   -- The device chosen in the panel if it is written in Lua, else every one
   -- on the track.
   M.check()
-  local chosen = paw.ui.focused == "devices" and paw.ui.views.devices:selected() or nil
+  local chosen = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected() or nil
   local devices
   if chosen and chosen.kind:match("^lua:") then
     devices = { chosen }

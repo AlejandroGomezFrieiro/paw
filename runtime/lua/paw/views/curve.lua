@@ -302,7 +302,7 @@ local function render(win, canvas, ctx)
       "curve %s at %s · grid %s",
       t.format(value_at(t, points, s.beat)),
       paw.time.format(s.beat),
-      paw.ui.views.status.grid_text(s.grid)
+      paw.ui.views:get("status").grid_text(s.grid)
     )
   end
   canvas:text(1, bottom, util.fit(text, W - 2), "Dim")
@@ -335,7 +335,7 @@ local def = layout.buftype("curve", {
     end,
   },
 })
-local view = paw.ui.views.curve
+local view = paw.ui.views:get("curve")
 view.title = "Curve"
 
 -- What modal editing works on: rows are steps of the value, counting upwards.
@@ -422,12 +422,12 @@ function M.under_cursor(note)
     return win and uri_of(win)
   end
   if focused == "devices" then
-    local _, row = paw.ui.views.devices:selected()
+    local _, row = paw.ui.views:get("devices"):selected()
     if not (row and row.param) then return nil, "no parameter under the cursor" end
     return paw.address.param(row.device.id, row.param.key)
   end
   if focused == "pianoroll" then
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     local clip = roll:clip()
     if not clip then return nil, "no clip in the piano roll" end
     local shown = require("paw.views.pianoroll_strip").shown()
@@ -450,7 +450,7 @@ function M.under_cursor(note)
       ) .. "` chooses one"
   end
   -- A view that knows the curve of what is under its cursor (the mixer's fader).
-  local view = paw.ui.views[focused]
+  local view = paw.ui.views:get(focused)
   if view and view.curve_uri then return view:curve_uri() end
   return nil, "no curve under the cursor here"
 end
@@ -990,7 +990,7 @@ function M.grid(factor)
   local win, _, s = here()
   if not win then return end
   s.grid = util.clamp(s.grid * factor, 1 / 64, 16)
-  paw.notify("grid " .. paw.ui.views.status.grid_text(s.grid))
+  paw.notify("grid " .. paw.ui.views:get("status").grid_text(s.grid))
 end
 
 -- The mouse ------------------------------------------------------------------------------
@@ -1226,7 +1226,7 @@ command("curve.open", function(ctx)
   if not uri then return paw.notify(why, "warn") end
   local beat = paw.ui.focused ~= "curve" and paw.cursor.beat or nil
   if paw.ui.focused == "pianoroll" then
-    local roll = paw.ui.views.pianoroll
+    local roll = paw.ui.views:get("pianoroll")
     local clip = roll:clip()
     beat = clip and clip.start + roll.beat
   end
@@ -1245,7 +1245,7 @@ end, { desc = "Show this curve in a window of its own, in the graphical frontend
 command("param.automate", function(ctx)
   local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
   if not (device and key) then
-    local _, row = paw.ui.views.devices:selected()
+    local _, row = paw.ui.views:get("devices"):selected()
     if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
     device, key = row.device.id, row.param.key
   end

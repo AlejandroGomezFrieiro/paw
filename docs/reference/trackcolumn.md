@@ -88,11 +88,11 @@ with its name. To remove one, use `paw.trackcolumn.remove` or take its
 name out of `paw.opt.trackcolumn`.
 
 `set` does not change the table of the part, and instead puts a changed copy in
-`paw.trackcolumn.components` and returns it. To put a part back as it
+`paw.trackcolumn.components`, a registry, and returns it. To put a part back as it
 was, keep its table before you change it and add it again, as follows.
 
 ```lua
-local fold = paw.trackcolumn.components.fold
+local fold = paw.trackcolumn.components:get("fold")
 paw.trackcolumn.set("fold", { glyphs = { open = "-" } })
 paw.trackcolumn.add("fold", fold)   -- the folds of paw again
 ```

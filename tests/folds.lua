@@ -134,7 +134,7 @@ test("K on a folded group: its name, its tracks, and that it is folded", functio
   keys("za")
   keys("K")
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     lines[#lines + 1] = line.text
   end
   local text = table.concat(lines, "\n")
@@ -173,7 +173,7 @@ local function song()
     paw.opt.zoom, paw.opt.grid = saved.zoom, saved.grid
   end)
   paw.opt.zoom, paw.opt.grid = 1, 1
-  paw.ui.views.arrange.scroll = 0
+  paw.ui.views:get("arrange").scroll = 0
   for i, name in ipairs({ "Keys", "Bass" }) do
     local t = paw.add_track({ name = name })
     t:add_device("synth", { attack = 0.001, release = 0.05 })
@@ -208,7 +208,7 @@ test("zfar folds a region into one column 'Bridge ▸ 8'; l takes it as one step
   eq(paw.cursor.beat, 16, "the cursor on the fold's column")
   local text = screen()
   eq(text:find("Bridge ▸ 8", 1, true) ~= nil, true, "one column with the name and the bars:\n" .. text)
-  local view = paw.ui.views.arrange
+  local view = paw.ui.views:get("arrange")
   eq(view:col(48) - view:col(16) < 32, true, "the bars after it move left: 8 bars in a narrow column")
   paw.cursor.set_beat(15)
   keys("l")

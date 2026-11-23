@@ -20,7 +20,7 @@ local pinned -- the cursor beat at the time the playhead was placed by hand
 --- The song beat of the cursor of the view with the keys. A view with its
 --- own cursor in a clip tells it with `view:play_beat()`.
 local function cursor_beat()
-  local view = paw.ui.views[paw.ui.focused]
+  local view = paw.ui.views:get(paw.ui.focused)
   local beat = view and type(view.play_beat) == "function" and view:play_beat()
   return beat or cursor.beat
 end

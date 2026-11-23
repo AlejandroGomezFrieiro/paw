@@ -631,7 +631,7 @@ spec(
     min = 100,
     rank = 9,
     fn = function(): StatusText
-      local focused = paw.ui.views[paw.ui.focused]
+      local focused = paw.ui.views:get(paw.ui.focused)
       local cells = focused and focused.grid as Steps
       if not (cells and cells.step) or cells.rows then
         cells = {step = function(): number return opt.grid end}
@@ -679,7 +679,7 @@ spec(
     min = 90,
     rank = 5,
     fn = function(ctx: Context): StatusText
-      local view = paw.ui.views[paw.ui.focused]
+      local view = paw.ui.views:get(paw.ui.focused)
       if view and view.status then
         return view:status(ctx)
       end

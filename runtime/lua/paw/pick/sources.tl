@@ -388,7 +388,7 @@ end
 
 -- The arrange view, centred on the cursor when it can be.
 local function center()
-  local arrange = paw.ui.views.arrange as contracts.ArrangeView
+  local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
   if arrange.center then
     arrange:center()
   end
@@ -721,7 +721,7 @@ local function make(pick: Pick): Sources
         -- a key does finds it wherever it works: `send` in the mixer finds
         -- the arrange view's `<leader>ts`.
         local names: {string} = {}
-        for name, v in pairs(paw.ui.views) do
+        for name, v in pairs(paw.ui.views:entries()) do
           if name ~= view and v.focusable ~= false and not v.modal then
             names[#names + 1] = name
           end
@@ -861,7 +861,7 @@ local function make(pick: Pick): Sources
       paw.ui.focus("arrange")
       paw.cursor.set_track(c.track)
       paw.cursor.set_beat(c.start)
-      local arrange = paw.ui.views.arrange as contracts.ArrangeView
+      local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
       arrange:center()
     end,
     delete = function(list: {ClipLine})
@@ -1036,7 +1036,7 @@ local function make(pick: Pick): Sources
       return string.format("%d. %s%s", d.index, d.name, d.bypass and "  (bypassed)" or "")
     end,
     on_choose = function(d: DeviceLine)
-      local panel = paw.ui.views.devices as DevicesView
+      local panel = paw.ui.views:get("devices") as DevicesView
       paw.ui.focus("devices")
       for i, row in ipairs(panel:rows()) do
         if row.device.id == d.id and not row.param and not row.picture then

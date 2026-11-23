@@ -40,7 +40,7 @@ local function drum_track()
   paw.flush()
   local track = paw.cursor.track()
   local clip = track:clips()[1]
-  local grid = paw.ui.views.drums
+  local grid = paw.ui.views:get("drums")
   grid.step = nil
   api.undo_checkpoint()
   return track, clip, grid
@@ -74,8 +74,12 @@ test("drums: drums.track makes a track ready for drums in one step", function()
   eq(#drums.rows(track), 15, "fifteen rows")
   eq(clip.length, paw.time.bar(), "a bar to program")
   eq(paw.ui.focused, "drums", "open in the drum grid")
-  eq(paw.ui.views.drums.clip_id, clip.id, "on its clip")
-  eq(paw.ui.visible("drums") and paw.ui.views.drums.title, "Drum grid", "docked, under its title in a window's pane")
+  eq(paw.ui.views:get("drums").clip_id, clip.id, "on its clip")
+  eq(
+    paw.ui.visible("drums") and paw.ui.views:get("drums").title,
+    "Drum grid",
+    "docked, under its title in a window's pane"
+  )
   eq(paw.ui.message.text:find("Ctrl-w p goes back", 1, true) ~= nil, true, "the message names the key that goes back")
   paw.ui.focus("arrange")
   local screen = table.concat(api.ui_snapshot(120, 30), "\n")
@@ -357,14 +361,14 @@ end
 
 --- The middle of a row's step, in the grid's cells, as the grid lays it out.
 local function at(row, cell)
-  local grid = paw.ui.views.drums
+  local grid = paw.ui.views:get("drums")
   local g = grid.geometry
   return g.namew + (cell - grid.scroll) * 3 + 1.5, g.head + (row - grid.first) + 0.5
 end
 
 local function pointer(kind, x, y, extra)
   local e = paw.util.merge({ kind = kind, x = x, y = y, button = "left" }, extra or {})
-  return paw.roles.input(0, "drums", paw.ui.views.drums, nil, e, held)
+  return paw.roles.input(0, "drums", paw.ui.views:get("drums"), nil, e, held)
 end
 
 local function click(row, cell, button)
@@ -388,7 +392,7 @@ test("drums: the grid opens on a double click of a drum track's clip only", func
   local clip = beat:add_clip({ start = 0, length = 4 })
   paw.frontend.act.open_clip(clip.id)
   eq(paw.ui.visible("drums"), true, "a drum track's clip opens the drum grid")
-  eq(paw.ui.views.drums.clip_id, clip.id, "on that clip")
+  eq(paw.ui.views:get("drums").clip_id, clip.id, "on that clip")
 end)
 
 test("drums: a window is sent the grid's rows by name and its hits as roles by velocity", function()

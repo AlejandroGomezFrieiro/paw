@@ -44,6 +44,7 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local objects = require("paw.objects")
 local options = require("paw.options")
+local registry = require("paw.registry")
 local limit = require("paw.limit")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
@@ -66,13 +67,36 @@ local record M
   record Data
   end
 
-  --- The kinds that are defined, by name.
-  kinds: {string: contracts.ClipKind<Data>}
+  --- The kinds that are defined by name, with the extension that defined
+  --- each one. `define` puts one, `remove` takes it away.
+  kinds: registry.Registry<contracts.ClipKind<Data>>
   --- Their names, in the order they were defined.
   order: {string}
 end
-M.kinds = {}
 M.order = {}
+
+--- Keep `M.order` and the kernel's kinds as the kinds are: a kind that
+--- goes is no longer made, and the kind below it (if any) comes back.
+local function kept(name: string, spec: contracts.ClipKind<M.Data>)
+  local at: integer
+  for i, other in ipairs(M.order) do
+    if other == name then
+      at = i
+    end
+  end
+  if spec then
+    api.clip_kind_define(name)
+    if not at then
+      M.order[#M.order + 1] = name
+    end
+  else
+    if at then
+      table.remove(M.order, at)
+    end
+    pcall(api.clip_kind_remove, name)
+  end
+end
+M.kinds = registry.new("clip_kinds", "kinds of clip", {changed = kept})
 
 local budget = options.define("clip_kind_limit", 50, {min = 0})
 
@@ -228,7 +252,7 @@ end
 local function changeable(id: integer): contracts.ClipKind<M.Data>, types.Clip, types.CustomContent
   local c = api.clip_get(id)
   local custom = api.clip_custom(id)
-  local spec = M.kinds[c.kind]
+  local spec = M.kinds:get(c.kind)
   if not spec then
     error("load the extension that defines `" .. c.kind .. "`: no extension here defines it", 0)
   end
@@ -274,7 +298,7 @@ function M.migrate(name?: string): integer
   local moved: {string: integer} = {}
   local total = 0
   for _, c in ipairs(custom_clips()) do
-    local spec = M.kinds[c.kind]
+    local spec = M.kinds:get(c.kind)
     if spec and (name == nil or name == c.kind) then
       local custom = api.clip_custom(c.id)
       local from = version_of(custom)
@@ -314,7 +338,7 @@ function M.migrate(name?: string): integer
     if n then
       runtime.notify(
         string.format(
-          "%s: %d %s moved to data version %d", kind, n, n == 1 and "clip" or "clips", M.kinds[kind].version
+          "%s: %d %s moved to data version %d", kind, n, n == 1 and "clip" or "clips", M.kinds:get(kind).version
         )
       )
     end
@@ -349,10 +373,7 @@ function M.define<D>(name: string, spec: contracts.ClipKind<D>): contracts.ClipK
   spec.letter = spec.letter or name:sub(1, 1):upper()
   spec.version = version
   spec.timeline = spec.timeline or "beats"
-  if not M.kinds[name] then
-    M.order[#M.order + 1] = name
-  end
-  M.kinds[name] = spec as contracts.ClipKind<M.Data>
+  M.kinds:put(name, spec as contracts.ClipKind<M.Data>)
   if spec.insert and runtime.insert then
     local editor = spec.editor
     runtime.insert.add(
@@ -376,18 +397,11 @@ end
 --- Forget a kind: no new clips of it. The clips of it that the project
 --- has stay as they are, data and all, until something defines it again.
 function M.remove(name: string)
-  local spec = M.kinds[name]
-  M.kinds[name] = nil
+  local spec = M.kinds:remove(name)
   local key = spec and spec.insert
   if key and runtime.insert and runtime.insert.get(key) and runtime.insert.get(key).kind == name then
     runtime.insert.remove(key)
   end
-  for i = #M.order, 1, -1 do
-    if M.order[i] == name then
-      table.remove(M.order, i)
-    end
-  end
-  pcall(api.clip_kind_remove, name)
 end
 
 --- The names of the defined kinds, in the order they were defined.
@@ -401,11 +415,11 @@ end
 
 --- The kind `name` as defined, or nil. `D` is the record of its data.
 function M.spec<D>(name: string): contracts.ClipKind<D>
-  return M.kinds[name] as contracts.ClipKind<D>
+  return M.kinds:get(name) as contracts.ClipKind<D>
 end
 
 local function need(name: string): contracts.ClipKind<M.Data>
-  local spec = M.kinds[name]
+  local spec = M.kinds:get(name)
   if spec then
     return spec
   end
@@ -503,7 +517,7 @@ function M.data<D>(clip: integer | objects.Clip): D, string
     return nil
   end
   local custom = api.clip_custom(id)
-  local spec = M.kinds[c.kind]
+  local spec = M.kinds:get(c.kind)
   if not spec then
     local value, why = stored(custom)
     return value as D, why
@@ -532,7 +546,7 @@ function M.describe(clip: integer | objects.Clip): string
   if builtin(c.kind) then
     return nil
   end
-  local spec = M.kinds[c.kind]
+  local spec = M.kinds:get(c.kind)
   if not spec then
     return c.kind .. " (no extension here defines it)"
   end
@@ -553,7 +567,7 @@ local look_failed: {string: boolean} = {}
 --- nil without the kind, or when `look` fails (said once per kind).
 function M.look(clip: integer | objects.Clip, ctx: contracts.ClipLookContext): contracts.ClipLook
   local id = id_of(clip)
-  local spec = M.kinds[api.clip_get(id).kind]
+  local spec = M.kinds:get(api.clip_get(id).kind)
   if not spec or not spec.look then
     return nil
   end
@@ -583,7 +597,7 @@ end
 --- A clip's kind and data when the kind can read them, else nil (the
 --- edits then only move the offset).
 local function readable(c: types.Clip, custom: types.CustomContent): contracts.ClipKind<M.Data>, M.Data
-  local spec = M.kinds[c.kind]
+  local spec = M.kinds:get(c.kind)
   if not spec or newer(spec, custom) then
     return nil
   end

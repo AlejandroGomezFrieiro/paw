@@ -59,7 +59,7 @@ test("popout: Ctrl-w d in a popped out view docks it back where it was, with the
   eq(now and (now.y .. " " .. now.h), was.y .. " " .. was.h, "a pane where it was")
   eq(focused, "popout_probe", "with the keyboard")
   paw.ui.hide("popout_probe")
-  paw.ui.views.popout_probe = nil
+  paw.ui.views:remove("popout_probe")
 end)
 
 test("popout: closing the window of a view that was never docked splits a pane for it", function()

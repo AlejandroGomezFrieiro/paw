@@ -79,7 +79,7 @@ end
 --- the `index`th device, from 1.
 function A.pick_device(track: integer, index: integer)
   A.select(track)
-  local panel = paw.ui.views.devices
+  local panel = host.devices()
   for row, entry in ipairs(panel:rows()) do
     if not entry.param and entry.device.index == index then
       panel.row = row

@@ -85,7 +85,7 @@ paw.on("param.touched", function(e)
   M.last_touched = { device = e.device, param = e.param, id = e.id, from = e.from }
   -- One moved in the plugin's own window shows itself in the device panel.
   if e.from == "editor" then
-    local panel = paw.ui.views.devices
+    local panel = paw.ui.views:get("devices")
     for i, row in ipairs(panel:rows()) do
       if row.param and row.device.id == e.device and row.param.key == e.param then panel.row = i end
     end
@@ -150,7 +150,7 @@ end
 
 --- Put the device panel's row on one parameter of a device.
 function M.focus_param(id, key)
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   for i, row in ipairs(panel:rows()) do
     if row.param and row.device.id == id and row.param.key == key then panel.row = i end
   end
@@ -610,7 +610,7 @@ local function clean(err) return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("
 --- The device the preset commands act on: the one selected in the device
 --- panel (its row stays where it was when another view has the keys).
 function M.target()
-  local device = paw.ui.views.devices:selected()
+  local device = paw.ui.views:get("devices"):selected()
   if not device then paw.notify("no device here: add one with `a` in the device panel", "warn") end
   return device
 end
@@ -918,7 +918,7 @@ end
 
 --- Put the device panel's row on a device of the cursor track.
 function M.select(id)
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   for i, row in ipairs(panel:rows()) do
     if row.device.id == id and not row.param and not row.picture then panel.row = i end
   end

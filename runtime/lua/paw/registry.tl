@@ -33,6 +33,8 @@ local record M
   --- What a module can give with the kind and the title of its registry.
   record Options<T>
     --- The entry in a few words, for `:extensions` (the key when not given).
+    --- Nil leaves the entry out of the list, for an entry that another
+    --- registry lists (the view of a buffer type).
     label: function(key: string, value: T): string
     --- Runs after the entry that `get(key)` gives changed (nil: it went).
     changed: function(key: string, value: T)
@@ -125,9 +127,11 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
       top.value = value
     else
       slots[key] = {value = value, owner = owner, below = top}
-      -- An extension that replaces the entry of another extension.
-      if top and top.owner and owner and M.replaced then
-        M.replaced(registry, label(key, value), owner, top.owner)
+      -- An extension that replaces the entry of another extension, where
+      -- this registry lists the entry.
+      local what = top and top.owner and owner and M.replaced and label(key, value)
+      if what then
+        M.replaced(registry, what, owner, top.owner)
       end
     end
     if changed then
@@ -173,8 +177,8 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
 
   function registry.labels(_: M.Registry<T>, owner: string): {string}
     local out: {string} = {}
-    for i, key in ipairs(registry:owned_by(owner)) do
-      out[i] = label(key, holds(slots[key], owner).value)
+    for _, key in ipairs(registry:owned_by(owner)) do
+      out[#out + 1] = label(key, holds(slots[key], owner).value)
     end
     return out
   end

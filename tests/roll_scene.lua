@@ -6,7 +6,7 @@
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 local W, H, CELL = 160, 30, { w = 8, h = 16 }
 

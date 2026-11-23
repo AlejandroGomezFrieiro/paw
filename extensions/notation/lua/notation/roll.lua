@@ -5,7 +5,7 @@
 local view = require("notation")
 
 local M = {}
-local roll = paw.ui.views.pianoroll
+local roll = paw.ui.views:get("pianoroll")
 
 --- Whether the roll and the notation view are on screen, each with
 --- `timebind`, both on this clip.

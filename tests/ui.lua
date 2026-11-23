@@ -101,7 +101,7 @@ test("clips show their notes, and the piano roll its keyboard and velocities", f
   eq(#rows, 2, "a roll of as many rows as asked for")
   eq(api.str_width(rows[1]), 8, "and as wide")
   eq(rows[2]:sub(1, 3) ~= "   ", true, "the low note at the bottom left")
-  paw.ui.views.pianoroll:edit(clip)
+  paw.ui.views:get("pianoroll"):edit(clip)
   text = screen(120, 90)
   eq(text:find("C4", 1, true) ~= nil, true, "the keyboard names its Cs")
   eq(text:find("vel", 1, true) ~= nil, true, "velocities have a lane when there is room")
@@ -145,7 +145,7 @@ test("a track's header shows its input, the level arriving there, and a monitor 
     local text = screen(150, 36)
     eq(text:find("test signal · 1/2", 1, true) ~= nil, true, "the input by device and channels:\n" .. text)
     eq(text:find("M S R I", 1, true) ~= nil, true, "I for monitoring after mute, solo and arm")
-    local glyph = paw.ui.views.arrange.level_glyph(paw.audio.level(t:get()))
+    local glyph = paw.ui.views:get("arrange").level_glyph(paw.audio.level(t:get()))
     eq(glyph ~= "·", true, "the level shows before the track is armed or monitored")
     eq(text:find(glyph .. " test signal", 1, true) ~= nil, true, "in front of the input")
   end)
@@ -246,7 +246,7 @@ end)
 test("tracks fit their height to the screen, and the headers their width", function()
   fresh()
   paw.cmd("view.only")
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   for i = 1, 2 do
     paw.add_track({ name = "t" .. i })
   end

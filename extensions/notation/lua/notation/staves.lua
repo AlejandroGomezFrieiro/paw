@@ -725,7 +725,7 @@ end, {
 -- notation.dyn p`). Ex's own commands work on their notes; a command of
 -- the view runs on each staff's clip in turn, as if the cursor were there.
 
-local A = paw.ex.views.notation
+local A = paw.ex.views:get("notation")
 
 --- The clips of the staves `a` to `b` of the score.
 local function staff_clips(layout, a, b)

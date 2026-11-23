@@ -1,6 +1,6 @@
 -- Lesson 9: instruments, effects, parameters, plugins and their windows.
 local function selected()
-  local device, row = paw.ui.views.devices:selected()
+  local device, row = paw.ui.views:get("devices"):selected()
   return device, row
 end
 

@@ -80,7 +80,7 @@ test(":help all lists every key in one page", function()
   paw.cmd("help", { "all" })
   eq(paw.ui.float and paw.ui.float.name, "help", "the long list")
   local keys = {}
-  for _, line in ipairs(paw.ui.views.help.lines) do
+  for _, line in ipairs(paw.ui.views:get("help").lines) do
     keys[#keys + 1] = line.key or ""
   end
   has(table.concat(keys, "\n"), "Ctrl-w o", "with keys humanised")
@@ -247,7 +247,7 @@ test("c and = in the device panel ask for the parameter's value in its unit", fu
   t:add_device("synth")
   paw.cursor.set_track(t)
   paw.ui.focus("devices")
-  local panel = paw.ui.views.devices
+  local panel = paw.ui.views:get("devices")
   local cutoff
   for i, row in ipairs(panel:rows()) do
     if row.param and row.param.key == "cutoff" then
@@ -278,7 +278,7 @@ test("track height auto: two tracks on 30 rows get the most rows", function()
   paw.add_track({ name = "A" })
   paw.add_track({ name = "B" })
   screen(100, 30)
-  eq(paw.ui.views.arrange.geometry.th, 4, "two tracks on 30 rows get the most")
+  eq(paw.ui.views:get("arrange").geometry.th, 4, "two tracks on 30 rows get the most")
 end)
 
 test("Ctrl-w < and > change the side panel's width or the header width; sizes are options", function()

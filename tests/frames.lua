@@ -84,7 +84,7 @@ test("frames: what is drawn over a live part stays over it", function()
   )
   T.after(function()
     paw.ui.close()
-    paw.ui.views.frames_probe = nil
+    paw.ui.views:remove("frames_probe")
   end)
   paw.ui.open("frames_probe", { width = 60, height = 20 })
   local moved = same_as_whole(2, 6, "under a float")
@@ -189,7 +189,7 @@ test("frames: a view that does not say what moves in it is drawn whole", functio
   paw.ui.view("frames_moving", { render = function(_, buf) buf:text(0, 0, tostring(paw.transport.position)) end })
   T.after(function()
     paw.ui.close()
-    paw.ui.views.frames_moving = nil
+    paw.ui.views:remove("frames_moving")
   end)
   paw.ui.open("frames_moving", { width = 30, height = 6 })
   api.ui_frame_snapshot(120, 40)
@@ -257,7 +257,7 @@ local function roll_between_others()
     L.restore({ { layout = L.default_tree() } })
   end)
   paw.keymap.set_mode("n")
-  paw.ui.views.pianoroll:edit(track:clips()[1])
+  paw.ui.views:get("pianoroll"):edit(track:clips()[1])
   paw.ui.focus("pianoroll")
   paw.flush()
   -- The meters of a test before are at rest: frames are the same.
@@ -328,7 +328,7 @@ test("frames: a move key in the piano roll does not draw the windows around it a
   api.ui_frame_snapshot(W, H)
   local calls, renders = {}, {}
   for _, name in ipairs({ "arrange", "pianoroll", "mixer" }) do
-    local view = paw.ui.views[name]
+    local view = paw.ui.views:get(name)
     -- Not `rawget`: the piano roll's view is a proxy (`window_instances`).
     renders[name] = view.render
     calls[name] = 0
@@ -339,7 +339,7 @@ test("frames: a move key in the piano roll does not draw the windows around it a
   end
   T.after(function()
     for name, render in pairs(renders) do
-      paw.ui.views[name].render = render
+      paw.ui.views:get(name).render = render
     end
   end)
   T.keys("j")
@@ -379,7 +379,7 @@ end)
 test("frames: paw.opt.check_stamps fails when a stamp misses what its view draws", function()
   roll_between_others()
   paw.opt.check_stamps = true
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   local render = rawget(arrange, "render")
   local label = "before"
   arrange.render = function(self, buf, ctx)

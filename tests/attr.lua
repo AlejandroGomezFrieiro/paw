@@ -479,8 +479,8 @@ test("a plugin an extension ships is found once its directory is added, plays at
   eq(T.read_file(awake.path) == T.read_file(info.path), true, "and sounds the same")
   eq(paw.plugins.key_names(t.id)[24], "Sustain", "the names it gives its keys")
   -- The piano roll writes them on its keys, and K says what is under the cursor.
-  paw.ui.views.pianoroll:edit(clip)
-  local roll = paw.ui.views.pianoroll
+  paw.ui.views:get("pianoroll"):edit(clip)
+  local roll = paw.ui.views:get("pianoroll")
   roll.pitch, roll.beat, roll.top = 30, 2, 30
   local screen = table.concat(api.ui_snapshot(160, 50), "\n")
   -- The keyboard is 8 columns wide in a roll this wide: 7 for a name.
@@ -498,8 +498,8 @@ test("the piano roll writes a note's articulation on it, and K names it", functi
   fresh()
   local t = paw.add_track({ name = "Strings" })
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 2, attr = PIZZ } } })
-  paw.ui.views.pianoroll:edit(clip)
-  local roll = paw.ui.views.pianoroll
+  paw.ui.views:get("pianoroll"):edit(clip)
+  local roll = paw.ui.views:get("pianoroll")
   roll.pitch, roll.beat = 60, 0
   local screen = table.concat(api.ui_snapshot(160, 50), "\n")
   eq(screen:find("pz", 1, true) ~= nil, true, "the tag on the note")

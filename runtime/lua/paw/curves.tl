@@ -32,6 +32,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
 local type LanesModule = require("paw.lanes")
@@ -131,7 +132,8 @@ local record M
   type WaveOptions = WaveOptions
   --- How finely a shape a curve lacks is written out, in beats.
   fine: number
-  providers: {string: Provider}
+  --- The providers by name, with the extension that added each one.
+  providers: registry.Registry<Provider>
   sorted: function(points: {Point}): {Point}
   waves: {string}
   rates: {{number, string}}
@@ -358,14 +360,14 @@ end
 -- Curves an extension makes of an address the core would read otherwise
 -- (several controllers drawn as one, through curves of their own): by
 -- name, `fn(uri, parts)` giving a target as above, or nil to leave it.
-M.providers = {}
+M.providers = registry.new("curves", "curve providers")
 
 --- Make curves of your own addresses. `fn(uri, parts)` returns a target
 --- with `points`, `write`, `name`, `format`, `lo`, `hi` and the other
 --- fields, or nil to let other providers have the address
 --- (`docs/reference/lua-views.md`, Curves).
 function M.provide(name: string, fn: Provider)
-  M.providers[name] = fn
+  M.providers:put(name, fn)
 end
 
 --- The curve at an address, or nil and why not.
@@ -376,7 +378,7 @@ function M.target(uri: string): Target, string
   end
   local ok, t, why = pcall(
     function(): Target, string
-      for _, fn in pairs(M.providers) do
+      for _, fn in pairs(M.providers:entries()) do
         local made, err = fn(uri, parts)
         if made or err then
           return made, err

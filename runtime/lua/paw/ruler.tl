@@ -17,6 +17,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local options = require("paw.options")
+local registry = require("paw.registry")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type DrawModule = require("paw.draw")
@@ -44,10 +45,37 @@ local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 local record M
-  labels: {string: Label}
+  --- The parts of the bar labels by name, with the extension that added
+  --- or changed each one (`add`, `set`).
+  labels: registry.Registry<Label>
   lanes: {string: contracts.RulerLane}
 end
-M.labels = {}
+--- Take the name of a part that went out of `paw.opt.barlabel`.
+local function unshow(name: string)
+  local list: {string} = {}
+  for _, n in ipairs(opt.barlabel as {string}) do
+    if n ~= name then
+      list[#list + 1] = n
+    end
+  end
+  opt.barlabel = list
+end
+
+-- A change draws the labels again. A part that goes with no part below it
+-- leaves `paw.opt.barlabel`, and a part that an extension changed with
+-- `set` comes back as it was.
+M.labels = registry.new(
+  "barlabel",
+  "parts of the bar labels",
+  {
+    changed = function(name: string, spec: Label)
+      if not spec then
+        unshow(name)
+      end
+      api.ui_redraw()
+    end,
+  }
+)
 
 local function has(list: {string}, value: string): boolean
   for _, v in ipairs(list) do
@@ -67,7 +95,7 @@ function M.add(name: string, spec: Label): Label
   )
   spec.name = name
   spec.order = spec.order or 50
-  M.labels[name] = spec
+  M.labels:put(name, spec)
   local shown = opt.barlabel as {string}
   if not spec.hidden and not has(shown, name) then
     local list: {string} = {}
@@ -77,21 +105,15 @@ function M.add(name: string, spec: Label): Label
     list[#list + 1] = name
     opt.barlabel = list
   end
-  api.ui_redraw()
   return spec
 end
 
---- Take a part away, and its name out of `paw.opt.barlabel`.
+--- Take a part away, and its name out of `paw.opt.barlabel`. The part
+--- that it replaced, if any, comes back.
 function M.remove(name: string)
-  M.labels[name] = nil
-  local list: {string} = {}
-  for _, n in ipairs(opt.barlabel as {string}) do
-    if n ~= name then
-      list[#list + 1] = n
-    end
+  if not M.labels:remove(name) then
+    unshow(name)
   end
-  opt.barlabel = list
-  api.ui_redraw()
 end
 
 --- How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor
@@ -114,7 +136,7 @@ end
 --- `paw.ruler.add(name, old)` puts back the table it had before.
 ---   paw.ruler.set("number", { styles = { cursor = "Title" } })
 function M.set(name: string, patch: contracts.RulerPatch): Label
-  local l = M.labels[name]
+  local l = M.labels:get(name)
   if not l then
     error("no bar label part `" .. tostring(name) .. "`", 2)
   end
@@ -135,8 +157,7 @@ function M.set(name: string, patch: contracts.RulerPatch): Label
     end
     (copy as {string: {string: string}})[field] = own
   end
-  M.labels[name] = copy
-  api.ui_redraw()
+  M.labels:put(name, copy)
   return copy
 end
 
@@ -330,7 +351,7 @@ end
 function M.label(bar: integer, beat: number, style: string, cursor_beat: number, room?: integer): {Piece}
   local list: {Label} = {}
   for _, name in ipairs(opt.barlabel as {string}) do
-    local l = M.labels[name]
+    local l = M.labels:get(name)
     if l then
       list[#list + 1] = l
     end

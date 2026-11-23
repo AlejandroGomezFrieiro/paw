@@ -462,7 +462,7 @@ test("harmony: chord symbols in the piano roll's ruler", function()
   fresh()
   chords("Piano", { { "C3 E3 G3", 4 }, { "A2 C3 E3", 4 }, { "G2 B2 D3 F3", 4 }, { "C3 E3 G3", 4 } })
   paw.flush()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(paw.tracks()[1]:clips()[1])
   paw.opt.note_zoom = 4
   -- The view draws the reading as it stands: read the chords first.
@@ -500,7 +500,7 @@ test("harmony: the chords MIDI LSP's engine hears flow into the reading and the 
   dofile("examples/demo-song.lua")
   paw.flush()
   local keys = paw.tracks()[3]
-  paw.ui.views.pianoroll:edit(keys:clips()[1])
+  paw.ui.views:get("pianoroll"):edit(keys:clips()[1])
   local ok, err = pcall(function()
     midilsp.start(true)
     local deadline = api.now() + 30000

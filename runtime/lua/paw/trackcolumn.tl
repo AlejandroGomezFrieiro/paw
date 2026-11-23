@@ -24,6 +24,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local util = require("paw.util")
+local registry = require("paw.registry")
 local options = require("paw.options")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -83,13 +84,45 @@ end
 local record M
   type Part = Part
   type Layout = Layout
-  components: {string: Component}
-  signs: {string: Sign}
+  --- The components by name, with the extension that added or changed
+  --- each one (`add`, `set`).
+  components: registry.Registry<Component>
+  --- The signs of the `signs` component by name, with the extension that
+  --- added or changed each one (`sign`, `set_sign`).
+  signs: registry.Registry<Sign>
   --- How many times the column worked out the tree of groups: at most one
   --- time for each draw of the arrange view. Tests count the work with it.
   tree_builds: integer
 end
-M.components, M.signs, M.tree_builds = {}, {}, 0
+M.tree_builds = 0
+
+--- Take the name of a component that went out of `paw.opt.trackcolumn`.
+local function unshow(name: string)
+  local list: {string} = {}
+  for _, n in ipairs(opt.trackcolumn as {string}) do
+    if n ~= name then
+      list[#list + 1] = n
+    end
+  end
+  opt.trackcolumn = list
+end
+
+-- A change draws the column again. A component that goes with no component
+-- below it leaves `paw.opt.trackcolumn`, and a component that an extension
+-- changed with `set` comes back as it was.
+M.components = registry.new(
+  "trackcolumn",
+  "parts of the track column",
+  {
+    changed = function(name: string, spec: Component)
+      if not spec then
+        unshow(name)
+      end
+      api.ui_redraw()
+    end,
+  }
+)
+M.signs = registry.new("trackcolumn_signs", "signs of the track column", {changed = function() api.ui_redraw() end})
 
 local function has<T>(list: {T}, value: T): boolean
   for _, v in ipairs(list) do
@@ -110,7 +143,7 @@ function M.add(name: string, spec: Component): Component
   spec.name = name
   spec.order = spec.order or 50
   spec.width = spec.width or 1
-  M.components[name] = spec
+  M.components:put(name, spec)
   local shown = opt.trackcolumn as {string}
   if not spec.hidden and not has(shown, name) then
     local list: {string} = {}
@@ -120,21 +153,15 @@ function M.add(name: string, spec: Component): Component
     list[#list + 1] = name
     opt.trackcolumn = list
   end
-  api.ui_redraw()
   return spec
 end
 
 --- Take a component away, and its name out of `paw.opt.trackcolumn`.
+--- The component that it replaced, if any, comes back.
 function M.remove(name: string)
-  M.components[name] = nil
-  local list: {string} = {}
-  for _, n in ipairs(opt.trackcolumn as {string}) do
-    if n ~= name then
-      list[#list + 1] = n
-    end
+  if not M.components:remove(name) then
+    unshow(name)
   end
-  opt.trackcolumn = list
-  api.ui_redraw()
 end
 
 --- Add a sign to the `signs` component: `render(track, ctx)` gives one
@@ -148,15 +175,16 @@ function M.sign(name: string, spec: Sign)
     )
     spec.name = name
     spec.priority = spec.priority or 10
+    M.signs:put(name, spec)
+  else
+    M.signs:remove(name)
   end
-  M.signs[name] = spec
-  api.ui_redraw()
 end
 
 --- A copy of `from` with the fields of `patch` that are given: `glyphs`
 --- and `styles` are merged into its own. A copy, not a change in place,
---- so that the registry holds a new value and an extension that unloads
---- puts back the one it found (paw/ext.lua). `ext` names the extension
+--- so that the registry holds it over the one it changed, which comes back
+--- when the extension that changed it unloads. `ext` names the extension
 --- whose code made the change, nil for the user's.
 local function patched(from: Patch, patch: Patch): Patch
   local out: {string: Field} = {}
@@ -185,17 +213,17 @@ end
 --- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
 --- `glyphs` and `styles` it draws with (merged into its own). The
 --- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
---- with the table it had before puts that back.
+--- with the table it had before puts that back. The change of an
+--- extension goes when the extension unloads.
 ---   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
 ---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 function M.set(name: string, patch: Patch): Component
-  local c = M.components[name]
+  local c = M.components:get(name)
   if not c then
     error("no track column component `" .. tostring(name) .. "`", 2)
   end
   local copy = patched(c as Patch, patch) as Component
-  M.components[name] = copy
-  api.ui_redraw()
+  M.components:put(name, copy)
   return copy
 end
 
@@ -203,13 +231,12 @@ end
 --- `priority`, `render`, `describe`, `glyphs` and `styles`.
 ---   paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
 function M.set_sign(name: string, patch: Patch): Sign
-  local s = M.signs[name]
+  local s = M.signs:get(name)
   if not s then
     error("no track column sign `" .. tostring(name) .. "`", 2)
   end
   local copy = patched(s as Patch, patch) as Sign
-  M.signs[name] = copy
-  api.ui_redraw()
+  M.signs:put(name, copy)
   return copy
 end
 
@@ -295,7 +322,7 @@ local NONE_STYLES: {string: string} = {}
 
 local function signs_width(frame: Frame): integer
   shown_signs, signs_sorted = {}, {}
-  for _, s in pairs(M.signs) do
+  for _, s in pairs(M.signs:entries()) do
     signs_sorted[#signs_sorted + 1] = s
   end
   if #signs_sorted == 0 then
@@ -530,7 +557,7 @@ end
 function M.layout(frame: Frame, room: integer): Layout
   local list: {Component} = {}
   for _, name in ipairs(opt.trackcolumn as {string}) do
-    local c = M.components[name]
+    local c = M.components:get(name)
     if c and not has(list, c) then
       list[#list + 1] = c
     end
@@ -604,7 +631,7 @@ end
 function M.describe(track: integer): {string}
   local list: {Component} = {}
   for _, name in ipairs(opt.trackcolumn as {string}) do
-    local c = M.components[name]
+    local c = M.components:get(name)
     if c and c.describe and not has(list, c) then
       list[#list + 1] = c
     end
@@ -623,7 +650,7 @@ end
 
 --- True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
 function M.shows(name: string): boolean
-  return M.components[name] ~= nil and has(opt.trackcolumn as {string}, name)
+  return M.components:get(name) ~= nil and has(opt.trackcolumn as {string}, name)
 end
 
 return M

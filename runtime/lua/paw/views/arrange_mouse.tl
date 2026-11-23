@@ -26,7 +26,7 @@ local type Row = Arrange.Row
 
 local util = paw.util
 local mouse = paw.mouse
-local view = paw.ui.views.arrange as Arrange
+local view = paw.ui.views:get("arrange") as Arrange
 local A = paw.frontend.act
 
 --- What is under the pointer (`hit`): where it is in the view (`x`, `y`)

@@ -30,6 +30,8 @@ local type TempolaneModule = require("paw.tempolane")
 local type VcaModule = require("paw.vca")
 local type RollClipsModule = require("paw.roll_clips")
 local type Roll = require("paw.views.pianoroll")
+local type registry = require("paw.registry")
+local type contracts = require("paw.contracts")
 local type MouseModule = require("paw.mouse")
 local type NestModule = require("paw.nest")
 
@@ -102,10 +104,6 @@ local record DevicePanel
   row: integer
   rows: function(self: DevicePanel): {DeviceRow}
 end
-local record Views
-  devices: DevicePanel
-  pianoroll: Roll.PianoRoll
-end
 local record Rect
   name: string
   x: integer
@@ -134,7 +132,7 @@ local record Ui
   float: Float
   message: Message
   rects: {Rect}
-  views: Views
+  views: registry.Registry<contracts.View>
   keybar: KeybarModule
   has_focus: boolean
   grabber: function()
@@ -363,6 +361,16 @@ local function by_beat(a: Point, b: Point): boolean
   return a[1] < b[1]
 end
 
+--- The device panel, as these modules read it.
+local function devices(): DevicePanel
+  return paw.ui.views:get("devices") as DevicePanel
+end
+
+--- The piano roll.
+local function roll(): Roll.PianoRoll
+  return paw.ui.views:get("pianoroll") as Roll.PianoRoll
+end
+
 local record Host
   type Candidate = Candidate
   type Prompt = Prompt
@@ -388,6 +396,8 @@ local record Host
   note_snap: function(beat: number): number
   to_arrange: function()
   by_beat: function(a: Point, b: Point): boolean
+  devices: function(): DevicePanel
+  roll: function(): Roll.PianoRoll
 end
 
 Host.paw = paw
@@ -400,5 +410,7 @@ Host.snap = snap
 Host.note_snap = note_snap
 Host.to_arrange = to_arrange
 Host.by_beat = by_beat
+Host.devices = devices
+Host.roll = roll
 
 return Host

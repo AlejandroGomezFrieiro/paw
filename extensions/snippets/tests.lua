@@ -79,14 +79,14 @@ local function start()
     "vinput",
     "tutor",
   }) do
-    if paw.ui.views[name] and paw.ui.visible(name) then pcall(paw.ui.hide, name) end
+    if paw.ui.views:get(name) and paw.ui.visible(name) then pcall(paw.ui.hide, name) end
   end
 end
 
 local function open(clip, pitch, beat)
   paw.flush()
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(pitch, beat)
   paw.ui.focus("pianoroll")
@@ -187,7 +187,7 @@ test("snippets: with two clips edited, dominant writes into the active one, in i
   paw.flush()
   api.undo_checkpoint()
   paw.roll_clips.open({ piano.id, other.id }, piano.id)
-  paw.ui.views.pianoroll:set(60, 2)
+  paw.ui.views:get("pianoroll"):set(60, 2)
   paw.ui.focus("pianoroll")
   keys(":snippet dominant<CR>")
   local pitches, pcs, length = at(piano, 2)

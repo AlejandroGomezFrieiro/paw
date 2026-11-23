@@ -181,7 +181,7 @@ test("an audio clip's waveform is a strip under its cells, of the whole clip, ke
 
   -- Scrolled four beats on: the clip's start is off the left edge, the
   -- strip the same, and what it draws there the same as before.
-  paw.ui.views.arrange.scroll = 4
+  paw.ui.views:get("arrange").scroll = 4
   api.ui_snapshot(W, H)
   s = strip("arrange:wave:" .. clip.id)
   eq(s.left, 32, "four beats of it off the left")
@@ -193,7 +193,7 @@ test("an audio clip's waveform is a strip under its cells, of the whole clip, ke
     if seen[table.concat(op, " ")] then same = same + 1 end
   end
   eq(same >= 2, true, "stretches drawn before are drawn the same: " .. same)
-  paw.ui.views.arrange.scroll = 0
+  paw.ui.views:get("arrange").scroll = 0
 
   -- Pictures off: the cells as before.
   paw.opt.graphics = false
@@ -203,7 +203,7 @@ end)
 
 test("the piano roll's controller strip is a strip under its cells, the moves marked", function()
   fresh()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   local t = paw.add_track({ name = "keys" })
   local clip = t:add_clip({
     name = "riff",

@@ -334,7 +334,7 @@ end
 function E:check_health()
   self:type({ ":checkhealth<CR>" })
   local lines = {}
-  for _, line in ipairs(paw.ui.views.pager.lines) do
+  for _, line in ipairs(paw.ui.views:get("pager").lines) do
     if line.text:find("- ERROR", 1, true) then lines[#lines + 1] = line.text end
   end
   paw.ui.close()

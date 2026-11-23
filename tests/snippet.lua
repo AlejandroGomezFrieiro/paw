@@ -84,7 +84,7 @@ local function open(start)
   local clip = track:add_clip({ start = start or 0, length = 16, notes = {} })
   paw.flush()
   api.undo_checkpoint()
-  local roll = paw.ui.views.pianoroll
+  local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   roll:set(60, 0)
   return clip, roll

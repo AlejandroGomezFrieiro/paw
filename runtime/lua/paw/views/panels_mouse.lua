@@ -25,7 +25,7 @@ end
 
 -- The mixer ------------------------------------------------------------------------------
 
-local mixer = paw.ui.views.mixer
+local mixer = paw.ui.views:get("mixer")
 local fader_position, fader_volume = mixer.fader_position, mixer.fader_volume
 
 local function draw_db(volume) return paw.draw.db_text(volume) .. " dB" end
@@ -135,7 +135,7 @@ mixer.gestures = {
 
 -- The device panel ---------------------------------------------------------------------
 
-local devices = paw.ui.views.devices
+local devices = paw.ui.views:get("devices")
 
 --- A menu of the window's (paw/window_menus.tl) at the pointer, on the
 --- button's release.

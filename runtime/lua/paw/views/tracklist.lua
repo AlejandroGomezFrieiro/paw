@@ -676,7 +676,7 @@ tb.kind("devices", {
     local track = chain_track(ctx)
     if track ~= paw.master.id then paw.cursor.set_track(track) end
     paw.ui.show("devices")
-    local panel = paw.ui.views.devices
+    local panel = paw.ui.views:get("devices")
     for i, row in ipairs(panel:rows()) do
       if row.device and row.device.id == line.id and not row.param then
         panel.row = i

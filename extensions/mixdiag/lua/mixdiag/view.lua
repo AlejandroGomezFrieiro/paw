@@ -175,7 +175,7 @@ local strip = { focusable = false }
 function strip:render(buf)
   local mixdiag = require("mixdiag")
   buf:fill(0, 0, buf.width, 1, " ", "Ruler")
-  local arrange = paw.ui.views.arrange
+  local arrange = paw.ui.views:get("arrange")
   local g = arrange and arrange.geometry
   local job = mixdiag.job
   local label
