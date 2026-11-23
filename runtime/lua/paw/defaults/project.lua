@@ -531,15 +531,23 @@ command("ext.load", function(ctx)
     return paw.notify("which extension? `:ext.load notation`; `:extensions` lists the loaded ones", "warn")
   end
   if paw.ext.loaded[name] then return paw.notify(name .. " is loaded already") end
-  local entry, err = paw.ext.load_bundled(name)
+  local entry, err
+  if paw.ext.lazy.waiting[name] then
+    entry = paw.ext.lazy.load(name, ":ext.load")
+  else
+    entry, err = paw.ext.load_bundled(name, ":ext.load")
+  end
   if not entry then return paw.notify(err, "warn") end
-  if entry.ok then paw.notify(name .. " loaded for this session: `paw.ext.load` in init.lua keeps it") end
+  if entry.ok then paw.notify(name .. " loaded for this session: `paw.ext.use` in init.lua keeps it") end
 end, {
   desc = "Load a bundled extension now: `ext.load notation`",
   complete = function()
-    local out = {}
+    local out, seen = {}, {}
+    for _, w in ipairs(paw.ext.lazy.list()) do
+      out[#out + 1], seen[w.name] = w.name, true
+    end
     for _, name in ipairs(paw.ext.bundled()) do
-      if not paw.ext.loaded[name] then out[#out + 1] = name end
+      if not paw.ext.loaded[name] and not seen[name] then out[#out + 1] = name end
     end
     return out
   end,
@@ -567,29 +575,62 @@ command("ext.unload!", function(ctx) unload(ctx, true) end, {
 })
 command("extensions", function()
   local lines = {}
-  for _, e in ipairs(paw.ext.list()) do
-    local head = e.name .. (e.version and " " .. e.version or "")
-    lines[#lines + 1] = {
-      text = string.format("%-24s %s", head, e.ok and e.path or "FAILED: " .. tostring(e.error)),
-      style = e.ok and "Title" or "Error",
-    }
-    if e.manifest and e.manifest.description then lines[#lines + 1] = "  " .. e.manifest.description end
-    for _, group in ipairs(paw.ext.provides(e.name)) do
-      -- Wrapped, the title only on the first line.
-      local line = string.format("  %-22s ", group.title)
-      for i, item in ipairs(group.items) do
-        if i > 1 and #line + #item > 100 then
-          lines[#lines + 1] = { text = line, style = "Dim" }
-          line = string.rep(" ", 25)
-        end
-        line = line .. item .. "  "
+  -- The page is 100 columns wide at most, with its border and margin.
+  local width = math.min(100, (api.ui_size())) - 6
+  --- A row of a group: its title, then its items wrapped under each other.
+  local function group_rows(title, items)
+    local line = string.format("  %-22s ", title)
+    for i, item in ipairs(items) do
+      if i > 1 and #line + #item > width then
+        lines[#lines + 1] = { text = line, style = "Dim" }
+        line = string.rep(" ", 25)
       end
-      lines[#lines + 1] = { text = line, style = "Dim" }
+      line = line .. item .. "  "
+    end
+    lines[#lines + 1] = { text = line, style = "Dim" }
+  end
+  local function head(name, version, status, style)
+    lines[#lines + 1] =
+      { text = string.format("%-24s %s", name .. (version and " " .. version or ""), status), style = style }
+  end
+  -- The loaded ones and those that wait for their first use
+  -- (paw/lazy.tl), by name.
+  local all = paw.ext.list()
+  for _, w in ipairs(paw.ext.lazy.list()) do
+    if not paw.ext.loaded[w.name] then
+      all[#all + 1] = { name = w.name, path = w.path, manifest = w.manifest, waits = true }
+    end
+  end
+  table.sort(all, function(a, b) return a.name < b.name end)
+  for _, e in ipairs(all) do
+    local version = e.manifest and e.manifest.version
+    if e.waits then
+      head(e.name, version, "waits for its first use", "Title")
+    elseif e.ok then
+      head(
+        e.name,
+        version,
+        "loaded " .. (e.loaded_by == "at start" and "at start" or "by " .. tostring(e.loaded_by)),
+        "Title"
+      )
+    else
+      head(e.name, version, "FAILED: " .. tostring(e.error), "Error")
+    end
+    if e.manifest and e.manifest.description then lines[#lines + 1] = "  " .. e.manifest.description end
+    group_rows("folder", { e.path })
+    if e.waits then
+      group_rows("loads on", paw.ext.lazy.describe(e.name))
+    else
+      for _, group in ipairs(paw.ext.provides(e.name)) do
+        group_rows(group.title, group.items)
+      end
     end
   end
   if #lines == 0 then lines[1] = "No extensions loaded. They live in " .. api.env().config_dir .. "/extensions" end
   paw.ui.page("Extensions", lines)
-end, { desc = "List loaded extensions, each with what it registered" })
+end, {
+  desc = "List the extensions: those loaded, with what loaded each and what it registered, and those that wait for their first use",
+})
 
 for _, name in ipairs({ "open", "edit", "new", "example" }) do
   paw.project.allow_discard(name)

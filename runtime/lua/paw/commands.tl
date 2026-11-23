@@ -303,7 +303,7 @@ function M.unknown(name: string): string
         return stem
           .. " is a bundled extension that isn't loaded: `:ext.load "
           .. stem
-          .. "` loads it now, `paw.ext.load` in init.lua keeps it"
+          .. "` loads it now, `paw.ext.use` in init.lua keeps it"
       end
     end
   end

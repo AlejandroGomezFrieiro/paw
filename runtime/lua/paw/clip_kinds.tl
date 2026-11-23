@@ -714,7 +714,9 @@ end
 events.on(
   kernel.project_loaded,
   function()
-    if #M.order == 0 then
+    -- With no kind, nothing to migrate, unless an extension waits for a
+    -- kind of clip: migrate's `get` loads it (paw/lazy.tl).
+    if #M.order == 0 and not (registry.waiting and registry.waiting(M.kinds)) then
       return
     end
     local clean = not api.undo_pending()

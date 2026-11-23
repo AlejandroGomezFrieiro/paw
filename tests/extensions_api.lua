@@ -126,7 +126,9 @@ test("an extension's requirements are loaded before it, and their versions check
   local needy = paw.ext.load(dir("reqs/needy"))
   eq(
     needy.error,
-    "needs the extension nowhere, which is not to be found",
+    "needs the extension nowhere, which is not to be found: put it beside needy, or in "
+      .. api.env().config_dir
+      .. "/extensions",
     "a name provided counts; a missing one does not"
   )
   local ok, why = paw.ext.unload("base")

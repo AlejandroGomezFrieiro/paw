@@ -1,0 +1,15 @@
+ ╭─ Extensions ───────────────────────────────────────────────────────────────────────────────────╮
+ │ continue 0.1.0           loaded by paw.ext.use                                                 │
+ │   A completion source that suggests how the phrase before the cursor goes on                   │
+ │   folder                 ./extensions/continue                                                 │
+ │   completion sources     continue                                                              │
+ │ templates 0.1.0          waits for its first use                                               │
+ │   A track, a group of tracks or a chain of devices saved under a name, to make again in any    │
+ │   project                                                                                      │
+ │   folder                 ./extensions/templates                                                │
+ │   loads on               :templates  :template.load  :template.save                            │
+ │                          :template.*  <localleader>Tl  <localleader>Tf                         │
+ │                          <localleader>Ts                                                       │
+ │                                                                                                │
+ │                                                                                                │
+ │                                                                                                │

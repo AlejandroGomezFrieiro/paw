@@ -24,8 +24,10 @@
 --     name = "euclid", version = "1.2.0",
 --     description = "Euclidean rhythms as clips",
 --     requires = { paw = ">=1.0", sections = "^1" },  -- the API, and other extensions
+--     optional = { notation = "*" },                 -- extensions it uses when they are there
 --     provides = { "rhythms" },                      -- names others may require it by
 --     needs = { "processes" },                       -- what the build must have
+--     cmd = { "euclid" }, keys = { "<leader>re" },   -- it waits for these (paw/lazy.tl)
 --   }
 local api = paw.api
 local registry = require("paw.registry")
@@ -43,10 +45,12 @@ local function one_file(path) return path:match("%.lua$") ~= nil or paw.lang.of(
 
 --- The name of an extension at `path`: its directory's or file's, without
 --- the extension of the file.
+--- @type function(path: string): string
 local function name_of(path)
   local base = path:match("([^/]+)$")
-  return one_file(base) and base:gsub("%.[%w_]+$", "") or base
+  return (one_file(base) and base:gsub("%.[%w_]+$", "") or base)
 end
+M.name_of = name_of
 
 local exists = paw.api.fs_exists
 
@@ -469,6 +473,11 @@ function M.manifest(path, name)
   if got.needs ~= nil and type(got.needs) ~= "table" then
     return nil, 'manifest.lua: needs is a list of names, such as { "processes" }'
   end
+  for _, field in ipairs({ "requires", "optional" }) do
+    if got[field] ~= nil and type(got[field]) ~= "table" then
+      return nil, "manifest.lua: " .. field .. ' is a table of names and versions, such as { notation = "*" }'
+    end
+  end
   got.name = name
   return got
 end
@@ -495,28 +504,47 @@ function M.build_has(feature)
   return false
 end
 
---- What the extension's `needs` names that this build does not have:
+--- What the `needs` of a manifest names that this build does not have:
 --- nil, or the reason it does not load. A name that no build knows is
 --- missing too, so that a typo is said.
-local function missing_needs(entry)
+--- @type function(manifest: contracts.Manifest): string
+function M.missing_needs(manifest)
   local missing = {}
-  for _, need in ipairs(entry.manifest.needs or {}) do
+  for _, need in ipairs(manifest.needs or {}) do
     if not M.build_has(need) then missing[#missing + 1] = tostring(need) end
   end
   if #missing == 0 then return end
   return "needs " .. table.concat(missing, " and ") .. ", which this build of paw does not have"
 end
 
+--- The names of a table of names and versions (`requires`, `optional`), sorted.
+local function sorted_names(wants)
+  local names = {}
+  for name in pairs(wants or {}) do
+    names[#names + 1] = name
+  end
+  table.sort(names)
+  return names
+end
+
+--- Nil when the loaded extension `other` has a version that `want`
+--- accepts, or else what is wrong.
+local function wrong_version(other, name, want)
+  local version = other.manifest and other.manifest.version
+  if want == "*" or want == true or (version and M.satisfies(version, want)) then return nil end
+  return "needs "
+    .. name
+    .. " "
+    .. tostring(want)
+    .. ", and "
+    .. (version and "this is " .. version or "it says no version")
+end
+
 --- Load what an extension requires and check the versions. Returns nil,
 --- or what is wrong.
 local function require_all(entry)
   local requires = entry.manifest.requires or {}
-  local names = {}
-  for name in pairs(requires) do
-    names[#names + 1] = name
-  end
-  table.sort(names)
-  for _, name in ipairs(names) do
+  for _, name in ipairs(sorted_names(requires)) do
     local want = requires[name]
     if name == "paw" then
       if not M.satisfies(api.version, want) then
@@ -524,46 +552,70 @@ local function require_all(entry)
       end
     else
       local other = holder(name)
+      local why = "required by " .. entry.name
+      if not other and M.lazy and M.lazy.waiting[name] then other = M.lazy.load(name, why) end
       if not other then
         -- Beside it first, then among those that come with the program.
         local sibling = entry.path:match("^(.*)/[^/]+$")
         if sibling and paw.lang.find(sibling .. "/" .. name .. "/init") then
-          other = M.load(sibling .. "/" .. name)
+          other = M.load(sibling .. "/" .. name, why)
         else
-          other = M.load_bundled(name)
+          other = M.load_bundled(name, why)
         end
         other = other or holder(name)
       end
-      if not other then return "needs the extension " .. name .. ", which is not to be found" end
-      if not other.ok then return "needs the extension " .. name .. ", which failed to load" end
-      local version = other.manifest and other.manifest.version
-      if want ~= "*" and want ~= true and not (version and M.satisfies(version, want)) then
-        return "needs "
+      if not other then
+        return "needs the extension "
           .. name
-          .. " "
-          .. tostring(want)
-          .. ", and "
-          .. (version and "this is " .. version or "it says no version")
+          .. ", which is not to be found: put it beside "
+          .. entry.name
+          .. ", or in "
+          .. api.env().config_dir
+          .. "/extensions"
       end
+      if not other.ok then return "needs the extension " .. name .. ", which failed to load" end
+      local wrong = wrong_version(other, name, want)
+      if wrong then return wrong end
     end
+  end
+end
+
+-- The extensions that load together now (`load_dir`, `load_packaged`):
+-- name -> path, and the function that loads one of them. Nil between.
+local batch, batch_load
+
+--- Load first the extensions of `optional` that load in the same batch.
+--- One that is not there, or that waits for a trigger, does not load: the
+--- extension works without it. A loaded one of a version that `optional`
+--- does not accept gives a warning, and the extension loads.
+local function optional_first(entry)
+  local wants = entry.manifest.optional or {}
+  for _, name in ipairs(sorted_names(wants)) do
+    if not M.loaded[name] and batch and batch[name] then batch_load(batch[name]) end
+    local other = holder(name)
+    local wrong = other and other.ok and wrong_version(other, name, wants[name])
+    if wrong then paw.notify("extension " .. entry.name .. " can use " .. wrong:gsub("^needs ", ""), "warn") end
   end
 end
 
 -- Loading and unloading ------------------------------------------------------------
 
-local function load_one(path)
+local function load_one(path, why)
   local name = name_of(path)
   local known = M.loaded[name]
   if known and known.packaged then return known end
-  local entry = { name = name, path = path, ok = true }
+  -- One that waited for a trigger loads now by another way: its stubs go first.
+  if M.lazy then M.lazy.forget(name) end
+  local entry = { name = name, path = path, ok = true, loaded_by = why }
   M.loaded[name] = entry
   local manifest, merr = M.manifest(path, name)
   entry.manifest = manifest or { name = name }
   entry.version = entry.manifest.version
   -- The build first: an extension that cannot run here loads none of its
   -- requirements. A manifest that does not read has no needs.
-  local missing = missing_needs(entry)
+  local missing = M.missing_needs(entry.manifest)
   local err = merr or missing or require_all(entry)
+  if not err then optional_first(entry) end
   if err then
     entry.ok, entry.error, entry.needs_unmet = false, err, missing ~= nil
     paw.notify("extension " .. name .. " failed: " .. tostring(err), "error")
@@ -615,11 +667,13 @@ end
 --- Load one extension from a directory or a file (`.lua`, or `.tl` or the
 --- extension of another language of `paw.lang`). One the program
 --- was built with is not loaded again from elsewhere: the configuration
---- that names the source tree's copy gets the packaged one.
-function M.load(path)
+--- that names the source tree's copy gets the packaged one. `why` says how
+--- it came to load, in words for `:extensions` (`entry.loaded_by`).
+--- @type function(path: string, why?: string): contracts.ExtEntry
+function M.load(path, why)
   -- A line of its own in the file of `paw --startuptime`.
   api.startup_enter()
-  local entry = load_one(path)
+  local entry = load_one(path, why or (M.started and "paw.ext.load" or "at start"))
   api.startup_leave("extension " .. name_of(path))
   return entry
 end
@@ -673,6 +727,9 @@ end
 --- nil and the reason.
 function M.unload(name, opts)
   local entry = M.loaded[name]
+  -- One that waits for a trigger (again, after a load that failed): its stubs go.
+  local waited = M.lazy and M.lazy.forget(name)
+  if not entry and waited then return true end
   if not entry then return nil, "no extension `" .. tostring(name) .. "` is loaded" end
   for _, other in pairs(M.loaded) do
     local requires = other ~= entry and other.ok and other.manifest and other.manifest.requires
@@ -748,26 +805,73 @@ end
 --- Load the extensions the program was built with: `dirs` is a list of
 --- their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's
 --- `paw.withExtensions` sets).
-function M.load_packaged(dirs)
-  for dir in (dirs or ""):gmatch("[^:]+") do
-    local entry = M.load(dir)
-    entry.packaged = true
+--- Load a list of extensions together: each one waits for its triggers or
+--- loads now (`use`), in the order of `paths`, but an extension that
+--- another one of the list names in `optional` comes before it.
+--- `start(path)` loads one of them.
+local function load_batch(paths, start)
+  local outer, outer_load = batch, batch_load
+  batch = {}
+  for _, path in ipairs(paths) do
+    batch[name_of(path)] = path
   end
+  local done = {}
+  batch_load = function(path)
+    if done[path] then return end
+    done[path] = true
+    start(path)
+  end
+  for _, path in ipairs(paths) do
+    batch_load(path)
+  end
+  batch, batch_load = outer, outer_load
 end
 
---- Load everything in a directory of extensions.
+--- Use an extension: it waits for its triggers, or loads now (paw/lazy.tl).
+--- `which` is a path, or the name of a bundled extension. `spec` gives
+--- triggers in place of those of its manifest, field by field, and
+--- `spec.lazy = false` loads it now. Returns the entry when it loaded, or
+--- nil when it waits.
+--- @type function(which: string, spec?: contracts.Triggers): contracts.ExtEntry
+function M.use(which, spec) return M.lazy.use(which, spec, M.started and "paw.ext.use" or "at start") end
+
+--- Load the extensions the program was built with: `dirs` is a list of
+--- their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's
+--- `paw.withExtensions` sets). Each one with triggers waits for them.
+function M.load_packaged(dirs)
+  local paths = {}
+  for dir in (dirs or ""):gmatch("[^:]+") do
+    paths[#paths + 1] = dir
+  end
+  load_batch(paths, function(dir)
+    local entry = M.lazy.use(dir, nil, "at start")
+    local waiting = M.lazy.waiting[name_of(dir)]
+    if entry then
+      entry.packaged = true
+    elseif waiting then
+      waiting.packaged = true
+    end
+  end)
+end
+
+--- Use everything in a directory of extensions: each one with triggers
+--- waits for them, and the others load now.
 function M.load_dir(dir)
+  local paths = {}
   for _, item in ipairs(api.read_dir(dir)) do
-    local path = dir .. "/" .. item.name
+    if item.is_dir or one_file(item.name) then paths[#paths + 1] = dir .. "/" .. item.name end
+  end
+  load_batch(paths, function(path)
     -- One loaded already, as another's requirement, is not loaded twice.
     local known = M.loaded[name_of(path)]
-    if (item.is_dir or one_file(item.name)) and not (known and known.path == path) then M.load(path) end
-  end
+    if not (known and known.path == path) then M.lazy.use(path, nil, "at start") end
+  end)
 end
 
 --- The directory of the extensions that come with paw:
 --- `$PAW_HOME/extensions`, or `extensions` under the current directory in a
 --- source tree. Nil when there is no such directory.
+--- @type function(): string
 function M.bundled_dir()
   for _, root in ipairs({ os.getenv("PAW_HOME") or ".", "." }) do
     if #api.read_dir(root .. "/extensions") > 0 then return root .. "/extensions" end
@@ -787,10 +891,10 @@ end
 
 --- Load a bundled extension by name. A name that is loaded does not change.
 --- Returns the entry, or nil and the problem.
-function M.load_bundled(name)
+function M.load_bundled(name, why)
   if M.loaded[name] then return M.loaded[name] end
   for _, known in ipairs(M.bundled()) do
-    if known == name then return M.load(M.bundled_dir() .. "/" .. name) end
+    if known == name then return M.load(M.bundled_dir() .. "/" .. name, why) end
   end
   return nil,
     "no bundled extension `" .. tostring(name) .. "`" .. (M.bundled_dir() and "" or ": set PAW_HOME to the source tree")

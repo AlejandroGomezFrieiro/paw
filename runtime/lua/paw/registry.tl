@@ -77,6 +77,14 @@ local record M
   --- Runs when the extension `owner` puts an entry over an entry of the
   --- extension `previous`: paw.ext keeps it for `:checkhealth extensions`.
   replaced: function(registry: M.Owned, what: string, owner: string, previous: string)
+  --- Runs when `get` finds no entry at `key`: paw/lazy.tl loads the
+  --- extension that waits for this key of this registry, and gives true.
+  --- `get` then looks again. Nil until paw/lazy.tl sets it.
+  missing: function(registry: M.Owned, key: string): boolean
+  --- True when an extension waits for a key of `registry`: a module that
+  --- skips its work while the registry is empty does it then, so that its
+  --- `get` loads the extension. paw/lazy.tl sets it.
+  waiting: function(registry: M.Owned): boolean
 end
 
 -- Every registry made, in the order of `new`.
@@ -153,6 +161,10 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
 
   function registry.get(_: M.Registry<T>, key: string): T
     local top = slots[key]
+    -- A key that an extension that waits gives: it loads now.
+    if not top and key ~= nil and M.missing and M.missing(registry, key) then
+      top = slots[key]
+    end
     return top and top.value
   end
 

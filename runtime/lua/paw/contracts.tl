@@ -2098,15 +2098,56 @@ local record contracts
 
   -- Extensions -------------------------------------------------------------------
 
+  --- A command that loads an extension that waits: its name first
+  --- (`{ "undotree", desc = "Open the undo tree" }`). A name that ends in
+  --- `*` is a prefix (`"notation.*"`), which loads on any command that
+  --- starts with it and does not show in the lists.
+  record CmdTrigger is {string}
+    desc: string
+  end
+
+  --- A key that loads an extension that waits: its keys first
+  --- (`{ "<leader>pu", desc = "Undo tree", mode = "n", view = "arrange" }`).
+  --- Without `mode`, normal mode; without `view`, every view.
+  record KeyTrigger is {string}
+    desc: string
+    mode: string | {string}
+    view: string
+  end
+
+  --- A key of a registry that loads an extension that waits, when a part
+  --- of paw asks the registry for it: `{ registry = "clip_kinds", key =
+  --- "video" }`. `registry` is the kind of the registry (`paw.registry.all()`).
+  record KindTrigger
+    registry: string
+    key: string
+  end
+
+  --- When an extension loads (`paw.ext.use`, and the fields of a
+  --- manifest): on its first command, key, event, kind or view. A kind as
+  --- a name alone is a kind of track or of clip. An extension with a
+  --- trigger waits for it, unless `lazy` is false. Each field is one value
+  --- or a list.
+  interface Triggers
+    cmd: string | {string | CmdTrigger}
+    keys: string | {string | KeyTrigger}
+    event: string | {string}
+    kind: string | {string | KindTrigger}
+    view: string | {string}
+    lazy: boolean
+  end
+
   --- An extension's `manifest.lua`: its name, its version, what it is,
   --- the versions of the API and of other extensions it needs, the
-  --- names others may require it by, and what it needs of the build
-  --- (`paw.api.build().features`).
-  record Manifest
+  --- extensions it can use when they are there, the names others may
+  --- require it by, what it needs of the build
+  --- (`paw.api.build().features`), and when it loads (`Triggers`).
+  record Manifest is Triggers
     name: string
     version: string
     description: string
     requires: {string: string}
+    optional: {string: string}
     provides: {string}
     needs: {string}
   end
@@ -2122,6 +2163,11 @@ local record contracts
     error: string
     --- True when it did not load because the build lacks what it needs.
     needs_unmet: boolean
+    --- How it came to load, in words for `:extensions`: "at start", the
+    --- command or key that loaded it, "required by sections".
+    loaded_by: string
+    --- True for one that the program was built with (`paw.ext.load_packaged`).
+    packaged: boolean
   end
 end
 

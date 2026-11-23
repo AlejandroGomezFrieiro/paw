@@ -278,6 +278,27 @@ local function run(list: {Handler}, name: string, payload: Payload)
   end
 end
 
+--- The handle that the next `paw.on` gives. A handler made later has this
+--- handle or a larger one.
+function M.next_handle(): integer
+  return next_id + 1
+end
+
+--- Run the handlers that listen by `pattern` (a name, `family.*` or `*`)
+--- and have the handle `from` or a larger one, with the event `name`, as
+--- `emit` runs them. An emit takes its list of handlers when it starts:
+--- paw/lazy.tl gives the event that loaded an extension to the handlers
+--- that the extension made.
+function M.emit_since(from: integer, pattern: string, name: string, payload: Payload)
+  local list: {Handler} = {}
+  for _, h in ipairs(handlers[pattern] or {}) do
+    if h.id >= from then
+      list[#list + 1] = h
+    end
+  end
+  run(list, name, payload)
+end
+
 --- Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes
 --- to the next. Returns true, or false and the reason when a handler
 --- returned `false, reason`. So a handler refuses the request of an event

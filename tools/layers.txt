@@ -150,6 +150,7 @@ paw.luadev
 paw.plugins
 paw.health
 paw.ext
+paw.lazy
 
 [views]
 # What the windows show: the views, the pickers and the menus.
