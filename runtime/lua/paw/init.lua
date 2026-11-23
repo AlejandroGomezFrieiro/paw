@@ -294,6 +294,10 @@ function K.startup()
   }) do
     require("paw.views." .. name)
   end
+  -- Insert mode's drawing, which draws on the piano roll as one of its
+  -- layers (paw/roll_draw.tl). It names the roll's types, so the roll
+  -- cannot load it.
+  paw.roll_draw = require("paw.roll_draw")
   -- What the pointer does in them: the window's gestures, in cells.
   for _, name in ipairs({ "arrange_mouse", "pianoroll_mouse", "panels_mouse" }) do
     require("paw.views." .. name)

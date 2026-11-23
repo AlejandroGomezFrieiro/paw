@@ -36,6 +36,7 @@ local type objects = require("paw.objects")
 local type DiagnosticModule = require("paw.diagnostic")
 local type LanesModule = require("paw.lanes")
 local type CursorModule = require("paw.cursor")
+local type Roll = require("paw.views.pianoroll")
 
 local type Level = DiagnosticModule.Level
 local type Diagnostic = DiagnosticModule.Diagnostic
@@ -218,11 +219,6 @@ local record Layout
   leaf: function(view: string, fields: LeafFields): Win
   tidy: function(root: {Win})
   close: function(win: Win): boolean
-end
-
---- The piano roll, as far as this module reads it.
-local record Roll
-  clip_id: integer
 end
 
 --- What a key's function gets (`paw.keymap.set`).
@@ -1550,7 +1546,7 @@ both(
 local function shown_target(): DiagnosticModule.Target
   local view = paw.ui.focused
   if view == "pianoroll" then
-    return (paw.ui.views.pianoroll as Roll).clip_id
+    return (paw.ui.views.pianoroll as Roll.PianoRoll).clip_id
   end
   if view == "mixer" or view == "devices" then
     local id = paw.cursor.track_id()

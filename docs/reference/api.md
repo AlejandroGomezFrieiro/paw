@@ -1827,7 +1827,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.span()`: The stretch of the roll the editable clips cover: from, to. In a scope with time, only its time, as the arrange view (`0` and `$` stop there).
 - `paw.roll_clips.step_track(n, wrap)`: Make active the track `n` places after the track of the active clip, in the tracks that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other track.
 - `paw.roll_clips.target(beat, parts)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
-- `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays.
+- `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays. Returns whether the clip is editable now, nil for a clip that is not MIDI.
 - `paw.roll_clips.tracks()`: The tracks whose notes can show behind the notes of the roll. These are the tracks with MIDI clips (of the scope, in a narrowed window), but not the track of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
 - `paw.roll_clips.visible()`: The tracks whose notes the roll shows, in the order of the track list: the active clip's and those shown behind it.
 
@@ -2020,7 +2020,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.snippet.load_dir(dir, source)`: Load every `*.lua` file of a directory: each calls `paw.snippet.add` or returns a list of snippets. `source` is "config" or "extension".
 - `paw.snippet.marks(clip_id)`: The active snippet's notes and span in the clip's beats, for drawing: `{ name, notes, from, to, label }`, or nil.
 - `paw.snippet.offered(view)`: The snippets offered in `view` (the focused one when nil), by name.
-- `paw.snippet.paint(p)`: Paint the snippet layer of the piano roll (order 40, see `views/pianoroll.lua`). It marks the notes of the active snippet, and shows its range along the bottom with the items of Tab and `<C-n>`. It shows the notes that the picker would write as ghosts.
+- `paw.snippet.paint(p)`: Paint the snippet layer of the piano roll (order 40, see `views/pianoroll.tl`). It marks the notes of the active snippet, and shows its range along the bottom with the items of Tab and `<C-n>`. It shows the notes that the picker would write as ghosts.
 - `paw.snippet.pick(opts)`: Open the picker of the snippets of the focused view. Enter expands the selected snippet `count` times.
 - `paw.snippet.preview(name, opts)`: What a snippet would write here, but does not write: `{ notes, choices, ctx }` or nil and why.
 - `paw.snippet.preview_marks(clip_id)`: The notes that the snippet under the selection of the picker would write, in the beats of the clip, to draw them. Nil when no picker of snippets is open.

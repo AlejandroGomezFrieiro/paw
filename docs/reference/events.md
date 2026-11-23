@@ -69,8 +69,6 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `command.pre`, `command.post` | `{ name, command, args }` | before and after a command |
 | `view.focused` | `{ view, old }` | another view gets the keys |
 | `view.opened`, `view.closed` | `{ name }` | a view came on the screen, or went off the screen |
-| `pianoroll.opened` | `{ clip }` | the piano roll opened a clip |
-| `roll_clips.changed` | `{ active, count }` | the clips that the piano roll edits changed |
 | `win.enter`, `win.leave` | `{ win }` | the keys went into a window, or left it |
 | `win.resized` | `{ win }` | a window changed size |
 | `win.option` | `{ win, name, value }` | a window option changed |
@@ -113,9 +111,11 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 | `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped | `paw.lsp.status_changed` |
 | `mode.changed` | `{ mode, old }` | the mode of the keymap changed | `paw.keymap.mode_changed` |
 | `option.changed` | `{ name, value, old }` | an option got a different value | `paw.option.changed` |
+| `pianoroll.opened` | `{ clip }` | the piano roll opened a clip | `require("paw.views.pianoroll").opened` |
 | `qf.changed` | `{ title, win }` | the quickfix list or a location list changed | `paw.qf.event` |
 | `render.before` | `{ path, opts, measure }` | a render will start | `paw.render.before` |
 | `render.finished` | `{ path, frames, seconds, sample_rate, peak, format, bits, channels, gain, loudness, nonfinite, elapsed, processing, blocks, threads, device_runs, device_sleeps, left_out }` | what a render in the foreground wrote | `paw.render.finished` |
+| `roll_clips.changed` | `{ active, count }` | the clips that the piano roll edits changed | `paw.roll_clips.changed` |
 | `snippet.expanded` | `{ name, clip }` | a snippet went into a clip | `paw.snippet.expanded` |
 | `snippet.finished` | `{ name }` | a snippet stopped, and the notes that it wrote stay | `paw.snippet.finished` |
 | `startup` | `{}` | the runtime, the extensions and the configuration loaded | `paw.events.startup` |

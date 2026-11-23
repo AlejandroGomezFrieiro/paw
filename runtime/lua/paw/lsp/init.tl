@@ -1733,10 +1733,11 @@ events.on(events.startup, offer)
 
 -- Following the project ------------------------------------------------------------
 
-local pianoroll_opened: events.Event<kernel.Nothing> = events.event("pianoroll.opened")
-local roll_clips_changed: events.Event<kernel.Nothing> = events.event("roll_clips.changed")
+-- The piano roll and its clips load before this module (paw/init.lua).
+local pianoroll = require("paw.views.pianoroll")
+local roll_clips = require("paw.roll_clips")
 events.on(
-  pianoroll_opened,
+  pianoroll.opened,
   function()
     if next(clients) then
       M.sync()
@@ -1747,7 +1748,7 @@ events.on(A.changed, schedule)
 events.on(paw.cursor.changed, schedule)
 -- Every clip the piano roll edits is open with the servers, not only the active one.
 events.on(
-  roll_clips_changed,
+  roll_clips.changed,
   function()
     if next(clients) then
       M.sync()
