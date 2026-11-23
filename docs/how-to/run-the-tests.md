@@ -17,7 +17,9 @@ The suite writes its full output to `target/test-scratch/suite.out`.
 
 The tests never use your own files or plugins. Each test run gets a scratch
 home folder and empty plugin folders under `target/test-scratch`, so your
-plugins, your settings and your Wine prefix stay untouched. To run paw by
+plugins, your settings and your Wine prefix stay untouched. The run also
+gets its own folder for sockets and a user name that isn't yours, so a test
+can't reach a paw that you have open. To run paw by
 hand in the same setup, use `tests/tools/run.sh` in place of `paw`, for
 example `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check`.
 
@@ -131,6 +133,11 @@ its line smaller, so the list only gets shorter. Run
 `luajit tools/testlint.lua` to check the tree, and
 `luajit tools/testlint.lua counts` to print the counts of today.
 
+The same check also fails on a test file that reads your computer: a read
+of `HOME`, `USER` or `LOGNAME`, a read of `/etc/passwd`, or a path that
+starts with `/home/`. The check has no allow-list for such a read. A Lua test of `~`
+uses `T.home()`, which gives the test a home folder of its own.
+
 ## Run the Rust tests
 
 1. Run `cargo test`, which also runs the Lua suite once, from
@@ -228,8 +235,10 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - The checks of the Lua and Teal code, which fail on a problem: the types
   of the Teal files with cyan, `luacheck` on the Lua files, and the format
   of both with StyLua and cerulean.
-- The check against tests that depend on time, `tools/testlint.lua`, which
-  fails on a count over `tests/timing-allowed.txt`.
+- The check against tests that depend on time or on your computer,
+  `tools/testlint.lua`, which fails on a count over
+  `tests/timing-allowed.txt` and on any read of the home folder or the
+  user name.
 
 The Lua suite and the window tests do not run in the build. They need an X
 server, plugins and their own directories, and a build sandbox does not

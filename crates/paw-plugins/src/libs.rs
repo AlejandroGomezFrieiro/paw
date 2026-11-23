@@ -35,43 +35,6 @@ const OPENED_LATER: &[&str] = &[
     "libfreetype.so.6",
 ];
 
-/// Where the build environment kept the libraries plugins look for, when it
-/// said (`PAW_PLUGIN_LIB_DIRS`, set by the dev shell on a system that has
-/// them nowhere else).
-const BUILT_WITH: Option<&str> = option_env!("PAW_PLUGIN_LIB_DIRS");
-
-/// Where to look for a library the loader did not find: `PAW_PLUGIN_LIBS`
-/// (directories separated by colons) first, then where nix-ld and the
-/// system profiles keep them, then where the build found them, then the
-/// usual places of other systems.
-pub fn search_dirs() -> Vec<PathBuf> {
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    for variable in ["PAW_PLUGIN_LIBS", "NIX_LD_LIBRARY_PATH"] {
-        if let Some(list) = std::env::var_os(variable) {
-            dirs.extend(std::env::split_paths(&list));
-        }
-    }
-    dirs.extend(std::env::split_paths(BUILT_WITH.unwrap_or_default()));
-    dirs.push("/run/current-system/sw/share/nix-ld/lib".into());
-    dirs.push("/run/current-system/sw/lib".into());
-    if let Some(home) = std::env::var_os("HOME") {
-        dirs.push(Path::new(&home).join(".nix-profile/lib"));
-    }
-    if let Some(user) = std::env::var_os("USER") {
-        dirs.push(Path::new("/etc/profiles/per-user").join(user).join("lib"));
-    }
-    for dir in [
-        "/usr/lib/x86_64-linux-gnu",
-        "/usr/lib64",
-        "/usr/lib",
-        "/lib64",
-    ] {
-        dirs.push(dir.into());
-    }
-    dirs.retain(|dir| dir.is_dir());
-    dirs
-}
-
 /// The library a loader error says is missing, if that is what it says.
 fn missing(message: &str) -> Option<&str> {
     let end = message.find(MISSING)?;
@@ -79,26 +42,32 @@ fn missing(message: &str) -> Option<&str> {
     (!name.is_empty() && !name.contains('/')).then_some(name)
 }
 
-/// Load a library found in one of the search directories, and whatever it
+/// The folders of `dirs` that exist now, in order: a folder can come after
+/// the program starts (a package is installed).
+fn existing(dirs: &[PathBuf]) -> impl Iterator<Item = &PathBuf> {
+    dirs.iter().filter(|dir| dir.is_dir())
+}
+
+/// Load a library found in one of the folders of `dirs`, and whatever it
 /// needs in turn. It stays loaded: the plugins that need it are never
 /// unloaded either.
-fn preload(name: &str, depth: usize) -> bool {
-    for dir in search_dirs() {
+fn preload(name: &str, dirs: &[PathBuf], depth: usize) -> bool {
+    for dir in existing(dirs) {
         let candidate = dir.join(name);
-        if candidate.exists() && open_at(&candidate, depth + 1).is_ok() {
+        if candidate.exists() && open_at(&candidate, dirs, depth + 1).is_ok() {
             return true;
         }
     }
     false
 }
 
-fn open_at(path: &Path, depth: usize) -> Result<()> {
-    let library = open_with(path, depth)?;
+fn open_at(path: &Path, dirs: &[PathBuf], depth: usize) -> Result<()> {
+    let library = open_with(path, dirs, depth)?;
     std::mem::forget(library);
     Ok(())
 }
 
-fn open_with(path: &Path, depth: usize) -> Result<Library> {
+fn open_with(path: &Path, dirs: &[PathBuf], depth: usize) -> Result<Library> {
     let mut given_up: Vec<String> = Vec::new();
     loop {
         // SAFETY: Loading a library runs its initializers; paw loads only plugin libraries it was asked
@@ -112,11 +81,10 @@ fn open_with(path: &Path, depth: usize) -> Result<Library> {
             Some(name)
                 if depth < 8 && !given_up.iter().any(|n| n == name) && given_up.len() < 64 =>
             {
-                if !preload(name, depth) {
+                if !preload(name, dirs, depth) {
                     return Err(anyhow!(
                         "{err} (looked for {name} in {} too; set PAW_PLUGIN_LIBS to where it is)",
-                        search_dirs()
-                            .iter()
+                        existing(dirs)
                             .map(|d| d.display().to_string())
                             .collect::<Vec<_>>()
                             .join(", ")
@@ -130,8 +98,8 @@ fn open_with(path: &Path, depth: usize) -> Result<Library> {
 }
 
 /// Open a plugin's shared library, finding the libraries it needs where the
-/// loader alone would not.
-pub fn open_library(path: &Path) -> Result<Library> {
+/// loader alone would not: in `dirs` ([`crate::PluginDirs`] gives them).
+pub fn open_library(path: &Path, dirs: &[PathBuf]) -> Result<Library> {
     // Have ready what a plugin will look for by name once it runs. Every
     // plugin, not only one whose own needs were missing: a plugin that names
     // nothing as needed still opens the display's libraries for its editor,
@@ -147,14 +115,14 @@ pub fn open_library(path: &Path) -> Result<Library> {
                     .is_ok()
             };
             if !found {
-                preload(name, 0);
+                preload(name, dirs, 0);
             }
         }
     });
     // SAFETY: Loading a library runs its initializers; this is the plugin load the user asked for.
     match unsafe { Library::open(Some(path), RTLD_LAZY | RTLD_LOCAL) } {
         Ok(library) => Ok(library),
-        Err(err) if missing(&err.to_string()).is_some() => open_with(path, 0),
+        Err(err) if missing(&err.to_string()).is_some() => open_with(path, dirs, 0),
         Err(err) => Err(anyhow!("{err}")),
     }
 }
@@ -179,19 +147,5 @@ mod tests {
             None
         );
         assert_eq!(missing("undefined symbol: foo"), None);
-    }
-
-    #[test]
-    fn where_the_build_found_libraries_is_searched() {
-        // Nothing to check where the build environment did not say.
-        for dir in std::env::split_paths(BUILT_WITH.unwrap_or_default()) {
-            if dir.is_dir() {
-                assert!(
-                    search_dirs().contains(&dir),
-                    "{} is searched",
-                    dir.display()
-                );
-            }
-        }
     }
 }

@@ -237,11 +237,19 @@ M.register("window", function(h)
   h.info("while the song plays, the window draws " .. tostring(fps) .. " frames a second (paw.opt.window_fps)")
 end, { desc = "the graphical window and the OpenGL that draws it" })
 
-M.register("fonts", function(h)
+--- The name of a font for Japanese and Chinese text on this computer, or nil.
+--- `:checkhealth fonts` reports it.
+function M.cjk_font()
+  -- A field of the module: a test puts a fake in it and reads no font of the machine.
   local p = io.popen("fc-list ':lang=ja:outline=true' family 2>/dev/null")
   local found = p and p:read("*l")
   if p then p:close() end
-  if found and found ~= "" then
+  if found and found ~= "" then return found end
+end
+
+M.register("fonts", function(h)
+  local found = M.cjk_font()
+  if found then
     h.ok("a font for Japanese and Chinese text in the window: " .. found)
   else
     h.warn(

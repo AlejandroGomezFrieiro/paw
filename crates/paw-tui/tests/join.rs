@@ -40,15 +40,6 @@ fn scratch(name: &str) -> PathBuf {
 /// `paw` with everything it keeps in `dir`: never the owner's folders.
 fn paw(dir: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_paw"));
-    for (var, sub) in [
-        ("XDG_RUNTIME_DIR", ""),
-        ("XDG_STATE_HOME", "state"),
-        ("XDG_CACHE_HOME", "cache"),
-        ("XDG_DATA_HOME", "data"),
-        ("XDG_CONFIG_HOME", "config"),
-    ] {
-        command.env(var, dir.join(sub));
-    }
     sealed::seal(&mut command, dir);
     command.env("TERM", "xterm-256color");
     command.env_remove("PAW_TOKEN");

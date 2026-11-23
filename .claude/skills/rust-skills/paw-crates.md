@@ -187,7 +187,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   thread, the terminal's input thread, the watchdog, and the render and
   stretch threads.
 - **SHA-256:** done: `paw-proto/src/lib.rs` uses `ring::digest`.
-- **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
+- **Hex:** five `fn hex` (paw-plugins vst3/mod.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with
   `FromStr`/`Display` for colors, and one function for bytes.
 - **Signals:** `paw-engine/src/record.rs` (SIGXFSZ). (Done:
@@ -195,7 +195,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Memory maps:** done: `paw-engine/src/samples.rs` and
   `paw-engine/src/host.rs` use `memmap2`, `paw-plugins/src/sandbox/shm.rs`
   and `paw-raster/src/kitty.rs` use `rustix` for shared memory.
-- **Bit flags:** `paw-plugins/src/vst3.rs` (the VST3 process-context flags),
+- **Bit flags:** `paw-plugins/src/vst3/events.rs` (the VST3 process-context flags),
   `paw-engine/src/midi.rs` (ALSA capabilities), the engine's faults.
 - **Dates:** `paw-core/src/fs_api.rs` `deletion_date`.
 - **Percent-encoding:** `paw-core/src/fs_api.rs` `percent_encode`.
@@ -221,7 +221,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
   for the reasons above.
 - **CLAP host:** done. `clack-host` 0.2 (crates.io, on the same
-  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses, with
+  `clap-sys` 0.5) covers all that `paw-plugins/src/clap/` uses, with
   `clack-extensions` (same version). paw still opens the file itself
   (`libs.rs`) and gives Clack the entry (`PluginEntry::load_from_raw`),
   and keeps it for good, so Clack never calls `deinit`. The port, in

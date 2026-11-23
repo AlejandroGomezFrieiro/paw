@@ -1,5 +1,7 @@
--- The check that refuses a new test that depends on time: a sleep, a read
--- of the clock or a speed check in a test file. It reads text only, so
+-- The check that refuses a new test that depends on time (a sleep, a read
+-- of the clock or a speed check) or on the machine (a read of the home
+-- folder or the user name, or a path in /home) in a test file. It reads
+-- text only, so
 -- plain LuaJIT runs it (the flake's `testlint` check), and so does paw (the
 -- suite's tests/testlint.lua).
 --
@@ -10,7 +12,8 @@
 -- each use that is there today. A count that goes up fails: rewrite the test
 -- (docs/how-to/run-the-tests.md, "Write a test that does not depend on
 -- time"). A count that goes down also fails, until its line is made
--- smaller, so the list only gets shorter. The window (crates/paw-gui) is
+-- smaller, so the list only gets shorter. A read of the machine has no
+-- allow-list: each one fails. The window (crates/paw-gui) is
 -- paused: the check skips it until that work starts again (TASK-160).
 local M = {}
 
@@ -18,7 +21,8 @@ local M = {}
 
 --- The patterns, by the name that the allow-list uses. `find` is a plain
 --- string, `match` a Lua pattern. `lessons` patterns apply to the lessons of
---- the tutor only.
+--- the tutor only. `machine` patterns read the machine: no count of them
+--- is allowed.
 M.lua_patterns = {
   { name = "api.sleep(", find = "api.sleep(" },
   { name = "api.wait(", find = "api.wait(" },
@@ -30,13 +34,33 @@ M.lua_patterns = {
   { name = "T.quick(", find = "T.quick(" },
   { name = ":meter(", find = ":meter(" },
   { name = "wait=N", match = "wait%s*=%s*%d", lessons = true },
+  { name = 'os.getenv("HOME")', find = 'os.getenv("HOME")', machine = true },
+  { name = 'os.getenv("USER")', find = 'os.getenv("USER")', machine = true },
+  { name = 'os.getenv("LOGNAME")', find = 'os.getenv("LOGNAME")', machine = true },
+  { name = "/etc/passwd", find = "/etc/passwd", machine = true },
+  { name = "/home/", match = "[\"']/home/", machine = true },
 }
 M.rust_patterns = {
   { name = "thread::sleep", find = "thread::sleep" },
   { name = "Instant::now", find = "Instant::now" },
   { name = "cpu_percent", find = "cpu_percent" },
   { name = "quiet(Duration", match = "quiet%(.*Duration" },
+  { name = 'var("HOME")', match = 'var_?o?s?%("HOME"%)', machine = true },
+  { name = 'var("USER")', match = 'var_?o?s?%("USER"%)', machine = true },
+  { name = 'var("LOGNAME")', match = 'var_?o?s?%("LOGNAME"%)', machine = true },
+  { name = "home_dir(", find = "home_dir(", machine = true },
+  { name = "/etc/passwd", find = "/etc/passwd", machine = true },
+  { name = "/home/", find = '"/home/', machine = true },
 }
+
+--- The names of the `machine` patterns.
+M.machine = {}
+for _, p in ipairs(M.lua_patterns) do
+  if p.machine then M.machine[p.name] = true end
+end
+for _, p in ipairs(M.rust_patterns) do
+  if p.machine then M.machine[p.name] = true end
+end
 
 local LESSONS = "^extensions/tutor/lua/tutor/lessons/"
 
@@ -180,7 +204,7 @@ function M.format(counts)
   for _, file in ipairs(files) do
     local patterns = {}
     for pattern in pairs(counts[file]) do
-      patterns[#patterns + 1] = pattern
+      if not M.machine[pattern] then patterns[#patterns + 1] = pattern end
     end
     table.sort(patterns)
     for _, pattern in ipairs(patterns) do
@@ -200,11 +224,20 @@ function M.check(root)
   if not allowed then return { err } end
   local counts = M.counts(root)
   local problems = {}
-  -- More than the list allows: a new sleep, clock read or speed check.
+  -- More than the list allows: a new sleep, clock read or speed check. A
+  -- read of the machine is never allowed.
   for file, patterns in pairs(counts) do
     for pattern, n in pairs(patterns) do
       local limit = allowed[file] and allowed[file][pattern] or 0
-      if n > limit then
+      if M.machine[pattern] then
+        problems[#problems + 1] = string.format(
+          "%s: %d of `%s`. A test reads nothing of the machine: take a folder from T.scratch or T.home(),"
+            .. " or seal the command (the skills lua-testing and rust-testing, part Self-contained)",
+          file,
+          n,
+          pattern
+        )
+      elseif n > limit then
         problems[#problems + 1] = string.format(
           "%s: %d of `%s`, %d allowed. A test does not sleep, read the clock or check a speed:"
             .. " wait for a state, or measure in bench/ (docs/how-to/run-the-tests.md)",
@@ -220,7 +253,10 @@ function M.check(root)
   for file, patterns in pairs(allowed) do
     for pattern, limit in pairs(patterns) do
       local n = counts[file] and counts[file][pattern] or 0
-      if n < limit then
+      if M.machine[pattern] then
+        problems[#problems + 1] =
+          string.format("%s: `%s` reads the machine and has no place in %s", file, pattern, M.ALLOWED)
+      elseif n < limit then
         problems[#problems + 1] = n == 0
             and string.format(
               "%s: no `%s` now: remove the line `%s %s %d` from %s",
@@ -263,7 +299,7 @@ if arg and arg[0] and arg[0]:match("testlint%.lua$") then
     print(string.format("testlint: %d problems", #problems))
     os.exit(1)
   end
-  print("testlint: no test depends on time beyond " .. M.ALLOWED)
+  print("testlint: no test reads the machine, or depends on time beyond " .. M.ALLOWED)
 end
 
 return M

@@ -76,14 +76,15 @@ fn why_unreachable() -> String {
 /// places desktops keep them, and put the first that lets us in into the
 /// environment, where plugins look for it too when they open their windows.
 ///
-/// Returns what it changed, for the log.
+/// `home` is the user's home folder, where `~/.Xauthority` is: the program
+/// gives `$HOME`. Returns what it changed, for the log.
 ///
 /// # Safety
 ///
 /// It changes the environment: call it before any other thread starts
 /// (in this process, or in a library it loaded), while nothing else can
 /// read or write the environment at the same time.
-pub unsafe fn repair_display_env() -> Option<String> {
+pub unsafe fn repair_display_env(home: Option<&std::path::Path>) -> Option<String> {
     std::env::var_os("DISPLAY").filter(|d| !d.is_empty())?;
     let stale = std::env::var_os("XAUTHORITY").map(std::path::PathBuf::from);
     match &stale {
@@ -91,8 +92,7 @@ pub unsafe fn repair_display_env() -> Option<String> {
         Some(_) => {}
         // With none named the default is used, if there is one.
         None => {
-            let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
-            if home.join(".Xauthority").exists() || x11rb::connect(None).is_ok() {
+            if home?.join(".Xauthority").exists() || x11rb::connect(None).is_ok() {
                 return None;
             }
         }
@@ -109,11 +109,8 @@ pub unsafe fn repair_display_env() -> Option<String> {
     }
     // The newest first: it belongs to the display that is running now.
     candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.0));
-    if let Some(home) = std::env::var_os("HOME") {
-        candidates.push((
-            std::time::UNIX_EPOCH,
-            std::path::Path::new(&home).join(".Xauthority"),
-        ));
+    if let Some(home) = home {
+        candidates.push((std::time::UNIX_EPOCH, home.join(".Xauthority")));
     }
     for (_, file) in candidates.into_iter().filter(|(_, file)| file.exists()) {
         // SAFETY: No other thread is running yet, as the caller of this `unsafe fn` promised, so

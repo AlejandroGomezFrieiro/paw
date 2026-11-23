@@ -8,8 +8,11 @@ seeds="${1:-20}"
 steps="${2:-1500}"
 minutes="${3:-3}"
 export BENCH_TMP="${BENCH_TMP:-/tmp/paw-bench}"
-mkdir -p "$BENCH_TMP/home"
-export XDG_CACHE_HOME="$BENCH_TMP/home/cache" XDG_DATA_HOME="$BENCH_TMP/home/data" XDG_CONFIG_HOME="$BENCH_TMP/home/config"
+# paw runs sealed from the machine as in the tests: a scratch home, XDG and
+# runtime folders, no plugin folders (tests/tools/env.sh).
+ROOT="$(cd "$here/.." && pwd)"
+PAW_TEST_SCRATCH="$BENCH_TMP/sealed"
+. "$ROOT/tests/tools/env.sh"
 failed=0
 
 for seed in $(seq "$seeds"); do

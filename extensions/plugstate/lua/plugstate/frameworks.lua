@@ -1111,32 +1111,15 @@ local MARKERS = {
   { "vstgui", "VSTGUI" },
 }
 
-local folders = {
-  vst3 = { "VST3_PATH", "/.vst3", "lib/vst3" },
-  clap = { "CLAP_PATH", "/.clap", "lib/clap" },
-  lv2 = { "LV2_PATH", "/.lv2", "lib/lv2" },
-}
-
 local function squash(s) return (s or ""):lower():gsub("[^%w]", "") end
 
 --- The binary of a plugin (`d.plugin` of `paw.api.device_get`), or nil.
+--- It is looked for in the folders where paw looks for plugins of its
+--- format (`paw.api.plugins_dirs`).
 function M.binary_of(plugin)
-  if not plugin or not folders[plugin.format] then return nil end
-  local f = folders[plugin.format]
-  local dirs = {}
-  for dir in (os.getenv(f[1]) or ""):gmatch("[^:]+") do
-    dirs[#dirs + 1] = dir
-  end
-  local home, user = os.getenv("HOME"), os.getenv("USER")
-  if #dirs == 0 then
-    if home then
-      dirs[#dirs + 1] = home .. f[2]
-      dirs[#dirs + 1] = home .. "/.nix-profile/" .. f[3]
-    end
-    if user then dirs[#dirs + 1] = "/etc/profiles/per-user/" .. user .. "/" .. f[3] end
-    dirs[#dirs + 1] = "/run/current-system/sw/" .. f[3]
-    dirs[#dirs + 1] = "/usr/lib/" .. plugin.format
-  end
+  if not plugin then return nil end
+  local dirs = (paw.api.plugins_dirs() or {})[plugin.format]
+  if not dirs then return nil end
   local want = squash(plugin.name)
   local function so_in(dir)
     for _, e in ipairs(paw.api.read_dir(dir)) do
