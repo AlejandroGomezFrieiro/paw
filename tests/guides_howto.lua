@@ -1564,6 +1564,8 @@ test("guide: enter notes from a MIDI keyboard", function()
   eq(paw.ui.focused, "pianoroll", "Enter opens the clip in the piano roll")
   paw.ui.views:get("pianoroll"):set(60, 0)
   keys("I")
+  -- `=8` below gives the piano roll a step length of its own.
+  T.after(function() paw.ui.views:get("pianoroll"):set_step(nil) end)
   eq(paw.roll_draw.stepping(), true, "I starts step input")
   eq(paw.roll_draw.label():match("^STEP"), "STEP", "the title says STEP")
   keys("=8")
