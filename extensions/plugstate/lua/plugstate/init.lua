@@ -123,9 +123,9 @@ function M.roots()
 end
 
 --- The folders `share/<sub>` beside the plugin folders that paw looks in
---- (`CLAP_PATH`, `VST3_PATH`, `LV2_PATH`, the Nix profiles), for what a
---- plugin's package puts beside it: factory presets, models. Only those
---- that are there.
+--- (`CLAP_PATH`, `VST3_PATH`, `LV2_PATH`, and the Nix profiles when
+--- `CLAP_PATH` is not set), for what a plugin's package puts beside it:
+--- factory presets, models. Only those that are there.
 function M.share_dirs(sub)
   local out, seen = {}, {}
   local function try(lib)
@@ -139,6 +139,9 @@ function M.share_dirs(sub)
       try(dir)
     end
   end
+  -- paw searches the profiles for CLAP plugins only when CLAP_PATH is not
+  -- set (crates/paw-plugins, usual_dirs), and so does this.
+  if (os.getenv("CLAP_PATH") or "") ~= "" then return out end
   local home, user = os.getenv("HOME"), os.getenv("USER")
   local profiles = { "/run/current-system/sw/lib/clap" }
   if home then profiles[#profiles + 1] = home .. "/.nix-profile/lib/clap" end

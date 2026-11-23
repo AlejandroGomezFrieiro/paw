@@ -230,6 +230,7 @@ end)
 
 test(":render expands ~ as :import and :export do", function()
   start()
+  local home = T.home()
   local render = require("paw.render")
   local real, got = render.render, nil
   T.after(function() render.render = real end)
@@ -239,8 +240,8 @@ test(":render expands ~ as :import and :export do", function()
   end
   keys(":render ~/paw-mix.wav<CR>")
   render.render = real
-  eq(got, os.getenv("HOME") .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
-  eq(paw.util.expand_path("~"), os.getenv("HOME"), "~ alone is the home folder")
+  eq(got, home .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
+  eq(paw.util.expand_path("~"), home, "~ alone is the home folder")
   eq(paw.util.expand_path("~x/a.wav"), "~x/a.wav", "~ before a name stays as it is")
   eq(paw.util.expand_path("a/~/b"), "a/~/b", "and ~ after the start")
 end)

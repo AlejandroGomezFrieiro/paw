@@ -961,6 +961,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.health
 
 - `paw.health.check(names)`: Run the checks named (all when none), each a result of `run`.
+- `paw.health.cjk_font()`: The name of a font for Japanese and Chinese text on this computer, or nil. `:checkhealth fonts` reports it.
 - `paw.health.executable(name)`: An executable on the PATH, or at a path: where it is, or nil.
 - `paw.health.lines(results)`: Results as lines of text with their styles, for a page.
 - `paw.health.names()`: The names of the checks, sorted.

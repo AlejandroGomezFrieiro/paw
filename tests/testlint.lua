@@ -34,3 +34,28 @@ test("testlint: a new api.sleep in a test file fails, and a smaller count asks f
     "the problems"
   )
 end)
+
+test(
+  "testlint: a test that reads the home folder or the user name fails, and the allow-list cannot let it pass",
+  function()
+    -- The names are cut in two, so that the check does not count this file.
+    local home, user, var = "os.getenv(" .. '"HOME")', "os.getenv(" .. '"USER")', "var_os(" .. '"HOME")'
+    local root = T.scratch .. "/testlint-machine"
+    os.execute("mkdir -p '" .. root .. "/tests' '" .. root .. "/crates/x/tests'")
+    T.write_file(root .. "/tests/timing-allowed.txt", "tests/a.lua " .. user .. " 1\n")
+    T.write_file(root .. "/tests/a.lua", "local h = " .. home .. "\nlocal p = '/" .. "home/me/x.wav'\n")
+    T.write_file(root .. "/crates/x/tests/b.rs", "let h = std::env::" .. var .. ";\n")
+    local why = ". A test reads nothing of the machine: take a folder from T.scratch or T.home(),"
+      .. " or seal the command (the skills lua-testing and rust-testing, part Self-contained)"
+    eq(
+      table.concat(lint.check(root), "\n"),
+      table.concat({
+        "crates/x/tests/b.rs: 1 of `var(" .. '"HOME")`' .. why,
+        "tests/a.lua: 1 of `/" .. "home/`" .. why,
+        "tests/a.lua: 1 of `" .. home .. "`" .. why,
+        "tests/a.lua: `" .. user .. "` reads the machine and has no place in tests/timing-allowed.txt",
+      }, "\n"),
+      "the problems"
+    )
+  end
+)

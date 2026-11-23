@@ -19,6 +19,13 @@ local function levels(result)
   return table.concat(out, " ")
 end
 
+--- The fonts of the machine are not read: the fonts check gets `family`.
+local real_cjk_font = paw.health.cjk_font
+local function cjk_font(family)
+  paw.health.cjk_font = function() return family end
+  T.after(function() paw.health.cjk_font = real_cjk_font end)
+end
+
 -- The errors a test means to cause are read, as `:messages` reads them,
 -- so that the key line of the tests after it does not point at them.
 local function read_errors()
@@ -27,6 +34,7 @@ local function read_errors()
 end
 
 test("checkhealth: the core's checks each report, with a level and advice", function()
+  cjk_font(nil)
   for _, name in ipairs({ "paw", "audio", "plugins", "ffmpeg", "terminal", "window", "fonts", "extensions" }) do
     local r = paw.health.run(name)
     eq(#r.items > 0, true, name .. " says something")
@@ -45,7 +53,21 @@ test("checkhealth: the core's checks each report, with a level and advice", func
   eq(#audio.items[1].advice > 0, true, "with advice")
 end)
 
+test("checkhealth fonts: names the font for Japanese and Chinese text, or warns that there is none", function()
+  cjk_font("Noto Sans CJK JP")
+  local found = paw.health.run("fonts").items[1]
+  eq(
+    found.level .. " " .. found.text,
+    "ok a font for Japanese and Chinese text in the window: Noto Sans CJK JP",
+    "a font"
+  )
+  cjk_font(nil)
+  local none = paw.health.run("fonts").items[1]
+  eq(none.level .. " " .. none.text, "warn no font for Japanese or Chinese text found by fontconfig", "no font")
+end)
+
 test("checkhealth: the command shows every check, or the ones named", function()
+  cjk_font(nil)
   paw.cmd("checkhealth")
   local text = pager_text()
   paw.ui.close()

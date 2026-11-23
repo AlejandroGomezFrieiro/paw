@@ -242,11 +242,17 @@ the owner's computer or folders. Mock what it needs.
   yabridge bridge in `~/.vst3` starts wine), not the user name, not the
   system fonts, not the desktop bus, not the network. It does not use
   the owner's display, audio devices or configuration.
-- A test that starts paw seals the command first. The helper
-  `crates/<crate>/tests/sealed/mod.rs` gives a scratch home, a scratch
-  `WINEPREFIX` and empty plugin folders. A test that loads a plugin sets
-  its own folder after the seal. Also give `--audio null` (or `test`)
-  and `--clean`.
+- A test that starts paw (or `paw ctl`, or `paw-mcp`) seals the command.
+  The helper `crates/<crate>/tests/sealed/mod.rs` gives the environment
+  of `tests/tools/env.sh` under the test's folder: a scratch home,
+  scratch `XDG_*` folders, the test's folder as `XDG_RUNTIME_DIR` (keep
+  it short: a socket path must fit in 108 bytes), a scratch
+  `WINEPREFIX`, empty plugin folders, the user name `paw-test`, no system
+  configuration of git and no desktop bus. It sets only the variables
+  that the caller did not set before the call. A test that loads a
+  plugin sets its own folder before or after the seal. Also give
+  `--audio null` (or `test`) and `--clean`. paw-tui and paw-mcp each
+  have a copy of the helper: change both.
 
 ```rust
 mod sealed;
@@ -258,7 +264,9 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 
 - Library code does not read `HOME`, `USER` or a `*_PATH` variable
   itself. `main` resolves the folders and gives them as an argument. A
-  unit test then gives a folder under its `TempDir`.
+  unit test then gives a folder under its `TempDir`. paw-plugins still
+  reads `HOME`, `USER` and the plugin path variables itself (TASK-162
+  moves them to an argument).
 - Mock what is needed: the stub CLAP plugin (`examples/stub_clap`), a
   fake behind a trait, or a scratch folder. Never an installed plugin.
 - Run paw by hand only through `tests/tools/run.sh`. It uses the same
@@ -273,6 +281,8 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - The lint `tools/testlint.lua` counts `thread::sleep`, `Instant::now`,
   `cpu_percent` and `quiet(` with a `Duration` in the Rust tests. A count
   over `tests/timing-allowed.txt` fails the suite and `nix flake check`.
+  It also fails on each `var("HOME")`, `var_os("USER")`, `home_dir(`,
+  `/etc/passwd` or `"/home/` in the test code. These have no allow-list.
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that

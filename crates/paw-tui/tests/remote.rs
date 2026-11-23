@@ -754,7 +754,7 @@ fn the_instances_sound_is_heard_where_the_client_is() {
 fn ctl_json_answers_in_one_line_of_json() {
     let instance = start("ctljson");
     let ctl = |args: &[&str]| {
-        let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+        let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
             .arg("ctl")
             .arg("--json")
             .arg("--socket")
@@ -777,7 +777,7 @@ fn ctl_json_answers_in_one_line_of_json() {
     let (answer, ok) = ctl(&["no_such_method"]);
     assert!(!ok && answer["ok"] == false, "{answer}");
     // Without a kernel to talk to the error is JSON as well.
-    let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+    let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
         .args(["ctl", "--json", "--socket", "/nonexistent/paw.sock", "eval", "return 1"])
         .output()
         .unwrap();

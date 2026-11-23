@@ -315,6 +315,26 @@ local function keys(text)
   api.undo_checkpoint()
 end
 
+-- The home folder of a test. env.sh gives the run a scratch HOME, and a test
+-- reads no home folder of its own accord: a test of `~` takes a folder of its
+-- own with T.home, so that what it expects does not depend on the run.
+local ffi = require("ffi")
+pcall(ffi.cdef, "int setenv(const char *name, const char *value, int overwrite);")
+local run_home, homes = os.getenv("HOME"), 0
+
+--- Make HOME `dir` (else a new folder under T.scratch) until the test ends,
+--- and give the folder.
+local function home(dir)
+  if not dir then
+    homes = homes + 1
+    dir = scratch .. "/home-" .. homes
+  end
+  os.execute("mkdir -p '" .. dir .. "'")
+  ffi.C.setenv("HOME", dir, 1)
+  after(function() ffi.C.setenv("HOME", run_home, 1) end)
+  return dir
+end
+
 -- The tests ------------------------------------------------------------------
 --
 -- This file is the runner and the helpers; the tests are in files of their
@@ -387,6 +407,7 @@ local T = {
   next_block = next_block,
   until_beat = until_beat,
   scratch = scratch,
+  home = home,
   read_file = read_file,
   write_wav = write_wav,
   samples = samples,
