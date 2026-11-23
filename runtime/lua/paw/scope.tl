@@ -198,18 +198,15 @@ end
 -- The regions by id, read again only when the project or an event changed
 -- since the last read. `span` asks for its region for each lane and each
 -- bar of the ruler in a frame, and one read of the markers asks the kernel
--- for the whole project. The key is the one that the screen keeps its
--- windows by (`frame_stamp` in paw/ui.tl): the edits of the project and the
--- events sent. Another project counts when its `project.loaded` is sent, at
--- the end of the turn, as for the kept windows.
-local project_field = api.project_get as function(key: string): integer
+-- for the whole project. The key is `paw.events.stamp()`, as for the kept
+-- windows of the screen and the marks of paw/groups.tl.
 local regions_read: {integer: MarkersModule.Marker} = {}
-local regions_edits, regions_events = -1, -1
+local regions_stamp = -1
 
 local function region(id: integer): MarkersModule.Marker
-  local edits, sent = project_field("edits"), events.emitted()
-  if edits ~= regions_edits or sent ~= regions_events then
-    regions_read, regions_edits, regions_events = {}, edits, sent
+  local now = events.stamp()
+  if now ~= regions_stamp then
+    regions_read, regions_stamp = {}, now
     for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
       if m.length then
         regions_read[m.id] = m

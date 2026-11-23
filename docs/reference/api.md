@@ -663,6 +663,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
 - `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
+- `paw.events.stamp()`: A number that changes when the project changes or paw sends an event. A value that is read from the project, or that an event can change, can be kept while this number is the same. An edit counts at once, before its event is sent at the end of the turn.
 - `paw.events.undeclared()`: The names and patterns (`undo.*`) of events that `paw.on` got as text and that match no event that a part of paw declares, sorted. `:checkhealth events` lists them.
 
 ## Module paw.ex

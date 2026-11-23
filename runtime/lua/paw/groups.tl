@@ -94,22 +94,19 @@ end
 -- The marks and the group of each track that was asked for, kept until the
 -- project or an event changes. A frame asks for them many times for each
 -- track drawn (the rows, the headers, the tree of the track column), and
--- each read is a call into the kernel. The key is the one that the screen
--- keeps its windows by (`frame_stamp` in paw/ui.tl) and paw/scope.tl keeps
--- its regions by: the edits of the project, which every change counts, and
--- the events sent. The tables are only read: a change starts from
--- `read_marks`.
-local project_field = api.project_get as function(key: string): integer
+-- each read is a call into the kernel. The key is `paw.events.stamp()`,
+-- as for the kept windows of the screen and the regions of paw/scope.tl.
+-- The tables are only read: a change starts from `read_marks`.
 -- In `kept_group`, a track in no group: no track has a negative id.
 local NO_GROUP = -1
 local kept_marks: {integer: Marks} = {}
 local kept_group: {integer: integer} = {}
-local kept_edits, kept_events = -1, -1
+local kept_stamp = -1
 
 local function keep_current()
-  local edits, sent = project_field("edits"), events.emitted()
-  if edits ~= kept_edits or sent ~= kept_events then
-    kept_marks, kept_group, kept_edits, kept_events = {}, {}, edits, sent
+  local now = events.stamp()
+  if now ~= kept_stamp then
+    kept_marks, kept_group, kept_stamp = {}, {}, now
   end
 end
 

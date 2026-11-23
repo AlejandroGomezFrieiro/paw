@@ -53,6 +53,21 @@ test("edit.before and edit.after hear what a turn changed, once, as one undo ste
   eq(paw.track("Heard"), nil, "the edit was one step")
 end)
 
+-- What paw.groups, paw.scope and the kept windows of the screen keep their
+-- reads by: they read the project again after an edit in the same turn.
+test("paw.events.stamp changes with an edit at once and with each event, and not otherwise", function()
+  T.fresh()
+  turn()
+  local stamp = paw.events.stamp
+  local quiet = stamp()
+  eq(stamp(), quiet, "no edit and no event")
+  paw.add_track({ name = "Stamped" })
+  local edited = stamp()
+  eq(edited ~= quiet, true, "an edit, before its event at the end of the turn")
+  paw.events.emit("test.stamp")
+  eq(stamp() ~= edited, true, "an event")
+end)
+
 test("edit.before refuses an edit, and the project is as the turn found it", function()
   T.fresh()
   local keep = paw.add_track({ name = "Keep" })

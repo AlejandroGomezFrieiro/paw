@@ -2778,6 +2778,12 @@ paw.events.once = paw.once
 ---@param pattern any
 function paw.events.pattern(pattern) end
 
+--- A number that changes when the project changes or paw sends an event.
+--- A value that is read from the project, or that an event can change, can
+--- be kept while this number is the same. An edit counts at once, before
+--- its event is sent at the end of the turn.
+function paw.events.stamp() end
+
 --- The names and patterns (`undo.*`) of events that `paw.on` got as text
 --- and that match no event that a part of paw declares, sorted.
 --- `:checkhealth events` lists them.

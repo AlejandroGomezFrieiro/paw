@@ -103,8 +103,7 @@ paw adds to the text what each window can read, so `stamp` gives only the rest:
 
 | paw adds | Example |
 | --- | --- |
-| the count of events so far (`paw.events.emitted()`) | an edit, an option, the mode, the cursor of the arrange view, a chord that paw reads again |
-| the count of edits of the project | a note, a fader |
+| a number that changes with each event and each edit of the project (`paw.events.stamp()`) | a note, a fader, an option, the mode, the cursor of the arrange view, a chord that paw reads again |
 | the transport | play, record, the playhead, the loop and the punch range |
 | the place and the size of the window, its background, and its winbar | a window made larger |
 
