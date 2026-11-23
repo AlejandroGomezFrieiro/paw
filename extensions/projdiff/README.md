@@ -1,8 +1,8 @@
 # projdiff
 
 The projdiff extension shows the changes between two versions of a project, and it merges two
-versions that changed separately. A project is JSON in a stable form, so
-projdiff compares what the project holds (tracks, devices, clips, notes, automation,
+versions that changed separately. A project is a folder of files, and
+projdiff reads the whole folder as paw opens it. It compares what the project holds (tracks, devices, clips, notes, automation,
 the tempo map and markers) and not lines of text.
 
 ```lua
@@ -22,7 +22,7 @@ and `Enter` goes to one:
    track, clip and note:
 
    ```
-   base.json → now: 2 changes
+   saved → now: 2 changes
    ▾ ~ track 1 "Lead" -> "Lead 2"
        ~ name: "Lead" -> "Lead 2"
    ...
@@ -39,9 +39,10 @@ Type `:Pdiff`, or press `<Space>gd`.
 
 ### How to compare with an older version
 
-- With a git revision: `:Pdiff HEAD~2`.
+- With a git revision: `:Pdiff HEAD~2`. projdiff reads the project folder
+  as git keeps it at that revision, and the files in the folder don't change.
 - With a state of the undo tree: `:Pdiff #7`.
-- With another file: `:Pdiff other.json`.
+- With another project folder: `:Pdiff ../other`.
 - To compare two versions that are not the project now: `:Pdiff a b`.
 
 ### How to keep a version to compare with later
@@ -97,11 +98,11 @@ track, device, clip, note, lane point and marker:
 
 | Command | Keys | What it compares or does |
 | --- | --- | --- |
-| `:Pdiff` | `<leader>gd` | the saved file of the project with the project now |
-| `:Pdiff HEAD~2` | | that revision of the file in git with the project now |
+| `:Pdiff` | `<leader>gd` | the saved project folder with the project now |
+| `:Pdiff HEAD~2` | | the project folder at that revision of git with the project now |
 | `:Pdiff #7` | | undo state 7 (the numbers of the undo tree) with the project now |
 | `:Pdiff snap:name` | | a snapshot with the project now |
-| `:Pdiff other.json` | | another project file with the project now |
+| `:Pdiff other` | | another project folder with the project now, or a project in one JSON file (`other.json`) |
 | `:Pdiff a b` | | the first with the second (any of the above, and `now` is the project now) |
 | `:Pdiff.qf …` | | the same, as a quickfix list, one entry for each change |
 | `:Psnapshot name` | `<leader>gs` | keeps the project as it is, to compare later |
@@ -109,8 +110,14 @@ track, device, clip, note, lane point and marker:
 | `:Pgit` | | shows how to configure git, with the paths of this machine |
 
 A snapshot is a checkpoint (see the undotree extension). When the project
-has a file, paw writes the snapshot beside that file and keeps it, and otherwise it
-keeps the snapshot for the session only.
+is saved, paw writes the snapshot in the project folder, in
+`project.checkpoints/`, and keeps it. Otherwise it keeps the snapshot for the
+session only.
+
+To read a git revision, projdiff asks git for the files that paw writes in
+the project folder at that revision (`project.toml`, `tracks/`, `nests/` and
+the others), and paw puts the project together from them. The media files
+come from the folder on the disk.
 
 ### The window of `:Pdiff`
 
@@ -199,13 +206,13 @@ no changes after, opens again from it.
 
 - "The project now" includes every edit, including the edits that a script made
   without an undo step, and `:Pdiff` closes the open undo step first.
-- A file names media files relative to its folder (`media/a.wav`), and projdiff
+- A project folder names media files relative to itself (`media/a.wav`), and projdiff
   compares the full paths that the open project holds, so a project that
   opens again shows no change.
 - Numbers show with four decimals.
-- The project file is the same each time paw writes it (see [Project files](../../docs/reference/project-files.md)), so a file saved again gives an empty
+- paw writes the same files each time it saves a project that has no change (see [Project files](../../docs/reference/project-files.md)), so a project saved again gives an empty
   diff, and one change gives a small diff.
-- The name of the project comes from the name of the file the first time
+- The name of the project comes from the name of the folder the first time
   you save it, so a copy saved under another name has one different line.
 - The views are cells, and the graphical window draws them as the terminal
   does (see "Views in the graphical window" in
@@ -215,7 +222,8 @@ no changes after, opens again from it.
 
 ```lua
 local pd = require("projdiff")
-local from, to = pd.file("a.json"), pd.file("b.json")  -- pd.file(path, true): full media paths
+local from, to = pd.folder("a"), pd.folder("b")      -- project folders, as paw reads them
+local old = pd.file("a.json", true)                    -- a project in one file, with full media paths
 local tree = pd.diff.diff(from.project, to.project)   -- { children, count }
 pd.diff.lines(tree)                                    -- the text of the view
 pd.diff.entries(tree)                                  -- { address, text } for paw.qf
@@ -227,6 +235,9 @@ paw.api.project_file_text(merged)                      -- the text of the file, 
 
 - `paw.api.undo_project(id)` (in the core) gives a state of the undo tree
   as the project file holds it.
+- `paw.api.project_read(path, files)` (in the core) reads a project folder
+  in the same form, without opening it. `files` gives the files of the
+  folder from memory, for example from git.
 - `pd.version("#7")` and `pd.version("snap:x")` change the words of
   `:Pdiff` into a version.
 

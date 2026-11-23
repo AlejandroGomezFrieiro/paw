@@ -129,8 +129,8 @@ would need two sets of rules, e.g., which form a command writes, where the
 media goes and what version control sees. One form gives one set of rules.
 
 paw still writes a project in one JSON file for its own work, i.e., for the
-safety copies, the states of the undo history, and the versions that
-`extensions/projdiff` compares and merges. Such files are fast to write in
+safety copies, the states of the undo history, and the snapshots that
+`extensions/projdiff` keeps. Such files are fast to write in
 one piece, and no person edits them. `:w song.json` therefore saves the
 folder `song` and tells you so. A project that an earlier version of paw
 saved in one file opens, and `:w` saves it as a folder beside the file.

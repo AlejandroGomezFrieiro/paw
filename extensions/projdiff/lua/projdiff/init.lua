@@ -1,5 +1,6 @@
--- Versions of a project to compare: a file, a revision in git, a state of
--- the undo tree or a snapshot, as decoded project files; and what to do with
+-- Versions of a project to compare: a project folder (which the kernel
+-- reads), a project in one JSON file, a revision in git, a state of the
+-- undo tree or a snapshot, as decoded project files; and what to do with
 -- the difference (the view, quickfix).
 local data = require("projdiff.data")
 local diff = require("projdiff.diff")
@@ -65,16 +66,82 @@ function M.file(path, whole)
   return doc, why
 end
 
---- What a revision of git holds as `path`, decoded.
+--- Whether `path` names a project folder: the folder, or its `project.toml`.
+local function is_folder(path)
+  if path == "project.toml" or path:match("/project%.toml$") then return paw.api.fs_exists(path) end
+  return paw.api.fs_exists(path .. "/project.toml")
+end
+
+--- The folder of a project folder named by itself or by its `project.toml`.
+local function folder_of(path)
+  if path == "project.toml" then return "." end
+  path = path:gsub("(.)/+$", "%1")
+  return path:match("^(.*)/project%.toml$") or path
+end
+
+--- A project folder as the kernel reads it, as a decoded file. `files`
+--- (path in the folder -> bytes) stands for the own files of the folder,
+--- for a version that is not on the disk.
+function M.folder(path, files)
+  local ok, project = pcall(paw.api.project_read, path, files)
+  if not ok then return nil, (tostring(project):match("[^\n]*"):gsub("^runtime error: ", "")) end
+  return { version = 1, project = project }
+end
+
+--- What a shell command writes, all of it; empty when it cannot start.
+local function output(command)
+  local p = io.popen(command)
+  if not p then return "" end
+  local out = p:read("*a")
+  p:close()
+  return out
+end
+
+--- The files that paw writes in the project folder `dir`, as the revision
+--- `rev` of git holds them: path in the folder -> bytes. git reads them
+--- from its store in two runs (the list, then the contents), so the
+--- working tree does not change. Nil when the revision has no project there.
+local function git_files(rev, dir)
+  local cd = "cd " .. quote(dir) .. " && "
+  local listed = output(cd .. "git ls-tree -r -z " .. quote(rev) .. " -- . 2>/dev/null")
+  local paths, objects = {}, {}
+  -- Each entry is `<mode> <type> <object>\t<path>` and a zero byte; the
+  -- paths are relative to `dir`.
+  for kind, object, path in listed:gmatch("%d+ (%a+) (%x+)\t([^%z]+)%z") do
+    if kind == "blob" and paw.api.project_file_managed(path) then
+      paths[#paths + 1] = path
+      objects[#objects + 1] = object
+    end
+  end
+  if #paths == 0 then return nil end
+  -- `cat-file --batch` gives each object in the order asked, as
+  -- `<object> blob <size>\n`, the bytes and `\n`.
+  local out = output(cd .. "printf '%s\\n' " .. table.concat(objects, " ") .. " | git cat-file --batch")
+  local files, at = {}, 1
+  for _, path in ipairs(paths) do
+    local head_end = out:find("\n", at, true)
+    local size = head_end and tonumber(out:sub(at, head_end - 1):match(" (%d+)$"))
+    if not size then return nil end
+    files[path] = out:sub(head_end + 1, head_end + size)
+    at = head_end + size + 2
+  end
+  if not files["project.toml"] then return nil end
+  return files
+end
+
+--- What a revision of git holds of the project at `path`, decoded: the
+--- project folder, or a project in one file.
 function M.git(rev, path)
+  if is_folder(path) then
+    local dir = folder_of(path)
+    local files = git_files(rev, dir)
+    if not files then return nil, "git has no " .. dir:match("[^/]*$") .. " at " .. rev end
+    return M.folder(dir, files)
+  end
   local dir = path:match("^(.*)/[^/]*$") or "."
   local name = path:match("[^/]*$")
-  local top = io.popen("git -C " .. quote(dir) .. " rev-parse --show-prefix 2>/dev/null")
-  local prefix = top and top:read("*l") or ""
-  if top then top:close() end
-  local show = io.popen("git -C " .. quote(dir) .. " show " .. quote(rev .. ":" .. prefix .. name) .. " 2>/dev/null")
-  local content = show and show:read("*a") or ""
-  if show then show:close() end
+  local prefix = output("git -C " .. quote(dir) .. " rev-parse --show-prefix 2>/dev/null"):match("[^\n]*")
+  local content = output("git -C " .. quote(dir) .. " show " .. quote(rev .. ":" .. prefix .. name) .. " 2>/dev/null")
   if content == "" then return nil, "git has no " .. name .. " at " .. rev end
   local doc, err = M.decode(content, name .. " at " .. rev)
   return with_whole_paths(doc, path), err
@@ -130,9 +197,10 @@ local function snapshot_doc(name)
   return { version = 1, project = memory[name] }
 end
 
---- A version of the project named in the words `:Pdiff` takes: a file, `#12`
---- (a state of the undo tree), `snap:name`, `now` (the project as it is), or
---- a revision of git (`HEAD`, `main~3`) for the project's own file.
+--- A version of the project named in the words `:Pdiff` takes: a project
+--- folder or a project file, `#12` (a state of the undo tree), `snap:name`,
+--- `now` (the project as it is), or a revision of git (`HEAD`, `main~3`) of
+--- the folder or file of the project.
 --- Returns the decoded file and a label for titles.
 function M.version(spec)
   local project = paw.api.project_get()
@@ -150,6 +218,12 @@ function M.version(spec)
     local doc, err = snapshot_doc(name)
     return doc, name, err
   end
+  if is_folder(spec) then
+    local doc, err = M.folder(spec)
+    return doc, folder_of(spec):match("[^/]*$"), err
+  end
+  local stat = paw.api.fs_stat(spec)
+  if stat and stat.dir then return nil, spec, spec .. " is a folder with no project.toml, so it is not a project" end
   local file = io.open(spec, "rb")
   if file then
     file:close()
@@ -157,7 +231,11 @@ function M.version(spec)
     return doc, spec:match("[^/]*$"), err
   end
   if not project.path then
-    return nil, spec, "the project has no file yet, so there is no revision of it: " .. spec .. " is not a file either"
+    return nil,
+      spec,
+      "the project has no file yet, so there is no revision of it: "
+        .. spec
+        .. " is not a project folder or file either"
   end
   local doc, err = M.git(spec, project.path)
   return doc, spec, err

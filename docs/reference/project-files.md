@@ -296,8 +296,10 @@ one change gives a small diff.
 | --- | --- |
 | `paw.api.project_file_text(file)` | The text of a project given as data, written the same way. It refuses a project that would not open. |
 | `paw.api.undo_project(id)` | A state of the undo tree, as a project file holds it. |
+| `paw.api.project_read(path, files)` | A project folder in the same form, without opening it. `files` gives the files that paw writes in the folder by their path in it, for a version that is not on the disk. |
+| `paw.api.project_file_managed(path)` | Whether a path in a project folder is one of the files that paw writes there. |
 
-`extensions/projdiff` uses both: a diff and a three-way merge of projects,
+`extensions/projdiff` uses them: a diff and a three-way merge of projects,
 and the drivers for version control.
 
 ## Safety copies
