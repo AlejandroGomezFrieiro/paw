@@ -58,6 +58,7 @@ mod promote;
 mod save;
 mod export;
 mod schedule;
+pub(crate) use document::{Place, WrapOpts};
 mod monitor;
 mod statelanes;
 mod stretching;

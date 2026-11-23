@@ -117,6 +117,19 @@ local record api
    fs_space: function(path: string): types.DiskSpace
    fs_stat: function(path: string): types.FileStat
    fs_trash: function(path: string): string
+   graph_branch_add: function(split: integer, opts?: types.GraphBranchOptions): integer
+   graph_get: function(track: integer): types.Graph
+   graph_kind_define: function(word: string, spec: types.GraphKindSpec)
+   graph_kinds: function(): {string}
+   graph_link: function(source: integer, device: integer, param: string, depth?: number)
+   graph_macro_add: function(split: integer, name: string): integer
+   graph_move: function(id: integer, to: types.GraphPlace)
+   graph_remove: function(id: integer)
+   graph_set: function(id: integer, patch: types.GraphPatch)
+   graph_set: function(id: integer, key: string, value: nil)
+   graph_tap: function(device: integer, from: integer | string)
+   graph_unwrap: function(split: integer, keep?: integer): integer
+   graph_wrap: function(nodes: {integer}, kind: string, opts?: types.GraphWrapOptions): integer
    grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: integer | string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
    grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_keep: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number)
@@ -260,6 +273,14 @@ local record api
    project_shelved: function(): boolean
    project_unshelve: function()
    quit: function(code?: integer)
+   rack_apply: function(split: integer)
+   rack_define: function(split: integer, name?: string): integer
+   rack_list: function(): {types.RackDef}
+   rack_overrides: function(split: integer): {string}
+   rack_place: function(rack: integer, to: types.GraphPlace): integer
+   rack_reset: function(split: integer): integer
+   rack_set: function(rack: integer, key: string, value: number | boolean | types.Meta)
+   rack_unlink: function(split: integer)
    read_dir: function(path: string): {types.DirEntry}
    real_ms: function(): number
    redo: function(): boolean
