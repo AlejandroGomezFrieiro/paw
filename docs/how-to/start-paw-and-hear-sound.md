@@ -50,6 +50,8 @@ In the graphical window, the doctor page has a button for each answer.
 
 ## Hear an instrument
 
+<!-- paw-live: {"empty": true} -->
+
 1. Press `o`, and paw adds a track.
 2. Press `a`, type `synth` and press `Enter`. The built-in synth is now on
    the track.

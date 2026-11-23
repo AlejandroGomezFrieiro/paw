@@ -10,7 +10,7 @@
 #
 #   home.ext2               the home image
 #   files.txt               what the home image holds
-#   paw-pod.js, paw-live.js, audio-worklet.js, coi.js, coi-sw.js, demo.html
+#   paw-pod.js, audio-worklet.js, coi.js, coi-sw.js, demo.html
 #   manifest.json           the paw version, the revision, the BrowserPod
 #                           version, and the SHA-256 of each file
 #

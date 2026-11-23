@@ -30,8 +30,3 @@
   border: 1px solid var(--table-border-color);
   border-radius: 6px;
 }
-.landing-slot {
-  padding: 0.5em 1.25em;
-  border: 2px dashed var(--table-border-color);
-  border-radius: 6px;
-}

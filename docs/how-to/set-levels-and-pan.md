@@ -4,6 +4,8 @@ You can balance the tracks with the faders and the pan, and keep the
 master below full scale. Each key is in
 [The mixer](../reference/mixer-view.md).
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 ## Set the level and the pan of a track
 
 1. Press `<Space>mm` to show the mixer, where each track has a strip.

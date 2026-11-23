@@ -1,297 +1,250 @@
-// <paw-live>: a live paw in a page of the docs, behind a button.
+// A live paw in a page of the docs: a panel with a start button, and
+// buttons in the text that open paw at a state or type keys into it.
 //
-// The one component that the pages use to embed the pod: the landing page,
-// the how-to guides and the course. It shows a note on what loads, a
-// button, the terminal and the "Powered by BrowserPod" credit. Nothing of
-// BrowserPod loads before the button is pressed.
-//
+//   <div class="paw-live" data-paw-live></div>
+//   <span data-paw-open='{"lesson":3,"keys":"<Esc>"}' data-paw-label="Open lesson 3 in paw"></span>
+//   <span data-paw-keys='["<Space><Space>",2000,"<Space><Space>"]' data-paw-state='{"lesson":3}'></span>
 //   <script type="module" src="pod/paw-live.js"></script>
-//   <paw-live state='{"project":"demo-song","scope":"Melody"}'
-//             label="Try the steps in your browser"
-//             show='[{"label":"Play or stop","keys":"<Space><Space>"}]'
-//             sw="coi-sw.js">
-//     Text for a browser with no script, or a copy of the site with no pod.
-//   </paw-live>
 //
-// Attributes, all optional:
-//   state  the state that paw opens at (`PawPod.open`), JSON; the demo song by default.
-//   label  the text of the button.
-//   show   buttons that type keys into paw ("show me"), JSON: [{ label, keys }].
-//   sw     the URL of coi-sw.js, for a page that is not cross-origin isolated.
-//          It must be at the top of the site, so that its scope holds the page.
+// The module loads nothing from BrowserPod's servers until the reader
+// presses "Start paw": then it imports paw-pod.js (beside this file),
+// which boots the pod. The panel shows the "Powered by BrowserPod" credit
+// that BrowserPod's Community License asks for.
 //
-// Any element of the page with `data-paw-keys` (keys in Vim notation) or
-// `data-paw-state` (JSON) drives the first <paw-live> of the page when it
-// is clicked: it starts paw first if it does not run. A page has one
-// <paw-live>, because each one is a pod of its own.
+// Attributes:
+// - data-paw-live: the panel. data-paw-state is the state that Start
+//   opens (by default the demo song). data-paw-worker is the URL of
+//   coi-sw.js, relative to the page; a page whose server cannot send
+//   the isolation headers needs it at the root of the site.
+// - data-paw-open: a button that opens paw at a state (PawPod.open).
+// - data-paw-keys: a button that types keys, in Vim notation. The value is
+//   a key string, or a JSON list of key strings and waits in milliseconds.
+//   data-paw-state is the state where the keys belong: when paw shows
+//   another state, the button opens that state first.
+// - data-paw-label: the text of a button, or of the Start button on the panel.
 //
-// The element fires `paw-live-ready` (detail: { pod }) when paw runs, and
-// keeps the PawPod in its `pod` property. web/browserpod/README.md has the
-// rest.
-import { PawPod } from "./paw-pod.js";
+// web/browserpod/README.md describes the component for authors of pages.
 
-const RESUME_KEY = "paw-live-start";
-const STYLE_ID = "paw-live-style";
+const here = new URL(".", import.meta.url);
+/** A reload for isolation remembers here that the reader pressed Start. */
+const START_KEY = "paw-live-start";
+const RELOAD_KEY = "paw-live-reloaded";
 
-const TEXT = {
-  note:
-    "You can run paw in this page. When you press the button, your browser loads BrowserPod " +
-    "(about 6 MB) from browserpod.io and paw (about 26 MB) from this site, and nothing loads " +
-    "before you press it. paw runs inside your browser, so the keys that you type stay on your computer.",
-  label: "Try paw in your browser",
-  loading: "Loading BrowserPod and paw...",
-  reloading: "The page loads again once, so that paw can start.",
-  running: "paw is running. Click the terminal to type in it.",
-  audioWaits: "Click the terminal to hear the sound.",
-  silent: "Your browser can't play sound from this page, so paw is silent.",
-  stopped: "paw stopped. Press Start again to run it once more.",
-  again: "Start again",
-  isolated:
-    "paw can't run in this browser, because the browser doesn't give this page the shared memory " +
-    "that paw needs. Install paw to try it.",
-  failed: "paw could not start: ",
-};
-
-/** The styles of the element, once for each page. They follow the colours of mdBook's theme. */
-function addStyle() {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-paw-live { display: block; margin: 1em 0; }
-.paw-live { padding: 0.25em 1em; border: 1px solid var(--table-border-color, #8888); border-radius: 6px; }
-.paw-live-actions button { font: inherit; margin: 0 0.5em 0.5em 0; padding: 0.4em 0.9em; border-radius: 6px;
-  border: 1px solid var(--links, #0645ad); background: transparent; color: var(--fg, inherit); cursor: pointer; }
-.paw-live-actions button.paw-live-start { background: var(--links, #0645ad); color: var(--bg, #fff); }
-.paw-live-actions button:disabled { opacity: 0.5; cursor: default; }
-.paw-live-status:empty { display: none; }
-.paw-live-terminal { background: #000; overflow-x: auto; max-width: 100%; }
-.paw-live-terminal:empty { display: none; }
-.paw-live-credit { font-size: 0.9em; }
+const STYLE = `
+.paw-live-panel { border: 1px solid var(--table-border-color, #8888); border-radius: 6px; padding: 0.75em; }
+.paw-live-panel p { margin: 0 0 0.5em; }
+.paw-live-screen { background: #000; overflow: hidden; border-radius: 4px; }
+.paw-live-screen:empty { display: none; }
+.paw-live-screen > div { transform-origin: 0 0; }
+.paw-live-status { min-height: 1.5em; }
+.paw-live-credit { font-size: 0.85em; margin-top: 0.5em; }
+.paw-live-button { font: inherit; font-size: 0.85em; margin: 0 0.25em; padding: 0.1em 0.6em; cursor: pointer;
+  border: 1px solid var(--links, #0645ad); border-radius: 4px; background: transparent; color: var(--links, #0645ad); }
+.paw-live-button:disabled { opacity: 0.5; cursor: default; }
+.paw-live-start { font-size: 1em; padding: 0.4em 1em; background: var(--links, #0645ad); color: var(--bg, #fff); }
+.paw-live-attention { animation: paw-live-pulse 0.6s 3; }
+@keyframes paw-live-pulse { 50% { box-shadow: 0 0 0 4px var(--links, #0645ad); } }
 `;
-  document.head.append(style);
-}
 
-/** Parse a JSON attribute; a wrong one is an error on the page's console, and the default. */
-function jsonAttribute(element, name, fallback) {
-  const text = element.getAttribute(name);
-  if (!text) return fallback;
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    console.error(`<paw-live ${name}>: ${err.message}`);
-    return fallback;
-  }
-}
-
-function button(text, className = "") {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.textContent = text;
-  if (className) b.className = className;
-  return b;
-}
-
-class PawLive extends HTMLElement {
-  /** The PawPod when paw runs, else null. */
-  pod = null;
-  /** The promise of a start that runs, so that two clicks start one pod. */
-  #starting = null;
-
-  connectedCallback() {
-    if (this.ui) return;
-    addStyle();
-    this.state = jsonAttribute(this, "state", { project: "demo-song" });
-    const show = jsonAttribute(this, "show", []);
-
-    this.ui = document.createElement("div");
-    this.ui.className = "paw-live";
-    const note = document.createElement("p");
-    note.className = "paw-live-note";
-    note.textContent = TEXT.note;
-    const actions = document.createElement("p");
-    actions.className = "paw-live-actions";
-    this.startButton = button(this.getAttribute("label") || TEXT.label, "paw-live-start");
-    this.startButton.addEventListener("click", () => this.start().catch(() => {}));
-    this.showButtons = show.map(({ label, keys }) => {
-      const b = button(label);
-      b.disabled = true;
-      b.dataset.pawKeys = keys;
-      return b;
-    });
-    // "Start again" opens the state again, without the changes.
-    this.againButton = button(TEXT.again);
-    this.againButton.hidden = true;
-    this.againButton.addEventListener("click", () => this.#run(() => this.pod.open(this.state)));
-    actions.append(this.startButton, ...this.showButtons, this.againButton);
-    this.status = document.createElement("p");
-    this.status.className = "paw-live-status";
-    this.status.setAttribute("role", "status");
-    this.terminal = document.createElement("div");
-    this.terminal.className = "paw-live-terminal";
-    const credit = document.createElement("p");
-    credit.className = "paw-live-credit";
-    const link = document.createElement("a");
-    link.href = "https://browserpod.io";
-    link.textContent = "BrowserPod";
-    credit.append("Powered by ", link, ".");
-    this.ui.append(note, actions, this.status, this.terminal, credit);
-    // The text inside the element is for a page with no script: the
-    // element shows its own parts instead.
-    this.replaceChildren(this.ui);
-
-    // A press before the reload that made the page isolated starts paw now.
-    if (this.#resumeAsked()) {
-      this.scrollIntoView({ block: "center" });
-      this.start().catch(() => {});
-    }
+/** The live paw of the page: one pod for every button. */
+class Live {
+  constructor(panel) {
+    this.panel = panel;
+    this.pod = null;
+    /** The state that paw shows now, as the JSON text of the button that opened it. */
+    this.state = null;
+    /** The one action at a time: a button waits for the one before it. */
+    this.queue = Promise.resolve();
+    panel.replaceChildren();
+    const box = el("div", "paw-live-panel");
+    this.start = button(panel.dataset.pawLabel || "Start paw", "paw-live-button paw-live-start");
+    this.status = el("p", "paw-live-status");
+    this.screen = el("div", "paw-live-screen");
+    const credit = el("p", "paw-live-credit");
+    credit.append("Powered by ", link("BrowserPod", "https://browserpod.io"), ". paw runs in your browser.");
+    const intro = el("p");
+    this.intro = intro;
+    intro.textContent =
+      `Press ${this.start.textContent} to run paw in this page. Your browser then loads BrowserPod from browserpod.io, and paw from this site.`;
+    box.append(intro, this.start, this.status, this.screen, credit);
+    panel.append(box);
+    this.start.addEventListener("click", () => this.run(() => this.boot()));
+    new ResizeObserver(() => this.fit()).observe(panel);
   }
 
-  #say(text) {
+  say(text) {
     this.status.textContent = text;
   }
 
-  /** The index of this element among the <paw-live> of the page, for the resume after a reload. */
-  #where() {
-    return `${location.pathname}#${[...document.querySelectorAll("paw-live")].indexOf(this)}`;
+  /** Run one action after the others, and say what went wrong. */
+  run(action) {
+    this.queue = this.queue.then(action).catch((err) => this.say(`paw stopped: ${err.message}`));
+    return this.queue;
   }
 
-  #resumeAsked() {
-    let asked = false;
+  /** Boot the pod and open the panel's state. Starts from a click. */
+  async boot() {
+    if (this.pod) return;
+    this.start.disabled = true;
     try {
-      asked = sessionStorage.getItem(RESUME_KEY) === this.#where();
-      if (asked) sessionStorage.removeItem(RESUME_KEY);
-    } catch {
-      // No session storage (a private window, for example): no resume.
-    }
-    return asked;
-  }
-
-  /**
-   * Start paw at the element's state. Resolves with the PawPod, or
-   * rejects after the element says why. A page that is not cross-origin
-   * isolated gets the service worker of coi-sw.js and loads again once;
-   * paw then starts by itself.
-   */
-  start() {
-    if (this.pod) return Promise.resolve(this.pod);
-    if (!this.#starting) this.#starting = this.#start().finally(() => (this.#starting = null));
-    return this.#starting;
-  }
-
-  async #start() {
-    this.startButton.disabled = true;
-    try {
-      if (!self.crossOriginIsolated) {
-        await this.#isolate();
-        // The page loads again: nothing more to do in this one.
-        return new Promise(() => {});
+      if (!(await fetch(new URL("manifest.json", here), { method: "HEAD" })).ok) {
+        throw new Error("paw for the browser is not on this copy of the pages. Install paw to do the steps.");
       }
-      this.#say(TEXT.loading);
-      const pod = await PawPod.boot({ element: this.terminal });
-      const sound = await this.#startAudio(pod);
-      await pod.open(this.state);
-      this.pod = pod;
-      this.#watch();
-      this.running = { true: TEXT.running, waits: `${TEXT.running} ${TEXT.audioWaits}`, false: `${TEXT.running} ${TEXT.silent}` }[sound];
-      this.#say(this.running);
-      this.showButtons.forEach((b) => (b.disabled = false));
-      this.startButton.hidden = true;
-      this.againButton.hidden = false;
-      this.dispatchEvent(new CustomEvent("paw-live-ready", { bubbles: true, detail: { pod } }));
-      return pod;
+      if (!self.crossOriginIsolated) {
+        await this.isolate();
+        return;
+      }
+      this.say("Starting the pod...");
+      const { PawPod } = await import(new URL("paw-pod.js", here));
+      this.pod = await PawPod.boot({ element: this.screen, base: here.href });
+      window.pawPod = this.pod;
+      this.fit();
+      // A click is the gesture that lets a page play sound. After the
+      // reload for isolation, the next click starts it (see `sound`).
+      if (!window.AudioContext || !window.AudioWorkletNode) this.silent = true;
+      else if (navigator.userActivation?.isActive !== false) await this.pod.audio.start();
+      await this.open(this.panel.dataset.pawState || '{"project":"demo-song"}');
+      // paw shows now: the terminal takes the room of the button and its text.
+      this.start.hidden = this.intro.hidden = true;
     } catch (err) {
-      this.#say(err.isolation ? TEXT.isolated : TEXT.failed + err.message);
-      this.startButton.disabled = !!err.isolation;
+      this.start.disabled = false;
       throw err;
     }
   }
 
   /**
-   * Register coi-sw.js, and load the page again through it, once. A
-   * browser that does not isolate the page after that gets a message, not
-   * a loop.
+   * Make the page cross-origin isolated, as BrowserPod needs: a service
+   * worker adds the headers, and the page loads once more through it.
+   * The reload remembers the press, and the panel starts by itself.
    */
-  async #isolate() {
-    const sw = this.getAttribute("sw") || new URL("coi-sw.js", import.meta.url).href;
-    const fail = () => Object.assign(new Error("not cross-origin isolated"), { isolation: true });
-    if (!("serviceWorker" in navigator) || !window.isSecureContext || navigator.serviceWorker.controller) throw fail();
-    try {
-      sessionStorage.setItem(RESUME_KEY, this.#where());
-    } catch {
-      throw fail();
+  async isolate() {
+    if (sessionStorage.getItem(RELOAD_KEY)) {
+      sessionStorage.removeItem(RELOAD_KEY);
+      throw new Error("this browser does not isolate the page, and BrowserPod needs it. Try Chromium.");
     }
-    this.#say(TEXT.reloading);
-    await navigator.serviceWorker.register(sw);
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) {
+      throw new Error("this browser cannot isolate the page, and BrowserPod needs it. Try Chromium.");
+    }
+    this.say("Preparing the page...");
+    const worker = new URL(this.panel.dataset.pawWorker || "coi-sw.js", this.panel.dataset.pawWorker ? location.href : here);
+    await navigator.serviceWorker.register(worker);
     await navigator.serviceWorker.ready;
+    sessionStorage.setItem(START_KEY, "1");
+    sessionStorage.setItem(RELOAD_KEY, "1");
     location.reload();
   }
 
-  /**
-   * Play paw's sound in the page. Returns true when it plays, "waits"
-   * when the browser waits for a click (after the reload, the press is
-   * no longer a gesture of this page), and false when the browser has no
-   * Web Audio.
-   */
-  async #startAudio(pod) {
-    if (!window.AudioContext || !window.AudioWorkletNode) return false;
-    try {
-      const started = pod.audio.start();
-      const late = new Promise((resolve) => setTimeout(() => resolve("late"), 1000));
-      if ((await Promise.race([started, late])) !== "late") return true;
-    } catch {
-      return false;
-    }
-    const resume = () => pod.audio.start().catch(() => {});
-    this.terminal.addEventListener("pointerdown", resume, { once: true });
-    return "waits";
+  /** Open paw at a state (JSON text), unless it shows that state already. */
+  async open(state, again = false) {
+    if (!again && this.state === state && this.pod.process) return;
+    this.say("Opening...");
+    // The paw that quits for the new state is not a paw that quit by itself.
+    this.state = null;
+    await this.pod.open(JSON.parse(state));
+    this.state = state;
+    this.say(`paw ${this.pod.manifest.version} runs here. Click it to type in it.`);
+    if (this.silent) this.say(`${this.status.textContent} Your browser can't play sound from this page, so paw is silent.`);
+    const running = this.pod.process;
+    this.pod.exited?.then(() => {
+      // paw quit by itself (`:q`): no other state opened since.
+      if (this.pod.process === null && this.state === state && running) {
+        this.state = null;
+        this.say("paw has quit. Press a button to start it again.");
+      }
+    });
   }
 
-  /**
-   * Say when paw quits (`:q`). `open` quits paw too and starts it again
-   * at once: the check waits for that, so that only a paw that stays
-   * stopped is reported.
-   */
-  #watch() {
-    this.pod.exited.then(() =>
-      setTimeout(() => {
-        if (!this.pod.process) this.#say(TEXT.stopped);
-      }, 0),
-    );
-  }
-
-  /** Run an action on the running pod; a failure goes to the status line. */
-  async #run(action) {
-    try {
-      await action();
-      this.#watch();
-      this.#say(this.running);
-    } catch (err) {
-      this.#say(TEXT.failed + err.message);
+  /** Type keys: a key string, or a list of key strings and waits in ms. */
+  async type(keys) {
+    const list = keys.trim().startsWith("[") ? JSON.parse(keys) : [keys];
+    for (const item of list) {
+      if (typeof item === "number") await new Promise((r) => setTimeout(r, item));
+      else await this.pod.sendKeys(item);
     }
   }
 
-  /** What a `data-paw-keys` or `data-paw-state` element asks: start if needed, then do it. */
-  async drive({ keys, state }) {
-    const pod = await this.start();
-    if (state) await this.#run(() => pod.open(state));
-    if (keys) {
-      // A paw that quit starts again at the element's state first.
-      if (!pod.process) await this.#run(() => pod.open(this.state));
-      await pod.sendKeys(keys);
-    }
+  /** Start the sound from a click, if the boot could not. */
+  async sound() {
+    if (this.pod && !this.silent) await this.pod.audio.start();
+  }
+
+  /** Scale the terminal to the width of the panel, never above its own size. */
+  fit() {
+    const host = this.screen.firstElementChild;
+    if (!host) return;
+    host.style.transform = "";
+    const scale = Math.min(1, this.screen.clientWidth / host.offsetWidth);
+    host.style.transform = scale < 1 ? `scale(${scale})` : "";
+    this.screen.style.height = `${Math.ceil(host.offsetHeight * scale)}px`;
+  }
+
+  /** A button in the text: before Start, it shows the reader the Start button. */
+  wire(target) {
+    const keys = target.dataset.pawKeys;
+    const label = target.dataset.pawLabel || (keys !== undefined ? "Type it" : "Open in paw");
+    const b = button(label, "paw-live-button");
+    if (keys !== undefined) b.title = `Types ${keysText(keys)} into paw`;
+    target.replaceChildren(b);
+    b.addEventListener("click", () => {
+      if (!this.pod) {
+        this.panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        this.start.classList.remove("paw-live-attention");
+        void this.start.offsetWidth;
+        this.start.classList.add("paw-live-attention");
+        this.start.focus({ preventScroll: true });
+        return;
+      }
+      b.disabled = true;
+      this.run(async () => {
+        await this.sound();
+        const state = target.dataset.pawState ?? target.dataset.pawOpen;
+        if (state) await this.open(state, keys === undefined);
+        if (keys !== undefined) await this.type(keys);
+        this.screen.querySelector("textarea")?.focus({ preventScroll: true });
+      }).finally(() => (b.disabled = false));
+    });
   }
 }
 
-customElements.define("paw-live", PawLive);
+/** The keys of a data-paw-keys value, for a tooltip. */
+function keysText(keys) {
+  if (!keys.trim().startsWith("[")) return keys;
+  return JSON.parse(keys)
+    .filter((item) => typeof item === "string")
+    .join(" ");
+}
 
-// The "show me" elements of the page: buttons of a <paw-live>, or any
-// element with data-paw-keys or data-paw-state.
-document.addEventListener("click", (event) => {
-  const target = event.target.closest?.("[data-paw-keys], [data-paw-state]");
-  const live = document.querySelector("paw-live");
-  if (!target || !live) return;
-  const keys = target.dataset.pawKeys;
-  const state = target.dataset.pawState ? JSON.parse(target.dataset.pawState) : null;
-  live.drive({ keys, state }).catch(() => {});
-});
+function el(tag, className) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  return node;
+}
+
+function button(text, className) {
+  const b = el("button", className);
+  b.type = "button";
+  b.textContent = text;
+  return b;
+}
+
+function link(text, href) {
+  const a = el("a");
+  a.href = href;
+  a.textContent = text;
+  return a;
+}
+
+const panel = document.querySelector("[data-paw-live]");
+if (panel) {
+  const style = el("style");
+  style.textContent = STYLE;
+  document.head.append(style);
+  const live = new Live(panel);
+  for (const target of document.querySelectorAll("[data-paw-open], [data-paw-keys]")) live.wire(target);
+  if (sessionStorage.getItem(START_KEY)) {
+    // The reader pressed Start before the reload for isolation.
+    sessionStorage.removeItem(START_KEY);
+    live.run(() => live.boot());
+  }
+  if (self.crossOriginIsolated) sessionStorage.removeItem(RELOAD_KEY);
+}

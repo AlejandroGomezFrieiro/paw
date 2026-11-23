@@ -22,6 +22,11 @@ math.log10 = math.log10 or function(x) return math.log(x, 10) end
 math.pow = math.pow or function(a, b) return a ^ b end
 math.mod = math.mod or math.fmod
 package.loaders = package.loaders or package.searchers
+-- LuaJIT's `table.new(narray, nhash)` makes a table with room for its items.
+-- Lua 5.2 has no such function: the table is empty and grows when it fills.
+package.preload["table.new"] = package.preload["table.new"] or function()
+  return function() return {} end
+end
 
 if not setfenv then
   -- The upvalue `_ENV` of a function, as its environment.

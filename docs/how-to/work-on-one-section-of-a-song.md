@@ -6,6 +6,8 @@ You can see, edit and loop only one section of a song, for example the
 bridge, in a narrowed window. The section is a region, and the rules are in
 [Scopes](../reference/narrowing.md).
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 ## Narrow to a region
 
 1. If the song has no region, make one. Press `v`, move the cursor over

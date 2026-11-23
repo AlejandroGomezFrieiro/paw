@@ -8,6 +8,8 @@ stretch of the song that repeats while it plays or records. It is not
 `:clip.repeat`, which repeats the content of one clip when you make the clip
 longer.
 
+<!-- paw-live: {"project": "demo-song"} -->
+
 ## Loop a selection
 
 1. Press `v` and move the cursor over the time to loop. In the arrange view,

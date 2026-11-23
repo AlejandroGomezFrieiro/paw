@@ -210,7 +210,6 @@ export class PawPod {
    * Start paw at a state. paw that runs already quits first, without
    * saving. The states:
    * - `{ project: "demo-song" }`: a project of the image (the default).
-   * - `{ empty: true }`: a new project with no tracks.
    * - `{ lesson: 3 }`, `{ lesson: "visual" }`: a lesson of the course, from its start.
    * - `{ scope: "Chords" }`: with a project, narrowed to a region or a group (`:narrow`).
    * - `{ keys: "jj" }`: keys typed after startup; `{ lua: "..." }`: Lua run after startup.

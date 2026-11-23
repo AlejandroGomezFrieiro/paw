@@ -16,7 +16,9 @@
 # private X display (RIG_DISPLAY, 177 unless set) with xdotool, as
 # tests/tools/gui.sh does, and records the screen; gif.py makes the GIF,
 # with the caption and the keys typed in a bar under it. All of them start
-# from examples/demo-song.lua. Nothing touches your display, sound or MIDI
+# from examples/demo-song.lua. A cast scene (cast-*.sh) records paw in a
+# pseudo-terminal instead, with cast.py, into an asciicast that the website
+# plays (tools/website/paw-cast.js). Nothing touches your display, sound or MIDI
 # devices. The positions the pointer goes to are for the demo song at the
 # sizes rig.sh sets; a change to the window's layout means changing them.
 # NOCOPY=1 leaves the results in target/test-scratch/media.
@@ -35,20 +37,21 @@ mkdir -p "$WORK"
 
 # make_set dir out: every scene in dir, the GIFs and stills into out.
 make_set() {
-  for script in "$1"/tui-*.sh "$1"/gui-*.sh "$1"/stills.sh; do
+  for script in "$1"/tui-*.sh "$1"/gui-*.sh "$1"/cast-*.sh "$1"/stills.sh; do
     [ -f "$script" ] && scene "$script" "$2"
   done
 }
 scene() {
   name=$(basename "$1" .sh)
   echo "$name"
-  rm -f "$WORK/$name.mkv"
+  rm -f "$WORK/$name.mkv" "$WORK/$name.cast"
   : > "$WORK/stills.list"
   sh "$1" || exit 1
   if [ -f "$WORK/$name.mkv" ]; then
     python3 "$HERE/gif.py" "$name" || exit 1
     [ -z "$NOCOPY" ] && cp "$WORK/$name.gif" "$2/$name.gif"
   fi
+  if [ -f "$WORK/$name.cast" ] && [ -z "$NOCOPY" ]; then cp "$WORK/$name.cast" "$2/$name.cast"; fi
   # The stills the scene took on the way (rig.sh's `still`).
   if [ -z "$NOCOPY" ]; then
     while read -r still; do cp "$WORK/$still" "$2/$still"; done < "$WORK/stills.list"

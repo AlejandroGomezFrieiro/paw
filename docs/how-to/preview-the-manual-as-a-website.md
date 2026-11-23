@@ -14,7 +14,9 @@ tells how the build works.
    ```
 
 2. To read the pages, open `result/index.html` in a browser. The search box
-   works from a file, and the pages need no server.
+   works from a file, and the pages need no server. The recorded sessions
+   need a server, and from a file the landing page shows a GIF in their
+   place.
 3. To serve the site and see a change of the build files, run the following
    command in the checkout, then open `http://127.0.0.1:3000`.
 
@@ -27,6 +29,18 @@ tells how the build works.
    Stop the server and run the command again after you edit a page.
 4. To build without Nix, run `tools/website/build.sh /tmp/paw-site` in the
    dev shell. The pages are in `/tmp/paw-site/site`.
+5. To try the live paw of the landing page and the how-to guides, build the
+   pod image, build the site with it, and serve the site:
+
+   ```sh
+   nix build .#paw-pod -o pod
+   PAW_POD=pod tools/website/build.sh /tmp/paw-site
+   python3 web/browserpod/serve.py /tmp/paw-site/site 8000
+   ```
+
+   Open `http://127.0.0.1:8000` in Chromium and press "Try paw". The
+   browser then loads BrowserPod from browserpod.io. Without `PAW_POD`, the
+   button says that paw for the browser isn't on this copy of the pages.
 
 Each page has a "Suggest an edit" link to its file on GitHub. `nix flake
 check` builds the site too, so a broken link fails the check.

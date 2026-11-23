@@ -28,11 +28,9 @@ file on GitHub, and links to the previous and the next page.
 The first page of the site is a landing page. It is the file
 `tools/website/landing.md`, and the script copies it over `README.md` in the
 staging folder only, so GitHub still shows the README of the repository.
-The page uses a few lines of CSS from `tools/website/landing.css` and no
-script. Its section "Try it in your browser" is an empty slot for a demo
-that runs in the browser. Facts on the landing page come from the README
-and the manual, and the page follows the plain writing rules like any other
-external page.
+The page uses a few lines of CSS from `tools/website/landing.css`. Facts on
+the landing page come from the README and the manual, and the page follows
+the plain writing rules like any other external page.
 
 Then mdBook builds the pages. After that, a link checker reads the built
 pages. A link or an anchor that reaches nothing fails the build. `nix flake check` builds the site, so it fails on the same broken links. A link to a
@@ -41,6 +39,34 @@ configuration, goes to the file on GitHub.
 
 `nix build .#website` runs the same script in a sandbox with no network, and
 the result is a folder of static files.
+
+## Recorded sessions and a live paw
+
+The website has two parts that move, and a reader can copy keys from both.
+A recorded session plays a terminal session of paw in the page, and the
+reader can pause it, go to a step and copy the keys of each step. The file
+is an asciicast, which is a list of what paw wrote to the terminal and of
+the keys that were typed, with their times. A scene script in
+`docs/images/make` makes it, as the scripts there make the GIFs, so a
+change to a view only needs the script to run again. The player,
+`tools/website/paw-cast.js`, reads the few terminal sequences that paw
+writes, and it is about 300 lines with no library.
+
+A live paw runs the real terminal paw in the page, in a pod of BrowserPod,
+which runs Linux programs in a browser tab. The landing page has a "Try
+paw" button, and some how-to guides have a "Try the steps in your browser"
+button that opens paw at the start of the guide. The pod and the page
+component come from [paw in a BrowserPod pod](../../web/browserpod/README.md).
+A guide asks for a live paw with an HTML comment, so GitHub and `:help`
+show the page as before, and the build turns the comment into the button.
+Nothing loads from BrowserPod's servers before the reader presses the
+button, because BrowserPod's license doesn't allow a copy of its runtime on
+another server, and a reader who only reads the page shouldn't send a
+request to a third party.
+
+The recorded sessions and the live paw need the site to come from a web
+server. From a file, the landing page shows a GIF in place of the
+recorded session, and the live paw doesn't start.
 
 ## The choice of generator
 

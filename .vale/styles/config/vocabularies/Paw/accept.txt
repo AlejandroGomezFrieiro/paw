@@ -3,6 +3,7 @@ paw
 Neovim
 Vim
 LuaJIT
+asciicast
 Lua
 LuaLS
 egui
