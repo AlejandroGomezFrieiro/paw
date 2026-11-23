@@ -1,0 +1,23 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2 "Stores"
+  2 | strip #1 "Lead"
+  3 | producer render #2
+  4 | producer render #3
+  5 | bus #4 "Loop"
+  6 | bus #5 "Out"
+  7 | "Room" -> #1
+  8 | #1 -> #2
+  9 | #2 => "Print"
+ 10 | -- E216: a second wire stores in "Print"
+ 11 | #3 => "Print"
+    | ^ 11:1: error E216: "Print" gets a second `=>` wire: a lane keeps the result of one wire, and the first is on line 9
+ 12 | -- E217: the two buses feed each other
+ 13 | #1 -> #4
+ 14 | #4 -> #1
+    | ^ 14:1: error E217: the wires make a cycle: #1 -> #4 -> #1
+ 15 | -- fine: a path that does not come back
+ 16 | #1 -> #5
+ 17 | #5 -> @"Strings/Bus"

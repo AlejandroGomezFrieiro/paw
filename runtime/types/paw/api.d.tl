@@ -24,7 +24,20 @@ local record api
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
    canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
    canvas_pixels: function(key: string): types.PictureBlob
+   chain_branch_add: function(owner: types.ChainOwner, split: integer, opts?: types.ChainBranchOptions): integer
+   chain_get: function(owner: types.ChainOwner): types.Chain
+   chain_kind_define: function(name: string, spec: types.SplitKindSpec, by?: string)
+   chain_kinds: function(): {string}
+   chain_link: function(owner: types.ChainOwner, source: integer, device: integer, param: string, depth?: number)
+   chain_macro_add: function(owner: types.ChainOwner, split: integer, name: string): integer
+   chain_move: function(owner: types.ChainOwner, id: integer, to: types.ChainPlace)
+   chain_remove: function(owner: types.ChainOwner, id: integer)
    chain_schema: function(): string
+   chain_set: function(owner: types.ChainOwner, id: integer, patch: types.ChainPatch)
+   chain_set: function(owner: types.ChainOwner, id: integer, key: string, value: nil)
+   chain_tap: function(owner: types.ChainOwner, device: integer, from: integer | string)
+   chain_unwrap: function(owner: types.ChainOwner, split: integer, keep?: integer): integer
+   chain_wrap: function(owner: types.ChainOwner, nodes: {integer}, kind: string, opts?: types.ChainWrapOptions): integer
    chain_write: function(track: integer, file: string): {string}
    checkpoint_delete: function(file: string)
    checkpoint_dir: function(): string
@@ -119,19 +132,6 @@ local record api
    fs_space: function(path: string): types.DiskSpace
    fs_stat: function(path: string): types.FileStat
    fs_trash: function(path: string): string
-   graph_branch_add: function(split: integer, opts?: types.GraphBranchOptions): integer
-   graph_get: function(track: integer): types.Graph
-   graph_kind_define: function(word: string, spec: types.GraphKindSpec)
-   graph_kinds: function(): {string}
-   graph_link: function(source: integer, device: integer, param: string, depth?: number)
-   graph_macro_add: function(split: integer, name: string): integer
-   graph_move: function(id: integer, to: types.GraphPlace)
-   graph_remove: function(id: integer)
-   graph_set: function(id: integer, patch: types.GraphPatch)
-   graph_set: function(id: integer, key: string, value: nil)
-   graph_tap: function(device: integer, from: integer | string)
-   graph_unwrap: function(split: integer, keep?: integer): integer
-   graph_wrap: function(nodes: {integer}, kind: string, opts?: types.GraphWrapOptions): integer
    grid_fill: function(x: number, y: number, w: number, h: number, fill?: string, style: integer | string | types.CellStyle, cx: number, cy: number, cw: number, ch: number)
    grid_image: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number): boolean
    grid_keep: function(key: string, x: number, y: number, w: number, h: number, cx: number, cy: number, cw: number, ch: number)
@@ -275,14 +275,14 @@ local record api
    project_shelved: function(): boolean
    project_unshelve: function()
    quit: function(code?: integer)
-   rack_apply: function(split: integer)
-   rack_define: function(split: integer, name?: string): integer
+   rack_apply: function(owner: types.ChainOwner, split: integer)
+   rack_define: function(owner: types.ChainOwner, split: integer, name?: string): integer
    rack_list: function(): {types.RackDef}
-   rack_overrides: function(split: integer): {string}
-   rack_place: function(rack: integer, to: types.GraphPlace): integer
-   rack_reset: function(split: integer): integer
+   rack_overrides: function(owner: types.ChainOwner, split: integer): {string}
+   rack_place: function(owner: types.ChainOwner, rack: integer, to: types.ChainPlace): integer
+   rack_reset: function(owner: types.ChainOwner, split: integer): integer
    rack_set: function(rack: integer, key: string, value: number | boolean | types.Meta)
-   rack_unlink: function(split: integer)
+   rack_unlink: function(owner: types.ChainOwner, split: integer)
    read_dir: function(path: string): {types.DirEntry}
    real_ms: function(): number
    redo: function(): boolean

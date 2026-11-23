@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use chain_syntax::Schema;
+use chain_syntax::{Context, Schema};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -71,8 +71,8 @@ fn run(words: &[String]) -> Result<String, String> {
 /// The `initializationOptions` that the server reads. Each is optional.
 ///
 /// ```json
-/// { "schema": { "chain_schema": 1, ... }, "schemaPath": "/path/schema.json",
-///   "schemaCommand": ["paw", "chain", "schema"], "chainContext": {} }
+/// { "schema": { "chain_schema": 2, ... }, "schemaPath": "/path/schema.json",
+///   "schemaCommand": ["paw", "chain", "schema"], "chainContext": { "chain_context": 2, ... } }
 /// ```
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,7 +84,7 @@ pub struct InitOptions {
     pub schema_path: Option<PathBuf>,
     #[serde(default)]
     pub schema_command: Option<Vec<String>>,
-    /// What the host knows besides its kinds. See [`Host::context`].
+    /// What the host knows outside the text. See [`Host::context`].
     #[serde(default)]
     pub chain_context: Option<Value>,
 }
@@ -129,10 +129,24 @@ pub struct Host {
     /// errors of the parser, formats the layout only, and completes and
     /// hovers nothing.
     pub schema: Option<Schema>,
-    /// What the host tells besides its kinds, as `chainContext` in the
-    /// `initializationOptions` or the notification `chain/context`: an
-    /// object, empty by default. A later version of the language reads the
-    /// streams and outputs outside the text from it; this version only
-    /// keeps it.
-    pub context: Value,
+    /// The lanes of the part and the outside ends that the host knows, as
+    /// `chainContext` in the `initializationOptions` or the notification
+    /// `chain/context`. None by default: the check then gives W302 for
+    /// each lane and outside end.
+    pub context: Option<Context>,
+}
+
+/// The context in a JSON value. Null and an empty object are no context.
+///
+/// # Errors
+///
+/// A message for people when the value is not a context.
+pub fn read_context(value: Value) -> Result<Option<Context>, String> {
+    match value {
+        Value::Null => Ok(None),
+        Value::Object(map) if map.is_empty() => Ok(None),
+        value => Context::from_json(&value.to_string())
+            .map(Some)
+            .map_err(|error| format!("the chain context is not read: {error}")),
+    }
 }

@@ -1,0 +1,20 @@
+chain 2 "Violin I" rev=a41c07
+strip #1 "Violin I" gain=-3dB
+  synth #2 voices=4
+  compressor #4 ratio=3 key=@"Drums/Kick"
+bus #6 "Section"
+send #7 "To hall" level=-12dB
+vca #8
+producer midi-keys #9 smooth=20ms
+io midi-in #12 "Keyboard"
+"Notes" -> #1
+"Volume" -> #1.gain
+#8 -> #6.gain
+#1 -> #6
+#1 -> #7
+#7 -> @"Strings/Bus"
+"Notes" -> #9.notes
+#9 => "Keys"
+#12 => "Chords"
+checks
+  latency <= 6ms

@@ -143,6 +143,9 @@ way. `paw.ext.use(path)` in `init.lua` or `:ext.load <name>` loads one.
   example, notation and articulations meet in `paw.query.marks` (the
   marks of a note) and the event `notation.marked`. Each extension works
   without the other.
+- The modules of an extension have the name of the extension
+  (`require("sampler")`). Do not put an entry under `paw.` in
+  `package.loaded`: that name is for the runtime.
 - With triggers, the extension waits for its first use: `cmd`, `keys`,
   `event`, `kind` (a key of any registry: `{ registry = "pickers", key =
   "x" }`), `view`, and `lazy = false`. paw puts a stub for each command,
@@ -168,6 +171,7 @@ paw.textbuf.kind("clips", { … })               -- a listing edited as text, :w
 paw.track_kinds.define("euclid", { … })        -- a kind of track (create, editor, describe)
 paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
 paw.nest.define_kind("drums.pattern", { … })   -- a kind of subproject: create(region), enter(nest), describe(nest)
+paw.chain.define_kind("drums.transient", { min = 2, max = 2, first = 2 })  -- a kind of split in a chain; edit a chain with paw.chain.of({ track = id })
 paw.on("edit.after", function(payload) end)    -- hooks: see docs/reference/events.md
 paw.statusline.component("euclid", { fn = function(ctx) return { { "E", "StatusOn" } } end })
 paw.trackcolumn.add("euclid", { order = 25, width = 1, render = function(track, ctx) end })  -- a part of the track column

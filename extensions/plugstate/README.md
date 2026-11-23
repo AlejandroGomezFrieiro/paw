@@ -106,7 +106,7 @@ shows.
 Add an adapter from your configuration or extension:
 
 ```lua
-local plugstate = require("paw.plugstate")
+local plugstate = require("plugstate")
 plugstate.adapter({
   name = "my-amp",
   desc = "My Amp: its model",
@@ -303,7 +303,7 @@ does not permit.
 
 ### The Lua module
 
-`require("paw.plugstate")` gives these functions:
+`require("plugstate")` gives these functions:
 
 | Function | Result |
 | --- | --- |

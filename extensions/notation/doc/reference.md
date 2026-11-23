@@ -304,7 +304,7 @@ the piano roll. Every key that edits writes the MIDI of the clip (see
 | `K` | what is under the cursor: the note as written (its value, voice, marks and the dynamic in force) and the MIDI note it is, then the clip and the track |
 | `\n` | back to the window before |
 | `:q` `ZZ` `Ctrl-w c` | close the view |
-| `Esc` | stay: drop a count, an operator or a selection |
+| `Esc` | stay: drop a count, an operator or a selection; with nothing to drop, stop a recording and keep the take |
 
 Note entry (`i`) works as in other notation programs. A letter `c` to
 `b` enters that note at the cursor, with the chosen value, and steps on.

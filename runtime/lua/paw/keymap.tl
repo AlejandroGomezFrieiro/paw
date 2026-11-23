@@ -1555,12 +1555,28 @@ end
 -- A second one soon after says so.
 local escaped_at = -math.huge
 
---- After an Escape that had nothing to cancel: a second one within two
---- seconds outside the arrange view says how to leave.
-function M.escape_hint()
+-- The payload of the `escape` event. A listener that ended something sets
+-- `cancelled`, and its message stays on the line.
+local record Escaped
+  cancelled: boolean
+end
+
+--- After an Escape that had nothing to cancel in the view: the listeners
+--- of the `escape` event end what goes on (a count-in, a take, a render,
+--- a snippet). When none of them ended anything, a second one within two
+--- seconds outside the arrange view says how to leave: `how`, or the keys
+--- that leave any view. A view that maps `<Esc>` calls it when it has
+--- nothing of its own to cancel.
+function M.escape_hint(how?: string)
+  local escaped: Escaped = {}
+  events.emit("escape", escaped)
+  if escaped.cancelled then
+    escaped_at = -math.huge
+    return
+  end
   local now = api.now()
   if now - escaped_at < 2000 and paw.ui.focused and paw.ui.focused ~= "arrange" then
-    paw.notify("normal mode: <C-w>p goes back to the window before, :q closes this one")
+    paw.notify("normal mode: " .. (how or "<C-w>p goes back to the window before, :q closes this one"))
     escaped_at = -math.huge
     return
   end
@@ -1824,7 +1840,6 @@ local function unmapped(key: string)
     return
   end
   if key == "<Esc>" then
-    events.emit("escape", {})
     M.escape_hint()
   elseif view and view.on_key then
     view:on_key(key)

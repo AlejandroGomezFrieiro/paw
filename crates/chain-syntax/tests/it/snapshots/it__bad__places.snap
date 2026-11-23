@@ -17,7 +17,7 @@ expression: "annotate(&text, &parsed.diagnostics)"
     |   ^ 9:3: error E109: `checks` goes at the top level only
  10 |     latency <= 6ms
  11 | chain 1
-    | ^ 11:1: error E109: the header `chain 1` comes once, on the first line
+    | ^ 11:1: error E109: the header `chain 2` comes once, on the first line
  12 | mods
  13 |   lfo #5 rate=1Hz
  14 | mods

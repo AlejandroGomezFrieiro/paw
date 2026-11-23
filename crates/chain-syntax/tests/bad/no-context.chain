@@ -1,0 +1,7 @@
+chain 2 "No context"
+strip #1
+  compressor #2 key=@"Drums/Kick"
+producer render #3
+"Room" -> #1
+#1 -> #3
+#3 => @"Strings/Print"

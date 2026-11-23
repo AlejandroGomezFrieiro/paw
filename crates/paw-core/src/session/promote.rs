@@ -132,10 +132,10 @@ impl Session {
             (row.devices.clone(), row.lanes.clone())
         };
         if b.keep_row {
-            group.graph = row
-                .graph
+            group.chain = row
+                .chain
                 .as_ref()
-                .map(|g| Arc::new(self.doc.copy_graph(g, &row.devices, &row_devices)));
+                .map(|g| Arc::new(self.doc.copy_chain(g, &row.devices, &row_devices)));
         }
         let p = &self.doc.project;
         group.devices = master.devices.iter().chain(row_devices.iter()).cloned().collect();

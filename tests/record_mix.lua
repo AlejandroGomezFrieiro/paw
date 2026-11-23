@@ -151,6 +151,57 @@ test("the stop key ends a take at once; its clip comes after, and one u removes 
   eq(#paw.tracks(), 1, "and nothing more")
 end)
 
+test("Esc ends a take and keeps it in each view where one records, after what it cancels first", function()
+  start()
+  api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
+  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() paw.opt.count_in = 0 end)
+  paw.opt.count_in = 0
+  local gtr = paw.add_track({ name = "Guitar" })
+  paw.cursor.set_track(gtr)
+  keys("Isignal 1<CR>")
+  keys("r")
+  local function record()
+    keys("R")
+    until_(function() return paw.transport.take ~= nil and paw.transport.playing end, "the take")
+    until_beat(paw.transport.position + 0.6)
+    return paw.transport.take
+  end
+  for _, view in ipairs({ "arrange", "pianoroll", "mixer" }) do
+    paw.ui.focus(view)
+    local take = record()
+    local before = #gtr:clips()
+    keys("<Esc>")
+    eq(
+      paw.transport.playing or paw.transport.recording,
+      false,
+      "Esc in the " .. view .. " stops the song and record mode"
+    )
+    eq(said(), "recording stopped: take " .. take .. " kept (u removes it)", "and names the take")
+    T.until_recorded()
+    eq(#gtr:clips(), before + 1, "the take is a clip")
+    keys("u")
+    eq(#gtr:clips(), before, "one u removes it")
+  end
+
+  -- A selection goes first; the take goes on until the next Esc.
+  paw.ui.focus("arrange")
+  record()
+  keys("v")
+  keys("<Esc>")
+  eq(paw.keymap.mode .. " " .. tostring(paw.transport.recording), "n true", "the first Esc only ends the selection")
+  keys("<Esc>")
+  eq(paw.transport.playing, false, "the second one stops the take")
+  T.until_recorded()
+
+  -- With nothing recording, Esc leaves the song playing.
+  keys("<leader><Space>")
+  until_(function() return paw.transport.playing end, "the song")
+  keys("<Esc>")
+  eq(paw.transport.playing, true, "Esc does not stop the song")
+  paw.transport.stop()
+end)
+
 test(
   "<Space><Space> plays from the cursor, 200 bars ahead; gs keeps the playhead; play_from=playhead is the old way",
   function()

@@ -5,7 +5,7 @@
 -- The server (crates/chain-lsp) is generic and knows nothing of paw. paw
 -- gives it the text of each file and its own schema (`paw.api.chain_schema`),
 -- and shows its diagnostics in `:diagnostics`. paw edits no chain file yet:
--- the devices of a track become a chain file with the devices graph,
+-- the devices of a track become a chain file later,
 -- and its buffer `paw://track/<n>/devices` then gets this
 -- server too.
 --

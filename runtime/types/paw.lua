@@ -47,6 +47,9 @@ paw.bytes = {}
 ---@class paw.canvas
 paw.canvas = {}
 
+---@class paw.chain
+paw.chain = {}
+
 ---@class paw.chords
 paw.chords = {}
 
@@ -130,9 +133,6 @@ paw.fx = {}
 
 ---@class paw.fx.factory
 paw.fx.factory = {}
-
----@class paw.graph
-paw.graph = {}
 
 ---@class paw.grep
 paw.grep = {}
@@ -1624,6 +1624,158 @@ function paw.canvas.view_pointer(view, e) end
 --- The windows that are open, for a frontend: `{ name, title, width, height, cells }`
 --- each, `cells` for a view drawn as the terminal draws it.
 function paw.canvas.windows() end
+
+--- Add an empty branch to the split `split`, as one undo step:
+--- `opts.name`, and `opts.index` (from 1; the end when nil).
+---@param h any
+---@param split any
+---@param opts any
+function paw.chain.add_branch(h, split, opts) end
+
+--- Add a macro named `name` to the split `split`, as one undo step.
+---@param h any
+---@param split any
+---@param name any
+function paw.chain.add_macro(h, split, name) end
+
+--- Change the linked rack to what the instance `split` is now: each other
+--- instance follows, and keeps its own values.
+---@param h any
+---@param split any
+function paw.chain.apply_rack(h, split) end
+
+--- Let a chain have a split of a new kind, for an extension: `spec` gives
+--- the fewest (`min`) and the most (`max`) branches, and how many a new
+--- split of the kind gets (`first`). The name is words joined by dots,
+--- such as `drums.transient`. A kind of paw cannot be defined again.
+---@param name any
+---@param spec any
+function paw.chain.define_kind(name, spec) end
+
+--- The split, the branch or the macro with the id `id` in `chain`, and
+--- the splits around it. Nil when the chain does not have it.
+---@param chain any
+---@param id any
+function paw.chain.find(chain, id) end
+
+--- The chain of the owner `h`, or nil when it has none: then its devices
+--- play in series, in the order of the owner's list.
+---@param h any
+function paw.chain.get(h) end
+
+--- The names of the kinds of split: `chain`, `layer`, `band`, `ms`, `lr`,
+--- `key`, `vel`, `select`, `outs`, and the kinds that extensions defined.
+function paw.chain.kinds() end
+
+--- Link the macro `macro` to the parameter `param` of `device` in its
+--- split, with `depth` from -1 to 1; a nil depth removes the link. One
+--- undo step.
+---@param h any
+---@param macro any
+---@param device any
+---@param param any
+---@param depth any
+function paw.chain.link(h, macro, device, param, depth) end
+
+--- Make the split `split` the first instance of a new linked rack named
+--- `name`: a change of the rack in one instance reaches the others.
+---@param h any
+---@param split any
+---@param name any
+function paw.chain.link_rack(h, split, name) end
+
+--- Move the node `id` in its chain, as one undo step: `{ before = id }`,
+--- `{ after = id }` or `{ branch = id, index = n }` (from 1).
+---@param h any
+---@param id any
+---@param place any
+function paw.chain.move(h, id, place) end
+
+--- The handle of the chain of `owner`, which each other function of
+--- paw.chain takes: `{ track = id }` for the chain of a track. An error
+--- when the owner is not in the project.
+---@param owner any
+function paw.chain.of(owner) end
+
+--- The keys of the values that the instance `split` overrides, as
+--- `paw.chain.set_rack` takes them.
+---@param h any
+---@param split any
+function paw.chain.overrides(h, split) end
+
+--- Put a new instance of the linked rack `rack` at `place` in the chain
+--- of `h` (as `paw.chain.move` takes it).
+---@param h any
+---@param rack any
+---@param place any
+function paw.chain.place_rack(h, rack, place) end
+
+--- The linked racks of the project.
+function paw.chain.racks() end
+
+--- Remove what `id` names, as one undo step: a split or a branch with its
+--- devices, a macro with its links, or a device.
+---@param h any
+---@param id any
+function paw.chain.remove(h, id) end
+
+--- Give the instance `split` each value of its linked rack.
+---@param h any
+---@param split any
+function paw.chain.reset_rack(h, split) end
+
+paw.chain.say = paw.notify
+
+--- Change a split (`name`, `mix`, `gain`, `kind`, `values`), a branch
+--- (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro (`name`,
+--- `value`), as one undo step. A new `kind` keeps the branches.
+---@param h any
+---@param id any
+---@param patch any
+function paw.chain.set(h, id, patch) end
+
+--- Change a value of the linked rack `rack` by its key, in each instance
+--- that does not override it. The key is a reference of the chain
+--- language with an id of the rack's definition: `"#<id>.gain"` for a
+--- split, a branch or a macro, `"#<id>.<param>"` for a parameter of a
+--- device.
+---@param rack any
+---@param key any
+---@param value any
+function paw.chain.set_rack(rack, key, value) end
+
+--- Let `device` take its key from the node `from` of its chain, from
+--- `"in"` (the input of the chain), or (nil) from no node of the chain.
+--- One undo step.
+---@param h any
+---@param device any
+---@param from any
+function paw.chain.tap(h, device, from) end
+
+--- Turn the instance `split` into a copy that follows no linked rack.
+---@param h any
+---@param split any
+function paw.chain.unlink_rack(h, split) end
+
+--- Take the split `split` away, as one undo step. With `keep` (a branch
+--- of it), that branch takes its place and the devices of the other
+--- branches leave the owner; without, its branches go in its place one
+--- after the other.
+---@param h any
+---@param split any
+---@param keep any
+function paw.chain.unwrap(h, split, keep) end
+
+--- Wrap the nodes `nodes` (devices or splits in a row of one branch) of
+--- the chain of `h` in a new split of `kind`, as one undo step. They go
+--- into its first branch. `opts.branches` gives how many branches (the
+--- kind's first count when nil), `opts.name` its name, `opts.values`
+--- values of its kind (`{ xover = { 120, 2000 } }` for a band split).
+---@param h any
+---@param nodes any
+---@param kind any
+---@param opts any
+function paw.chain.wrap(h, nodes, kind, opts) end
 
 --- The chords to offer at the pencil, in this order: the diatonic triads
 --- and sevenths of `key`, then the common qualities on the pitch `near`.
@@ -3956,133 +4108,6 @@ function paw.fx.toggle_favourite(kind) end
 ---@param kind any
 function paw.fx.user_presets(kind) end
 
---- Add an empty branch to the split `split`, as one undo step:
---- `opts.name`, and `opts.index` (from 1; the end when nil).
----@param split any
----@param opts any
-function paw.graph.add_branch(split, opts) end
-
---- Add a macro named `name` to the split `split`, as one undo step.
----@param split any
----@param name any
-function paw.graph.add_macro(split, name) end
-
---- Change the linked rack to what the instance `split` is now: each other
---- instance follows, and keeps its own values.
----@param split any
-function paw.graph.apply_rack(split) end
-
---- Let a graph have a split of a new kind, for an extension: `spec`
---- gives the fewest (`min`) and the most (`max`) branches, and how many a
---- new split of the kind gets (`first`).
----@param word any
----@param spec any
-function paw.graph.define_kind(word, spec) end
-
---- The split, the branch or the macro with the id `id` in `graph`, and
---- the splits around it. Nil when the graph does not have it.
----@param graph any
----@param id any
-function paw.graph.find(graph, id) end
-
---- The graph of the track `track`, or nil when it has none: then its
---- devices play in series, in the order of the track's list.
----@param track any
-function paw.graph.get(track) end
-
---- The words of the kinds of split: `chain`, `layer`, `band`, `ms`, `lr`,
---- `key`, `vel`, `select`, `outs`, and the kinds that extensions defined.
-function paw.graph.kinds() end
-
---- Link the macro `macro` to the parameter `param` of `device` in its
---- split, with `depth` from -1 to 1; a nil depth removes the link. One
---- undo step.
----@param macro any
----@param device any
----@param param any
----@param depth any
-function paw.graph.link(macro, device, param, depth) end
-
---- Make the split `split` the first instance of a new linked rack named
---- `name`: a change of the rack in one instance reaches the others.
----@param split any
----@param name any
-function paw.graph.link_rack(split, name) end
-
---- Move the node `id` in its graph, as one undo step: `{ before = id }`,
---- `{ after = id }` or `{ branch = id, index = n }` (from 1).
----@param id any
----@param place any
-function paw.graph.move(id, place) end
-
---- The keys of the values that the instance `split` overrides.
----@param split any
-function paw.graph.overrides(split) end
-
---- Put a new instance of the linked rack `rack` at `place` (as
---- `paw.graph.move` takes it).
----@param rack any
----@param place any
-function paw.graph.place_rack(rack, place) end
-
---- The linked racks of the project.
-function paw.graph.racks() end
-
---- Remove what `id` names, as one undo step: a split or a branch with its
---- devices, a macro with its links, or a device.
----@param id any
-function paw.graph.remove(id) end
-
---- Give the instance `split` each value of its linked rack.
----@param split any
-function paw.graph.reset_rack(split) end
-
-paw.graph.say = paw.notify
-
---- Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a
---- branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro
---- (`name`, `value`), as one undo step. A new `kind` keeps the branches.
----@param id any
----@param patch any
-function paw.graph.set(id, patch) end
-
---- Change a value of the linked rack `rack` by its key (`"<id>.gain"`,
---- `"<id>.params.<key>"`, with an id of the rack's definition), in each
---- instance that does not override it.
----@param rack any
----@param key any
----@param value any
-function paw.graph.set_rack(rack, key, value) end
-
---- Let `device` take its key from the node `from` of its graph, from
---- `"in"` (the input of the graph), or (nil) from no node of the graph.
---- One undo step.
----@param device any
----@param from any
-function paw.graph.tap(device, from) end
-
---- Turn the instance `split` into a copy that follows no linked rack.
----@param split any
-function paw.graph.unlink_rack(split) end
-
---- Take the split `split` away, as one undo step. With `keep` (a branch
---- of it), that branch takes its place and the devices of the other
---- branches leave the track; without, its branches go in its place one
---- after the other.
----@param split any
----@param keep any
-function paw.graph.unwrap(split, keep) end
-
---- Wrap the nodes `nodes` (devices or splits in a row of one branch) in a
---- new split of `kind`, as one undo step. They go into its first branch.
---- `opts.branches` gives how many branches (the kind's first count when
---- nil), `opts.name` its name, `opts.values` values of its kind
---- (`{ xover = { 120, 2000 } }` for a band split).
----@param nodes any
----@param kind any
----@param opts any
-function paw.graph.wrap(nodes, kind, opts) end
-
 --- Records as quickfix entries: `lyric: la`.
 ---@param records any
 function paw.grep.entries(records) end
@@ -4803,7 +4828,6 @@ function paw.insert.set(key, patch) end
 function paw.insert.start() end
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
---- it for Ctrl-o, to return to insert mode after one command.
 ---@param fn any
 function paw.keymap.after_next(fn) end
 
@@ -4820,7 +4844,6 @@ function paw.keymap.all(view) end
 function paw.keymap.change(n) end
 
 --- Record a change that is not an edit of the project (the lines of a text
---- buffer). Then `.` repeats the command that made it.
 function paw.keymap.changed() end
 
 --- The places edits happened in a view, oldest first.
@@ -4849,7 +4872,6 @@ function paw.keymap.del(lhs, opts) end
 ---@param all any
 function paw.keymap.delmarks(spec, all) end
 
---- Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
 ---@param key any
 function paw.keymap.dispatch(key) end
 
@@ -4858,8 +4880,11 @@ function paw.keymap.dispatch(key) end
 ---@param fn any
 function paw.keymap.each(fn) end
 
---- After an Escape that had nothing to cancel: a second one within two
---- seconds outside the arrange view says how to leave.
+--- After an Escape that had nothing to cancel in the view: the listeners
+--- of the `escape` event end what goes on (a count-in, a take, a render,
+--- a snippet). When none of them ended anything, a second one within two
+--- seconds outside the arrange view says how to leave: `how`, or the keys
+--- that leave any view. A view that maps `<Esc>` calls it when it has
 function paw.keymap.escape_hint() end
 
 --- Every mapping in every mode and scope, sorted by scope, mode and keys.
@@ -4870,7 +4895,6 @@ function paw.keymap.every() end
 ---@param lhs any
 function paw.keymap.expand(lhs) end
 
---- Type keys as if from the keyboard: `paw.keymap.feed("jj<Space>")`.
 ---@param keys any
 function paw.keymap.feed(keys) end
 
@@ -4899,7 +4923,6 @@ function paw.keymap.goto_mark(name) end
 ---@param opts any
 function paw.keymap.group(prefix, name, opts) end
 
---- The name given to a prefix with `group`, if any.
 ---@param keys any
 function paw.keymap.group_name(keys) end
 
@@ -4912,7 +4935,6 @@ function paw.keymap.groups() end
 function paw.keymap.has(mode, map) end
 
 --- The keys that can come after the typed keys, when the user stops to
---- type: a list of { key, desc }, and a title. Nil when there is nothing to show.
 function paw.keymap.hints() end
 
 --- Keys as a person writes them: `<A-h>` is `Alt-h`, `<leader>at` is `Space at`,
@@ -4942,12 +4964,10 @@ function paw.keymap.mark(name) end
 function paw.keymap.marks(view) end
 
 --- Type keys from inside a mapping, as `:normal` does. The keys run as a
---- part of the current command, not as a separate command.
 ---@param keys any
 function paw.keymap.normal(keys) end
 
 --- Run `fn` once, before the next key is handled: for what waits until the
---- person is back at the keyboard (a file changed outside paw).
 ---@param fn any
 function paw.keymap.on_next_key(fn) end
 
@@ -4969,7 +4989,6 @@ function paw.keymap.operator(lhs, fn, opts) end
 ---@param lhs any
 function paw.keymap.parse(lhs) end
 
---- The keys typed for a command that is not complete, for display: `"a2d3`.
 function paw.keymap.pending() end
 
 --- Play the keys in a register `n` times. `@` as the name plays the last register again.
@@ -4999,11 +5018,9 @@ function paw.keymap.recording() end
 
 --- Make `.` repeat `keys` (a list of keys), not the keys typed for the
 --- command that runs now. `:adjust` does it, so that `.` does the adjusted
---- command again.
 ---@param keys any
 function paw.keymap.repeat_as(keys) end
 
---- Do the last change again, with `n` in place of its count if given.
 ---@param n any
 function paw.keymap.repeat_last(n) end
 
@@ -10513,11 +10530,99 @@ function paw.api.canvas_image(bytes, w, h, format) end
 ---@param key string
 function paw.api.canvas_pixels(key) end
 
+--- Add an empty branch to a split, as one undo step: `{ name =, index = }`
+--- (from 1; the end when not given). Gives its id.
+---@param owner any
+---@param split integer
+---@param opts any
+function paw.api.chain_branch_add(owner, split, opts) end
+
+--- The chain of an owner's devices, or nil when it has none (its
+--- devices play in series, in the order of `track.devices`).
+---@param owner any
+function paw.api.chain_get(owner) end
+
+--- Let a chain have a split of a new kind, of the extension `by` (the
+--- user's when nil): `spec` gives the fewest (`min`) and the most
+--- (`max`) branches, and how many a new split gets (`first`).
+---@param name string
+---@param spec any
+---@param by string?
+function paw.api.chain_kind_define(name, spec, by) end
+
+--- The names of the kinds of split: the built-in kinds first, then the
+--- kinds that extensions defined.
+function paw.api.chain_kinds() end
+
+--- Link a macro to a parameter of a device in its split, with a depth
+--- from -1 to 1; no depth removes the link. One undo step.
+---@param owner any
+---@param source integer
+---@param device integer
+---@param param string
+---@param depth number?
+function paw.api.chain_link(owner, source, device, param, depth) end
+
+--- Add a macro to a split, as one undo step. Gives its id.
+---@param owner any
+---@param split integer
+---@param name string
+function paw.api.chain_macro_add(owner, split, name) end
+
+--- Move a node in its chain, as one undo step: `{ before = id }`,
+--- `{ after = id }` or `{ branch = id, index = n }` (from 1).
+---@param owner any
+---@param id integer
+---@param to any
+function paw.api.chain_move(owner, id, to) end
+
+--- Remove a split or a branch with its devices, a macro with its links,
+--- or a device, as one undo step.
+---@param owner any
+---@param id integer
+function paw.api.chain_remove(owner, id) end
+
 --- paw's schema of the chain language, as JSON text: each kind of
 --- device that paw has now (with the plugins and the Lua devices of
 --- the extensions), and each kind of split and modulator. It is what
 --- `paw chain schema` prints, for a language server or another tool.
 function paw.api.chain_schema() end
+
+--- Change a split (`name`, `mix`, `gain`, `kind`, `values`), a branch
+--- (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro (`name`,
+--- `value`): a table of the entries to change, or one `key` and its
+--- value. One undo step.
+---@param owner any
+---@param id integer
+---@param key any
+---@param value any
+function paw.api.chain_set(owner, id, key, value) end
+
+--- Let a device take its key from a node of its chain that comes before
+--- it, from `"in"` (the input of the chain), or (nil) from no node of
+--- the chain. One undo step.
+---@param owner any
+---@param device integer
+---@param from any
+function paw.api.chain_tap(owner, device, from) end
+
+--- Take a split away, as one undo step. With `keep` (a branch of it),
+--- that branch takes its place and the devices of the others leave the
+--- owner; without, its branches go in its place one after the other.
+--- Gives how many devices left the owner.
+---@param owner any
+---@param split integer
+---@param keep integer?
+function paw.api.chain_unwrap(owner, split, keep) end
+
+--- Wrap nodes (devices or splits in a row of one branch) in a new split
+--- of `kind`, as one undo step. They go into its first branch. Gives
+--- the split's id.
+---@param owner any
+---@param nodes integer[]
+---@param kind string
+---@param opts any
+function paw.api.chain_wrap(owner, nodes, kind, opts) end
 
 --- Write a track's devices as a chain file: `file` (a `devices.json`)
 --- and the `.state` files of the plugins beside it. Returns the files.
@@ -11004,84 +11109,6 @@ function paw.api.fs_stat(path) end
 --- Put a file or directory in the freedesktop trash; returns where it is.
 ---@param path string
 function paw.api.fs_trash(path) end
-
---- Add an empty branch to a split, as one undo step: `{ name =, index = }`
---- (from 1; the end when not given). Gives its id.
----@param split integer
----@param opts any
-function paw.api.graph_branch_add(split, opts) end
-
---- The graph of a track's devices, or nil when the track has none (its
---- devices play in series, in the order of `track.devices`).
----@param track integer
-function paw.api.graph_get(track) end
-
---- Let a graph have a split of a new kind: `spec` gives the fewest
---- (`min`) and the most (`max`) branches, and how many a new split
---- gets (`first`).
----@param word string
----@param spec any
-function paw.api.graph_kind_define(word, spec) end
-
---- The words of the kinds of split: the built-in kinds first, then the
---- kinds that extensions defined.
-function paw.api.graph_kinds() end
-
---- Link a macro to a parameter of a device in its split, with a depth
---- from -1 to 1; no depth removes the link. One undo step.
----@param source integer
----@param device integer
----@param param string
----@param depth number?
-function paw.api.graph_link(source, device, param, depth) end
-
---- Add a macro to a split, as one undo step. Gives its id.
----@param split integer
----@param name string
-function paw.api.graph_macro_add(split, name) end
-
---- Move a node in its graph, as one undo step: `{ before = id }`,
---- `{ after = id }` or `{ branch = id, index = n }` (from 1).
----@param id integer
----@param to any
-function paw.api.graph_move(id, to) end
-
---- Remove a split or a branch with its devices, a macro with its links,
---- or a device, as one undo step.
----@param id integer
-function paw.api.graph_remove(id) end
-
---- Change a split (`name`, `mix`, `gain`, `kind`, `values`, `meta`), a
---- branch (`name`, `gain`, `pan`, `mute`, `solo`, `zone`) or a macro
---- (`name`, `value`): a table of the entries to change, or one `key` and
---- its value. One undo step.
----@param id integer
----@param key any
----@param value any
-function paw.api.graph_set(id, key, value) end
-
---- Let a device take its key from a node of its graph that comes before
---- it, from `"in"` (the input of the graph), or (nil) from no node of
---- the graph. One undo step.
----@param device integer
----@param from any
-function paw.api.graph_tap(device, from) end
-
---- Take a split away, as one undo step. With `keep` (a branch of it),
---- that branch takes its place and the devices of the others leave the
---- track; without, its branches go in its place one after the other.
---- Gives how many devices left the track.
----@param split integer
----@param keep integer?
-function paw.api.graph_unwrap(split, keep) end
-
---- Wrap nodes (devices or splits in a row of one branch) in a new split
---- of `kind`, as one undo step. They go into its first branch. Gives
---- the split's id.
----@param nodes integer[]
----@param kind string
----@param opts any
-function paw.api.graph_wrap(nodes, kind, opts) end
 
 --- Restyle the area `(x, y, w, h)`, clipped to `(cx, cy, cw, ch)`, in
 --- `style` as `grid_text` takes it, and overwrite its characters when
@@ -11850,44 +11877,52 @@ function paw.api.quit(code) end
 
 --- Change the definition of a linked rack to what the instance `split` is
 --- now: each other instance follows it, and keeps its overrides.
+---@param owner any
 ---@param split integer
-function paw.api.rack_apply(split) end
+function paw.api.rack_apply(owner, split) end
 
 --- Make a split the first instance of a new linked rack named `name`.
 --- Gives the id of the rack's definition.
+---@param owner any
 ---@param split integer
 ---@param name string?
-function paw.api.rack_define(split, name) end
+function paw.api.rack_define(owner, split, name) end
 
 --- The definitions of the linked racks of the project.
 function paw.api.rack_list() end
 
---- The keys of the values that an instance overrides.
+--- The keys of the values that an instance overrides, as `rack_set`
+--- takes them (`"#<id>.gain"`, with the ids of the definition).
+---@param owner any
 ---@param split integer
-function paw.api.rack_overrides(split) end
+function paw.api.rack_overrides(owner, split) end
 
---- Put a new instance of a linked rack in a graph, at a place as
---- `graph_move` takes it. Gives the instance's id.
+--- Put a new instance of a linked rack in a chain, at a place as
+--- `chain_move` takes it. Gives the instance's id.
+---@param owner any
 ---@param rack integer
 ---@param to any
-function paw.api.rack_place(rack, to) end
+function paw.api.rack_place(owner, rack, to) end
 
 --- Give an instance each value of its definition. Gives how many
 --- overrides went.
+---@param owner any
 ---@param split integer
-function paw.api.rack_reset(split) end
+function paw.api.rack_reset(owner, split) end
 
---- Change a value of a definition, by its key (`"<id>.gain"`,
---- `"<id>.params.<key>"`, with an id of the definition), in each
---- instance that does not override it.
+--- Change a value of a definition, by its key (`"#<id>.gain"` for a
+--- split, branch or macro, `"#<id>.<param>"` for a parameter of a
+--- device, with an id of the definition), in each instance that does
+--- not override it.
 ---@param rack integer
 ---@param key string
 ---@param value any
 function paw.api.rack_set(rack, key, value) end
 
 --- Turn an instance into a copy that follows no definition.
+---@param owner any
 ---@param split integer
-function paw.api.rack_unlink(split) end
+function paw.api.rack_unlink(owner, split) end
 
 ---@param path string
 function paw.api.read_dir(path) end

@@ -249,10 +249,10 @@ function K.startup()
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)
   paw.markers = require("paw.markers")
-  -- The devices graph of a track: splits, branches, linked racks (paw/graph.tl).
-  paw.graph = require("paw.graph")
-  -- paw.graph is below the screen (tools/layers.txt): it shows its messages here.
-  paw.graph.say = paw.notify
+  -- The chain of a track's devices: splits, branches, linked racks (paw/chain.tl).
+  paw.chain = require("paw.chain")
+  -- paw.chain is below the screen (tools/layers.txt): it shows its messages here.
+  paw.chain.say = paw.notify
   -- Subprojects: tracks with a timeline of their own (paw/nest.tl).
   paw.nest = require("paw.nest")
   -- paw.nest is below this module (tools/layers.txt): it gets paw.flush here.

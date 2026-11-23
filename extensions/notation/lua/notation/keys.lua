@@ -820,19 +820,18 @@ end, {
 -- Escape stays: a Vim hand presses it to be sure it is in normal mode, and
 -- the keys after it must not land in the arrange view. Counts, pending
 -- operators and selections are dropped by the keymap before this runs.
--- A second one soon after says how to leave.
-local escaped_at = -math.huge
-nmap("<Esc>", function()
-  local now = api.now()
-  if now - escaped_at < 2000 then
-    paw.notify(
-      "normal mode: "
-        .. keymap.human("<localleader>n")
-        .. " goes back to the window before, :q or ZZ closes the notation"
+-- Then it ends what records, as in every view, and a second one soon after
+-- says how to leave.
+nmap(
+  "<Esc>",
+  function()
+    keymap.escape_hint(
+      keymap.human("<localleader>n") .. " goes back to the window before, :q or ZZ closes the notation"
     )
-  end
-  escaped_at = now
-end, "Stay in the view (,n leaves)", { repeatable = false })
+  end,
+  "Stay in the view (,n leaves)",
+  { repeatable = false }
+)
 nmap("<localleader>n", function()
   if not paw.layout.back() then
     paw.notify("the notation is the only window here: `:e arrange` shows the arrange view in it", "warn")

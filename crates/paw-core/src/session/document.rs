@@ -31,7 +31,7 @@ use crate::sync::ModelEvent;
 mod automation;
 mod clips;
 mod devices;
-mod graph;
+mod chain;
 mod links;
 mod nests;
 pub(crate) mod notes;
@@ -41,7 +41,7 @@ mod tracks;
 mod undo_tree;
 pub(super) use automation::{check_lane_state, clean_points};
 pub(super) use clips::{ClipField, check_clip_track};
-pub(crate) use graph::{Place, WrapOpts};
+pub(crate) use chain::{Place, WrapOpts};
 
 /// The project, its undo tree, and what its edits report.
 pub(crate) struct Document {
@@ -59,8 +59,8 @@ pub(crate) struct Document {
     /// a clip of another custom kind is not added. Not part of the project.
     pub(super) clip_kinds: BTreeSet<ClipKindId>,
     /// The kinds of split, with those that extensions defined
-    /// (`paw.graph.define_kind`). Not part of the project.
-    pub(super) split_kinds: crate::model::graph::SplitKinds,
+    /// (`paw.chain.define_kind`). Not part of the project.
+    pub(super) split_kinds: crate::model::chain::SplitKinds,
     /// Change notifications waiting to be delivered to Lua.
     pub events: Vec<ModelEvent>,
     pub warnings: Vec<String>,
@@ -77,7 +77,7 @@ impl Default for Document {
             dirty: false,
             next_id: MASTER_ID + 1,
             clip_kinds: BTreeSet::new(),
-            split_kinds: Default::default(),
+            split_kinds: crate::model::chain::SplitKinds::builtin(),
             events: Vec::new(),
             warnings: Vec::new(),
         }
@@ -119,8 +119,8 @@ impl Document {
                 self.project.name_notes_since(&self.named.0, &self.named.1);
             }
             links.spread(&mut self.project);
-            // A graph follows its track's devices (`model/graph.rs`).
-            self.project.fit_graphs();
+            // A chain follows its owner's devices (`model/owner.rs`).
+            self.project.fit_chains();
             if name {
                 self.named = (self.project.tracks.clone(), self.project.master.clone());
             }

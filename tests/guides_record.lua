@@ -149,6 +149,11 @@ test("guide: use the metronome", function()
   keys("<Esc>")
   until_(function() return paw.transport.counting == 0 and not paw.transport.playing end, "the count to stop")
   eq(paw.transport.recording, false, "Esc cancels the count and the recording")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text,
+    "recording called off in the count-in: nothing recorded",
+    "and says that nothing was recorded"
+  )
 end)
 
 test("guide: record MIDI from a keyboard", function()

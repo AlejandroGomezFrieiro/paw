@@ -10,9 +10,11 @@
 //! A place is a byte offset in the text. An offset at the end of a word is
 //! in that word, so that a completion continues the word that is typed.
 
+use crate::context::{Context, OutsideEnd};
 use crate::diagnostic::Span;
 use crate::lex::{self, Line, Tok, Token};
-use crate::schema::{Param, ParamValue, Schema};
+use crate::schema::{Kind, Param, ParamValue, Port, Schema};
+use crate::tree::{self, VERSION_1};
 
 /// What a completion offers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -20,9 +22,16 @@ pub enum CompletionKind {
     Device,
     Split,
     Modulator,
+    /// The role of a node line of version 2, or the kind of a producer or
+    /// an input or output.
+    Node,
     Parameter,
     /// A value of a parameter: a choice, `on` or `off`.
     Value,
+    /// A lane of the part, from the context: `"Notes"`.
+    Lane,
+    /// A lane or a node of another part, from the context: `@"Drums/Kick"`.
+    Outside,
 }
 
 /// A word that can go at a place of the text.
@@ -53,15 +62,40 @@ pub struct Hover {
 
 /// The words that can go at `offset` of `text`: the kinds of the schema at
 /// the start of a line, the parameters of the kind of the line after it,
-/// and the choices of a parameter after its `=`. Empty where the schema
-/// gives no word (a header, a check, a link, a number).
-pub fn complete(text: &str, offset: usize, schema: &Schema) -> Vec<Completion> {
+/// and the choices of a parameter after its `=`. In version 2, the roles
+/// of the node lines, and after an arrow or in `@"` the lanes and the
+/// outside ends of the `context`. Empty where the schema gives no word (a
+/// header, a check, a link, a number).
+pub fn complete(
+    text: &str,
+    offset: usize,
+    schema: &Schema,
+    context: Option<&Context>,
+) -> Vec<Completion> {
     let lines = Lines::new(text);
     let Some(index) = lines.index_of(offset) else {
         return Vec::new();
     };
     let line = lines.lex(index);
     let role = lines.role(index, &line, offset);
+    let typed = &text[lines.starts[index]..offset];
+    if let Some(quote) = open_quote(typed) {
+        let start = lines.starts[index] + quote;
+        let after_at = typed[..quote].ends_with('@');
+        let from = if after_at { start - 1 } else { start };
+        let span = Span {
+            end: offset,
+            ..lines.span_at(index, from)
+        };
+        let prefix = &typed[quote + 1..];
+        return match (after_at, &role) {
+            (true, _) => ends(context, prefix, span, false),
+            (false, Role::Graph { .. }) if after_arrow(&line, start) => {
+                ends(context, prefix, span, true)
+            }
+            _ => Vec::new(),
+        };
+    }
     let before: Vec<&Token> = line
         .tokens
         .iter()
@@ -82,8 +116,27 @@ pub fn complete(text: &str, offset: usize, schema: &Schema) -> Vec<Completion> {
     if earlier.is_empty() {
         return kinds(role, schema, prefix, span);
     }
-    if earlier.iter().any(|token| token.tok == Tok::Arrow) {
-        // A link of a modulator: a target, not a field.
+    if let Role::Graph {
+        role: Some(graph), ..
+    } = &role
+        && graph.has_kind()
+        && earlier.len() == 1
+    {
+        return graph_kinds(*graph, schema, prefix, span);
+    }
+    if matches!(role, Role::Graph { .. })
+        && word.is_none()
+        && earlier
+            .last()
+            .is_some_and(|token| matches!(token.tok, Tok::Arrow | Tok::Store))
+    {
+        return ends(context, "", span, true);
+    }
+    if earlier
+        .iter()
+        .any(|token| matches!(token.tok, Tok::Arrow | Tok::Store))
+    {
+        // A link of a modulator, or a wire: a target, not a field.
         return Vec::new();
     }
     let Some(params) = role.params(schema) else {
@@ -142,6 +195,22 @@ pub fn hover(text: &str, offset: usize, schema: &Schema) -> Option<Hover> {
         })
     };
     match &token.tok {
+        Tok::Word(word)
+            if at == 1
+                && matches!(role, Role::Graph { role: Some(graph), .. } if graph.has_kind()) =>
+        {
+            let Role::Graph {
+                role: Some(graph), ..
+            } = role
+            else {
+                return None;
+            };
+            lines_of(about_graph_kind(
+                schema.graph_kind(graph, Some(word))?,
+                graph,
+                schema,
+            ))
+        }
         Tok::Word(kind) if at == 0 => lines_of(about_kind(role, kind, schema)?),
         Tok::Word(key) | Tok::Quoted(key)
             if line
@@ -154,6 +223,16 @@ pub fn hover(text: &str, offset: usize, schema: &Schema) -> Option<Hover> {
                 .iter()
                 .find(|param| &param.key == key)?;
             lines_of(about_param(param))
+        }
+        Tok::Target(id, key) if matches!(role, Role::Graph { .. }) => {
+            let kind = lines.graph_kind_of_id(id, schema)?;
+            let port = schema.ports(kind).iter().find(|port| &port.port == key);
+            match port {
+                Some(port) => lines_of(vec![about_port(id, port)]),
+                None => lines_of(about_param(
+                    kind.params.iter().find(|param| &param.key == key)?,
+                )),
+            }
         }
         Tok::Target(id, key) => {
             let kind = lines.kind_of_id(id)?;
@@ -265,6 +344,19 @@ impl<'t> Lines<'t> {
             .find(|(_, line)| !line.tokens.is_empty() && line.level < level)
     }
 
+    /// Whether the header names version 1. A text with no header yet is of
+    /// the latest version.
+    fn is_version_1(&self) -> bool {
+        (0..self.starts.len())
+            .map(|index| self.lex(index))
+            .find(|line| !line.tokens.is_empty())
+            .and_then(|line| match line.tokens.get(1).map(|token| &token.tok) {
+                Some(Tok::Number { number, .. }) => Some(number.value == f64::from(VERSION_1)),
+                _ => None,
+            })
+            .unwrap_or(false)
+    }
+
     /// What line `index` is, from its first token and the line it goes under.
     fn role(&self, index: usize, line: &Line, offset: usize) -> Role {
         let level = self.level(index, line, offset);
@@ -272,6 +364,24 @@ impl<'t> Lines<'t> {
         // The first line with a token is the header.
         if self.parent(index, usize::MAX).is_none() {
             return Role::Header;
+        }
+        if level == 0
+            && !self.is_version_1()
+            && !matches!(first, Some(Tok::Word(word)) if word == "checks" && line.tokens.len() == 1)
+        {
+            let role = match first {
+                Some(Tok::Word(word)) => tree::Role::from_word(word),
+                _ => None,
+            };
+            let kind = match line.tokens.get(1).map(|token| &token.tok) {
+                Some(Tok::Word(kind) | Tok::Quoted(kind))
+                    if role.is_some_and(tree::Role::has_kind) =>
+                {
+                    Some(kind.clone())
+                }
+                _ => None,
+            };
+            return Role::Graph { role, kind };
         }
         if matches!(first, Some(Tok::Word(word)) if (word == "mods" || word == "checks") && line.tokens.len() == 1)
         {
@@ -307,6 +417,28 @@ impl<'t> Lines<'t> {
         })
     }
 
+    /// The kind in the schema of the node line of version 2 that `#id`
+    /// defines.
+    fn graph_kind_of_id<'s>(&self, id: &str, schema: &'s Schema) -> Option<&'s Kind> {
+        (0..self.starts.len()).find_map(|index| {
+            let line = self.lex(index);
+            let defines = line.level == 0
+                && line
+                    .tokens
+                    .iter()
+                    .any(|token| matches!(&token.tok, Tok::Id(found) if found == id));
+            if !defines {
+                return None;
+            }
+            let role = tree::Role::from_word(&kind_word(&line)?)?;
+            let kind = match line.tokens.get(1).map(|token| &token.tok) {
+                Some(Tok::Word(kind) | Tok::Quoted(kind)) if role.has_kind() => Some(kind.as_str()),
+                _ => None,
+            };
+            schema.graph_kind(role, kind)
+        })
+    }
+
     /// The kind of the node or modulator that `#id` defines.
     fn kind_of_id(&self, id: &str) -> Option<String> {
         (0..self.starts.len()).find_map(|index| {
@@ -332,6 +464,12 @@ enum Role {
     Modulator(Option<String>),
     /// A `|` line under the split of this kind.
     Branch(String),
+    /// A line of the top level of version 2: a node line of a role, and
+    /// the kind of a producer or an input or output, or a wire.
+    Graph {
+        role: Option<tree::Role>,
+        kind: Option<String>,
+    },
     /// A line of the `checks` block, or a line that cannot be placed.
     Other,
 }
@@ -340,6 +478,12 @@ impl Role {
     /// The parameters that the fields of the line can name.
     fn params<'s>(&self, schema: &'s Schema) -> Option<&'s [Param]> {
         match self {
+            Self::Graph {
+                role: Some(role),
+                kind,
+            } => schema
+                .graph_kind(*role, kind.as_deref())
+                .map(|kind| kind.params.as_slice()),
             Self::Node(Some(kind)) => node_params(schema, kind),
             Self::Modulator(Some(kind)) => {
                 schema.modulator(kind).map(|kind| kind.params.as_slice())
@@ -352,12 +496,145 @@ impl Role {
     }
 }
 
-/// The parameters of a node of `kind`: those of a split, else of a device.
+/// The parameters of a node of `kind`: those of a split, else of a device
+/// or a producer that runs as an insert.
 fn node_params<'s>(schema: &'s Schema, kind: &str) -> Option<&'s [Param]> {
     match schema.split(kind) {
         Some(split) => Some(&split.params),
-        None => schema.device(kind).map(|device| device.params.as_slice()),
+        None => schema.insert(kind).map(|device| device.params.as_slice()),
     }
+}
+
+/// The place in `typed` (the text of a line up to the place) of a quote
+/// that is not closed yet, so that the place is inside a quoted text.
+fn open_quote(typed: &str) -> Option<usize> {
+    let mut open = None;
+    let mut escaped = false;
+    for (at, c) in typed.char_indices() {
+        match c {
+            '\\' if open.is_some() && !escaped => {
+                escaped = true;
+                continue;
+            }
+            '"' if !escaped => open = if open.is_some() { None } else { Some(at) },
+            '-' if open.is_none() && typed[at..].starts_with("--") => return None,
+            _ => {}
+        }
+        escaped = false;
+    }
+    open
+}
+
+/// Whether a `->` or `=>` comes before the byte `at` of the line.
+fn after_arrow(line: &Line, at: usize) -> bool {
+    line.tokens
+        .iter()
+        .any(|token| token.span.end <= at && matches!(token.tok, Tok::Arrow | Tok::Store))
+}
+
+/// The ends that the context gives: the lanes of the part, when `lanes`,
+/// and the outside ends, each written as the text writes it.
+fn ends(context: Option<&Context>, prefix: &str, span: Span, lanes: bool) -> Vec<Completion> {
+    let Some(context) = context else {
+        return Vec::new();
+    };
+    let own = context
+        .lanes
+        .iter()
+        .filter(|_| lanes)
+        .filter(|lane| lane.name.starts_with(prefix))
+        .map(|lane| Completion {
+            label: quoted(&lane.name),
+            insert: quoted(&lane.name),
+            detail: format!("a lane of {} in this part", lane.stream),
+            kind: CompletionKind::Lane,
+            span,
+        });
+    let outside = context
+        .outside
+        .iter()
+        .filter(|outside| outside.path.starts_with(prefix))
+        .map(|outside| {
+            let detail = match &outside.end {
+                OutsideEnd::Lane { stream, .. } => format!("a lane of {stream} in another part"),
+                OutsideEnd::Node { node, kind } => match kind {
+                    Some(kind) => format!("a `{node} {kind}` node in another part"),
+                    None => format!("a `{node}` node in another part"),
+                },
+            };
+            Completion {
+                label: format!("@{}", quoted(&outside.path)),
+                insert: format!("@{}", quoted(&outside.path)),
+                detail,
+                kind: CompletionKind::Outside,
+                span,
+            }
+        });
+    own.chain(outside).collect()
+}
+
+/// `text` in quotes, with the escapes that the lexer reads.
+fn quoted(text: &str) -> String {
+    format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// The kinds of producer, or of input or output, that can follow the role word.
+fn graph_kinds(role: tree::Role, schema: &Schema, prefix: &str, span: Span) -> Vec<Completion> {
+    let list = if role == tree::Role::Producer {
+        &schema.producers
+    } else {
+        &schema.io
+    };
+    list.iter()
+        .filter(|kind| matches(&kind.kind, prefix))
+        .map(|kind| Completion {
+            label: written(&kind.kind),
+            insert: written(&kind.kind),
+            detail: about_graph_kind(kind, role, schema).join("; "),
+            kind: CompletionKind::Node,
+            span,
+        })
+        .collect()
+}
+
+/// What a port carries: `` `#2.notes`: an input of midi with lyrics=true ``.
+fn about_port(id: &str, port: &Port) -> String {
+    let direction = if port.out { "an output" } else { "an input" };
+    let props: Vec<String> = port
+        .props
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect();
+    let props = if props.is_empty() {
+        String::new()
+    } else {
+        format!(" with {}", props.join(", "))
+    };
+    let main = if port.main { ", the main one" } else { "" };
+    format!(
+        "`#{id}.{}`: {direction} of {}{props}{main}",
+        port.port, port.stream
+    )
+}
+
+/// What a kind of producer or of input or output is: its tier and its ports.
+fn about_graph_kind(kind: &Kind, role: tree::Role, schema: &Schema) -> Vec<String> {
+    let name = if kind.name.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", kind.name)
+    };
+    let mut lines = vec![format!(
+        "`{}`{name}: a {} of tier {}",
+        kind.kind,
+        role.as_str(),
+        kind.tier.as_str()
+    )];
+    lines.extend(schema.ports(kind).iter().map(|port| {
+        let direction = if port.out { "out" } else { "in" };
+        format!("{direction} `{}`: {}", port.port, port.stream)
+    }));
+    lines
 }
 
 /// The index of the token at `offset` of a line: the token that holds it,
@@ -470,6 +747,17 @@ fn kinds(role: Role, schema: &Schema, prefix: &str, span: Span) -> Vec<Completio
                 )
             })
             .collect(),
+        Role::Graph { .. } => tree::Role::ALL
+            .iter()
+            .filter_map(|role| {
+                let detail = if role.has_kind() {
+                    format!("a node line: `{} <kind>`", role.as_str())
+                } else {
+                    "a node line".to_string()
+                };
+                offer(role.as_str(), "", detail, CompletionKind::Node)
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -518,6 +806,12 @@ fn about_kind(role: Role, kind: &str, schema: &Schema) -> Option<Vec<String>> {
                 &modulator.name,
                 &modulator.params,
             )
+        }
+        Role::Graph {
+            role: Some(role), ..
+        } if !role.has_kind() => {
+            let node = schema.graph_kind(role, None)?;
+            ("a node of the graph".to_string(), &node.name, &node.params)
         }
         _ => return None,
     };
@@ -625,8 +919,14 @@ fn describe(param: &Param) -> String {
                 range(*min, *max)
             )
         }
-        ParamValue::Source => {
-            format!("a source: `@id`, `@in` or a name that the host knows{label}")
+        ParamValue::Source { stream } => {
+            let stream = stream
+                .as_ref()
+                .map(|stream| format!(" of {stream}"))
+                .unwrap_or_default();
+            format!(
+                "a source{stream}: `@id`, `@in`, `@\"path\"` or a name that the host knows{label}"
+            )
         }
     }
 }

@@ -5,7 +5,6 @@ paw.option.define("sampler_plugin_dir", "") -- where paw-sampler.clap is; `clap/
 paw.option.define("sampler_libraries", "") -- folders of instruments, separated by `:`
 
 local sampler = require("sampler")
-package.loaded["paw.sampler"] = sampler
 
 -- The plugin this extension ships, found like any installed one.
 local dir = sampler.plugin_dir()

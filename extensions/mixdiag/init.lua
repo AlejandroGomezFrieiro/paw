@@ -9,7 +9,6 @@ local mixdiag = require("mixdiag")
 require("mixdiag.rules")
 require("mixdiag.view")
 require("mixdiag.paint")
-package.loaded["paw.mixdiag"] = mixdiag
 
 -- The findings are diagnostics too: a language server in this process,
 -- attached to the mix (lua/mixdiag/lens.lua).

@@ -104,7 +104,8 @@ graphical window) lists all the inputs of a track:
   are silent. With a punch, its clips play before
   the punch in and after the punch out. Other tracks play as usual.
 - **The end of a take.** A stop, or recording off, ends the take, and a seek
-  starts a new take. paw adds the clips of a take, audio and MIDI, as one
+  starts a new take. `Esc` in normal mode, with nothing else to cancel,
+  stops the song and keeps the take, and the message names the take. paw adds the clips of a take, audio and MIDI, as one
   undo step, and it cuts notes that are held at the end.
 - **When the clips come.** The stop key returns at once and doesn't wait
   for the audio engine. The clips of the take come a moment later, when the

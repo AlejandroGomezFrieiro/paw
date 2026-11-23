@@ -92,7 +92,7 @@ The same keys mean the same in every view:
 | `ge` | the window of the plugin |
 | `gc` | mute or bypass |
 | `gC` | a curve (`<CR>` too on a lane row and in **D**) |
-| `<Esc>` | cancel, and stay in the view |
+| `<Esc>` | cancel, and stay in the view; with nothing else to cancel, stop a recording and keep the take |
 | `<C-w>p` | the window before |
 
 The full rule is in [The key rule](key-rule.md).
@@ -327,7 +327,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | `gM` | count a bar in before recording, or not |
 | `<Space>Tt` | tap the tempo (the beat): press it on each beat, four times or more |
 | `gI` | punch recording on and off (over a selection: punch there); `:preroll 2` plays two bars before the punch in |
-| `R` | record armed tracks from the cursor, as `<Space><Space>` plays (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take |
+| `R` | record armed tracks from the cursor, as `<Space><Space>` plays (while the song plays, from the playhead), or stop recording; with the loop on, every time round is a take. `<Esc>` also stops a recording, and stops the song with it |
 
 ## Find
 

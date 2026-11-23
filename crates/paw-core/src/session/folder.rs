@@ -43,7 +43,7 @@ use super::BASE64;
 use super::media::MEDIA_FILE;
 use super::project_files::{DiskFiles, MemoryFiles, ProjectFiles};
 use crate::clipfile;
-use crate::model::{Clip, ClipContent, Control, Graph, KindData, Notes, Project, Target, Track};
+use crate::model::{Chain, Clip, ClipContent, Control, KindData, Notes, Project, Target, Track};
 
 mod nests;
 pub(super) use nests::read_part;
@@ -678,7 +678,7 @@ fn lay_out(
     bare.tracks = Vec::new();
     bare.nests = BTreeMap::new();
     bare.meta = Map::new();
-    bare.racks = Vec::new();
+    bare.racks = Default::default();
     let mut head = serde_json::to_value(&bare)?;
     let map = head.as_object_mut().context("a project")?;
     map.remove("master");
@@ -1067,11 +1067,11 @@ fn ids_in(track: &Value, used: &mut BTreeSet<u64>) {
             used.extend(list.iter().filter_map(id));
         }
     }
-    if let Some(graph) = track
+    if let Some(chain) = track
         .get("graph")
-        .and_then(|g| serde_json::from_value::<Graph>(g.clone()).ok())
+        .and_then(|g| serde_json::from_value::<Chain>(g.clone()).ok())
     {
-        used.extend(graph.root.ids());
+        used.extend(chain.root.ids().into_iter().map(|id| id.get()));
     }
 }
 
@@ -1107,15 +1107,16 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
             }
         }
     }
-    // The graph follows its devices, and its own ids that the project has
+    // The chain follows its devices, and its own ids that the project has
     // get new ones.
     if let Some(value) = track.get_mut("graph")
-        && let Ok(mut graph) = serde_json::from_value::<Graph>(value.clone())
+        && let Ok(mut chain) = serde_json::from_value::<Chain>(value.clone())
     {
-        let own: BTreeSet<u64> = graph
+        let own: BTreeSet<u64> = chain
             .root
             .ids()
             .into_iter()
+            .map(|id| id.get())
             .filter(|id| !devices.contains_key(id))
             .collect();
         let mut mapped: HashMap<u64, u64> = HashMap::new();
@@ -1128,14 +1129,16 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
             used.insert(new);
             mapped.insert(id, new);
         }
-        graph.map_ids(&mut |id| {
+        chain.map_ids(&mut |id| {
+            let id = id.get();
             devices
                 .get(&id)
                 .or_else(|| mapped.get(&id))
                 .copied()
                 .unwrap_or(id)
+                .into()
         });
-        *value = serde_json::to_value(&graph).unwrap_or(Value::Null);
+        *value = serde_json::to_value(&chain).unwrap_or(Value::Null);
     }
     if devices_only {
         return;
@@ -2193,7 +2196,7 @@ mod tests {
         show.tracks.push(Arc::new(track));
         // Nothing is on the disk: every file comes from the map.
         let dir = scratch("memory");
-        for p in [demo(), project(3, 4), show, graphs()] {
+        for p in [demo(), project(3, 4), show, chains()] {
             let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir, &Home::default()).unwrap();
             let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
             let read = read_from(&MemoryFiles::new(&dir, files), &Home::default(), &dir).unwrap();
@@ -2204,8 +2207,44 @@ mod tests {
         assert!(!dir.exists());
     }
 
-    /// Two tracks whose graphs hold the instances of a linked rack.
-    fn graphs() -> Project {
+    /// A project with splits of several kinds, a macro and its link, taps
+    /// and a linked rack with overrides, in the files that paw wrote before
+    /// the chain had typed ids: read and written again, each file keeps
+    /// its bytes.
+    #[test]
+    fn the_files_of_a_chain_and_a_linked_rack_keep_their_bytes() {
+        use crate::session::project_files::MemoryFiles;
+        macro_rules! files {
+            ($($path:literal),*) => {
+                [$(($path, &include_bytes!(concat!("folder/testdata/chain/", $path))[..])),*]
+            };
+        }
+        let given = files!(
+            "project.toml",
+            "racks.json",
+            "master/devices.json",
+            "master/track.json",
+            "tracks/T1/devices.json",
+            "tracks/T1/track.json",
+            "tracks/T2/devices.json",
+            "tracks/T2/track.json"
+        );
+        let dir = Path::new("/scratch/song");
+        let files = given.iter().map(|(path, bytes)| (PathBuf::from(path), Arc::from(*bytes))).collect();
+        let read = read_from(&MemoryFiles::new(dir, files), &Home::default(), dir).unwrap();
+        assert!(read.problems.is_empty(), "{:?}", read.problems);
+        let layout = layout(&read.project, &read.transport, None, dir, &Home::default()).unwrap();
+        for (path, bytes) in given {
+            let written = layout.files.get(Path::new(path)).map(|b| String::from_utf8_lossy(b));
+            assert_eq!(written.as_deref(), Some(&*String::from_utf8_lossy(bytes)), "{path}");
+        }
+        assert_eq!(layout.files.len(), given.len(), "no other file");
+    }
+
+    /// Two tracks whose chains hold the instances of a linked rack.
+    fn chains() -> Project {
+        use crate::model::ids::{NodeId, TrackId};
+        use crate::model::owner::OwnerRef;
         use crate::session::{Document, Place, WrapOpts};
         let mut doc = Document::default();
         doc.edit(|p| {
@@ -2220,12 +2259,14 @@ mod tests {
         })
         .unwrap();
         doc.next_id = 100;
-        let rack = doc.graph_wrap(&[11], "chain", WrapOpts::default()).unwrap();
-        let def = doc.rack_define(rack, "Glue").unwrap();
+        let (one, two) = (OwnerRef::Track(TrackId::new(1)), OwnerRef::Track(TrackId::new(2)));
+        let rack = doc.chain_wrap(one, &[NodeId::new(11)], "chain", WrapOpts::default()).unwrap();
+        let def = doc.rack_define(one, rack, "Glue").unwrap();
         doc.rack_place(
+            two,
             def,
             &Place {
-                before: Some(21),
+                before: Some(NodeId::new(21)),
                 ..Place::default()
             },
         )

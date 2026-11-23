@@ -16,13 +16,13 @@ In the arrange view, `I` shows the inputs that the track can use. The audio inpu
 
 `<A-i>`, or the `I` in the header, monitors the input, so you hear the input, but paw does not record it.
 
-`r` arms the track, and `R` starts the recording from the cursor. `R` again stops the recording, but the song continues to play until you press `<Space><Space>`.
+`r` arms the track, and `R` starts the recording from the cursor. `<Esc>` stops the recording and the song, and keeps the take. `<Esc>` first cancels what you were doing, such as a selection, and it does not stop a song that only plays. `R` again stops only the recording, and the song continues to play until you press `<Space><Space>`.
 
 `:midi.inputs` shows the MIDI ports, and `:midi.select` selects some of them. `:audio` selects the input and output devices. Each take is one undo step.
 
 ## If you know Vim
 
-In paw, `r` arms a track instead of replacing a character, and `R` records instead of starting replace mode.
+In paw, `r` arms a track instead of replacing a character, and `R` records instead of starting replace mode. `<Esc>` ends the recording and keeps the take, as `<Esc>` ends replace mode in Vim and keeps the text.
 
 ## Steps
 
@@ -33,20 +33,20 @@ The tutor opens a practice project for the lesson, and it checks each step when 
    - ✓ Voice gets its sound from the input that you selected, and the header shows the input and its level. With `<A-i>`, you hear the input without a recording.
 2. `r` arms the track for a recording, and its `R` becomes red. Press `r`.
    - ✓ The track is armed, and you also hear the input of an armed track.
-3. `R` starts the recording from the cursor, as `<Space><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `R` to stop the recording, and `<Space><Space>` to stop the song.
-   - *Hint:* Press `R` before `<Space><Space>`. If you press only `<Space><Space>`, record mode stays on, with `rec` lit in the status line, and the next `<Space><Space>` records again.
-   - ✓ A new audio clip with your take shows where the recording started, and the clip shows its waveform.
+3. `R` starts the recording from the cursor, as `<Space><Space>` plays from it. Press `R`, and sing or play for some seconds. Then press `<Esc>` to stop the recording and the song.
+   - *Hint:* If the song still plays, `<Esc>` canceled something else first, such as a selection. Press `<Esc>` again.
+   - ✓ The message line names the take. A new audio clip with your take shows where the recording started, and the clip shows its waveform.
 4. Now we record MIDI. Press `r` to disarm Voice, `j` to go to Keys, and `r` to arm Keys.
    - *Hint:* `:midi.inputs` shows the MIDI ports that paw finds.
    - ✓ Keys is armed and has no audio input, so it records MIDI. When you play your keyboard, you hear the synth.
-5. Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `R` and `<Space><Space>` to stop.
+5. Press `0` to put the cursor at the start, and `R` to record. Play some notes on your MIDI keyboard, and then press `<Esc>` to stop.
    - ✓ A MIDI clip contains the notes that you played, and `<CR>` on the clip opens it in the piano roll.
 6. Press `r` to disarm Keys. Then press `gs` and `<Space><Space>` to listen, and `<Space><Space>` to stop.
    - ✓ Your recordings play with the drums.
 
 ## What we did
 
-We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Space><Space>`, and we made an audio take and a MIDI take.
+We selected an input with `I`, armed the track with `r`, recorded with `R` and stopped with `<Esc>`, and we made an audio take and a MIDI take.
 
 - Previous: [Loops, marks and jumps](11-loops.md)
 - Next: [Save and export](13-saving.md)

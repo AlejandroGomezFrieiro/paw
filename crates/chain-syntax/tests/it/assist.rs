@@ -11,7 +11,7 @@ fn at(marked: &str) -> (String, usize) {
 
 fn labels(marked: &str) -> Vec<String> {
     let (text, offset) = at(marked);
-    complete(&text, offset, &crate::schema())
+    complete(&text, offset, &crate::schema(), None)
         .into_iter()
         .map(|completion| completion.label)
         .collect()
@@ -37,6 +37,8 @@ fn defined_at(marked: &str) -> Option<String> {
 #[test]
 fn completion_offers_the_words_of_the_schema_that_fit_the_place() {
     let devices_and_splits = [
+        "synth",
+        "arp",
         "eq",
         "compressor",
         "saturation",
@@ -88,9 +90,9 @@ fn a_completed_key_replaces_the_typed_word_and_adds_its_equals_sign() {
             column: 12,
         },
     };
-    assert_eq!(complete(&text, offset, &crate::schema()), [expected]);
+    assert_eq!(complete(&text, offset, &crate::schema(), None), [expected]);
     let (text, offset) = at("chain 1\nsaturation dr$=2dB");
-    let inserts: Vec<String> = complete(&text, offset, &crate::schema())
+    let inserts: Vec<String> = complete(&text, offset, &crate::schema(), None)
         .into_iter()
         .map(|c| c.insert)
         .collect();
@@ -105,7 +107,7 @@ fn hover_gives_the_schema_of_a_kind_and_of_a_parameter() {
         [
             "`gate` (Gate): a device",
             "threshold: a number in dB from -80 to 0, default -40",
-            "key: a source: `@id`, `@in` or a name that the host knows",
+            "key: a source: `@id`, `@in`, `@\"path\"` or a name that the host knows",
         ]
     );
     let param = hover_lines("chain 1\ncompressor ra$tio=4");
@@ -150,5 +152,50 @@ fn definition_goes_from_a_reference_or_a_link_to_the_id_that_it_names() {
         defined_at("chain 1\nmods\n  lfo -> #9.mix$ +1%"),
         None,
         "an id that the text does not define"
+    );
+}
+
+#[test]
+fn completion_in_version_2_offers_roles_kinds_and_the_ends_of_the_context() {
+    let with_context = |marked: &str| {
+        let (text, offset) = at(marked);
+        complete(&text, offset, &crate::schema(), Some(&crate::context()))
+            .into_iter()
+            .map(|completion| completion.label)
+            .collect::<Vec<String>>()
+    };
+    let strings = ["@\"Strings/Violin I/Notes\"", "@\"Strings/Bus\""];
+    let cases: &[(&str, &[&str])] = &[
+        (
+            "chain 2\n$",
+            &["strip", "bus", "master", "send", "vca", "producer", "io"],
+        ),
+        ("chain 2\nproducer mi$", &["midi-keys"]),
+        ("chain 2\nio $", &["audio-in", "midi-in"]),
+        ("chain 2\nsend #1 le$", &["level"]),
+        ("chain 2\nstrip #1\n  syn$", &["synth"]),
+        ("chain 2\n#1 -> @\"Str$", &strings),
+        (
+            "chain 2\nstrip\n  compressor key=@\"Dr$",
+            &["@\"Drums/Kick\""],
+        ),
+        ("chain 2\n#1 => \"S$", &["\"Sung\"", strings[0], strings[1]]),
+    ];
+    for (marked, expected) in cases {
+        assert_eq!(with_context(marked), *expected, "completion in {marked:?}");
+    }
+    assert_eq!(
+        labels("chain 2\n#1 -> @\"Str$"),
+        Vec::<String>::new(),
+        "no context, no ends"
+    );
+}
+
+#[test]
+fn hover_on_a_port_of_a_wire_gives_its_stream() {
+    let port = hover_lines("chain 2\nproducer singer #6\n\"Notes\" -> #6.no$tes");
+    assert_eq!(
+        port.unwrap(),
+        ["`#6.notes`: an input of midi with lyrics=on, the main one"]
     );
 }

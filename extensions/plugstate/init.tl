@@ -6,7 +6,6 @@
 local type contracts = require("paw.contracts")
 
 local plugstate = require("plugstate")
-package.loaded["paw.plugstate"] = plugstate
 require("plugstate.adapters")
 require("plugstate.tone3000")
 require("plugstate.soundshed")

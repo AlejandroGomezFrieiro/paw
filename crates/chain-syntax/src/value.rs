@@ -126,11 +126,17 @@ pub struct Number {
 
 impl Number {
     pub const fn plain(value: f64) -> Self {
-        Self { value, dimension: None }
+        Self {
+            value,
+            dimension: None,
+        }
     }
 
     pub const fn with(value: f64, dimension: Dimension) -> Self {
-        Self { value, dimension: Some(dimension) }
+        Self {
+            value,
+            dimension: Some(dimension),
+        }
     }
 
     /// The number as the printer writes it: the digits of the shortest
@@ -192,13 +198,17 @@ impl std::str::FromStr for Note {
     }
 }
 
-/// What `@` names: the input of the chain, or a node by its id.
+/// What `@` names: the input of the chain, a node by its id, or a stream
+/// outside the text by its path.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Reference {
     /// `@in`: the signal that comes into the chain.
     Input,
     /// `@id`: the output of a node of the chain.
     Node(String),
+    /// `@"Drums/Kick"`: a lane or a node of another part, by a path that the
+    /// host gives a meaning to.
+    Outside(String),
 }
 
 /// A value of a field.
@@ -233,20 +243,35 @@ pub(crate) fn scale(value: f64, exponent: i32) -> f64 {
 /// for a positive count. The result has no leading or trailing zeros that
 /// a number does not need.
 pub(crate) fn shift(digits: &str, places: i32) -> String {
-    let (sign, digits) = digits.strip_prefix('-').map_or(("", digits), |rest| ("-", rest));
+    let (sign, digits) = digits
+        .strip_prefix('-')
+        .map_or(("", digits), |rest| ("-", rest));
     let (whole, fraction) = digits.split_once('.').unwrap_or((digits, ""));
     let all: String = format!("{whole}{fraction}");
     // The place of the point, counted from the start of `all`.
     let point = whole.len() as i64 + i64::from(places);
     let (mut integer, mut fraction) = if point <= 0 {
-        (String::from("0"), "0".repeat(point.unsigned_abs() as usize) + &all)
+        (
+            String::from("0"),
+            "0".repeat(point.unsigned_abs() as usize) + &all,
+        )
     } else if point as usize >= all.len() {
-        (all.clone() + &"0".repeat(point as usize - all.len()), String::new())
+        (
+            all.clone() + &"0".repeat(point as usize - all.len()),
+            String::new(),
+        )
     } else {
-        (all[..point as usize].to_string(), all[point as usize..].to_string())
+        (
+            all[..point as usize].to_string(),
+            all[point as usize..].to_string(),
+        )
     };
     let trimmed = integer.trim_start_matches('0');
-    integer = if trimmed.is_empty() { "0".into() } else { trimmed.into() };
+    integer = if trimmed.is_empty() {
+        "0".into()
+    } else {
+        trimmed.into()
+    };
     fraction.truncate(fraction.trim_end_matches('0').len());
     let zero = integer == "0" && fraction.is_empty();
     let mut out = String::from(if zero { "" } else { sign });

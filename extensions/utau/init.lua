@@ -14,7 +14,6 @@ paw.option.define("utau_render_timeout", 600) -- seconds an offline render waits
 paw.option.define("utau_openutau", "") -- command that opens a .ustx in OpenUtau; `OpenUtau` when empty
 
 local utau = require("utau")
-package.loaded["paw.utau"] = utau
 
 utau.engine.reset_stale()
 

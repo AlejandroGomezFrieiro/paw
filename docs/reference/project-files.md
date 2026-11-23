@@ -20,7 +20,7 @@ song/
 ├── master/                 the master track, as a track folder
 ├── tracks/
 │   └── Keys/               one folder for each track, with the name of the track
-│       ├── track.json      the track and its clips, without the notes, and its devices graph
+│       ├── track.json      the track and its clips, without the notes, and its chain
 │       ├── devices.json    the chain and its parameters
 │       ├── 1-synth.state   the state of a plugin, as the plugin gives it
 │       ├── 2-clap-….ara    a file of an attachment, beside the state (the ARA archive)
@@ -64,14 +64,18 @@ song/
   a clip is a plain MIDI clip with the notes of that file. paw refuses a
   project whose linked clips have different notes. See
   [Linked clips](arrange-view.md#linked-clips).
-- A track whose devices have a shape, with splits and branches, has it as
-  `"graph"` in `track.json`. The graph names each device of `devices.json`
-  by its id. A track with no `graph` plays its devices one after the other,
-  in the order of `devices.json`. For now paw also plays the devices of a
-  graph one after the other, in the order of the graph.
+- A track whose devices have a shape, with splits and branches, has that
+  chain as `"graph"` in `track.json`. The chain names each device of
+  `devices.json` by its id. A track with no `graph` plays its devices one
+  after the other, in the order of `devices.json`. For now paw also plays
+  the devices of a chain one after the other, in the order of the chain.
+- A split of a kind that an extension defined keeps its kind, its values
+  and its branches when that extension is not loaded, and paw saves the
+  split as it read it.
 - `racks.json` has each linked rack: its name, its splits and its devices.
-  Each place of a linked rack in a graph names the rack by its id, and
-  keeps the values that it changes on its own.
+  Each place of a linked rack in a chain names the rack by its id, and
+  keeps the values that it changes on its own, by keys such as `"7.mix"`
+  and `"12.params.gain"`.
 - A MIDI clip with overrides has them in its entry in `track.json`, for
   example `"overrides": { "transpose": 3 }`. They change how the clip plays,
   and its file keeps the notes as they are. See

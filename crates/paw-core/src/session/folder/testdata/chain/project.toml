@@ -1,0 +1,11 @@
+name = "untitled"
+sig_den = 4
+sig_num = 4
+tempo = 120.0
+tracks = [
+    "T1",
+    "T2",
+]
+version = 2
+
+[transport]

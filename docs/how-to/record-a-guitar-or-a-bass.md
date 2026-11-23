@@ -39,8 +39,13 @@ If you hear the instrument late, make the block size smaller with
 1. Move the cursor to where the take starts.
 2. Press `R`. The song plays from the cursor, and the status line shows
    `rec`.
-3. Play the part, and press `<Space><Space>` to stop. The take is now a
-   clip on the track.
+3. Play the part, and press `<Space><Space>` or `Esc` to stop. The take is
+   now a clip on the track, and the message line names it, for example
+   `recording stopped: take 1 kept (u removes it)`.
+
+`Esc` first cancels what you were doing, such as a selection. If you
+selected something while you recorded, press `Esc` two times. `Esc` stops
+the song only while paw records.
 
 paw writes the file into `media` next to the project. If the project is
 not saved, the file goes to `~/.local/share/paw/recordings`, and when you

@@ -1,0 +1,34 @@
+[
+  {
+    "devices": [
+      {
+        "bypass": false,
+        "id": 118,
+        "kind": "gain",
+        "meta": {},
+        "params": {
+          "gain": -4.0,
+          "pan": -0.5
+        }
+      }
+    ],
+    "id": 115,
+    "name": "Glue",
+    "split": {
+      "branches": [
+        {
+          "id": 117,
+          "nodes": [
+            {
+              "device": 118
+            }
+          ]
+        }
+      ],
+      "gain": 2.0,
+      "id": 116,
+      "kind": "chain",
+      "mix": 0.75
+    }
+  }
+]

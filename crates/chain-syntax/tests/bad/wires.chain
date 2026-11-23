@@ -1,0 +1,21 @@
+chain 2 "Wires"
+-- a device at the top level of version 2
+eq #1
+-- `mods` at the top level of version 2
+mods
+strip #2
+-- `=>` ends at a lane
+#2 => #3
+-- a wire into a lane is `=>`
+#2 -> "Print"
+-- a lane is quoted
+#2 => Print
+-- a wire joins a node
+"Room" => "Print"
+-- one wire on each line
+#2 -> #3 -> #4
+-- a producer names its kind
+producer #5
+-- a send holds no lines
+send #6
+  eq #7

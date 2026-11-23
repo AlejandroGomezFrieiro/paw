@@ -1,10 +1,13 @@
-//! paw's schema for the chain language (`paw chain schema`): each kind of
-//! device that the registry has (built-in, CLAP, VST3, LV2 and Lua), the
-//! kinds of split, and the kinds of modulator, as the generic crate
-//! `chain-syntax` reads them.
+//! paw's schema for the chain language (`paw chain schema`): the kinds of
+//! stream, the roles of a node of the part's graph, each kind of device
+//! that the registry has (built-in, CLAP, VST3, LV2 and Lua), the kinds of
+//! split of the model's registry (`model/chain/kinds.rs`), and the kinds of
+//! modulator, as the generic crate `chain-syntax` reads them.
 
-use chain_syntax::{Count, Kind, Param, ParamValue, Schema, SplitKind, Unit};
-use paw_engine::{DeviceFormat, DeviceInfo, ParamInfo};
+use chain_syntax::{Count, Kind, Param, ParamValue, Port, Schema, SplitKind, Stream, TimeBase, Unit};
+use paw_engine::{Category, DeviceFormat, DeviceInfo, ParamInfo};
+
+use crate::model::chain::{BuiltinSplit, KindSpec, SplitImpl, SplitKinds};
 
 /// The kinds that a host can lack, by their prefix: a plugin that is not
 /// installed on this machine, or a Lua device of an extension that is not
@@ -14,15 +17,19 @@ const OPEN_PREFIXES: [&str; 4] = ["clap:", "vst3:", "lv2:", "lua:"];
 /// The schema of the kinds of device that `session` has now, as JSON: what
 /// `paw chain schema` prints and `paw.api.chain_schema` gives.
 pub(crate) fn json(session: &crate::session::Session) -> String {
-    schema(session.registry.iter().map(|factory| factory.info())).to_json()
+    schema(session.registry.iter().map(|factory| factory.info()), session.doc.split_kinds()).to_json()
 }
 
-/// The schema of the kinds of device in `devices`, with paw's kinds of
-/// split and modulator.
-pub(crate) fn schema<'a>(devices: impl IntoIterator<Item = &'a DeviceInfo>) -> Schema {
+/// The schema of the kinds of device in `devices`, with paw's streams and
+/// roles of a node, the kinds of split of `kinds`, and paw's kinds of
+/// modulator.
+pub(crate) fn schema<'a>(devices: impl IntoIterator<Item = &'a DeviceInfo>, kinds: &SplitKinds) -> Schema {
     let mut schema = Schema::new("paw");
+    schema.streams = streams();
+    schema.default_ports = vec![port("in", "audio", false), port("out", "audio", true)];
+    schema.nodes = nodes();
     schema.devices = devices.into_iter().map(device).collect();
-    schema.splits = splits();
+    schema.splits = splits(kinds);
     schema.modulators = modulators();
     schema.open_prefixes = OPEN_PREFIXES.map(String::from).to_vec();
     schema
@@ -37,7 +44,48 @@ fn device(info: &DeviceInfo) -> Kind {
         // A plugin with no parameters in its description has them only
         // for each instance (`DeviceInfo::params`).
         open_params: info.params.is_empty() && info.format != DeviceFormat::Builtin,
+        // An instrument plays the notes that come in; an effect has the
+        // default ports, audio in and out.
+        ports: (info.category == Category::Instrument).then(|| vec![port("notes", "midi", false), port("out", "audio", true)]),
+        ..Kind::default()
     }
+}
+
+/// A main port of `stream`: an output when `out`.
+fn port(name: &str, stream: &str, out: bool) -> Port {
+    Port { port: name.into(), stream: stream.into(), props: Default::default(), main: true, out }
+}
+
+/// The kinds of stream that a lane of paw keeps and a wire carries.
+fn streams() -> Vec<Stream> {
+    let stream = |stream: &str, name: &str, time: TimeBase, control: bool| Stream {
+        stream: stream.into(),
+        name: name.into(),
+        time: Some(time),
+        records: true,
+        control,
+        props: Vec::new(),
+    };
+    vec![
+        stream("audio", "Audio", TimeBase::Samples, false),
+        stream("midi", "MIDI", TimeBase::Beats, false),
+        stream("curve", "Curve", TimeBase::Beats, true),
+    ]
+}
+
+/// The roles of a node line, with the parameters and ports of each. A
+/// strip takes notes for the instrument among its inserts, and audio.
+fn nodes() -> Vec<Kind> {
+    let fader = || vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0), number("pan", None, -1.0, 1.0, 0.0)];
+    let role = |kind: &str, params: Vec<Param>, ports: Option<Vec<Port>>| Kind { kind: kind.into(), params, ports, ..Kind::default() };
+    let strip_ports = vec![port("in", "audio", false), port("notes", "midi", false), port("out", "audio", true)];
+    vec![
+        role("strip", fader(), Some(strip_ports)),
+        role("bus", fader(), None),
+        role("master", fader(), None),
+        role("send", vec![number("level", Some(Unit::Decibel), -60.0, 12.0, 0.0), switch("pre")], None),
+        role("vca", vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0)], Some(vec![port("out", "curve", true)])),
+    ]
 }
 
 fn param(info: &ParamInfo) -> Param {
@@ -89,66 +137,83 @@ fn text(key: &str) -> Param {
     Param { key: key.into(), name: String::new(), label: String::new(), value: ParamValue::Text { default: None } }
 }
 
-/// The kinds of split of the devices graph. Each split has a dry and wet
-/// `mix` and an output `gain`, and each branch a gain, a pan, a mute and a
-/// solo. This table follows the design of the devices graph; the kernel
-/// model of the graph gives the kinds their sound.
-fn splits() -> Vec<SplitKind> {
-    let split_params = || vec![number("mix", Some(Unit::Percent), 0.0, 100.0, 100.0), number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0)];
-    let branch_params = || {
-        vec![
-            number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0),
-            number("pan", None, -1.0, 1.0, 0.0),
-            switch("mute"),
-            switch("solo"),
-        ]
-    };
-    let split = |kind: &str, name: &str, min: usize, max: usize| SplitKind {
-        kind: kind.into(),
-        name: name.into(),
-        branches: Count { min, max },
-        params: split_params(),
-        branch_params: branch_params(),
-    };
-    let mut band = split("band", "Band split", 2, 6);
-    band.params.push(Param {
-        key: "xover".into(),
-        name: "Crossovers".into(),
-        label: String::new(),
-        value: ParamValue::List {
-            unit: Some(Unit::Hertz),
-            min: Some(20.0),
-            max: Some(20000.0),
-            count: Some(Count { min: 1, max: 5 }),
-            ascending: true,
-        },
+/// The kinds of split of `kinds`: the built-in kinds in their order, then
+/// the kinds that extensions defined. Each split has a dry and wet `mix`
+/// and an output `gain`, and each branch a gain, a pan, a mute and a solo.
+/// The text names the kind `chain` (one branch in series) `rack`, as the
+/// header of a document is `chain`.
+fn splits(kinds: &SplitKinds) -> Vec<SplitKind> {
+    let builtin = BuiltinSplit::ALL.into_iter().filter(|b| kinds.get(&b.kind()) == Some(&SplitImpl::Builtin(*b)));
+    let declared = kinds.iter().filter_map(|(kind, found)| match found {
+        SplitImpl::Declared(spec) => Some(split(kind.as_str(), "", *spec)),
+        SplitImpl::Builtin(_) => None,
     });
-    let mut key = split("key", "Key split", 1, 16);
-    key.branch_params.push(text("zone"));
-    let mut velocity = split("vel", "Velocity split", 1, 16);
-    velocity.branch_params.push(text("zone"));
-    let mut select = split("select", "Selector", 1, 16);
-    select.params.push(Param {
-        key: "index".into(),
-        name: "Index".into(),
-        label: String::new(),
-        value: ParamValue::Number { unit: None, min: Some(1.0), max: Some(16.0), default: Some(1.0), integer: true },
-    });
-    select.params.push(number("fade", Some(Unit::Millisecond), 0.0, 1000.0, 10.0));
-    vec![
-        split("rack", "Rack", 1, 1),
-        split("layer", "Layer", 1, 16),
-        band,
-        split("ms", "Mid and side", 2, 2),
-        split("lr", "Left and right", 2, 2),
-        key,
-        velocity,
-        select,
-        split("outs", "Outputs of the device before", 1, 64),
-    ]
+    builtin.map(builtin_split).chain(declared).collect()
 }
 
-/// The kinds of modulator of the devices graph.
+/// A split kind of the language with the parameters that each split has.
+fn split(kind: &str, name: &str, spec: KindSpec) -> SplitKind {
+    let branch_params = vec![
+        number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0),
+        number("pan", None, -1.0, 1.0, 0.0),
+        switch("mute"),
+        switch("solo"),
+    ];
+    SplitKind {
+        kind: kind.into(),
+        name: name.into(),
+        branches: Count { min: spec.min, max: spec.max },
+        params: vec![number("mix", Some(Unit::Percent), 0.0, 100.0, 100.0), number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0)],
+        branch_params,
+    }
+}
+
+/// A built-in kind of split, with its own parameters.
+fn builtin_split(builtin: BuiltinSplit) -> SplitKind {
+    let spec = builtin.spec();
+    match builtin {
+        BuiltinSplit::Chain => split("rack", "Rack", spec),
+        BuiltinSplit::Layer => split("layer", "Layer", spec),
+        BuiltinSplit::Band => {
+            let mut band = split("band", "Band split", spec);
+            band.params.push(Param {
+                key: "xover".into(),
+                name: "Crossovers".into(),
+                label: String::new(),
+                value: ParamValue::List {
+                    unit: Some(Unit::Hertz),
+                    min: Some(20.0),
+                    max: Some(20000.0),
+                    count: Some(Count { min: spec.min - 1, max: spec.max - 1 }),
+                    ascending: true,
+                },
+            });
+            band
+        }
+        BuiltinSplit::Ms => split("ms", "Mid and side", spec),
+        BuiltinSplit::Lr => split("lr", "Left and right", spec),
+        BuiltinSplit::Key | BuiltinSplit::Vel => {
+            let name = if builtin == BuiltinSplit::Key { "Key split" } else { "Velocity split" };
+            let mut zones = split(builtin.word(), name, spec);
+            zones.branch_params.push(text("zone"));
+            zones
+        }
+        BuiltinSplit::Select => {
+            let mut select = split("select", "Selector", spec);
+            select.params.push(Param {
+                key: "index".into(),
+                name: "Index".into(),
+                label: String::new(),
+                value: ParamValue::Number { unit: None, min: Some(1.0), max: Some(16.0), default: Some(1.0), integer: true },
+            });
+            select.params.push(number("fade", Some(Unit::Millisecond), 0.0, 1000.0, 10.0));
+            select
+        }
+        BuiltinSplit::Outs => split("outs", "Outputs of the device before", spec),
+    }
+}
+
+/// The kinds of modulator of a chain.
 fn modulators() -> Vec<Kind> {
     let shape = Param {
         key: "shape".into(),
@@ -165,7 +230,7 @@ fn modulators() -> Vec<Kind> {
             kind: "macro".into(),
             name: "Macro".into(),
             params: vec![number("value", Some(Unit::Percent), 0.0, 100.0, 0.0)],
-            open_params: false,
+            ..Kind::default()
         },
         Kind {
             kind: "lfo".into(),
@@ -176,7 +241,7 @@ fn modulators() -> Vec<Kind> {
                 shape,
                 number("phase", Some(Unit::Percent), 0.0, 100.0, 0.0),
             ],
-            open_params: false,
+            ..Kind::default()
         },
     ]
 }
@@ -190,15 +255,16 @@ mod tests {
     }
 
     #[test]
-    fn the_schema_has_each_built_in_device_and_a_text_of_them_checks() {
+    fn the_schema_has_each_built_in_device_and_a_part_of_them_checks() {
         let registry = paw_engine::Registry::with_builtins();
-        let schema = schema(registry.iter().map(|factory| factory.info()));
+        let schema = schema(registry.iter().map(|factory| factory.info()), &SplitKinds::builtin());
         assert_eq!(schema.devices.len(), registry.iter().count(), "one kind for each device");
         // The JSON that `paw chain schema` writes loads again as the same schema.
         let loaded = Schema::from_json(&schema.to_json()).expect("paw's schema loads");
         assert_eq!(loaded, schema);
-        let text = "chain 1\ncompressor #1\nlayer #2\n  | Dry\n  | Wet gain=-6dB\n    clap:org.example.missing #3\n";
-        let errors: Vec<String> = chain_syntax::check_text(text, &schema)
+        // An effect before the instrument passes the notes on to it.
+        let text = "chain 2\nstrip #1 gain=-3dB\n  compressor #2\n  synth #3\n  layer #4\n    | Dry\n    | Wet gain=-6dB\n      clap:org.example.missing #5\nbus #6\nsend #7 level=-12dB\nvca #8\n#1 -> #6\n#1 -> #7\n#7 -> #6\n#8 -> #6.gain\n";
+        let errors: Vec<String> = chain_syntax::check_text(text, &schema, None)
             .diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.is_error())
@@ -218,7 +284,7 @@ mod tests {
             ParamInfo { read_only: true, ..ParamInfo::new("Meter", 0.0, 1.0, 0.0, "") },
         ];
         let info = DeviceInfo { kind: "clap:org.example.amp".into(), format: DeviceFormat::Clap, params, ..DeviceInfo::default() };
-        let schema = schema([&info]);
+        let schema = schema([&info], &SplitKinds::builtin());
         let amp = kind_of(&schema, "clap:org.example.amp");
         let values: Vec<(&str, &str, &ParamValue)> =
             amp.params.iter().map(|param| (param.key.as_str(), param.label.as_str(), &param.value)).collect();
@@ -240,5 +306,32 @@ mod tests {
         assert!(!amp.open_params);
         let unknown = DeviceInfo { kind: "vst3:Amp".into(), format: DeviceFormat::Vst3, ..DeviceInfo::default() };
         assert!(device(&unknown).open_params, "a plugin with no parameters known has them for each instance");
+    }
+
+    #[test]
+    fn the_kinds_of_split_are_those_of_the_registry() {
+        use crate::model::kinds::Owner;
+        let mut kinds = SplitKinds::builtin();
+        let spec = KindSpec { min: 2, max: 3, first: 2 };
+        kinds.define("drums.transient".parse().unwrap(), spec, Owner::Extension("drums".into())).unwrap();
+        let schema = schema([], &kinds);
+        let counts: Vec<(&str, usize, usize)> =
+            schema.splits.iter().map(|s| (s.kind.as_str(), s.branches.min, s.branches.max)).collect();
+        assert_eq!(
+            counts,
+            [
+                ("rack", 1, 1),
+                ("layer", 1, 16),
+                ("band", 2, 6),
+                ("ms", 2, 2),
+                ("lr", 2, 2),
+                ("key", 1, 16),
+                ("vel", 1, 16),
+                ("select", 1, 16),
+                ("outs", 1, 16),
+                ("drums.transient", 2, 3),
+            ],
+            "the built-in kinds with the branches the model takes, then the extension's"
+        );
     }
 }
