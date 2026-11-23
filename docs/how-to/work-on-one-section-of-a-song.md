@@ -11,7 +11,7 @@ bridge, in a narrowed window. The section is a region, and the rules are in
 1. If the song has no region, make one. Press `v`, move the cursor over
    the bars of the section, press `<Space>rn` and type a name, for example
    `Bridge`. The details are in
-   [How to loop a part of the song](loop-a-part-of-the-song.md#loop-a-region).
+   [How to loop a part of the song](loop-a-part-of-the-song.md#loop-a-region-by-name).
 2. Type `:narrow Bridge`. The window shows the time of the region and
    every track in it, and the status line shows `Song › Bridge`. With the
    cursor in the region, `znar` does the same.
