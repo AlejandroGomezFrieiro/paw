@@ -221,7 +221,7 @@ local function index_keys(k: contracts.KindTrigger): {string}
   return {"track_kinds\0" .. k.key, "clip_kinds\0" .. k.key}
 end
 
-local load: function(name: string, why: string): contracts.ExtEntry
+local load_waiting: function(name: string, why: string): contracts.ExtEntry
 
 --- The modes of a key trigger: `mode`, or normal mode.
 local function modes_of(k: contracts.KeyTrigger): {string}
@@ -265,7 +265,7 @@ local function install(w: Waiting)
           -- Run from Lua (`paw.commands.run`) with its arguments: the
           -- command line comes through the line handler below.
           run = function(ctx: contracts.CommandContext): contracts.CommandResult
-            local entry = load(name, ":" .. cname)
+            local entry = load_waiting(name, ":" .. cname)
             if not (entry and entry.ok) then
               return
             end
@@ -284,7 +284,7 @@ local function install(w: Waiting)
     paw.keymap.set(
       lhs,
       function(ctx: contracts.KeyContext)
-        local entry = load(name, lhs)
+        local entry = load_waiting(name, lhs)
         if entry and entry.ok then
           paw.keymap.normal(typed_again(lhs, ctx))
         end
@@ -308,7 +308,7 @@ local function install(w: Waiting)
             false,
             function()
               if M.waiting[name] then
-                load(name, "view " .. view)
+                load_waiting(name, "view " .. view)
                 api.ui_redraw()
               end
             end
@@ -333,7 +333,7 @@ local function install(w: Waiting)
       events.pattern(event),
       function(payload: events.Payload, sent: string)
         local from = events.next_handle()
-        load(name, "event " .. sent)
+        load_waiting(name, "event " .. sent)
         events.emit_since(from, event, sent, payload)
       end
     )
@@ -370,7 +370,7 @@ end
 --- Load the waiting extension `name` now: its stubs go, and paw loads it.
 --- `why` says what loaded it (`:undotree`, `<leader>pu`). Failed, it
 --- waits again with its stubs. Gives the entry of `paw.ext.loaded`.
-load = function(name: string, why: string): contracts.ExtEntry
+load_waiting = function(name: string, why: string): contracts.ExtEntry
   local w = M.waiting[name]
   local ext = paw.ext as Ext
   if not w then
@@ -388,7 +388,7 @@ load = function(name: string, why: string): contracts.ExtEntry
   return entry
 end
 
-M.load = load
+M.load = load_waiting
 
 --- Stop waiting for `name`: its stubs go. paw/ext.lua calls it when the
 --- extension loads by any other way (`:ext.load`, a requirement), and to
@@ -428,7 +428,7 @@ table.insert(
     if not name then
       return false
     end
-    local entry = load(name, ":" .. cname)
+    local entry = load_waiting(name, ":" .. cname)
     if entry and entry.ok then
       paw.commands.exec(line, ctx)
     end
@@ -448,7 +448,7 @@ registry.missing = function(reg: registry.Owned, key: string): boolean
   end
   -- The words of `describe`: a kind of track or of clip by its name alone.
   local plain = reg.kind == "track_kinds" or reg.kind == "clip_kinds"
-  load(name, "kind " .. (plain and "" or reg.kind .. " ") .. key)
+  load_waiting(name, "kind " .. (plain and "" or reg.kind .. " ") .. key)
   return true
 end
 
