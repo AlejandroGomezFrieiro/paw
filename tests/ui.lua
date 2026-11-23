@@ -317,3 +317,111 @@ test("each cell of a clip shows its own time: the first note and the first sound
   eq(paw.opt.zoom, 4, "two zi zoom to 4 columns a beat")
   expect_screen("first_cell_zoom4", 60, 16, { rows = { 2, 9 }, cols = { 15, 47 } })
 end)
+
+--- A wave of `seconds` at 48 kHz in the test's folder, whose level in each
+--- half second is the next of `levels`, round and round.
+local function stepped_wave(name, seconds, levels)
+  local samples = {}
+  for i = 1, math.floor(48000 * seconds) do
+    local level = levels[math.floor(i / 24000) % #levels + 1]
+    samples[i] = level * math.sin(i / 20)
+  end
+  return T.write_wav(T.scratch .. "/" .. name .. ".wav", samples)
+end
+
+test("each take lane shows its take's notes or sound under its time", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.opt.zoom, paw.opt.track_height = 2, 3
+  -- A MIDI clip whose first take has two notes and whose second (playing)
+  -- has one, and an audio clip whose takes are loud in turns.
+  local keys = paw.add_track({ name = "keys" })
+  local riff = keys:add_clip({
+    name = "riff",
+    start = 0,
+    length = 4,
+    notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 2, length = 1 } },
+  })
+  paw.takes.new(riff.id)
+  riff:set_notes({ { pitch = 67, start = 1, length = 1 } })
+  local voice = paw.add_track({ name = "voice" })
+  local vox = voice:add_clip({ name = "vox", file = stepped_wave("loud-quiet", 2, { 0.9, 0.05 }), start = 0 })
+  paw.takes.new(vox.id)
+  api.clip_set(vox.id, { file = stepped_wave("quiet-loud", 2, { 0.05, 0.9 }) })
+  api.undo_checkpoint()
+  paw.flush()
+  T.keys("gg0zt")
+  T.keys("Gzt")
+  paw.ui.message = nil
+  expect_screen("take_lanes", 60, 24, { rows = { 2, 15 }, cols = { 1, 27 } })
+end)
+
+test("the status line says how much a selection holds, the same in each visual mode", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.opt.zoom, paw.opt.grid = 1, 4
+  for _, name in ipairs({ "a", "b", "c" }) do
+    paw.add_track({ name = name })
+  end
+  -- Each from bar 3 of the first track: bars 3 and 4 of it, the first two
+  -- tracks, then bars 3 and 4 of all three.
+  local status = { rows = { 11, 11 }, cols = { 1, 64 } }
+  T.keys("gg0llv2l")
+  expect_screen("selection_time", 80, 12, status)
+  T.keys("<Esc>gg0llVj")
+  expect_screen("selection_tracks", 80, 12, status)
+  T.keys("<Esc>gg0ll<C-v>2j2l")
+  expect_screen("selection_block", 80, 12, status)
+  T.keys("<Esc>")
+end)
+
+test("a clip's controller moves show as a curve on its name row, and a group with linked faders has a mark", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.opt.zoom, paw.opt.track_height = 1, 3
+  local synth = paw.add_track({ name = "synth" })
+  local clip =
+    synth:add_clip({ name = "pad", start = 0, length = 16, notes = { { pitch = 60, start = 0, length = 16 } } })
+  -- The mod wheel rises from beat 6, is up at beat 10, and falls at 14.
+  clip:set_controls({
+    { start = 6, type = "cc", number = 1, value = 0.25 },
+    { start = 8, type = "cc", number = 1, value = 0.5 },
+    { start = 10, type = "cc", number = 1, value = 1 },
+    { start = 14, type = "cc", number = 1, value = 0 },
+  })
+  paw.groups.link(paw.groups.make({ synth }, "band"), true)
+  api.undo_checkpoint()
+  paw.flush()
+  T.keys("gg0")
+  paw.ui.message = nil
+  expect_screen("controller_moves", 60, 16, { rows = { 2, 7 }, cols = { 1, 33 } })
+end)
+
+test("a looped clip's repeats and an audio clip's warp markers leave each cell its notes or sound", function()
+  fresh()
+  paw.cmd("view.only")
+  paw.opt.zoom, paw.opt.track_height = 2, 4
+  -- A beat that repeats each bar, a note on the first beat of each repeat.
+  local drums = paw.add_track({ name = "drums" })
+  local beat = drums:add_clip({
+    name = "beat",
+    start = 0,
+    length = 4,
+    notes = { { pitch = 36, start = 0, length = 1 }, { pitch = 38, start = 2, length = 1 } },
+  })
+  paw.stretch.loop(beat.id, true)
+  beat.length = 12
+  -- Sound that is loud on each beat, with a warp marker on beat 2.
+  local voice = paw.add_track({ name = "voice" })
+  local vox = voice:add_clip({ name = "vox", file = stepped_wave("beats", 4, { 0.9, 0.05 }), start = 0 })
+  vox.stretch_mode = "tonal"
+  paw.stretch.warp_add(vox.id, 2)
+  -- The clip plays through the stretcher, which makes its sound first.
+  paw.flush()
+  T.until_(function() return not api.clip_get(vox.id).stretching end, "the clip's sound is made")
+  api.undo_checkpoint()
+  paw.flush()
+  T.keys("gg0")
+  paw.ui.message = nil
+  expect_screen("repeats_and_warps", 60, 16, { rows = { 2, 9 }, cols = { 15, 47 } })
+end)

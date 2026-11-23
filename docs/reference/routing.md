@@ -40,6 +40,8 @@ When one fader moves, the others move by the same number of dB, so their
 balance stays. When a fader reaches its end it stops, and the others continue.
 
 - The fader of the group itself does not move.
+- The arrange view shows `≡` after the name of a group with linked faders,
+  as in `Drums ≡`.
 - The link is an option of the group, kept in its `meta`
   (`paw.groups.link(group, true)`).
 - One undo step undoes the full move.

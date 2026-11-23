@@ -104,9 +104,10 @@ marker to its beat, or move all of them with `:clip.warp snap`.
   clip, paw first pins that edge with a marker.
 - A marker cannot move further than a stretch of 0.25 to 4 on each side
   allows.
-- In the terminal, a marker is a line down the clip, on the left edge of
-  the cell. In the graphical window, it is a yellow line with a handle on
-  the top band of the clip.
+- In the terminal, a marker is a yellow line on the name row of the clip,
+  on the left edge of the cell, so the cells under it still show the sound.
+  In the graphical window, it is a yellow line with a handle on the top band
+  of the clip.
 - The project saves the markers, copy and cut keep them, and undo changes
   them like any edit. They stay pinned to the file when you trim or slip the
   clip.
@@ -140,7 +141,7 @@ when the tempo changes. Its stretch changes to fit, and its pitch stays.
 
 A repeating clip (`:clip.repeat`, field `clip.loop`) repeats `clip.loop_length` beats of what it
 plays over its full length. When you drag its end out, the content repeats,
-and a notch marks each repeat in both frontends.
+and a notch marks each repeat in both frontends. In the terminal the notch is on the name row of the clip, after its name, so the cells under it still show the notes or the sound.
 
 | Field | Value |
 | --- | --- |

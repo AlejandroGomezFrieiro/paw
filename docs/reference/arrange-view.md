@@ -203,6 +203,7 @@ The clips of a link share their notes and their controller moves, so an edit of 
 - `&`, `y` and `p` make plain copies, also of a linked clip.
 - `S` on a linked clip takes it out of its link, then splits it, so the other clips of the link keep their notes.
 - The arrange view shows `≡` after the name of a linked clip (`=` with `paw.opt.ascii`), as in `riff ≡`.
+- A MIDI clip with controller moves shows a small curve on its name row, after its name. The curve is the controller that moves most often, one eighth block for each column, and it starts at its first move. So a linked copy shows the same curve as the clip that it shares the moves with.
 - `K` on a linked clip says the link and its number of clips, for example `linked: riff, 3 clips`.
 - The notes of a link are in one file of the project folder, `linked/riff.midi2`. See [Project files](project-files.md#the-project-folder).
 
@@ -221,7 +222,7 @@ A MIDI clip can play its notes higher or lower, or louder or softer, without a c
 
 ## Take lanes
 
-`zt` shows the takes of a track as lanes under its clips, with one row for each take. With the mouse you can do three things:
+`zt` shows the takes of a track as lanes under its clips. Each lane is as tall as an automation lane that shows as a row: the name of the take on its first row, and the waveform or the notes of the take under it, at the same time as the clip. With the mouse you can do three things:
 
 - A drag across lane k marks the cells from the press to the release. At the release, take k plays over that time. The clips are cut at its ends on the grid (Shift: off the grid). The pieces that then play the same take are joined. It is one undo step.
 - A click without a drag (shorter than a grid step) gives the piece under it take k.

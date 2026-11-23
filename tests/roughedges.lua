@@ -36,7 +36,7 @@ test("the playhead over a take lane keeps the letters of the take's name", funct
   end
 end)
 
-test("a short clip with takes shows its take mark before its name, and ]t changes it", function()
+test("a short clip with takes keeps room for its name, says which take plays, and ]t changes it", function()
   start()
   local t = paw.add_track({ name = "Lead" })
   local clip = t:add_clip({ start = 0, length = 4, name = "take 1", notes = { { pitch = 60, start = 0, length = 1 } } })
@@ -53,9 +53,10 @@ test("a short clip with takes shows its take mark before its name, and ]t change
     end
     return ""
   end
-  eq(line():find("‹1/3›", 1, true) ~= nil, true, "the mark of a one-bar clip at the default zoom: " .. line())
+  -- A bar at the default zoom has room for four letters and the take.
+  eq(line():find("▏tak…‹1›", 1, true) ~= nil, true, "the name and the mark of a one-bar clip: " .. line())
   T.keys("]t")
-  eq(line():find("‹2/3›", 1, true) ~= nil, true, "]t shows on the clip: " .. line())
+  eq(line():find("▏tak…‹2›", 1, true) ~= nil, true, "]t shows on the clip: " .. line())
 end)
 
 test(":g/pat/p lists the matches in the quickfix list, as :g/pat/ does", function()

@@ -14,7 +14,7 @@
 --   :take.explode         -- every take as a clip on a track of its own
 --
 -- Comping, choosing the best of each take: cut the clip where the choice
--- changes (`s`, or select a stretch of time and say `:take 2`, which cuts
+-- changes (`S`, or select a stretch of time and say `:take 2`, which cuts
 -- at its ends) and choose a take for each piece. Every piece keeps all the
 -- takes, lined up, so a cut can be moved and a choice changed later.
 -- `M.comp(track, take, from, to)` does it in one go, and joins pieces side
@@ -476,6 +476,53 @@ function M.content(clip: ClipRef, index: integer): Content
     return {file = entry.file, offset = math.max(0, (entry.offset or 0) + shift), gain = entry.gain or 0}
   end
   return {notes = entry.notes or {}, controls = entry.controls or {}}
+end
+
+--- The waveform of take `index` of an audio clip, as `n` `{ min, max, rms }`
+--- across the clip, as `paw.api.clip_peaks` gives the clip's. The take that
+--- plays is the clip's own waveform, stretched. Another take is its file,
+--- stretched in time as the clip stretches it, and repeated as a looped
+--- clip repeats. Nothing for a missing file.
+function M.peaks(clip: ClipRef, index: integer, n: integer): {types.Peak}
+  local c = clip_of(clip)
+  local takes = M.of(c)
+  if not takes or index == takes.active then
+    local ok, peaks = pcall(api.clip_peaks, c.id, n)
+    return ok and peaks as {types.Peak} or {}
+  end
+  local content = M.content(c, index)
+  local seconds = paw.stretch.file_seconds(c, c.length)
+  local peaks: {types.Peak}
+  if c.loop and c.loop_length then
+    -- One repeat's worth, laid along the clip as it repeats.
+    local period = paw.stretch.file_seconds(c, c.loop_length)
+    local lead = c.loop_start / c.loop_length * period
+    local per = math.max(1, math.min(4096, math.ceil(n * period / seconds)))
+    local ok, one = pcall(api.media_peaks, content.file, math.max(0, content.offset + lead), period, per)
+    local repeat_peaks = one as {types.Peak}
+    if not ok or #repeat_peaks == 0 then
+      return {}
+    end
+    peaks = {}
+    for i = 1, n do
+      local at = (i - 0.5) * seconds / n
+      local phase = ((at - lead) % period) / period
+      peaks[i] = repeat_peaks[math.min(#repeat_peaks, math.floor(phase * #repeat_peaks) + 1)]
+    end
+  else
+    local ok, all = pcall(api.media_peaks, content.file, content.offset, seconds, n)
+    if not ok then
+      return {}
+    end
+    peaks = all as {types.Peak}
+  end
+  -- The take's own gain, as the clip would play it.
+  local gain = 10 ^ ((content.gain or 0) / 20)
+  local out: {types.Peak} = {}
+  for i, p in ipairs(peaks) do
+    out[i] = {p[1] * gain, p[2] * gain, p[3] * gain}
+  end
+  return out
 end
 
 -- Comping --------------------------------------------------------------------------

@@ -171,7 +171,7 @@ local record Arrange is contracts.ArrangeView
   draw_lane_row: function(self: Arrange, headers: Buf, timeline: Buf, row: Row, lines: {GridLine})
   draw_column: function(self: Arrange, column: Buf, L: Layout, cursor_track: integer, cursor_lane: integer)
   draw_tempo_row: function(self: Arrange, headers: Buf, timeline: Buf, y: integer, lines: {GridLine})
-  draw_take_row: function(self: Arrange, headers: Buf, timeline: Buf, row: Row, lines: {GridLine}): {Span}
+  draw_take_row: function(self: Arrange, headers: Buf, timeline: Buf, row: Row, lines: {GridLine}): {Span}, {Span}
 end
 
 -- The view is the module.
@@ -270,9 +270,9 @@ end
 
 --- The rows from `self.top` when some tracks show their take lanes or their
 --- automation lanes: each track, then a row `{ kind = "take", id, take,
---- index, y, h = 1 }` for each of its take lanes, then a row `{ kind =
+--- index, y, h }` for each of its take lanes, then a row `{ kind =
 --- "lane", id, lane, index, y, h }` for each of its automation lanes (`h`
---- 2, or as the window's vertical zoom says).
+--- 2 for each lane, or as the window's vertical zoom says).
 --- Scrolls so that the cursor's row is in view. Returns the rows and the
 --- line after the last.
 function view:rows_with_lanes(
@@ -294,11 +294,11 @@ function view:rows_with_lanes(
       out[#out + 1] = {kind = "track", id = id, index = index, y = y, h = h}
       y = y + h
       for k = 1, paw.takes.lane_count(id) do
-        if y + 1 > bottom then
+        if y + lane_rows > bottom then
           return out, y, false
         end
-        out[#out + 1] = {kind = "take", id = id, take = k, index = index, y = y, h = 1}
-        y = y + 1
+        out[#out + 1] = {kind = "take", id = id, take = k, index = index, y = y, h = lane_rows}
+        y = y + lane_rows
       end
       for _, l in ipairs(paw.lanes.shown(id)) do
         if y + lane_rows > bottom then
@@ -376,13 +376,12 @@ function view:layout(w: integer, h: integer): Layout
   local ruler_rows = band_y + bands.rows + tempo_rows
   local master_rows = 2
   local room = math.max(1, h - ruler_rows - master_rows)
-  -- Take lanes (a line each) and automation lanes shown as rows (two
-  -- lines each, or as the window's vertical zoom says) take their lines
-  -- first.
+  -- Take lanes and automation lanes shown as rows (two lines each, or as
+  -- the window's vertical zoom says) take their lines first.
   local lane_lines, own = 0, paw.vzoom.any_own()
   local lane_rows = paw.vzoom.lane_rows()
   for _, id in ipairs(tracks) do
-    lane_lines = lane_lines + paw.takes.lane_count(id) + lane_rows * #paw.lanes.shown(id)
+    lane_lines = lane_lines + lane_rows * (paw.takes.lane_count(id) + #paw.lanes.shown(id))
     own = own or (track_number(id, "height") or 1) ~= 1
   end
   local th = view.track_height(#tracks, math.max(1, room - lane_lines))
@@ -1185,24 +1184,29 @@ end
 
 --- One take lane: take `row.take` of every clip of the track that has that
 --- many, over the clip's own stretch of time, lit where it is the one that
---- plays and faint where it is not, with its name. To look at: comping here
+--- plays and faint where it is not: its name on the first row, and its
+--- waveform or its notes on the rows under it. To look at: comping here
 --- is `:take 2` over a selection, or a drag across the lane, with the
 --- mouse in the terminal or the window. Returns the columns its names take,
---- for the playhead to keep their letters.
-function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridLine}): {Span}
-  local y, k = row.y, row.take
+--- for the playhead to keep their letters, and the columns its clips take,
+--- for the playhead to keep what their bodies show.
+function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridLine}): {Span}, {Span}
+  local y, k, h = row.y, row.take, row.h
   local zoom, vscroll = self.geometry.zoom, self:v(self.scroll)
   local hw, tw = headers.width, timeline.width
   local track = api.track_get(row.id)
   local hue = draw.track_hue(track, row.index)
-  local names: {Span} = {}
-  headers:fill(0, y, hw, 1, " ", "TrackHeader")
-  headers:text(0, y, "▏", hue.fg)
+  local colour = draw.track_colour(track, row.index)
+  local names, covered: {Span}, {Span} = {}, {}
+  headers:fill(0, y, hw, h, " ", "TrackHeader")
+  for line = y, y + h - 1 do
+    headers:text(0, line, "▏", hue.fg)
+  end
   headers:text(2, y, util.fit("↳ take " .. k, math.max(1, hw - 3)), "TrackInfo")
   local ground: roles.BeatsProps = {
     from = vscroll, per = zoom, style = "TakeLane", tone = "take", lines = bar_marks(lines)
   }
-  self.plane:mark("beats", vscroll, y, tw / zoom, 1, ground)
+  self.plane:mark("beats", vscroll, y, tw / zoom, h, ground)
   for _, clip in ipairs(api.clip_list(row.id)) do
     local takes = paw.takes.of(clip)
     local entry = takes and takes.list[k]
@@ -1213,8 +1217,7 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
       if x0 < tw and x0 + cw > 0 then
         local on = takes.active == k
         local label = (on and (draw.g.play .. " ") or "") .. (entry.name or ("take " .. k))
-        -- A clip of its own, which a window paints with the take's notes
-        -- or waveform.
+        -- A clip of its own, with the take's notes or waveform in its body.
         local row_of = paw.frontend.take_rows(clip)
         local props: roles.ClipProps = {
           key = "take:" .. clip.id .. ":" .. k,
@@ -1223,16 +1226,19 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
           active = on or nil,
           name = entry.name,
           label = label,
-          color = draw.track_colour(track, row.index),
+          color = colour,
           midi = clip.kind ~= "audio",
           length = clip.length,
           per = zoom,
           content = row_of and row_of[k] and row_of[k].key,
           title_style = on and hue.title or "TakeLaneName",
+          body_style = on and hue.body or "TakeLane",
         }
-        self.plane:mark("clip", self:v(clip.start), y, clip.length, 1, props)
+        track_parts.take_body(props, clip, k, props.content, colour, on, zoom)
+        self.plane:mark("clip", self:v(clip.start), y, clip.length, h, props)
         local at = cw > 2 and 1 or 0
         names[#names + 1] = {x0 + at, x0 + at + math.min(api.str_width(label), cw - at)}
+        covered[#covered + 1] = {x0, x0 + cw}
       end
     end
   end
@@ -1241,9 +1247,9 @@ function view:draw_take_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
   if comp and comp.id == row.id and comp.take == k then
     local x0 = math.floor(math.min(comp.x0, comp.x1)) - hw
     local x1 = math.floor(math.max(comp.x0, comp.x1)) - hw
-    timeline:fill(math.max(0, x0), y, math.max(0, x1 - math.max(0, x0) + 1), 1, nil, "Visual")
+    timeline:fill(math.max(0, x0), y, math.max(0, x1 - math.max(0, x0) + 1), h, nil, "Visual")
   end
-  return names
+  return names, covered
 end
 
 -- The fewest columns for the descriptions beside the keys of the welcome
@@ -1703,7 +1709,7 @@ local function draw_rows(self: Arrange, F: Frame)
       self:draw_lane_row(F.headers, F.lanes, row, F.lines)
     end
     if row.kind == "take" then
-      F.names_of[row] = self:draw_take_row(F.headers, F.lanes, row, F.lines)
+      F.names_of[row], F.covered[row] = self:draw_take_row(F.headers, F.lanes, row, F.lines)
     end
   end
   for _, row in ipairs(L.rows) do
