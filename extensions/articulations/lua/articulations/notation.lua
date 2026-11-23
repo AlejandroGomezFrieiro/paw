@@ -1,48 +1,37 @@
--- The score and the articulations, both ways, when the notation extension
--- is loaded: a note's articulation shows as its mark (`mark = "staccato"`
--- in the map) and a run of notes starts with its technique text (`text =
--- "pizz."`, and `ord.` where the default comes back); writing a mark or a
--- technique in the score sets the attribute of the notes when the track's
--- map has an articulation for it (`paw.opt.art_from_notation`).
+-- The score and the articulations, both ways, through paw and not through
+-- the modules of the notation extension, so that each works without the
+-- other: a note's articulation is a note mark (`paw.query.marks`), which the
+-- score draws as its mark (`mark = "staccato"` in the map) and as its
+-- technique text where a run of notes changes it (`text = "pizz."`, and
+-- `ord.` where the default comes back). A mark or a technique written in the
+-- score (the event `notation.marked`) sets the attribute of the notes when
+-- the track's map has an articulation for it (`paw.opt.art_from_notation`).
 local art = require("articulations")
-local marks = require("notation.marks")
 
 local M = {}
 
--- The marks notation draws on a chord.
-local DRAWN = { staccato = true, staccatissimo = true, accent = true, tenuto = true, marcato = true }
-
-local function key(pitch, beat) return pitch .. "@" .. string.format("%.3f", beat) end
-
---- What the score shows of a clip's articulations: the marks on its notes,
---- and technique text where a run of notes changes articulation.
-function M.extra(clip)
-  local c = clip:get()
-  local map = art.map_of(c.track)
+--- The marks of a note's articulation: its mark, and its technique text.
+--- A note with no articulation of its own has the default's.
+function M.marks_of(note, clip)
+  local map = art.map_of(clip.track)
   if not map then return nil end
-  local default = art.default_of(c.track, map)
-  local by_note, texts = {}, {}
-  local last
-  for _, n in ipairs(clip:notes()) do
-    local a = art.attr_of(n) and art.resolve(map, art.attr_of(n)) or default
-    by_note[key(n.pitch, n.start)] = a
-    if a ~= last then
-      local text = a and a.text
-      if not text and last and last.text then text = default and default.text or "ord." end
-      if text then texts[#texts + 1] = { at = n.start, kind = "technique", value = text } end
-      last = a
-    end
-  end
-  return {
-    art = function(pitch, beat)
-      local a = by_note[key(pitch, beat)]
-      if a and a.mark and DRAWN[a.mark] then return { [a.mark] = true } end
-    end,
-    marks = texts,
-  }
+  local a = art.attr_of(note) and art.resolve(map, art.attr_of(note)) or art.default_of(clip.track, map)
+  if not a then return nil end
+  return { art = a.mark and { a.mark } or nil, text = a.text }
 end
 
-marks.extra("articulations", M.extra)
+paw.query.marks:put("articulations", M.marks_of)
+
+--- The marks that the score has on a note, as a set: the notation
+--- extension's entry of the note marks, when it is loaded.
+local function score_marks(note)
+  local of = paw.query.marks:get("notation")
+  local out = {}
+  for _, mark in ipairs(of and (of(note) or {}).art or {}) do
+    out[mark] = true
+  end
+  return out
+end
 
 --- The map's articulation written as a mark, or with a technique's text.
 local function by_mark(map, mark)
@@ -62,9 +51,14 @@ local function by_text(map, text)
   end
 end
 
-marks.listen(function(what)
+-- The name of the event is the notation extension's: named here too, so
+-- that it is known while notation is not loaded.
+local marked = paw.events.event("notation.marked")
+
+paw.on(marked, function(what)
   if not paw.opt.art_from_notation or not what.clip then return end
-  local c = what.clip:get()
+  local clip = paw.clip(what.clip)
+  local c = clip:get()
   local map = art.map_of(c.track)
   if not map then return end
   local places = {}
@@ -74,11 +68,11 @@ marks.listen(function(what)
     if not a then return end
     local had = {}
     for _, n in ipairs(what.before or {}) do
-      local own = marks.art_of(n)
+      local own = score_marks(n)
       if n.id then had[n.id] = own[what.mark] and true or false end
     end
-    for place, n in ipairs(what.clip:notes()) do
-      local now = marks.art_of(n)[what.mark] and true or false
+    for place, n in ipairs(clip:notes()) do
+      local now = score_marks(n)[what.mark] and true or false
       if n.id and had[n.id] ~= nil and had[n.id] ~= now then
         local current = art.attr_of(n) and art.resolve(map, art.attr_of(n))
         -- Taking the mark away takes away only the articulation it set.
@@ -105,7 +99,7 @@ marks.listen(function(what)
     else
       return
     end
-    for place, n in ipairs(what.clip:notes()) do
+    for place, n in ipairs(clip:notes()) do
       if n.start >= what.from - 1e-9 and (not what.to or n.start < what.to - 1e-9) then
         places[#places + 1] = { clip = c.id, place = place }
       end

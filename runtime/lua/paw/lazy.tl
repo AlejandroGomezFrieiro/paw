@@ -434,10 +434,11 @@ table.insert(
   end
 )
 
--- Kinds: a key of a registry that a part of paw asks for (`registry.get`)
--- loads the extension that waits for it, and `get` gives the real entry.
--- So the kind of a track loads its extension when the track header asks
--- for it, and the kind of a clip when the project opens.
+--- Loads the extension that waits for `key` of `reg` (its `kind`
+--- trigger), and gives true when it loaded, so that `reg:get(key)` gives
+--- the entry that the extension put. The kind of a track loads its
+--- extension when the track header asks for it, and the kind of a clip
+--- loads its extension when the project opens.
 registry.missing = function(reg: registry.Owned, key: string): boolean
   local name = kind_index[reg.kind .. "\0" .. key]
   if not name or M.waiting[name].failed then
@@ -447,6 +448,7 @@ registry.missing = function(reg: registry.Owned, key: string): boolean
   return true
 end
 
+--- True when an extension waits for a key of `reg`.
 registry.waiting = function(reg: registry.Owned): boolean
   local prefix = reg.kind .. "\0"
   for at in pairs(kind_index) do

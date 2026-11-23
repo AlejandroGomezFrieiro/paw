@@ -658,6 +658,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.events.check_names()`: Check the names of events that `paw.on` got as text. paw calls it when it has started: the runtime, the extensions and the configuration have declared their events then. After that, `paw.on` checks each name as it gets it.
 - `paw.events.emit`: the same as `paw.emit`.
+- `paw.events.emit_since(from, pattern, name, payload)`: Run the handlers that listen by `pattern` (a name, `family.*` or `*`) and have the handle `from` or a larger one, with the event `name`, as `emit` runs them. An emit takes its list of handlers when it starts: paw/lazy.tl gives the event that loaded an extension to the handlers that the extension made.
 - `paw.events.emitted()`: How many events paw has sent since it started. A number that is the same as before means that no event came in between.
 - `paw.events.event(name)`: The descriptor of an event whose payload is a `P`: Teal checks the handlers that `paw.on` is given for it, and what `paw.emit` sends. It also declares the name, so `paw.on` with this name as text is not a typo.
 
@@ -666,6 +667,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.events.handlers()`: Every handler, by its handle: `{ pattern, fn }`.
 - `paw.events.listened(name)`: True if a handler listens for `name` by its name or its family (not `*`). Use it for events that are expensive to make.
+- `paw.events.next_handle()`: The handle that the next `paw.on` gives. A handler made later has this handle or a larger one.
 - `paw.events.off`: the same as `paw.off`.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
@@ -720,17 +722,28 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ext.bundled_dir()`: The directory of the extensions that come with paw: `$PAW_HOME/extensions`, or `extensions` under the current directory in a source tree. Nil when there is no such directory.
 - `paw.ext.caller()`: The loaded extension whose code called the function this is called from, or nil for the core's or the user's.
 - `paw.ext.list()`: Loaded extensions, sorted by name.
-- `paw.ext.load(path)`: Load one extension from a directory or a file (`.lua`, or `.tl` or the extension of another language of `paw.lang`). One the program was built with is not loaded again from elsewhere: the configuration that names the source tree's copy gets the packaged one.
-- `paw.ext.load_bundled(name)`: Load a bundled extension by name. A name that is loaded does not change. Returns the entry, or nil and the problem.
-- `paw.ext.load_dir(dir)`: Load everything in a directory of extensions.
-- `paw.ext.load_packaged(dirs)`: Load the extensions the program was built with: `dirs` is a list of their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's `paw.withExtensions` sets).
+- `paw.ext.load(path, why)`: Load one extension from a directory or a file (`.lua`, or `.tl` or the extension of another language of `paw.lang`). One the program was built with is not loaded again from elsewhere: the configuration that names the source tree's copy gets the packaged one. `why` says how it came to load, in words for `:extensions` (`entry.loaded_by`).
+- `paw.ext.load_bundled(name, why)`: Load a bundled extension by name. A name that is loaded does not change. Returns the entry, or nil and the problem.
+- `paw.ext.load_dir(dir)`: Use everything in a directory of extensions: each one with triggers waits for them, and the others load now.
+- `paw.ext.load_packaged(dirs)`: Load the extensions the program was built with: `dirs` is a list of their directories separated by `:` (`$PAW_EXTENSIONS`, which the flake's `paw.withExtensions` sets). Each one with triggers waits for them.
 - `paw.ext.manifest(path, name)`: An extension's manifest: `manifest.lua` in its directory. A one-file extension has none. Returns the table (with `name` filled in), or nil and what is wrong with it.
+- `paw.ext.missing_needs(manifest)`: What the `needs` of a manifest names that this build does not have: nil, or the reason it does not load. A name that no build knows is missing too, so that a typo is said.
+- `paw.ext.name_of(path)`: The name of an extension at `path`: its directory's or file's, without the extension of the file.
 - `paw.ext.parse_version(text)`: The numbers of a version: "1.2.3" gives { 1, 2, 3 }. A part that is not there is 0. Nil for text that is not a version.
 - `paw.ext.provides(name)`: What a loaded extension registered: a list of `{ kind, title, items }`, each item a short label, in the order of `paw.ext.registries`, then of the registries of `paw.registry`.
 - `paw.ext.satisfies(version, want)`: True if `version` agrees with `want`. `want` is comparisons with spaces or commas between them. Each is `>=1.2`, `>1`, `<=2`, `<2.0`, `=1.2.3`, `^1.2` (the same first number, at least 1.2), `~1.2` (the same first two numbers) or a version alone, which means `^`. `*` or nothing is any version.
 - `paw.ext.unload(name, opts)`: Unload an extension. paw removes all that it registered (while it loaded, and later from its handlers and timers). paw puts back what it replaced (a command or key of the core that it mapped again). Its options go with their values, and its timers stop. paw stops to offer the devices written in Lua and the plugin directories that it added. paw forgets its modules, so a new load runs them again.
 
   While a track contains one of its devices, paw does not unload it (as Neovim does not delete a buffer with changes). With `opts.force`, it unloads, and the devices stay and play until you remove them. paw cannot find them when you open the project again without the extension. Returns true (with `opts.force`, the devices that stay on tracks, in words), or nil and the reason.
+- `paw.ext.use(which, spec)`: Use an extension: it waits for its triggers, or loads now (paw/lazy.tl). `which` is a path, or the name of a bundled extension. `spec` gives triggers in place of those of its manifest, field by field, and `spec.lazy = false` loads it now. Returns the entry when it loaded, or nil when it waits.
+
+## Module paw.ext.lazy
+
+- `paw.ext.lazy.describe(name)`: The triggers of a waiting extension in words, for `:extensions`, `:help` and the picker: `{ ":undotree", "<leader>pu", "view undotree" }`. Nil for one that does not wait.
+- `paw.ext.lazy.forget(name)`: Stop waiting for `name`: its stubs go. paw/ext.lua calls it when the extension loads by any other way (`:ext.load`, a requirement), and to unload one that waits. Gives true when it waited.
+- `paw.ext.lazy.list()`: The waiting extensions, sorted by name.
+- `paw.ext.lazy.load(name, why)`: Load the waiting extension `name` now: its stubs go, and paw loads it. `why` says what loaded it (`:undotree`, `<leader>pu`). Failed, it waits again with its stubs. Gives the entry of `paw.ext.loaded`.
+- `paw.ext.lazy.use(which, spec, why)`: Use an extension as lazy.nvim does: it loads on its first command, key, event, kind or view (`spec`, then its manifest), or now when it has no trigger or `spec.lazy` is false. `which` is a path or the name of a bundled extension. `why` says what loads it now ("at start"). Gives the entry of `paw.ext.loaded` when it loaded, or nil when it waits.
 
 ## Module paw.external
 
@@ -1559,6 +1572,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
+- `paw.nest.show(id)`: Put the window in front inside subproject `id`, as if you entered it from the song through each subproject that holds it. It does nothing when the window shows that subproject already. With no `id`, the window goes back to the song. Returns false and why when the project has no such subproject.
 - `paw.nest.shown_under(track)`: The return row that a track of a subproject is shown under, in place (`za`), or nil for any other track.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
 - `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
@@ -1733,7 +1747,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.fix_title(e)`: The title of an entry's fix, or nil.
 - `paw.qf.format(e, list)`: An entry in one line, as said when going to it: `(2 of 7) error: …`.
 - `paw.qf.from_diagnostics(target, filter)`: Diagnostics as entries (as `paw.diagnostic.get` takes `target` and `filter`).
-- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
+- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
 - `paw.qf.jump(n, stack)`: Make entry `n` of a stack's current list the current entry and go to it.
 - `paw.qf.last(stack)`: Go to the list's last entry.
 - `paw.qf.loc_stack(win, make)`: The location lists of a window (of the current window without `win`), made when you ask with `make`. A window that shows a location list uses the list that it shows, as in Neovim.
@@ -1755,7 +1769,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.query
 
-- `paw.query.articulations(node)`: A note's articulations: its attribute's (`paw.attr`: the tag, the name and the code, so `pz`, `pizzicato` and `11.A` all find a pizzicato), those the score marks (`meta.notation.art`, a set) and any named in `meta.articulation` (a name or a list of them).
+- `paw.query.articulations(node)`: A note's articulations: its attribute's (`paw.attr`: the tag, the name and the code, so `pz`, `pizzicato` and `11.A` all find a pizzicato), the marks that `paw.query.marks` gives (the score's, when the notation extension is loaded) and any named in `meta.articulation` (a name or a list of them). Each name once, sorted.
 - `paw.query.describe(node)`: A node in a few words, for the quickfix list: `C5 vel 100 at 5.1.00 · Violins pizz`.
 - `paw.query.entries(nodes)`: The nodes as quickfix entries.
 - `paw.query.field(kind, name, get)`: Add a field to a kind of node: `get(node)` returns its value (a number, text, a boolean, or a list of texts any of which may match).
@@ -1794,9 +1808,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.registry
 
 - `paw.registry.all()`: The registries made so far, in the order they were made.
+- `paw.registry.missing(reg, key)`: Loads the extension that waits for `key` of `reg` (its `kind` trigger), and gives true when it loaded, so that `reg:get(key)` gives the entry that the extension put. The kind of a track loads its extension when the track header asks for it, and the kind of a clip loads its extension when the project opens.
 - `paw.registry.new(kind, title, options)`: A new registry: entries by key, each with the extension that put it there. `kind` names it in `paw.ext.provides` and `title` in `:extensions`. Its functions are `put(key, value)`, `get(key)`, `remove(key)`, `entries()` and `owned_by(name)`. `paw.ext.unload` takes away the entries of an extension, and an entry that one of them replaced comes back.
 - `paw.registry.owner`: the same as `paw.ext.caller`.
 - `paw.registry.replaced(reg, what, owner, previous)`: Records that the extension `owner` put an entry over an entry of the extension `previous`. `:checkhealth extensions` gives a warning for it.
+- `paw.registry.waiting(reg)`: True when an extension waits for a key of `reg`.
 
 ## Module paw.remote
 

@@ -118,7 +118,33 @@ extensions/<name>/
 ```
 
 A user's own extension lives in `~/.config/paw/extensions/<name>` the same
-way; `paw.ext.load(path)` in `init.lua` or `:ext.load <name>` loads one.
+way. `paw.ext.use(path)` in `init.lua` or `:ext.load <name>` loads one.
+
+## The manifest: dependencies and the first use
+
+- `requires = { name = "^1.0" }`: paw loads these extensions first. If
+  one is not there, the extension does not load, and the message says
+  where to put it.
+- `optional = { name = "*" }`: the extension uses these extensions when
+  they are there. paw loads them first when they load in the same batch
+  (one folder, or the packaged set). The extension must work without
+  them, and must work when they load later or unload.
+- Do not read `package.loaded` or `paw.ext.loaded` to find another
+  extension. Meet it through a registry of the core or an event. For
+  example, notation and articulations meet in `paw.query.marks` (the
+  marks of a note) and the event `notation.marked`. Each extension works
+  without the other.
+- With triggers, the extension waits for its first use: `cmd`, `keys`,
+  `event`, `kind` (a key of any registry: `{ registry = "pickers", key =
+  "x" }`), `view`, and `lazy = false`. paw puts a stub for each command,
+  key and view. The first use loads the extension and runs the command
+  or the key again as one undo step. Give each stub a `desc`.
+- Do not give triggers to an extension that must run before its first
+  use: an extension that sends MIDI while the song plays, an extension
+  of devices that a project needs when it opens, or an extension that
+  watches each save.
+- The page "Extensions" of the reference (sections "Load on first use"
+  and "Manifests and versions") gives the full reference.
 
 ## What you register (each is recorded as owned by your extension)
 

@@ -25,25 +25,33 @@ function M.art_of(note)
   return type(own) == "table" and own or {}
 end
 
--- Other extensions' part in the marks (extensions/articulations: the
--- articulation each note's MIDI attribute names):
---   M.extra(name, fn)  fn(clip) -> { art = function(pitch, beat) -> { staccato = true } or nil,
---                      marks = { { at, kind = "technique", value } } }: drawn, never written
---   M.listen(fn)       fn(what) after a mark is written: `{ kind = "art", mark, on,
---                      clip, before }` (the clip's notes before), or `{ kind =
---                      "technique", text, from, to, clip }` (`to` nil: to the end)
-M.extras, M.listeners = {}, {}
+-- Other extensions' part in the marks goes through paw, not through this
+-- module, so that each extension works without the other:
+-- - `paw.query.marks` (a registry of the core): what gives the marks of a
+--   note. This extension puts its own ("notation", below). The score draws
+--   the marks that the others give (the articulations extension: the mark
+--   and the technique text of each note's articulation), and writes none.
+-- - The event `notation.marked`, after a mark is written in the score:
+--   `{ kind = "art", mark, on, clip, before }` (`clip` an id, `before` the
+--   clip's notes before), or `{ kind = "technique", text, from, to, clip }`
+--   (`to` nil: to the end).
+local marked = paw.events.event("notation.marked")
 
-function M.extra(name, fn) M.extras[name] = fn end
-
-function M.listen(fn) M.listeners[#M.listeners + 1] = fn end
-
+--- Tell the other extensions that a mark was written (`notation.marked`).
 function M.tell(what)
-  for _, fn in ipairs(M.listeners) do
-    local ok, err = pcall(fn, what)
-    if not ok then paw.api.log("notation listener: " .. tostring(err)) end
-  end
+  what.clip = type(what.clip) == "table" and what.clip.id or what.clip
+  paw.emit(marked, what)
 end
+
+-- The marks written in the score, for `:select`, `:vimgrep` and the pickers.
+paw.query.marks:put("notation", function(note)
+  local out = {}
+  for name, on in pairs(M.art_of(note)) do
+    if on then out[#out + 1] = tostring(name) end
+  end
+  table.sort(out)
+  return { art = out }
+end)
 
 --- Toggle an articulation on chords of the score, by their event ids (the
 --- chord under the cursor's, a selection's): on for all unless all have it.
@@ -52,7 +60,7 @@ function M.toggle_art(kind, ids)
   if #ids == 0 then return nil end
   local on
   local clip = view:clip()
-  local before = clip and #M.listeners > 0 and clip:notes() or nil
+  local before = clip and paw.events.listened("notation.marked") and clip:notes() or nil
   view:write(function(sc)
     local evs = {}
     for _, id in ipairs(ids) do
@@ -191,6 +199,51 @@ local function drawn(list, beat, staff_of)
   return marks, slurs
 end
 
+-- The marks that the score draws over its notes: the others give these names.
+local DRAWN = { staccato = true, staccatissimo = true, accent = true, tenuto = true, marcato = true }
+
+--- What the other sources of `paw.query.marks` give of a clip's notes:
+--- `{ art = { ["pitch@beat"] = { staccato = true } }, marks = { technique
+--- texts } }`, or nil when no other source gives anything. A technique
+--- text shows where a run of notes changes it, and `ord.` where a text
+--- stops.
+local function others_marks(clip)
+  local sources = {}
+  for name, fn in pairs(paw.query.marks:entries()) do
+    if name ~= "notation" then sources[#sources + 1] = { name = name, fn = fn } end
+  end
+  if #sources == 0 then return nil end
+  table.sort(sources, function(a, b) return a.name < b.name end)
+  local c = clip:get()
+  local art, texts, any = {}, {}, false
+  for _, source in ipairs(sources) do
+    local last
+    for _, n in ipairs(clip:notes()) do
+      local ok, got = pcall(source.fn, n, c)
+      if not ok then
+        paw.api.log("notation marks of " .. source.name .. ": " .. tostring(got))
+        break
+      end
+      got = got or {}
+      local key = n.pitch .. "@" .. string.format("%.3f", n.start)
+      for _, mark in ipairs(got.art or {}) do
+        if DRAWN[mark] then
+          art[key] = art[key] or {}
+          art[key][mark], any = true, true
+        end
+      end
+      if got.text ~= last then
+        local text = got.text or (last and "ord.")
+        if text then
+          texts[#texts + 1], any = { at = n.start, kind = "technique", value = text }, true
+        end
+        last = got.text
+      end
+    end
+  end
+  return any and { art = art, marks = texts } or nil
+end
+
 local function marks_of(layout, c)
   local sc = layout.doc
   if not sc then
@@ -218,19 +271,11 @@ function M.decorate(layout, clip)
   local c = clip:get()
   local marks, slurs = marks_of(layout, c)
   -- What other extensions draw over the notes and along the score.
-  local extras = {}
-  for name, fn in pairs(M.extras) do
-    local ok, x = pcall(fn, clip)
-    if ok and type(x) == "table" then
-      extras[#extras + 1] = x
-      for _, mk in ipairs(x.marks or {}) do
-        marks[#marks + 1] = mk
-      end
-    elseif not ok then
-      paw.api.log("notation marks of " .. name .. ": " .. tostring(x))
-    end
+  local extras = others_marks(clip)
+  for _, mk in ipairs(extras and extras.marks or {}) do
+    marks[#marks + 1] = mk
   end
-  if #extras > 0 then table.sort(marks, function(a, b) return a.at < b.at end) end
+  if extras then table.sort(marks, function(a, b) return a.at < b.at end) end
   for _, m in ipairs(layout.measures) do
     m.marks, m.directions = {}, {}
     local e = m.start + m.length
@@ -279,18 +324,16 @@ function M.decorate(layout, clip)
         end
       end
     end
-    if #extras > 0 then
+    if extras then
       for _, evs in ipairs(m.staves) do
         for _, ev in ipairs(evs) do
           if ev.kind == "note" and not ev.notes[1].tied then
             -- A score's events are laid out once: what they had of their own is kept apart.
             if not layout.doc or ev.own_art == nil then ev.own_art = ev.art or false end
             local art = util.merge(ev.own_art or {}, {})
-            for _, x in ipairs(extras) do
-              for _, n in ipairs(x.art and ev.notes or {}) do
-                for k, v in pairs(x.art(n.pitch, ev.start) or {}) do
-                  art[k] = v
-                end
+            for _, n in ipairs(ev.notes) do
+              for k in pairs(extras.art[n.pitch .. "@" .. string.format("%.3f", ev.start)] or {}) do
+                art[k] = true
               end
             end
             ev.art = next(art) and art or nil

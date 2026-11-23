@@ -15,10 +15,23 @@ source tree of paw.
 
 ## A bundled extension, for each session
 
-To load it at each start, do one of the following:
+To have it at each start, do one of the following:
 
-- Add `paw.ext.load("/path/to/paw/extensions/notation")` to your `init.lua`.
+- Add `paw.ext.use("notation")` to your `init.lua`.
 - Link or copy the directory into `~/.config/paw/extensions`.
+
+Both ways keep paw quick to start. An extension whose manifest names its
+commands, keys or views waits until you first use one of them, and then it
+loads and does what you asked, as one step that `u` undoes. Until then, its
+commands complete, its keys show in the key hints, and `:extensions` lists
+it with the words "waits for its first use".
+
+To load such an extension at the start anyway, write
+`paw.ext.use("notation", { lazy = false })`. To make it wait for something
+else, give your own triggers, for example
+`paw.ext.use("notation", { keys = { "<leader>nn" } })`.
+[Load on first use](../reference/extensions.md#load-on-first-use) lists
+the triggers.
 
 ## An extension of your own
 

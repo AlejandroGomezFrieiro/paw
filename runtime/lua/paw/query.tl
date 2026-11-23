@@ -38,6 +38,7 @@ local A = require("paw.address")
 local music = require("paw.music")
 local tree = require("paw.query.tree")
 local registry = require("paw.registry")
+local derived = require("paw.derived")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -117,14 +118,10 @@ local record Scope
 end
 
 --- A note's meta, as far as this module reads it.
-local record Notation
-  art: {string: boolean}
-end
 local record NoteMeta
   lyric: string
   comment: string
   channel: integer
-  notation: Notation
   articulation: string | {string}
 end
 
@@ -161,6 +158,20 @@ local record M
   --- The fields that `paw.query.field` added, by `kind name` (kind `*`:
   --- of every kind), with the extension that added each one.
   fields: registry.Registry<Field>
+  --- The marks of a note that an extension knows: the marks on it by name
+  --- (`staccato`), and the text of the technique that plays it (`pizz.`).
+  --- Each may be nil.
+  record NoteMarks
+    art: {string}
+    text: string
+  end
+  --- What gives the marks of a note of a clip.
+  type MarksOf = function(note: types.Note, clip: types.Clip): NoteMarks
+  --- The note marks, by the name of what gives them, with the extension
+  --- that put each one: the notation extension gives the marks written in
+  --- the score, the articulations extension those of a note's articulation.
+  --- `paw.query.articulations` and the views that draw marks read them.
+  marks: registry.Registry<MarksOf>
   metamethod __call: function(M, q: Query): {Node}
 end
 
@@ -525,6 +536,9 @@ end
 -- Fields ----------------------------------------------------------------------------
 
 M.fields = registry.new("query_fields", "query fields")
+-- A search that keeps its records (paw/grep.tl) reads them again when
+-- the marks change.
+M.marks = registry.new("note_marks", "note marks", {changed = function() derived.source_changed("note_marks") end})
 
 --- Add a field to a kind of node: `get(node)` returns its value (a number,
 --- text, a boolean, or a list of texts any of which may match).
@@ -541,8 +555,9 @@ end
 
 --- A note's articulations: its attribute's (`paw.attr`: the tag, the name
 --- and the code, so `pz`, `pizzicato` and `11.A` all find a pizzicato),
---- those the score marks (`meta.notation.art`, a set) and any named in
---- `meta.articulation` (a name or a list of them).
+--- the marks that `paw.query.marks` gives (the score's, when the notation
+--- extension is loaded) and any named in `meta.articulation` (a name or a
+--- list of them). Each name once, sorted.
 function M.articulations(node: Node): {string}
   local out: {string} = {}
   local m = meta(node)
@@ -560,12 +575,14 @@ function M.articulations(node: Node): {string}
       end
     end
   end
-  local art = type(m.notation) == "table" and m.notation.art
-  if type(art) == "table" then
-    for name, on in pairs(art) do
-      if on then
-        out[#out + 1] = tostring(name)
-      end
+  local clip = node.parent and node.parent.data as types.Clip
+  for source, marks_of in pairs(M.marks:entries()) do
+    local ok, marks = pcall(marks_of, node.data as types.Note, clip) as (boolean, M.NoteMarks)
+    if not ok then
+      api.log("the note marks of " .. source .. ": " .. tostring(marks))
+    end
+    for _, name in ipairs(ok and marks and marks.art or {}) do
+      out[#out + 1] = name
     end
   end
   local own = m.articulation
@@ -578,7 +595,14 @@ function M.articulations(node: Node): {string}
     end
   end
   table.sort(out)
-  return out
+  -- The same name from two sources once.
+  local once: {string} = {}
+  for i, name in ipairs(out) do
+    if name ~= out[i - 1] then
+      once[#once + 1] = name
+    end
+  end
+  return once
 end
 local articulations = M.articulations
 

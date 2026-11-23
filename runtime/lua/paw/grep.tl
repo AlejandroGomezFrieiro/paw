@@ -249,6 +249,8 @@ local clip_spec: derived.Spec<integer, {Found}, boolean> = {
     ctx:track(c.track, {"name"})
     -- The places are written in bars and beats.
     ctx:tempo()
+    -- The articulations of the notes (`paw.query.marks`).
+    ctx:source("note_marks")
     return clip_records(c, track_name(c.track, "name"), ctx:get(tree.notes, id))
   end,
   same = same_records,

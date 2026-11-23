@@ -13,14 +13,6 @@ require("articulations.diagnostics").schedule()
 require("articulations.measure")
 require("articulations.linked")
 
--- With the notation extension, the score shows the articulations and sets them.
-local function with_notation()
-  if package.loaded["articulations.notation"] then return true end
-  if not package.loaded["notation.marks"] then return false end
-  require("articulations.notation")
-  return true
-end
-if not with_notation() then
-  paw.on("project.loaded", with_notation)
-  paw.defer(with_notation, 0)
-end
+-- The score shows the articulations and sets them, when the notation
+-- extension is loaded, before or after this one (its manifest: optional).
+require("articulations.notation")

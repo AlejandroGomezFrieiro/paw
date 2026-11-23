@@ -16,9 +16,14 @@ local record partial
    end
    record Ext
       bundled: function(): {string}
+      bundled_dir: function(): string
       caller: function(): string
       current: contracts.ExtEntry
+      load: function(path: string, why?: string): contracts.ExtEntry
       loaded: {string:contracts.ExtEntry}
+      missing_needs: function(manifest: contracts.Manifest): string
+      name_of: function(path: string): string
+      use: function(which: string, spec?: contracts.Triggers): contracts.ExtEntry
       metamethod __index: function(Ext, string): Untyped
    end
    record Files

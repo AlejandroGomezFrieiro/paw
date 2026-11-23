@@ -1408,6 +1408,13 @@ function M.taken(list: {kernel.KernelEvent})
   edits_seen = project_int("edits")
 end
 
+--- The source `name` changed, for a source that no event tells: an entry
+--- that read it with `ctx:source(name)` is made again. paw/query.tl tells
+--- `note_marks` when an extension puts or takes away the marks of notes.
+function M.source_changed(name: string)
+  mark(name)
+end
+
 events.on(options.changed, function(e: options.Changed) mark("option:" .. e.name) end)
 events.on(kernel.project_loaded, function() M.reset() end)
 
