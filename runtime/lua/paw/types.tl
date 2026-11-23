@@ -191,9 +191,17 @@ local record types
     path: string
     length: number
     meta: Meta
+    export: ProjectExport
     modified: boolean
     edits: integer
     tempo_stamp: integer
+  end
+
+  --- What a project keeps of `:export` (`Project::export`), in
+  --- `project.toml` under `[export]`: `presets` by name, each the words of
+  --- `:export` as one text, or a list of them for several exports.
+  record ProjectExport
+    presets: {string: string | {string}}
   end
 
   --- A send of a track (`model::Send`): to the track `target`, `level` in
@@ -1527,6 +1535,7 @@ local record types
     dither: boolean
     normalize: number
     loudness: number
+    gain: number
     channels: RenderChannels
     tap: RenderTap
     master: boolean

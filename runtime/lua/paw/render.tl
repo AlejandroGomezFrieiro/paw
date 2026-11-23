@@ -37,6 +37,7 @@ local record Options
   tags: types.RenderTags
   normalize: number
   loudness: number
+  gain: number
   tracks: {integer}
   tap: types.RenderTap
   master: boolean
@@ -57,6 +58,8 @@ end
 local record Batch
   index: integer
   total: integer
+  --- What the status line says in place of the name of the file.
+  label: string
 end
 
 --- The render that runs in the background, and how many wait after it.
@@ -233,6 +236,8 @@ end
 ---   normalize   bring the loudest sample to this level in dB, such as -1
 ---   loudness    bring the integrated loudness to this level in LUFS, such as -14;
 ---               with `normalize` too, the peak level is a ceiling
+---   gain        raise or lower the whole file by this many dB, such as -3.5; not with
+---               `normalize` or `loudness` (an export of stems gives each stem the gain of the mix)
 ---   tracks      { id, ... }: only these, with what they pass through (a stem)
 ---   tap         where in the sound of the tracks the render listens:
 ---               "pre"     their clips and devices, without the fader, pan or mute

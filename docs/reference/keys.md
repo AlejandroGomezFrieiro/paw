@@ -298,7 +298,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the track, of every track; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
 | c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
 | d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
-| e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the tracks, `<Space>er` the regions, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
+| e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the tracks, `<Space>er` the regions, `<Space>ep` a preset from a list, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
 | f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` tracks, `<Space>fd` the devices of the track, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |
 | h: tutor | `<Space>hh` a hint, `<Space>hn` the next step, `<Space>hr` start again, `<Space>hl` the lessons, `<Space>hq` leave |

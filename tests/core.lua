@@ -584,6 +584,7 @@ test("a render can be one track, dithered, or brought to a level", function()
   near(samples(info)[1000], 10 ^ (-6 / 20), 0.001, "in the file")
   near(info.gain, 20 * math.log10(10 ^ (-6 / 20) / 0.75), 0.01, "and says by how much")
   T.fails(function() render({ normalize = 3 }) end, "normalize", "above full scale")
+  T.fails(function() render({ gain = -6, normalize = -1 }) end, "gain is a fixed level", "gain and normalize")
 
   -- Dither: a level between two 16-bit steps comes out as one of them
   -- without it, and as a mix of both, the same every time, with it.

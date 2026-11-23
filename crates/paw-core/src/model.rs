@@ -75,6 +75,11 @@ pub struct Project {
     /// Free-form data for extensions, saved with the project.
     #[serde(default)]
     pub meta: Map<String, Value>,
+    /// The project's own settings of `:export` (paw/export.tl): `presets`,
+    /// the export presets by name. A project folder keeps them in
+    /// `project.toml` under `[export]`, so they go with the song.
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub export: Map<String, Value>,
     /// Where clips were last found: see [`Project::find_clip`].
     #[serde(skip)]
     places: Places,
@@ -112,6 +117,7 @@ impl Default for Project {
             tracks: Vec::new(),
             nests: BTreeMap::new(),
             meta: Map::new(),
+            export: Map::new(),
             places: Places::default(),
         }
     }

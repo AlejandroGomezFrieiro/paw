@@ -122,6 +122,7 @@ groups below link the main ones.
 - [How to export part of the song or a loop](how-to/export-part-of-the-song.md)
 - [How to export stems](how-to/export-stems.md)
 - [How to export MIDI for another program](how-to/export-midi.md)
+- [How to reuse your export settings](how-to/reuse-export-settings.md): presets of the project and of `init.lua`, `<Space>ep`, a list of exports
 - [How to print a part or the score](../extensions/notation/README.md#how-to-print-a-part-or-the-score)
 - [How to move a song between paw and REAPER](how-to/open-a-reaper-project.md)
 - [How to move a song between paw and other DAWs](how-to/move-a-song-to-another-daw.md): Bitwig Studio, Studio One, Cubase

@@ -18,6 +18,14 @@ To use a different folder, type `:export stems out/`. To export FLAC, add
 `format=flac`. To export without the devices of the master, add
 `tap=groups`.
 
+## Bring the stems to one level
+
+To export the stems at a peak level or a loudness, add `normalize=` or
+`loudness=`, for example `:export stems normalize=-1`. paw first renders
+the mix and measures it. Then it gives each stem the gain that brings the
+mix to that level, so the stems still add up to the mix. The plan says so
+in a note.
+
 ## One file for each track
 
 1. Type `:export tracks`, or press `<Space>et`.
