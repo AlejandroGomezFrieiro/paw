@@ -10,7 +10,7 @@
 #
 #   home.ext2               the home image
 #   files.txt               what the home image holds
-#   paw-pod.js, audio-worklet.js, coi.js, coi-sw.js, demo.html
+#   paw-pod.js, paw-live.js, audio-worklet.js, coi.js, coi-sw.js, demo.html
 #   manifest.json           the paw version, the revision, the BrowserPod
 #                           version, and the SHA-256 of each file
 #
@@ -60,7 +60,7 @@ E2FSPROGS_FAKE_TIME=1 mke2fs -q -t ext2 -b 4096 -m 0 -N 4096 \
 echo "wrote $out/home.ext2"
 
 # The page files and the manifest.
-for f in paw-pod.js audio-worklet.js coi.js coi-sw.js demo.html; do
+for f in paw-pod.js paw-live.js audio-worklet.js coi.js coi-sw.js demo.html; do
   install -m 644 "$src/web/browserpod/site/$f" "$out/$f"
 done
 version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p}' "$src/Cargo.toml")
@@ -69,7 +69,7 @@ browserpod=$(sed -n 's/^export const BROWSERPOD_VERSION = "\(.*\)";$/\1/p' "$src
   printf '{\n  "version": "%s",\n  "rev": "%s",\n  "browserpod": "%s",\n  "image": "home.ext2",\n  "files": {\n' \
     "$version" "${5:-unknown}" "$browserpod"
   first=1
-  for f in home.ext2 paw-pod.js audio-worklet.js coi.js coi-sw.js demo.html; do
+  for f in home.ext2 paw-pod.js paw-live.js audio-worklet.js coi.js coi-sw.js demo.html; do
     [ $first = 1 ] || printf ',\n'
     first=0
     printf '    "%s": "%s"' "$f" "$(sha256sum "$out/$f" | cut -d' ' -f1)"
