@@ -810,7 +810,7 @@ local function set_of(list: {string}): {string: boolean}
   return out
 end
 
-local function sorted(out: {Item}): {Item}
+local function by_text(out: {Item}): {Item}
   table.sort(out, function(a: Item, b: Item): boolean return a.text < b.text end)
   return out
 end
@@ -836,7 +836,7 @@ M.completers = {
     for _, info in ipairs(paw.device_types()) do
       out[#out + 1] = item(info.kind, info.name ~= info.kind and info.name or info.format)
     end
-    return sorted(out)
+    return by_text(out)
   end,
   track_devices = function(): {Item}
     local out: {Item} = {}
@@ -861,14 +861,14 @@ M.completers = {
         out[#out + 1] = item(name)
       end
     end
-    return sorted(out)
+    return by_text(out)
   end,
   pickers = function(): {Item}
     local out: {Item} = {}
     for name, source in pairs(paw.pick.sources) do
       out[#out + 1] = item(name, source is contracts.PickInfo and source.desc or nil)
     end
-    return sorted(out)
+    return by_text(out)
   end,
   files = function(word: string): {Item} return files(word) end,
   -- Sound files, and the files of the formats that read (paw/formats.tl).
