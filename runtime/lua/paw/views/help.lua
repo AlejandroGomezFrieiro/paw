@@ -165,7 +165,8 @@ paw.ui.view("pager", pager)
 
 --- Show lines of text in a float. Each line is a string or
 --- `{ text = ..., style = ... }`. With `opts.bottom`, it opens at the end.
---- `opts.width` and `opts.height` give its size (100 by 30).
+--- `opts.width` and `opts.height` give its size (100 by 30). With
+--- `opts.near_cursor`, it opens next to the cursor, not in the middle.
 function paw.ui.page(title, lines, opts)
   pager.lines, pager.scroll = {}, opts and opts.bottom and math.huge or 0
   for _, line in ipairs(lines) do
@@ -174,5 +175,9 @@ function paw.ui.page(title, lines, opts)
       pager.lines[#pager.lines + 1] = { text = part:gsub("\t", "  "), style = line.style }
     end
   end
-  paw.ui.open("pager", { title = title, width = opts and opts.width or 100, height = opts and opts.height or 30 })
+  opts = opts or {}
+  paw.ui.open(
+    "pager",
+    { title = title, width = opts.width or 100, height = opts.height or 30, near_cursor = opts.near_cursor }
+  )
 end

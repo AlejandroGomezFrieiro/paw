@@ -3833,6 +3833,14 @@ function paw.groups.gather(group) end
 ---@param top any
 function paw.groups.hidden(track, top) end
 
+--- The group that a new track goes into when it is added next to `track`
+--- (`o`, `O`, `:nest.new`): below an open group's own row, that group;
+--- else the group of `track`. Nil at the top level, and for a group in
+--- another place (a subproject) than `track`.
+---@param track any
+---@param above any
+function paw.groups.home(track, above) end
+
 --- True if a track is a group.
 ---@param track any
 function paw.groups.is_group(track) end
@@ -6281,9 +6289,13 @@ function paw.nest.data(nest) end
 ---@param spec any
 function paw.nest.define_kind(name, spec) end
 
---- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
---- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
---- block. `c` is the clip, in the window's time.
+--- What `K` says of a block, in three lines. The first gives the
+--- subproject, its meter, its bars, its tempo and whether it is live or
+--- frozen, with the stem's name after it for a stem. The second gives its
+--- tracks, and the third gives the bars of the song where it plays, for
+--- example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`,
+--- `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`.
+--- `c` is the clip, in the window's time.
 ---@param c any
 function paw.nest.describe(c) end
 
@@ -6331,10 +6343,11 @@ function paw.nest.list() end
 
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` with one block, the meter in the song's map when one is
---- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`), or with the tracks that the `create` of its
---- kind (`o.kind`) makes. Call it in one undo step (a command is one).
+--- track `below` (in its group, as `o` puts a track) with one block, the
+--- meter in the song's map when one is given; then the window enters it,
+--- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
+--- command is one).
 ---@param o any
 function paw.nest.new(o) end
 
@@ -7943,7 +7956,7 @@ function paw.scope.cursor_beat(win) end
 
 --- What a scope (the current one by default) shows, in words: its path,
 --- its bars (its own, and the song's), its meter, its tracks, and whether
---- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
 --- 6/8 · 12 tracks · named`.
 ---@param s any
 ---@param extra any
@@ -9336,7 +9349,8 @@ function paw.ui.ask_value(opts, set) end
 ---@param style any
 function paw.ui.box(buf, title, style) end
 
---- Close the float that has the keys, or the window of a view.
+--- Close the float that has the keys, or the window of a view. With
+--- no float, close the hover (`paw.ui.hover`).
 function paw.ui.close() end
 
 --- Add a view to the layout along one side of the screen.
@@ -9396,6 +9410,22 @@ function paw.ui.hide(name) end
 ---@param name any
 ---@param def any
 function paw.ui.hl(name, def) end
+
+--- Show lines next to the cursor of the focused window, in a small float
+--- that leaves the keys where they are: the next key closes it and does
+--- what it does. Each line is a string or `{ text = ..., style = ... }`.
+---   paw.ui.hover("Piano", { "24 notes", { text = "muted", style = "Warn" } })
+---@param title any
+---@param lines any
+function paw.ui.hover(title, lines) end
+
+--- Close the hover, if one is open.
+function paw.ui.hover_close() end
+
+--- Put the keys in the hover. It becomes a page in the same place, as
+--- high as its lines while the screen has room, where `j` and `k` scroll
+--- and `q` or `Esc` close it.
+function paw.ui.hover_enter() end
 
 --- Ask for a line of text on the command line.
 ---   paw.ui.input({ prompt = "Name: ", text = "Bass" }, function(text) ... end)
@@ -9493,7 +9523,8 @@ function paw.ui.open(name, opts) end
 
 --- Show lines of text in a float. Each line is a string or
 --- `{ text = ..., style = ... }`. With `opts.bottom`, it opens at the end.
---- `opts.width` and `opts.height` give its size (100 by 30).
+--- `opts.width` and `opts.height` give its size (100 by 30). With
+--- `opts.near_cursor`, it opens next to the cursor, not in the middle.
 ---@param title any
 ---@param lines any
 ---@param opts any

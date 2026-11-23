@@ -126,11 +126,13 @@ test("narrowing to a group shows its tracks alone in this window, and widening c
   eq(L.tab_title(paw.ui.tabs[1]), "Strings", "the tab is named after its window's scope")
   eq(names(paw.groups.rows()), "Strings Violins Cellos", "the arrange view's rows")
   eq(paw.cursor.track_id(), o.strings.id, "the cursor came inside")
+  -- The message line can still name a track of an earlier test.
+  paw.ui.message = nil
   local text = screen()
   eq(
     text:find("Violins", 1, true) ~= nil and text:find("Horns", 1, true) == nil and text:find("Drums", 1, true) == nil,
     true,
-    "drawn: only the strings"
+    "drawn: only the strings:\n" .. text
   )
   eq(text:find("Song › Strings", 1, true) ~= nil, true, "the status line says so")
   -- The rest of the program sees the scope too.
@@ -428,12 +430,12 @@ test("K in a region scope, with no clip under the cursor: its path, its bars and
   paw.cursor.set_beat(from + 1)
   keys("znar")
   keys("K")
-  local lines = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    lines[#lines + 1] = line.text
-  end
-  local text = table.concat(lines, "\n")
-  eq(text:find("Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil, true, text)
+  local text = T.hover_text()
+  eq(
+    text:find("Scope  Bridge\n  Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil,
+    true,
+    text
+  )
   eq(text:find("Track  Violins", 1, true) ~= nil, true, "then the track")
   reset()
 end)
@@ -798,15 +800,12 @@ test(":freeze and :unfreeze, and an edit to a frozen track asks to unfreeze it",
   reset()
 end)
 
--- What `K` says, as one text; the page closes again.
+-- What `K` says, as one text; the float closes again.
 local function info()
   keys("K")
-  local said = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    said[#said + 1] = line.text
-  end
+  local said = T.hover_text()
   paw.ui.close()
-  return table.concat(said, "\n")
+  return said
 end
 
 test("an edit inside a frozen track makes it stale with the reason, K says so, and u makes it up to date", function()

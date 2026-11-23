@@ -8,8 +8,16 @@ local keymap = paw.keymap
 local common = require("paw.defaults.common")
 local need_track = common.need_track
 
+--- Put a new track into the group that `o` or `O` next to track `beside`
+--- puts it in (`paw.groups.home`): it then plays into that group.
+local function join_group(track, beside, above)
+  local group = beside and paw.groups.home(beside, above)
+  if group then paw.groups.add(track, group) end
+end
+
 command("track.add", function(ctx)
   local index = cursor.index()
+  local beside = index and cursor.track_id()
   -- A kind of track an extension defines: `track.add vocal`, `kind=vocal`.
   local kind = ctx.args.kind or paw.track_kinds.kinds:get(ctx.args[1] or "") and ctx.args[1]
   if kind then
@@ -24,6 +32,7 @@ command("track.add", function(ctx)
     opts.words = words
     opts.index = index and (ctx.args.above and index or index + 1) or nil
     local track = paw.track_kinds.add(kind, opts)
+    join_group(track, beside, ctx.args.above)
     cursor.set_track(track)
     return track
   end
@@ -39,6 +48,7 @@ command("track.add", function(ctx)
       error(err, 0)
     end
   end
+  join_group(track.id, beside, ctx.args.above)
   cursor.set_track(track)
   return track
 end, {

@@ -54,10 +54,8 @@ test("columnplus: a strip, arrow folds, the clip counts and a sign for takes, an
   eq(column("Drums"), "▎  1  ", "\\# hides the clip counts")
   paw.cursor.set_track(t[4])
   paw.keymap.feed("K")
-  local text = table.concat(api.ui_snapshot(100, 30), "\n")
-  while paw.ui.float do
-    paw.ui.close()
-  end
+  local text = T.hover_text()
+  paw.ui.close()
   eq(text:find("takes on 1 clip", 1, true) ~= nil, true, "K says what the sign means:\n" .. text)
 end)
 
@@ -67,10 +65,8 @@ test("columnplus: a frozen track has its sign, which K explains", function()
   paw.flush()
   eq(column("Drums"), "▎  1 ∗2 ", "the frozen sign")
   paw.keymap.feed("K")
-  local text = table.concat(api.ui_snapshot(100, 30), "\n")
-  while paw.ui.float do
-    paw.ui.close()
-  end
+  local text = T.hover_text()
+  paw.ui.close()
   eq(text:find("frozen: it plays its file", 1, true) ~= nil, true, "K says it:\n" .. text)
 end)
 

@@ -78,7 +78,7 @@ The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` 
 | `g'` `g"` | put a marker at the cursor; go to one from a list | |
 | `gx` | remove the marker at the cursor; a right click on its name under the ruler has "Remove" | |
 | `gX` | remove the region that the cursor is in; its clips stay | |
-| `K` | describe what is under the cursor; on a closed fold or in a scope, the fold or the scope first ([Scopes](narrowing.md#what-k-says-of-a-scope)) | the note |
+| `K` | describe what is under the cursor in a small float under it, and `K` again to move into the float; on a closed fold or in a scope, the fold or the scope first ([Scopes](narrowing.md#what-k-says-of-a-scope)) | the note |
 | `u` `<C-r>` | undo, redo (`3u`) | the same |
 
 The same keys mean the same in every view:

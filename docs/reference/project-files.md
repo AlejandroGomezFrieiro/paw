@@ -252,7 +252,7 @@ folder, with the same rules:
 - A part from outside keeps its ids, and gets new ones only where the
   project has them. A track from outside plays into the master, with no
   sends.
-- `K` (`:info`) shows the folder or the file, and where a copy came from.
+- `K` and `:info` show the folder or the file, and where a copy came from.
 
 | Command | Effect |
 | --- | --- |

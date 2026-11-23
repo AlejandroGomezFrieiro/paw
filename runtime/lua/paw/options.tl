@@ -109,7 +109,7 @@ local defaults: {string: Value} = {
   quality = "full",
   grid = 1, -- arrange cursor step and snap, in beats
   zoom = 2, -- arrange columns per beat
-  track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 3 to 4
+  track_height = "auto", -- arrange rows per track; "auto" fits the tracks to the screen, 1 to 3
   header_width = "auto", -- arrange columns for the track headers; "auto" by the screen's width
   -- The track column at the left of the track headers, as Neovim's
   -- 'number', 'relativenumber' and 'statuscolumn': each track's number,

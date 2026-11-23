@@ -31,7 +31,7 @@ eight bars of 6/8 and not eight bars of 4/4.
    bridge, and the message describes it:
 
    ```
-   Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 3 tracks · `zw` goes back
+   Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 3 tracks · `zw` goes back
    ```
 
    The ruler counts the bars of the bridge from 1 in 6/8. The status line

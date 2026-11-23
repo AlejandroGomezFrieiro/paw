@@ -36,12 +36,9 @@ end
 --- What `K` says of the block at the cursor.
 local function described()
   keys("K")
-  local lines = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    lines[#lines + 1] = line.text
-  end
+  local said = T.hover_text()
   paw.ui.close()
-  return table.concat(lines, "\n")
+  return said
 end
 
 -- A fixture extension: the kind `beats.pattern` makes a track Kit with a
@@ -114,7 +111,7 @@ test("a kind of subproject: :nest.new kind= runs its create, and znn on its bloc
   paw.cursor.set_track(g.row)
   paw.cursor.set_beat(9)
   eq(T.screen(120, 30):find("⧉B Groove", 1, true) ~= nil, true, "the block shows the kind's letter")
-  eq(described():find("nest Groove (Beat pattern: 16 steps)", 1, true) ~= nil, true, "K names the kind")
+  eq(described():find("subproject Groove (Beat pattern: 16 steps)", 1, true) ~= nil, true, "K names the kind")
   keys("znn")
   eq(paw.ui.focused, "beatgrid", "znn opened the kind's view")
 
@@ -156,7 +153,7 @@ test("without the extension, a kind's subproject opens, plays, and the arrange v
   paw.cursor.set_beat(9)
   eq(T.screen(120, 30):find("⧉ Groove", 1, true) ~= nil, true, "the block has no letter")
   eq(
-    described():find("nest Groove (beats.pattern, which no extension here defines)", 1, true) ~= nil,
+    described():find("subproject Groove (beats.pattern, which no extension here defines)", 1, true) ~= nil,
     true,
     "K names the kind that is not here"
   )

@@ -21,8 +21,8 @@ model.
 | `zW`, `:widen!` | Go up to the whole song. |
 | `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A subproject: the next clip of a subproject in time, which is the next block of the same subproject or another subproject. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
 | `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
-| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the folds of this window (marked `fold`), the groups, the subprojects (marked `nest`) and the regions as a tree. The preview shows the path of the entry and what it holds. |
-| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes before the track under the cursor (see below). |
+| `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the folds of this window (marked `fold`), the groups, the subprojects (marked `subproject` and `⧉` before the name) and the regions as a tree. The preview shows the path of the entry and what it holds. |
+| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes first in the float of `K`, before the track under the cursor (see below). |
 | `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
 | `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
 | `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
@@ -33,16 +33,20 @@ model.
 tracks, for example:
 
 ```
-Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 12 tracks · named
+Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named
 ```
 
 - The bars count from 1 at the start of the scope. The bars of the song
-  follow in parentheses when they differ. A scope with all the time of
+  follow in parentheses when they differ, each with `@`, as you type a
+  bar of the song. A scope with all the time of
   the song has no bars and no meter.
 - The meter is the meter at the start of the scope.
 - `named` shows when you named the scope with `:scope.name`.
 - On a fold, the path ends with the name of the fold, and the last word is
   `folded` or `open`, for example `Song › Strings · 3 tracks · folded`.
+- A last line gives the keys for it. On a fold, these are `za` to open it,
+  `znn` to enter it and `zd` to delete it. In a scope, these are `zw` to go
+  up one level, `zW` to go to the song and `]z` to go to the next scope.
 
 The same words show in the message when you enter a scope.
 

@@ -13,7 +13,7 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 - A letter before the name of a track of a kind that an extension defines.
 - The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
-The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
+The tracks share the rows of the window, and each track gets one to three rows, the most that let every track fit (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
 
 A clip has a name row and a darker body that shows its notes or waveform in the color of its track. Each column of the body shows the notes or the sound of its own stretch of time, from the first column on, so a note on the first beat of a clip fills the first column. A thin line at the left end of the name row marks where the clip starts. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
 
@@ -23,7 +23,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | --- | --- |
 | `x` | Deletes the clip. |
 | `D` `C` `Y` | Deletes, changes, copies to the end of the track. |
-| `o` `O` | Adds a track below or above. |
+| `o` `O` | Adds a track below or above. On a track of a group, the new track goes into the group and plays into it. Below the row of an open group, it goes first into that group. |
 | `grn` | Renames the track. |
 | `Alt-j` `Alt-k` | Moves the track down or up. A count gives the places: `3 Alt-j`. |
 | `:track.new` | Adds a track of a kind chosen from a list (a vocal track, a drum track: kinds that extensions define). |
@@ -50,7 +50,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `grC` | Chooses the color of the track from the colors of the theme. |
 | `Enter` | Edits the notes of the clip in the piano roll. |
 | `i` | Starts insert mode. Then `m` inserts a MIDI clip at the cursor, `a` an automation point, `r` a region, `'` a marker, `f` a file. `Enter` opens what you inserted. `i` `Enter` enters notes at the cursor. See [Insert mode](insert-mode.md). |
-| `K` | Describes what is under the cursor. A kind of track also says what it is. |
+| `K` | Describes what is under the cursor in a float under the cursor, at most 72 columns wide and half the window high. The next key closes the float and does what it always does. `K` again moves the keys into the float, where `j` and `k` scroll and `q` or `Esc` close it. `:info` shows all of it in a page. A kind of track also says what it is. |
 | `a` | Adds a device. The list shows instruments first on a track with no instrument, else effects first. |
 | `ge` | Shows the window of the plugin. |
 | `<Space>dd` `<Space>mm` `<Space>vp` `<Space>vs` | Shows the device panel, the mixer, the piano roll, the session view (with the clip launcher extension). |

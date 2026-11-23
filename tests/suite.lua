@@ -229,6 +229,7 @@ local function fresh()
   while paw.ui.float do
     paw.ui.close()
   end
+  paw.ui.hover_close()
   paw.project.new()
   paw.transport.loop_enabled = false
   -- The windows and tabs an earlier test opened would share the screen
@@ -269,6 +270,18 @@ end
 --- The text of the screen, `w` columns by `h` rows (120 by 40 if not
 --- given), one line for each row.
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 40), "\n") end
+
+--- What the float of `K` says (`paw.ui.hover`): its title, then its lines,
+--- one a row. Empty when no hover is open.
+local function hover_text()
+  local hover = paw.ui.hovered
+  if not hover then return "" end
+  local out = { hover.title }
+  for _, line in ipairs(hover.lines) do
+    out[#out + 1] = line.text
+  end
+  return table.concat(out, "\n")
+end
 
 local renders = 0
 local function render(opts)
@@ -493,6 +506,7 @@ local T = {
   fresh = fresh,
   start = start,
   screen = screen,
+  hover_text = hover_text,
   render = render,
   tone = tone,
   until_ = until_,

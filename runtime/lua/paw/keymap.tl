@@ -258,6 +258,8 @@ local record Ui
   views: registry.Registry<contracts.View>
   grabber: function(key: string)
   rects: {contracts.ScreenRect}
+  hovered: contracts.Hover
+  hover_close: function()
 end
 local record Statusline
   winbar: function(view: string, focused: boolean): string
@@ -1875,7 +1877,13 @@ function M.dispatch(key: string)
     command.keys, command.edits, command.texts = {}, edits(), text_changes
   end
   command.keys[#command.keys + 1] = key
+  -- The hover that `K` showed closes after the next key, which does what
+  -- it does; a key that puts the keys in it (`K` again) leaves it open.
+  local hovered = outer and paw.ui.hovered
   local ok, err = xpcall(handle, debug.traceback as (function(string): string), key) as (boolean, string)
+  if hovered and paw.ui.hovered == hovered then
+    paw.ui.hover_close()
+  end
   if not ok then
     reset()
     if M.mode == "o" then

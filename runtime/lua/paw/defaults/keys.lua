@@ -56,9 +56,7 @@ map("gm", "transport.metronome", { mode = nx, desc = "Toggle the metronome" })
 -- The metronome's: `gC` opens curves in every view.
 map("gM", "countin", { mode = nx, desc = "Count a bar in before recording, or not" })
 keymap.classic("gC", "countin", { mode = nx, desc = "Count a bar in before recording, or not" })
--- `K` describes what is under the cursor in every view: `:info` asks the
--- view first (`view:describe()`).
-map("K", "info", { desc = "Describe what is under the cursor", role = "describe" })
+-- `K` describes what is under the cursor in every view: paw/defaults/modal.lua.
 map("gI", "punch", { desc = "Punch in and out: record only between two points, or not" })
 map("gI", "punch selection", { mode = "x", desc = "Punch in and out over the selection" })
 map("ge", "device.editor", { desc = "Show or hide the plugin's window" })

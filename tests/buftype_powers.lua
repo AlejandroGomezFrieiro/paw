@@ -37,14 +37,6 @@ local function status_text()
   return table.concat(parts)
 end
 
-local function pager_text()
-  local out = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    out[#out + 1] = line.text
-  end
-  return table.concat(out, "\n")
-end
-
 -- The example of docs/reference/lua-views.md: a tally of marks, one row of cells per
 -- buffer, a cursor in each window.
 local function define_tally(heard)
@@ -121,7 +113,7 @@ test("a buffer type has a cursor per window, keys, motions, text objects and ope
   eq(heard[2].region.c1, 12, "to where the motion went")
   eq(win.state.col, 8, "and the cursor goes to the start, as after any operator")
   keys("K")
-  eq(pager_text():find("at 8", 1, true) ~= nil, true, "K says what describe says: " .. pager_text())
+  eq(T.hover_text():find("at 8", 1, true) ~= nil, true, "K says what describe says: " .. T.hover_text())
   paw.ui.close()
   eq(status_text():find("tally@8", 1, true) ~= nil, true, "the status line shows its part: " .. status_text())
   -- A second window on another buffer keeps a cursor of its own.
@@ -160,7 +152,7 @@ test("a kind of text buffer has keys, K and a status of its own, before the text
   keys("<localleader>s")
   eq(heard[1], "paw://shout", "its key, with the buffer's name")
   keys("K")
-  eq(pager_text():find("a list of paw://shout", 1, true) ~= nil, true, "K: " .. pager_text())
+  eq(T.hover_text():find("a list of paw://shout", 1, true) ~= nil, true, "K: " .. T.hover_text())
   paw.ui.close()
   eq(status_text():find("shouting", 1, true) ~= nil, true, "its status: " .. status_text())
   keys(":e paw://tracks<CR>")

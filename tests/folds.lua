@@ -133,11 +133,7 @@ test("K on a folded group: its name, its tracks, and that it is folded", functio
   paw.cursor.set_track(b.strings)
   keys("za")
   keys("K")
-  local lines = {}
-  for _, line in ipairs(paw.ui.views:get("pager").lines) do
-    lines[#lines + 1] = line.text
-  end
-  local text = table.concat(lines, "\n")
+  local text = T.hover_text()
   eq(text:find("Fold  Strings\n  Song › Strings · 3 tracks · folded", 1, true) ~= nil, true, text)
 end)
 

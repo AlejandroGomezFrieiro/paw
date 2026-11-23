@@ -139,6 +139,8 @@ test("a track's header shows its input, the level arriving there, and a monitor 
     fresh()
     paw.cmd("view.only")
     paw.ui.focus("arrange")
+    -- The input is on the fourth row of a track's header.
+    paw.opt.track_height = 4
     local t = paw.add_track({ name = "Gtr" })
     t.input = "1/2"
     T.next_block(10)
@@ -251,13 +253,19 @@ test("tracks fit their height to the screen, and the headers their width", funct
     paw.add_track({ name = "t" .. i })
   end
   paw.flush()
-  eq(arrange:layout(120, 34).th, 4, "two tracks on a tall screen get four rows each")
-  for i = 3, 20 do
+  eq(arrange:layout(120, 34).th, 3, "two tracks on a tall screen get three rows each, the most")
+  for i = 3, 12 do
     paw.add_track({ name = "t" .. i })
   end
   paw.flush()
-  eq(arrange:layout(120, 34).th, 3, "twenty get three, and scroll")
-  eq(arrange:layout(120, 34).rows[1].h, 3, "each row as tall")
+  eq(arrange:layout(120, 34).th, 2, "twelve get two, so that all of them fit")
+  for i = 13, 40 do
+    paw.add_track({ name = "t" .. i })
+  end
+  paw.flush()
+  local many = arrange:layout(120, 34)
+  eq(many.th .. " " .. many.rows[1].h, "1 1", "forty get one, the least")
+  eq(#many.rows < 40, true, "and scroll")
   paw.opt.track_height = 2
   eq(arrange:layout(120, 34).th, 2, "a number in the option wins")
   paw.opt.track_height = "auto"
@@ -267,13 +275,40 @@ test("tracks fit their height to the screen, and the headers their width", funct
   eq(arrange.header_width(70), 12, "12 below")
 end)
 
+--- A song of `n` tracks of one clip each, the first two a group, with
+--- the arrange view alone on the screen.
+local function tracks_song(n)
+  fresh()
+  paw.cmd("view.only")
+  paw.ui.views:get("arrange").scroll = 0
+  local made = {}
+  for i = 1, n - 1 do
+    made[i] = paw.add_track({ name = "Track " .. i })
+    made[i]:add_clip({ start = 0, length = 16, notes = { { pitch = 60, start = 0, length = 2 } } })
+  end
+  paw.groups.make({ made[1], made[2] }, "Group")
+  paw.cursor.set_track(made[1])
+  paw.flush()
+end
+
+test("with track_height auto, every track of a song of 7 fits on 100 by 30, three rows each", function()
+  tracks_song(7)
+  eq(paw.opt.track_height, "auto", "the option of a new start")
+  expect_screen("seven_tracks", 100, 30, { rows = { 1, 28 }, styles = false })
+end)
+
+test("with track_height auto, a song of 11 tracks gets two rows a track and fits on 100 by 30", function()
+  tracks_song(11)
+  expect_screen("eleven_tracks", 100, 30, { rows = { 1, 28 }, styles = false })
+end)
+
 test("the selected track's chips read M S R I, lit when on", function()
   fresh()
   paw.cmd("view.only")
   local t = paw.add_track({ name = "Gtr" })
   t.mute = true
   paw.flush()
-  expect_screen("chips", 150, 36, { rows = { 2, 5 }, cols = { 1, 28 } })
+  expect_screen("chips", 150, 36, { rows = { 2, 4 }, cols = { 1, 28 } })
 end)
 
 test("with paw.opt.ascii the screen is drawn in plain ASCII", function()

@@ -1,0 +1,28 @@
+ cur 9.1.00             │▼  ╭─ Fold  Fold 1 ───────────────────────────────────────────────────────╮
+                        │▏In│   Song › Fold 1 · bars 1-16 (song @9-24) · 4/4 · 2 tracks · folded   │
+ 1 ▾▌ Drums        MSRI │▏  │   za opens it · znn enters it · zd deletes it                        │
+   │▌in ─────────── 0.0 │▏  │                                                                      │
+   │▌   C               │▏  │ Clip  Piano                                                          │
+ 2 │▌ Kick         MSRI │▏Ki│   1.1.00 to 25.1.00, 96 beats                                        │
+   │▌in ─────────── 0.0 │▄▄ │   24 notes                                                           │
+   │▌   C       → Drums │   │                                                                      │
+ 3 ╰▌ Snare        MSRI │▏Sn│ Track  Piano                                                         │
+    ▌in ─────────── 0.0 │▄▄ │   in the group Keys                                                  │
+    ▌   C       → Drums │   │   volume +0.0 dB, pan +0.00                                          │
+ 4 ▾▌ Keys         MSRI │▏  │   output  Keys                                                       │
+   │▌in ─────────── 0.0 │▏  │ K again: all of it                                                   │
+   │▌   C               │▏  ╰──────────────────────────────────────────────────────────────────────╯
+ 5 │█ Piano        MSRI │▏Piano                           Fold 1
+   │█in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
+   │█   C        → Keys │
+ 6 ╰▌ Pad          MSRI │▏Pad
+    ▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
+    ▌   C        → Keys │
+ 7  ▌ Bass         MSRI │▏Bass
+    ▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
+    ▌   C               │
+        o new track     │
+                        │
+                        │
+    ▌ Master            │
+    ▌   ▀▀▀▀▀▀▀▀▀▀▀ 0.0 │

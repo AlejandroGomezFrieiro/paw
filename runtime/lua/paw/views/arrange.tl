@@ -231,7 +231,8 @@ end
 
 --- Rows a track takes when `count` tracks share `room` rows: the
 --- window's vertical zoom (paw/vzoom.tl), else `paw.opt.track_height`,
---- or with "auto" as many as fit, from 3 to 4.
+--- or with "auto" the most that let every track fit, from 1 to 3. A song
+--- with more tracks than fit at 1 row scrolls.
 function view.track_height(count: integer, room: integer): integer
   local want = paw.vzoom.track_rows() or tonumber(paw.opt.track_height)
   if want then
@@ -240,7 +241,7 @@ function view.track_height(count: integer, room: integer): integer
   if count < 1 then
     return 3
   end
-  return math.floor(util.clamp(math.floor(room / count), 3, 4))
+  return math.floor(util.clamp(math.floor(room / count), 1, 3))
 end
 
 --- Whether the ruler has a second row: when something registered in
@@ -1654,7 +1655,8 @@ local function recording(self: Arrange, t: types.Transport)
 end
 
 --- The cursor's cell on a row, in the mode's colour where the clips'
---- names are, a shadow below.
+--- names are, a shadow below. The window keeps where it is on the
+--- screen (`caret`), for the float of `K`.
 local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   if not F.cursor_beat then
     return
@@ -1662,6 +1664,7 @@ local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   local zoom = F.zoom
   local x = self:col(F.cursor_beat)
   local cw = math.max(1, math.floor(paw.opt.grid * zoom))
+  self.caret = {x = F.lanes.x + math.max(0, math.floor(x)), y = F.lanes.y + y, w = cw, h = 1}
   local mode = paw.keymap.mode
   F.lanes:fill(x, y, cw, 1, nil, mode == "x" and "CursorVisual" or mode == "i" and "InsertCursor" or "Cursor")
   if h > 1 then
@@ -1809,6 +1812,7 @@ local function draw_rows(self: Arrange, F: Frame)
     loop = {self:v(F.here(t.loop_start)), self:v(F.here(t.loop_end))}
   end
   recording(self, t)
+  self.caret = nil
   local cursor_clip = paw.cursor.clip()
   local chosen: {integer: boolean} = {}
   for _, id in ipairs(paw.frontend.chosen_clips()) do

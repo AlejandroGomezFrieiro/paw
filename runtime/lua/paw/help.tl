@@ -1726,7 +1726,7 @@ keymap.set(
     if is_help(textbuf.buf() as contracts.LayoutBuffer) then
       return M.keyword()
     end
-    commands.run("info")
+    commands.run("describe")
   end,
   {
     view = "textbuf",

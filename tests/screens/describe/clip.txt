@@ -1,0 +1,28 @@
+ cur 9.1.00             │▼       3      ▕5       7       9       11      13      15      17      19
+                        │▏Intro                          ▏Verse                          ▏Chorus
+ 1 ▾▌ Drums        MSRI │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+   │▌in ─────────── 0.0 │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+   │▌   C               │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+ 2 │▌ Kick         MSRI │▏Kick
+   │▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
+   │▌   C       → Drums │
+ 3 ╰▌ Snare        MSRI │▏Snare
+    ▌in ─────────── 0.0 │▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄  ▄▄
+    ▌   C       → Drums │
+ 4 ▾▌ Keys         MSRI │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+   │▌in ─────────── 0.0 │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+   │▌   C               │▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏   ▏
+ 5 │█ Piano        MSRI │▏Piano
+   │█in ─────────── 0.0 │▄▄ ╭─ Clip  Piano ────────────────────────────────────────────────────────╮
+   │█   C        → Keys │   │   1.1.00 to 25.1.00, 96 beats                                        │
+ 6 ╰▌ Pad          MSRI │▏Pa│   24 notes                                                           │
+    ▌in ─────────── 0.0 │▄▄ │                                                                      │
+    ▌   C        → Keys │   │ Track  Piano                                                         │
+ 7  ▌ Bass         MSRI │▏Ba│   in the group Keys                                                  │
+    ▌in ─────────── 0.0 │▄▄ │   volume +0.0 dB, pan +0.00                                          │
+    ▌   C               │   │   output  Keys                                                       │
+        o new track     │   │   no instrument: its MIDI makes no sound. Press `a` and choose one   │
+                        │   │   (synth, a plugin)                                                  │
+                        │   ╰──────────────────────────────────────────────────────────────────────╯
+    ▌ Master            │
+    ▌   ▀▀▀▀▀▀▀▀▀▀▀ 0.0 │

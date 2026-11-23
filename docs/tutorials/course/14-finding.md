@@ -39,7 +39,7 @@ The tutor opens a practice project for the lesson, and it checks each step when 
    - ✓ The list showed `gL`, `gl` and `il`, and `<CR>` on a line types its key for you.
 6. `<Space>ft` goes to a track by its name. Press `<Space>ft`, type `dr` and press `<CR>`.
    - ✓ The cursor is on Drums, and `<Space>fc` does the same for clips.
-7. `K` gives data about the item under the cursor, which is the clip, the track and its devices. Press `K`, and then `q` to close the window.
+7. `K` gives data about the item under the cursor, which is the clip, the track and its devices, in a small float under the cursor. Press `K`, and then `<Esc>` to close the float.
    - ✓ With `K`, you can see the devices, sends and automation of a track with one key.
 8. Listen with the click. Press `<Space><Space>`, and then `<Space><Space>` to stop and `gm` to disable the click.
    - ✓ The bass is quieter, and the click came from a command that you found by its name.
