@@ -83,6 +83,10 @@ pub(crate) struct Pending {
     /// Helper processes at work: piped ones that have not closed their
     /// output, and others that still run.
     pub helpers: usize,
+    /// The helpers that paw waits for: a program that has not answered
+    /// what paw wrote to it, or one that works on its own until it ends.
+    /// A language server that answered and waits for more is not counted.
+    pub helpers_busy: usize,
 }
 
 impl Shared {
@@ -129,6 +133,7 @@ impl Shared {
             files: work.files,
             midi: self.midi_in.lock().unwrap().len(),
             helpers: self.io.borrow_mut().working(),
+            helpers_busy: self.io.borrow_mut().awaited(),
         }
     }
 

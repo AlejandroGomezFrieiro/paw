@@ -1178,6 +1178,7 @@ local record types
     files: integer
     midi: integer
     helpers: integer
+    helpers_busy: integer
   end
 
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------

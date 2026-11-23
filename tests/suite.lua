@@ -552,27 +552,35 @@ end
 
 --- Let schedule time pass, from one due timer or delay to the next, until
 --- `cond()` gives a value that is not false or nil, and give that value.
---- With no timer due, or while a helper process or the engine that plays
---- is busy, the clock moves by one audio block at most: so a state that a
---- time, the meters or a helper makes comes too. Fails when `ms`
---- milliseconds of schedule time passed.
+--- With no timer due, or while the engine plays, the clock moves by one
+--- audio block at most: so a state that a time or the meters make comes
+--- too. While a helper process owes an answer (`helpers_busy`), the clock
+--- does not move: the wait is for the helper, with the stall guard. Fails
+--- when `ms` milliseconds of schedule time passed.
 local function advance_until(cond, what, ms)
   what = what or "the condition"
   if not MANUAL then return until_(cond, what, ms) end
   local limit = api.now() + ms
+  -- The stall guard of a wait for a helper process.
+  local guard
   while true do
     local p = settle()
     local value = cond()
     if value then return value end
     local left = limit - api.now()
     if left <= 0 then error(string.format("%s is false after %g ms", what, ms), 2) end
-    if busy(p) or not p.next_ms then
-      -- A helper process works on the wall clock, and the stepped engine
-      -- would take the clock past it at once: first give it the time of
-      -- the block, as an engine on the wall clock does.
-      if p.helpers > 0 and stepped() then api.sleep(block_ms()) end
+    if p.helpers_busy > 0 and not engine_plays() then
+      -- A helper process that owes an answer, or works until it ends,
+      -- works on the wall clock: the clock waits for it, so that a time
+      -- limit on the clock does not run out before it answers.
+      guard = guard or api.real_ms() + STALL_MS
+      if api.real_ms() > guard then stalled(what .. ": a helper process does not answer", 2) end
+      api.sleep(1)
+    elseif busy(p) or not p.next_ms then
+      guard = nil
       one_block()
     else
+      guard = nil
       advance(math.min(math.max(1, math.ceil(p.next_ms)), left))
     end
   end
@@ -1531,11 +1539,47 @@ local function run(t)
   end
 end
 
+--- Load the test files of the parts of `list` again, in their order, and
+--- give each test of `list` its new function. A round of `repeat` then
+--- starts each file as the first round did: a file keeps a module or a
+--- handler of its own at its top, which the leak check of the round before
+--- took away.
+local function reload(list)
+  local wanted = {}
+  for _, t in ipairs(list) do
+    wanted[t.part] = true
+  end
+  local kept_tests, kept_lasts = tests, lasts
+  tests, lasts = {}, {}
+  for _, path in ipairs(files) do
+    if wanted[part_of(path)] then
+      loading, loading_file = part_of(path), path
+      assert(loadfile(path))(T)
+    end
+  end
+  loading, loading_file = nil, nil
+  local fresh = {}
+  for _, group in ipairs({ tests, lasts }) do
+    for _, t in ipairs(group) do
+      fresh[t.file .. "\0" .. t.name] = t.fn
+    end
+  end
+  tests, lasts = kept_tests, kept_lasts
+  for _, t in ipairs(list) do
+    t.fn = fresh[t.file .. "\0" .. t.name] or t.fn
+  end
+end
+
 -- The wall time of each test file, in milliseconds. It is information for
 -- a person who looks for a slow file, never a reason to fail.
 local spent = {}
 for round = 1, rounds do
   local failed_before = failed
+  if round > 1 then
+    reload(selected)
+    -- What the files made as they loaded is part of the start again.
+    base = fingerprint()
+  end
   for i, t in ipairs(selected) do
     local started = api.real_ms()
     run(t)

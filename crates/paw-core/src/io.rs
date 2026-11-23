@@ -54,6 +54,9 @@ struct Output {
     closed: bool,
     /// `arrived` has named it already; reading it lets it be named again.
     told: bool,
+    /// The kernel wrote to the process, and it has written nothing since:
+    /// it has an answer to give.
+    asked: bool,
 }
 
 /// The kernel's ends of a piped process's input and output.
@@ -63,6 +66,8 @@ struct Pipe {
     /// The task reading `output`, stopped when the process is forgotten,
     /// even if something the process started still holds its output open.
     reading: AbortHandle,
+    /// The kernel has written to the process (see [`Io::awaited`]).
+    written: bool,
 }
 
 impl Drop for Pipe {
@@ -164,7 +169,7 @@ impl Io {
                     return Err(err).context("starting to read the program's output");
                 }
             };
-            self.pipes.insert(id, Pipe { input: Some(input), output, reading });
+            self.pipes.insert(id, Pipe { input: Some(input), output, reading, written: false });
         }
         self.procs.insert(id, child);
         Ok(id)
@@ -185,18 +190,40 @@ impl Io {
         ids
     }
 
-    /// Work in flight in other processes (`paw.api.pending`): the piped
-    /// processes that have not closed their output, and the other
-    /// processes that still run (a download that writes to a file).
-    pub(crate) fn working(&mut self) -> usize {
-        let open_pipes = self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count();
+    /// The helpers that paw waits for (`paw.api.pending`): a piped process
+    /// that has not answered what the kernel wrote to it, one that the kernel
+    /// never wrote to or whose input it closed (it works on its own until it
+    /// ends), and the other processes that still run. A piped process that
+    /// answered and waits for more input is not waited for.
+    pub(crate) fn awaited(&mut self) -> usize {
+        let pipes = self
+            .pipes
+            .values()
+            .filter(|pipe| {
+                let output = pipe.output.lock().unwrap();
+                !output.closed && (output.asked || !pipe.written || pipe.input.is_none())
+            })
+            .count();
+        pipes + self.running_unpiped()
+    }
+
+    /// The processes started without pipes that still run.
+    fn running_unpiped(&mut self) -> usize {
         let mut running = 0;
         for (id, child) in &mut self.procs {
             if !self.pipes.contains_key(id) && matches!(child.try_wait(), Ok(None)) {
                 running += 1;
             }
         }
-        open_pipes + running
+        running
+    }
+
+    /// Work in flight in other processes (`paw.api.pending`): the piped
+    /// processes that have not closed their output, and the other
+    /// processes that still run (a download that writes to a file).
+    pub(crate) fn working(&mut self) -> usize {
+        let open_pipes = self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count();
+        open_pipes + self.running_unpiped()
     }
 
     /// Up to `max` bytes a piped process has written: empty when nothing is
@@ -218,13 +245,17 @@ impl Io {
     /// Write all of `data` to a piped process's input, waiting for room if
     /// it is slow to read.
     pub(crate) fn write_input(&mut self, id: u64, data: &[u8]) -> Result<()> {
-        let input = self
+        let pipe = self
             .pipes
             .get_mut(&id)
-            .with_context(|| format!("no process {id} with pipes"))?
+            .with_context(|| format!("no process {id} with pipes"))?;
+        let input = pipe
             .input
             .as_mut()
             .with_context(|| format!("the input of process {id} is closed"))?;
+        // Asked before the bytes go: an answer can come before the write returns.
+        pipe.written = true;
+        pipe.output.lock().unwrap().asked = true;
         write_all(input, data, || format!("process {id}"))
     }
 
@@ -410,6 +441,7 @@ async fn reader(mut from: impl AsyncRead + Unpin, to: Arc<Mutex<Output>>, wake: 
                 output.closed = true;
             } else {
                 output.bytes.extend_from_slice(&buf[..n]);
+                output.asked = false;
             }
         }
         if let Some(wake) = &wake {
@@ -515,15 +547,38 @@ mod tests {
         assert_eq!(count.trim(), "1048576");
     }
 
-    #[test]
-    fn a_process_is_named_once_until_it_is_read() {
-        let (mut io, _) = counted();
-        let id = piped(&mut io, "printf one; read _; printf two");
+    /// Wait until the process is named as having written (the stall guard
+    /// of the test is the only limit).
+    fn until_arrived(io: &mut Io, id: u64) {
         let deadline = Instant::now() + Duration::from_secs(20);
         while !io.arrived().contains(&id) {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+
+    #[test]
+    fn a_server_is_awaited_until_it_answers_and_after_its_input_is_closed() {
+        let (mut io, _) = counted();
+        let id = piped(&mut io, "cat");
+        assert_eq!(io.awaited(), 1, "a process never written to works on its own");
+        io.write_input(id, b"ping\n").unwrap();
+        until_arrived(&mut io, id);
+        assert_eq!(io.awaited(), 0, "it answered and waits for more");
+        io.read_output(id, 100).unwrap();
+        io.write_input(id, b"again\n").unwrap();
+        assert_eq!(io.awaited(), 1, "it owes an answer");
+        io.close_input(id).unwrap();
+        read_to_end(&mut io, id);
+        assert_eq!(io.awaited(), 0, "it ended");
+        io.kill(id);
+    }
+
+    #[test]
+    fn a_process_is_named_once_until_it_is_read() {
+        let (mut io, _) = counted();
+        let id = piped(&mut io, "printf one; read _; printf two");
+        until_arrived(&mut io, id);
         assert!(io.arrived().is_empty(), "not named again before it is read");
         assert_eq!(io.read_output(id, 100).unwrap(), Some(b"one".to_vec()));
         assert_eq!(io.read_output(id, 100).unwrap(), Some(Vec::new()), "nothing more yet");

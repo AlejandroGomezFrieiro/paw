@@ -78,7 +78,8 @@ before the other words.
 - To run some tests many times in one paw process, give `repeat` and a
   number: `tests/tools/suite.sh repeat 20 only "loop on"`. The suite stops
   after the first run that fails, and its output says which run it was, for
-  example `repeat: run 2 of 20 failed`.
+  example `repeat: run 2 of 20 failed`. Each run loads the test files
+  again, as the first run did.
 - To run the tests in another order, give `--shuffle` and a seed:
   `tests/tools/suite.sh --shuffle 7`. The suite prints the seed on its first
   line, and the same seed always gives the same order, so you can run a
@@ -287,7 +288,7 @@ example a bake, the loading of a plugin or a render.
 | `T.meter(track)` | Gives the left and right levels of the meter of a track after the blocks that played last. |
 | `T.level(track)` | Plays one more block and gives the left level of the meter of a track. Use it to wait for a level in `T.until_`. |
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock moves with these blocks. |
-| `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program works, each block first waits for its time in real time, so that the clock doesn't run ahead of the program. It fails when `ms` milliseconds have passed on the clock. |
+| `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program owes an answer, or works until it ends, the clock doesn't move: the wait is for the program. It fails when `ms` milliseconds have passed on the clock. |
 | `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |
 | `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter. |
 

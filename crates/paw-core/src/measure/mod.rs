@@ -117,10 +117,10 @@ impl Drop for Job {
 /// The measurements whose thread still runs: `paw.api.pending()` counts
 /// them, so that a wait of the tests waits for them.
 #[derive(Clone, Default)]
-pub struct Running(Arc<AtomicUsize>);
+pub(crate) struct Running(Arc<AtomicUsize>);
 
 impl Running {
-    pub fn count(&self) -> usize {
+    pub(crate) fn count(&self) -> usize {
         self.0.load(Relaxed)
     }
 

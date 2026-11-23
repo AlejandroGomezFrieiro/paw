@@ -139,11 +139,22 @@ end)
 
 test("repeat stops at the first run that fails, and names it", function()
   local printed, passed = run_fixture({
-    ["second.lua"] = 'local T = ...\nlocal runs = 0\nT.test("a test that fails on its second run", function()\n'
-      .. '  runs = runs + 1\n  assert(runs < 2, "the second run")\nend)\n',
+    -- The count is global: each run loads the file again.
+    ["second.lua"] = 'local T = ...\nT.test("a test that fails on its second run", function()\n'
+      .. '  _G.runs = (_G.runs or 0) + 1\n  assert(_G.runs < 2, "the second run")\nend)\n',
   }, { PAW_TEST_REPEAT = "20" })
   eq(printed:find("repeat: run 2 of 20 failed", 1, true) ~= nil, true, printed)
   eq(passed, false, "the run fails")
+end)
+
+test("each run of repeat loads the test files again", function()
+  local printed, passed = run_fixture({
+    -- What the file keeps at its top, as a test file keeps the module of
+    -- its extension, starts again with each run.
+    ["fresh.lua"] = 'local T = ...\nlocal used = false\nT.test("a test that needs a fresh file", function()\n'
+      .. '  assert(not used, "the file of an earlier run")\n  used = true\nend)\n',
+  }, { PAW_TEST_REPEAT = "3" })
+  eq(passed, true, printed)
 end)
 
 test("a shuffle prints its seed, and the same seed gives the same order", function()

@@ -62,7 +62,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.until_(cond, what)` | Settle, then check a state. While the state waits for the engine (a meter, a device that sleeps, the playhead), the engine plays block by block, and the clock moves with it. Fails with "nothing is left to do, and <what> is false" when no work is left, after about 2 s of blocks. While the song plays, it fails after 30 s of the song. |
 | `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads, renders and measurements ended, and the files of stretched clips have a hash. The clock does not move. A job that polls at no delay is not work. |
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, the engine plays the blocks of that time, then the kernel settles. |
-| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block; while a helper works, each step first waits the time of the block on the wall clock. Fails after `ms` of schedule time. |
+| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. While a helper owes an answer (`helpers_busy` of `api.pending()`), the clock does not move: the wait is for the helper, up to the stall guard. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Play exactly `n` blocks (1 if not given), so that a change sent before is in effect. The clock moves by their time. With `device`, play until that device ran `n` blocks: a device that sleeps does not count them. |
 | `T.meter(track)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
 | `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
@@ -303,8 +303,9 @@ T.check_keys(
   other files.
 - `suite.sh repeat 20 only "<words>"` runs the tests 20 times in one
   paw. It stops after the first run that fails, and prints
-  "repeat: run N of 20 failed". A test that depends on the order or on
-  state that it leaves fails in its second run.
+  "repeat: run N of 20 failed". Each run loads the test files again. A
+  test that depends on the order or on state that it leaves in the kernel
+  fails in its second run.
 - `suite.sh --shuffle <seed>` runs the test files, and the tests in each
   file, in the order of the seed. It prints the seed on its first line.
   The same seed gives the same order. With no number, it takes a new
