@@ -15,7 +15,13 @@
 --  - an entry with `inputs` compares them first: the same inputs, the same
 --    value (an early cutoff on the key);
 --  - a value made again that is the `same` as before tells no one (an
---    early cutoff on the value).
+--    early cutoff on the value);
+--  - an `eager` entry (a track, the track list) is made again before the
+--    entries that read it learn of the change: they are marked stale only
+--    when its value changed, and with `touched` only over that time.
+--
+-- A slice stops before each entry that it makes, at any depth: an entry
+-- that reads thousands of others does not hold a key for all of them.
 --
 -- A consumer reads a value as it stands (`node:get(key)`: the value, and
 -- whether it is fresh), or waits for it (`node:get(key, true)`, for a

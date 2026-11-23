@@ -7,6 +7,62 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: :%quantize in a scope (TASK-183)
+
+The key `:%quantize 1/4` and then `u`, in the scope `Song › Verse B` of the
+scenario `scope` (TASK-6.7), with `--budget 10`. One binary of main
+(bc16df6d) ran with the Lua of main with TASK-6.7 merged ("before") and of
+the branch ("after"), in turns, 3 pairs of 5 keys each, under the measure
+lock on cores 16 to 23. All values were measured under external load (load
+average 3.3 to 4.8). Each value is the processor time of the kernel thread
+from the key until the screen is quiet: the median of the 15 keys, then the
+smallest and the largest.
+
+| Key | Before | After |
+| --- | --- | --- |
+| `:%quantize 1/4` | 217 ms (152 to 257) | 135 ms (85 to 190) |
+| `u` | 101 ms (68 to 140) | 74 ms (52 to 125) |
+
+The callbacks over 10 ms, in the 15 keys of each:
+
+| Callback | Before | After |
+| --- | --- | --- |
+| the job `derived` after `:%quantize` | 15 times, at most 53.5 ms | 2 times, at most 13.8 ms |
+| the job `derived` after `u` | 15 times, at most 55.3 ms | 0 times |
+| the job `harmony` | 15 and 15 times, at most 69.0 ms | 0 times |
+| the command `quantize` | 15 times, at most 123.8 ms | 15 times, at most 37.7 ms |
+| drawing the screen | 17 and 15 times, at most 79.2 ms | 16 and 15 times, at most 35.4 ms |
+
+What changed:
+
+- A note edit marked every window of its track stale (256 windows a track
+  in this project), and the job looked at all 16 640 windows of the song
+  again. Now the track, the track list, the span, the step and the bars
+  are `eager` nodes of `paw.derived`: the job makes them first, and marks
+  the windows only over the time that changed.
+- The job stopped only where a sliced node asked. One window could make
+  hundreds of entries in one slice. Now a slice stops before each entry
+  that it makes, at any depth.
+- The track read `clip_list` (each clip with all its fields) and asked
+  `is_drums` after each edit. Now `harmony.place` reads one clip by its id,
+  and `harmony.drums` reads the track's name, meta and devices only.
+- `:%quantize` read the notes of every clip of the scope's tracks. Now it
+  asks only for the clips that meet the range's time, it sends only the
+  notes that move, and each with only its changed fields.
+
+Criteria of the ticket: the job `derived` is under 10 ms in all but 2 of
+25 keys (a slice of 4 ms and the garbage collector, by the profile). `u`
+is under 100 ms. `:%quantize` is not: what is left, by the LuaJIT profile
+(about 60 % of its time):
+
+- Two frames of the screen, 20 to 35 ms each. Part of each is the group tree
+  of the track column (`trackcolumn.tree_of`, TASK-184).
+- The typing of the command: completion sorts `commands.list` after each
+  character, and the preview parses the range (about 10 ms).
+- `ex.items`: the kernel gives each note as a table (about 9 ms), and the
+  sort of the items (about 5 ms).
+- The kernel's events and the garbage collector.
+
 ## 2026-11-23: keys in a scope (TASK-6.7)
 
 The scenario `scope` of `bench/profile/drive.py` ([profile.md](profile.md)).

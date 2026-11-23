@@ -53,7 +53,7 @@ Without a range, most commands take the bar of the cursor (`.`), in the same way
 | `:5,8j` | Joins the MIDI clips on each track into one. |
 | `:5,8loop`, `:'<,'>loop` | Sets the playback loop to bars 5 to 8, or to the selection, and turns looping on. `:loop off` and `:loop on` turn looping off and on, and `:loop` alone toggles it. |
 | `:5,8transpose 12` | Moves notes by semitones. `:adjust` can change the number afterwards. |
-| `:%quantize`, `:%quantize 1/16`, `:%quantize 1/16 strength=50` | Snaps notes to the grid of the piano roll, or to a note value or a count of beats. `strength` is from 0 to 100 (100 is the default) and moves each note that part of the way to the grid. `:adjust` can change both afterwards. |
+| `:%quantize`, `:%quantize 1/16`, `:%quantize 1/16 strength=50` | Snaps notes to the grid of the piano roll, or to a note value or a count of beats. `strength` is from 0 to 100 (100 is the default) and moves each note that part of the way to the grid. A note on the grid already stays where it is, and when no note moves, paw tells you so. `:adjust` can change both afterwards. |
 | `:adjust grid=1/8`, `:adjust 7` | Does the last command again with other parameters, in place of its undo step. See below. |
 | `:t2,t4 mute`, `:t* unmute`, `:t/Drums/ solo`, `:t* unsolo` | Mutes and solos tracks. `mute!` and `solo!` switch each track. `:5,8 mute` mutes the clips in bars 5 to 8. |
 | `:t* volume -=3`, `:t2 volume -6` | Steps the volume of tracks down 3 dB. Sets it to -6 dB. |
