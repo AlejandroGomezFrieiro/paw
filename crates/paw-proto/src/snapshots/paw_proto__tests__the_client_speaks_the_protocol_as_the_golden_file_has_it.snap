@@ -1,0 +1,27 @@
+---
+source: crates/paw-proto/src/lib.rs
+assertion_line: 397
+expression: "transcript.lock().unwrap().join(\"\\n\")"
+---
+< {"event":"hello","payload":{"nonce":"6e6f6e6365","version":3}}
+> {"id":1,"method":"hello","params":[{"proof":"080f4bec5ccfe2c94ccc6e30c32b5c572bdc3073022a9510fca7c2609b5e864d"}]}
+< {"id":1,"result":{"client":7,"version":3}}
+= client 7
+> {"id":2,"method":"subscribe","params":["transport.*"]}
+< {"id":2,"result":["transport.*"]}
+< {"event":"transport.play","payload":{"position":0}}
+= ["transport.*"]
+= event transport.play {"position":0}
+> {"id":null,"method":"keys","params":["gg"]}
+> {"id":3,"method":"nonsense","params":[]}
+< {"error":"no method `nonsense`","id":3}
+= no method `nonsense`
+> {"id":4,"method":"file.begin","params":[{"name":"take.wav","size":10}]}
+< {"id":4,"result":1}
+> {"id":5,"method":"file.chunk","params":[1,"MDEyMzQ1Njc4OQ=="]}
+< {"id":5,"result":10}
+> {"id":6,"method":"file.end","params":[1]}
+< {"id":6,"result":"media/take.wav"}
+> {"id":7,"method":"eval","params":["paw.commands.run('import', { ... })","media/take.wav"]}
+< {"id":7,"result":null}
+= media/take.wav
