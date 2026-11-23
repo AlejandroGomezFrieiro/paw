@@ -5,12 +5,15 @@
 //! `key` names a bake, `store` keeps it, `scheduler` decides what is made
 //! when, and `native` and `helper` are the two lanes it is made in.
 
-pub mod helper;
-pub mod key;
-pub mod native;
-pub mod scheduler;
-pub mod store;
+// No bake uses the helper lane yet: the proxies of video files and the bakes
+// of extensions are to use it. `expect` cannot take its place: an item under
+// `expect(dead_code)` counts as used, so the expectation is never met.
+#[allow(dead_code, reason = "the helper lane has no bake yet")]
+pub(crate) mod helper;
+pub(crate) mod key;
+pub(crate) mod native;
+pub(crate) mod scheduler;
+pub(crate) mod store;
 
-pub use key::{BakeJob, Digest, EntryKey, Hasher, Input, Output, Stream};
-pub use scheduler::{Bake, Lane, Made, Priority, Scheduler};
-pub use store::{Entry, EntryWriter, Store, Tidied, Write};
+pub(crate) use key::{BakeJob, EntryKey, Input, Output, Stream};
+pub(crate) use store::{Store, Tidied, Write};

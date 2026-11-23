@@ -171,7 +171,7 @@ pub(super) fn map_files(
 /// Every file the project's clips use, once each: the takes that are not
 /// playing included, the media and the audio sound of custom clips, and the
 /// files frozen tracks and blocks play.
-pub fn files(project: &Project) -> BTreeSet<PathBuf> {
+pub(crate) fn files(project: &Project) -> BTreeSet<PathBuf> {
     project
         .all_tracks()
         .flat_map(|t| &t.clips)
@@ -192,7 +192,7 @@ pub fn files(project: &Project) -> BTreeSet<PathBuf> {
 /// The files of custom clips that a kind makes from other files: it makes
 /// them again when they are not there, so they are never missing and never
 /// collected.
-pub fn derived_files(project: &Project) -> BTreeSet<PathBuf> {
+pub(crate) fn derived_files(project: &Project) -> BTreeSet<PathBuf> {
     project
         .all_tracks()
         .flat_map(|t| &t.clips)
@@ -226,7 +226,7 @@ fn tidy(path: &Path) -> PathBuf {
 
 /// The project as it is written to `path`: files inside the project's
 /// directory tree by a path relative to it, others as they are.
-pub fn for_file(project: &Project, path: &Path) -> Project {
+pub(crate) fn for_file(project: &Project, path: &Path) -> Project {
     let dir = tidy(&project_dir(path));
     let mut out = project.clone();
     map_files(&mut out, |file| {
@@ -241,7 +241,7 @@ pub fn for_file(project: &Project, path: &Path) -> Project {
 
 /// What happened to a project's files on opening it.
 #[derive(Default)]
-pub struct Found {
+pub(crate) struct Found {
     /// Files found somewhere other than where the project said: (was, now).
     pub moved: Vec<(PathBuf, PathBuf)>,
     /// Files that are nowhere to be found, by the path the project gave.
@@ -268,7 +268,7 @@ struct Tree {
 
 /// Looks for missing files by name and size, in directory trees it reads once.
 #[derive(Default)]
-pub struct Finder {
+pub(crate) struct Finder {
     /// Directories where missing files have been found, searched first.
     pub dirs: Vec<PathBuf>,
     /// Trees already read, by root.
@@ -388,7 +388,7 @@ impl Finder {
 
     /// Point every clip whose file is missing at where it is found under
     /// `roots`. Files that are still missing are left as they were.
-    pub fn relink(&mut self, project: &mut Project, roots: &[PathBuf], sources: &mut Sources) -> Found {
+    pub(crate) fn relink(&mut self, project: &mut Project, roots: &[PathBuf], sources: &mut Sources) -> Found {
         let mut found = Found::default();
         let mut moved: HashMap<PathBuf, PathBuf> = HashMap::new();
         let derived = derived_files(project);
@@ -439,12 +439,12 @@ fn some_names(files: &[PathBuf]) -> String {
 impl Session {
     /// Keep bakes (waveform overviews, `peaks.rs`) in `store` between
     /// runs, or nowhere.
-    pub fn set_bakes(&mut self, store: Option<crate::bake::Store>) {
+    pub(crate) fn set_bakes(&mut self, store: Option<crate::bake::Store>) {
         self.audio.bakes = store;
     }
 
     /// The bake cache, when there is one.
-    pub fn bakes_mut(&mut self) -> Option<&mut crate::bake::Store> {
+    pub(crate) fn bakes_mut(&mut self) -> Option<&mut crate::bake::Store> {
         self.audio.bakes.as_mut()
     }
 
@@ -452,7 +452,7 @@ impl Session {
     /// of a file larger than `megabytes` is kept in `dir` and read as it is
     /// played (`paw_engine::samples`). With `megabytes` at 0, or no `dir`,
     /// every file is held in memory. Files loaded already stay where they are.
-    pub fn set_media_store(&mut self, dir: Option<PathBuf>, megabytes: f64) {
+    pub(crate) fn set_media_store(&mut self, dir: Option<PathBuf>, megabytes: f64) {
         let store = dir
             .filter(|_| megabytes.is_finite() && megabytes > 0.0)
             .map(|dir| paw_engine::DiskStore {
@@ -473,7 +473,7 @@ impl Session {
     }
 
     /// Where long files' decoded sound is kept, and past what size in megabytes.
-    pub fn media_store(&self) -> Option<(PathBuf, f64)> {
+    pub(crate) fn media_store(&self) -> Option<(PathBuf, f64)> {
         let store = self.audio.store.as_ref()?;
         Some((store.dir.clone(), store.limit as f64 / 1_048_576.0))
     }
@@ -519,7 +519,7 @@ impl Session {
 
     /// [`read_ahead_from`](Self::read_ahead_from) the playhead, a few times
     /// a second while the song plays. Called every turn.
-    pub fn read_ahead(&mut self) {
+    pub(crate) fn read_ahead(&mut self) {
         if self.play.playing && self.read_ahead_at.elapsed() >= std::time::Duration::from_millis(250) {
             self.read_ahead_from(self.position());
         }
@@ -583,7 +583,7 @@ impl Session {
     /// Take what the background hashing learned, and give it the files
     /// that the project uses and nothing knows yet (an import, a
     /// recording). Called every turn.
-    pub fn poll_media(&mut self) {
+    pub(crate) fn poll_media(&mut self) {
         let changed = self.sources.poll();
         // A stretched clip waits for the hash of its file: its file goes
         // to the worker now, not at the next look for new files.
@@ -665,7 +665,7 @@ impl Session {
     }
 
     /// Files the project's clips play that are not there, once each.
-    pub fn media_missing(&self) -> Vec<PathBuf> {
+    pub(crate) fn media_missing(&self) -> Vec<PathBuf> {
         let derived = derived_files(&self.doc.project);
         files(&self.doc.project)
             .into_iter()
@@ -676,7 +676,7 @@ impl Session {
     /// Every file the project's clips play: `{ path, missing, inside,
     /// on_disk, hash, size }`, `inside` when it is in the project's
     /// directory tree, `hash` and `size` once they are known.
-    pub fn media_list(&self) -> Value {
+    pub(crate) fn media_list(&self) -> Value {
         let dir = self.path.as_deref().map(|p| tidy(&project_dir(p)));
         Value::Array(
             files(&self.doc.project)
@@ -701,7 +701,7 @@ impl Session {
     /// the other missing files. One undo step. Returns `{ clips, found, missing }`.
     /// A file with other bytes than `from` had is refused unless `anyway`:
     /// it becomes a new source.
-    pub fn media_relink(&mut self, from: &Path, to: &Path, anyway: bool) -> Result<Value> {
+    pub(crate) fn media_relink(&mut self, from: &Path, to: &Path, anyway: bool) -> Result<Value> {
         let to = std::path::absolute(to).unwrap_or_else(|_| to.to_path_buf());
         if !to.is_file() {
             bail!("{} is not a file", to.display());
@@ -725,7 +725,7 @@ impl Session {
 
     /// Look for every missing file in a directory tree, and point the clips
     /// at what is found. One undo step. Returns `{ found, missing }`.
-    pub fn media_search(&mut self, dir: &Path) -> Result<Value> {
+    pub(crate) fn media_search(&mut self, dir: &Path) -> Result<Value> {
         if !dir.is_dir() {
             bail!("{} is not a directory", dir.display());
         }
@@ -753,7 +753,7 @@ impl Session {
     /// project has in its folder already, or as one copied before it, is
     /// not copied again: its clips play that one. One undo step. Returns
     /// `{ copied, same, missing, dir }`.
-    pub fn media_collect(&mut self) -> Result<Value> {
+    pub(crate) fn media_collect(&mut self) -> Result<Value> {
         let path = self.path.clone().context(
             "the project has no file yet: save it first, so that its files have somewhere to go",
         )?;
@@ -835,7 +835,7 @@ impl Session {
     /// Copy a file into `media` beside the project, for importing with
     /// `paw.opt.copy_imports` on. Gives the copy, or the file itself when it
     /// is in the project's tree already or the project has no file.
-    pub fn media_adopt(&mut self, file: &Path) -> Result<PathBuf> {
+    pub(crate) fn media_adopt(&mut self, file: &Path) -> Result<PathBuf> {
         let Some(path) = self.path.clone() else {
             return Ok(file.to_path_buf());
         };
@@ -849,7 +849,7 @@ impl Session {
 }
 
 /// The file a project folder keeps its media table in.
-pub const MEDIA_FILE: &str = "media.json";
+pub(crate) const MEDIA_FILE: &str = "media.json";
 
 /// The files of a project that are sources: every file it plays, without
 /// those that a kind of clip makes again when they are not there.
@@ -1023,7 +1023,7 @@ mod tests {
         put(&other, b"another take");
         let found = Finder::default().relink(&mut p, &[dir.path().to_path_buf()], &mut sources);
         let lost = dir.path().join("media/take.wav");
-        assert_eq!(found.missing, [lost.clone()]);
+        assert_eq!(found.missing, std::slice::from_ref(&lost));
         assert_eq!(found.refused, [(lost.clone(), other.clone())]);
         assert_eq!(files(&p), BTreeSet::from([lost.clone()]), "the clip keeps its path");
         assert!(other_sound(&lost, &other).ends_with("take.wav has the same name but other sound"));

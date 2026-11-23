@@ -12,7 +12,7 @@ impl Session {
     /// latest of that topic for every one made later, before its first
     /// block. `None` forgets the topic. Returns, for devices that refused
     /// it, their ids and why.
-    pub fn device_post(
+    pub(crate) fn device_post(
         &mut self,
         kind: &str,
         topic: &str,

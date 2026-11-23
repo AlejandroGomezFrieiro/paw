@@ -10,7 +10,7 @@ use vst3::Steinberg::*;
 use vst3::{ComPtr, ComWrapper};
 
 use super::host::Host;
-use super::{OK, chars, hex};
+use super::{OK, chars};
 use crate::Found;
 
 /// A loaded VST3 module. Never unloaded.
@@ -118,7 +118,7 @@ pub(super) fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
                 }
             }
             found.push(Found {
-                id: hex(&info.cid),
+                id: hex::encode_upper(info.cid.map(|b| b as u8)),
                 name: chars(&info.name),
                 vendor,
                 instrument,

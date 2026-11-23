@@ -142,7 +142,7 @@ impl Project {
     /// key the nest's. It follows the song's tempo and keeps its own in
     /// `kept`, and it keeps its own meter. Nothing places it yet. The
     /// caller checks the project after.
-    pub fn adopt(&mut self, mut part: Project, id: NestId, name: &str, source: &Path) {
+    pub(crate) fn adopt(&mut self, mut part: Project, id: NestId, name: &str, source: &Path) {
         part.refresh_tempo();
         // Its ids from the nest's on; past every id of the song when one
         // of those is taken (the folder has more parts than when it came),
@@ -238,7 +238,7 @@ impl Project {
     /// (its reference's top), the nests of its reference, itself
     /// included. A nest inside is one of the same `source` that a nest of
     /// the reference places.
-    pub fn references(&self) -> BTreeMap<NestId, BTreeSet<NestId>> {
+    pub(crate) fn references(&self) -> BTreeMap<NestId, BTreeSet<NestId>> {
         let held = self.nests_held();
         let source_of = |id: &NestId| self.nest(*id).and_then(|n| n.source.as_ref());
         // A nest of a reference that a nest of the same reference places
@@ -272,7 +272,7 @@ impl Project {
     /// Make the nests `group` (a reference, as [`Project::references`]
     /// gives it) the project's own: each keeps where it came from in
     /// `origin`.
-    pub fn own_reference(&mut self, group: &BTreeSet<NestId>) {
+    pub(crate) fn own_reference(&mut self, group: &BTreeSet<NestId>) {
         for id in group {
             if let Some(nest) = self.nest_mut(*id)
                 && nest.source.is_some()

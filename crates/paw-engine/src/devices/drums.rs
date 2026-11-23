@@ -29,7 +29,7 @@ const GAIN: usize = 0;
 const KICK_TUNE: usize = 1;
 const DECAY: usize = 2;
 
-pub fn params() -> Vec<ParamInfo> {
+pub(super) fn params() -> Vec<ParamInfo> {
     vec![
         ParamInfo::new("gain", -60.0, 12.0, -6.0, "dB"),
         ParamInfo::new("kick_tune", 30.0, 90.0, 48.0, "Hz"),
@@ -40,7 +40,7 @@ pub fn params() -> Vec<ParamInfo> {
 /// The kit's output pairs: the whole kit, then a pair for each family of
 /// pieces. A family whose pair is routed somewhere plays there, and leaves
 /// the first pair.
-pub const OUTPUTS: [&str; 7] = ["Kit", "Kick", "Snare", "Hats", "Toms", "Cymbals", "Percussion"];
+pub(super) const OUTPUTS: [&str; 7] = ["Kit", "Kick", "Snare", "Hats", "Toms", "Cymbals", "Percussion"];
 
 #[derive(Clone, Copy, PartialEq)]
 enum Kind {
@@ -97,7 +97,7 @@ struct Hit {
 
 const VOICES: usize = 24;
 
-pub struct Drums {
+pub(super) struct Drums {
     sample_rate: f32,
     p: [f32; 3],
     hits: [Hit; VOICES],
@@ -111,7 +111,7 @@ fn square(phase: f32) -> f32 {
 }
 
 impl Drums {
-    pub fn new(sample_rate: f32) -> Self {
+    pub(super) fn new(sample_rate: f32) -> Self {
         let hit = Hit {
             kind: Kind::Kick,
             vel: 0.0,

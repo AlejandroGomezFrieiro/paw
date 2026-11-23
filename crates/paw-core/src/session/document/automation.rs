@@ -16,11 +16,11 @@ use crate::session::{de, holds};
 
 /// The lowest and highest value of a plugin's parameter (device, key),
 /// or none when the plugin is not there to say.
-pub type ParamRange<'a> = &'a dyn Fn(Id, &str) -> Option<(f64, f64)>;
+pub(crate) type ParamRange<'a> = &'a dyn Fn(Id, &str) -> Option<(f64, f64)>;
 
 impl Document {
     /// A lane as a table, without its points.
-    pub fn lane_view(&self, id: Id, param_range: ParamRange) -> Result<Value> {
+    pub(crate) fn lane_view(&self, id: Id, param_range: ParamRange) -> Result<Value> {
         let (track, _) = self
             .project
             .find_lane(id)
@@ -29,7 +29,7 @@ impl Document {
     }
 
     /// The automation lanes of a track, without their points.
-    pub fn lane_list(&self, track: Id, param_range: ParamRange) -> Result<Value> {
+    pub(crate) fn lane_list(&self, track: Id, param_range: ParamRange) -> Result<Value> {
         let t = self
             .project
             .track(track)
@@ -39,7 +39,7 @@ impl Document {
         ))
     }
 
-    pub fn lane_remove(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn lane_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             let (track, index) = p.find_lane(id).with_context(|| format!("no lane {id}"))?;
             p.track_mut(track).unwrap().lanes.remove(index);
@@ -47,7 +47,7 @@ impl Document {
         })
     }
 
-    pub fn lane_set(&mut self, id: Id, key: &str, value: Value, param_range: ParamRange) -> Result<()> {
+    pub(crate) fn lane_set(&mut self, id: Id, key: &str, value: Value, param_range: ParamRange) -> Result<()> {
         if holds(&self.lane_view(id, param_range), key, &value) {
             return Ok(());
         }
@@ -61,7 +61,7 @@ impl Document {
         })
     }
 
-    pub fn lane_points(&self, id: Id) -> Result<&[(f64, f64)]> {
+    pub(crate) fn lane_points(&self, id: Id) -> Result<&[(f64, f64)]> {
         Ok(&self
             .project
             .lane(id)
@@ -70,7 +70,7 @@ impl Document {
     }
 
     /// Replace a lane's points, or add one, replacing any already at its beat.
-    pub fn lane_set_points(
+    pub(crate) fn lane_set_points(
         &mut self,
         id: Id,
         new: Vec<(f64, f64)>,
@@ -100,7 +100,7 @@ impl Document {
     }
 
     /// The shapes of a lane's stretches that are not straight.
-    pub fn lane_shapes(&self, id: Id) -> Result<&[Segment]> {
+    pub(crate) fn lane_shapes(&self, id: Id) -> Result<&[Segment]> {
         Ok(&self
             .project
             .lane(id)
@@ -110,7 +110,7 @@ impl Document {
 
     /// Replace the shapes of a lane's stretches: each by the beat of a point
     /// of the lane; a straight one need not be listed.
-    pub fn lane_set_shapes(&mut self, id: Id, shapes: Vec<Segment>) -> Result<()> {
+    pub(crate) fn lane_set_shapes(&mut self, id: Id, shapes: Vec<Segment>) -> Result<()> {
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
         let mut kept: Vec<Segment> = Vec::new();
         for mut s in shapes {
@@ -134,13 +134,13 @@ impl Document {
     }
 
     /// The lane's value at a beat, or nothing when it has no points.
-    pub fn lane_value_at(&self, id: Id, beat: f64) -> Result<Option<f64>> {
+    pub(crate) fn lane_value_at(&self, id: Id, beat: f64) -> Result<Option<f64>> {
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
         Ok(paw_engine::automation::value_at(&lane.played(), beat))
     }
 
     /// The states of a state lane, whole.
-    pub fn lane_states(&self, id: Id) -> Result<Vec<Arc<LaneState>>> {
+    pub(crate) fn lane_states(&self, id: Id) -> Result<Vec<Arc<LaneState>>> {
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
         if !matches!(lane.target, Target::State { .. }) {
             bail!("lane {id} is not a state lane");
@@ -150,7 +150,7 @@ impl Document {
 
     /// Replace the states of a state lane, as one edit. A point that names
     /// a state no longer there names the last; with no states, the points go.
-    pub fn lane_set_states(&mut self, id: Id, states: Vec<LaneState>) -> Result<()> {
+    pub(crate) fn lane_set_states(&mut self, id: Id, states: Vec<LaneState>) -> Result<()> {
         self.lane_states(id)?;
         let states = states
             .into_iter()
@@ -177,7 +177,7 @@ impl Document {
 
     /// Add a state to a state lane, or replace the one of the same name,
     /// as one edit. Returns its index, from 0.
-    pub fn lane_add_state(&mut self, id: Id, state: LaneState) -> Result<usize> {
+    pub(crate) fn lane_add_state(&mut self, id: Id, state: LaneState) -> Result<usize> {
         let mut states: Vec<LaneState> =
             self.lane_states(id)?.iter().map(|s| (**s).clone()).collect();
         let state = check_lane_state(state)?;

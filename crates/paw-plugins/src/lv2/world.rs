@@ -177,8 +177,7 @@ pub(super) unsafe fn describe_port(
         let span = (info.max - info.min).round();
         if !info.boolean
             && lilv_port_has_property(plugin, port, w.integer)
-            && span >= 1.0
-            && span < 1e6
+            && (1.0..1e6).contains(&span)
         {
             info.steps = span as u32;
         }

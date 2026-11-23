@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 use mlua::{Function, Lua, ffi};
 
 /// LuaJIT was built to look for hooks in compiled code (`build.rs`).
-pub const ASYNC: bool = cfg!(lua_checkhook);
+pub(crate) const ASYNC: bool = cfg!(lua_checkhook);
 
 /// The registry key of the Lua function the hook calls.
 const HOOK_KEY: &std::ffi::CStr = c"paw.limit.hook";
@@ -44,7 +44,7 @@ struct Inner {
     started: Instant,
 }
 
-pub struct Watchdog {
+pub(crate) struct Watchdog {
     inner: Arc<Inner>,
     thread: Thread,
 }
@@ -67,7 +67,7 @@ unsafe extern "C-unwind" fn hook(state: *mut ffi::lua_State, _ar: *mut ffi::lua_
 }
 
 impl Watchdog {
-    pub fn new(started: Instant) -> Self {
+    pub(crate) fn new(started: Instant) -> Self {
         let inner = Arc::new(Inner {
             state: Mutex::new(StatePtr(std::ptr::null_mut())),
             deadline: AtomicU64::new(0),
@@ -87,7 +87,7 @@ impl Watchdog {
 
     /// Watch this Lua state from now on. Call on the thread that runs it,
     /// outside any coroutine.
-    pub fn attach(&self, lua: &Lua) -> mlua::Result<()> {
+    pub(crate) fn attach(&self, lua: &Lua) -> mlua::Result<()> {
         let mut main = std::ptr::null_mut();
         // SAFETY: the closure only copies the pointer of the state out; it touches nothing.
         unsafe { lua.exec_raw::<()>((), |state| main = state)? };
@@ -97,19 +97,19 @@ impl Watchdog {
     }
 
     /// Stop watching, before the Lua state goes away.
-    pub fn detach(&self) {
+    pub(crate) fn detach(&self) {
         self.inner.deadline.store(0, Ordering::SeqCst);
         self.inner.state.lock().unwrap().0 = std::ptr::null_mut();
     }
 
     /// The Lua function to call when a callback has overrun.
-    pub fn set_hook(lua: &Lua, func: Function) -> mlua::Result<()> {
+    pub(crate) fn set_hook(lua: &Lua, func: Function) -> mlua::Result<()> {
         lua.set_named_registry_value(HOOK_KEY.to_str().unwrap(), func)
     }
 
     /// The running callback must return by `ms` (on the clock of `started`),
     /// or `None` when it has returned.
-    pub fn watch(&self, ms: Option<f64>) {
+    pub(crate) fn watch(&self, ms: Option<f64>) {
         let micros = ms.map_or(0, |ms| ((ms.max(0.0) * 1000.0) as u64).max(1));
         self.inner.deadline.store(micros, Ordering::SeqCst);
         if micros != 0 && self.inner.parked.swap(false, Ordering::SeqCst) {

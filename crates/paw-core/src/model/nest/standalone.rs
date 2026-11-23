@@ -24,7 +24,7 @@ const EPS: f64 = 1e-9;
 
 /// A project made of a part of another, and what changed on the way.
 #[derive(Debug)]
-pub struct Standalone {
+pub(crate) struct Standalone {
     pub project: Project,
     /// The routes that pointed out of the part and were cut, in words.
     pub changes: Vec<String>,
@@ -170,7 +170,7 @@ impl Project {
     /// master the master, its markers and data the project's, its key
     /// (`meta.key`) the project's key, and its tempo and meter as its
     /// first block plays them. The nests inside it stay nests.
-    pub fn nest_standalone(&self, id: NestId) -> Result<Standalone> {
+    pub(crate) fn nest_standalone(&self, id: NestId) -> Result<Standalone> {
         let nest = self.nest(id).with_context(|| format!("no subproject {id}"))?;
         let from_master = |to: Id| if to == nest.master { MASTER_ID } else { to };
         let tracks: Vec<Track> = self
@@ -202,7 +202,7 @@ impl Project {
     /// and a master with no devices. A route to a track that is not in the
     /// view is cut, and each cut is told. A clip that crosses an edge and
     /// cannot be cut there is an error.
-    pub fn view_standalone(&self, name: &str, tracks: &[Id], from: f64, to: f64) -> Result<Standalone> {
+    pub(crate) fn view_standalone(&self, name: &str, tracks: &[Id], from: f64, to: f64) -> Result<Standalone> {
         if !(from.is_finite() && to.is_finite() && to - from > EPS) {
             bail!("the view has no time to write");
         }
@@ -252,7 +252,7 @@ impl Project {
     }
 
     /// The place of the tracks of a view: one for all, none a master.
-    pub fn view_place(&self, tracks: &[Id]) -> Result<Option<NestId>> {
+    pub(crate) fn view_place(&self, tracks: &[Id]) -> Result<Option<NestId>> {
         if tracks.is_empty() {
             bail!("the view has no tracks");
         }
@@ -272,7 +272,7 @@ impl Project {
 
     /// An error for the first clip of `tracks` that crosses an edge of the
     /// time `from..to` and cannot be cut there: an audio or a looped clip.
-    pub fn check_cuts(&self, tracks: &[Id], from: f64, to: f64) -> Result<()> {
+    pub(crate) fn check_cuts(&self, tracks: &[Id], from: f64, to: f64) -> Result<()> {
         let tempo = self.tempo_map();
         for t in tracks.iter().filter_map(|id| self.track(*id)) {
             for c in t.clips.iter().filter(|c| c.start < to - EPS && c.start + c.length > from + EPS) {

@@ -34,7 +34,7 @@ use crate::model::{Clip, ClipContent, Id, MASTER_ID, NestId, NestPlay, Project, 
 
 /// What the engine plays of a track.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Played {
+pub(crate) enum Played {
     /// Its clips through its devices.
     Live,
     /// This file, from the start of the song, with its devices held.
@@ -72,13 +72,13 @@ fn map_meta_file(
 }
 
 /// The sound file a track is frozen to, from its meta.
-pub fn frozen_file(track: &Track) -> Option<PathBuf> {
+pub(crate) fn frozen_file(track: &Track) -> Option<PathBuf> {
     meta_file(&track.meta)
 }
 
 /// Point a frozen track at another file (saving relative to the project,
 /// relinking a moved one). Returns whether it changed.
-pub fn map_frozen_file(
+pub(crate) fn map_frozen_file(
     track: &mut Track,
     f: &mut impl FnMut(&std::path::Path) -> Option<PathBuf>,
 ) -> bool {
@@ -87,7 +87,7 @@ pub fn map_frozen_file(
 
 /// The sound file a block of a subproject is frozen to, from its meta.
 /// None for every other clip.
-pub fn block_file(clip: &Clip) -> Option<PathBuf> {
+pub(crate) fn block_file(clip: &Clip) -> Option<PathBuf> {
     match clip.content {
         ClipContent::Nest { .. } => meta_file(&clip.meta),
         _ => None,
@@ -96,7 +96,7 @@ pub fn block_file(clip: &Clip) -> Option<PathBuf> {
 
 /// Point a frozen block at another file, as [`map_frozen_file`] does for a
 /// track. Returns whether it changed.
-pub fn map_block_file(
+pub(crate) fn map_block_file(
     clip: &mut Clip,
     f: &mut impl FnMut(&std::path::Path) -> Option<PathBuf>,
 ) -> bool {
@@ -107,7 +107,7 @@ pub fn map_block_file(
 /// file at the block's start, as long as the file (`frozen.length` beats,
 /// the tail included), on the block's beat. None for a clip that is not a
 /// frozen block.
-pub fn block_sound(clip: &Clip) -> Option<Clip> {
+pub(crate) fn block_sound(clip: &Clip) -> Option<Clip> {
     let file = block_file(clip)?;
     let length = clip
         .meta
@@ -172,7 +172,7 @@ fn feeders(project: &Project, id: Id) -> HashSet<Id> {
 /// What the engine plays of every track that is not live: frozen in the
 /// project or in `extra`, or held inside a frozen track. A track frozen
 /// inside another frozen track is held.
-pub fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap<Id, Played> {
+pub(crate) fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap<Id, Played> {
     let mut out = HashMap::new();
     let frozen: HashMap<Id, PathBuf> = project
         .tracks
@@ -201,7 +201,7 @@ pub fn played(project: &Project, extra: &HashMap<Id, PathBuf>) -> HashMap<Id, Pl
 /// other track silent and the master's own processing left to the caller.
 /// The track itself plays live, even when it is frozen now; tracks frozen
 /// inside it play their files.
-pub fn alone(project: &mut Project, id: Id) -> Result<()> {
+pub(crate) fn alone(project: &mut Project, id: Id) -> Result<()> {
     if id == MASTER_ID {
         bail!("the master track cannot be frozen");
     }
@@ -215,7 +215,7 @@ pub fn alone(project: &mut Project, id: Id) -> Result<()> {
 
 /// Whether a render of tracks alone hears their faders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Fader {
+pub(crate) enum Fader {
     /// Before the fader: no fader, pan, mute, VCA, or volume and pan lane.
     Out,
     /// After the fader, the pan and the mute.
@@ -228,7 +228,7 @@ pub enum Fader {
 /// master's own processing. A track of `ids` that feeds another track of
 /// `ids` (a member of a listed group) is heard once, inside that track,
 /// with its own fader.
-pub fn tracks_alone(project: &mut Project, ids: &[Id], fader: Fader) -> Result<()> {
+pub(crate) fn tracks_alone(project: &mut Project, ids: &[Id], fader: Fader) -> Result<()> {
     if ids.contains(&MASTER_ID) {
         bail!("the master is not a track to hear alone: leave it out of the tracks");
     }
@@ -288,7 +288,7 @@ fn block_on(project: &Project, clip: Id) -> Option<(&Arc<Track>, &Arc<Clip>)> {
 /// song down to `clip` itself. For a block inside a subproject, each
 /// subproject on the way is placed by its block in `through`, or else by
 /// its first block that plays the track that the block below is on.
-pub fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<Vec<Id>> {
+pub(crate) fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<Vec<Id>> {
     let Some((mut track, _)) = block_on(project, clip) else {
         bail!("no block of a subproject {clip}");
     };
@@ -328,7 +328,7 @@ pub fn block_path(project: &Project, clip: Id, through: &[Id]) -> Result<Vec<Id>
 
 /// Where the beats of the place of the last block of `path` (a
 /// [`block_path`]) are in the song: None for a block of the song.
-pub fn path_timing(project: &Project, path: &[Id]) -> Result<Option<Timing>> {
+pub(crate) fn path_timing(project: &Project, path: &[Id]) -> Result<Option<Timing>> {
     let mut timing: Option<Timing> = None;
     for &id in path.iter().take(path.len().saturating_sub(1)) {
         let Some((_, c)) = block_on(project, id) else {
@@ -355,7 +355,7 @@ pub fn path_timing(project: &Project, path: &[Id]) -> Result<Option<Timing>> {
 /// block places a subproject of the path. The block itself plays live,
 /// even when it is frozen now; blocks frozen inside its subproject play
 /// their files.
-pub fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Result<()> {
+pub(crate) fn block_alone(project: &mut Project, clip: Id, through: &[Id]) -> Result<()> {
     let path = block_path(project, clip, through)?;
     let Some((row, ClipContent::Nest { play, .. })) = block_on(project, clip).map(|(t, c)| (t.id, &c.content)) else {
         unreachable!("block_path found the block");

@@ -18,7 +18,7 @@ const OUTSIDE_THE_OCTAVES: [&str; 2] = ["sub", "air"];
 /// At or below this a signal counts as silence.
 const SILENCE_DB: f64 = -90.0;
 
-pub struct Audio {
+pub(crate) struct Audio {
     pub sample_rate: u32,
     pub bits: u16,
     /// One vector of samples per channel, in -1..1.
@@ -27,12 +27,12 @@ pub struct Audio {
 
 impl Audio {
     /// The length in frames: samples per channel.
-    pub fn frames(&self) -> usize {
+    pub(crate) fn frames(&self) -> usize {
         self.channels.first().map_or(0, Vec::len)
     }
 }
 
-pub fn read_wav(path: &Path) -> Result<Audio> {
+pub(crate) fn read_wav(path: &Path) -> Result<Audio> {
     let mut reader =
         hound::WavReader::open(path).with_context(|| format!("reading {}", path.display()))?;
     let spec = reader.spec();
@@ -60,7 +60,7 @@ pub fn read_wav(path: &Path) -> Result<Audio> {
     })
 }
 
-pub fn db(linear: f64) -> f64 {
+pub(crate) fn db(linear: f64) -> f64 {
     if linear <= 1e-10 {
         -200.0
     } else {
@@ -77,7 +77,7 @@ fn fmt_db(value: f64) -> String {
 }
 
 /// How the stretch of time is split for the level-over-time summary.
-pub enum Segments {
+pub(crate) enum Segments {
     /// Equal pieces of about this many seconds.
     Seconds(f64),
     /// Musical bars: the render's start beat, tempo and bar length in beats,
@@ -93,7 +93,7 @@ pub enum Segments {
 
 /// One line of levels for a stem: `peak -3.1 dBFS, RMS -17.2 dBFS`, or
 /// `silent`.
-pub fn level_line(audio: &Audio) -> String {
+pub(crate) fn level_line(audio: &Audio) -> String {
     let levels = all_channels(audio, 0, audio.frames());
     let peak = levels.peak();
     if db(peak as f64) <= SILENCE_DB {
@@ -108,7 +108,7 @@ pub fn level_line(audio: &Audio) -> String {
 }
 
 /// The summary, as compact text.
-pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result<String> {
+pub(crate) fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result<String> {
     let frames = audio.frames();
     if frames == 0 {
         bail!("the file holds no audio");

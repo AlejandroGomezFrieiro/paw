@@ -1271,11 +1271,13 @@ dependencies = [
  "blake3",
  "flacenc",
  "flate2",
+ "hex",
  "include_dir",
  "libc",
  "mlua",
  "paw-engine",
  "paw-luadev",
+ "paw-measure",
  "paw-proto",
  "paw-raster",
  "paw-scene",
@@ -1285,10 +1287,12 @@ dependencies = [
  "realfft",
  "rtrb",
  "rubato",
+ "rustc-hash",
  "rustix",
  "rustls",
  "serde",
  "serde_json",
+ "smallvec",
  "thiserror 2.0.21",
  "tokio",
  "tokio-rustls",
@@ -1314,6 +1318,7 @@ dependencies = [
  "rustix",
  "serde",
  "symphonia",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1326,6 +1331,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "paw-measure"
+version = "0.1.0"
+dependencies = [
+ "realfft",
+ "serde",
 ]
 
 [[package]]

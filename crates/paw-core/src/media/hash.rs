@@ -1,21 +1,22 @@
 //! Content hashes of files: BLAKE3, the name of a source (see
 //! `bench/media.md` for why this hash and the numbers behind the limits).
 //!
-//! Three ways to make the same hash: [`file`] for a file on disk (a big
-//! file is memory-mapped and hashed on all cores), [`bytes`] for bytes in
-//! memory, and [`Incremental`] for bytes that pass by while something else
-//! reads or writes them (an import that decodes, a recording that writes).
+//! Two ways to make the same hash: [`file`] for a file on disk (a big file
+//! is memory-mapped and hashed on all cores), and [`Incremental`] for bytes
+//! that pass by while something else reads or writes them (an import that
+//! decodes, a recording that writes). The tests have `bytes` for bytes in
+//! memory.
 
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::Path;
 
-pub use blake3::Hash;
+pub(crate) use blake3::Hash;
 
 /// From this size a file is memory-mapped and hashed on the rayon pool.
 /// Under it, one thread reads as fast as the disk and the page cache give
 /// (a 53 MB file was no faster on 8 threads: bench/media.md).
-pub const PARALLEL_MIN: u64 = 64 << 20;
+pub(crate) const PARALLEL_MIN: u64 = 64 << 20;
 
 /// The hash of the bytes of the file at `path`.
 pub fn file(path: &Path) -> io::Result<Hash> {
@@ -36,62 +37,45 @@ fn file_from(path: &Path, parallel_min: u64) -> io::Result<Hash> {
 }
 
 /// The hash of `data`.
-pub fn bytes(data: &[u8]) -> Hash {
+#[cfg(test)]
+pub(crate) fn bytes(data: &[u8]) -> Hash {
     blake3::hash(data)
-}
-
-/// The hash of everything `source` gives.
-pub fn reader(source: impl Read) -> io::Result<Hash> {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update_reader(source)?;
-    Ok(hasher.finalize())
 }
 
 /// A hash made as the bytes arrive, in pieces of any size. It gives the
 /// hash that [`file`] gives for the same bytes.
 #[derive(Clone, Default)]
-pub struct Incremental {
+pub(crate) struct Incremental {
     hasher: blake3::Hasher,
-    len: u64,
 }
 
 impl Incremental {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn update(&mut self, data: &[u8]) {
+    pub(crate) fn update(&mut self, data: &[u8]) {
         self.hasher.update(data);
-        self.len += data.len() as u64;
-    }
-
-    /// The bytes given so far.
-    pub fn len(&self) -> u64 {
-        self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     /// The hash of the bytes so far. More bytes can follow.
-    pub fn finish(&self) -> Hash {
+    pub(crate) fn finish(&self) -> Hash {
         self.hasher.finalize()
     }
 }
 
 /// Bytes written through it go on to `inner` and into the hash.
-pub struct Hashing<W> {
+pub(crate) struct Hashing<W> {
     inner: W,
     hash: Incremental,
 }
 
 impl<W: Write> Hashing<W> {
-    pub fn new(inner: W) -> Self {
+    pub(crate) fn new(inner: W) -> Self {
         Self { inner, hash: Incremental::new() }
     }
 
-    pub fn finish(self) -> (W, Hash) {
+    pub(crate) fn finish(self) -> (W, Hash) {
         let hash = self.hash.finish();
         (self.inner, hash)
     }

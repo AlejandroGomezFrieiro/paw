@@ -27,7 +27,7 @@ use crate::model::NoteAttr;
 use crate::session::Session;
 use crate::watchdog::{self, Watchdog};
 
-pub struct Env {
+pub(crate) struct Env {
     pub config_dir: PathBuf,
     /// Load the Lua runtime from this directory instead of the built-in copy.
     pub runtime_dir: Option<PathBuf>,
@@ -37,7 +37,7 @@ pub struct Env {
     pub argv: Vec<String>,
 }
 
-pub struct Timer {
+pub(crate) struct Timer {
     pub id: u64,
     /// When it fires, on the schedule clock (`Shared::clock`).
     pub due: Duration,
@@ -49,7 +49,7 @@ pub struct Timer {
 }
 
 /// Everything the kernel and the Lua API functions both reach into.
-pub struct Shared {
+pub(crate) struct Shared {
     pub session: RefCell<Session>,
     /// The screen of the seat whose turn it is (see runtime/lua/paw/seats.tl),
     /// as big as that seat's terminal: `sizes`, by connection, 0 for the
@@ -117,7 +117,7 @@ pub struct Shared {
 
 impl Shared {
     /// Make `midi.in` events of what came in from ports since last time.
-    pub fn hear_midi(&self) {
+    pub(crate) fn hear_midi(&self) {
         loop {
             // Not held while the session works: the port's thread adds to it.
             let Some((port, kind)) = self.midi_in.lock().unwrap().pop_front() else {
@@ -128,7 +128,7 @@ impl Shared {
     }
 
     /// Make `proc.output` events of what helper processes have written.
-    pub fn hear_output(&self) {
+    pub(crate) fn hear_output(&self) {
         let arrived = self.io.borrow_mut().arrived();
         let mut session = self.session.borrow_mut();
         for id in arrived {
@@ -136,7 +136,7 @@ impl Shared {
         }
     }
 
-    pub fn log(&self, line: String) {
+    pub(crate) fn log(&self, line: String) {
         let mut log = self.log.borrow_mut();
         if log.len() >= 1000 {
             log.pop_front();
@@ -145,7 +145,7 @@ impl Shared {
     }
 }
 
-pub trait LuaResult<T> {
+pub(crate) trait LuaResult<T> {
     /// Turn an error into a Lua error with the full chain of causes.
     fn lua(self) -> mlua::Result<T>;
 }
@@ -156,7 +156,7 @@ impl<T> LuaResult<T> for anyhow::Result<T> {
     }
 }
 
-pub fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValue> {
+pub(crate) fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValue> {
     // JSON null becomes nil, so that `if track.output then` reads naturally.
     let options = SerializeOptions::new()
         .serialize_none_to_null(false)
@@ -168,13 +168,13 @@ pub fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValu
 /// stack. `LuaString::to_str` and `as_bytes` allocate a shared counter for
 /// each call: the screen API takes its text this way instead, with no
 /// allocation for a text of up to `INLINE` bytes.
-pub struct LuaText(smallvec::SmallVec<[u8; LuaText::INLINE]>);
+pub(crate) struct LuaText(smallvec::SmallVec<[u8; LuaText::INLINE]>);
 
 impl LuaText {
     const INLINE: usize = 256;
 
     /// The text, an error when it is not UTF-8.
-    pub fn to_str(&self) -> mlua::Result<&str> {
+    pub(crate) fn to_str(&self) -> mlua::Result<&str> {
         std::str::from_utf8(&self.0).map_err(|e| mlua::Error::FromLuaConversionError {
             from: "string",
             to: "string".into(),
@@ -217,17 +217,17 @@ impl mlua::FromLua for LuaText {
 /// An integer as a Lua value: a Lua integer where it fits, else a number.
 /// LuaJIT's integers have 64 bits; the PUC Lua of a BrowserPod pod has
 /// 32 (`ptrdiff_t` in WebAssembly).
-pub fn lua_integer(n: i64) -> LuaValue {
+pub(crate) fn lua_integer(n: i64) -> LuaValue {
     mlua::Integer::try_from(n).map_or(LuaValue::Number(n as f64), LuaValue::Integer)
 }
 
 /// A Lua integer with 64 bits, on every Lua (see [`lua_integer`]).
 #[allow(clippy::useless_conversion, reason = "mlua::Integer is i64 with LuaJIT, i32 in a pod")]
-pub fn wide_integer(n: mlua::Integer) -> i64 {
+pub(crate) fn wide_integer(n: mlua::Integer) -> i64 {
     i64::from(n)
 }
 
-pub fn from_lua<T: DeserializeOwned>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
+pub(crate) fn from_lua<T: DeserializeOwned>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
     lua.from_value(value)
 }
 
@@ -309,12 +309,12 @@ pub(crate) fn as_ms(d: Duration) -> f64 {
 /// The name of a function of `paw.api`, as its errors give it. `guarded!`
 /// makes one type for each function, so that the conversion of the
 /// arguments knows the name and stays on the fast path of mlua.
-pub trait Named {
+pub(crate) trait Named {
     const NAME: &'static str;
 }
 
 /// The arguments of the function `N`: a conversion that fails names it.
-pub struct Args<N, A>(A, PhantomData<N>);
+pub(crate) struct Args<N, A>(A, PhantomData<N>);
 
 impl<N: Named, A: FromLuaMulti> FromLuaMulti for Args<N, A> {
     fn from_lua_multi(values: MultiValue, lua: &Lua) -> mlua::Result<Self> {
@@ -390,7 +390,7 @@ fn bug(name: &str, panic: &(dyn std::any::Any + Send)) -> mlua::Error {
 
 /// The body of the function `N` of `paw.api`, with its guard. Use it through
 /// `guarded!`, which makes `N`.
-pub fn guard<N, A, R, F>(f: F) -> impl Fn(&Lua, Args<N, A>) -> mlua::Result<R> + 'static
+pub(crate) fn guard<N, A, R, F>(f: F) -> impl Fn(&Lua, Args<N, A>) -> mlua::Result<R> + 'static
 where
     N: Named + 'static,
     A: FromLuaMulti + 'static,
@@ -448,7 +448,7 @@ macro_rules! define {
 /// The version of the scripting interface, `paw.api.version`: the minor
 /// number goes up with additions, the major with anything taken away or
 /// changed, so that an extension can say which it needs (`requires`).
-pub const API_VERSION: &str = "1.0.0";
+pub(crate) const API_VERSION: &str = "1.0.0";
 
 // One file for each area of the API, each with an `install` that defines
 // its functions with `define!`. tools/apidoc.lua and paw-mcp's reference
@@ -469,12 +469,12 @@ mod processes;
 mod formats;
 mod system;
 
-pub use screen::{render, render_live};
+pub(crate) use screen::{render, render_live};
 pub(crate) use screen::draw_view;
-pub use timers::due_timers;
+pub(crate) use timers::due_timers;
 
 /// Build the `paw.api` table and make it available as `require("paw.api")`.
-pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
     let api = lua.create_table()?;
     api.set("limit_async", watchdog::ASYNC)?;
     api.set("version", API_VERSION)?;

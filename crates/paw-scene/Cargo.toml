@@ -3,6 +3,7 @@ name = "paw-scene"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "What a view shows, for every frontend: cells and their styles, and the scene (nodes in cell units, kept by key, sent as patches, hit-tested, lowered to cells)."
 
 [dependencies]
@@ -12,3 +13,6 @@ unicode-width = "0.2"
 
 [dev-dependencies]
 insta.workspace = true
+
+[lints]
+workspace = true

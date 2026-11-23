@@ -152,6 +152,10 @@ pub struct Hit {
     pub rect: [f64; 4],
 }
 
+/// What [`Scene::placed`] calls for each node: the node, where it is and
+/// what it is cut to (each as left, top, right, bottom).
+pub type Visit<'a> = dyn FnMut(&Node, [f64; 4], [f64; 4]) + 'a;
+
 /// A scene: the nodes of one window by key, in order from the root.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Scene {
@@ -409,12 +413,12 @@ impl Scene {
     /// Every node reachable from the root, in drawing order, with where it
     /// is in units of the scene and what it is cut to there (each as left,
     /// top, right, bottom): what a frontend paints a role by.
-    pub fn placed(&self, f: &mut dyn FnMut(&Node, [f64; 4], [f64; 4])) {
+    pub fn placed(&self, f: &mut Visit<'_>) {
         let all = [0.0, 0.0, self.size[0] as f64, self.size[1] as f64];
         self.placed_in(&self.root, Map::UNITS, all, f, 0);
     }
 
-    fn placed_in(&self, keys: &[String], map: Map, cut: [f64; 4], f: &mut dyn FnMut(&Node, [f64; 4], [f64; 4]), depth: usize) {
+    fn placed_in(&self, keys: &[String], map: Map, cut: [f64; 4], f: &mut Visit<'_>, depth: usize) {
         if depth > 64 {
             return;
         }

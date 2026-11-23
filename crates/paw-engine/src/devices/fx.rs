@@ -3,11 +3,11 @@
 use crate::db_to_gain;
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
-pub fn gain_params() -> Vec<ParamInfo> {
+pub(super) fn gain_params() -> Vec<ParamInfo> {
     vec![ParamInfo::new("gain", -60.0, 24.0, 0.0, "dB")]
 }
 
-pub struct Gain {
+pub(super) struct Gain {
     target: f32,
     current: f32,
     /// Set once a block has been processed; before that, changes do not ramp.
@@ -15,7 +15,7 @@ pub struct Gain {
 }
 
 impl Gain {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             target: 1.0,
             current: 1.0,

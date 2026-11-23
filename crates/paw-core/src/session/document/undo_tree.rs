@@ -11,7 +11,7 @@ use crate::model::Project;
 
 impl Document {
     /// The whole tree, as plain data.
-    pub fn undo_tree(&self) -> Value {
+    pub(crate) fn undo_tree(&self) -> Value {
         let h = &self.undo.history;
         let states: Vec<Value> = h
             .states()
@@ -35,7 +35,7 @@ impl Document {
     /// changed, letting the oldest go at once if there are more. Either
     /// left out stays as it is; out of the ranges `paw.opt.undo_steps` and
     /// `undo_memory` take, neither changes.
-    pub fn undo_limits(&mut self, steps: Option<usize>, bytes: Option<usize>) -> Result<()> {
+    pub(crate) fn undo_limits(&mut self, steps: Option<usize>, bytes: Option<usize>) -> Result<()> {
         if let Some(steps) = steps
             && !(10..=1_000_000).contains(&steps)
         {
@@ -52,12 +52,12 @@ impl Document {
     }
 
     /// The current state's id.
-    pub fn undo_current(&self) -> StateId {
+    pub(crate) fn undo_current(&self) -> StateId {
         self.undo.history.current()
     }
 
     /// Keep a state from being pruned, or let it be again.
-    pub fn undo_keep(&mut self, id: StateId, keep: bool) -> Result<()> {
+    pub(crate) fn undo_keep(&mut self, id: StateId, keep: bool) -> Result<()> {
         if !self.undo.history.set_keep(id, keep) {
             bail!("no state {id} in the undo tree");
         }
@@ -65,14 +65,14 @@ impl Document {
     }
 
     /// The command making the open step: see [`History::label`].
-    pub fn undo_label(&mut self, text: Option<String>) {
+    pub(crate) fn undo_label(&mut self, text: Option<String>) {
         self.undo.history.label(text);
     }
 
     /// Make the edits of the open step part of state `id` instead of a step
     /// of their own, if `id` is still the current state and nothing hangs on
     /// it. Returns whether they will be.
-    pub fn undo_join(&mut self, id: StateId) -> bool {
+    pub(crate) fn undo_join(&mut self, id: StateId) -> bool {
         let joins = id == self.undo.history.current() && self.undo.history.can_extend();
         self.undo.join = joins.then_some(id);
         joins
@@ -80,7 +80,7 @@ impl Document {
 
     /// The command that the session's `undo_adjust` ran again failed: put the
     /// step back as it was.
-    pub fn undo_adjust_cancel(&mut self) {
+    pub(crate) fn undo_adjust_cancel(&mut self) {
         let Some(step) = self.undo.adjusting.take() else { return };
         let current = self.undo.history.current();
         self.undo.history.set_label(current, step.label);
@@ -88,20 +88,20 @@ impl Document {
     }
 
     /// Start the undo tree again from the project as it is now.
-    pub fn undo_reset(&mut self) {
+    pub(crate) fn undo_reset(&mut self) {
         self.undo.checkpoint = self.project.clone();
         self.undo.history.reset(self.project.clone(), history::now());
         self.undo.touched = false;
     }
 
     /// The keys typed for the open step.
-    pub fn undo_keys(&mut self, text: String) {
+    pub(crate) fn undo_keys(&mut self, text: String) {
         self.undo.history.keys(text);
     }
 
     /// Put back the project as the open step found it, leaving the history
     /// as it was. The session's `undo_discard` says when.
-    pub fn undo_discard(&mut self) {
+    pub(crate) fn undo_discard(&mut self) {
         self.reopen_step(self.undo.checkpoint.clone());
     }
 

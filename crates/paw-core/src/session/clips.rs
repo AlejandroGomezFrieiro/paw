@@ -4,7 +4,7 @@ use super::*;
 use document::ClipField;
 
 impl Session {
-    pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
+    pub(crate) fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
         if let Some((track, index)) = self.doc.project.find_cue_clip(id) {
             let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, self.files_there.after(self.doc.changes()));
             view.cue = Some(true);
@@ -21,14 +21,9 @@ impl Session {
         Ok(view)
     }
 
-    /// The clips on a track, in timeline order, without their notes.
-    pub fn clip_list(&self, track: Id) -> Result<Vec<ClipView<'_>>> {
-        self.clip_list_in(track, None)
-    }
-
     /// The clips on a track that overlap `span` (`from`, `to` in beats; all
     /// of them with `None`), in timeline order, without their notes.
-    pub fn clip_list_in(&self, track: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
+    pub(crate) fn clip_list_in(&self, track: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
         let t = self
             .doc.project
             .track(track)
@@ -51,7 +46,7 @@ impl Session {
 
     /// Add a clip to `track` ([`Document::clip_add`]). A `.midi2` clip
     /// file in `opts`, and the sound file of an audio clip, are read here.
-    pub fn clip_add(&mut self, track: Id, mut opts: ClipOpts) -> Result<Id> {
+    pub(crate) fn clip_add(&mut self, track: Id, mut opts: ClipOpts) -> Result<Id> {
         // The master refuses a clip before its file is read.
         document::check_clip_track(track)?;
         let source = Self::read_midi_source(&mut opts)?;
@@ -87,7 +82,7 @@ impl Session {
     /// The waveform of the part of its file an audio clip plays, as `n`
     /// (min, max, rms) triples scaled by the clip's gain. Cached, so a view
     /// can ask for it every time it draws.
-    pub fn clip_peaks(&mut self, id: Id, n: usize) -> Result<Vec<[f32; 3]>> {
+    pub(crate) fn clip_peaks(&mut self, id: Id, n: usize) -> Result<Vec<[f32; 3]>> {
         if n > MAX_PEAKS {
             bail!("a waveform has at most {MAX_PEAKS} points, not {n}");
         }
@@ -113,7 +108,7 @@ impl Session {
     /// The waveform of any stretch of a sound file, as [`clip_peaks`](Self::clip_peaks)
     /// gives a clip's: `seconds` of it from `offset`, as `n` (min, max, rms)
     /// triples. For what a clip does not play now, such as its other takes.
-    pub fn media_peaks(
+    pub(crate) fn media_peaks(
         &mut self,
         file: &Path,
         offset: f64,
@@ -133,7 +128,7 @@ impl Session {
 
     /// How many beats of sound an audio clip's file holds from where the
     /// clip starts playing it: as long as the clip can be made.
-    pub fn clip_source_length(&mut self, id: Id) -> Result<f64> {
+    pub(crate) fn clip_source_length(&mut self, id: Id) -> Result<f64> {
         let clip = self
             .doc.project
             .clip(id)
@@ -153,7 +148,7 @@ impl Session {
     /// Set `key` of clip `id` to `value` ([`Document::clip_set`]). A value
     /// the clip already holds is no change; a new sound file is read first;
     /// the fields of how a clip plays are `clip_set_playing`'s.
-    pub fn clip_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn clip_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         // `None` for a field of a playing clip (`clip_set_playing`) or none.
         let field = ClipField::parse(key);
         let plain = matches!(

@@ -23,21 +23,27 @@ fn count() {
     }
 }
 
+// SAFETY: each method hands its arguments to the system allocator, which keeps the contract of
+// `GlobalAlloc`.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         count();
+        // SAFETY: the caller keeps the contract of `GlobalAlloc::alloc`.
         unsafe { System.alloc(layout) }
     }
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         count();
+        // SAFETY: the caller keeps the contract of `GlobalAlloc::alloc_zeroed`.
         unsafe { System.alloc_zeroed(layout) }
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         count();
+        // SAFETY: the caller keeps the contract of `GlobalAlloc::dealloc`.
         unsafe { System.dealloc(ptr, layout) }
     }
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         count();
+        // SAFETY: the caller keeps the contract of `GlobalAlloc::realloc`.
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 }

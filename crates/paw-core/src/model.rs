@@ -22,20 +22,19 @@ mod overrides;
 
 #[cfg(test)]
 mod props;
-pub use clips::Clips;
-pub use custom::{
-    ClipKindId, CustomContent, CustomError, DATA_LIMIT, KindData, KindValue, MediaRef, MediaRole,
-    OscAddress, OscArg, PortName, RESERVED, Signal, SignalTo, Sound, Timeline, Word,
+pub(crate) use clips::Clips;
+pub(crate) use custom::{
+    ClipKindId, CustomContent, KindData, MediaRef, Signal, Sound, Timeline,
 };
-pub use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
+pub(crate) use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
 pub(crate) use links::Links;
-pub use notes::Notes;
-pub use overrides::Overrides;
+pub(crate) use notes::Notes;
+pub(crate) use overrides::Overrides;
 
-pub type Id = u64;
+pub(crate) type Id = u64;
 
 /// The master track's id in every project.
-pub const MASTER_ID: Id = 0;
+pub(crate) const MASTER_ID: Id = 0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Project {
@@ -52,10 +51,10 @@ pub struct Project {
     /// tempo and one signature has none of these, and its file is what it
     /// was before there were tempo maps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tempo_changes: Vec<TempoChange>,
+    pub(crate) tempo_changes: Vec<TempoChange>,
     /// Where the time signature changes after the start, in order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sig_changes: Vec<SigChange>,
+    pub(crate) sig_changes: Vec<SigChange>,
     /// The song's key as `paw.harmony` names it (`"D minor"`), when one is
     /// set. The core keeps the text; `paw.harmony.parse_key` reads it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -71,7 +70,7 @@ pub struct Project {
     pub tracks: Vec<Arc<Track>>,
     /// The nests (subprojects), by id: see `model/nest.rs`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty", with = "nest::as_list")]
-    pub nests: BTreeMap<NestId, Arc<Nest>>,
+    pub(crate) nests: BTreeMap<NestId, Arc<Nest>>,
     /// Free-form data for extensions, saved with the project.
     #[serde(default)]
     pub meta: Map<String, Value>,
@@ -136,12 +135,12 @@ pub struct Track {
     pub armed: bool,
     /// The track this one feeds, or `None` for the master track.
     pub output: Option<Id>,
-    pub sends: Vec<Send>,
-    pub devices: Vec<Arc<DeviceInst>>,
+    pub(crate) sends: Vec<Send>,
+    pub(crate) devices: Vec<Arc<DeviceInst>>,
     pub clips: Clips,
     /// At most one lane per target.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub lanes: Vec<Arc<Lane>>,
+    pub(crate) lanes: Vec<Arc<Lane>>,
     pub color: Option<String>,
     #[serde(default)]
     pub meta: Map<String, Value>,
@@ -155,12 +154,12 @@ pub struct Track {
     /// Which MIDI input the track plays and records when it is armed and
     /// has no audio input; `None` for every port and channel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub midi_input: Option<MidiInput>,
+    pub(crate) midi_input: Option<MidiInput>,
     /// The MIDI output port the track sends what it plays to (its clips'
     /// notes and controllers, and MIDI input passing through), and on which
     /// channel; `None` for none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub midi_output: Option<MidiOutput>,
+    pub(crate) midi_output: Option<MidiOutput>,
     /// How tall the track is drawn, as a share of the height all tracks
     /// have at the frontend's zoom; `None` for that height.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -168,7 +167,7 @@ pub struct Track {
     /// What moving a fader, the pan or a parameter of the track does to
     /// its automation while the song plays, and whether its lanes play.
     #[serde(default, skip_serializing_if = "AutoMode::is_read")]
-    pub automation: AutoMode,
+    pub(crate) automation: AutoMode,
     /// Clips kept off the timeline, which play only when cued (see
     /// `session/cues.rs`). Each starts at 0 and repeats every `length`
     /// beats while it plays.
@@ -177,7 +176,7 @@ pub struct Track {
     /// How its notes' MIDI 2.0 attributes reach an instrument that does
     /// not take them: see `attr_map.rs`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attr_map: Option<crate::attr_map::AttrMap>,
+    pub(crate) attr_map: Option<crate::attr_map::AttrMap>,
     /// The track folder outside the project's folder that the track is
     /// read from: the project refers to it and keeps no copy. The first
     /// edit of the track makes it the project's own (`origin`).
@@ -200,7 +199,7 @@ pub struct Track {
 
 /// The boundaries a cue waits for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Quantize {
+pub(crate) enum Quantize {
     #[serde(rename = "off")]
     Off,
     #[serde(rename = "1/16")]
@@ -222,7 +221,7 @@ pub enum Quantize {
 }
 
 impl Quantize {
-    pub fn engine(self) -> paw_engine::launch::Quantize {
+    pub(crate) fn engine(self) -> paw_engine::launch::Quantize {
         use paw_engine::launch::Quantize as Q;
         match self {
             Quantize::Off => Q::Off,
@@ -240,7 +239,7 @@ impl Quantize {
 /// How a track treats its automation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum AutoMode {
+pub(crate) enum AutoMode {
     /// The lanes play; moving a control writes nothing.
     #[default]
     Read,
@@ -261,7 +260,7 @@ impl AutoMode {
         *self == AutoMode::Read
     }
 
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             AutoMode::Read => "read",
             AutoMode::Touch => "touch",
@@ -272,14 +271,14 @@ impl AutoMode {
     }
 
     /// Moving a control in this mode writes into its lane.
-    pub fn writes(self) -> bool {
+    pub(crate) fn writes(self) -> bool {
         matches!(self, AutoMode::Touch | AutoMode::Latch | AutoMode::Write)
     }
 }
 
 /// MIDI from one port, by its name, and optionally one channel of it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct MidiInput {
+pub(crate) struct MidiInput {
     /// The port's name as the system gives it (`paw.midi.inputs()`), or
     /// `None` for every port.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -292,7 +291,7 @@ pub struct MidiInput {
 /// MIDI to one output port, by its name, on a channel or on each
 /// message's own, in a form for ports that take no MIDI 2.0.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MidiOutput {
+pub(crate) struct MidiOutput {
     /// The port's name as `paw.midi.outputs()` gives it.
     pub port: String,
     /// From 1 to 16, or `None` for the channel each message has.
@@ -309,7 +308,7 @@ pub struct MidiOutput {
 /// `paw_engine::midi_form`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum OutForm {
+pub(crate) enum OutForm {
     /// MIDI 2.0 where the port takes it, else plain MIDI 1.0.
     #[default]
     Auto,
@@ -322,14 +321,14 @@ pub enum OutForm {
 }
 
 impl OutForm {
-    pub fn is_auto(&self) -> bool {
+    pub(crate) fn is_auto(&self) -> bool {
         *self == OutForm::Auto
     }
 }
 
 impl MidiOutput {
     /// The form as the engine takes it.
-    pub fn engine_form(&self) -> paw_engine::midi_form::Form {
+    pub(crate) fn engine_form(&self) -> paw_engine::midi_form::Form {
         use paw_engine::midi_form::Form;
         match self.form {
             OutForm::Auto => Form::Auto,
@@ -341,7 +340,7 @@ impl MidiOutput {
 }
 
 impl Track {
-    pub fn new(id: Id) -> Self {
+    pub(crate) fn new(id: Id) -> Self {
         Self {
             id,
             name: String::new(),
@@ -376,7 +375,7 @@ impl Track {
     /// The names of the fields (as `track_get` names them) that differ from
     /// `before`, the same track in an earlier state. The lists of devices,
     /// clips, cues and lanes compare by identity, as the sync does.
-    pub fn changed_fields(&self, before: &Track) -> Vec<&'static str> {
+    pub(crate) fn changed_fields(&self, before: &Track) -> Vec<&'static str> {
         fn same_arcs<T>(a: &[Arc<T>], b: &[Arc<T>]) -> bool {
             a.len() == b.len() && a.iter().zip(b).all(|(x, y)| Arc::ptr_eq(x, y))
         }
@@ -463,7 +462,7 @@ impl From<InputChannels> for String {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Send {
+pub(crate) struct Send {
     pub target: Id,
     /// Send level in dB.
     pub level: f64,
@@ -475,7 +474,7 @@ pub struct Send {
 
 /// A tempo change along the song.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TempoChange {
+pub(crate) struct TempoChange {
     pub beat: f64,
     pub bpm: f64,
     /// Ramp to the next change's tempo instead of holding this one.
@@ -485,7 +484,7 @@ pub struct TempoChange {
 
 /// A time signature starting a bar at a beat.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SigChange {
+pub(crate) struct SigChange {
     pub beat: f64,
     pub num: u32,
     pub den: u32,
@@ -500,7 +499,7 @@ fn is_zero(value: &f64) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeviceInst {
+pub(crate) struct DeviceInst {
     pub id: Id,
     /// Which device this is, as registered in the device registry.
     pub kind: String,
@@ -649,7 +648,7 @@ pub enum Timebase {
     Stretch,
 }
 
-pub use crate::stretch::Mode as StretchMode;
+pub(crate) use crate::stretch::Mode as StretchMode;
 
 /// A warp marker: the moment `source` of a clip's file plays where its
 /// moment `target` would without the markers, both in seconds of the file,
@@ -976,7 +975,7 @@ impl NoteAttr {
 
 /// An attribute as given: a table of `type` and `data`, or nothing (`false`,
 /// `null`, an empty table, or type 0).
-pub fn de_attr<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<NoteAttr>, D::Error> {
+pub(crate) fn de_attr<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<NoteAttr>, D::Error> {
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum Given {
@@ -1008,7 +1007,7 @@ fn unnamed(id: &u64) -> bool {
 /// at 120 BPM. A clip file writes a gap as one 4-byte Delta Clockstamp for
 /// each 17 beats, so in this range the file of a clip holds at most about
 /// 120 000 clockstamps, and its ticks are far from an overflow.
-pub const MAX_BEATS: f64 = 1e6;
+pub(crate) const MAX_BEATS: f64 = 1e6;
 
 /// Whether `beat` is a time that a clip holds: a number within
 /// [`MAX_BEATS`] of the clip's start, either way. NaN is in no range.
@@ -1018,7 +1017,7 @@ fn in_clip_range(beat: f64) -> bool {
 
 /// An error unless `beat` is a time that a clip holds (see
 /// [`MAX_BEATS`]). `what` names the time in the message.
-pub fn check_clip_beat(what: &str, beat: f64) -> anyhow::Result<()> {
+pub(crate) fn check_clip_beat(what: &str, beat: f64) -> anyhow::Result<()> {
     if !in_clip_range(beat) {
         anyhow::bail!(
             "{what} is at beat {beat}, too far for a clip: a clip holds times up to a million beats from its start"
@@ -1030,7 +1029,7 @@ pub fn check_clip_beat(what: &str, beat: f64) -> anyhow::Result<()> {
 /// Notes that the engine plays and a clip file holds: a finite start, a
 /// length above 0, a start and an end within [`MAX_BEATS`] of the clip's
 /// start, and a pitch and a velocity of at most 127.
-pub fn check_notes<'a>(notes: impl IntoIterator<Item = &'a Note>) -> anyhow::Result<()> {
+pub(crate) fn check_notes<'a>(notes: impl IntoIterator<Item = &'a Note>) -> anyhow::Result<()> {
     for n in notes {
         if !n.start.is_finite() || !n.length.is_finite() || n.length <= 0.0 {
             anyhow::bail!(
@@ -1080,7 +1079,7 @@ impl Clip {
 /// they were. Every edit compares states (for the undo history, the engine
 /// and the change events), so this stays quick for a track of thousands of
 /// clips.
-pub struct ByKey<'a, T, K, F = fn(&T) -> K> {
+pub(crate) struct ByKey<'a, T, K, F = fn(&T) -> K> {
     old: &'a [T],
     key: F,
     at: usize,
@@ -1089,12 +1088,12 @@ pub struct ByKey<'a, T, K, F = fn(&T) -> K> {
 }
 
 impl<'a, T, K: Eq + std::hash::Hash + Copy, F: Fn(&T) -> K> ByKey<'a, T, K, F> {
-    pub fn new(old: &'a [T], key: F) -> Self {
+    pub(crate) fn new(old: &'a [T], key: F) -> Self {
         Self { old, key, at: 0, misses: 0, map: None }
     }
 
     /// Where the item with this key is in the earlier list.
-    pub fn position(&mut self, key: K) -> Option<usize> {
+    pub(crate) fn position(&mut self, key: K) -> Option<usize> {
         let of = &self.key;
         let near = self.at..(self.at + 4).min(self.old.len());
         let found = match near.clone().find(|&k| of(&self.old[k]) == key) {
@@ -1117,20 +1116,20 @@ impl<'a, T, K: Eq + std::hash::Hash + Copy, F: Fn(&T) -> K> ByKey<'a, T, K, F> {
     }
 
     /// The item with this key in the earlier list.
-    pub fn find(&mut self, key: K) -> Option<&'a T> {
+    pub(crate) fn find(&mut self, key: K) -> Option<&'a T> {
         let old = self.old;
         self.position(key).map(|k| &old[k])
     }
 }
 
 /// [`ByKey`] for lists of items with ids.
-pub type ById<'a, T> = ByKey<'a, Arc<T>, Id>;
+pub(crate) type ById<'a, T> = ByKey<'a, Arc<T>, Id>;
 
 /// Where a track's clips may differ from `before` (the same track in another
 /// state, or `None` for a new track): `before`'s clips in that stretch, and
 /// the places of `clips` in it. Every clip outside it is the very same in
 /// both, found by the runs they share (see [`Clips::changed`]).
-pub fn changed_clips<'a>(
+pub(crate) fn changed_clips<'a>(
     before: Option<&'a Clips>,
     clips: &Clips,
 ) -> (Vec<&'a Arc<Clip>>, std::ops::Range<usize>) {
@@ -1147,23 +1146,22 @@ pub fn changed_clips<'a>(
 /// the next free one. Returns whether any changed. The same notes are always
 /// given the same ids, so a state written without them (an older file, a
 /// step of the undo history) comes back with the ids it had.
-pub fn name_notes(notes: &mut Notes) -> bool {
+pub(crate) fn name_notes(notes: &mut Notes) -> bool {
     let unnamed = notes.unnamed();
     if unnamed.is_empty() {
         return false;
     }
     // Past every id there is, so no id given clashes with one further on.
-    let mut next = notes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
-    for i in unnamed {
-        notes[i].id = next;
-        next += 1;
+    let next = notes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+    for (i, id) in unnamed.into_iter().zip(next..) {
+        notes[i].id = id;
     }
     true
 }
 
 /// Automation of one of a track's settings, or of a parameter of one of its devices.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Lane {
+pub(crate) struct Lane {
     pub id: Id,
     pub target: Target,
     /// A lane that is off keeps its points but does not move its target.
@@ -1191,7 +1189,7 @@ pub struct Lane {
 /// is loaded on the main thread. See the explanation of state lanes.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct LaneState {
+pub(crate) struct LaneState {
     /// The name the lane shows for it.
     pub name: String,
     /// The plugin's whole saved state, base64 encoded.
@@ -1212,14 +1210,14 @@ pub struct LaneState {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct StateCall {
+pub(crate) struct StateCall {
     pub method: String,
     pub data: String,
 }
 
 /// The shape of the stretch of a lane from one point to the next.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Segment {
+pub(crate) struct Segment {
     /// The beat of the point the stretch leaves from.
     pub beat: f64,
     pub shape: Shape,
@@ -1231,7 +1229,7 @@ pub struct Segment {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Shape {
+pub(crate) enum Shape {
     Linear,
     /// The value holds and jumps at the next point.
     Hold,
@@ -1243,7 +1241,7 @@ pub enum Shape {
 const SMOOTH_PIECES: usize = 32;
 
 /// Where a smooth stretch is `t` of the way along, 0 to 1.
-pub fn smooth(t: f64, tension: f64) -> f64 {
+pub(crate) fn smooth(t: f64, tension: f64) -> f64 {
     let t = t.clamp(0.0, 1.0);
     let t = t.powf(4f64.powf(-tension.clamp(-1.0, 1.0)));
     t * t * (3.0 - 2.0 * t)
@@ -1253,7 +1251,7 @@ impl Lane {
     /// The points as they are played: joined by straight lines, a held
     /// stretch as a jump at the next point and a smooth one as many short
     /// lines. The points themselves when every stretch is straight.
-    pub fn played(&self) -> std::borrow::Cow<'_, [(f64, f64)]> {
+    pub(crate) fn played(&self) -> std::borrow::Cow<'_, [(f64, f64)]> {
         // A state lane has no curve: each state holds to the next point.
         let states = matches!(self.target, Target::State { .. });
         if self.shapes.is_empty() && !states {
@@ -1291,7 +1289,7 @@ impl Lane {
     /// The value the lane plays at a beat: on the curve between two
     /// points, the nearest point's value before the first and after the
     /// last. 0 for a lane with no points.
-    pub fn value_at(&self, beat: f64) -> f64 {
+    pub(crate) fn value_at(&self, beat: f64) -> f64 {
         let played = self.played();
         let Some(&(first_beat, first)) = played.first() else {
             return 0.0;
@@ -1311,7 +1309,7 @@ impl Lane {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-pub enum Target {
+pub(crate) enum Target {
     /// The track's fader, in dB.
     Volume,
     /// The track's pan, -1 to 1.
@@ -1325,7 +1323,7 @@ pub enum Target {
 }
 
 impl Target {
-    pub fn device(&self) -> Option<Id> {
+    pub(crate) fn device(&self) -> Option<Id> {
         match self {
             Target::Param { device, .. } | Target::State { device } => Some(*device),
             _ => None,
@@ -1337,12 +1335,12 @@ impl Project {
     /// Give the notes that have none an id (see `Note::id`), looking only at
     /// the clips that are not the very same as in `before` (the state the
     /// last naming saw), and touching only those that need it.
-    pub fn name_notes(&mut self, before: &Project) -> bool {
+    pub(crate) fn name_notes(&mut self, before: &Project) -> bool {
         self.name_notes_since(&before.tracks, &before.master)
     }
 
     /// [`name_notes`](Self::name_notes), with only the tracks of `before`.
-    pub fn name_notes_since(&mut self, before: &[Arc<Track>], master: &Arc<Track>) -> bool {
+    pub(crate) fn name_notes_since(&mut self, before: &[Arc<Track>], master: &Arc<Track>) -> bool {
         let mut named = false;
         let mut old_tracks = ById::new(before, |t: &Arc<Track>| t.id);
         let tracks = self.tracks.iter_mut().chain(std::iter::once(&mut self.master));
@@ -1386,7 +1384,7 @@ impl Project {
 
     /// About how many bytes this project holds that `before` does not
     /// share with it: what keeping it as a step of the undo history costs.
-    pub fn weight_over(before: &Project, project: &Project) -> usize {
+    pub(crate) fn weight_over(before: &Project, project: &Project) -> usize {
         use std::mem::size_of;
         let mut old = ById::new(&before.tracks, |t: &Arc<Track>| t.id);
         let mut bytes = 0;
@@ -1423,15 +1421,15 @@ impl Project {
     }
 
     /// Every track including the master track, which comes last.
-    pub fn all_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
+    pub(crate) fn all_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
         self.tracks.iter().chain(std::iter::once(&self.master))
     }
 
-    pub fn track(&self, id: Id) -> Option<&Arc<Track>> {
+    pub(crate) fn track(&self, id: Id) -> Option<&Arc<Track>> {
         self.all_tracks().find(|t| t.id == id)
     }
 
-    pub fn track_mut(&mut self, id: Id) -> Option<&mut Track> {
+    pub(crate) fn track_mut(&mut self, id: Id) -> Option<&mut Track> {
         let track = if id == MASTER_ID {
             &mut self.master
         } else {
@@ -1441,23 +1439,23 @@ impl Project {
     }
 
     /// The track that holds a device, and the device's position in its chain.
-    pub fn find_device(&self, id: Id) -> Option<(Id, usize)> {
+    pub(crate) fn find_device(&self, id: Id) -> Option<(Id, usize)> {
         self.all_tracks()
             .find_map(|t| t.devices.iter().position(|d| d.id == id).map(|i| (t.id, i)))
     }
 
     /// The track that holds an automation lane, and the lane's index on it.
-    pub fn find_lane(&self, id: Id) -> Option<(Id, usize)> {
+    pub(crate) fn find_lane(&self, id: Id) -> Option<(Id, usize)> {
         self.all_tracks()
             .find_map(|t| t.lanes.iter().position(|l| l.id == id).map(|i| (t.id, i)))
     }
 
-    pub fn lane(&self, id: Id) -> Option<&Arc<Lane>> {
+    pub(crate) fn lane(&self, id: Id) -> Option<&Arc<Lane>> {
         let (track, index) = self.find_lane(id)?;
         Some(&self.track(track)?.lanes[index])
     }
 
-    pub fn lane_mut(&mut self, id: Id) -> Option<&mut Lane> {
+    pub(crate) fn lane_mut(&mut self, id: Id) -> Option<&mut Lane> {
         let (track, index) = self.find_lane(id)?;
         Some(Arc::make_mut(&mut self.track_mut(track)?.lanes[index]))
     }
@@ -1468,7 +1466,7 @@ impl Project {
     /// beside it (a clip taken out or put in before it moves it by one).
     /// Only when it is not there are all the clips looked through, and the
     /// place of each is remembered.
-    pub fn find_clip(&self, id: Id) -> Option<(Id, usize)> {
+    pub(crate) fn find_clip(&self, id: Id) -> Option<(Id, usize)> {
         let mut places = self.places.0.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(&(track, index)) = places.get(&id)
             && let Some(t) = self.track(track)
@@ -1493,18 +1491,18 @@ impl Project {
     }
 
     /// Remember where a clip is, having just put it there.
-    pub fn found_clip(&self, id: Id, track: Id, index: usize) {
+    pub(crate) fn found_clip(&self, id: Id, track: Id, index: usize) {
         let mut places = self.places.0.lock().unwrap_or_else(|e| e.into_inner());
         places.insert(id, (track, index));
     }
 
-    pub fn device(&self, id: Id) -> Option<&Arc<DeviceInst>> {
+    pub(crate) fn device(&self, id: Id) -> Option<&Arc<DeviceInst>> {
         let (track, index) = self.find_device(id)?;
         Some(&self.track(track)?.devices[index])
     }
 
     /// A clip on the timeline or off it, for cues.
-    pub fn clip(&self, id: Id) -> Option<&Arc<Clip>> {
+    pub(crate) fn clip(&self, id: Id) -> Option<&Arc<Clip>> {
         if let Some((track, index)) = self.find_clip(id) {
             return Some(&self.track(track)?.clips[index]);
         }
@@ -1514,19 +1512,19 @@ impl Project {
 
     /// The track that holds a clip off the timeline, and the clip's index
     /// among its cue clips.
-    pub fn find_cue_clip(&self, id: Id) -> Option<(Id, usize)> {
+    pub(crate) fn find_cue_clip(&self, id: Id) -> Option<(Id, usize)> {
         self.all_tracks()
             .find_map(|t| t.cues.iter().position(|c| c.id == id).map(|i| (t.id, i)))
     }
 
 
-    pub fn device_mut(&mut self, id: Id) -> Option<&mut DeviceInst> {
+    pub(crate) fn device_mut(&mut self, id: Id) -> Option<&mut DeviceInst> {
         let (track, index) = self.find_device(id)?;
         Some(Arc::make_mut(&mut self.track_mut(track)?.devices[index]))
     }
 
     /// A clip on the timeline or off it, to change.
-    pub fn clip_mut(&mut self, id: Id) -> Option<&mut Clip> {
+    pub(crate) fn clip_mut(&mut self, id: Id) -> Option<&mut Clip> {
         if let Some((track, index)) = self.find_clip(id) {
             return Some(Arc::make_mut(&mut self.track_mut(track)?.clips[index]));
         }
@@ -1536,7 +1534,7 @@ impl Project {
 
     /// Whether routing `from` into `to` would make audio flow in a circle.
     /// Audio flows on from a track through its output and its sends alike.
-    pub fn would_cycle(&self, from: Id, to: Id) -> bool {
+    pub(crate) fn would_cycle(&self, from: Id, to: Id) -> bool {
         let tracks: std::collections::HashMap<Id, &Track> =
             self.tracks.iter().map(|t| (t.id, &**t)).collect();
         let mut seen = std::collections::HashSet::new();
@@ -1564,7 +1562,7 @@ impl Project {
     }
 
     /// The largest id in use.
-    pub fn max_id(&self) -> Id {
+    pub(crate) fn max_id(&self) -> Id {
         self.all_tracks()
             .flat_map(|t| {
                 std::iter::once(t.id)
@@ -1579,14 +1577,14 @@ impl Project {
     }
 
     /// The tempo map, for converting between beats, seconds and bars.
-    pub fn tempo_map(&self) -> &Arc<TempoMap> {
+    pub(crate) fn tempo_map(&self) -> &Arc<TempoMap> {
         &self.map
     }
 
     /// A hash of the tempo and signature points: the same points give the
     /// same stamp, so an undo gives the old stamp back. 53 bits, so that
     /// Lua holds it exactly.
-    pub fn tempo_stamp(&self) -> u64 {
+    pub(crate) fn tempo_stamp(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         (self.tempo.to_bits(), self.tempo_ramp, self.sig_num, self.sig_den).hash(&mut hash);
@@ -1602,7 +1600,7 @@ impl Project {
     }
 
     /// Every tempo point, the start's first.
-    pub fn tempo_points(&self) -> Vec<TempoPoint> {
+    pub(crate) fn tempo_points(&self) -> Vec<TempoPoint> {
         let first = TempoPoint {
             beat: 0.0,
             bpm: self.tempo,
@@ -1618,7 +1616,7 @@ impl Project {
     }
 
     /// Every signature point, the start's first.
-    pub fn sig_points(&self) -> Vec<SigPoint> {
+    pub(crate) fn sig_points(&self) -> Vec<SigPoint> {
         let first = SigPoint {
             beat: 0.0,
             num: self.sig_num,
@@ -1635,13 +1633,13 @@ impl Project {
 
     /// Build the map again from the tempo and signature fields, after they
     /// were set or read from a file, and tidy the fields as the map has them.
-    pub fn refresh_tempo(&mut self) {
+    pub(crate) fn refresh_tempo(&mut self) {
         let map = TempoMap::new(&self.tempo_points(), &self.sig_points());
         self.set_tempo_map(map);
     }
 
     /// Take the tempo and signature points of `map`.
-    pub fn set_tempo_map(&mut self, map: TempoMap) {
+    pub(crate) fn set_tempo_map(&mut self, map: TempoMap) {
         let mut tempos = map.tempos();
         let first = tempos.next().expect("a map has a first tempo");
         self.tempo = first.bpm;
@@ -1671,7 +1669,7 @@ impl Project {
     /// seconds or in beats. MIDI clips and automation stay on their beats.
     /// A block of a subproject with a tempo of its own keeps its start on
     /// its beat and its length in seconds.
-    pub fn retime(&mut self, map: TempoMap) {
+    pub(crate) fn retime(&mut self, map: TempoMap) {
         let old = self.map.clone();
         self.fit_own_tempo_blocks(&old, &map);
         let tracks = std::iter::once(&mut self.master).chain(self.tracks.iter_mut());
@@ -1740,13 +1738,13 @@ impl Project {
     }
 
     /// Whether the map was built from the fields as they are now.
-    pub fn tempo_is_current(&self) -> bool {
+    pub(crate) fn tempo_is_current(&self) -> bool {
         let m = &self.map;
         m.tempos().eq(self.tempo_points()) && m.signatures().eq(self.sig_points())
     }
 
     /// Where the song's last clip ends, in beats.
-    pub fn end(&self) -> f64 {
+    pub(crate) fn end(&self) -> f64 {
         self.all_tracks()
             .filter(|t| t.nest.is_none())
             .flat_map(|t| t.clips.iter().map(|c| c.start + c.length))
@@ -1757,7 +1755,7 @@ impl Project {
     /// so that a damaged or hand-made file cannot load into a state the rest
     /// of the program does not expect: a tempo of 0 (renders that never
     /// end), two things with one id, routing loops, numbers out of range.
-    pub fn validate(&self) -> anyhow::Result<()> {
+    pub(crate) fn validate(&self) -> anyhow::Result<()> {
         self.check_tempo_and_signature()?;
         self.check_master_and_ids()?;
         let tracks: std::collections::HashMap<Id, &Track> =

@@ -101,7 +101,7 @@ pub struct Mapper {
     pub audible: Option<HashSet<Id>>,
     /// The track that plays MIDI input as if it were monitored, without
     /// the project saying so.
-    pub follow: Follow,
+    pub(crate) follow: Follow,
     /// What the engine was last told to play of each track that is not live.
     pub(super) played: HashMap<Id, Played>,
     /// The clip in each of a track's cue rows in the engine, so that a
@@ -125,7 +125,7 @@ pub struct Mapper {
 /// The track that plays MIDI input as if it were monitored, without the
 /// project saying so.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Follow {
+pub(crate) struct Follow {
     /// The selected track, while no track is armed
     /// (`paw.opt.midi_follows_selection`).
     pub selected: Option<Id>,
@@ -136,7 +136,7 @@ pub struct Follow {
 
 impl Follow {
     /// The track that plays MIDI input now, if any.
-    pub fn track(&self, any_armed: bool) -> Option<Id> {
+    pub(crate) fn track(&self, any_armed: bool) -> Option<Id> {
         self.always.or(self.selected.filter(|_| !any_armed))
     }
 }
@@ -183,13 +183,13 @@ impl Mapper {
     }
 
     /// The engine's row of a clip off the timeline, if the engine has it.
-    pub fn cue_row(&self, track: Id, clip: Id) -> Option<u32> {
+    pub(crate) fn cue_row(&self, track: Id, clip: Id) -> Option<u32> {
         let rows = self.cue_rows.get(&track)?;
         rows.iter().position(|c| *c == Some(clip)).map(|r| r as u32)
     }
 
     /// The clip in a track's cue row in the engine.
-    pub fn cue_clip(&self, track: Id, row: u32) -> Option<Id> {
+    pub(crate) fn cue_clip(&self, track: Id, row: u32) -> Option<Id> {
         *self.cue_rows.get(&track)?.get(row as usize)?
     }
 

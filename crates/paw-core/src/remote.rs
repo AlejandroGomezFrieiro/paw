@@ -73,7 +73,7 @@ struct Run {
 
 /// The cells of `grid` that differ from `shown` (all of them without it),
 /// as runs of one style.
-pub fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
+pub(crate) fn runs(grid: &Grid, shown: Option<&Grid>) -> Vec<Value> {
     let width = grid.width as usize;
     let mut out = Vec::new();
     let mut run: Option<Run> = None;
@@ -203,7 +203,7 @@ pub fn apply(grid: &mut Grid, payload: &Value) -> Result<Option<(u16, u16)>> {
 }
 
 /// A frontend at the other end of a connection.
-pub struct RemoteFrontend {
+pub(crate) struct RemoteFrontend {
     client: ClientId,
     clients: Clients,
     /// What that side shows now, to send only what changed.
@@ -212,7 +212,7 @@ pub struct RemoteFrontend {
 }
 
 impl RemoteFrontend {
-    pub fn new(client: ClientId, clients: Clients) -> Self {
+    pub(crate) fn new(client: ClientId, clients: Clients) -> Self {
         Self {
             client,
             clients,

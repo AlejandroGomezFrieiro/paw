@@ -68,7 +68,7 @@ macro_rules! nest_reader {
     }};
 }
 
-pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
+pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     // @return number
     reader!(lua, api, shared, "tempo_seconds", |_, m, beat: f64| {
         Ok(m.seconds(beat))
@@ -384,7 +384,7 @@ impl NestTime {
 }
 
 /// `paw.api.tempo_from_seconds`.
-pub fn from_seconds(lua: &Lua, tempos: &Table, sigs: Option<&Table>) -> mlua::Result<Table> {
+pub(crate) fn from_seconds(lua: &Lua, tempos: &Table, sigs: Option<&Table>) -> mlua::Result<Table> {
     let mut points = Vec::new();
     for p in tempos.sequence_values::<Table>() {
         let p = p?;

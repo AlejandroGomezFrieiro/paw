@@ -27,7 +27,7 @@ use super::ClipContent;
 /// Words that a kind of clip cannot have: the built-in contents, and words
 /// kept for those to come, so that a new built-in content never meets an
 /// extension's kind of the same name in a project.
-pub const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom", "nest"];
+pub(crate) const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom", "nest"];
 
 /// A bad name or a bad content in a custom clip.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -50,7 +50,7 @@ pub enum CustomError {
 
 /// The most bytes that a custom clip's data can have, as compact JSON or as
 /// text. More is media, not data.
-pub const DATA_LIMIT: usize = 1 << 20;
+pub(crate) const DATA_LIMIT: usize = 1 << 20;
 
 /// A lowercase word, `[a-z][a-z0-9_-]{0,31}`, shared by clips that use it:
 /// the role of a media file, the name of an OSC port.
@@ -102,11 +102,11 @@ impl fmt::Display for Word {
 
 /// What a media file is to its clip, in the kind's words: `source`,
 /// `proxy`, `thumbs`.
-pub type MediaRole = Word;
+pub(crate) type MediaRole = Word;
 
 /// The name of an OSC port: the project names it, and the machine's
 /// setting says where it goes.
-pub type PortName = Word;
+pub(crate) type PortName = Word;
 
 /// The name of a kind of clip that an extension defines: a lowercase word
 /// (`video`, `lyrics`), never one of [`RESERVED`]. Clips of one kind share

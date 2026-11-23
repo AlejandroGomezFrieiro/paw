@@ -31,7 +31,7 @@ pub(super) struct EngineLink {
 /// The engine as Lua reads it (`paw.api.engine_get`): latencies in
 /// milliseconds.
 #[derive(Debug, Serialize)]
-pub struct EngineView<'a> {
+pub(crate) struct EngineView<'a> {
     pub backend: &'a BackendChoice,
     /// The kernel runs the blocks as the schedule clock moves (the stepped
     /// backend of the tests): `backend` is `null`.
@@ -86,14 +86,14 @@ impl Session {
     /// What changes of the engine by itself, without a table: the share
     /// of its time that it is busy, the dropouts since it started, and the
     /// frames of each callback (0 until it has run).
-    pub fn engine_load(&self) -> (f32, u32, u32) {
+    pub(crate) fn engine_load(&self) -> (f32, u32, u32) {
         let shared = &self.engine.handle.shared;
         (shared.cpu(), shared.xruns(), shared.period())
     }
 
     /// The engine as `paw.api.engine_get` gives it: typed, so that Lua gets
     /// its table with no JSON between (the status line reads it each frame).
-    pub fn engine_view(&self) -> EngineView<'_> {
+    pub(crate) fn engine_view(&self) -> EngineView<'_> {
         let info: &StreamInfo = &self.engine.stream.info;
         let shared = &self.engine.handle.shared;
         let (device_runs, device_sleeps) = shared.device_blocks();
@@ -133,14 +133,14 @@ impl Session {
     }
 
     /// [`Session::engine_view`] as JSON, for the events that carry it.
-    pub fn engine_info(&self) -> Value {
+    pub(crate) fn engine_info(&self) -> Value {
         serde_json::to_value(self.engine_view()).unwrap_or(Value::Null)
     }
 
     /// Process tracks on this many threads, counting the audio thread, or
     /// with 0 on as many as the machine has cores. Tracks that do not feed
     /// each other are then processed side by side; the sound is the same.
-    pub fn set_threads(&mut self, threads: usize) -> Result<()> {
+    pub(crate) fn set_threads(&mut self, threads: usize) -> Result<()> {
         if threads > MAX_THREADS {
             bail!(
                 "{threads} threads are too many: use up to {MAX_THREADS}, or 0 to leave it to the machine"
@@ -174,7 +174,7 @@ impl Session {
     /// Whether devices at rest (a reverb whose tail has died away, a synth
     /// with no note sounding) sleep through silent blocks, which saves the
     /// processor their work. The sound is the same either way.
-    pub fn set_sleep(&mut self, sleep: bool) {
+    pub(crate) fn set_sleep(&mut self, sleep: bool) {
         self.engine.sleep = sleep;
         self.engine.handle.send(Msg::SetSleep(sleep));
     }
@@ -182,7 +182,7 @@ impl Session {
     /// The quality the built-in devices play at live. Edit quality lowers
     /// their costly settings, such as the oversampling of a saturation.
     /// A render makes an engine of its own, which plays at full quality.
-    pub fn set_quality(&mut self, quality: Quality) {
+    pub(crate) fn set_quality(&mut self, quality: Quality) {
         self.engine.quality = quality;
         self.engine.handle.send(Msg::SetQuality(quality));
     }
@@ -193,7 +193,7 @@ impl Session {
     }
 
     /// The devices the system offers, and which are open.
-    pub fn audio_devices(&self) -> Result<Value> {
+    pub(crate) fn audio_devices(&self) -> Result<Value> {
         let list = backend::list_devices(&self.engine.backend)?;
         let rows = |devices: &[backend::AudioDevice]| -> Vec<Value> {
             devices
@@ -225,7 +225,7 @@ impl Session {
     /// it to the device. What is not given stays as it is. A name that
     /// matches nothing is an error and changes nothing. The choice is
     /// remembered in [`device_file`](Self::device_file) for the next run.
-    pub fn audio_use(
+    pub(crate) fn audio_use(
         &mut self,
         output: Option<String>,
         input: Option<String>,
@@ -308,7 +308,7 @@ impl Session {
     }
 
     /// Peak level of each input channel of the device, as linear gain.
-    pub fn input_levels(&self) -> Vec<f32> {
+    pub(crate) fn input_levels(&self) -> Vec<f32> {
         (0..self.engine.stream.info.input_channels as usize)
             .map(|ch| self.engine.handle.shared.input_meter(ch))
             .collect()
@@ -317,7 +317,7 @@ impl Session {
     /// Audio blocks the engine has finished since it started, or, with a
     /// device, the blocks that device has run (not slept through). `None`
     /// for a device the engine does not have.
-    pub fn blocks(&self, device: Option<Id>) -> Option<u64> {
+    pub(crate) fn blocks(&self, device: Option<Id>) -> Option<u64> {
         let shared = &self.engine.handle.shared;
         match device {
             None => Some(shared.processed()),
@@ -326,7 +326,7 @@ impl Session {
     }
 
     /// Forget the processing times recorded so far.
-    pub fn engine_reset_stats(&self) {
+    pub(crate) fn engine_reset_stats(&self) {
         self.engine.handle.shared.blocks.reset();
     }
 
@@ -334,7 +334,7 @@ impl Session {
     /// [`crate::freeze`]), or live again with `None`. The project is not
     /// changed: nothing is saved or undone, and renders play it live. A
     /// track that is gone can be let go too.
-    pub fn hold(&mut self, track: Id, file: Option<PathBuf>) -> Result<()> {
+    pub(crate) fn hold(&mut self, track: Id, file: Option<PathBuf>) -> Result<()> {
         match file {
             Some(_) if track == MASTER_ID || self.doc.project.track(track).is_none() => {
                 bail!("no track {track} to hold");
@@ -348,7 +348,7 @@ impl Session {
     }
 
     /// The tracks held by [`hold`](Self::hold).
-    pub fn held(&self) -> Vec<Id> {
+    pub(crate) fn held(&self) -> Vec<Id> {
         let mut out: Vec<Id> = self.engine.map.held_files.keys().copied().collect();
         out.sort_unstable();
         out
@@ -356,14 +356,14 @@ impl Session {
 
     /// The track that plays MIDI input while no track is armed, as if it
     /// were monitored, or none. The project does not change.
-    pub fn set_follow(&mut self, track: Option<Id>) {
+    pub(crate) fn set_follow(&mut self, track: Option<Id>) {
         self.set_follows(Follow { selected: track, ..self.engine.map.follow });
     }
 
     /// The track that plays MIDI input as if it were monitored, also while
     /// another track is armed, in place of [`set_follow`](Self::set_follow)'s
     /// track; or none. The project does not change.
-    pub fn set_follow_always(&mut self, track: Option<Id>) {
+    pub(crate) fn set_follow_always(&mut self, track: Option<Id>) {
         self.set_follows(Follow { always: track, ..self.engine.map.follow });
     }
 
@@ -379,7 +379,7 @@ impl Session {
     /// Let only these tracks be heard for now, with what they pass through
     /// (as a solo would, without the project's solos changing), or every
     /// track again with `None`.
-    pub fn set_audible(&mut self, tracks: Option<Vec<Id>>) {
+    pub(crate) fn set_audible(&mut self, tracks: Option<Vec<Id>>) {
         self.engine.map.audible = tracks.map(|ids| ids.into_iter().collect());
         self.doc.dirty = true;
         self.flush();
@@ -387,7 +387,7 @@ impl Session {
 
     /// Stop the audio backend and start another one, rebuilding the engine
     /// from the project.
-    pub fn engine_restart(&mut self, opts: &BackendOptions) -> Result<()> {
+    pub(crate) fn engine_restart(&mut self, opts: &BackendOptions) -> Result<()> {
         if opts.backend == BackendChoice::Step {
             self.engine.null_steps = true;
         }

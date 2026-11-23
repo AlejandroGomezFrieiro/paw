@@ -26,7 +26,7 @@ const TAIL: usize = 4;
 /// number is `whole` when it is done ("out_time_us=" and the length in
 /// microseconds, for ffmpeg's `-progress pipe:1`).
 #[derive(Clone, Debug)]
-pub struct ProgressLine {
+pub(crate) struct ProgressLine {
     pub prefix: String,
     pub whole: f64,
 }
@@ -39,7 +39,7 @@ impl ProgressLine {
 }
 
 /// A bake made by a helper program.
-pub struct Helper {
+pub(crate) struct Helper {
     /// For messages: "making a proxy of film.mkv".
     pub what: String,
     /// The program and its arguments; `{out}` is the entry's folder.

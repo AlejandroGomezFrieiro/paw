@@ -186,7 +186,7 @@ print("beats", clips[1] and clips[1].length or 0)
         .unwrap();
     // Killed after 3.5 s; the header is at most two seconds behind.
     assert!(
-        beats >= 2.0 && beats <= 7.5,
+        (2.0..=7.5).contains(&beats),
         "with what was recorded: {beats} beats"
     );
 }

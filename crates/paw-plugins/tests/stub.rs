@@ -70,10 +70,13 @@ fn a_plugin_in_an_added_directory_takes_the_attribute_and_names_its_keys() {
     );
     // The plugin prefers MIDI 2.0: the note-on came as a packet with the
     // attribute's type in its first word and its data in its second.
+    // SAFETY: the stub plugin is a library of this workspace that runs no code when it loads.
     let lib = unsafe { libloading::Library::new(dir.path().join("stub.clap")).unwrap() };
     let last: libloading::Symbol<unsafe extern "C" fn(*mut u32) -> u32> =
+        // SAFETY: `stub_clap_last` has this signature in the stub plugin.
         unsafe { lib.get(b"stub_clap_last\0").unwrap() };
     let mut words = [0u32; 2];
+    // SAFETY: `words` is two words, as `stub_clap_last` needs.
     assert_eq!(unsafe { last(words.as_mut_ptr()) }, 1);
     assert_eq!(words, [0x4090_3c11, 0xffff_a000]);
     assert_eq!(
@@ -107,6 +110,7 @@ fn a_plugin_in_an_added_directory_takes_the_attribute_and_names_its_keys() {
     // A state it takes on only in its next block wakes it: asleep, it
     // would never take it.
     let state: libloading::Symbol<extern "C" fn() -> u32> =
+        // SAFETY: `stub_clap_state` has this signature in the stub plugin.
         unsafe { lib.get(b"stub_clap_state\0").unwrap() };
     let controller = instance.controller.as_mut().unwrap();
     controller.load_state(&7u32.to_le_bytes()).unwrap();

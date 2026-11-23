@@ -34,7 +34,7 @@ pub(crate) struct Echo {
 impl Echo {
     /// The plugin holds a state now, which gives its parameters these
     /// values (`None` for a value the plugin does not tell).
-    pub fn given(&mut self, values: impl IntoIterator<Item = Option<f64>>) {
+    pub(crate) fn given(&mut self, values: impl IntoIterator<Item = Option<f64>>) {
         for (index, value) in values.into_iter().enumerate() {
             if let Some(value) = value {
                 self.keep(index, value);
@@ -44,7 +44,7 @@ impl Echo {
 
     /// A value that the host knows is the state's: the plugin told it in
     /// the block in which it took the state on, with no gesture.
-    pub fn state(&mut self, index: usize, value: f64) -> Change {
+    pub(crate) fn state(&mut self, index: usize, value: f64) -> Change {
         self.keep(index, value);
         Change {
             index,
@@ -68,7 +68,7 @@ impl Echo {
 
     /// A value that the plugin told of a parameter by itself, inside a
     /// gesture or not: an edit, or the echo of a state.
-    pub fn change(&mut self, index: usize, value: f64, gesture: bool) -> Change {
+    pub(crate) fn change(&mut self, index: usize, value: f64, gesture: bool) -> Change {
         let kept = self.states.get_mut(index);
         let echo = !gesture
             && kept

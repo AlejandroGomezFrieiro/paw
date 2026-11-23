@@ -1,8 +1,6 @@
 //! The `paw` command: start the kernel with a terminal UI, without one, to run
 //! a script, or to talk to an instance that is already running.
 
-#![warn(clippy::undocumented_unsafe_blocks)]
-
 mod args;
 mod graphics;
 mod plugins;

@@ -111,7 +111,7 @@ impl Session {
     /// Say that a control is being held (a fader under the pointer), or has
     /// been let go. In touch mode it writes for as long as it is held, moved
     /// or not, and stops when it is let go.
-    pub fn automation_hold(&mut self, track: Id, target: Target, on: bool) {
+    pub(crate) fn automation_hold(&mut self, track: Id, target: Target, on: bool) {
         if on {
             let Some(value) = self.target_value(track, &target) else {
                 return;
@@ -138,7 +138,7 @@ impl Session {
     /// [`automation_hold`](Self::automation_hold) with the control named
     /// as a lane's target is: "volume", "pan", or "param" with its device
     /// and parameter.
-    pub fn automation_hold_named(
+    pub(crate) fn automation_hold_named(
         &mut self,
         track: Id,
         target: &str,
@@ -197,7 +197,7 @@ impl Session {
     }
 
     /// Write what is being held into its lanes at the playhead. Called once a turn.
-    pub fn write_automation(&mut self) {
+    pub(crate) fn write_automation(&mut self) {
         if !self.play.playing {
             self.writing.latched.clear();
             return;

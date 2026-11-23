@@ -32,7 +32,7 @@ const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct SpawnOpts {
+pub(crate) struct SpawnOpts {
     pub env: BTreeMap<String, String>,
     pub cwd: Option<PathBuf>,
     /// File that receives the program's output and errors, appended to.
@@ -44,7 +44,7 @@ pub struct SpawnOpts {
 }
 
 /// Called from the task reading a piped process's output when a piped process has written something.
-pub type Wake = Arc<dyn Fn() + Send + Sync>;
+pub(crate) type Wake = Arc<dyn Fn() + Send + Sync>;
 
 /// What a piped process has written that has not been read yet.
 #[derive(Default)]
@@ -72,7 +72,7 @@ impl Drop for Pipe {
 }
 
 #[derive(Default)]
-pub struct Io {
+pub(crate) struct Io {
     next: u64,
     procs: HashMap<u64, Child>,
     pipes: HashMap<u64, Pipe>,
@@ -88,11 +88,11 @@ impl Io {
     }
 
     /// Have `wake` called whenever a piped process writes or ends.
-    pub fn on_output(&mut self, wake: Wake) {
+    pub(crate) fn on_output(&mut self, wake: Wake) {
         self.wake = Some(wake);
     }
 
-    pub fn spawn(&mut self, argv: &[String], opts: SpawnOpts) -> Result<u64> {
+    pub(crate) fn spawn(&mut self, argv: &[String], opts: SpawnOpts) -> Result<u64> {
         let (program, args) = argv.split_first().context("nothing to run")?;
         let mut command = Command::new(program);
         command.args(args).envs(&opts.env);
@@ -172,7 +172,7 @@ impl Io {
 
     /// The piped processes that have written something, or ended, since they
     /// were last read. Each is named once until it is read again.
-    pub fn arrived(&mut self) -> Vec<u64> {
+    pub(crate) fn arrived(&mut self) -> Vec<u64> {
         let mut ids = Vec::new();
         for (id, pipe) in &self.pipes {
             let mut output = pipe.output.lock().unwrap();
@@ -188,7 +188,7 @@ impl Io {
     /// Work in flight in other processes (`paw.api.pending`): the piped
     /// processes that have not closed their output, and the other
     /// processes that still run (a download that writes to a file).
-    pub fn working(&mut self) -> usize {
+    pub(crate) fn working(&mut self) -> usize {
         let open_pipes = self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count();
         let mut running = 0;
         for (id, child) in &mut self.procs {
@@ -201,7 +201,7 @@ impl Io {
 
     /// Up to `max` bytes a piped process has written: empty when nothing is
     /// waiting, `None` once it has closed its output and all of it was read.
-    pub fn read_output(&mut self, id: u64, max: usize) -> Result<Option<Vec<u8>>> {
+    pub(crate) fn read_output(&mut self, id: u64, max: usize) -> Result<Option<Vec<u8>>> {
         let pipe = self
             .pipes
             .get(&id)
@@ -217,7 +217,7 @@ impl Io {
 
     /// Write all of `data` to a piped process's input, waiting for room if
     /// it is slow to read.
-    pub fn write_input(&mut self, id: u64, data: &[u8]) -> Result<()> {
+    pub(crate) fn write_input(&mut self, id: u64, data: &[u8]) -> Result<()> {
         let input = self
             .pipes
             .get_mut(&id)
@@ -229,7 +229,7 @@ impl Io {
     }
 
     /// Close a piped process's input, which tells most programs to finish.
-    pub fn close_input(&mut self, id: u64) -> Result<()> {
+    pub(crate) fn close_input(&mut self, id: u64) -> Result<()> {
         self.pipes
             .get_mut(&id)
             .with_context(|| format!("no process {id} with pipes"))?
@@ -238,7 +238,7 @@ impl Io {
     }
 
     /// `{ running, code, pid }`; `code` is nil while running or when a signal ended it.
-    pub fn status(&mut self, id: u64) -> Result<Value> {
+    pub(crate) fn status(&mut self, id: u64) -> Result<Value> {
         let child = self
             .procs
             .get_mut(&id)
@@ -252,7 +252,7 @@ impl Io {
 
     /// Ask a process to finish, as Ctrl-C in a terminal would, and leave it
     /// the time to: `status` says when it has, and `kill` forgets it.
-    pub fn stop(&mut self, id: u64) -> Result<()> {
+    pub(crate) fn stop(&mut self, id: u64) -> Result<()> {
         let child = self
             .procs
             .get_mut(&id)
@@ -268,7 +268,7 @@ impl Io {
     }
 
     /// Stop a process and forget it.
-    pub fn kill(&mut self, id: u64) {
+    pub(crate) fn kill(&mut self, id: u64) {
         self.pipes.remove(&id);
         if let Some(mut child) = self.procs.remove(&id) {
             let _ = child.kill();
@@ -277,7 +277,7 @@ impl Io {
     }
 
     /// Listen on a socket file, replacing a stale one.
-    pub fn listen(&mut self, path: PathBuf) -> Result<u64> {
+    pub(crate) fn listen(&mut self, path: PathBuf) -> Result<u64> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
         }
@@ -290,7 +290,7 @@ impl Io {
         Ok(id)
     }
 
-    pub fn connect(&mut self, path: PathBuf) -> Result<u64> {
+    pub(crate) fn connect(&mut self, path: PathBuf) -> Result<u64> {
         let stream = UnixStream::connect(&path)
             .with_context(|| format!("connecting to {}", path.display()))?;
         stream.set_nonblocking(true)?;
@@ -300,7 +300,7 @@ impl Io {
     }
 
     /// A connection waiting on a listener, if there is one.
-    pub fn accept(&mut self, id: u64) -> Result<Option<u64>> {
+    pub(crate) fn accept(&mut self, id: u64) -> Result<Option<u64>> {
         let (listener, _) = self
             .listeners
             .get(&id)
@@ -319,7 +319,7 @@ impl Io {
 
     /// Up to `max` bytes that have arrived: empty when nothing has, `None`
     /// once the other side has closed the connection.
-    pub fn read(&mut self, id: u64, max: usize) -> Result<Option<Vec<u8>>> {
+    pub(crate) fn read(&mut self, id: u64, max: usize) -> Result<Option<Vec<u8>>> {
         let stream = self
             .streams
             .get_mut(&id)
@@ -341,7 +341,7 @@ impl Io {
     }
 
     /// Write all of `data`, waiting for room if the other side is slow.
-    pub fn write(&mut self, id: u64, data: &[u8]) -> Result<()> {
+    pub(crate) fn write(&mut self, id: u64, data: &[u8]) -> Result<()> {
         let stream = self
             .streams
             .get_mut(&id)
@@ -350,7 +350,7 @@ impl Io {
     }
 
     /// Close a connection or a listener, removing a listener's socket file.
-    pub fn close(&mut self, id: u64) {
+    pub(crate) fn close(&mut self, id: u64) {
         self.streams.remove(&id);
         if let Some((_, path)) = self.listeners.remove(&id) {
             let _ = std::fs::remove_file(path);

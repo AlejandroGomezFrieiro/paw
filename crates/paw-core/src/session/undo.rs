@@ -100,7 +100,7 @@ pub(super) struct Adjusting {
 /// Whether the last step can be made again with other parameters.
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
-pub enum AdjustStatus {
+pub(crate) enum AdjustStatus {
     /// The project is now as it was before the step: run the command again.
     Ready,
     /// The current state is not the newest one (after `undo`).
@@ -113,14 +113,14 @@ pub enum AdjustStatus {
 
 /// What [`Session::undo_adjust`] found: `label` names the current step.
 #[derive(Serialize)]
-pub struct AdjustStart {
+pub(crate) struct AdjustStart {
     pub status: AdjustStatus,
     pub label: Option<String>,
 }
 
 impl Undo {
     /// No steps yet: the tree starts at `project`.
-    pub fn new(project: &Project) -> Self {
+    pub(super) fn new(project: &Project) -> Self {
         Self {
             checkpoint: project.clone(),
             history: new_history(project.clone(), (UNDO_LIMIT, UNDO_BYTES)),
@@ -174,23 +174,23 @@ impl Session {
 
 
     /// Go to any state in the tree. False when there is no such state.
-    pub fn undo_goto(&mut self, id: StateId) -> bool {
+    pub(crate) fn undo_goto(&mut self, id: StateId) -> bool {
         self.move_in_history(|h| h.goto(id)).is_some()
     }
 
     /// `n` states later in the order they were made, earlier when negative.
-    pub fn undo_step(&mut self, n: i64) -> Option<StateId> {
+    pub(crate) fn undo_step(&mut self, n: i64) -> Option<StateId> {
         self.move_in_history(|h| h.step(n))
     }
 
     /// To the state that was current `seconds` later, earlier when negative.
-    pub fn undo_travel(&mut self, seconds: f64) -> Option<StateId> {
+    pub(crate) fn undo_travel(&mut self, seconds: f64) -> Option<StateId> {
         self.move_in_history(|h| h.travel(seconds))
     }
 
     /// Name a state, or the current one (closing the open step first so the
     /// name covers what is on screen). An empty or absent name removes it.
-    pub fn undo_name(&mut self, id: Option<StateId>, name: Option<String>) -> Result<StateId> {
+    pub(crate) fn undo_name(&mut self, id: Option<StateId>, name: Option<String>) -> Result<StateId> {
         let id = match id {
             Some(id) => id,
             None => {
@@ -210,14 +210,14 @@ impl Session {
     /// Whether the open step holds edits that the end of this turn will
     /// close as a step of their own: not during a trial, whose edits are
     /// one step made when it ends.
-    pub fn undo_pending(&self) -> bool {
+    pub(crate) fn undo_pending(&self) -> bool {
         self.doc.undo.touched && self.audition.trial.is_none()
     }
 
     /// Put back the project as the open step found it, leaving the history
     /// as it was: an edit refused before it became a step (`edit.before`).
     /// False when there is nothing to put back, or a trial is under way.
-    pub fn undo_discard(&mut self) -> bool {
+    pub(crate) fn undo_discard(&mut self) -> bool {
         if !self.undo_pending() {
             return false;
         }
@@ -232,7 +232,7 @@ impl Session {
     /// nothing hangs on it. `label` is the step's new name. The caller runs
     /// the command at once, and calls [`Document::undo_adjust_cancel`] if it
     /// fails.
-    pub fn undo_adjust(&mut self, before: Option<StateId>, label: Option<String>) -> AdjustStart {
+    pub(crate) fn undo_adjust(&mut self, before: Option<StateId>, label: Option<String>) -> AdjustStart {
         self.checkpoint();
         let h = &self.doc.undo.history;
         let current = h.current();
@@ -274,7 +274,7 @@ impl Session {
 
     /// What differs from state `a` to state `b`. `b` defaults to the current
     /// state and `a` to `b`'s parent, which is what `b`'s step changed.
-    pub fn undo_diff(&mut self, a: Option<StateId>, b: Option<StateId>) -> Result<Value> {
+    pub(crate) fn undo_diff(&mut self, a: Option<StateId>, b: Option<StateId>) -> Result<Value> {
         self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
         let b = b.unwrap_or(self.doc.undo.history.current());
         let to = self
@@ -298,7 +298,7 @@ impl Session {
 
     /// The project as it was in state `id` (the current one by default), as
     /// a project file holds it, for comparing it with another version.
-    pub fn undo_project(&mut self, id: Option<StateId>) -> Result<Project> {
+    pub(crate) fn undo_project(&mut self, id: Option<StateId>) -> Result<Project> {
         self.doc.undo.history.set_current_snapshot(self.doc.undo.checkpoint.clone());
         let id = id.unwrap_or(self.doc.undo.history.current());
         self.undo_file_state(id)?;
@@ -312,14 +312,14 @@ impl Session {
     // --- checkpoints on disk -------------------------------------------------
 
     /// Where this project's checkpoints go, or None for a project with no file.
-    pub fn checkpoint_dir(&self) -> Option<PathBuf> {
+    pub(crate) fn checkpoint_dir(&self) -> Option<PathBuf> {
         self.path.as_ref().map(|p| p.with_extension("checkpoints"))
     }
 
     /// Write a state beside the project under `name`, and name it so in the
     /// tree: the current one (with the open step closed) unless `id` says
     /// which.
-    pub fn checkpoint_write(&mut self, name: &str, id: Option<StateId>) -> Result<Value> {
+    pub(crate) fn checkpoint_write(&mut self, name: &str, id: Option<StateId>) -> Result<Value> {
         let name = name.trim();
         if name.is_empty() {
             bail!("a checkpoint needs a name");
@@ -362,7 +362,7 @@ impl Session {
     }
 
     /// The checkpoints kept beside the project, oldest first.
-    pub fn checkpoint_list(&self) -> Value {
+    pub(crate) fn checkpoint_list(&self) -> Value {
         let mut out: Vec<(f64, String, PathBuf)> = Vec::new();
         if let Some(dir) = self.checkpoint_dir()
             && let Ok(entries) = std::fs::read_dir(&dir)
@@ -403,7 +403,7 @@ impl Session {
     /// below the current one (so undo comes back), named as the checkpoint.
     /// `file` is a path from [`checkpoint_list`](Self::checkpoint_list), or a
     /// file name in the checkpoint folder.
-    pub fn checkpoint_restore(&mut self, file: &str) -> Result<StateId> {
+    pub(crate) fn checkpoint_restore(&mut self, file: &str) -> Result<StateId> {
         let path = self.checkpoint_path(file)?;
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("reading {}", path.display()))?;
@@ -432,7 +432,7 @@ impl Session {
     }
 
     /// Delete a checkpoint file.
-    pub fn checkpoint_delete(&mut self, file: &str) -> Result<()> {
+    pub(crate) fn checkpoint_delete(&mut self, file: &str) -> Result<()> {
         let path = self.checkpoint_path(file)?;
         std::fs::remove_file(&path).with_context(|| format!("deleting {}", path.display()))
     }
@@ -916,7 +916,7 @@ impl Diff {
 /// and pitch with anything else different is changed, a note that moved in
 /// time or pitch is one removed and one added. Notes of clips added or
 /// removed are not counted.
-pub fn diff(a: &Project, b: &Project) -> Value {
+pub(super) fn diff(a: &Project, b: &Project) -> Value {
     let mut d = Diff::default();
     d.project(a, b);
     d.tracks(a, b);

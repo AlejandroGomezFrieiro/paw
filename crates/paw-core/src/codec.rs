@@ -9,7 +9,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
 use flate2::Compression;
 
-pub fn base64_encode(data: &[u8], url: bool, pad: bool) -> String {
+pub(crate) fn base64_encode(data: &[u8], url: bool, pad: bool) -> String {
     match (url, pad) {
         (false, true) => STANDARD.encode(data),
         (false, false) => STANDARD_NO_PAD.encode(data),
@@ -18,7 +18,7 @@ pub fn base64_encode(data: &[u8], url: bool, pad: bool) -> String {
     }
 }
 
-pub fn base64_decode(text: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn base64_decode(text: &[u8]) -> Result<Vec<u8>> {
     let mut clean: Vec<u8> = text.iter().copied().filter(|b| !b.is_ascii_whitespace()).collect();
     let url = clean.iter().any(|b| *b == b'-' || *b == b'_');
     while clean.last() == Some(&b'=') {
@@ -28,7 +28,7 @@ pub fn base64_decode(text: &[u8]) -> Result<Vec<u8>> {
     Ok(engine.decode(&clean)?)
 }
 
-pub fn deflate(data: &[u8], format: &str) -> Result<Vec<u8>> {
+pub(crate) fn deflate(data: &[u8], format: &str) -> Result<Vec<u8>> {
     let level = Compression::default();
     let out = match format {
         "raw" => {
@@ -54,7 +54,7 @@ pub fn deflate(data: &[u8], format: &str) -> Result<Vec<u8>> {
 /// The bytes `data` holds compressed as `format` says, and how many bytes
 /// of `data` the compressed stream took (with its header and checksum):
 /// what follows is not part of it.
-pub fn inflate(data: &[u8], format: &str) -> Result<(Vec<u8>, usize)> {
+pub(crate) fn inflate(data: &[u8], format: &str) -> Result<(Vec<u8>, usize)> {
     let mut out = Vec::new();
     let mut rest = data;
     match format {
@@ -66,7 +66,7 @@ pub fn inflate(data: &[u8], format: &str) -> Result<(Vec<u8>, usize)> {
     Ok((out, data.len() - rest.len()))
 }
 
-pub fn crc32(data: &[u8]) -> u32 {
+pub(crate) fn crc32(data: &[u8]) -> u32 {
     let mut crc = flate2::Crc::new();
     crc.update(data);
     crc.sum()

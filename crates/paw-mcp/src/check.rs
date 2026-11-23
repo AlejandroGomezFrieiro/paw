@@ -14,7 +14,7 @@ fn err<T>(msg: impl Into<String>) -> Result<T, ToolError> {
 
 /// Check arguments against a tool's schema: known names, required ones, and
 /// JSON types, so a model hears about a typo instead of having it ignored.
-pub fn validate(schema: &Value, args: &Map<String, Value>) -> Result<(), ToolError> {
+pub(crate) fn validate(schema: &Value, args: &Map<String, Value>) -> Result<(), ToolError> {
     check_object(schema, args, "")
 }
 

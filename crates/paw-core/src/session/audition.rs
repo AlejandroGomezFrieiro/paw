@@ -100,7 +100,7 @@ impl Session {
     /// Start a trial: edits from here on are made and heard, and
     /// [`trial_end`](Self::trial_end) keeps them as one undo step or puts
     /// the project back as it was. Edits made before it close their step.
-    pub fn trial_begin(&mut self) -> Result<()> {
+    pub(crate) fn trial_begin(&mut self) -> Result<()> {
         if self.audition.trial.is_some() {
             bail!("a trial is under way already");
         }
@@ -111,14 +111,14 @@ impl Session {
     }
 
     /// Whether a trial is under way.
-    pub fn trial_active(&self) -> bool {
+    pub(crate) fn trial_active(&self) -> bool {
         self.audition.trial.is_some()
     }
 
     /// End the trial: keep its edits, which become the next undo step, or
     /// put the project back exactly as it was before it. True when there
     /// was one.
-    pub fn trial_end(&mut self, keep: bool) -> bool {
+    pub(crate) fn trial_end(&mut self, keep: bool) -> bool {
         let Some(trial) = self.audition.trial.take() else {
             return false;
         };
@@ -172,7 +172,7 @@ impl Session {
     /// Hear a sound file on its own, from its start, in place of whatever
     /// was heard. It is decoded apart; [`preview_view`](Self::preview_view)
     /// says when it plays.
-    pub fn preview_play(&mut self, file: &Path) -> Result<()> {
+    pub(crate) fn preview_play(&mut self, file: &Path) -> Result<()> {
         if !file.is_file() {
             bail!("{} is not a file", file.display());
         }
@@ -220,14 +220,14 @@ impl Session {
     }
 
     /// Stop the sound file heard on its own, fading it out.
-    pub fn preview_stop(&mut self) {
+    pub(crate) fn preview_stop(&mut self) {
         if self.audition.preview.take().is_some() {
             self.engine.handle.send(Msg::SetPreview(None));
         }
     }
 
     /// The level of the sound file heard on its own, in dB.
-    pub fn preview_set_level(&mut self, db: f64) {
+    pub(crate) fn preview_set_level(&mut self, db: f64) {
         self.audition.preview_level = db.clamp(-120.0, 12.0);
         self.engine.handle
             .send(Msg::SetPreviewGain(paw_engine::db_to_gain(self.audition.preview_level)));
@@ -271,7 +271,7 @@ impl Session {
     /// "ended" or "failed", the times in seconds and the outline the
     /// loudest sample of each of 256 stretches of the file. Null when
     /// nothing is.
-    pub fn preview_view(&self) -> Value {
+    pub(crate) fn preview_view(&self) -> Value {
         let Some(preview) = &self.audition.preview else {
             return Value::Null;
         };

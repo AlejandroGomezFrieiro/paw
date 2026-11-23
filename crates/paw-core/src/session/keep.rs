@@ -25,7 +25,7 @@ impl Session {
     }
 
     /// Drop decoded audio that no clip in the project or its undo history uses.
-    pub fn trim_audio(&mut self) {
+    pub(crate) fn trim_audio(&mut self) {
         // A running render was built from what is in the cache: leave it be
         // until the render is over (its engine holds what it plays anyway).
         // Nothing to let go (a project of MIDI alone): looking through every

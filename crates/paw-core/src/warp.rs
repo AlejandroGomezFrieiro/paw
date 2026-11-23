@@ -26,7 +26,7 @@ use crate::stretch::RATIO_RANGE;
 
 /// An increasing map made of straight pieces, from one time to another.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Warp {
+pub(crate) struct Warp {
     /// Its corners, (from, to), in order of both; at least one.
     points: Vec<(f64, f64)>,
     /// How fast it goes before its first corner and after its last.
@@ -36,7 +36,7 @@ pub struct Warp {
 
 impl Warp {
     /// `ratio` times as long throughout, from 0.
-    pub fn even(ratio: f64) -> Self {
+    pub(crate) fn even(ratio: f64) -> Self {
         Self {
             points: vec![(0.0, 0.0)],
             before: ratio,
@@ -46,7 +46,7 @@ impl Warp {
 
     /// Through `points` (sorted, increasing in both), going on at `before`
     /// and `after` past them.
-    pub fn new(points: Vec<(f64, f64)>, before: f64, after: f64) -> Self {
+    pub(crate) fn new(points: Vec<(f64, f64)>, before: f64, after: f64) -> Self {
         if points.is_empty() {
             return Self::even(before);
         }
@@ -58,7 +58,7 @@ impl Warp {
     }
 
     /// Where `x` goes.
-    pub fn forward(&self, x: f64) -> f64 {
+    pub(crate) fn forward(&self, x: f64) -> f64 {
         let p = &self.points;
         let i = p.partition_point(|q| q.0 <= x);
         if i == 0 {
@@ -72,7 +72,7 @@ impl Warp {
     }
 
     /// What goes to `y`.
-    pub fn inverse(&self, y: f64) -> f64 {
+    pub(crate) fn inverse(&self, y: f64) -> f64 {
         let p = &self.points;
         let i = p.partition_point(|q| q.1 <= y);
         if i == 0 {
@@ -86,7 +86,7 @@ impl Warp {
     }
 
     /// How fast it goes in each of its pieces, the outer two first.
-    pub fn slopes(&self) -> impl Iterator<Item = f64> + '_ {
+    pub(crate) fn slopes(&self) -> impl Iterator<Item = f64> + '_ {
         [self.before, self.after].into_iter().chain(
             self.points
                 .windows(2)
@@ -95,14 +95,14 @@ impl Warp {
     }
 
     /// The ratio it goes at throughout, from 0 to 0, if it is even.
-    pub fn ratio(&self) -> Option<f64> {
+    pub(crate) fn ratio(&self) -> Option<f64> {
         let even =
             self.points.len() == 1 && self.points[0] == (0.0, 0.0) && self.before == self.after;
         even.then_some(self.before)
     }
 
     /// The same map with its times `to` made `k` times as long.
-    pub fn scaled(&self, k: f64) -> Self {
+    pub(crate) fn scaled(&self, k: f64) -> Self {
         Self {
             points: self.points.iter().map(|&(x, y)| (x, y * k)).collect(),
             before: self.before * k,
@@ -111,7 +111,7 @@ impl Warp {
     }
 
     /// The same map in frames at `rate` rather than seconds.
-    pub fn in_frames(&self, rate: f64) -> Self {
+    pub(crate) fn in_frames(&self, rate: f64) -> Self {
         Self {
             points: self
                 .points
@@ -133,7 +133,7 @@ impl Warp {
 
     /// The map as numbers that are the same for the same map, for knowing a
     /// version by it.
-    pub fn bits(&self) -> Vec<u64> {
+    pub(crate) fn bits(&self) -> Vec<u64> {
         let mut out = vec![self.before.to_bits(), self.after.to_bits()];
         for (x, y) in &self.points {
             out.push(x.to_bits());
@@ -143,7 +143,7 @@ impl Warp {
     }
 
     /// The map [`bits`](Self::bits) gave.
-    pub fn from_bits(bits: &[u64]) -> Self {
+    pub(crate) fn from_bits(bits: &[u64]) -> Self {
         let f = |i: usize| f64::from_bits(bits[i]);
         let points = (2..bits.len())
             .step_by(2)
@@ -153,7 +153,7 @@ impl Warp {
     }
 
     /// Fails unless each piece is stretched within [`RATIO_RANGE`].
-    pub fn check(&self) -> Result<()> {
+    pub(crate) fn check(&self) -> Result<()> {
         let (lo, hi) = RATIO_RANGE;
         // A little slack for the rounding of corners worked out from beats.
         for slope in self.slopes() {
@@ -229,7 +229,7 @@ fn bent(clip: &Clip, map: &TempoMap, unstretched: &Warp, offset: f64) -> Option<
 }
 
 /// Whether `clip` is bent along the tempo rather than stretched evenly.
-pub fn is_bent(clip: &Clip, map: &TempoMap) -> bool {
+pub(crate) fn is_bent(clip: &Clip, map: &TempoMap) -> bool {
     let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return false;
     };
@@ -239,7 +239,7 @@ pub fn is_bent(clip: &Clip, map: &TempoMap) -> bool {
 /// What `clip` plays of its file, with the song's tempo `map`: its file's
 /// seconds to the seconds of the version it plays, 0 to 0. `None` for a
 /// clip that plays its file as it is.
-pub fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
+pub(crate) fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
     let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return None;
     };
@@ -254,7 +254,7 @@ pub fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
 }
 
 /// Where `clip` plays its file's moment `source`, as a beat of the song.
-pub fn beat_of(clip: &Clip, map: &TempoMap, source: f64) -> f64 {
+pub(crate) fn beat_of(clip: &Clip, map: &TempoMap, source: f64) -> f64 {
     let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return clip.start;
     };
@@ -264,7 +264,7 @@ pub fn beat_of(clip: &Clip, map: &TempoMap, source: f64) -> f64 {
 }
 
 /// The moment of its file that `clip` plays at `beat`.
-pub fn source_at(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
+pub(crate) fn source_at(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
     let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return 0.0;
     };
@@ -274,7 +274,7 @@ pub fn source_at(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
 
 /// The `target` that puts a marker at `source` on `beat`, the rest of the
 /// clip staying as it is: as the clip is bent, or stretched evenly.
-pub fn target_for(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
+pub(crate) fn target_for(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
     let Some(ClipContent::Audio { offset, .. }) = clip.playable() else {
         return 0.0;
     };
@@ -289,7 +289,7 @@ pub fn target_for(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
 
 /// The furthest `target` of marker `index` of `warp` may go either way and
 /// keep the stretch on both its sides within [`RATIO_RANGE`] at `stretch`.
-pub fn target_range(warp: &[WarpMarker], index: usize, stretch: f64) -> (f64, f64) {
+pub(crate) fn target_range(warp: &[WarpMarker], index: usize, stretch: f64) -> (f64, f64) {
     let (lo, hi) = RATIO_RANGE;
     let m = warp[index];
     let mut range = (f64::NEG_INFINITY, f64::INFINITY);

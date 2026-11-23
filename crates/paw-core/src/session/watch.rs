@@ -75,7 +75,7 @@ impl Watch {
 
 /// The audio device that went away and is waited for (`engine_get().lost`).
 #[derive(Clone, Copy, Debug, Serialize)]
-pub struct Lost<'a> {
+pub(crate) struct Lost<'a> {
     pub device: &'a str,
     /// Whether paw goes back to it by itself when it comes back.
     pub auto: bool,
@@ -176,7 +176,7 @@ impl Session {
 
     /// Try to open the device that went away again: returns whether it is
     /// open. Does nothing (and returns true) when no device has gone.
-    pub fn audio_reconnect(&mut self) -> Result<bool> {
+    pub(crate) fn audio_reconnect(&mut self) -> Result<bool> {
         let Some(gone) = self.watch.gone.as_mut() else {
             return Ok(true);
         };
@@ -216,7 +216,7 @@ impl Session {
 
     /// Reopen the device by itself when it comes back (on by default), and
     /// how often to look for it.
-    pub fn set_audio_watch(&mut self, auto: Option<bool>, period: Option<Duration>) {
+    pub(crate) fn set_audio_watch(&mut self, auto: Option<bool>, period: Option<Duration>) {
         if let Some(auto) = auto {
             self.watch.auto = auto;
         }
@@ -229,7 +229,7 @@ impl Session {
     }
 
     /// The device that went away and is being waited for, if one has.
-    pub fn audio_lost(&self) -> Option<Lost<'_>> {
+    pub(crate) fn audio_lost(&self) -> Option<Lost<'_>> {
         self.watch.gone.as_ref().map(|gone| Lost { device: &gone.name, auto: self.watch.auto })
     }
 

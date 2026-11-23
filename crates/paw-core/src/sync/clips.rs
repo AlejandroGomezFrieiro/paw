@@ -203,7 +203,7 @@ fn attr_of(note: &Note) -> paw_engine::Attr {
 /// start, for a repeated stretch beginning at `from` and `period` long, in
 /// a clip `length` long: the first begins at or before 0, the last ends
 /// at `length` or later. In beats for MIDI, in seconds for sound.
-pub fn repeats(from: f64, period: f64, length: f64) -> impl Iterator<Item = (f64, f64)> {
+pub(crate) fn repeats(from: f64, period: f64, length: f64) -> impl Iterator<Item = (f64, f64)> {
     // The repeat the clip's start falls in.
     let first = from - period * (from / period).ceil();
     let count = if period > 0.0 {

@@ -20,7 +20,7 @@ use super::host::Host;
 use super::library::load;
 use super::shared::Shared;
 use super::state::{Stream, stream_ptr};
-use super::{EVENT, INPUT, OK, OUTPUT, REALTIME, SAMPLE_32, hex, wide};
+use super::{EVENT, INPUT, OK, OUTPUT, REALTIME, SAMPLE_32, wide};
 use crate::HeldNotes;
 use crate::echo::Echo;
 
@@ -283,7 +283,7 @@ impl DeviceFactory for Vst3Factory {
                     &self.info.name,
                     Some(&self.bundle),
                 ),
-                class: hex(&self.class),
+                class: hex::encode_upper(self.class.map(|b| b as u8)),
                 known: vec![f64::NAN; shared.param_ids.len()],
                 echo: Echo::default(),
                 reread: None,

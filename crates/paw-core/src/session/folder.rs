@@ -48,7 +48,7 @@ mod nests;
 pub(super) use nests::read_part;
 
 /// The file that makes a folder a project.
-pub const PROJECT_FILE: &str = "project.toml";
+pub(crate) const PROJECT_FILE: &str = "project.toml";
 /// The version of the folder's format.
 const VERSION: u32 = 2;
 /// The folders and the files at the top of a project that paw writes, and
@@ -62,7 +62,7 @@ const GITATTRIBUTES: &str = "*.midi2 diff=paw-midi2\n";
 /// Whether a path names a project kept as a folder: a folder, its
 /// `project.toml`, or a name with no extension that is not a file yet.
 /// Anything else is a project in one JSON file.
-pub fn is_folder_path(path: &Path) -> bool {
+pub(crate) fn is_folder_path(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n == PROJECT_FILE)
         || path.is_dir()
         || (!path.exists() && path.extension().is_none())
@@ -71,7 +71,7 @@ pub fn is_folder_path(path: &Path) -> bool {
 /// Whether `rel`, a path in a project folder, is one of the files that paw
 /// writes there: the project file, the files at the top that it manages,
 /// and everything under `tracks/` and `master/`.
-pub fn is_managed(rel: &Path) -> bool {
+pub(crate) fn is_managed(rel: &Path) -> bool {
     rel.as_os_str() == PROJECT_FILE
         || MANAGED_FILES.iter().any(|f| rel.as_os_str() == *f)
         || rel
@@ -81,12 +81,12 @@ pub fn is_managed(rel: &Path) -> bool {
 }
 
 /// The project file as it was before the last save that changed it.
-pub fn backup_of(dir: &Path) -> PathBuf {
+pub(crate) fn backup_of(dir: &Path) -> PathBuf {
     dir.join(format!("{PROJECT_FILE}.bak"))
 }
 
 /// The `project.toml` of a project folder named by itself or by that file.
-pub fn project_file(path: &Path) -> PathBuf {
+pub(crate) fn project_file(path: &Path) -> PathBuf {
     if path.file_name().is_some_and(|n| n == PROJECT_FILE) {
         path.to_path_buf()
     } else {
@@ -96,7 +96,7 @@ pub fn project_file(path: &Path) -> PathBuf {
 
 /// A name made of letters, digits, `-`, `_` and `.`, for a file or a
 /// folder, that does not start with a dot.
-pub fn file_name(name: &str) -> String {
+pub(crate) fn file_name(name: &str) -> String {
     let safe: String = name
         .trim()
         .chars()
@@ -130,7 +130,7 @@ fn unique(taken: &mut BTreeSet<String>, stem: &str, ext: &str) -> String {
 
 /// The files of a project, by their path in its folder.
 #[derive(Default)]
-pub struct Layout {
+pub(crate) struct Layout {
     pub files: BTreeMap<PathBuf, Vec<u8>>,
     /// The file each clip's notes are in, by clip id: a path in the folder,
     /// or a file outside it the clip refers to.
@@ -395,9 +395,12 @@ impl Writer<'_> {
     }
 }
 
+/// The `.state` files of a chain's plugins: each file's name and bytes.
+type StateFiles = Vec<(String, Vec<u8>)>;
+
 /// A track's chain as a `devices.json` holds it, and the `.state` file of
 /// each plugin's state that it names, by name.
-fn chain_files(track: &Track) -> Result<(Vec<Value>, Vec<(String, Vec<u8>)>)> {
+fn chain_files(track: &Track) -> Result<(Vec<Value>, StateFiles)> {
     let mut devices = Vec::new();
     let mut files = Vec::new();
     let mut states = BTreeSet::new();
@@ -532,7 +535,7 @@ pub struct Home(Option<PathBuf>);
 
 impl Home {
     /// The home folder at `path`, or no home folder.
-    pub fn new(path: Option<PathBuf>) -> Self {
+    pub(crate) fn new(path: Option<PathBuf>) -> Self {
         Self(path)
     }
 
@@ -553,7 +556,7 @@ impl Home {
 
     /// A path as a project file in the folder `dir` gives it, made
     /// absolute: `~/` from the home folder, a relative one from `dir`.
-    pub fn resolve(&self, file: &Path, dir: &Path) -> PathBuf {
+    pub(crate) fn resolve(&self, file: &Path, dir: &Path) -> PathBuf {
         if let Ok(rel) = file.strip_prefix("~")
             && let Some(home) = &self.0
         {
@@ -585,7 +588,7 @@ pub(crate) fn tidy(path: &Path) -> PathBuf {
 
 /// The files of a project in the folder `dir`. Its media paths are already
 /// as the folder names them (see `media::for_file`).
-pub fn layout(
+pub(crate) fn layout(
     project: &Project,
     transport: &Value,
     screen: Option<&Value>,
@@ -598,7 +601,7 @@ pub fn layout(
 /// The files of each track laid out alone, kept from one [`layout_cached`]
 /// to the next: states of the undo tree share most of their tracks.
 #[derive(Default)]
-pub struct TrackCache {
+pub(crate) struct TrackCache {
     now: HashMap<(usize, PathBuf), CachedTrack>,
     before: HashMap<(usize, PathBuf), CachedTrack>,
 }
@@ -637,7 +640,7 @@ impl TrackCache {
 /// tracks share a file and `clip_files` is empty: for the states of the undo
 /// file, which read back as the same project. The tracks that the last call
 /// laid out come from `cache`.
-pub fn layout_cached(
+pub(crate) fn layout_cached(
     project: &Project,
     transport: &Value,
     screen: Option<&Value>,
@@ -707,7 +710,7 @@ fn lay_out(
 
 /// What a save did to the files.
 #[derive(Debug, Default)]
-pub struct Committed {
+pub(crate) struct Committed {
     /// Paths in the folder that were written, `project.toml` last.
     pub written: Vec<PathBuf>,
     /// Those that were the same already.
@@ -815,7 +818,7 @@ fn unused_place(dir: &Path, rel: &Path) -> PathBuf {
 /// and then renamed over it, so a crash leaves each file old or new. Files
 /// paw wrote that the project does not use any more go to `unused/`, or are
 /// moved to where a file of the same bytes is wanted (a renamed track).
-pub fn commit(dir: &Path, layout: &Layout, only: Option<&BTreeSet<PathBuf>>) -> Result<Committed> {
+pub(crate) fn commit(dir: &Path, layout: &Layout, only: Option<&BTreeSet<PathBuf>>) -> Result<Committed> {
     std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     let mut done = Committed::default();
     let before = managed_files(dir);
@@ -982,7 +985,7 @@ fn read_track(
 /// The devices of a chain file (a `devices.json`), each with its state
 /// read from the file beside it that it names. A file that is not there is
 /// an empty chain.
-pub fn read_chain(
+pub(crate) fn read_chain(
     fs: &dyn ProjectFiles,
     home: &Home,
     file: &Path,
@@ -1106,7 +1109,7 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
 /// A track folder outside a project, read as a track that refers to it:
 /// with ids the project does not have (`used`), and played into the
 /// master with no sends, because the tracks it played into are not here.
-pub fn read_outside_track(
+pub(crate) fn read_outside_track(
     fs: &dyn ProjectFiles,
     home: &Home,
     folder: &Path,
@@ -1214,7 +1217,7 @@ fn take_custom_files(fs: &dyn ProjectFiles, home: &Home, content: &mut Value, di
 }
 
 /// Read a project folder (`dir/project.toml`) from the disk.
-pub fn read(home: &Home, dir: &Path) -> Result<Read> {
+pub(crate) fn read(home: &Home, dir: &Path) -> Result<Read> {
     read_from(&DiskFiles, home, dir)
 }
 
@@ -1226,7 +1229,7 @@ pub fn read_from(fs: &dyn ProjectFiles, home: &Home, dir: &Path) -> Result<Read>
 
 /// Read a project folder with `head_path` in place of its `project.toml`
 /// (its `.bak`, for one that is damaged).
-pub fn read_with(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path) -> Result<Read> {
+pub(crate) fn read_with(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path) -> Result<Read> {
     read_at(fs, home, dir, head_path, 0)
 }
 
@@ -1531,7 +1534,7 @@ impl super::Session {
     /// The files of a project kept in a folder, each with what it holds and
     /// whether it differs from the file on the disk: `{ path, modified,
     /// what, track, clip }`. Empty for a project in one file or none.
-    pub fn project_files(&mut self) -> Result<Value> {
+    pub(crate) fn project_files(&mut self) -> Result<Value> {
         let Some((dir, layout)) = self.folder_layout()? else {
             return Ok(json!([]));
         };
@@ -1585,7 +1588,7 @@ impl super::Session {
     /// Save some of the files of a project kept in a folder, by their path
     /// in it. The project counts as saved when no file differs any more.
     /// Returns the paths written.
-    pub fn project_save_files(&mut self, paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    pub(crate) fn project_save_files(&mut self, paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
         let Some(file) = self
             .path
             .clone()
@@ -1660,7 +1663,7 @@ impl super::Session {
     /// `files`, the reader takes them from the disk. The other files (the
     /// media, and the track folders outside the project) always come from
     /// the disk.
-    pub fn project_read(
+    pub(crate) fn project_read(
         &self,
         path: &Path,
         files: Option<BTreeMap<PathBuf, Arc<[u8]>>>,
@@ -1693,7 +1696,7 @@ impl super::Session {
     /// `track.json`), at `index` (from 1; the end when `None`). The project
     /// refers to the folder and keeps no copy, until the track's first edit.
     /// Returns the track's id.
-    pub fn track_import_folder(&mut self, folder: &Path, index: Option<usize>) -> Result<u64> {
+    pub(crate) fn track_import_folder(&mut self, folder: &Path, index: Option<usize>) -> Result<u64> {
         let folder = tidy(&std::path::absolute(folder)?);
         if !folder.join("track.json").is_file() {
             bail!("{} is not a track folder: it has no track.json", folder.display());
@@ -1747,7 +1750,7 @@ impl super::Session {
     /// and the `.state` files beside it). With `refer`, the track refers to
     /// the file and keeps no copy until the chain's first edit; without, the
     /// devices are the track's own at once. Returns how many devices.
-    pub fn track_chain_file(&mut self, track: u64, file: &Path, refer: bool) -> Result<usize> {
+    pub(crate) fn track_chain_file(&mut self, track: u64, file: &Path, refer: bool) -> Result<usize> {
         let file = tidy(&std::path::absolute(file)?);
         if !file.is_file() {
             bail!("{}: no such chain file", file.display());
@@ -1779,7 +1782,7 @@ impl super::Session {
     /// Write a track's chain of devices as a chain file: `file` (a
     /// `devices.json`) and a `.state` file beside it for each plugin's state.
     /// Returns the files written.
-    pub fn chain_write(&mut self, track: u64, file: &Path) -> Result<Vec<PathBuf>> {
+    pub(crate) fn chain_write(&mut self, track: u64, file: &Path) -> Result<Vec<PathBuf>> {
         self.capture_states();
         let mut t = self.doc.project.track(track).with_context(|| format!("no track {track}"))?.clone();
         self.keep_param_ids(&mut t);
@@ -1828,7 +1831,7 @@ impl super::Session {
     /// Save the project as a folder, at `path` (the folder or its
     /// `project.toml`). With `only`, only those of its files (by their path
     /// in the folder), and the project does not count as saved.
-    pub fn project_save_folder(
+    pub(crate) fn project_save_folder(
         &mut self,
         path: &Path,
         only: Option<&BTreeSet<PathBuf>>,

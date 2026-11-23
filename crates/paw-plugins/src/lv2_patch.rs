@@ -44,7 +44,7 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
-    pub fn from_range(uri: &str) -> Self {
+    pub(crate) fn from_range(uri: &str) -> Self {
         match uri.strip_prefix("http://lv2plug.in/ns/ext/atom#") {
             Some("Path") => Kind::Path,
             Some("String") => Kind::String,
@@ -57,7 +57,7 @@ impl Kind {
         }
     }
 
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Kind::Path => "path",
             Kind::String => "string",
@@ -88,11 +88,11 @@ pub(crate) struct Property {
 impl Property {
     /// The short name scripts can use: the end of the URI after `#`, `/`
     /// or `:` (`model`, `sfzfile`).
-    pub fn key(&self) -> &str {
+    pub(crate) fn key(&self) -> &str {
         self.uri.rsplit(['#', '/', ':']).next().unwrap_or(&self.uri)
     }
 
-    pub fn json(&self, value: Option<&Value>) -> Value {
+    pub(crate) fn json(&self, value: Option<&Value>) -> Value {
         json!({
             "uri": self.uri,
             "key": self.key(),

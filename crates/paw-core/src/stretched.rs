@@ -29,15 +29,15 @@ use crate::model::{Clip, ClipContent, Id};
 use crate::stretch::{self, Mode, Params};
 use crate::warp::{self, Warp};
 
-pub use crate::bake::scheduler::SETTLE;
+pub(crate) use crate::bake::scheduler::SETTLE;
 
 /// The bakes of stretched clips, by what they are made of.
-pub type Renders = Scheduler<Key>;
+pub(crate) type Renders = Scheduler<Key>;
 
 /// What the session keeps beside the bakes: the keys a running export
 /// waits for, the last `bake.progress` told, and the cache's tidying.
 #[derive(Default)]
-pub struct Upkeep {
+pub(crate) struct Upkeep {
     /// Files of stretched clips with no hash yet: their clips play the
     /// preview, and are built again once the hash is there.
     pub unhashed: std::collections::HashSet<PathBuf>,
@@ -59,7 +59,7 @@ pub struct Upkeep {
 
 /// A part of the song that a window shows.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ViewRange {
+pub(crate) struct ViewRange {
     /// The first beat shown.
     pub from: f64,
     /// The beat after the last one shown.
@@ -71,7 +71,7 @@ pub struct ViewRange {
 
 impl ViewRange {
     /// Whether the window shows the beats `from` to `to` of `track`.
-    pub fn shows(&self, track: Id, from: f64, to: f64) -> bool {
+    pub(crate) fn shows(&self, track: Id, from: f64, to: f64) -> bool {
         from < self.to && to > self.from && self.tracks.as_ref().is_none_or(|tracks| tracks.contains(&track))
     }
 }
@@ -86,7 +86,7 @@ const SOUND: &str = "sound";
 /// identity of a bake while paw runs. Its cache entry also names the
 /// file's bytes ([`Key::job`]).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Key {
+pub(crate) struct Key {
     pub file: PathBuf,
     /// The engine's rate, which the version is at.
     pub rate: u32,
@@ -107,7 +107,7 @@ pub struct Key {
 impl Key {
     /// What `clip` plays at `rate` with the song's tempo `map`, if it is an
     /// audio clip stretched, warped or shifted, or with an edit list.
-    pub fn of(clip: &Clip, rate: u32, map: &TempoMap, sources: &Sources) -> Option<Self> {
+    pub(crate) fn of(clip: &Clip, rate: u32, map: &TempoMap, sources: &Sources) -> Option<Self> {
         let Some(ClipContent::Audio { file, edits, .. }) = clip.playable() else {
             return None;
         };
@@ -130,11 +130,11 @@ impl Key {
         })
     }
 
-    pub fn warp(&self) -> Warp {
+    pub(crate) fn warp(&self) -> Warp {
         Warp::from_bits(&self.warp)
     }
 
-    pub fn params(&self) -> Params {
+    pub(crate) fn params(&self) -> Params {
         Params {
             warp: self.warp(),
             semitones: f64::from_bits(self.pitch),
@@ -144,7 +144,7 @@ impl Key {
     }
 
     /// The bake of this version, once its file has a hash.
-    pub fn job(&self) -> Option<BakeJob> {
+    pub(crate) fn job(&self) -> Option<BakeJob> {
         let source = self.source?;
         let edits: serde_json::Value = serde_json::from_str(&self.edits).unwrap_or_default();
         Some(BakeJob {
@@ -166,12 +166,12 @@ impl Key {
 
 /// The bake of `key` from `source` (the file at the engine's rate), kept in
 /// `bakes` when it is larger than `disk`'s limit.
-pub fn bake(key: Key, source: Arc<AudioData>, bakes: Option<Store>, disk: Option<DiskStore>) -> Arc<dyn Bake> {
+pub(crate) fn bake(key: Key, source: Arc<AudioData>, bakes: Option<Store>, disk: Option<DiskStore>) -> Arc<dyn Bake> {
     crate::bake::native::Native::of(crate::bake::native::Op::Stretch(Stretch { key, source, bakes, disk }))
 }
 
 /// A stretch to make: the native op of `bake::native`.
-pub struct Stretch {
+pub(crate) struct Stretch {
     key: Key,
     source: Arc<AudioData>,
     bakes: Option<Store>,
@@ -179,13 +179,13 @@ pub struct Stretch {
 }
 
 impl Stretch {
-    pub fn what(&self) -> String {
+    pub(crate) fn what(&self) -> String {
         format!("stretching {}", self.key.file.display())
     }
 
     /// Find the version in the cache, or make it: its sound plays from its
     /// start as it is made ([`Task::partial`]).
-    pub fn run(&self, task: &Task) -> Result<Made> {
+    pub(crate) fn run(&self, task: &Task) -> Result<Made> {
         let key = &self.key;
         let cache = self.bakes.as_ref().zip(self.disk.as_ref());
         let entry = cache.and_then(|_| key.job()).map(|job| {
@@ -273,7 +273,7 @@ const GRAINS: f64 = 256.0;
 /// its file `source` in short grains, each played as it is (its pitch, its
 /// speed) from where the warp puts its start, so that the rhythm is heard.
 /// `offset` is in seconds of the version, as the clip's regions take it.
-pub fn preview(
+pub(crate) fn preview(
     clip: &Clip,
     source: Arc<AudioData>,
     (offset, gain): (f64, f32),

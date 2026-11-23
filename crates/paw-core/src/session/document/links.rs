@@ -12,7 +12,7 @@ impl Document {
     /// Put a linked copy of the MIDI clip `id` right after it on its track,
     /// and give the copy's id. A clip of no link starts a new one with its
     /// copy, named after the clip.
-    pub fn clip_link(&mut self, id: Id) -> Result<Id> {
+    pub(crate) fn clip_link(&mut self, id: Id) -> Result<Id> {
         let (track, _) = self
             .project
             .find_clip(id)
@@ -46,7 +46,7 @@ impl Document {
 
     /// Take the clip `id` out of its link: it keeps its notes, and an edit
     /// of it no longer changes the other clips of the link.
-    pub fn clip_unlink(&mut self, id: Id) -> Result<()> {
+    pub(crate) fn clip_unlink(&mut self, id: Id) -> Result<()> {
         let clip = self.project.clip(id).with_context(|| format!("no clip {id}"))?;
         if clip.link.is_none() {
             bail!("clip {id} is not linked");

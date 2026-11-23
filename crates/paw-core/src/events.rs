@@ -22,7 +22,7 @@ use crate::model::Id;
 /// a state that undo or redo put back (`restored` in its payload).
 #[derive(Debug, Clone)]
 pub struct ModelEvent {
-    pub event: KernelEvent,
+    pub(crate) event: KernelEvent,
     pub restored: bool,
 }
 
@@ -34,17 +34,17 @@ impl From<KernelEvent> for ModelEvent {
 
 /// No more than that the event happened.
 #[derive(Debug, Clone, Serialize)]
-pub struct Nothing {}
+pub(crate) struct Nothing {}
 
 /// A track, by its id.
 #[derive(Debug, Clone, Serialize)]
-pub struct TrackId {
+pub(crate) struct TrackId {
     pub id: Id,
 }
 
 /// The tracks in their new order, by id.
 #[derive(Debug, Clone, Serialize)]
-pub struct Order {
+pub(crate) struct Order {
     pub order: Vec<Id>,
 }
 
@@ -53,7 +53,7 @@ pub struct Order {
 /// has the `stamp` of its notes, as `clip_get` gives it: a listener can
 /// tell that the notes did not change without asking for the clip.
 #[derive(Debug, Clone, Serialize)]
-pub struct Item {
+pub(crate) struct Item {
     pub id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<Id>,
@@ -63,7 +63,7 @@ pub struct Item {
 
 impl Item {
     /// A device or a lane (no stamp) on `track`.
-    pub fn on(id: Id, track: Option<Id>) -> Item {
+    pub(crate) fn on(id: Id, track: Option<Id>) -> Item {
         Item { id, track, stamp: None }
     }
 }
@@ -71,7 +71,7 @@ impl Item {
 /// A track that changed, and the names of its fields that changed, as
 /// `track_get` names them (`{ "mute" }`, `{ "clips" }`).
 #[derive(Debug, Clone, Serialize)]
-pub struct TrackChange {
+pub(crate) struct TrackChange {
     pub id: Id,
     /// @type {string}
     pub fields: Vec<&'static str>,
@@ -79,13 +79,13 @@ pub struct TrackChange {
 
 /// The track whose queue of clips to launch changed.
 #[derive(Debug, Clone, Serialize)]
-pub struct Cue {
+pub(crate) struct Cue {
     pub track: Id,
 }
 
 /// A device that finished loading, its track and its name.
 #[derive(Debug, Clone, Serialize)]
-pub struct DeviceReady {
+pub(crate) struct DeviceReady {
     pub id: Id,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<Id>,
@@ -95,7 +95,7 @@ pub struct DeviceReady {
 /// A device that stopped (`reason`; `loading` when it never started) or
 /// that gave values it should not (`device.invalid`, no reason).
 #[derive(Debug, Clone, Serialize)]
-pub struct DeviceTrouble {
+pub(crate) struct DeviceTrouble {
     pub device: Id,
     pub track: Id,
     pub name: String,
@@ -109,7 +109,7 @@ pub struct DeviceTrouble {
 /// preset, an undo step, a state lane), its track, its name, and the
 /// number of that state among those given to it since it was made.
 #[derive(Debug, Clone, Serialize)]
-pub struct StateApplied {
+pub(crate) struct StateApplied {
     pub device: Id,
     pub track: Id,
     pub name: String,
@@ -120,7 +120,7 @@ pub struct StateApplied {
 /// window (`from = "editor"`, with its `value`): its key, and the
 /// device's own id for it.
 #[derive(Debug, Clone, Serialize)]
-pub struct ParamTouched {
+pub(crate) struct ParamTouched {
     pub device: Id,
     pub param: String,
     pub id: String,
@@ -131,13 +131,13 @@ pub struct ParamTouched {
 
 /// Where the transport is, in beats.
 #[derive(Debug, Clone, Serialize)]
-pub struct Position {
+pub(crate) struct Position {
     pub position: f64,
 }
 
 /// Where play starts, in beats, and the beats counted in before it.
 #[derive(Debug, Clone, Serialize)]
-pub struct Play {
+pub(crate) struct Play {
     pub position: f64,
     pub count_in: f64,
 }
@@ -145,7 +145,7 @@ pub struct Play {
 /// A take that starts: where, its number, the folder its files go in,
 /// how fast they grow and the free space there, in bytes, and the files.
 #[derive(Debug, Clone, Serialize)]
-pub struct Record {
+pub(crate) struct Record {
     pub position: f64,
     pub take: u32,
     pub dir: PathBuf,
@@ -157,14 +157,14 @@ pub struct Record {
 
 /// A take that is done: its clips are in the project.
 #[derive(Debug, Clone, Serialize)]
-pub struct Recorded {
+pub(crate) struct Recorded {
     pub take: u32,
 }
 
 /// The audio device that went away, why, whether a take was being
 /// recorded, and whether paw tries to open it again by itself.
 #[derive(Debug, Clone, Serialize)]
-pub struct AudioLost {
+pub(crate) struct AudioLost {
     pub device: String,
     pub reason: String,
     pub recording: bool,
@@ -173,7 +173,7 @@ pub struct AudioLost {
 
 /// The audio device that is back, and the engine that runs on it now.
 #[derive(Debug, Clone, Serialize)]
-pub struct AudioRestored {
+pub(crate) struct AudioRestored {
     pub device: String,
     /// @type types.EngineInfo
     pub engine: Value,
@@ -182,7 +182,7 @@ pub struct AudioRestored {
 /// A MIDI port that went away or came back, and the tracks (by name) that
 /// take their MIDI from it.
 #[derive(Debug, Clone, Serialize)]
-pub struct MidiPort {
+pub(crate) struct MidiPort {
     pub port: String,
     pub tracks: Vec<String>,
 }
@@ -190,7 +190,7 @@ pub struct MidiPort {
 /// A track or a track's chain whose files were copied into the project
 /// (`origin`, where they were).
 #[derive(Debug, Clone, Serialize)]
-pub struct TrackCopied {
+pub(crate) struct TrackCopied {
     pub track: Id,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,7 +199,7 @@ pub struct TrackCopied {
 
 /// A clip whose file was copied into the project (`origin`, where it was).
 #[derive(Debug, Clone, Serialize)]
-pub struct ClipCopied {
+pub(crate) struct ClipCopied {
     pub clip: Id,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -209,7 +209,7 @@ pub struct ClipCopied {
 /// A subproject that referred to a project folder and is now the
 /// project's own copy (`origin`, the folder).
 #[derive(Debug, Clone, Serialize)]
-pub struct NestCopied {
+pub(crate) struct NestCopied {
     pub nest: u64,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,7 +219,7 @@ pub struct NestCopied {
 /// How far a render is (`fraction`, 0 to 1), what it does now, and the
 /// seconds since it started.
 #[derive(Debug, Clone, Serialize)]
-pub struct RenderProgress {
+pub(crate) struct RenderProgress {
     pub path: PathBuf,
     pub fraction: f64,
     pub stage: String,
@@ -231,7 +231,7 @@ pub struct RenderProgress {
 /// (`fraction`, 0 to 1). Sent at most 4 times a second, and once when all
 /// are done (both counts 0).
 #[derive(Debug, Clone, Copy, Serialize)]
-pub struct BakeProgress {
+pub(crate) struct BakeProgress {
     pub running: usize,
     pub waiting: usize,
     pub fraction: f64,
@@ -239,7 +239,7 @@ pub struct BakeProgress {
 
 /// A render that stopped: its file, and why when it failed.
 #[derive(Debug, Clone, Serialize)]
-pub struct RenderEnd {
+pub(crate) struct RenderEnd {
     pub path: PathBuf,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -247,7 +247,7 @@ pub struct RenderEnd {
 
 /// A project that was opened, from `path` (none for a new one).
 #[derive(Debug, Clone, Serialize)]
-pub struct Loaded {
+pub(crate) struct Loaded {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
 }
@@ -255,7 +255,7 @@ pub struct Loaded {
 /// A project that was saved to `path`; saved as a folder, the files
 /// written, the files put in `unused/`, and the files moved (`{ from, to }`).
 #[derive(Debug, Clone, Serialize)]
-pub struct Saved {
+pub(crate) struct Saved {
     pub path: PathBuf,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub written: Option<Vec<PathBuf>>,
@@ -268,28 +268,28 @@ pub struct Saved {
 /// The sound files a project names that are not where it says, and how
 /// many were found elsewhere.
 #[derive(Debug, Clone, Serialize)]
-pub struct MediaMissing {
+pub(crate) struct MediaMissing {
     pub files: Vec<PathBuf>,
     pub found: usize,
 }
 
 /// A program started with `proc_spawn` that has output to read, by its id.
 #[derive(Debug, Clone, Serialize)]
-pub struct ProcOutput {
+pub(crate) struct ProcOutput {
     pub id: u64,
 }
 
 /// The files of the project that changed outside paw: paths in its
 /// folder, or full paths outside it.
 #[derive(Debug, Clone, Serialize)]
-pub struct FilesChanged {
+pub(crate) struct FilesChanged {
     pub paths: Vec<PathBuf>,
 }
 
 /// Each event of the kernel, by its name, with its payload.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "name", content = "payload")]
-pub enum KernelEvent {
+pub(crate) enum KernelEvent {
     /// Anything that a view shows changed: draw again.
     #[serde(rename = "changed")]
     Changed(Nothing),
@@ -392,7 +392,7 @@ pub enum KernelEvent {
 
 impl KernelEvent {
     /// The event that says a view should draw again.
-    pub fn changed() -> KernelEvent {
+    pub(crate) fn changed() -> KernelEvent {
         KernelEvent::Changed(Nothing {})
     }
 }

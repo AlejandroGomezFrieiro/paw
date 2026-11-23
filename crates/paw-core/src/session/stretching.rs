@@ -292,7 +292,7 @@ impl Session {
     /// Put a warp marker on audio clip `id` at `beat`, pinning the moment of
     /// its file that plays there; nothing moves. Returns its index among
     /// the clip's markers (one already there is found again).
-    pub fn warp_add(&mut self, id: Id, beat: f64) -> Result<usize> {
+    pub(crate) fn warp_add(&mut self, id: Id, beat: f64) -> Result<usize> {
         let clip = self.audio_clip_ref(id)?;
         if !beat.is_finite() || beat < clip.start - 1e-9 || beat > clip.start + clip.length + 1e-9 {
             bail!("a warp marker goes inside its clip");
@@ -326,7 +326,7 @@ impl Session {
     /// between them and it. It goes no further than a stretch of a quarter
     /// to four times on either side allows. Returns its index, which
     /// pinning may have changed.
-    pub fn warp_move(&mut self, id: Id, index: usize, beat: f64) -> Result<usize> {
+    pub(crate) fn warp_move(&mut self, id: Id, index: usize, beat: f64) -> Result<usize> {
         let clip = self.audio_clip_ref(id)?;
         let Some(&marker) = clip.warp.get(index) else {
             bail!("clip {id} has no warp marker {}", index + 1);
@@ -377,7 +377,7 @@ impl Session {
 
     /// Take warp marker `index` off clip `id`: the sound between its
     /// neighbours is stretched evenly again.
-    pub fn warp_remove(&mut self, id: Id, index: usize) -> Result<()> {
+    pub(crate) fn warp_remove(&mut self, id: Id, index: usize) -> Result<()> {
         let clip = self.audio_clip_ref(id)?;
         if index >= clip.warp.len() {
             bail!("clip {id} has no warp marker {}", index + 1);
@@ -401,12 +401,12 @@ impl Session {
 
     /// What the windows on screen show now: the bakes of the clips there
     /// start before the rest (`bake_wants`), at the next poll.
-    pub fn view_ranges_set(&mut self, ranges: Vec<ViewRange>) {
+    pub(crate) fn view_ranges_set(&mut self, ranges: Vec<ViewRange>) {
         self.audio.upkeep.views = ranges;
     }
 
     /// What the windows on screen show, as they told it last.
-    pub fn view_ranges(&self) -> &[ViewRange] {
+    pub(crate) fn view_ranges(&self) -> &[ViewRange] {
         &self.audio.upkeep.views
     }
 

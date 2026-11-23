@@ -28,10 +28,10 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
-pub use paw_proto::dirs::Dirs;
+pub(crate) use paw_proto::dirs::Dirs;
 pub use paw_proto::tls::known_file;
-pub use paw_proto::{ClientId, Connection, VERSION, Wire, proof, sha256};
-use paw_proto::hex;
+pub use paw_proto::{Connection, Wire};
+pub(crate) use paw_proto::{ClientId, VERSION, proof, sha256};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream, UnixListener};
@@ -65,7 +65,7 @@ const TLS_ONLY: &str = "this instance takes network connections in TLS only (pro
     connect with a paw as new as it, or start the instance with --no-tls";
 
 /// Where the kernel puts its answer to one call.
-pub type Reply = oneshot::Sender<Result<Value, String>>;
+pub(crate) type Reply = oneshot::Sender<Result<Value, String>>;
 
 /// One connection's way out.
 struct Out {
@@ -310,11 +310,11 @@ fn nonce() -> String {
         let seed = format!("{now}:{}", COUNT.fetch_add(1, Ordering::Relaxed));
         bytes.copy_from_slice(&sha256(seed.as_bytes())[..16]);
     }
-    hex(&bytes)
+    hex::encode(bytes)
 }
 
 /// A new token for network connections: 32 random hexadecimal digits.
-pub fn new_token() -> String {
+pub(crate) fn new_token() -> String {
     nonce()
 }
 
@@ -482,11 +482,6 @@ async fn requests(
             break;
         }
     }
-}
-
-/// Call a method on a running instance and wait for the answer.
-pub fn call(path: &Path, method: &str, params: Value) -> Result<Value> {
-    Connection::unix(path)?.call(method, params)
 }
 
 #[cfg(test)]

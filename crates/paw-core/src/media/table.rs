@@ -17,22 +17,19 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// The BLAKE3 hash of a file's bytes: what a source is, wherever it is.
 /// Written as `b3:` and 64 hexadecimal digits.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct SourceHash([u8; 32]);
+pub(crate) struct SourceHash([u8; 32]);
 
 impl SourceHash {
     const PREFIX: &'static str = "b3:";
 
     /// The hash of the bytes of the file at `path` (see `media::hash::file`).
-    pub fn of_file(path: &Path) -> std::io::Result<Self> {
+    pub(crate) fn of_file(path: &Path) -> std::io::Result<Self> {
         super::hash::file(path).map(Self::from)
     }
 
-    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+    #[cfg(test)]
+    pub(crate) const fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
-    }
-
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.0
     }
 }
 
@@ -57,7 +54,7 @@ impl fmt::Debug for SourceHash {
 /// Why a text is not a [`SourceHash`].
 #[derive(Debug, thiserror::Error)]
 #[error("{0:?} is not a source hash (b3: and 64 hexadecimal digits)")]
-pub struct BadHash(String);
+pub(crate) struct BadHash(String);
 
 impl FromStr for SourceHash {
     type Err = BadHash;
@@ -85,7 +82,7 @@ impl<'de> Deserialize<'de> for SourceHash {
 
 /// What the file holds, read from its header once.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Probe {
+pub(crate) struct Probe {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub streams: Vec<StreamInfo>,
 }
@@ -94,7 +91,7 @@ pub struct Probe {
 /// clip that play them (a film's picture, a subtitle track).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-pub enum StreamInfo {
+pub(crate) enum StreamInfo {
     Sound {
         rate: u32,
         channels: u32,
@@ -107,7 +104,7 @@ pub enum StreamInfo {
 impl Probe {
     /// Read the header of the file at `path`. A file that is not sound has
     /// no streams that paw knows yet.
-    pub fn of_file(path: &Path) -> Self {
+    pub(crate) fn of_file(path: &Path) -> Self {
         let Ok(p) = paw_engine::probe::probe(path) else {
             return Self::default();
         };
@@ -122,7 +119,7 @@ impl Probe {
 
 /// What the project knows of one source file.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MediaRecord {
+pub(crate) struct MediaRecord {
     pub hash: SourceHash,
     pub size: u64,
     #[serde(default)]
@@ -132,49 +129,32 @@ pub struct MediaRecord {
 /// Every file the project uses, by its path. In memory the paths are
 /// absolute; in `media.json` they are as the clips name them in the folder.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct MediaTable(BTreeMap<PathBuf, Arc<MediaRecord>>);
+pub(crate) struct MediaTable(BTreeMap<PathBuf, Arc<MediaRecord>>);
 
 impl MediaTable {
-    pub fn get(&self, path: &Path) -> Option<&Arc<MediaRecord>> {
+    pub(crate) fn get(&self, path: &Path) -> Option<&Arc<MediaRecord>> {
         self.0.get(path)
     }
 
-    pub fn insert(&mut self, path: PathBuf, record: MediaRecord) {
+    pub(crate) fn insert(&mut self, path: PathBuf, record: MediaRecord) {
         self.0.insert(path, Arc::new(record));
     }
 
-    pub fn remove(&mut self, path: &Path) -> Option<Arc<MediaRecord>> {
-        self.0.remove(path)
-    }
-
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&PathBuf, &Arc<MediaRecord>)> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&PathBuf, &Arc<MediaRecord>)> {
         self.0.iter()
-    }
-
-    /// Keep only the records whose path `keep` accepts.
-    pub fn retain(&mut self, mut keep: impl FnMut(&Path) -> bool) {
-        self.0.retain(|path, _| keep(path));
-    }
-
-    /// A path whose record has this hash, the first by path.
-    pub fn path_of(&self, hash: &SourceHash) -> Option<&Path> {
-        self.0
-            .iter()
-            .find(|(_, r)| r.hash == *hash)
-            .map(|(p, _)| p.as_path())
     }
 
     /// The same records under the paths `name` gives (records it gives no
     /// path for are left out).
-    pub fn renamed(&self, mut name: impl FnMut(&Path) -> Option<PathBuf>) -> Self {
+    pub(crate) fn renamed(&self, mut name: impl FnMut(&Path) -> Option<PathBuf>) -> Self {
         Self(
             self.0
                 .iter()
@@ -185,7 +165,7 @@ impl MediaTable {
 
     /// `media.json`: one entry per path, sorted, pretty, ending in a new line,
     /// so the same table gives the same bytes and an import adds a few lines.
-    pub fn to_json(&self) -> Vec<u8> {
+    pub(crate) fn to_json(&self) -> Vec<u8> {
         let named: BTreeMap<String, &MediaRecord> = self
             .0
             .iter()
@@ -197,7 +177,7 @@ impl MediaTable {
     }
 
     /// The table that [`to_json`](Self::to_json) wrote.
-    pub fn from_json(bytes: &[u8]) -> serde_json::Result<Self> {
+    pub(crate) fn from_json(bytes: &[u8]) -> serde_json::Result<Self> {
         let named: BTreeMap<PathBuf, MediaRecord> = serde_json::from_slice(bytes)?;
         Ok(Self(named.into_iter().map(|(p, r)| (p, Arc::new(r))).collect()))
     }

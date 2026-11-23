@@ -3179,6 +3179,7 @@ dependencies = [
  "blake3",
  "flacenc",
  "flate2",
+ "hex",
  "include_dir",
  "insta",
  "libc",

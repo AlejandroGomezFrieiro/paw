@@ -22,13 +22,13 @@ use crate::model::{Clip, ClipContent, Control, Id, Lane, Note, Notes};
 
 impl Nest {
     /// Whether the nest keeps a tempo of its own.
-    pub fn has_own_tempo(&self) -> bool {
+    pub(crate) fn has_own_tempo(&self) -> bool {
         matches!(self.tempo, NestTempo::Own { .. })
     }
 
     /// The tempo points of its own map, the first at beat 0; empty when it
     /// follows the song.
-    pub fn own_tempos(&self) -> Vec<TempoPoint> {
+    pub(crate) fn own_tempos(&self) -> Vec<TempoPoint> {
         match &self.tempo {
             NestTempo::Own { points } => points
                 .iter()
@@ -42,7 +42,7 @@ impl Nest {
     /// song's beat `zero`: its own tempo or the song's from `zero` on, and
     /// its own meter or the song's there. None when it follows the song in
     /// both: the song's map, shifted, is its map then.
-    pub fn own_map(&self, song: &TempoMap, zero: f64) -> Option<TempoMap> {
+    pub(crate) fn own_map(&self, song: &TempoMap, zero: f64) -> Option<TempoMap> {
         let tempos = match &self.tempo {
             NestTempo::Own { .. } => self.own_tempos(),
             NestTempo::Follow { .. } if self.meter == NestMeter::Follow => return None,
@@ -67,7 +67,7 @@ impl Nest {
     /// where the block starts and `offset` the nest's beat that starts there.
     /// `outer` is the timing of the place that holds the block (`start` is a
     /// beat of that place), None for the song.
-    pub fn timing(&self, song: &Arc<TempoMap>, outer: Option<&Timing>, start: f64, offset: f64) -> Timing {
+    pub(crate) fn timing(&self, song: &Arc<TempoMap>, outer: Option<&Timing>, start: f64, offset: f64) -> Timing {
         let at = outer.map_or(start, |o| o.song_beat(start));
         if self.has_own_tempo() {
             let nest = Arc::new(self.own_map(song, at).unwrap_or_default());
@@ -98,7 +98,7 @@ pub(super) fn song_tempos_from(song: &TempoMap, zero: f64) -> Vec<TempoPoint> {
 /// follows the tempo inside one that has its own: its beats are beats of
 /// the outer nest, from `shift` on.
 #[derive(Clone, Debug)]
-pub struct Warp {
+pub(crate) struct Warp {
     pub song: Arc<TempoMap>,
     pub nest: Arc<TempoMap>,
     pub base: f64,
@@ -118,7 +118,7 @@ impl PartialEq for Warp {
 
 /// Where the beats of a nest are in the song, for one block.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Timing {
+pub(crate) enum Timing {
     /// Its beat `b` is the song's beat `zero + b`.
     Shift(f64),
     /// Through seconds (see [`Warp`]).
@@ -127,7 +127,7 @@ pub enum Timing {
 
 impl Timing {
     /// The song's beat of a beat of the nest.
-    pub fn song_beat(&self, beat: f64) -> f64 {
+    pub(crate) fn song_beat(&self, beat: f64) -> f64 {
         match self {
             Self::Shift(zero) => zero + beat,
             Self::Warp(w) => w.song.beat(w.base + w.nest.seconds(beat + w.shift)),
@@ -135,7 +135,7 @@ impl Timing {
     }
 
     /// The nest's beat of a beat of the song.
-    pub fn nest_beat(&self, song: f64) -> f64 {
+    pub(crate) fn nest_beat(&self, song: f64) -> f64 {
         match self {
             Self::Shift(zero) => song - zero,
             Self::Warp(w) => w.nest.beat(w.song.seconds(song) - w.base) - w.shift,
@@ -143,13 +143,13 @@ impl Timing {
     }
 
     /// The song's beat of the nest's beat 0.
-    pub fn zero(&self) -> f64 {
+    pub(crate) fn zero(&self) -> f64 {
         self.song_beat(0.0)
     }
 
     /// A clip of the nest placed in the song, cut at the window `from..to`
     /// of song beats, with the id `id` (see [`super::placed_clip`]).
-    pub fn place_clip(&self, clip: &Clip, from: f64, to: f64, id: Id) -> Option<Clip> {
+    pub(crate) fn place_clip(&self, clip: &Clip, from: f64, to: f64, id: Id) -> Option<Clip> {
         match self {
             Self::Shift(zero) => super::placed_clip(clip, *zero, from, to, id),
             Self::Warp(_) => self.warped_clip(clip, from, to, id),
@@ -235,7 +235,7 @@ fn played_notes<'a>(clip: &'a Clip, notes: &'a Notes) -> Box<dyn Iterator<Item =
 /// points inside the window at their song beats, with the value it plays
 /// at each edge. The shapes of the curve inside a place move with it. The
 /// lane as it is when the nest has no place, or the lane no points.
-pub fn timed_lane(lane: &Lane, places: &[(Timing, f64, f64)]) -> Lane {
+pub(crate) fn timed_lane(lane: &Lane, places: &[(Timing, f64, f64)]) -> Lane {
     if places.is_empty() || lane.points.is_empty() {
         return lane.clone();
     }

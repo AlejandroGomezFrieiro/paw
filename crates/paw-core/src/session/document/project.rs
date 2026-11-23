@@ -14,7 +14,7 @@ use crate::session::{de, de_meta, holds};
 impl Document {
     /// The project's fields as a table. `path` is the project's file, which
     /// the session knows.
-    pub fn project_view(&self, path: Option<&Path>) -> Value {
+    pub(crate) fn project_view(&self, path: Option<&Path>) -> Value {
         let p = &self.project;
         json!({
             "name": p.name, "tempo": p.tempo, "sig_num": p.sig_num, "sig_den": p.sig_den,
@@ -31,7 +31,7 @@ impl Document {
 
     /// One entry of [`project_view`](Self::project_view), made alone: its
     /// `length` looks at every clip, and its `meta` can be large.
-    pub fn project_field(&self, key: &str, path: Option<&Path>) -> Value {
+    pub(crate) fn project_field(&self, key: &str, path: Option<&Path>) -> Value {
         let p = &self.project;
         match key {
             "edits" => json!(self.changes()),
@@ -50,7 +50,7 @@ impl Document {
 
     /// Set the project's field `key` to `value`. A value that it already
     /// holds is no change.
-    pub fn project_set(&mut self, key: &str, value: Value, path: Option<&Path>) -> Result<()> {
+    pub(crate) fn project_set(&mut self, key: &str, value: Value, path: Option<&Path>) -> Result<()> {
         if holds(&Ok(self.project_view(path)), key, &value) {
             return Ok(());
         }

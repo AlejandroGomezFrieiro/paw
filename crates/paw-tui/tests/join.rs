@@ -49,6 +49,8 @@ fn paw(dir: &Path) -> Command {
 /// A new pseudo-terminal of 100 by 30 cells: (its master side, the path
 /// of its other side).
 fn pty() -> (std::fs::File, PathBuf) {
+    // SAFETY: calls of libc on the descriptor that `posix_openpt` gives, checked before each
+    // next use.
     unsafe {
         let master = libc::posix_openpt(libc::O_RDWR | libc::O_NOCTTY);
         assert!(master >= 0, "no pseudo-terminal");
@@ -138,6 +140,7 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
             into.lock().unwrap().extend_from_slice(&buf[..n]);
         }
     });
+    // SAFETY: `master` is open, so `dup` gives a new descriptor that nothing else owns.
     let _keep = unsafe { OwnedFd::from_raw_fd(libc::dup(master.as_raw_fd())) };
 
     wait_for(&mut c, "a seat for the second terminal", "return #paw.seats.list()", |v| {

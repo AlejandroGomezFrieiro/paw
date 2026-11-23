@@ -9,7 +9,7 @@ use crate::args;
 /// The registry of devices, with the plugin scan. Returns the scan's notes
 /// and how many of them come from the scan itself.
 #[cfg(not(target_vendor = "browserpod"))]
-pub fn registry(args: &args::Run, display_note: Option<String>) -> (Registry, Vec<String>, usize) {
+pub(crate) fn registry(args: &args::Run, display_note: Option<String>) -> (Registry, Vec<String>, usize) {
     let mut registry = Registry::with_builtins();
     // Devices written in Lua always run in helpers: Lua must not run on
     // the audio thread.
@@ -81,7 +81,7 @@ pub fn registry(_args: &args::Run, display_note: Option<String>) -> (Registry, V
 /// # Safety
 ///
 /// It changes the environment: call it while no other thread runs.
-pub unsafe fn repair_display_env() -> Option<String> {
+pub(crate) unsafe fn repair_display_env() -> Option<String> {
     #[cfg(not(target_vendor = "browserpod"))]
     {
         let home = crate::home_dir();
@@ -100,7 +100,7 @@ pub unsafe fn repair_display_env() -> Option<String> {
 /// Only the helper that a running paw started calls it: the socket and the
 /// memory named in `args` are descriptors it inherited, and no thread has
 /// started yet.
-pub unsafe fn host(args: &[String]) -> i32 {
+pub(crate) unsafe fn host(args: &[String]) -> i32 {
     #[cfg(not(target_vendor = "browserpod"))]
     {
         // A device written in Lua is held the way a plugin is.
@@ -127,7 +127,7 @@ pub unsafe fn host(args: &[String]) -> i32 {
 }
 
 /// `paw plugin-scan`: look into plugin files. Returns the exit code.
-pub fn scan(args: &[String]) -> i32 {
+pub(crate) fn scan(args: &[String]) -> i32 {
     #[cfg(not(target_vendor = "browserpod"))]
     return paw_plugins::scan_main(
         args,

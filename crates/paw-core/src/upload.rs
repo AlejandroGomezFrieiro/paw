@@ -33,7 +33,7 @@ struct Upload {
 }
 
 #[derive(Default)]
-pub struct Uploads {
+pub(crate) struct Uploads {
     open: HashMap<u64, Upload>,
     next: u64,
 }
@@ -68,7 +68,7 @@ fn free_path(dir: &Path, name: &str) -> PathBuf {
 
 impl Uploads {
     /// Answer one of the `file.*` calls from `client`; files go into `dir`.
-    pub fn call(&mut self, client: ClientId, method: &str, params: &Value, dir: &Path) -> Result<Value> {
+    pub(crate) fn call(&mut self, client: ClientId, method: &str, params: &Value, dir: &Path) -> Result<Value> {
         let id_of = |value: &Value| value.as_u64().context("which upload? its id first");
         match method {
             "file.begin" => {
@@ -131,7 +131,7 @@ impl Uploads {
     }
 
     /// A connection closed: what it was sending is thrown away.
-    pub fn closed(&mut self, client: ClientId) {
+    pub(crate) fn closed(&mut self, client: ClientId) {
         self.open.retain(|_, upload| {
             if upload.client == client {
                 let _ = std::fs::remove_file(&upload.part);

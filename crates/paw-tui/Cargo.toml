@@ -3,6 +3,7 @@ name = "paw-tui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Terminal frontend and the `paw` binary."
 
 [[bin]]
@@ -45,6 +46,5 @@ mimalloc = { version = "0.1.52", default-features = false }
 paw-scene.workspace = true
 libc = "0.2"
 
-# A BrowserPod pod is the target vendor `browserpod` (web/browserpod/README.md).
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("browserpod"))'] }
+[lints]
+workspace = true

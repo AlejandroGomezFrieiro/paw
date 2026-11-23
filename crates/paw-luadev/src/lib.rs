@@ -16,8 +16,6 @@
 //! parameters) is learnt by loading it in a helper too, and again whenever
 //! the file changes.
 
-#![warn(clippy::undocumented_unsafe_blocks)]
-
 pub mod device;
 
 use std::cell::RefCell;

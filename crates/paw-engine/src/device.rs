@@ -860,6 +860,9 @@ pub type Attach = Rc<dyn Fn(&std::path::Path) -> Result<String>>;
 /// [`Registry::plugin_dirs`].
 pub type PluginDirs = Rc<dyn Fn() -> Vec<(String, Vec<std::path::PathBuf>)>>;
 
+/// What scripts posted to the devices of one kind: each topic with its data.
+type Posts = Vec<(String, Arc<[u8]>)>;
+
 #[derive(Default, Clone)]
 pub struct Registry {
     factories: BTreeMap<String, Rc<dyn DeviceFactory>>,
@@ -870,7 +873,7 @@ pub struct Registry {
     plugin_dirs: Option<PluginDirs>,
     /// What scripts posted to every device of a kind: by kind, each topic
     /// with its latest data, in the order the topics were first posted.
-    posts: BTreeMap<String, Vec<(String, Arc<[u8]>)>>,
+    posts: BTreeMap<String, Posts>,
     /// Kinds that were renamed, and what they are called now.
     aliases: BTreeMap<String, String>,
 }

@@ -3,6 +3,7 @@ name = "paw-gui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "A graphical frontend, drawn with egui. It talks to the kernel over its control socket."
 
 [dependencies]
@@ -36,3 +37,6 @@ ashpd = { version = "0.11", default-features = false, features = ["async-std"] }
 
 [dev-dependencies]
 egui_kittest = "0.37"
+
+[lints]
+workspace = true

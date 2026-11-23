@@ -290,7 +290,7 @@ const NOISE: Duration = Duration::from_millis(20);
 const FIXED: Duration = Duration::from_millis(500);
 
 impl Settle {
-    pub fn new(limit: Duration) -> Self {
+    pub(super) fn new(limit: Duration) -> Self {
         Self {
             began: Instant::now(),
             limit,
@@ -301,7 +301,7 @@ impl Settle {
     }
 
     /// For the start of a render: only plugins that give a sign are waited for.
-    pub fn start(limit: Duration) -> Self {
+    pub(super) fn start(limit: Duration) -> Self {
         Self {
             blind: false,
             ..Self::new(limit)
@@ -309,7 +309,7 @@ impl Settle {
     }
 
     /// Whether the devices `ids` (all of `live` when None) are ready.
-    pub fn ready(&mut self, live: &mut LiveDevices, ids: Option<&[Id]>) -> bool {
+    pub(super) fn ready(&mut self, live: &mut LiveDevices, ids: Option<&[Id]>) -> bool {
         let now = Instant::now();
         let waited = now - self.began;
         if waited >= self.limit {
@@ -346,7 +346,7 @@ impl Settle {
     }
 
     /// Wait here until [`ready`](Self::ready).
-    pub fn wait(mut self, live: &mut LiveDevices, ids: Option<&[Id]>) {
+    pub(super) fn wait(mut self, live: &mut LiveDevices, ids: Option<&[Id]>) {
         while !self.ready(live, ids) {
             std::thread::sleep(Duration::from_millis(10));
         }

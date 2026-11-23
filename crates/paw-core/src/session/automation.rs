@@ -5,7 +5,7 @@
 use super::*;
 
 impl Session {
-    pub fn lane_add(&mut self, track: Id, opts: LaneOpts) -> Result<Id> {
+    pub(crate) fn lane_add(&mut self, track: Id, opts: LaneOpts) -> Result<Id> {
         if self.doc.project.track(track).is_none() {
             bail!("no track {track}");
         }
@@ -89,21 +89,21 @@ impl Session {
         })
     }
 
-    pub fn lane_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn lane_view(&self, id: Id) -> Result<Value> {
         self.doc.lane_view(id, &param_range(&self.live))
     }
 
     /// The automation lanes of a track, without their points.
-    pub fn lane_list(&self, track: Id) -> Result<Value> {
+    pub(crate) fn lane_list(&self, track: Id) -> Result<Value> {
         self.doc.lane_list(track, &param_range(&self.live))
     }
 
-    pub fn lane_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn lane_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
         self.doc.lane_set(id, key, value, &param_range(&self.live))
     }
 
     /// Replace a lane's points, or add one, replacing any already at its beat.
-    pub fn lane_set_points(&mut self, id: Id, new: Vec<(f64, f64)>, add: bool) -> Result<()> {
+    pub(crate) fn lane_set_points(&mut self, id: Id, new: Vec<(f64, f64)>, add: bool) -> Result<()> {
         self.doc.lane_set_points(id, new, add, &param_range(&self.live))
     }
 }

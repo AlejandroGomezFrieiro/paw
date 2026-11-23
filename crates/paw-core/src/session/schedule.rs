@@ -13,7 +13,7 @@ use crate::stretched::SETTLE;
 /// The work of the session that is not done yet. A test waits until no
 /// work is in flight (`T.settle`), and moves the clock to `next_due`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Work {
+pub(crate) struct Work {
     /// Bakes being made on other threads or in helper processes.
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
@@ -53,7 +53,7 @@ impl Session {
     /// The blocks of the stepped audio
     /// backend keep step with it. The kernel gives its clock once, before
     /// any work.
-    pub fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
+    pub(crate) fn set_clock(&mut self, clock: &Arc<dyn Clock>) {
         self.audio.renders.set_clock(clock.clone());
         self.files_watch.clock = clock.clone();
         self.watch.clock = clock.clone();
@@ -72,14 +72,14 @@ impl Session {
 
     /// Whether the engine plays on the stepped audio backend: its blocks
     /// keep step with the schedule clock.
-    pub fn is_audio_stepped(&self) -> bool {
+    pub(crate) fn is_audio_stepped(&self) -> bool {
         self.engine.stream.is_stepped()
     }
 
     /// The time on the schedule clock at which `blocks` more blocks of the
     /// stepped audio backend have ended, or None when the engine runs on
     /// its own.
-    pub fn stepped_end_of(&self, blocks: u64) -> Option<Duration> {
+    pub(crate) fn stepped_end_of(&self, blocks: u64) -> Option<Duration> {
         self.engine.stream.end_of(blocks).map(|end| self.steps.since + end)
     }
 
@@ -89,7 +89,7 @@ impl Session {
     }
 
     /// The work in flight or waiting for the schedule clock.
-    pub fn work(&self) -> Work {
+    pub(crate) fn work(&self) -> Work {
         let bakes = self.audio.renders.summary();
         let watch = self.watching().then(|| self.watch.next_due());
         let next_due = [self.audio.renders.next_due(SETTLE), self.files_watch.next_due(), watch]

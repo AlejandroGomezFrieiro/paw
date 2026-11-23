@@ -59,7 +59,7 @@ struct BuiltEngine {
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Tap {
+pub(crate) enum Tap {
     /// The tracks' clips and devices, and the tracks that feed them.
     Pre,
     /// `Pre`, and the tracks' faders, pans and mutes.
@@ -88,7 +88,7 @@ impl Tap {
 /// each choice starts from the two sides that the render hears.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Channels {
+pub(crate) enum Channels {
     /// Two channels, as you hear it.
     #[default]
     Stereo,
@@ -209,7 +209,7 @@ fn check_render_target(opts: &RenderOpts, path: &Path) -> Result<()> {
 
 /// A kind of file a render can write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Format {
+pub(crate) enum Format {
     Wav,
     Flac,
     /// The lossy formats are made by ffmpeg from a WAV: see [`encode`].
@@ -220,7 +220,7 @@ pub enum Format {
 
 impl Format {
     /// Every format that can be written, with its extensions.
-    pub const ALL: &'static [(Format, &'static str, &'static [&'static str])] = &[
+    pub(crate) const ALL: &'static [(Format, &'static str, &'static [&'static str])] = &[
         (Format::Wav, "WAV", &["wav", "wave"]),
         (Format::Flac, "FLAC", &["flac"]),
         (Format::Mp3, "MP3", &["mp3"]),
@@ -228,7 +228,7 @@ impl Format {
         (Format::Opus, "Opus", &["opus"]),
     ];
 
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         Self::ALL.iter().find(|f| f.0 == self).map_or("?", |f| f.1)
     }
 
@@ -263,7 +263,7 @@ const UNWRITABLE: &[(&str, &str)] = &[
 
 /// "WAV (.wav) or FLAC (.flac)": what can be written with nothing else
 /// installed, for messages.
-pub fn writable() -> String {
+pub(crate) fn writable() -> String {
     let names: Vec<String> = Format::ALL
         .iter()
         .filter(|(format, ..)| format.lossy().is_none())
@@ -278,7 +278,7 @@ pub fn writable() -> String {
 
 /// The format a file name asks for, or why it cannot be written. The lossy
 /// formats need ffmpeg: `ffmpeg` is where it is, when not on the PATH.
-pub fn format_of(path: &Path, ffmpeg: Option<&str>) -> Result<Format> {
+pub(crate) fn format_of(path: &Path, ffmpeg: Option<&str>) -> Result<Format> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -321,7 +321,7 @@ pub fn format_of(path: &Path, ffmpeg: Option<&str>) -> Result<Format> {
 /// The formats, for `paw.api.render_formats()`: `{ { name, extensions, bits,
 /// lossy, available, why } }`; `why` says what a format that is not
 /// available needs.
-pub fn formats_json(ffmpeg: Option<&str>) -> Value {
+pub(crate) fn formats_json(ffmpeg: Option<&str>) -> Value {
     Value::Array(
         Format::ALL
             .iter()
@@ -367,7 +367,7 @@ impl Progress {
 }
 
 /// A render that is running.
-pub struct Job {
+pub(crate) struct Job {
     path: PathBuf,
     started: Instant,
     progress: Arc<Progress>,
@@ -439,7 +439,7 @@ fn partial(path: &Path, what: &str) -> PathBuf {
 impl Session {
     /// Render the project to a file and wait for it. Returns what
     /// [`render_start`](Self::render_start) does when it is done.
-    pub fn render(&mut self, path: &Path, opts: &RenderOpts) -> Result<Value> {
+    pub(crate) fn render(&mut self, path: &Path, opts: &RenderOpts) -> Result<Value> {
         self.render_start(path, opts)?;
         self.render_wait()
     }
@@ -485,7 +485,7 @@ impl Session {
     /// Start rendering the project to a file, on a thread of its own, from a
     /// snapshot of the project as it is now. [`render_poll`](Self::render_poll)
     /// reports progress and the end as events.
-    pub fn render_start(&mut self, path: &Path, opts: &RenderOpts) -> Result<()> {
+    pub(crate) fn render_start(&mut self, path: &Path, opts: &RenderOpts) -> Result<()> {
         format_of(path, opts.ffmpeg.as_deref())?;
         // Every plugin is needed: wait for those still being made, and
         // refuse, naming it, one that did not load.
@@ -779,7 +779,7 @@ impl Session {
 
     /// Ask the running render to stop. It leaves no file behind. Returns
     /// whether there was one.
-    pub fn render_cancel(&mut self) -> bool {
+    pub(crate) fn render_cancel(&mut self) -> bool {
         match &self.render_job {
             Some(job) => {
                 job.progress.cancel.store(true, Ordering::Relaxed);
@@ -790,7 +790,7 @@ impl Session {
     }
 
     /// The running render: `{ path, fraction, seconds }`, or null.
-    pub fn render_status(&self) -> Value {
+    pub(crate) fn render_status(&self) -> Value {
         match &self.render_job {
             Some(job) => json!({
                 "path": job.path,
@@ -804,14 +804,14 @@ impl Session {
     }
 
     /// Whether a render is running.
-    pub fn rendering(&self) -> bool {
+    pub(crate) fn rendering(&self) -> bool {
         self.render_job.is_some()
     }
 
     /// Report how the running render is getting on: `render.progress` now
     /// and then, and `render.done`, `render.failed` or `render.cancelled`
     /// when it ends. Called from [`idle`](Self::idle).
-    pub fn render_poll(&mut self) {
+    pub(crate) fn render_poll(&mut self) {
         let Some(job) = &mut self.render_job else {
             return;
         };

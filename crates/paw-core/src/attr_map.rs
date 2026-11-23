@@ -46,7 +46,7 @@ const STRIKE: f64 = 1.0 / 64.0;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AttrMap {
+pub(crate) struct AttrMap {
     #[serde(default)]
     pub send: SendWhen,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -78,7 +78,7 @@ fn is_true(b: &bool) -> bool {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum SendWhen {
+pub(crate) enum SendWhen {
     /// Only when a note's articulation is not the one before it.
     #[default]
     Change,
@@ -89,7 +89,7 @@ pub enum SendWhen {
 /// What one articulation sends: `{ out = "ks=D1" }`, or the line alone.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum Art {
+pub(crate) enum Art {
     Line(String),
     Table {
         out: String,
@@ -123,7 +123,7 @@ impl Art {
 /// An attribute type as a key of `by_type`: a number in Lua, a string in
 /// the project file ("17" or "0x11").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeKey(pub u8);
+pub(crate) struct TypeKey(pub u8);
 
 impl Serialize for TypeKey {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -193,7 +193,7 @@ struct Compiled {
 }
 
 /// A map made ready to play.
-pub struct Plan {
+pub(crate) struct Plan {
     every: bool,
     chase: Vec<u8>,
     arts: Vec<Compiled>,
@@ -207,7 +207,7 @@ pub struct Plan {
 impl AttrMap {
     /// Whether any note is moved in time: then where it lands depends on
     /// the tempo map, and the track's events are made again with it.
-    pub fn has_delay(&self) -> bool {
+    pub(crate) fn has_delay(&self) -> bool {
         let moves = |a: &Art| a.delay().is_some_and(|d| d != 0.0);
         self.delay.is_some_and(|d| d != 0.0)
             || self.default.as_ref().is_some_and(moves)
@@ -216,7 +216,7 @@ impl AttrMap {
     }
 
     /// The map ready to play, or what is wrong with it.
-    pub fn plan(&self) -> Result<Plan> {
+    pub(crate) fn plan(&self) -> Result<Plan> {
         let check = |delay: Option<f64>, what: &str| -> Result<f64> {
             match delay {
                 Some(d) if !d.is_finite() || d.abs() > MOST_DELAY => bail!(
@@ -451,13 +451,13 @@ impl Plan {
     }
 
     /// The milliseconds a note with `attr` is moved by: below 0, earlier.
-    pub fn delay_of(&self, attr: Attr) -> f64 {
+    pub(crate) fn delay_of(&self, attr: Attr) -> f64 {
         self.find(attr).map_or(self.delay, |i| self.arts[i].delay)
     }
 
     /// What to send ahead of a note played live with `attr`: the events,
     /// and the channel the note goes out on.
-    pub fn live(&self, attr: Attr) -> (Vec<EventKind>, Option<u8>, bool) {
+    pub(crate) fn live(&self, attr: Attr) -> (Vec<EventKind>, Option<u8>, bool) {
         let Some(art) = self.find(attr).map(|i| &self.arts[i]) else {
             return (Vec::new(), None, true);
         };
@@ -481,7 +481,7 @@ impl Plan {
     }
 
     /// The channels other than the first that notes are sent to.
-    pub fn channels(&self) -> Vec<u8> {
+    pub(crate) fn channels(&self) -> Vec<u8> {
         let mut out: Vec<u8> = self.arts.iter().filter_map(|a| a.channel).collect();
         out.sort();
         out.dedup();
@@ -502,7 +502,7 @@ fn on_channel(kind: EventKind, ch: u8) -> EventKind {
 /// delay is moved by it, its events with it and its end too, by `tempo`;
 /// one moved before where playback starts is started there as a held note
 /// is, as early as it can be.
-pub fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
+pub(crate) fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
     let midi = std::mem::take(&mut set.midi);
     let mut out = Vec::with_capacity(midi.len() + midi.len() / 2);
     // The articulation in force, and the keyswitches it holds down.
@@ -644,7 +644,7 @@ pub fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
 
 /// The map of a track from Lua's or a file's data: nothing for nil, an
 /// empty table or `false`.
-pub fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
+pub(crate) fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
     use serde_json::Value;
     match value {
         Value::Null | Value::Bool(false) => Ok(None),

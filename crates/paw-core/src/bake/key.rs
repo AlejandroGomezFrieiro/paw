@@ -22,18 +22,18 @@ use crate::media::{SourceHash, hash};
 const PREFIX: &[u8] = b"paw.bake/2\n";
 
 /// The hash of keys and sources. The one place that names the algorithm.
-pub struct Hasher(hash::Incremental);
+pub(crate) struct Hasher(hash::Incremental);
 
 impl Hasher {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(hash::Incremental::new())
     }
 
-    pub fn update(&mut self, bytes: &[u8]) {
+    pub(crate) fn update(&mut self, bytes: &[u8]) {
         self.0.update(bytes);
     }
 
-    pub fn finish(self) -> Digest {
+    pub(crate) fn finish(self) -> Digest {
         Digest(*self.0.finish().as_bytes())
     }
 }
@@ -48,7 +48,7 @@ impl Default for Hasher {
 /// [`SourceHash`], the same hash of its bytes.)
 /// Written as 64 hex digits.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Digest(pub [u8; 32]);
+pub(crate) struct Digest(pub [u8; 32]);
 
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -71,15 +71,16 @@ impl Serialize for Digest {
 /// The kind of output of a bake.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Stream {
+pub(crate) enum Stream {
     Sound,
+    #[allow(dead_code, reason = "no bake makes pictures yet (video proxies)")]
     Picture,
     Data,
 }
 
 /// What a bake makes.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct Output {
+pub(crate) struct Output {
     pub stream: Stream,
     /// Frames a second of sound or picture.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,7 +93,8 @@ pub struct Output {
 /// One input of a bake.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
-pub enum Input {
+#[allow(dead_code, reason = "no bake takes a range or the output of another bake yet")]
+pub(crate) enum Input {
     /// A whole source file, by the hash of its bytes.
     File { source: SourceHash },
     /// A range of frames of one stream of a source.
@@ -109,7 +111,7 @@ pub enum Input {
 
 /// Everything a bake needs, and nothing else: the key is the hash of this.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct BakeJob {
+pub(crate) struct BakeJob {
     /// "peaks", "stretch", "video.proxy".
     pub op: String,
     /// Of the op's meaning.
@@ -126,13 +128,13 @@ impl BakeJob {
     /// form), numbers as `float_roundtrip` writes them. `params` is a
     /// `Value`, which holds no NaN or infinity: a caller that builds it
     /// from floats refuses those first (`serde_json` would write `null`).
-    pub fn canonical(&self) -> Vec<u8> {
+    pub(crate) fn canonical(&self) -> Vec<u8> {
         let value = serde_json::to_value(self).expect("a job is plain data");
         serde_json::to_vec(&value).expect("a value is JSON")
     }
 
     /// What was asked: the hash of the canonical job.
-    pub fn input_key(&self) -> Digest {
+    pub(crate) fn input_key(&self) -> Digest {
         let mut hasher = Hasher::new();
         hasher.update(PREFIX);
         hasher.update(&self.canonical());
@@ -143,13 +145,13 @@ impl BakeJob {
 /// The name of a cache entry: what was asked and who made it. 128 bits,
 /// written as 32 hex digits; the entry keeps the whole input key.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EntryKey {
+pub(crate) struct EntryKey {
     pub input: Digest,
     pub tool: String,
 }
 
 impl EntryKey {
-    pub fn new(job: &BakeJob, tool: impl Into<String>) -> Self {
+    pub(crate) fn new(job: &BakeJob, tool: impl Into<String>) -> Self {
         Self {
             input: job.input_key(),
             tool: tool.into(),
@@ -157,7 +159,7 @@ impl EntryKey {
     }
 
     /// The entry's name in the cache.
-    pub fn id(&self) -> String {
+    pub(crate) fn id(&self) -> String {
         let mut hasher = Hasher::new();
         hasher.update(&self.input.0);
         hasher.update(self.tool.as_bytes());

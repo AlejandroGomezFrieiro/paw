@@ -11,7 +11,7 @@ use crate::model::{ClipContent, Lane, NestId, NestPlay, Target};
 
 /// What [`Session::nest_promote`] did, for the Lua side and its message.
 #[derive(Debug, Serialize)]
-pub struct Promoted {
+pub(crate) struct Promoted {
     /// The group track that took the place of the return row; none for a
     /// subproject saved per track.
     pub group: Option<Id>,
@@ -109,7 +109,7 @@ impl Session {
     /// (the same instances), the sum of their faders in dB, the row's pan,
     /// sends, output, mute and colour, and their lanes (volume lanes added
     /// in dB). The row, the master and the subproject go. One undo step.
-    pub fn nest_promote(&mut self, clip: Id) -> Result<Promoted> {
+    pub(crate) fn nest_promote(&mut self, clip: Id) -> Result<Promoted> {
         if let Some((b, blocks)) = self.per_track_blocks(clip)? {
             return self.promote_per_track(b, blocks);
         }

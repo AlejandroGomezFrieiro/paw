@@ -26,7 +26,7 @@ use signal_hook::consts::{SIGHUP, SIGTERM};
 use crate::graphics::{self, Graphics};
 use crate::keys;
 
-pub struct Terminal {
+pub(crate) struct Terminal {
     out: BufWriter<Stdout>,
     /// What is on screen now, to send only the cells that changed.
     shown: Option<Grid>,
@@ -81,7 +81,7 @@ impl Terminal {
     /// Take over the terminal and start handing its events to `send`, which
     /// says whether anyone is still listening: the kernel in this program,
     /// or a connection to one somewhere else.
-    pub fn start(send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
+    pub(crate) fn start(send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
         if let Ok(cooked) = termios::tcgetattr(rustix::stdio::stdin()) {
             let _ = COOKED.set(cooked);
         }
@@ -179,7 +179,7 @@ impl Terminal {
     }
 
     /// What this terminal can show besides cells, for the kernel to know.
-    pub fn caps(&self) -> Caps {
+    pub(crate) fn caps(&self) -> Caps {
         let packed = self.cell.load(Ordering::Relaxed);
         Caps {
             graphics: self.graphics.is_some(),
@@ -192,7 +192,7 @@ impl Terminal {
     }
 
     /// What the terminal said about itself, in a line, for the log.
-    pub fn describe(&self) -> String {
+    pub(crate) fn describe(&self) -> String {
         let p = &self.probe;
         let packed = self.cell.load(Ordering::Relaxed);
         format!(
@@ -252,7 +252,7 @@ fn ask() -> Probe {
 }
 
 /// Give the terminal back. Safe to call more than once.
-pub fn restore() {
+pub(crate) fn restore() {
     if IMAGES.swap(false, Ordering::Relaxed) {
         let _ = stdout().write_all(kitty::DELETE_ALL);
         let _ = stdout().write_all(b"\x1b[?1016l");

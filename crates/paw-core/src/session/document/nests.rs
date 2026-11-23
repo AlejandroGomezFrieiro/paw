@@ -21,7 +21,7 @@ const DEFAULT_LENGTH: f64 = 32.0;
 /// What `paw.api.nest_add` takes.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct NestOpts {
+pub(crate) struct NestOpts {
     pub name: Option<String>,
     /// Beats; 32 when absent.
     pub length: Option<f64>,
@@ -74,7 +74,7 @@ impl NestField {
 
 impl Document {
     /// Make a nest with its master track and no other track. Returns its id.
-    pub fn nest_add(&mut self, opts: NestOpts) -> Result<NestId> {
+    pub(crate) fn nest_add(&mut self, opts: NestOpts) -> Result<NestId> {
         let id = NestId(self.new_id());
         let master = self.new_id();
         let name = match opts.name.as_deref().map(str::trim) {
@@ -108,7 +108,7 @@ impl Document {
 
     /// A nest as a table: its fields, `tracks` (its tracks in order, without
     /// the master) and `used` (whether the song plays it).
-    pub fn nest_view(&self, id: NestId) -> Result<Value> {
+    pub(crate) fn nest_view(&self, id: NestId) -> Result<Value> {
         let nest = self
             .project
             .nest(id)
@@ -129,7 +129,7 @@ impl Document {
 
     /// One field of a nest's own (not `tracks` or `used`): quicker than
     /// [`Document::nest_view`], which looks at every clip.
-    pub fn nest_field(&self, id: NestId, key: &str) -> Result<Value> {
+    pub(crate) fn nest_field(&self, id: NestId, key: &str) -> Result<Value> {
         let nest = self
             .project
             .nest(id)
@@ -146,14 +146,14 @@ impl Document {
     }
 
     /// The ids of the nests, in the order they were made.
-    pub fn nest_list(&self) -> Vec<NestId> {
+    pub(crate) fn nest_list(&self) -> Vec<NestId> {
         self.project.nests.keys().copied().collect()
     }
 
     /// Change one field of a nest. A value that is as it was is no change.
     /// A new tempo keeps the song's blocks of the nest on the beats of the
     /// nest they play: their length in the song follows it.
-    pub fn nest_set(&mut self, id: NestId, key: &str, value: Value) -> Result<()> {
+    pub(crate) fn nest_set(&mut self, id: NestId, key: &str, value: Value) -> Result<()> {
         if holds(&self.nest_view(id), key, &value) {
             return Ok(());
         }
@@ -193,7 +193,7 @@ impl Document {
     /// clips with new ids, named `Ballad 2`. The block, and the stems of
     /// the same instance, then place the copy. One undo step. Returns the
     /// copy's id.
-    pub fn nest_unique(&mut self, clip: Id) -> Result<NestId> {
+    pub(crate) fn nest_unique(&mut self, clip: Id) -> Result<NestId> {
         let p = &self.project;
         let block = p.clip(clip).with_context(|| format!("no clip {clip}"))?.clone();
         let ClipContent::Nest { nest: old, .. } = &block.content else {

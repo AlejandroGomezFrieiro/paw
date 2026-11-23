@@ -8,7 +8,7 @@
 use crate::device::{Controller, Device, Io, ParamInfo, ProcessCtx, Registry};
 use crate::event::EventBuf;
 
-pub struct Fx {
+pub(super) struct Fx {
     pub kind: String,
     pub sr: f32,
     pub device: Box<dyn Device>,
@@ -20,7 +20,7 @@ pub struct Fx {
 }
 
 impl Fx {
-    pub fn new(kind: &str, sr: f32) -> Self {
+    pub(super) fn new(kind: &str, sr: f32) -> Self {
         let registry = Registry::with_builtins();
         let factory = registry
             .get(kind)
@@ -47,19 +47,19 @@ impl Fx {
         fx
     }
 
-    pub fn index(&self, key: &str) -> usize {
+    pub(super) fn index(&self, key: &str) -> usize {
         self.params
             .iter()
             .position(|p| p.key == key)
             .unwrap_or_else(|| panic!("{} has no parameter {key}", self.kind))
     }
 
-    pub fn set(&mut self, key: &str, value: f32) {
+    pub(super) fn set(&mut self, key: &str, value: f32) {
         let i = self.index(key);
         self.set_index(i, value);
     }
 
-    pub fn set_index(&mut self, i: usize, value: f32) {
+    pub(super) fn set_index(&mut self, i: usize, value: f32) {
         let p = &self.params[i];
         let value = value.clamp(p.min, p.max);
         self.values[i] = value;
@@ -67,12 +67,12 @@ impl Fx {
         self.control.set_value(i, value as f64);
     }
 
-    pub fn values(&self) -> Vec<f32> {
+    pub(super) fn values(&self) -> Vec<f32> {
         self.values.clone()
     }
 
     /// A new instance with the same settings: no state left from before.
-    pub fn reset(&mut self) {
+    pub(super) fn reset(&mut self) {
         let values = self.values.clone();
         let tempo = self.ctx.tempo;
         *self = Fx::new(&self.kind, self.sr);
@@ -83,13 +83,13 @@ impl Fx {
     }
 
     /// Let settings that glide get where they are going.
-    pub fn settle(&mut self) {
+    pub(super) fn settle(&mut self) {
         let n = (self.sr * 0.3) as usize;
         let z = vec![0.0; n];
         self.run_stereo(&z, &z, 512);
     }
 
-    pub fn run_stereo(
+    pub(super) fn run_stereo(
         &mut self,
         left: &[f32],
         right: &[f32],
@@ -114,15 +114,15 @@ impl Fx {
         (l, r)
     }
 
-    pub fn run(&mut self, mono: &[f32], block: usize) -> Vec<f32> {
+    pub(super) fn run(&mut self, mono: &[f32], block: usize) -> Vec<f32> {
         self.run_stereo(mono, mono, block).0
     }
 
-    pub fn call(&mut self, method: &str, data: &str) -> String {
+    pub(super) fn call(&mut self, method: &str, data: &str) -> String {
         String::from_utf8(self.control.call(method, data.as_bytes()).unwrap()).unwrap()
     }
 
-    pub fn call_numbers(&mut self, method: &str, data: &str) -> Vec<f64> {
+    pub(super) fn call_numbers(&mut self, method: &str, data: &str) -> Vec<f64> {
         self.call(method, data)
             .split_whitespace()
             .map(|s| s.parse().unwrap())
@@ -130,7 +130,7 @@ impl Fx {
     }
 
     /// A `name value` answer as a lookup.
-    pub fn field(&mut self, method: &str, name: &str) -> f64 {
+    pub(super) fn field(&mut self, method: &str, name: &str) -> f64 {
         let text = self.call(method, "");
         text.lines()
             .find_map(|l| {
@@ -140,13 +140,13 @@ impl Fx {
             .unwrap_or_else(|| panic!("no {name} in {text}"))
     }
 
-    pub fn latency(&self) -> u32 {
+    pub(super) fn latency(&self) -> u32 {
         self.control.latency()
     }
 }
 
 /// White noise from a fixed seed, in -0.5..0.5.
-pub fn noise(n: usize, seed: u32) -> Vec<f32> {
+pub(super) fn noise(n: usize, seed: u32) -> Vec<f32> {
     let mut s = seed.wrapping_mul(2654435761).max(1);
     (0..n)
         .map(|_| {
@@ -158,27 +158,27 @@ pub fn noise(n: usize, seed: u32) -> Vec<f32> {
         .collect()
 }
 
-pub fn sine(freq: f32, sr: f32, n: usize, amp: f32) -> Vec<f32> {
+pub(super) fn sine(freq: f32, sr: f32, n: usize, amp: f32) -> Vec<f32> {
     (0..n)
         .map(|i| (std::f32::consts::TAU * freq * i as f32 / sr).sin() * amp)
         .collect()
 }
 
-pub fn rms_db(x: &[f32]) -> f64 {
+pub(super) fn rms_db(x: &[f32]) -> f64 {
     let e: f64 = x.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>() / x.len().max(1) as f64;
     10.0 * e.max(1e-30).log10()
 }
 
-pub fn peak(x: &[f32]) -> f32 {
+pub(super) fn peak(x: &[f32]) -> f32 {
     x.iter().fold(0.0, |m, v| m.max(v.abs()))
 }
 
 /// A device kind, settings that make it do something, and how long its
 /// tail can ring at those settings, in seconds.
-pub type Case = (&'static str, Vec<(&'static str, f32)>, f32);
+pub(super) type Case = (&'static str, Vec<(&'static str, f32)>, f32);
 
 /// Every built-in effect.
-pub fn effects() -> Vec<Case> {
+pub(super) fn effects() -> Vec<Case> {
     let eq = vec![
         ("b1_on", 1.0),
         ("b3_gain", 9.0),

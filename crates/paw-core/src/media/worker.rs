@@ -10,14 +10,14 @@ use super::index::Stamp;
 use super::table::{Probe, SourceHash};
 
 /// A file to learn about.
-pub struct Job {
+pub(super) struct Job {
     pub path: PathBuf,
     /// Its hash, when the index knows it already: only the header is read.
     pub known: Option<(Stamp, SourceHash)>,
 }
 
 /// What was learned of a file.
-pub struct Learned {
+pub(super) struct Learned {
     pub path: PathBuf,
     /// The file as it was hashed, or why it could not be.
     pub result: std::io::Result<(Stamp, SourceHash, Probe)>,
@@ -25,13 +25,13 @@ pub struct Learned {
 
 /// One thread that hashes the files it is given, one at a time, in order.
 /// It stops when the worker is dropped.
-pub struct Worker {
+pub(super) struct Worker {
     jobs: Sender<Job>,
     done: Receiver<Learned>,
 }
 
 impl Worker {
-    pub fn start() -> std::io::Result<Self> {
+    pub(super) fn start() -> std::io::Result<Self> {
         let (jobs, todo) = mpsc::channel::<Job>();
         let (tell, done) = mpsc::channel();
         std::thread::Builder::new()
@@ -47,17 +47,18 @@ impl Worker {
         Ok(Self { jobs, done })
     }
 
-    pub fn send(&self, job: Job) -> bool {
+    pub(super) fn send(&self, job: Job) -> bool {
         self.jobs.send(job).is_ok()
     }
 
     /// What was learned since the last call, without waiting.
-    pub fn take(&self) -> impl Iterator<Item = Learned> + '_ {
+    pub(super) fn take(&self) -> impl Iterator<Item = Learned> + '_ {
         self.done.try_iter()
     }
 
     /// The next thing learned, waiting for it.
-    pub fn wait(&self) -> Option<Learned> {
+    #[cfg(test)]
+    pub(crate) fn wait(&self) -> Option<Learned> {
         self.done.recv().ok()
     }
 }

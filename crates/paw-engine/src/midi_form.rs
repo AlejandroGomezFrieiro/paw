@@ -163,7 +163,7 @@ impl Converter {
     /// End every note this converter left sounding, with an All Notes Off
     /// on each channel that had one; an MPE zone's bends go back to rest.
     pub fn release(&mut self, emit: &mut impl FnMut(Wire)) {
-        let held = std::mem::replace(&mut self.held, [0; 16]);
+        let held = std::mem::take(&mut self.held);
         let ump = self.sends_ump();
         for (ch, mut keys) in held.into_iter().enumerate() {
             if keys == 0 {

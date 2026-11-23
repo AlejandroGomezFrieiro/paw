@@ -36,23 +36,23 @@ use super::{AudioDevice, BackendChoice, BackendOptions, DeviceList, Lost, Stream
 use crate::engine::Engine;
 
 /// The host and port that the page answers.
-pub const PAGE: (&str, u16) = ("audio.paw", 80);
+pub(super) const PAGE: (&str, u16) = ("audio.paw", 80);
 
 /// The backend's name: `--audio page`.
-pub const NAME: &str = "page";
+pub(super) const NAME: &str = "page";
 
 /// Frames that one request carries at most.
 const FRAMES_PER_POST: usize = 2048;
 
 /// The page to send to, and the block size, once it answered.
-pub struct Devices {
+pub(super) struct Devices {
     addr: (String, u16),
     block: usize,
     rate: u32,
 }
 
 /// The two threads: the clock that renders, and the sender.
-pub struct Running {
+pub(super) struct Running {
     stop: Arc<AtomicBool>,
     render: Option<JoinHandle<Engine>>,
     send: Option<JoinHandle<()>>,
@@ -76,15 +76,15 @@ impl Drop for Running {
 }
 
 /// The text of the warning when `auto` falls back to the null backend.
-pub fn fallback_warning(err: &anyhow::Error) -> String {
+pub(super) fn fallback_warning(err: &anyhow::Error) -> String {
     format!("no sound from the page ({err:#}): playing silently")
 }
 
-pub fn backends() -> Vec<String> {
+pub(super) fn backends() -> Vec<String> {
     vec![NAME.to_string()]
 }
 
-pub fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
+pub(super) fn list_devices(opts: &BackendOptions) -> Result<DeviceList> {
     let mut list = super::null_devices(opts);
     list.backend = BackendChoice::Host(NAME.into());
     list.outputs.push(AudioDevice {
@@ -140,7 +140,7 @@ fn open_at(opts: &BackendOptions, addr: (String, u16)) -> Result<(StreamInfo, De
 }
 
 /// Start the clock thread on the engine in `parked`, and the sender.
-pub fn start(
+pub(super) fn start(
     devices: Devices,
     parked: Arc<Mutex<Option<Engine>>>,
     lost: Arc<Lost>,

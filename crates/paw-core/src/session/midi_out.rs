@@ -10,7 +10,7 @@ use crate::model::MidiOutput;
 
 /// A track's MIDI output from what a script gives: a port's name, a table
 /// `{ port, channel, form, members }`, or nil (or "none") for none.
-pub fn parse(value: Value) -> Result<Option<MidiOutput>> {
+pub(super) fn parse(value: Value) -> Result<Option<MidiOutput>> {
     let out = match value {
         Value::Null => return Ok(None),
         Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
@@ -59,7 +59,7 @@ impl Session {
     }
 
     /// The ports MIDI can be sent to, and ours that others read from.
-    pub fn midi_outputs(&self) -> Value {
+    pub(crate) fn midi_outputs(&self) -> Value {
         let ports = self.midi.out.as_ref().map(|m| m.ports()).unwrap_or_default();
         let mut list: Vec<Value> = ports
             .into_iter()
@@ -80,7 +80,7 @@ impl Session {
     /// Make a MIDI port of this program's for other programs to read from:
     /// they see it as `paw out: <name>`, and tracks send to it by `name`.
     /// It is kept through engine restarts.
-    pub fn midi_open_output(&mut self, name: &str) -> Result<()> {
+    pub(crate) fn midi_open_output(&mut self, name: &str) -> Result<()> {
         if name.is_empty() || name.contains('\0') {
             bail!("a MIDI port needs a name");
         }
@@ -94,7 +94,7 @@ impl Session {
     }
 
     /// Take away a port made by `midi_open_output`. True if there was one.
-    pub fn midi_close_output(&mut self, name: &str) -> bool {
+    pub(crate) fn midi_close_output(&mut self, name: &str) -> bool {
         let Some(at) = self.midi.out_own.iter().position(|known| known == name) else {
             return false;
         };

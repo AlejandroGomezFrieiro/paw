@@ -30,7 +30,7 @@ fn check_sig(num: u32, den: u32) -> Result<()> {
 impl Document {
     /// Replace every tempo and signature point at once. Audio clips keep
     /// to time as their timebase says.
-    pub fn tempo_set_points(&mut self, tempos: Vec<TempoPoint>, sigs: Vec<SigPoint>) -> Result<()> {
+    pub(crate) fn tempo_set_points(&mut self, tempos: Vec<TempoPoint>, sigs: Vec<SigPoint>) -> Result<()> {
         for p in &tempos {
             check_beat(p.beat)?;
             check_bpm(p.bpm)?;
@@ -54,7 +54,7 @@ impl Document {
 
     /// Set the tempo from `beat` on, adding a point there or changing the
     /// one that is there. `ramp` left out keeps what the point had, or holds.
-    pub fn tempo_set(&mut self, beat: f64, bpm: f64, ramp: Option<bool>) -> Result<()> {
+    pub(crate) fn tempo_set(&mut self, beat: f64, bpm: f64, ramp: Option<bool>) -> Result<()> {
         check_beat(beat)?;
         check_bpm(bpm)?;
         let mut tempos = self.project.tempo_points();
@@ -74,7 +74,7 @@ impl Document {
     }
 
     /// Remove the tempo point at `beat`. The one at the start stays.
-    pub fn tempo_remove(&mut self, beat: f64) -> Result<()> {
+    pub(crate) fn tempo_remove(&mut self, beat: f64) -> Result<()> {
         let mut tempos = self.project.tempo_points();
         let Some(i) = tempos.iter().position(|p| (p.beat - beat).abs() < 1e-6) else {
             bail!("there is no tempo change at beat {beat}");
@@ -89,7 +89,7 @@ impl Document {
 
     /// Start a bar of `num`/`den` at `beat`, or change the signature that
     /// starts there.
-    pub fn signature_set(&mut self, beat: f64, num: u32, den: u32) -> Result<()> {
+    pub(crate) fn signature_set(&mut self, beat: f64, num: u32, den: u32) -> Result<()> {
         check_beat(beat)?;
         check_sig(num, den)?;
         let tempos = self.project.tempo_points();
@@ -102,7 +102,7 @@ impl Document {
     }
 
     /// Remove the signature change at `beat`. The one at the start stays.
-    pub fn signature_remove(&mut self, beat: f64) -> Result<()> {
+    pub(crate) fn signature_remove(&mut self, beat: f64) -> Result<()> {
         let mut sigs = self.project.sig_points();
         let Some(i) = sigs.iter().position(|p| (p.beat - beat).abs() < 1e-6) else {
             bail!("there is no signature change at beat {beat}");

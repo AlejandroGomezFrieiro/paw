@@ -62,7 +62,7 @@ fn compile_runtime(target: &str) {
     }
     let dir = out.join("bytecode");
     std::fs::create_dir_all(&dir).expect("bytecode directory");
-    let mut code = String::from("pub static BYTECODE: &[(&str, &[u8])] = &[\n");
+    let mut code = String::from("pub(crate) static BYTECODE: &[(&str, &[u8])] = &[\n");
     for (i, rel) in files.iter().enumerate() {
         let source = match teal.iter().find(|(path, _)| path == rel) {
             Some((_, lua)) => lua.clone().into_bytes(),
@@ -82,7 +82,7 @@ fn compile_runtime(target: &str) {
         writeln!(code, "    ({rel:?}, include_bytes!({:?})),", file.display().to_string()).unwrap();
     }
     code.push_str("];\n");
-    code.push_str("pub static TEAL: &[(&str, &str)] = &[\n");
+    code.push_str("pub(crate) static TEAL: &[(&str, &str)] = &[\n");
     for (rel, _) in &teal {
         let file = out.join("teal").join(rel.replace('/', "_")).with_extension("lua");
         writeln!(code, "    ({rel:?}, include_str!({:?})),", file.display().to_string()).unwrap();
@@ -94,7 +94,7 @@ fn compile_runtime(target: &str) {
     declarations.retain(|f| f.ends_with(".d.tl"));
     declarations.sort();
     let mut hash = Fnv::default();
-    code.push_str("pub static DECLARATIONS: &[(&str, &str)] = &[\n");
+    code.push_str("pub(crate) static DECLARATIONS: &[(&str, &str)] = &[\n");
     for rel in &declarations {
         let file = types.join(rel);
         hash.add(rel.as_bytes());
@@ -106,7 +106,7 @@ fn compile_runtime(target: &str) {
         hash.add(rel.as_bytes());
         hash.add(&std::fs::read(root.join(rel)).expect("a Teal module"));
     }
-    writeln!(code, "pub static TEAL_TYPES: &str = \"{:016x}\";", hash.0).unwrap();
+    writeln!(code, "pub(crate) static TEAL_TYPES: &str = \"{:016x}\";", hash.0).unwrap();
     std::fs::write(out.join("bytecode.rs"), code).expect("writing bytecode.rs");
 }
 

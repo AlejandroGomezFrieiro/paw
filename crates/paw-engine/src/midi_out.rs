@@ -348,7 +348,7 @@ mod imp {
         Ok(code)
     }
 
-    pub fn start(
+    pub(super) fn start(
         ports: Arc<Mutex<Vec<PortInfo>>>,
         rx: Receiver<Command>,
     ) -> Result<JoinHandle<()>> {

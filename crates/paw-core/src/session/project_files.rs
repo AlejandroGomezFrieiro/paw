@@ -30,7 +30,7 @@ pub trait ProjectFiles: Sync {
 
 /// The files on the disk.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct DiskFiles;
+pub(crate) struct DiskFiles;
 
 impl ProjectFiles for DiskFiles {
     fn read(&self, path: &Path) -> io::Result<Cow<'_, [u8]>> {
@@ -44,7 +44,7 @@ impl ProjectFiles for DiskFiles {
 
 /// The files of the project folder `dir` in memory, by their path in it.
 #[derive(Clone, Debug)]
-pub struct MemoryFiles {
+pub(crate) struct MemoryFiles {
     dir: PathBuf,
     files: BTreeMap<PathBuf, Arc<[u8]>>,
 }
@@ -59,7 +59,7 @@ enum Place<'a> {
 
 impl MemoryFiles {
     /// The files `files` (by their path in the folder) of the folder `dir`.
-    pub fn new(dir: &Path, files: BTreeMap<PathBuf, Arc<[u8]>>) -> Self {
+    pub(crate) fn new(dir: &Path, files: BTreeMap<PathBuf, Arc<[u8]>>) -> Self {
         Self { dir: folder::tidy(dir), files }
     }
 

@@ -13,7 +13,7 @@ use super::mapper::Mapper;
 use crate::model::{Id, Lane, Project, Target, Track};
 
 /// Whether a lane moves its target: it is on and has somewhere to take it.
-pub fn is_active(lane: &Lane) -> bool {
+pub(crate) fn is_active(lane: &Lane) -> bool {
     lane.enabled && !lane.points.is_empty()
 }
 

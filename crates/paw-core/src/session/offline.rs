@@ -13,7 +13,7 @@ use super::{RenderOpts, Session};
 use crate::model::{Id, MASTER_ID, Project};
 use crate::sync::{LiveDevices, Mapper, SyncCtx, sync};
 
-pub struct Offline {
+pub(crate) struct Offline {
     pub engine: Engine,
     pub handle: EngineHandle,
     /// The main-thread side of the engine's devices. Keep it on the main
@@ -32,7 +32,7 @@ impl Session {
     /// Build an engine that plays the project from `opts.start` to `opts.end`
     /// plus `opts.tail` seconds. With `solo`, only that track sounds, with
     /// what it feeds on the way to the master, as when it is soloed.
-    pub fn offline(&mut self, opts: &RenderOpts, solo: Option<Id>) -> Result<Offline> {
+    pub(crate) fn offline(&mut self, opts: &RenderOpts, solo: Option<Id>) -> Result<Offline> {
         self.capture_states();
         let mut project = self.doc.project.clone();
         if let Some(id) = solo.filter(|id| *id != MASTER_ID) {

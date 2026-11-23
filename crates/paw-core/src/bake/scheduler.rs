@@ -30,7 +30,7 @@ use crate::clock::{Clock, WallClock};
 use crate::peaks::Summary;
 
 /// How long a key must be wanted before it is made.
-pub const SETTLE: Duration = Duration::from_millis(150);
+pub(crate) const SETTLE: Duration = Duration::from_millis(150);
 
 /// Bakes made that nothing wants any more, kept anyway for undo.
 const SPARE: usize = 8;
@@ -38,7 +38,7 @@ const SPARE: usize = 8;
 /// How soon a bake is wanted, least first: the owner's order. An export
 /// waits for all of its parts whatever the order; the ear does not.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Priority {
+pub(crate) enum Priority {
     /// The rest of the project, so that it is ready before it plays.
     #[default]
     Background,
@@ -52,7 +52,7 @@ pub enum Priority {
 
 /// Where a bake runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lane {
+pub(crate) enum Lane {
     /// A function on a worker thread of paw's (`bake::native`).
     Native,
     /// A helper process, read on the kernel's I/O runtime (`bake::helper`).
@@ -66,7 +66,7 @@ impl Lane {
 }
 
 /// What a bake made.
-pub enum Made {
+pub(crate) enum Made {
     /// Sound to play, mapped from its entry when it is large.
     Sound(Arc<AudioData>),
     /// A cache entry: a helper's files.
@@ -74,7 +74,7 @@ pub enum Made {
 }
 
 /// Makes one thing. Runs off the kernel thread; never touches the model.
-pub trait Bake: Send + Sync + 'static {
+pub(crate) trait Bake: Send + Sync + 'static {
     fn lane(&self) -> Lane;
     /// What it makes, for messages: "stretching drums.wav".
     fn what(&self) -> String;
@@ -99,7 +99,7 @@ struct Shared {
 }
 
 /// A running bake's side of the scheduler.
-pub struct Task {
+pub(crate) struct Task {
     shared: Arc<Shared>,
     serial: u64,
     ended: Sender<Ended>,
@@ -112,65 +112,66 @@ struct Ended {
 
 impl Task {
     /// Set when nothing wants the bake any more: stop, and end with any error.
-    pub fn stop_flag(&self) -> &AtomicBool {
+    pub(crate) fn stop_flag(&self) -> &AtomicBool {
         &self.shared.cancel
     }
 
-    pub fn cancelled(&self) -> bool {
+    pub(crate) fn cancelled(&self) -> bool {
         self.shared.cancel.load(Ordering::Relaxed)
     }
 
     /// Wait until the bake is cancelled (for a helper's task).
-    pub async fn until_cancelled(&self) {
+    pub(crate) async fn until_cancelled(&self) {
         while !self.cancelled() {
             self.shared.woken.notified().await;
         }
     }
 
     /// How far the bake is, from 0 to 1.
-    pub fn progress(&self, fraction: f64) {
+    pub(crate) fn progress(&self, fraction: f64) {
         let millionths = (fraction.clamp(0.0, 1.0) * 1e6) as u32;
         self.shared.progress.store(millionths, Ordering::Relaxed);
     }
 
     /// Sound that plays while it is made (a growing sink's): what plays the
     /// bake switches to it.
-    pub fn partial(&self, data: Arc<AudioData>) {
+    pub(crate) fn partial(&self, data: Arc<AudioData>) {
         let _ = self.shared.partial.set(data);
     }
 
     /// The cache entry the bake makes or found (`EntryKey::id`).
-    pub fn entry(&self, id: String) {
+    pub(crate) fn entry(&self, id: String) {
         let _ = self.shared.entry.set(id);
     }
 
     /// The helper's process id, while it runs.
-    pub fn pid(&self, pid: u32) {
+    pub(crate) fn pid(&self, pid: u32) {
         self.shared.pid.store(pid, Ordering::Relaxed);
     }
 
     /// The bake ended: what it made, or why not.
-    pub fn end(self, result: Result<Made>) {
+    pub(crate) fn end(self, result: Result<Made>) {
         // A scheduler that is gone wants nothing.
         let _ = self.ended.send(Ended { serial: self.serial, result });
     }
 }
 
 /// A bake made, with its waveform overview once one was asked for.
-pub struct Ready {
+pub(crate) struct Ready {
     made: Made,
     summary: Option<Arc<Summary>>,
 }
 
 impl Ready {
-    pub fn sound(&self) -> Option<&Arc<AudioData>> {
+    pub(crate) fn sound(&self) -> Option<&Arc<AudioData>> {
         match &self.made {
             Made::Sound(data) => Some(data),
             Made::Entry(_) => None,
         }
     }
 
-    pub fn entry(&self) -> Option<&Entry> {
+    #[allow(dead_code, reason = "the helper lane has no bake yet")]
+    pub(crate) fn entry(&self) -> Option<&Entry> {
         match &self.made {
             Made::Entry(entry) => Some(entry),
             Made::Sound(_) => None,
@@ -178,7 +179,7 @@ impl Ready {
     }
 
     /// The overview of a sound, made on the first call.
-    pub fn summary(&mut self) -> Option<Arc<Summary>> {
+    pub(crate) fn summary(&mut self) -> Option<Arc<Summary>> {
         let Made::Sound(data) = &self.made else {
             return None;
         };
@@ -217,7 +218,7 @@ struct Job {
 
 /// Where a key's bake is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status {
+pub(crate) enum Status {
     /// Not asked for.
     Unknown,
     /// Wanted, not started yet.
@@ -230,14 +231,14 @@ pub enum Status {
 
 /// How much is being baked, for the status line and `bake.progress`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Busy {
+pub(crate) struct Busy {
     pub running: usize,
     pub waiting: usize,
     /// Of the running ones together, 0 to 1.
     pub fraction: f64,
 }
 
-pub struct Scheduler<K> {
+pub(crate) struct Scheduler<K> {
     jobs: HashMap<K, Job>,
     /// Bakes made, oldest first, for dropping the oldest unwanted ones.
     made: VecDeque<K>,
@@ -267,7 +268,7 @@ impl<K> Default for Scheduler<K> {
 
 impl<K> Scheduler<K> {
     /// At most `native` bakes on threads and `helpers` helper processes at once.
-    pub fn new(native: usize, helpers: usize) -> Self {
+    pub(crate) fn new(native: usize, helpers: usize) -> Self {
         Self {
             jobs: HashMap::new(),
             made: VecDeque::new(),
@@ -287,13 +288,13 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     /// Wait the settle on `clock` from now on. Give it before the first
     /// [`ask`](Self::ask): the times of the bakes that wait are on the old
     /// clock.
-    pub fn set_clock(&mut self, clock: Arc<dyn Clock>) {
+    pub(crate) fn set_clock(&mut self, clock: Arc<dyn Clock>) {
         self.clock = clock;
     }
 
     /// Ask for `key`; when it is not known, it waits, to be made by the bake
     /// `make` gives (none: nothing to make it from).
-    pub fn ask(&mut self, key: &K, make: impl FnOnce() -> Option<Arc<dyn Bake>>) {
+    pub(crate) fn ask(&mut self, key: &K, make: impl FnOnce() -> Option<Arc<dyn Bake>>) {
         if self.jobs.contains_key(key) {
             return;
         }
@@ -308,12 +309,12 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// Whether `key` has been asked for (and not dropped since).
-    pub fn known(&self, key: &K) -> bool {
+    pub(crate) fn known(&self, key: &K) -> bool {
         self.jobs.contains_key(key)
     }
 
     /// The sound of `key`: made, or as far as it is made.
-    pub fn sound(&self, key: &K) -> Option<Arc<AudioData>> {
+    pub(crate) fn sound(&self, key: &K) -> Option<Arc<AudioData>> {
         match &self.jobs.get(key)?.state {
             State::Done(ready) => ready.sound().cloned(),
             State::Running { shared, .. } => shared.partial.get().cloned(),
@@ -322,14 +323,14 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// What was made for `key`.
-    pub fn ready(&mut self, key: &K) -> Option<&mut Ready> {
+    pub(crate) fn ready(&mut self, key: &K) -> Option<&mut Ready> {
         match &mut self.jobs.get_mut(key)?.state {
             State::Done(ready) => Some(ready),
             _ => None,
         }
     }
 
-    pub fn status(&self, key: &K) -> Status {
+    pub(crate) fn status(&self, key: &K) -> Status {
         match self.jobs.get(key).map(|j| &j.state) {
             None => Status::Unknown,
             Some(State::Waiting(_)) => Status::Waiting,
@@ -340,7 +341,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// How much of `key` is made, from 0 to 1.
-    pub fn progress(&self, key: &K) -> f64 {
+    pub(crate) fn progress(&self, key: &K) -> f64 {
         match self.jobs.get(key).map(|j| &j.state) {
             Some(State::Done(_)) => 1.0,
             Some(State::Running { shared, .. }) => fraction(shared),
@@ -350,7 +351,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
 
     /// When the first bake that waits has waited `settle`, on the schedule
     /// clock: the next poll after it starts that bake.
-    pub fn next_due(&self, settle: Duration) -> Option<Duration> {
+    pub(crate) fn next_due(&self, settle: Duration) -> Option<Duration> {
         self.jobs
             .values()
             .filter_map(|job| match job.state {
@@ -361,14 +362,14 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// Whether anything waits or is being made.
-    pub fn busy(&self) -> bool {
+    pub(crate) fn busy(&self) -> bool {
         self.jobs
             .values()
             .any(|j| matches!(j.state, State::Waiting(_) | State::Running { .. }))
     }
 
     /// How much is being baked now.
-    pub fn summary(&self) -> Busy {
+    pub(crate) fn summary(&self) -> Busy {
         let mut busy = Busy::default();
         let mut sum = 0.0;
         for job in self.jobs.values() {
@@ -386,7 +387,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// Whether any of `keys` still waits or is being made.
-    pub fn making<'a>(&self, mut keys: impl Iterator<Item = &'a K>) -> bool
+    pub(crate) fn making<'a>(&self, mut keys: impl Iterator<Item = &'a K>) -> bool
     where
         K: 'a,
     {
@@ -394,13 +395,13 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// The cache entries of `keys` that are known, for pinning.
-    pub fn entries<'a>(&'a self, keys: impl Iterator<Item = &'a K> + 'a) -> impl Iterator<Item = &'a String> + 'a {
+    pub(crate) fn entries<'a>(&'a self, keys: impl Iterator<Item = &'a K> + 'a) -> impl Iterator<Item = &'a String> + 'a {
         keys.filter_map(|k| self.entries.get(k))
     }
 
     /// Take in the bakes that ended, drop what `wants` lacks, start what has
     /// waited `settle`, the most wanted first, and drop spare bakes.
-    pub fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration) {
+    pub(crate) fn poll(&mut self, wants: &HashMap<K, Priority>, settle: Duration) {
         self.take_ended(wants);
         self.drop_unwanted(wants);
         self.tell_partials();
@@ -587,13 +588,13 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     }
 
     /// True when nothing is made or being made.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.jobs.is_empty() && self.made.is_empty()
     }
 
     /// Forget the bakes of keys that `keep` refuses; a running one is told
     /// to stop, and dropped once it has.
-    pub fn retain(&mut self, keep: impl Fn(&K) -> bool) {
+    pub(crate) fn retain(&mut self, keep: impl Fn(&K) -> bool) {
         self.jobs.retain(|key, job| match &job.state {
             State::Running { shared, .. } => {
                 if !keep(key) {

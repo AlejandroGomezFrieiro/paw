@@ -3,6 +3,7 @@ name = "paw-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "A Model Context Protocol server in front of the kernel's control socket."
 
 [[bin]]
@@ -30,3 +31,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "io
 
 [dev-dependencies]
 tempfile = "3"
+
+[lints]
+workspace = true
