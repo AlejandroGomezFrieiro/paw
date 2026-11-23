@@ -639,8 +639,10 @@ mod tests {
         notes
     }
 
-    #[test]
-    fn a_clip_comes_back_the_same() {
+    /// A clip with each thing a file holds: a triplet, a note's `meta`, a
+    /// MIDI 2.0 attribute, the lowest velocity, a controller, a bend on one
+    /// key, and a program change with a bank.
+    fn each_part() -> (Vec<Note>, Vec<Control>) {
         let mut notes = named(vec![
             note(0.0, 0.5, 60),
             note(0.5, 0.25, 64),
@@ -676,6 +678,38 @@ mod tests {
                 key: None,
             },
         ];
+        (notes, controls)
+    }
+
+    /// The words of a clip file after its magic bytes, one packet to a
+    /// line, in hexadecimal.
+    fn packets(bytes: &[u8]) -> String {
+        let words: Vec<u32> = bytes[MAGIC.len()..]
+            .chunks_exact(4)
+            .map(|c| u32::from_be_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let mut lines = Vec::new();
+        let mut i = 0;
+        while i < words.len() {
+            let n = packet_words(words[i] >> 28).min(words.len() - i);
+            let packet: Vec<String> = words[i..i + n].iter().map(|w| format!("{w:08x}")).collect();
+            lines.push(packet.join(" "));
+            i += n;
+        }
+        lines.join("\n")
+    }
+
+    #[test]
+    fn a_clip_file_has_the_packets_of_the_golden_file() {
+        let (notes, controls) = each_part();
+        let bytes = encode(&notes, &controls, 4.0);
+        let clip = decode(&bytes).unwrap();
+        insta::assert_snapshot!(format!("{}{}", text(&clip), packets(&bytes)));
+    }
+
+    #[test]
+    fn a_clip_comes_back_the_same() {
+        let (notes, controls) = each_part();
         let bytes = encode(&notes, &controls, 4.0);
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.length, 4.0);

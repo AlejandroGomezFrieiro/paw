@@ -63,6 +63,11 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 # TLS on tokio's sockets (the network server, paw-core's rpc.rs), over the
 # rustls above: no provider of its own.
 tokio-rustls = { version = "0.26", default-features = false }
+# Golden files for the text formats, in tests only (.claude/skills/rust-testing,
+# part 5): `json` for assert_json_snapshot!, `filters` to hide the paths of a
+# test's folder. The lock keeps the version of `cargo insta` in the dev shell,
+# which reads and accepts them (`cargo insta review`).
+insta = { version = "1.47", features = ["json", "filters"] }
 
 [profile.dev]
 opt-level = 1
