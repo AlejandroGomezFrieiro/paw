@@ -41,6 +41,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: ClipCommand,
     },
+    /// Work with the chain language, the text form of a chain of devices
+    Chain {
+        #[command(subcommand)]
+        command: ChainCommand,
+    },
     /// Hold one plugin in a process of its own (internal)
     #[command(hide = true, disable_help_flag = true)]
     PluginHost(Raw),
@@ -53,6 +58,21 @@ pub(crate) enum Command {
 pub(crate) enum ClipCommand {
     /// Print a MIDI 2.0 clip file as text, one note to a line
     Cat { file: PathBuf },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum ChainCommand {
+    /// Print paw's schema of the chain language as JSON: each kind of
+    /// device (built-in, plugins and Lua devices), split and modulator
+    Schema(Box<ChainSchema>),
+}
+
+/// `paw chain schema [options]`: the options of `paw` that decide the
+/// kinds of device (`--clean`, `--no-plugins`, `--config`).
+#[derive(Args, Debug)]
+pub(crate) struct ChainSchema {
+    #[command(flatten)]
+    pub run: Run,
 }
 
 /// Arguments handed on untouched.

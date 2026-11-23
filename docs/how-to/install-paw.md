@@ -12,7 +12,7 @@ Do the steps in a checkout of paw's source, where `.` is the flake.
    - Run `nix run .#paw-gui` to start the graphical window.
 2. To build the programs without an install, run `nix build`. The
    programs are in `./result/bin`: `paw`, `paw-gui` and `paw-mcp`.
-3. To install the three programs in your profile, run `nix profile install .`.
+3. To install the programs in your profile, run `nix profile install .`.
 4. Run `paw` from any shell.
 
 The graphical window starts its own kernel, which is the `paw` program next

@@ -224,7 +224,7 @@ test("lenses: an extension's addresses and subject, and a Lua server in this pro
   end
   has(table.concat(info, "\n"), "in-process Lua", ":lsp info says how it runs")
   A.schemes:remove("lyric")
-  paw.lsp.subjects.lyrics = nil
+  paw.lsp.subjects:remove("lyrics")
 end)
 
 test("lenses: diagnostics on devices, parameters and stretches of time are drawn where they belong", function()

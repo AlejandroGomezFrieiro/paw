@@ -1,0 +1,6 @@
+chain 1
+eq #1 hp=90kHZ lp=
+compressor #2 ratio 4 "Glue
+delay #3 time=1/0 feedback=30%
+saturation #4 drive=-dB % curve=tube
+lfo #5 -> #4.drive

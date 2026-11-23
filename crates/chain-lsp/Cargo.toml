@@ -1,0 +1,44 @@
+# The language server of the chain language. Like chain-syntax, it is
+# generic: it names no host and depends on no crate of paw (the check
+# tools/chaindeps.lua fails if it does), so any editor and any host can use
+# it. All the language logic is in chain-syntax: this crate only speaks LSP.
+[package]
+name = "chain-lsp"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+description = "A language server for the chain language: diagnostics, formatting, completion, hover and go to definition."
+repository = "https://github.com/AlejandroGomezFrieiro/custom_daw"
+readme = "README.md"
+keywords = ["audio", "dsl", "lsp", "language-server", "plugins"]
+categories = ["development-tools", "multimedia::audio"]
+# The test of the guide for Neovim reads a page of the repository, which a
+# package does not have.
+exclude = ["tests/guide.rs"]
+
+[[bin]]
+name = "chain-lsp"
+path = "src/main.rs"
+
+[dependencies]
+chain-syntax = { path = "../chain-syntax", version = "0.1.0" }
+# The LSP transport (stdio, the initialize handshake, the shutdown) of
+# rust-analyzer: synchronous, with no async runtime, and an in-memory
+# connection for the tests.
+lsp-server = "0.10"
+# The types of the LSP messages.
+lsp-types = "0.97"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The errors of the binary.
+anyhow = "1"
+# The command line.
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+insta.workspace = true
+tempfile = "3"
+
+[lints]
+workspace = true

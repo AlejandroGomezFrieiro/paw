@@ -1,0 +1,37 @@
+# The chain language: the text form of a chain of audio devices. The crate is
+# generic: it names no host and depends on no crate of paw (a check in the
+# suite and in `nix flake check` fails if it does), so another host can use
+# it. A host gives its kinds of device as a schema in JSON.
+[package]
+name = "chain-syntax"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+description = "Parser, printer, formatter and checker of the chain language, a text form of a chain of audio devices with parallel branches."
+repository = "https://github.com/AlejandroGomezFrieiro/custom_daw"
+readme = "README.md"
+keywords = ["audio", "dsl", "parser", "formatter", "plugins"]
+categories = ["parser-implementations", "multimedia::audio"]
+# The test of the grammar page reads a page of the repository, which a
+# package does not have.
+exclude = ["tests/reference_page.rs"]
+
+[dependencies]
+# The tokens of a line. Already in Cargo.lock through toml_parser.
+winnow = "1"
+# The schema of a host, as JSON.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The error of a schema that does not load.
+thiserror = "2"
+# "Did you mean" for an unknown kind or parameter. Already in Cargo.lock
+# through clap.
+strsim = "0.11"
+
+[dev-dependencies]
+proptest.workspace = true
+insta.workspace = true
+
+[lints]
+workspace = true

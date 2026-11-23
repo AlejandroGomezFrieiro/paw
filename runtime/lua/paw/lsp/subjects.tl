@@ -16,6 +16,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local registry = require("paw.registry")
 local A = require("paw.address")
 local options = require("paw.options")
 local document = require("paw.lsp.document")
@@ -203,10 +204,10 @@ local record M
   type ProjectTrack = ProjectTrack
   type ProjectDoc = ProjectDoc
   type RenderDoc = RenderDoc
-  --- The subjects, by name.
-  list: {string: Subject}
+  --- The subjects, by name, with the extension that added each one.
+  list: registry.Registry<Subject>
 end
-M.list = {}
+M.list = registry.new("lsp_subjects", "language server subjects")
 
 --- Add or replace a subject.
 function M.define(name: string, spec: Subject)
@@ -217,12 +218,12 @@ function M.define(name: string, spec: Subject)
   spec.name = name
   spec.language = spec.language or ("paw-" .. name)
   spec.depends = spec.depends or {"paw://**"}
-  M.list[name] = spec
+  M.list:put(name, spec)
 end
 
 --- The URI of the document a subject makes of an address.
 function M.uri(name: string, address: string): string
-  local spec = M.list[name]
+  local spec = M.list:get(name)
   if spec and spec.own then
     return address
   end
@@ -235,7 +236,7 @@ function M.split(uri: string): string, string
   if address then
     return name, address
   end
-  for n, spec in pairs(M.list) do
+  for n, spec in pairs(M.list:entries()) do
     if spec.own and spec.own(uri) then
       return n, uri
     end

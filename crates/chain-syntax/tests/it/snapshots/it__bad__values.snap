@@ -1,0 +1,26 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 1
+  2 | compresor #1 ratio=4
+    | ^ 2:1: error E201: no kind `compresor`; did you mean `compressor`?
+  3 | compressor #2 ration=4 ratio=40kHz threshold=6dB
+    |               ^ 3:15: error E202: no parameter `ration`; did you mean `ratio`?
+    |                        ^ 3:24: error E204: `ratio` takes a number with no unit, not `40kHz`
+    |                                    ^ 3:36: error E205: `threshold` goes from -60dB to 0dB, so `6dB` is out of range
+  4 | compressor #3 attack=0.01ms makeup=3dB makeup=4dB
+    |               ^ 4:15: error E205: `attack` goes from 0.1ms to 100ms, so `0.01ms` is out of range
+    |                                        ^ 4:40: error E207: `makeup` is set twice on this line
+  5 | saturation #4 curve=tubes mix=on
+    |               ^ 5:15: error E203: `curve` has no choice `tubes`; did you mean `tube`?
+    |                           ^ 5:27: error E203: `mix` takes a number, not `on`
+  6 | delay #5 time=4 pingpong=yes
+    |          ^ 6:10: error E203: `time` takes a note value such as `1/4`, not `4`
+    |                 ^ 6:17: error E203: `pingpong` is a switch: write `on` or `off`, not `yes`
+  7 | clap:org.example.amp #6 gain=3dB
+    | ^ 7:1: warning W301: `clap:org.example.amp` is not installed: its fields stay as they are written, with no check
+  8 | eq #2
+    | ^ 8:1: error E206: two items have the id `#2`
+  9 | eq #in
+    | ^ 9:1: error E206: the id `in` is kept for `@in`, the input of the chain

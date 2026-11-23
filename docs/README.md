@@ -152,6 +152,7 @@ groups below link the main ones.
 - [How to write a completion source](how-to/write-a-completion-source.md)
 - [How to write a device in Lua](how-to/write-a-device-in-lua.md)
 - [How to write an extension in Teal](how-to/write-an-extension-in-teal.md): Lua with types, checked before it runs, and other languages
+- [How to check chain files in Neovim or another editor](how-to/check-chain-files-in-another-editor.md): errors, formatting, completion and hover for the chain language, with `chain-lsp`
 - [How to configure an editor for paw's code](how-to/configure-an-editor-for-paws-code.md): completion, types and errors for Teal and Lua, with the two language servers
 - [How to write a language server](how-to/write-a-language-server.md)
 - [How to write an importer or exporter](how-to/write-an-importer-or-exporter.md): open and write the files of another program with `:import`, `:open` and `:export`
@@ -229,6 +230,8 @@ groups below link the main ones.
 - [Devices](reference/devices.md): the built-in devices, wet/dry and output gain, presets
 - [Device parameters](reference/device-parameters.md): the fields of each parameter, the ids of plugins, values as text
 - [Plugins](reference/plugins.md): formats, scan, editors, processes, status, offline devices
+- [The chain language](reference/chain-language.md): the text form of a chain of devices, its grammar, values, units and diagnostics
+- [The schema of the chain language](reference/chain-schema.md): the JSON that tells the checks the kinds of device, split and modulator of a host
 - [The saved state of plugins](reference/plugin-state.md): the readers of each framework, their forms and trees, hints from the binary
 - [The state of JUCE plugins](reference/juce-plugin-state.md): the layers of a state, paths, parameters, differences, presets
 - [Attachments](reference/attachments.md): native libraries that take a plugin, the clips and files they get (`paw_attach.h`)

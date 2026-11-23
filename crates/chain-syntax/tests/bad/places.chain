@@ -1,0 +1,17 @@
+chain 1
+| Dry
+layer #1
+  eq #2
+  | Wet
+    eq #3
+    mods
+      macro #4
+  checks
+    latency <= 6ms
+chain 1
+mods
+  lfo #5 rate=1Hz
+mods
+  macro #6
+checks
+  latency 6ms

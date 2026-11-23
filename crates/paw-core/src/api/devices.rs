@@ -14,6 +14,12 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // --- devices ---
         // @return {types.DeviceType}
         fn device_types(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().device_types()) }
+        // paw's schema of the chain language, as JSON text: each kind of
+        // device that paw has now (with the plugins and the Lua devices of
+        // the extensions), and each kind of split and modulator. It is what
+        // `paw chain schema` prints, for a language server or another tool.
+        // @return string
+        fn chain_schema(_, sh, () => ()) { Ok(crate::chain_schema::json(&sh.session.borrow())) }
         // The kind of device installed that answers `query`, `{ kind, format,
         // id, name, vendor }` (each optional), as an entry of `device_types`;
         // nil when none does. It looks by `kind` (an old name too), else by

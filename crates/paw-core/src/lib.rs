@@ -23,6 +23,7 @@ pub use kernel::{Frontend, InputEvent, Kernel, KernelMsg, KernelOpts};
 
 mod attr_map;
 mod bake;
+mod chain_schema;
 mod codec;
 mod edits;
 mod events;

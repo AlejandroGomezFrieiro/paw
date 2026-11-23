@@ -462,6 +462,13 @@ impl Kernel {
         self.shared.log(line);
     }
 
+    /// paw's schema of the chain language, as JSON: each kind of device
+    /// that the registry has now (with the plugins and the Lua devices of
+    /// the extensions), and the kinds of split and modulator.
+    pub fn chain_schema(&self) -> String {
+        crate::chain_schema::json(&self.shared.session.borrow())
+    }
+
     /// Run a Lua file with `...` set to `args`.
     pub fn run_file(&mut self, path: &Path, args: Vec<String>) -> Result<()> {
         let code =

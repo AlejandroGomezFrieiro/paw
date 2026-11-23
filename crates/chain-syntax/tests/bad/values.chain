@@ -1,0 +1,9 @@
+chain 1
+compresor #1 ratio=4
+compressor #2 ration=4 ratio=40kHz threshold=6dB
+compressor #3 attack=0.01ms makeup=3dB makeup=4dB
+saturation #4 curve=tubes mix=on
+delay #5 time=4 pingpong=yes
+clap:org.example.amp #6 gain=3dB
+eq #2
+eq #in

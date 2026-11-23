@@ -1,0 +1,34 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 1
+  2 | compressor #1 key=@3
+    |               ^ 2:15: error E210: `@3` comes later in the signal: a node can only listen to a node before it
+  3 | compressor #2 key=@2
+    |               ^ 3:15: error E210: `@2` is the node itself: a node cannot listen to its own output
+  4 | compressor #3 key=@9
+    |               ^ 4:15: error E210: no node has the id `#9`
+  5 | eq #4
+    | ^ 5:1: error E209: `eq` is a device, so it holds no nodes; only a split does
+  6 |   compressor #5
+  7 | band #6 xover=2kHz,150Hz
+    | ^ 7:1: error E208: a `band` split takes 2 to 6 branches; this one has 1
+    |         ^ 7:9: error E212: the values of `xover` must go up: `2kHz,150Hz`
+  8 |   | Low
+  9 | band #7 xover=1kHz
+ 10 |   | Low
+ 11 |   | Mid
+ 12 |   | High
+ 13 |   mods
+ 14 |     lfo #8 -> #1.threshold -3dB
+    |               ^ 14:15: error E211: `#1` is not a node or a branch in this container
+ 15 | rack #10
+ 16 |   saturation #11
+ 17 |   mods
+ 18 |     macro #12 -> #11.drve +3dB, #11.curve +1, #11.drive +3Hz
+    |                  ^ 18:18: error E211: `#11` has no parameter `drve`; did you mean `drive`?
+    |                                 ^ 18:33: error E211: `curve` is not a number, so it cannot be modulated
+    |                                               ^ 18:47: error E204: a depth on `drive` is a number in dB or in %, not `3Hz`
+ 19 |     wobble #13
+    |     ^ 19:5: error E201: no modulator `wobble`

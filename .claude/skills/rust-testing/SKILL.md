@@ -117,6 +117,7 @@ and `filters`). These golden files exist, and a new one follows them:
 | A `.midi2` clip: its text and its packets | `a_clip_file_has_the_packets_of_the_golden_file` | `paw-core` (`clipfile.rs`) |
 | A project folder on the disk | `a_project_folder_has_the_files_of_the_golden_file` | `paw-core` (`session/folder.rs`) |
 | The undo folder | `an_undo_folder_has_the_files_of_the_golden_file` | `paw-core` (`undofile.rs`) |
+| The diagnostics of each bad chain in `tests/bad` | `bad::*` | `chain-syntax` |
 
 - Use the most specific macro: `assert_snapshot!` for text,
   `assert_debug_snapshot!` for a `Debug` value, `assert_json_snapshot!`
@@ -173,6 +174,7 @@ Where they are:
 | `paw-core/src/attr_map/props.rs` | An attribute map, saved in the project file and read again, is the same map |
 | `paw-core/src/model/props.rs` | An undo gives the project before a change, and a redo the project after it |
 | `paw-engine/src/tempo/props.rs` | A beat to seconds and back is the same beat |
+| `chain-syntax/src/props.rs` | A chain that is printed and parsed again is the same graph. A second format of a text changes nothing |
 
 Rules:
 
@@ -408,6 +410,7 @@ a run out of memory is a failure:
 | `project_folder` | The files of a project folder, each after a line `=== <path>` | `session::folder::read_from`, with a `ProjectFiles` in memory that never reads the disk |
 | `remote` | Lines of JSON from the other side of a connection | `remote::apply` on one grid, `remote::input_of`, `paw_proto::monitor::decode` |
 | `terminal_keys` | Text: ESC is Escape, NUL is a pause, DEL is a resize | `keys::Joiner` over `keys::Scripted`, the source of the unit tests |
+| `chain_text` | A text of the chain language | `chain_syntax::parse` and `check`. If the text has no error, a print and a parse give the same graph, and a second format changes nothing |
 
 - The crate is a workspace member, but not a default member. `cargo
   build` and `cargo test` at the top do not build it. Use `cargo check -p

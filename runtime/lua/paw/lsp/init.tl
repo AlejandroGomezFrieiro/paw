@@ -204,16 +204,17 @@ local record M
   enable: function(name: string, on?: boolean): Client
   --- What a server sends, in any dialect, by method: the answer, for a request.
   handlers: {string: function(client: Client, params: Payload, message?: Message): Payload}
-  --- The dialects, by name.
-  adapters: {string: Adapter}
+  --- The dialects, by name, with the extension that added each one.
+  adapters: registry.Registry<Adapter>
   --- The last that a server heard in a clip, by the clip's id.
   analysis: {integer: Heard}
   --- How long the edits pause before what changed is sent.
   debounce_ms: number
   --- The last messages to and from servers, for `:lsp log`.
   log: {string}
-  --- The subjects, by name.
-  subjects: {string: subjects.Subject}
+  --- The subjects, by name, with the extension that added each one
+  --- (paw/lsp/subjects.tl).
+  subjects: registry.Registry<subjects.Subject>
   --- What the adapters call with what a server said.
   adapter_api: standard.AdapterApi
   --- paw/lsp/document.tl: the document of a clip.
@@ -243,7 +244,8 @@ M.configs = registry.new(
   }
 )
 M.handlers = {}
-M.adapters = {standard = standard as Adapter}
+M.adapters = registry.new("lsp_adapters", "language server dialects")
+M.adapters:put("standard", standard as Adapter)
 M.analysis = {}
 M.debounce_ms = 250
 M.log = {}
@@ -308,7 +310,7 @@ end
 --- Add a dialect: how a kind of server is spoken to (see paw/lsp/standard.tl
 --- for the functions an adapter has; any it leaves out are the standard ones).
 function M.adapter(name: string, spec: Adapter)
-  M.adapters[name] = setmetatable(spec, standard_mt)
+  M.adapters:put(name, setmetatable(spec, standard_mt))
 end
 
 -- Sending ---------------------------------------------------------------------
@@ -510,7 +512,7 @@ function M.attaches(which: Which, address: string, subject?: string): boolean
   end
   local names, where = attachment(client)
   for _, name in ipairs(names) do
-    local spec = subjects.list[name]
+    local spec = subjects.list:get(name)
     if spec and (not subject or subject == name) then
       for _, target in ipairs(spec.targets(focused(where, false))) do
         if target == address then
@@ -569,7 +571,7 @@ local run_oneshot: function(client: Client, doc: Doc)
 -- Send a subject's document to a server if it changed since it was last
 -- sent, or was never sent.
 local function send_doc(client: Client, name: string, address: string, kept?: boolean): Doc
-  local spec = subjects.list[name]
+  local spec = subjects.list:get(name)
   local uri = subjects.uri(name, address)
   local key = spec.key and spec.key(address)
   local data: Payload
@@ -660,7 +662,7 @@ function M.sync()
       local names, where = attachment(client)
       local wanted: {string: {string}} = {}
       for _, name in ipairs(names) do
-        local spec = subjects.list[name]
+        local spec = subjects.list:get(name)
         if spec then
           local w = where
           if w.focus == nil then
@@ -713,7 +715,7 @@ function M.attach(which: Which, address: string | integer, keep?: boolean, subje
     M.sync()
     return true
   end
-  if not ready(client) or not subjects.list[subject] then
+  if not ready(client) or not subjects.list:get(subject) then
     return false
   end
   return send_doc(client, subject, addr, true) ~= nil
@@ -1127,7 +1129,7 @@ end
 
 local function subject_names(): {string}
   local out: {string} = {}
-  for name in pairs(subjects.list) do
+  for name in pairs(subjects.list:entries()) do
     out[#out + 1] = name
   end
   table.sort(out)
@@ -1141,7 +1143,7 @@ start = function(client: Client)
   if adapter is Adapter then
     client.adapter = setmetatable(adapter, standard_mt)
   else
-    client.adapter = M.adapters[adapter or "standard"]
+    client.adapter = M.adapters:get(adapter or "standard")
   end
   if not client.adapter then
     return forget(client, "dead", "no adapter `" .. tostring(config.adapter) .. "`")

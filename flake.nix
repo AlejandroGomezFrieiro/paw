@@ -198,6 +198,12 @@
                 --set-default PAW_HOME $out/share/paw \
                 --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg-headless pkgs.fontconfig.bin pkgs.curl ]}
             done
+            # The language server of the chain language (crates/chain-lsp)
+            # needs nothing of paw, so it has no wrapper. extensions/chainlsp
+            # finds it on the PATH.
+            if [ -e ${programs}/bin/chain-lsp ]; then
+              ln -s ${programs}/bin/chain-lsp $out/bin/chain-lsp
+            fi
           '';
           # The extensions as packages, and the program with some of them:
           # `paw.withExtensions (exts: [ exts.utau ])`.
@@ -368,6 +374,23 @@
         touch $out
       '';
 
+      # tools/chaindeps.lua: no crate of the chain language (crates/chain-*:
+      # chain-syntax and chain-lsp) depends on a crate of paw, so the
+      # language and its server stay generic. It reads the manifests as text.
+      chainDeps = pkgs: pkgs.runCommand "paw-chaindeps" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./tools/chaindeps.lua
+            (nixpkgs.lib.fileset.fileFilter (file: file.name == "Cargo.toml") ./crates)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit pkgs.coreutils ];
+      } ''
+        cd $src && luajit tools/chaindeps.lua
+        touch $out
+      '';
+
       # tools/testlint.lua: no test sleeps, reads the clock or checks a
       # speed beyond tests/timing-allowed.txt. It reads text only.
       testLint = pkgs: pkgs.runCommand "paw-testlint" {
@@ -412,6 +435,8 @@
         paw = only pkgs "paw";
         paw-gui = only pkgs "paw-gui";
         paw-mcp = only pkgs "paw-mcp";
+        # The language server of the chain language, for any editor.
+        chain-lsp = only pkgs "chain-lsp";
         paw-utau = pawUtau pkgs;
         utau-engine = (extensionsFor pkgs).utau.engine;
         # extensions/sampler's plugin and command, on their own.
@@ -424,9 +449,9 @@
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
       # luacheck on the Lua, how much the formatters would change, and the
-      # check against tests that depend on time, and the order of layers in
-      # the runtime.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; website = website pkgs; });
+      # check against tests that depend on time, the order of layers in
+      # the runtime, and the chain crates that depend on no paw crate.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

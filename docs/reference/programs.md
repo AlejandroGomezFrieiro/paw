@@ -5,6 +5,8 @@
 paw has three programs, which are `paw` (the kernel and the terminal interface),
 `paw-gui` (the graphical window) and `paw-mcp` (a Model Context Protocol
 server for AI assistants), and `--help` on each program prints its options.
+The package also has `chain-lsp`, the language server of the chain
+language, which needs nothing else of paw.
 
 ## paw
 
@@ -17,6 +19,7 @@ server for AI assistants), and `--help` on each program prints its options.
 | `paw attach` | Shows the terminal interface of an instance that runs, in this terminal. |
 | `paw doctor [options]` | Checks the audio, MIDI, plugins and environment, and prints a report. |
 | `paw clip cat <file.midi2>` | Prints a MIDI 2.0 clip file as text, one note to a line. Git uses it to show the changes of project folders. |
+| `paw chain schema [options]` | Prints paw's schema of the [chain language](chain-language.md) as JSON: each kind of device that paw has after it starts, with your plugins and the Lua devices of your extensions, and each kind of split and modulator. `--clean` leaves out your extensions, and `--no-plugins` leaves out your plugins. The [schema format](chain-schema.md) gives each field. |
 
 | Option | Effect |
 | --- | --- |
@@ -119,6 +122,22 @@ paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
 | `--allow-eval` | Gives the tools `lua`, `run_command` and `send_keys`, which run any code in paw. |
 | `--allow-any-path` | Lets save and render write outside `--root`. |
 | `--timeout <secs>` | The time to wait for the kernel for each call. The default is 600. |
+
+## chain-lsp
+
+`chain-lsp` is the language server of the [chain language](chain-language.md). It talks LSP over stdin and stdout, and the [README of the crate](../../crates/chain-lsp/README.md) lists what it does.
+
+| Use | Effect |
+| --- | --- |
+| `chain-lsp [options]` | Serves one editor, from its `initialize` to its `exit`. |
+
+| Option | Effect |
+| --- | --- |
+| `--schema <file>` | The [schema](chain-schema.md) of the host, as a JSON file. |
+| `--schema-command <program> [args...]` | A program that prints the schema of the host, for example `paw chain schema`. It takes the rest of the command line. |
+| `--stdio` | Does nothing, because the server always talks over stdin and stdout. Some editors give it. |
+
+The `initializationOptions` of the editor come before these options. Without a schema, the server checks only the grammar.
 
 ## Environment variables
 
