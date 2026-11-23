@@ -231,6 +231,8 @@ M.real_time = {
   ["extensions/doctor/lua/doctor/init.lua"] = {},
   ["extensions/doctor/lua/doctor/report.lua"] = { budget = true },
   ["extensions/notation/lua/notation/bench.lua"] = { budget = true },
+  ["extensions/plugstate/lua/plugstate/tone3000_api.tl"] = {},
+  ["extensions/plugstate/lua/plugstate/tone3000_auth.tl"] = {},
   ["extensions/utau/lua/utau/engine.lua"] = {},
   ["extensions/utau/lua/utau/init.lua"] = {},
   ["extensions/vinput/lua/vinput/run.lua"] = {},

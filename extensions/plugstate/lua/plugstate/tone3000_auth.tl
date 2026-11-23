@@ -121,7 +121,9 @@ local runs: {integer: Run} = {}
 local run_ticker: integer
 
 local function run_pump()
-  local now = api.now()
+  -- A process that does not end is stopped on the wall clock: a test that
+  -- moves the schedule clock must not kill a process that still works.
+  local now = api.real_ms()
   for proc, r in pairs(runs) do
     local chunk = api.proc_read(proc)
     while chunk and chunk ~= "" do
@@ -161,7 +163,7 @@ local function run(argv: {string}, input: string, cb: RunCallback)
     pcall(api.proc_write, proc, input)
   end
   pcall(api.proc_close_input, proc)
-  runs[proc] = {cb = cb, out = {}, deadline = api.now() + 15000}
+  runs[proc] = {cb = cb, out = {}, deadline = api.real_ms() + 15000}
   if not run_ticker then
     run_ticker = paw.every(50, run_pump)
   end

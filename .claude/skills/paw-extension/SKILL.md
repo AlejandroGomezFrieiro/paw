@@ -209,6 +209,7 @@ end)
 
 Never wait a fixed time for a state: the machine may be loaded. Wait for it.
 The suite runs on the manual clock (`paw --clock manual`).
+
 `T.until_(cond, what)` settles the kernel and checks `cond`. It fails at
 once with `what` when nothing is left to do. `T.advance(ms)` moves the
 clock, so each timer and delay fires in its order, and
@@ -219,6 +220,12 @@ clock, so each timer and delay fires in its order, and
 A test that needs real time (a take of one second) is live:
 `T.test(name, fn, { live = "why" })`. The runner loads every
 `extensions/*/tests*.lua` itself.
+
+In the code of an extension, a delay, a throttle or a time out for the
+user reads `api.now()`. A budget of work, or a limit that stops a process
+that does not end, reads `api.real_ms()`. The manual clock does not move
+while the code runs. A limit on it never stops the process. Add such a
+file to `M.real_time` in `tools/testlint.lua`.
 
 The runner gives back the options of the start of the run after each test.
 `T.fresh()` gives a new project, the default layout, normal mode and no
