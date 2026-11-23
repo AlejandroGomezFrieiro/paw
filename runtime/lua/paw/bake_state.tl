@@ -53,6 +53,7 @@ local record M
   type Key = Key
   --- The parts of a key, in the order that `K` names them.
   parts: {string}
+  stamp: function(text: string): string
 end
 
 M.parts = {"clips", "devices", "automation", "mix", "tempo"}
@@ -69,6 +70,9 @@ local function stamp(text: string): string
   end
   return string.format("%08x%08x", a, b)
 end
+
+--- A stamp of a text: 16 hex digits.
+M.stamp = stamp
 
 local project_int = api.project_get as function(string): integer
 
@@ -244,6 +248,18 @@ function M.make(scope: Scope, ctx?: derived.Ctx): Key
     mix = stamp(table.concat(mix, "\n")),
     tempo = num(tempo),
   }
+end
+
+--- One stamp of all the parts of a key, and of `extra`: a name for a
+--- file that holds what the key was made from.
+function M.id(key: Key, extra?: string): string
+  local all = key as {string: string}
+  local text: {string} = {}
+  for i = 1, #M.parts do
+    text[i] = all[M.parts[i]]
+  end
+  text[#text + 1] = extra or ""
+  return stamp(table.concat(text, "|"))
 end
 
 --- The parts of `now` that differ from `saved`, in the order of `M.parts`.

@@ -28,8 +28,13 @@
 //! play through the devices, fader, sends and lanes of that row, as clips
 //! put there would (`<Space>zw` saves a view so, and the song sounds the
 //! same). Through the master, such a track still plays as an engine track.
+//!
+//! A frozen block (`crate::freeze`) places nothing of its nest: its row
+//! plays the block's file as an audio clip in its place. A nest that only
+//! frozen blocks place rests: the sync holds its tracks, as it holds the
+//! tracks inside a frozen group.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -75,13 +80,15 @@ impl Instance {
 
 /// The instances of every nest the song plays, by nest, in the order of
 /// their places; the track each nest's master plays into: the track of its
-/// first clip that plays its mix; and the row each stem plays into: the
-/// track of the first clip that plays that one track.
+/// first clip that plays its mix; the row each stem plays into: the track
+/// of the first clip that plays that one track; and the nests of the
+/// frozen blocks that would have played.
 #[derive(Default)]
 pub(crate) struct Placed {
     pub instances: HashMap<NestId, Vec<Instance>>,
     pub hosts: HashMap<NestId, Id>,
     pub stems: HashMap<Id, Id>,
+    frozen: HashSet<NestId>,
 }
 
 impl Placed {
@@ -129,6 +136,11 @@ impl Placed {
                 if c.muted || !outer.plays(t.id) {
                     continue;
                 }
+                // A frozen block plays its file: nothing of its nest.
+                if crate::freeze::block_file(c).is_some() {
+                    placed.frozen.insert(*nest);
+                    continue;
+                }
                 let only = match play {
                     NestPlay::Track(stem) => Some(*stem),
                     NestPlay::Master => None,
@@ -154,6 +166,13 @@ impl Placed {
             list.sort_by(|a, b| a.from.total_cmp(&b.from).then(a.key.cmp(&b.key)));
         }
         placed
+    }
+
+    /// The nests that frozen blocks place and no live block does: their
+    /// devices rest. A nest that only such a nest places has no instance
+    /// either, but it is not held: its tracks play no clips.
+    pub fn resting(&self) -> impl Iterator<Item = NestId> + '_ {
+        self.frozen.iter().copied().filter(|n| !self.instances.contains_key(n))
     }
 }
 
@@ -262,10 +281,13 @@ pub(crate) fn expand(project: &Project, placed: &Placed, mut old: ExpandedTracks
     for (t, list) in &mut tracks {
         list.extend(hosted.remove(&t.id).unwrap_or_default());
     }
+    // A song track plays otherwise than it is when it holds the clips of
+    // tracks in pass mode, or a frozen block.
     for t in project.tracks.iter().filter(|t| t.nest.is_none()) {
-        if let Some(more) = hosted.remove(&t.id) {
+        let more = hosted.remove(&t.id);
+        if more.is_some() || t.clips.iter().any(|c| crate::freeze::block_file(c).is_some()) {
             let mut list = vec![Source { track: t.clone(), places: None }];
-            list.extend(more);
+            list.extend(more.unwrap_or_default());
             tracks.push((t, list));
         }
     }
@@ -288,7 +310,11 @@ fn build(t: &Arc<Track>, sources: Vec<Source>, was: Option<&Expanded>) -> Expand
     let mut list: Vec<Arc<Clip>> = Vec::new();
     for source in &sources {
         let Some(places) = &source.places else {
-            list.extend(source.track.clips.iter().cloned());
+            // A song track's own clips; a frozen block as its sound.
+            list.extend(source.track.clips.iter().map(|c| match crate::freeze::block_sound(c) {
+                Some(sound) => Arc::new(sound),
+                None => c.clone(),
+            }));
             continue;
         };
         for instance in places {
@@ -336,10 +362,15 @@ fn copy_id(instance: &Instance, clip: Id) -> Id {
 }
 
 /// A clip of a nest track placed in the song for one instance, cut at its
-/// window (see [`crate::model::nest::placed_clip`]).
+/// window (see [`crate::model::nest::placed_clip`]). A block of a nest
+/// inside places its nest's clips itself; a frozen one is placed as its
+/// sound.
 fn place(clip: &Clip, instance: &Instance, id: Id) -> Option<Clip> {
-    if matches!(clip.content, ClipContent::Nest { .. }) {
-        return None;
-    }
+    let sound = crate::freeze::block_sound(clip);
+    let clip = match (&clip.content, &sound) {
+        (_, Some(sound)) => sound,
+        (ClipContent::Nest { .. }, None) => return None,
+        _ => clip,
+    };
     instance.timing.place_clip(clip, instance.from, instance.to, id)
 }

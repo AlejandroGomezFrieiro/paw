@@ -46,6 +46,7 @@ local record Options
   master: boolean
   threads: integer
   freeze: integer
+  block: integer
   sleep: boolean
   settle: number
   ffmpeg: string
@@ -250,6 +251,9 @@ end
 ---               with `normalize` too, the peak level is a ceiling
 ---   tracks      { id, ... }: only these, with what they pass through (a stem)
 ---   master      false to leave out the master track's devices, fader and pan
+---   freeze      a track id: that track alone, before its fader, as a freeze renders it
+---   block       a clip id of a block of a subproject: what the block plays into its row,
+---               and nothing else, as a freeze of the block renders it
 ---   threads     threads to render on
 ---   background  true to return at once and render on a thread of its own:
 ---               `render.progress` ({ path, fraction, seconds }) follows now

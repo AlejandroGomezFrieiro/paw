@@ -519,7 +519,8 @@ function M.content_key(c: types.Clip): string
 end
 
 --- `K` on a block: `nest Ballad · 6/8 · 8 bars · follows the tempo ·
---- 2 tracks · 1 instance · live`. `c` is the clip, in the window's time.
+--- 2 tracks · 1 instance · live`, or `frozen` at the end for a frozen
+--- block. `c` is the clip, in the window's time.
 function M.describe(c: types.Clip): string
   local n = M.get(c.nest)
   if not n then
@@ -539,7 +540,7 @@ function M.describe(c: types.Clip): string
   end
   local count = instances(c.nest)
   return string.format(
-    "nest %s · %s · %g bar%s · %s · %d track%s · %d instance%s · live%s",
+    "nest %s · %s · %g bar%s · %s · %d track%s · %d instance%s · %s%s",
     n.name,
     meter,
     bars,
@@ -549,6 +550,7 @@ function M.describe(c: types.Clip): string
     #n.tracks == 1 and "" or "s",
     count,
     count == 1 and "" or "s",
+    (c.meta and c.meta.frozen) and "frozen" or "live",
     stem_of(c) and (" · the stem " .. name_of(stem_of(c))) or ""
   )
 end

@@ -147,8 +147,11 @@ command("info", function()
       c.muted and ", muted" or ""
     )
     if c.kind == "nest" then
-      -- A block of a subproject.
+      -- A block of a subproject, and whether its frozen file is up to
+      -- date (paw/freeze_block.tl).
       lines[#lines + 1] = "  " .. paw.nest.describe(c)
+      local frozen = paw.freeze_block.describe(c.id)
+      if frozen then lines[#lines + 1] = "  " .. frozen end
     elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
       if c.link then lines[#lines + 1] = string.format("  linked: %s, %d clips", c.link, c.link_count) end

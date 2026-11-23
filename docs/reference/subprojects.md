@@ -192,6 +192,25 @@ The message names the copy and the places of the others, for example
 plays at bar 9`. When the window is inside the subproject through that
 block, it goes inside the copy.
 
+## Freeze a block
+
+A frozen block plays a rendered file of what it plays into its return
+row, and the devices of the subproject rest while no block plays it live.
+The rules are the rules of a frozen track, in
+[Frozen tracks](freezing.md#frozen-blocks-of-subprojects).
+
+| Command | Effect |
+| --- | --- |
+| `:freeze` on a block | Render what the block plays into its row, and play the file from now on. On a stale block, render it again. One undo step. |
+| `:freeze tail=4` on a block | Render 4 seconds after the end of the block (default: 2). |
+| `:unfreeze` on a block | Play the subproject live again. One undo step. |
+
+`K` on a frozen block ends its first line with `frozen` in place of
+`live`, and the next line says if the file is up to date, for example
+`frozen, stale: Ballad changed since: clips` after an edit inside the
+subproject. While a frozen block is stale, the status line says
+`stale: Ballad`.
+
 ## Save a view as a subproject
 
 | Keys or command | Effect |
