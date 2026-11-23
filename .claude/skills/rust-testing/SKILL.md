@@ -222,8 +222,9 @@ Rules:
   keep.
 - At a boundary with the outside (a process, a socket, a device, a
   clock), make a small trait with two adapters: the real one and a fake
-  that the test controls. Examples: the planned `Clock` trait with
-  `WallClock` and `ManualClock`, the `test` and `null` audio
+  that the test controls. Examples: the `Clock` trait
+  (`crates/paw-core/src/clock.rs`) with `WallClock` and `ManualClock`,
+  given to the bake scheduler with `set_clock`, the `test` and `null` audio
   backends, the stub plugin `examples/stub_clap`.
 - One adapter is a seam on paper. Add the trait only when the fake is
   the second adapter.
@@ -348,7 +349,11 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that
-  the test gives, or advance the planned `ManualClock`.
+  the test gives, or advance a `ManualClock` (`advance_to`).
+- A test that starts paw gives `--clock manual` when it steps timers or
+  settle delays. Then `paw.api.wait(ms)` moves the clock, `paw.api.step()`
+  does one turn of the loop, and `paw.api.pending()` gives the work that is
+  in flight.
 - Check that a thing does not happen only after a sync point. First
   send a sync request, or step to quiescence, and advance past each
   timer that could make it happen. Then check. "Nothing came in 400 ms"

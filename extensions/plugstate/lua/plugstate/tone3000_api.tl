@@ -538,7 +538,8 @@ end
 --- Look at the requests and call back the ones that have ended. The timer
 --- calls it; a test can too.
 function M.pump()
-  local now = api.now()
+  -- The limit of a request is on the wall clock, as the limit of curl is.
+  local now = api.real_ms()
   for key, job in pairs(jobs) do
     local ok, st = pcall(api.proc_status, job.proc) as (boolean, types.ProcStatus)
     local over = now > job.deadline
@@ -622,7 +623,7 @@ local function spawn(url: string, opts: M.RequestOptions, kind: M.Kind, session_
     cb = cb,
     what = opts.what or "answer",
     limit = limit,
-    deadline = api.now() + (limit + 15) * 1000,
+    deadline = api.real_ms() + (limit + 15) * 1000,
   }
   if not ticker then
     ticker = paw.every(50, M.pump)

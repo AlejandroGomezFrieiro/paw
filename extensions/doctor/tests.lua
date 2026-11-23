@@ -295,7 +295,7 @@ test("the doctor's dropout check runs, reports its numbers and takes its file aw
   )
   eq(c.measures.disk_cpu_max_percent ~= nil, true, "the CPU load")
   eq(listing(T.scratch .. "/doctor"):find("tmp-", 1, true), nil, "the long file is gone")
-end)
+end, { live = "the check measures dropouts and the processor over seconds of real time" })
 
 test("a doctor check that raises an error fails, and what it added is taken away", function()
   load()

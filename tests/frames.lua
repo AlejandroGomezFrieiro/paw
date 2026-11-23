@@ -175,7 +175,7 @@ test("frames: after an audition with the song stopped, the last frame shows the 
   end
   local t0 = api.now()
   t:play_note("A3", 100, 180)
-  T.until_(function() return not paw.ui.active() end, "the frames of the audition to end", 5000)
+  T.advance_until(function() return not paw.ui.active() end, "the frames of the audition to end", 5000)
   eq(frames > 0, true, "frames of what moves, for " .. (api.now() - t0) .. " ms")
   api.ui_attached = attached
   local whole = api.ui_frame_snapshot(W, H)
@@ -202,15 +202,14 @@ test("frames: a track that listens to its input keeps the meters moving while th
   gtr.input = "1"
   gtr.armed = true
   -- Past the moment that any key keeps the screen live.
-  local t0 = api.now()
-  T.until_(function() return api.now() > t0 + 2000 end, "two seconds with no key")
+  T.advance(2001)
   eq(api.transport_get().playing, false, "the song is stopped")
   eq(paw.ui.active(), true, "an armed input is live")
   gtr.armed = false
   gtr.monitor = true
   eq(paw.ui.active(), true, "a monitored input is live")
   gtr.monitor = false
-  T.until_(function() return not paw.ui.active() end, "the frames to end with no input listened to", 5000)
+  T.advance_until(function() return not paw.ui.active() end, "the frames to end with no input listened to", 5000)
 end)
 
 test("frames: a row of the timeline the cursor is not on shows each change to its clips and colours", function()
@@ -261,7 +260,7 @@ local function roll_between_others()
   paw.ui.focus("pianoroll")
   paw.flush()
   -- The meters of a test before are at rest: frames are the same.
-  T.until_(function() return not paw.ui.active() end, "nothing that moves")
+  T.advance_until(function() return not paw.ui.active() end, "nothing that moves", 5000)
 end
 
 test("frames: a key that only waits for the next draws the status and command lines, not the views", function()

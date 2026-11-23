@@ -287,9 +287,9 @@ return function(T)
 
   -- Each test counts for the check of unused golden files.
   local function counting(add)
-    return function(name, fn)
+    return function(name, fn, opts)
       local file = test_file_of(debug.getinfo(2, "S").source) or "?"
-      return add(name, counted(file, name, fn))
+      return add(name, counted(file, name, fn), opts)
     end
   end
   T.test, T.last = counting(T.test), counting(T.last)

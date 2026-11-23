@@ -195,7 +195,7 @@ test("lsp: a server is sent the piano roll's clip, and its diagnostics land on t
   -- An edit is sent, and what the server says then replaces what it said.
   clip:set_note(2, { pitch = 72 })
   paw.flush()
-  until_(function() return #paw.diagnostic.get(clip.id) == 0 end, "the diagnostic to go")
+  T.advance_until(function() return #paw.diagnostic.get(clip.id) == 0 end, "the diagnostic to go", 5000)
   paw.lsp.stop()
   eq(#paw.lsp.clients(), 0, "stopped")
 end)
@@ -317,7 +317,7 @@ test("lsp: a server that dies is restarted as its config allows, and its diagnos
     end
     return n
   end
-  until_(function() return deaths() == 2 end, "a death, a restart and a second death")
+  T.advance_until(function() return deaths() == 2 end, "a death, a restart and a second death", 10000)
   paw.wait(700)
   eq(deaths(), 2, "not restarted a second time")
   eq(status("range"), "dead", "left dead")

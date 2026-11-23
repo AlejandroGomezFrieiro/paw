@@ -104,13 +104,32 @@ case "$1" in
       export CLAP_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/clap:#g")/clap
       export LV2_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/lv2:#g")/lv2
       export VST3_PATH=$(echo $PAW_TEST_PLUGINS | sed "s#:#/vst3:#g")/vst3
-      "$0" --clean -l tests/suite.lua ${1+"$1"}' "$BIN/paw" ${2:+"$2"} > "$out" 2>&1 ;;
-  only)
-    "$BIN/paw" --clean --no-plugins -l tests/suite.lua "$2" > "$out" 2>&1 ;;
+      "$0" --clean --clock manual -l tests/suite.lua ${1+"$1"}
+      manual=$?
+      PAW_TEST_LIVE=1 "$0" --clean -l tests/suite.lua ${1+"$1"}
+      live=$?
+      [ "$manual" -eq 0 ] && [ "$live" -eq 0 ]' "$BIN/paw" ${2:+"$2"} > "$out" 2>&1 ;;
   *)
-    "$BIN/paw" --clean --no-plugins -l tests/suite.lua > "$out" 2>&1 ;;
+    # The tests run on the manual clock (`T.advance` moves it). Then the
+    # live tests, which need real time, run in a second paw on the wall
+    # clock (`opts.live` in tests/suite.lua).
+    words=""
+    [ "$1" = only ] && words=$2
+    "$BIN/paw" --clean --no-plugins --clock manual -l tests/suite.lua ${words:+"$words"} > "$out" 2>&1
+    manual=$?
+    PAW_TEST_LIVE=1 "$BIN/paw" --clean --no-plugins -l tests/suite.lua ${words:+"$words"} >> "$out" 2>&1
+    live=$?
+    [ "$manual" -eq 0 ] && [ "$live" -eq 0 ] ;;
 esac
 code=$?
 grep -A8 "^FAIL" "$out"
-tail -1 "$out"
+# Each pass ends with "all passed" or "N failed": the last line adds them.
+failed=$(sed -n 's/^\([0-9]*\) failed$/\1/p' "$out" | awk '{ n += $1 } END { print n + 0 }')
+if [ "$failed" -eq 0 ] && [ "$code" -eq 0 ]; then
+  printf '\nall passed\n' | tee -a "$out" | tail -1
+else
+  [ "$failed" -eq 0 ] && failed=1
+  printf '\n%d failed\n' "$failed" | tee -a "$out" | tail -1
+  code=1
+fi
 exit $code

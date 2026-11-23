@@ -730,13 +730,21 @@ test("the vocal editor plays notes as they are placed, follows the playhead, and
   local win = vocal_window({ 60, 62 })
   local editor, clip, gui = win.editor, win.clip, win.gui
   local audition = require("utau.audition")
-  audition.last, audition.heard, audition.error = 0, {}, nil
+  audition.last, audition.heard, audition.error = -math.huge, {}, nil
   win.note("down", 2.1, 67)
   win.note("up", 2.1, 67)
   eq(#clip:notes(), 3, "a note placed")
   eq(audition.heard[#audition.heard], "tone", "is heard, as a tone without the engine")
   eq(audition.error, nil, "through the vocal device")
+  -- Not more than one a twentieth of a second, as a drag goes across rows.
   clip.length = 64
+  win.note("down", 3.1, 65)
+  win.note("up", 3.1, 65)
+  eq(#clip:notes() .. " " .. #audition.heard, "4 1", "a second note at once is placed, not heard")
+  T.advance(50)
+  win.note("down", 4.1, 64)
+  win.note("up", 4.1, 64)
+  eq(#clip:notes() .. " " .. #audition.heard, "5 2", "a note 50 ms later is heard")
   paw.keymap.feed("<leader><Space>")
   eq(paw.transport.playing, true, "Space Space plays")
   near(paw.transport.position, clip.start + editor.beat, 1e-6, "from the cursor")

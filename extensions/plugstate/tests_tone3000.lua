@@ -223,7 +223,7 @@ local function wait(m, done, what)
     if m then m.serve() end
     client.pump()
     if done() then return end
-    api.sleep(5)
+    T.advance(5)
   end
   error("waited in vain: " .. (what or "?"), 2)
 end

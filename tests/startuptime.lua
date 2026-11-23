@@ -134,4 +134,4 @@ test(":profile start, a Lua loop of 50 ms, :profile stop: the loop's function is
     true,
     "with its file and line: " .. paw.qf.where(first)
   )
-end)
+end, { live = "the profiler samples a loop of 50 ms on the wall clock" })

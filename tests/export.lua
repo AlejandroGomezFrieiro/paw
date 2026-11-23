@@ -176,7 +176,7 @@ test("cancelling during the encode stops it and leaves nothing", function()
   end
   eq(table.concat(events, ","), "render.cancelled", "it says once that it was cancelled")
   eq(names(out), "", "no file, no part, no temporary WAV")
-end)
+end, { live = "it watches the render while it runs, and a settle waits for its end" })
 
 test("without ffmpeg a lossy format is refused before anything is rendered, and the formats say why", function()
   fresh()

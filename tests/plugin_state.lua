@@ -126,7 +126,7 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     eq(octave(d), 0, kind .. ": A is back in the plugin")
     T.near(pitch(), 220, 6, kind .. ": A plays A3")
     eq(api.undo_current(), step + 1, kind .. ": one step for the recall")
-    api.wait(300)
+    T.advance(300)
     T.near(own(d).a_volume or -1, 0.75, 1e-6, kind .. ": the echo of the state takes nothing from the project")
 
     rested()
@@ -141,7 +141,7 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     eq(octave(d), 0, kind .. ": <C-r> gives A again")
     T.near(pitch(), 220, 6, kind .. ": and A plays")
     eq(api.undo_current(), step + 1, kind .. ": <C-r> goes forward one step")
-    api.wait(300)
+    T.advance(300)
     paw.flush()
     eq(api.undo_current(), step + 1, kind .. ": the echo makes no step of its own")
     eq(api.undo_pending(), false, kind .. ": nor an open one")
@@ -294,9 +294,9 @@ test("a move in a plugin's window right after a state is an edit, and the echo o
     for _ = 1, 100 do
       paw.flush()
       if #moves > 0 then break end
-      api.wait(20)
+      T.advance(20)
     end
-    api.wait(100)
+    T.advance(100)
   end
   -- The stub takes the state (7) on in its next block and tells of it
   -- with no gesture; the move to 9 comes in the same block, in a gesture.
@@ -308,7 +308,7 @@ test("a move in a plugin's window right after a state is an edit, and the echo o
   -- An echo of the state that comes a second late, on a slow computer, is
   -- still no edit.
   api.device_load(d.id, { state = "BwAAAA==" })
-  api.wait(1000)
+  T.advance(1000)
   api.device_call(d.id, "stub.tell", "7")
   settle()
   paw.off(handler)

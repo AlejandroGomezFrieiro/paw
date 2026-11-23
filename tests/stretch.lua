@@ -97,6 +97,23 @@ test("a stretched clip renders at its new length with the pitch of its file", fu
   eq(level > 0.05, true, "heard while playing")
 end)
 
+test("a stretch starts to be made 150 ms after it is asked for", function()
+  -- A sound of its own: a bake of the same sound, made before, would play
+  -- at once.
+  local file = tone_file(16, 77)
+  local t = paw.add_track({ name = "audio" })
+  local clip = t:add_clip({ file = file, start = 0 })
+  paw.stretch.set(clip.id, 1.5)
+  paw.flush()
+  eq(clip.preview, true, "the preview at once")
+  -- The stretch is asked for once its file is read.
+  T.until_(function() return api.pending().bakes_waiting == 1 end, "the stretch to be asked for")
+  T.advance(149)
+  eq(api.pending().bakes_waiting, 1, "149 ms later the stretch still waits")
+  T.advance(1)
+  eq(api.pending().bakes_waiting, 0, "150 ms after it was asked for, it is made")
+end)
+
 test("a clip plays a rough preview until its stretch is made, then the stretch", function()
   local file = tone_file(16)
   local t = paw.add_track({ name = "audio" })

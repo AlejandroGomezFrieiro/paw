@@ -428,7 +428,7 @@ function M.reader(): function(ms: number): {Found}, boolean
           batch[#batch + 1] = r
           -- A source that calls `add` from inside a function of the kernel
           -- cannot stop there: it goes on to the next record that can.
-          if api.now() >= deadline and coroutine.isyieldable() then
+          if api.real_ms() >= deadline and coroutine.isyieldable() then
             coroutine.yield()
           end
         end
@@ -436,7 +436,8 @@ function M.reader(): function(ms: number): {Found}, boolean
     end
   )
   return function(ms: number): {Found}, boolean
-    deadline = api.now() + ms
+    -- A budget of work: on the wall clock.
+    deadline = api.real_ms() + ms
     batch = {}
     local ok, err = coroutine.resume(job)
     if not ok then

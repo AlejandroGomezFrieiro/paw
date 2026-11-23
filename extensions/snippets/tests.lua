@@ -147,7 +147,7 @@ test(
     eq(#clip:notes(), 4, "nothing written yet")
     keys("<CR>")
     -- The chord row draws the reading as it stands: the new chord comes when it is read.
-    T.until_(function() return has("▏G7/D") end, "the chord row reads the new chord")
+    T.advance_until(function() return has("▏G7/D") end, "the chord row reads the new chord", 2000)
     eq(has("dominant · Tab: voicing"), true, "the snippet's span says what Tab does")
     keys("<Tab>")
     eq(has("dominant · voicing: smooth (1/5)"), true, "Tab: the voicing")
@@ -161,9 +161,9 @@ test(
     eq(screen() ~= before, true, "drawn anew")
     keys("<C-y>")
     eq(paw.snippet.marks(clip.id), nil, "C-y: done, the marks are gone")
-    T.until_(function() return has("▏G7") end, "the notes stay")
+    T.advance_until(function() return has("▏G7") end, "the notes stay", 2000)
     keys("u")
-    T.until_(function() return not has("▏G7") end, "u: the whole snippet undone")
+    T.advance_until(function() return not has("▏G7") end, "u: the whole snippet undone", 2000)
     paw.ui.focus("arrange")
   end
 )

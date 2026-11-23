@@ -661,8 +661,7 @@ test("scope_rest=frozen plays the rest from files rendered in the background", f
   eq(names(paw.scope.rest_parts()), "Brass Drums", "the parts of the rest: whole groups, not the scope's own")
   paw.opt.scope_rest = "frozen"
   wait_for("the rest to be frozen", 20000, function() return #paw.scope.held() == 2 end)
-  table.sort(api.engine_held())
-  eq(#api.engine_held(), 2, "the engine plays them from files")
+  T.until_(function() return #api.engine_held() == 2 end, "the engine to play them from files")
   eq(api.project_get().edits, edits, "the project is not changed")
   keys("zW")
   eq(#api.engine_held(), 0, "the song plays everything live")

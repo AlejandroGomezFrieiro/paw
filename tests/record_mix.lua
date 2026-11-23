@@ -321,14 +321,17 @@ local function plays(track)
   paw.midi.inject({ type = "note_on", pitch = 60, velocity = 110, port = "Keys A", channel = 1 })
   -- Heard within 50 blocks of the engine (about half a second of sound),
   -- however slowly the machine runs them.
-  local from = api.blocks()
-  local heard = until_(
-    function() return track:meter() > 0.02 and "heard" or api.blocks() - from > 50 and "silent" end,
-    "a key to be heard or not"
-  )
+  local heard = false
+  for _ = 1, 50 do
+    T.next_block(1)
+    if track:meter() > 0.02 then
+      heard = true
+      break
+    end
+  end
   paw.midi.inject({ type = "note_off", pitch = 60, port = "Keys A", channel = 1 })
   T.next_block(5)
-  return heard == "heard"
+  return heard
 end
 
 test("the selected instrument track plays the MIDI keyboard without arming", function()

@@ -1,6 +1,6 @@
 ---
 name: lua-testing
-description: "How to write and change Lua and Teal tests in paw: the runner and its helpers (T.test, T.fresh, T.keys, T.render, T.until_, T.next_block), real keys, the state that a test makes and puts back, self-contained tests that read nothing of the machine, sound, the screen, skips, flakes, and what a test must not do. Use it for each change of tests/, extensions/*/tests*.lua or the lessons of the tutor, and for each review of Lua tests."
+description: "How to write and change Lua and Teal tests in paw: the runner and its helpers (T.test, T.fresh, T.keys, T.render, T.until_, T.settle, T.advance, T.advance_until, T.next_block), the manual clock and live tests, real keys, the state that a test makes and puts back, self-contained tests that read nothing of the machine, sound, the screen, skips, flakes, and what a test must not do. Use it for each change of tests/, extensions/*/tests*.lua or the lessons of the tutor, and for each review of Lua tests."
 ---
 
 # Lua tests in paw
@@ -47,7 +47,10 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.render(opts)` | Render offline to a file under `T.scratch`. The result does not depend on the machine. |
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
-| `T.until_(cond, what)` | Wait for a state. |
+| `T.until_(cond, what)` | Settle, then check a state. Fails with "nothing is left to do, and <what> is false" when no work is left, after the engine ran about 2 s of blocks. It moves the clock only while the song plays, one block at a time, in step with the sound. |
+| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended. The clock does not move. A job that polls at no delay is not work. |
+| `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, then the kernel settles. The engine first runs one block, or the blocks of `ms` while it plays. |
+| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine is active, a step is one audio block. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
@@ -56,10 +59,9 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 
 Planned helpers:
 
-- `T.settle()`, `T.advance(ms)`, `T.advance_until(cond, what, ms)` and a
-  `T.until_` that fails at quiescence. Then `paw.wait(ms)`
-  advances a virtual clock.
-- `T.next_block(n)` on a stepped audio backend.
+- `T.next_block(n)` on a stepped audio backend. Until then
+  the engine runs on the wall clock, and a wait for it ends at the stall
+  guard.
 - `T.check_keys(fixture, keys, expected)`.
 
 ## 3. Start clean and put back
@@ -179,8 +181,8 @@ the owner's computer or folders. Mock what it needs.
   rows that differ and the command to bless. A golden file that no test
   uses fails the run (`every golden screen has a test`). A run with
   `PAW_BLESS=1` removes it.
-- Before the manual clock (`T.settle`), use a golden file only for a view that
-  draws at once.
+- Call `T.settle()` (or `T.advance(ms)` for a view that draws after a
+  delay) before you compare a view with its golden file.
 - `tests/scene_parity.lua` checks that the window and the terminal draw
   one view the same. Keep a new view in it.
 - The text formats have golden files in Rust (`insta`, see the skill
@@ -206,8 +208,18 @@ the owner's computer or folders. Mock what it needs.
 - A test does not sleep: no `api.sleep`, no `api.wait(ms)`, no
   `paw.wait(ms)` to let time pass, no `{ wait = N }` in a lesson of the
   tutor. Wait for a state with `T.until_`, for blocks with
-  `T.next_block`, or for the playhead with `T.until_beat`. After
-  the manual clock, advance the clock with `T.advance(ms)`.
+  `T.next_block`, or for the playhead with `T.until_beat`. Move the
+  clock with `T.advance(ms)`, or with `T.advance_until` to a state that a
+  timer makes.
+- The suite runs paw with `--clock manual`. `api.now()` and the timers
+  move only when a test moves them, and `paw.wait(ms)` in a test is
+  `T.advance(ms)`. Work on other threads, the audio engine and helper
+  processes still take wall time. The one limit of wall time is the stall
+  guard of the runner (30 s for each wait), which fails with "stalled".
+- A test that needs real time is live: `T.test(name, fn, { live = "why" })`.
+  The suite runs the live tests after the others, in a second paw on the
+  wall clock (`PAW_TEST_LIVE=1`). Keep them few (about 3 % of the tests),
+  and check outcomes only.
 - Do not use `api.now()` for a deadline in a test. The waits of `T`
   have one limit, the same for all tests.
 - Do not write a local `wait_for` with its own deadline. A wait that
@@ -215,7 +227,7 @@ the owner's computer or folders. Mock what it needs.
   wrong message.
 - Check that a thing does not happen only after a sync point. First
   wait until the kernel did its work (`T.next_block`, a state, or
-  `T.settle()` after the manual clock), and advance past each timer that could
+  `T.settle()`), and advance past each timer that could
   make it happen. Then check. "Nothing happened in 300 ms" is not a
   check.
 - A plugin or a helper process that the test controls waits for the

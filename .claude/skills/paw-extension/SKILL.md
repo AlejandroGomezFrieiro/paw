@@ -207,13 +207,25 @@ T.test("euclid fills 3 in 8", function()
 end)
 ```
 
-Never wait a fixed time for a state: the machine may be loaded. Wait for it:
-`T.until_(cond, what, ms)` polls `cond` (timers and events run meanwhile)
-and fails with `what`; `T.next_block(n, device)` waits until the engine (or
-one device) has run `n` whole blocks, so a parameter, note or change sent
-before is in effect. Keep `paw.api.sleep` only where real time is the
-point (a take of one second), with a comment that says so. The runner
-loads every `extensions/*/tests*.lua` itself.
+Never wait a fixed time for a state: the machine may be loaded. Wait for it.
+The suite runs on the manual clock (`paw --clock manual`).
+
+`T.until_(cond, what)` settles the kernel and checks `cond`. It fails at
+once with `what` when nothing is left to do. `T.advance(ms)` moves the
+clock, so each timer and delay fires in its order, and
+`T.advance_until(cond, what, ms)` moves it to the timer that makes `cond`.
+`T.next_block(n, device)` waits until the engine (or one device) has run
+`n` whole blocks, so a parameter, note or change sent before is in effect.
+
+A test that needs real time (a take of one second) is live:
+`T.test(name, fn, { live = "why" })`. The runner loads every
+`extensions/*/tests*.lua` itself.
+
+In the code of an extension, a delay, a throttle or a time out for the
+user reads `api.now()`. A budget of work, or a limit that stops a process
+that does not end, reads `api.real_ms()`. The manual clock does not move
+while the code runs. A limit on it never stops the process. Add such a
+file to `M.real_time` in `tools/testlint.lua`.
 
 The runner gives back the options of the start of the run after each test.
 `T.fresh()` gives a new project, the default layout, normal mode and no

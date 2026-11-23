@@ -18,7 +18,7 @@ local scratch = tmp
   .. "/paw-test-"
   .. os.time()
   .. "-"
-  .. math.floor(api.now() * 1000)
+  .. math.floor(api.real_ms() * 1000)
   .. (os.getenv("PAW_TEST_SHARD") or ""):gsub("%D", "-")
 os.execute("mkdir -p '" .. scratch .. "'")
 
@@ -46,10 +46,16 @@ local tests, failed = {}, 0
 -- The part whose tests are being collected (see "Shards" below): each test
 -- keeps it, so that the leak check names the part that leaves state behind.
 local loading
-local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn, part = loading } end
+-- `opts.live` marks a test that needs real time, and says why: it runs in a
+-- second paw on the wall clock (see "Time in the tests").
+local function test(name, fn, opts)
+  tests[#tests + 1] = { name = name, fn = fn, part = loading, live = opts and opts.live }
+end
 -- Tests that run after all the others: those that load every extension.
 local lasts = {}
-local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, part = loading } end
+local function last(name, fn, opts)
+  lasts[#lasts + 1] = { name = name, fn = fn, part = loading, live = opts and opts.live }
+end
 -- What a test asks to have undone when it ends, passed or failed, so that
 -- a failure does not leave a setting behind for the tests after it.
 local cleanups = {}
@@ -145,51 +151,234 @@ local function fails(fn, pattern, what)
   end
 end
 
---- Wait until `cond()` gives a value that is not false or nil, and give
---- that value. Timers fire and events come meanwhile, as between key
---- presses (`paw.wait`). Fails with `what` after `ms` milliseconds (30
---- seconds if not given). The limit shows a fault, not a speed: a test
---- does not give its own (docs/how-to/run-the-tests.md).
-local function until_(cond, what, ms)
-  ms = ms or 30000
-  local deadline = api.now() + ms
-  while true do
-    local value = cond()
-    if value then return value end
-    if api.now() > deadline then error(string.format("waited %d ms in vain for %s", ms, what or "a condition"), 2) end
-    paw.wait(5)
-  end
+-- Time in the tests ------------------------------------------------------------
+--
+-- The suite runs paw with `--clock manual` (tests/tools/suite.sh): schedule
+-- time (`api.now()`, the timers, the settle delays) moves only when a test
+-- lets it pass with `T.advance`, so a test steps each timer in its order
+-- and does not race it. The manual clock reads 0 until something waits,
+-- so the runner knows it at its start. Work on other threads and in other
+-- processes (bakes, plugin loads, renders) still takes wall time: a wait
+-- for it is a wait for an event, and the one limit of wall time is the
+-- stall guard. A test that needs real time is live (`T.live`), and runs
+-- in a second paw on the wall clock.
+local MANUAL = api.now() == 0
+-- The stall guard: the wall time that one wait may take. It shows a fault,
+-- not a speed.
+local STALL_MS = 30000
+
+-- Work that a turn or another thread does now: a settle waits for it. The
+-- job `collector` (paw.collector) is idle work that each turn can start
+-- again: its timer is not work left.
+local function working(p)
+  local idle = paw.slices.job("collector") and 1 or 0
+  return math.max(0, p.timers_due - idle) + p.bakes_running + p.plugin_loads + p.renders + p.midi > 0
+end
+
+-- The audio engine plays, records, closes a take or plays a sound file on
+-- its own. It runs on the wall clock (until the stepped audio backend).
+local function engine_plays()
+  local t = api.transport_get()
+  local preview = api.preview_get()
+  return t.playing
+    or t.recording
+    or (t.closing or 0) > 0
+    or (preview ~= nil and (preview.state == "playing" or preview.state == "loading"))
+end
+
+-- Something that goes on in real time and can change the state without a
+-- turn of the test: the engine that plays, and helper processes that
+-- still write.
+local function active(p) return p.helpers > 0 or engine_plays() end
+
+local function stalled(what, level)
+  error(string.format("stalled: %s after %d ms of wall time", what, STALL_MS), level + 1)
 end
 
 --- Wait until the engine has run `n` (1 if not given) whole audio blocks
 --- after this call, so that what was sent to it before is in effect: a
 --- parameter, a note, a change to a track. Changes not yet sent are sent
 --- first. With `device`, count the blocks that this device ran: a device
---- that sleeps through silence does not count them. Fails after `ms`
---- milliseconds (10 seconds if not given).
-local function next_block(n, device, ms)
+--- that sleeps through silence does not count them. The engine runs on the
+--- wall clock (until the stepped audio backend): the stall guard is the limit.
+local function next_block(n, device)
   paw.flush()
-  ms = ms or 10000
   -- The block under way may have started before the change came: the
   -- next one to finish does not count.
   local start = api.blocks(device)
   if start == nil then error("the engine has no device " .. tostring(device), 2) end
   local want = start + (n or 1) + 1
-  local deadline = api.now() + ms
+  local guard = api.real_ms() + STALL_MS
   while (api.blocks(device) or 0) < want do
-    if api.now() > deadline then
-      error(
+    if api.real_ms() > guard then
+      stalled(
         string.format(
-          "the engine ran %d of %d blocks%s in %d ms",
+          "the engine ran %d of %d blocks%s",
           (api.blocks(device) or 0) - start,
           want - start,
-          device and (" of device " .. device) or "",
-          ms
+          device and (" of device " .. device) or ""
         ),
         2
       )
     end
     api.sleep(1)
+  end
+end
+
+-- The turns in a row with only timers due, after which they are a poll: a
+-- job that looks again and again, at no delay, for a state that a timer
+-- later on makes. A poll is not work left.
+local POLL_TURNS = 1000
+
+--- Turn the loop until nothing is ready and no work is in flight: the
+--- timers that are due fired, and the bakes, plugin loads and renders
+--- ended. No schedule time passes. Gives what `api.pending()` gives then.
+local function settle()
+  local guard = api.real_ms() + STALL_MS
+  local only_timers = 0
+  while true do
+    api.step()
+    local p = api.pending()
+    if not working(p) then return p end
+    if p.bakes_running + p.plugin_loads + p.renders + p.midi == 0 then
+      only_timers = only_timers + 1
+      if only_timers >= POLL_TURNS then return p end
+    else
+      only_timers = 0
+    end
+    if api.real_ms() > guard then stalled("the work in flight (" .. paw.inspect(p) .. ")", 2) end
+    -- Another thread works: let it.
+    if p.timers_due == 0 then api.sleep(1) end
+  end
+end
+
+--- The time of one audio block in whole milliseconds, rounded up: the
+--- clock moves in whole milliseconds (`api.wait`).
+local function block_ms()
+  local e = api.engine_get()
+  return math.ceil((e.buffer_size or 512) * 1000 / (e.sample_rate or 48000))
+end
+
+--- Let the engine run `n` blocks, as far as it runs: an engine with no
+--- device, for example one that was unplugged, runs none. It waits at most
+--- four times the time of the blocks, at least 250 ms, and does not fail.
+--- True when the engine ran them. After an engine ran none, it looks
+--- only briefly (50 ms) until the engine runs a block again: a restarted
+--- engine counts its blocks from the start.
+local stopped_at
+local function catch_up(n)
+  local start = api.blocks()
+  if not start then return false end
+  local full = api.real_ms() + math.max(250, 4 * n * block_ms())
+  local guard = start == stopped_at and api.real_ms() + 50 or full
+  while (api.blocks() or 0) < start + n + 1 do
+    -- The engine runs: give it all of its time.
+    if (api.blocks() or 0) ~= start then guard = full end
+    if api.real_ms() > guard then
+      stopped_at = api.blocks()
+      return false
+    end
+    api.sleep(1)
+  end
+  stopped_at = nil
+  return true
+end
+
+--- Let `ms` milliseconds of schedule time pass: each timer and settle
+--- delay that is due in that time fires in its order, and then the kernel
+--- settles. The engine runs on the wall clock (until the stepped audio
+--- backend): first it runs one block, or the blocks of `ms` while it
+--- plays, so the clock does not go past the sound. On the wall clock (a
+--- live test) it waits `ms`.
+local function advance(ms)
+  if MANUAL and ms > 0 then catch_up(engine_plays() and math.ceil(ms / block_ms()) or 1) end
+  api.wait(ms)
+  if MANUAL then settle() end
+end
+
+-- In a test on the manual clock, `paw.wait(ms)` is `T.advance(ms)`: the
+-- time passes at once, and the kernel settles after it.
+if MANUAL then paw.wait = advance end
+
+-- The audio blocks that the engine runs before a wait says that nothing is
+-- left to do, about two seconds of sound: the engine runs on the wall clock
+-- (until the stepped audio backend). A change that it takes in, a
+-- device that falls asleep or a meter that falls shows after some blocks.
+local ENGINE_BLOCKS = 200
+
+--- Settle, then let the engine run up to ENGINE_BLOCKS blocks, until
+--- `cond()` holds. Gives the value of `cond()`, or false when nothing is
+--- left to do and it is still false, or nil when something is still
+--- active (a helper process, or the engine that plays).
+local function quiet(cond)
+  for _ = 1, ENGINE_BLOCKS do
+    local p = settle()
+    local value = cond()
+    if value then return value end
+    if active(p) then return nil end
+    -- An engine that runs no blocks changes nothing more.
+    if not catch_up(1) then break end
+  end
+  local p = settle()
+  local value = cond()
+  if value then return value end
+  if active(p) then return nil end
+  return false
+end
+
+--- Wait until `cond()` gives a value that is not false or nil, and give
+--- that value. The kernel settles, and no schedule time passes, but while
+--- the song plays the clock keeps step with the sound. When
+--- nothing is left to do and `cond()` is still false, it fails: a timer
+--- that waits for the clock is not work left (`T.advance_until` moves the
+--- clock to it). A live test waits on the wall clock for at most `ms`
+--- milliseconds (30 seconds if not given).
+local function until_(cond, what, ms)
+  what = what or "the condition"
+  if not MANUAL then
+    ms = ms or STALL_MS
+    local deadline = api.now() + ms
+    while true do
+      local value = cond()
+      if value then return value end
+      if api.now() > deadline then error(string.format("waited %d ms in vain for %s", ms, what), 2) end
+      paw.wait(5)
+    end
+  end
+  local guard = api.real_ms() + STALL_MS
+  while true do
+    local value = quiet(cond)
+    if value then return value end
+    if value == false then error("nothing is left to do, and " .. what .. " is false", 2) end
+    if api.real_ms() > guard then stalled(what, 2) end
+    -- While the song plays, the clock keeps step with the sound: one block.
+    if engine_plays() then
+      advance(block_ms())
+    else
+      api.sleep(1)
+    end
+  end
+end
+
+--- Let schedule time pass, from one due timer or delay to the next, until
+--- `cond()` gives a value that is not false or nil, and give that value.
+--- With no timer due, or while a helper process or the engine that plays
+--- is active, the clock moves by one audio block at most: so a state that
+--- a time, the meters or a helper makes comes too. Fails when `ms`
+--- milliseconds of schedule time passed.
+local function advance_until(cond, what, ms)
+  what = what or "the condition"
+  if not MANUAL then return until_(cond, what, ms) end
+  local limit = api.now() + ms
+  while true do
+    local p = settle()
+    local value = cond()
+    if value then return value end
+    local left = limit - api.now()
+    if left <= 0 then error(string.format("%s is false after %g ms", what, ms), 2) end
+    local step = math.max(1, math.ceil(p.next_ms or block_ms()))
+    if active(p) then step = math.min(step, block_ms()) end
+    advance(math.min(step, left))
   end
 end
 
@@ -204,7 +393,7 @@ local function until_beat(beat, rounds, ms)
     if now < before then wraps = wraps + 1 end
     before = now
     return wraps >= (rounds or 0) and now >= beat
-  end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms or 30000)
+  end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms)
 end
 
 --- Wait until each take that stopped is clips in the project, and the
@@ -510,6 +699,10 @@ local T = {
   render = render,
   tone = tone,
   until_ = until_,
+  settle = settle,
+  advance = advance,
+  advance_until = advance_until,
+  manual = MANUAL,
   next_block = next_block,
   until_beat = until_beat,
   until_recorded = until_recorded,
@@ -845,9 +1038,19 @@ end
 -- Run ------------------------------------------------------------------------
 
 local only = ...
+-- The live pass (PAW_TEST_LIVE=1, on the wall clock) runs the live tests
+-- only. The pass on the manual clock runs the others.
+local live_pass = os.getenv("PAW_TEST_LIVE") == "1"
+if live_pass and MANUAL then
+  error("PAW_TEST_LIVE=1 runs the live tests on the wall clock: start paw without --clock manual")
+end
+local function in_pass(t)
+  if live_pass then return t.live ~= nil end
+  return not (MANUAL and t.live)
+end
 local selected, whole = {}, {}
 for _, t in ipairs(tests) do
-  if not only or t.name:find(only, 1, true) then
+  if in_pass(t) and (not only or t.name:find(only, 1, true)) then
     selected[#selected + 1] = t
     whole[t.part] = (whole[t.part] or 0) + 1
   end
@@ -856,7 +1059,7 @@ end
 -- the test that puts a setting back must not fail.
 local in_part = {}
 for _, t in ipairs(tests) do
-  in_part[t.part] = (in_part[t.part] or 0) + 1
+  if in_pass(t) then in_part[t.part] = (in_part[t.part] or 0) + 1 end
 end
 
 -- The options as the run started. The runner gives them back after each
@@ -950,12 +1153,18 @@ for i, t in ipairs(selected) do
   local next_test = selected[i + 1]
   if not next_test or next_test.part ~= t.part then check(t.part) end
 end
--- An entry of the allow-list whose part ran whole and leaked nothing of
--- that kind is out of date: the list only gets shorter.
+-- An entry of the allow-list whose part ran whole, its live tests too, and
+-- leaked nothing of that kind is out of date: the list only gets shorter.
+local has_live = {}
+for _, t in ipairs(tests) do
+  if t.live then has_live[t.part] = true end
+end
 local stale = {}
 for entry in pairs(allowed) do
   local part = entry:match("^(%S+)")
-  if whole[part] and whole[part] == in_part[part] and not leaked[entry] then stale[#stale + 1] = entry end
+  if whole[part] and whole[part] == in_part[part] and not has_live[part] and not leaked[entry] then
+    stale[#stale + 1] = entry
+  end
 end
 table.sort(stale)
 if #stale > 0 then

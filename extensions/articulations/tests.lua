@@ -368,12 +368,12 @@ test("articulations: the diagnostics follow u and <C-r>", function()
   local d = paw.diagnostic.get({ clip = clip.id }, { namespace = "articulations" })[1]
   paw.diagnostic.apply(d, d.fixes[1])
   api.undo_checkpoint()
-  T.until_(function() return said() == 0 end, "nothing is wrong after the fix")
+  T.advance_until(function() return said() == 0 end, "nothing is wrong after the fix", 5000)
   paw.ui.focus("pianoroll")
   keys("u")
-  T.until_(function() return said() == 1 end, "the G2 is diagnosed again after u")
+  T.advance_until(function() return said() == 1 end, "the G2 is diagnosed again after u", 5000)
   keys("<C-r>")
-  T.until_(function() return said() == 0 end, "nothing is wrong again after <C-r>")
+  T.advance_until(function() return said() == 0 end, "nothing is wrong again after <C-r>", 5000)
 end)
 
 -- Making maps ---------------------------------------------------------------------------

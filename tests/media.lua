@@ -438,7 +438,7 @@ test("a render in the background reports progress, can be cancelled, and leaves 
   for _, h in ipairs(handles) do
     paw.off(h)
   end
-end)
+end, { live = "it watches the render while it runs, and a settle waits for its end" })
 
 test("the render command takes its options and completes them", function()
   fresh()

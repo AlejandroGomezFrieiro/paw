@@ -107,7 +107,8 @@ end
 local function finish(job, then_state)
   if job.proc and job.state ~= "stopping" then
     pcall(api.proc_stop, job.proc)
-    job.state, job.deadline, job.after = "stopping", api.now() + R.GRACE, then_state
+    -- The grace of a program that does not stop is on the wall clock.
+    job.state, job.deadline, job.after = "stopping", api.real_ms() + R.GRACE, then_state
   elseif not job.proc then
     job.state = then_state
   else
@@ -128,7 +129,7 @@ local function step(input)
     local seen = kind.parse_log(read(job.log, 8192))
     job.seen = seen
     if job.state == "stopping" then
-      if not status.running or now >= job.deadline then
+      if not status.running or api.real_ms() >= job.deadline then
         -- A program that had to be cut off never sent its note-offs: the
         -- port is made again, which releases what was held on it.
         local hard = status.running
@@ -206,7 +207,7 @@ function R.tick()
     if not vinput.get(name) then
       if job.proc then
         if job.state ~= "stopping" then finish(job, "off") end
-        if not api.proc_status(job.proc).running or api.now() >= job.deadline then
+        if not api.proc_status(job.proc).running or api.real_ms() >= job.deadline then
           api.proc_kill(job.proc)
           job.proc = nil
         end
