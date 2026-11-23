@@ -168,6 +168,41 @@ song after each edit, and the frame of the arrange view.
 
 ## 2026-11-23: the chord reading after :%quantize in Verse B (TASK-199)
 
+## 2026-11-23: a walk of paw.derived without recursion (TASK-200)
+
+The same key and probe as TASK-199 below: `:%quantize 1/4` in Verse B of
+the scenario `scope`, with `u` after each key. One binary of main
+(b48920a4) ran with the Lua of the TASK-199 branch ("before") and of this
+branch ("after"), in turns, under the measure lock. All values were
+measured under external load (load average 3.8 to 14.0).
+
+| What | Before | After |
+| --- | --- | --- |
+| Entries made again | the same (2 048 track windows, 256 groups, 32 mixes) | the same |
+| Traces that LuaJIT stopped in `paw.derived` at the call unroll limit (20 keys, 2 runs) | 22, 37 | 0, 0 |
+| Traces that LuaJIT stopped at a closure in `push_over` (20 keys, 2 runs) | 26, 35 | 0, 0 |
+| Allocation of one reading | 1.48 MB (1.46 to 2.4) | 1.46 MB (1.45 to 2.5) |
+| Lua bytecodes of one reading, with the compiler off | 8.79 million | 8.91 million |
+
+The time of one reading (wall clock, 40 keys, 5 pairs): medians 19.5,
+18.4, 22.8, 23.3, 24.6 ms before (13.8 to 66.0) and 25.6, 23.0, 23.8,
+22.3, 22.3 ms after (15.1 to 57.4). The whole key
+(`drive.py scope-keys --keys ':%quantize 1/4\r,u' --times 8`, cores 16 to
+23, 3 pairs): medians 126, 147, 148 ms before (70 to 294) and 156, 133,
+119 ms after (81 to 210). Both differences are inside the spread: no
+measurable difference.
+
+What the profile shows (`jit.profile` of LuaJIT, 40 keys, samples whose top frame
+is in `paw.derived`): 581 to 603 compiled, 117 to 189 in the trace
+compiler and 7 to 13 in the interpreter before; 582 to 631 compiled, 134
+to 323 in the trace compiler and 20 to 40 in the interpreter after. The
+bookkeeping was compiled code before this change too. Its cost is the
+number of entries that it touches: about 2 950 entries go stale, and
+`push_over` looks at each of the about 280 entries that read each of the
+64 tracks (about 18 000 checks of a span). A walk that touches fewer
+entries, for example the entries that read a track kept in the order of
+their spans, can make it smaller; the form of the walk does not.
+
 The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
 (64 tracks, 4 one-bar clips of each track in the region), with `u` after
 each key. One binary of main (b48920a4) ran with the Lua of main

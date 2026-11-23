@@ -398,34 +398,59 @@ end
 
 local schedule: function()
 
---- `e` is no longer fresh: what reads it may be stale too, and the job
+-- The walks of the graph use a stack of their own and not recursion: LuaJIT
+-- stops a trace after a few levels of a recursive call ("call unroll
+-- limit"), and a deep graph needs no Lua stack as deep as it is.
+
+-- The entries that `went_stale` marked and whose users it did not look at
+-- yet. Only `went_stale` uses it, and it calls nothing while the walk is
+-- under way, so one stack is enough. It is empty between calls.
+local stale_stack: {Entry} = {}
+
+--- `first` is no longer fresh: what reads it may be stale too, and the job
 --- makes it if it is wanted.
-local function went_stale(e: Entry)
-  todo = todo + 1
-  if e.core.spec.eager then
-    -- The entries that read it are not marked: when it is made again,
-    -- `remake` marks them if its value changed.
-    eager[e] = true
-    queue[e] = true
-    schedule()
-    return
-  end
-  if e.wanted or e.raised then
-    queue[e] = true
-    schedule()
-  end
-  local u = e.user
-  if u and u.state == FRESH then
-    u.state = MAYBE
-    went_stale(u)
-  end
-  if e.users then
-    for v in pairs(e.users) do
-      if v.state == FRESH then
-        v.state = MAYBE
-        went_stale(v)
+local function went_stale(first: Entry)
+  local stack = stale_stack
+  stack[1] = first
+  local n = 1
+  local queued = false
+  while n > 0 do
+    local e = stack[n]
+    stack[n] = nil
+    n = n - 1
+    todo = todo + 1
+    if e.core.spec.eager then
+      -- The entries that read it are not marked: when it is made again,
+      -- `remake` marks them if its value changed.
+      eager[e] = true
+      queue[e] = true
+      queued = true
+    else
+      if e.wanted or e.raised then
+        queue[e] = true
+        queued = true
+      end
+      -- An entry goes from fresh to maybe stale before it goes on the
+      -- stack: each entry goes on it once.
+      local u = e.user
+      if u and u.state == FRESH then
+        u.state = MAYBE
+        n = n + 1
+        stack[n] = u
+      end
+      if e.users then
+        for v in pairs(e.users) do
+          if v.state == FRESH then
+            v.state = MAYBE
+            n = n + 1
+            stack[n] = v
+          end
+        end
       end
     end
+  end
+  if queued then
+    schedule()
   end
 end
 
@@ -519,23 +544,26 @@ local function push(u: Entry)
   end
 end
 
+--- Whether the span of `u` overlaps `from` to `to`. An entry with no span
+--- (a node with none, or an entry never made, which `push` leaves as it
+--- is) overlaps all.
+local function overlaps(u: Entry, from: number, to: number): boolean
+  local a = u.from
+  return a == nil or (a < to and u.to > from)
+end
+
 --- Push the entries that read `e` and whose span overlaps `from` to
 --- `to`, and those that have none.
 local function push_over(e: Entry, from: number, to: number)
-  local function near(u: Entry)
-    -- No span: a node with none, or an entry never made (which `push`
-    -- leaves as it is).
-    local a = u.from
-    if a == nil or (a < to and u.to > from) then
-      push(u)
-    end
-  end
-  if e.user then
-    near(e.user)
+  local u = e.user
+  if u and overlaps(u, from, to) then
+    push(u)
   end
   if e.users then
-    for u in pairs(e.users) do
-      near(u)
+    for v in pairs(e.users) do
+      if overlaps(v, from, to) then
+        push(v)
+      end
     end
   end
 end
@@ -610,28 +638,66 @@ local function remake(e: Entry)
   set_fresh(e)
 end
 
-ensure = function(e: Entry)
-  local state = e.state
+--- A walk of `ensure`: the maybe stale entries under way, from the first to
+--- the one it looks at now, and for each the next entry that it read to
+--- look at.
+local record Walk
+  entries: {Entry}
+  next_dep: {integer}
+end
+
+-- Walks that ended, for the next `ensure`. A make reads entries through
+-- `ctx:get`, which starts a walk of its own while the walk of the entry
+-- made waits, so each walk has its own stack. A walk in a pass that went
+-- (`node:reset`, an error) does not come back here: it is garbage.
+local spare_walks: {Walk} = {}
+
+ensure = function(root: Entry)
+  local state = root.state
   if state == FRESH then
     return
+  elseif state ~= MAYBE then
+    remake(root)
+    return
   end
-  if state == MAYBE then
-    -- Fresh again if none of the entries it read has a new value: a new
-    -- value marks it stale (`remake`).
-    for i_d = 1, #e.deps do
-      local d = e.deps[i_d]
-      ensure(d)
-      if e.state ~= MAYBE then
-        break
+  -- A maybe stale entry is fresh again if none of the entries it read has
+  -- a new value: a new value marks it stale (`push`), and then it is made
+  -- again. The entries it read are looked at in the order it read them,
+  -- and the walk stops at the first new value.
+  local walk = table.remove(spare_walks) or {entries = {}, next_dep = {}}
+  local entries, next_dep = walk.entries, walk.next_dep
+  entries[1], next_dep[1] = root, 1
+  local n = 1
+  while n > 0 do
+    local e = entries[n]
+    local s = e.state
+    local d: Entry
+    if s == MAYBE then
+      d = e.deps[next_dep[n]]
+    end
+    if d then
+      next_dep[n] = next_dep[n] + 1
+      local ds = d.state
+      if ds == MAYBE then
+        n = n + 1
+        entries[n], next_dep[n] = d, 1
+      elseif ds ~= FRESH then
+        remake(d)
       end
-    end
-    if e.state == MAYBE then
-      e.core.hits = e.core.hits + 1
-      set_fresh(e)
-      return
+    else
+      -- All that `e` read is fresh with the same value, or one has a new
+      -- value: `e` is done.
+      if s == MAYBE then
+        e.core.hits = e.core.hits + 1
+        set_fresh(e)
+      elseif s ~= FRESH then
+        remake(e)
+      end
+      entries[n] = nil
+      n = n - 1
     end
   end
-  remake(e)
+  spare_walks[#spare_walks + 1] = walk
 end
 
 function ctx:get<K, V, I>(node: M.Node<K, V, I>, key: K): V
