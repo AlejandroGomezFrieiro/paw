@@ -900,7 +900,7 @@ test(
     local sends = api.track_get(row).sends
     eq(#sends == 1 and sends[1].target == verb.id and sends[1].level, -6, "the row sends to Verb as Bass did")
     eq(
-      paw.ui.message.text:find("the send of Bass to Verb (-6 dB) is now Bridge's", 1, true) ~= nil,
+      paw.ui.message.text:find("the send Bass → Verb (-6 dB) is now Bridge's", 1, true) ~= nil,
       true,
       paw.ui.message.text
     )
@@ -917,6 +917,160 @@ test(
     eq(#api.nest_list(), 0, "nothing saved")
   end
 )
+
+--- A song of groups: Drums (Kick, Snare) and Keys (Piano, Pad), Bass and
+--- Reverb, each with a synth and a clip over the whole song but Reverb,
+--- and the regions Intro, Verse and Chorus of 2 bars each. With `send`,
+--- Piano sends to Reverb at -14 dB. The cursor on Kick at the start.
+local function groups_song(send)
+  start()
+  paw.opt.zoom = 1
+  local t = {}
+  for i, name in ipairs({ "Kick", "Snare", "Piano", "Pad", "Bass", "Reverb" }) do
+    local track = paw.add_track({ name = name })
+    track:add_device("synth", { attack = 0.001, release = 0.01 })
+    if name ~= "Reverb" then
+      local notes = {}
+      for beat = 0, 20, 4 do
+        notes[#notes + 1] = { pitch = 40 + 3 * i, start = beat, length = 2 }
+      end
+      track:add_clip({ name = name, start = 0, length = 24, notes = notes })
+    end
+    t[name] = track.id
+  end
+  t.Drums = paw.groups.make({ t.Kick, t.Snare }, "Drums").id
+  t.Keys = paw.groups.make({ t.Piano, t.Pad }, "Keys").id
+  if send then paw.track(t.Piano):send(t.Reverb, -14) end
+  paw.markers.add(0, "Intro", { length = 8 })
+  paw.markers.add(8, "Verse", { length = 8 })
+  paw.markers.add(16, "Chorus", { length = 8 })
+  paw.ui.views:get("arrange").scroll = 0
+  paw.cursor.set_track(t.Kick)
+  paw.cursor.set_beat(0)
+  paw.flush()
+  api.undo_checkpoint()
+  return t
+end
+
+--- The output of each track named, as "name>output" ("-" the master).
+local function outputs(t, list)
+  local out = {}
+  for i, name in ipairs(list) do
+    local id = t[name]
+    if not id then
+      for _, tr in ipairs(paw.tracks()) do
+        if tr.name == name then id = tr.id end
+      end
+    end
+    local to = api.track_get(assert(id, name), "output")
+    out[i] = name .. ">" .. (to and api.track_get(to, "name") or "-")
+  end
+  return table.concat(out, " ")
+end
+
+--- The song's track called `name`.
+local function song_track(name)
+  for _, id in ipairs(api.track_list()) do
+    if api.track_get(id, "name") == name then return id end
+  end
+end
+
+test(":scope.write! of a group with no time leaves every marker and region in the song, and says what moved", function()
+  local t = groups_song()
+  paw.cursor.set_track(t.Piano)
+  keys(":narrow Keys<CR>")
+  keys(":scope.write! Keys2<CR>")
+  said("made the subproject ⧉Keys2 from Piano and Pad, bars 1-6")
+  eq(paw.ui.message.text:find("moved in", 1, true), nil, "no marker moved in: " .. paw.ui.message.text)
+  eq(regions(), "Intro@0+8 Verse@8+8 Chorus@16+8", "the song keeps its regions")
+  eq(api.nest_get(api.nest_list()[1]).meta.markers, nil, "the subproject has none")
+end)
+
+test(
+  ":scope.write! of a group over some bars keeps the group: the row goes into it, nothing else is routed again, the same render",
+  function()
+    local t = groups_song()
+    local heard = sound(0, 24)
+    paw.cursor.set_track(t.Piano)
+    paw.cursor.set_beat(8)
+    keys(":narrow Verse<CR>:narrow Keys<CR>")
+    keys(":scope.write! Bridge<CR>")
+    said(
+      "made the subproject ⧉Bridge from Piano and Pad, bars 3-4 (4/4); its row is in the group Keys, so it plays as before"
+    )
+    keys("zW")
+    local row = song_track("Bridge")
+    eq(
+      names(api.track_list()),
+      "Drums Kick Snare Keys Piano Pad Bridge Bass Reverb",
+      "the groups stay; the row is the last of Keys"
+    )
+    eq(paw.groups.of(row), t.Keys, "the row is in the group Keys")
+    eq(outputs(t, { "Piano", "Pad", "Bridge" }), "Piano>Keys Pad>Keys Bridge>Keys", "the routes of the song")
+    eq(apart(sound(0, 24), heard) <= 1, true, "the same render, to the last bit of rounding")
+    paw.cursor.set_track(t.Keys)
+    T.expect_screen("write_keeps_the_group", 100, 30, { styles = false, rows = { 1, 28 } })
+  end
+)
+
+test(
+  ":scope.write! over several buses: one row to the master, the buses named; a bus the song sends to stays; stems keep the buses",
+  function()
+    local t = groups_song(true)
+    keys(":narrow Verse<CR>")
+    keys(":scope.write! Bridge<CR>")
+    said("the Drums bus and the Keys bus no longer process bars 3-4: `:scope.write! Bridge stems` keeps them")
+    said("the send Piano → Reverb (-14 dB) is now Bridge's")
+    keys("zW")
+    eq(
+      outputs(t, { "Kick", "Piano", "Bridge" }),
+      "Kick>Drums Piano>Keys Bridge>-",
+      "the song's routes; the row to the master"
+    )
+    local sends = api.track_get(t.Piano).sends
+    eq(#sends == 1 and sends[1].target, t.Reverb, "the song's Piano still sends to Reverb, which stays in the song")
+    eq(paw.groups.members(t.Drums), { t.Kick, t.Snare }, "the group Drums stays")
+    -- Stems, in a song without the send: the same sound.
+    t = groups_song()
+    local heard = sound(0, 24)
+    paw.cursor.set_beat(8)
+    keys(":narrow Verse<CR>")
+    keys(":scope.write! Bridge stems<CR>")
+    said("a stem row for each track, so the Drums bus and the Keys bus still process bars 3-4")
+    keys("zW")
+    local stems = {}
+    for _, id in ipairs(paw.groups.members(song_track("Bridge"))) do
+      local to = api.track_get(id, "output")
+      stems[#stems + 1] = api.track_get(id, "name") .. ">" .. api.track_get(to, "name")
+    end
+    eq(
+      table.concat(stems, " "),
+      "Kick>Drums Snare>Drums Piano>Keys Pad>Keys Bass>Bridge Reverb>Bridge",
+      "each stem plays into its bus"
+    )
+    eq(apart(sound(0, 24), heard) <= 1, true, "the same render, to the last bit of rounding")
+  end
+)
+
+test("a split with one window inside a subproject: moving in the song's window leaves the other in its bars", function()
+  start()
+  paw.opt.zoom = 4
+  local bass = paw.add_track({ name = "Bass" })
+  bass:add_clip({ name = "Bass", start = 0, length = 24 })
+  paw.markers.add(8, "Verse", { length = 8 })
+  paw.ui.views:get("arrange").scroll = 0
+  paw.cursor.set_track(bass)
+  paw.cursor.set_beat(8)
+  paw.flush()
+  api.undo_checkpoint()
+  keys(":narrow Verse<CR>")
+  keys(":scope.write! Bridge<CR>")
+  keys("<C-w>v")
+  keys("zW")
+  keys("6|")
+  T.expect_screen("split_keeps_its_bars", 100, 30, { styles = false, rows = { 1, 28 } })
+  reset()
+end)
 
 test("the round trip of nest.md 3.9: <Space>zp then <Space>zW gives the same project, ids aside, and render", function()
   local b = ballad_68(true)
@@ -1208,6 +1362,39 @@ test(
       true,
       paw.ui.message.text
     )
+  end
+)
+
+test(
+  "a drag of a song's marker inside a subproject with its own tempo moves it to the song's beat under the mouse",
+  function()
+    local b = cue()
+    paw.markers.add(20, "Hit")
+    paw.opt.zoom, paw.opt.grid = 4, 1
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(17)
+    keys(":nest.time own 90<CR>")
+    keys("znn")
+    paw.ui.views:get("arrange").scroll = 0
+    -- Its beat 3 is the song's beat 20: 16 of its beats at 90 are 21.33 of
+    -- the song's at 120.
+    local x, y
+    for row, line in ipairs(api.ui_snapshot(W, H)) do
+      local i = line:find("Hit", 1, true)
+      if i then
+        x, y = api.str_width(line:sub(1, i - 1)), row - 1
+        break
+      end
+    end
+    eq(x ~= nil, true, "the marker shows inside")
+    paw.mouse.forget()
+    -- Three of its beats to the right: its beat 6, the song's beat 24.
+    for _, e in ipairs({ { "down", x }, { "drag", x + 1 }, { "drag", x + 12 }, { "up", x + 12 } }) do
+      paw.ui.mouse({ kind = e[1], x = e[2], y = y, button = "left", mods = "" })
+    end
+    T.near(paw.markers.find("Hit").beat, 24, 1e-9, "the song's beat under the mouse")
+    keys("u")
+    eq(paw.markers.find("Hit").beat, 20, "u puts it back")
   end
 )
 

@@ -5,11 +5,12 @@
 -- subproject, under the subproject's name. It reads projects as they are
 -- in their files (decoded JSON), so it needs nothing of the kernel.
 --
--- A node is `{ sign, text, address, trail, change, children }`: `sign` is
--- "+", "-" or "~"; `address` says where in the project it is (paw://...) so
--- that a view can go there; `trail` is the text of the way to it, for a
--- quickfix entry; `change` is set on what changed itself, as against a
--- heading over what changed inside it.
+-- A node is `{ sign, text, address, trail, change, nest, children }`:
+-- `sign` is "+", "-" or "~"; `address` says where in the project it is
+-- (paw://...) so that a view can go there; `trail` is the text of the way
+-- to it, for a quickfix entry; `change` is set on what changed itself, as
+-- against a heading over what changed inside it; `nest` is the id of the
+-- innermost subproject that holds it, nil for the song.
 local data = require("projdiff.data")
 
 local M = {}
@@ -621,6 +622,27 @@ local function parents(a, b, ids)
   return parent
 end
 
+--- The subproject that holds each subproject of project `p`, by id, as the
+--- diff shows them: the id of a subproject, or false for the song.
+function M.nest_parents(p)
+  local ids = {}
+  for i, n in ipairs(p.nests or {}) do
+    ids[i] = n.id
+  end
+  return parents(p, p, ids)
+end
+
+M.nest_label = nest_label
+
+--- Give each node under `n` that is not inside a deeper subproject the
+--- subproject `id` that holds it, so that a view can go inside it.
+local function held_by(n, id)
+  if n.nest == nil then n.nest = id end
+  for _, child in ipairs(n.children) do
+    held_by(child, id)
+  end
+end
+
 --- The changes of every subproject, in the order of `b` and then the
 --- removed ones, each under the heading that `parents` gives.
 --- `tracks[id]` holds the matched pairs of the subproject's tracks.
@@ -655,6 +677,8 @@ local function nest_nodes(a, b, tracks)
     for _, child in ipairs(list) do
       if parent[child.key] == n.id then add(head, build(child, trail)) end
     end
+    -- The inner subprojects marked their nodes first.
+    held_by(head, n.id)
     return (head.change or #head.children > 0) and head or nil
   end
   local out = {}

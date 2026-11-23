@@ -2981,23 +2981,36 @@ function M.save(name: string): boolean, string
   return true, file
 end
 
---- Put back layout `name`: the configuration's, else one saved.
-function M.load(name: string): boolean, string
-  local spec = M.layouts[name]
-  if not spec then
-    local handle = io.open(layout_file(name), "rb")
-    if not handle then
-      return false, "no layout `" .. tostring(name) .. "`"
+--- Layout `name` as `M.restore` takes it: the one saved with `:layout
+--- save`, else the configuration's (`paw.layouts`). Nil and the reason
+--- when there is none.
+function M.layout_spec(name: string): SpecNode, string
+  -- A saved layout wins: the user saved it after the configuration (or
+  -- the defaults) named one with the same name.
+  local handle = io.open(layout_file(name), "rb")
+  if not handle then
+    local spec = M.layouts[name]
+    if spec == nil then
+      return nil, "no layout `" .. tostring(name) .. "`"
     end
-    local text = handle:read("*a")
-    handle:close()
-    local ok, data = pcall(api.json_decode, text) as (boolean, SpecNode)
-    if not ok or type(data) ~= "table" then
-      return false, "layout `" .. tostring(name) .. "` cannot be read"
-    end
-    spec = data
+    return M.as_tabs(spec)
   end
-  if not M.restore(spec as SpecNode) then
+  local text = handle:read("*a")
+  handle:close()
+  local ok, data = pcall(api.json_decode, text) as (boolean, SpecNode)
+  if not ok or type(data) ~= "table" then
+    return nil, "layout `" .. tostring(name) .. "` cannot be read"
+  end
+  return data
+end
+
+--- Put back layout `name`: the one saved, else the configuration's.
+function M.load(name: string): boolean, string
+  local spec, why = M.layout_spec(name)
+  if not spec then
+    return false, why
+  end
+  if not M.restore(spec) then
     return false, "layout `" .. tostring(name) .. "` has no window"
   end
   return true
@@ -3704,7 +3717,10 @@ function M.setup()
       if not opt.project_screen then
         return
       end
-      local screen = M.project_screen() or {seats = {}}
+      -- The fields that other modules keep there stay (the workspaces of
+      -- paw/workspace.tl), also when the project has no layout yet.
+      local screen = M.project_screen() or api.project_screen() or {}
+      screen.seats = screen.seats or {}
       screen.default = M.capture(true)
       screen.seats[seats.kind()] = screen.default
       -- The other seats open now keep theirs too.

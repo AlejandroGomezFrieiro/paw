@@ -1166,17 +1166,23 @@ local function press_markers(self: Arrange, e: MouseEvent, h: Hit)
     paw.commands.exec("marker.rename id=" .. m.id)
     return
   end
+  -- The marker keeps a beat of the song; the mouse moves in the window's
+  -- time (a subproject's own), so the drag goes through it both ways.
+  local start = paw.time.local_beat(m.beat)
+  local function moved_to(d: MouseEvent): number
+    local to = start + cells(self, d.dx)
+    return mouse.has(d, "S") and to or paw.cursor.snap(to)
+  end
   hold(
     e,
     {
-      drag = function(d: MouseEvent) mouse.hint(paw.time.format(math.max(0, m.beat + cells(self, d.dx)))) end,
+      drag = function(d: MouseEvent) mouse.hint(paw.time.format(moved_to(d))) end,
       up = function(u: MouseEvent)
         if not u.moved then
           paw.commands.exec("marker.goto id=" .. m.id)
           return
         end
-        local to = m.beat + cells(self, u.dx)
-        to = mouse.has(u, "S") and math.max(0, to) or math.max(0, paw.cursor.snap(to))
+        local to = math.max(0, paw.time.song_beat(moved_to(u)))
         paw.commands.exec(string.format("marker.set id=%d beat=%s", m.id, tostring(to)))
       end,
     }
