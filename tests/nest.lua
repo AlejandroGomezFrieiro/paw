@@ -1059,7 +1059,7 @@ test(
     end
     eq(
       table.concat(stems, " "),
-      "Kick>Drums Snare>Drums Piano>Keys Pad>Keys Bass>Bridge",
+      "Kick>Drums Snare>Drums Piano>Keys Pad>Keys Bass>Bridge Reverb>Bridge",
       "each stem plays into its bus"
     )
     eq(apart(sound(0, 24), heard) <= 1, true, "the same render, to the last bit of rounding")

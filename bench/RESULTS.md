@@ -83,9 +83,58 @@ The decision:
 - The `chorus` and the `compressor` cost little. Edit quality does not
   change them.
 
-16 saturations at 4x with `full` and with `edit`: not measured yet. The
-shared binary did not have the change. Run
-`bench/quality.lua 16 3 5` with a build of the branch.
+16 saturations at 4x with `full` and with `edit`, measured after the
+change: binary of main at cd367da1 (dev profile, optimized), `bench/quality.lua
+16 3 5`, five interleaved rounds of 3 s, under `flock` and
+`taskset -c 16-23`. Measured under external load (load average 12 to
+14). The raw numbers are added to the same file.
+
+| Quality | Audio thread, % of a core: median (range) | Mean time per block, ms: median | p99 per block, ms: worst |
+| --- | ---: | ---: | ---: |
+| `full` | 36.19 (34.72 to 37.48) | 1.93 | 2.53 |
+| `edit` | 4.45 (4.04 to 5.05) | 0.23 | 0.43 |
+
+Edit quality cuts the audio thread time of this project by a factor of
+about 8. The ranges do not overlap.
+
+## 2026-11-23: the link of the paw-engine tests, one binary against many
+
+`cargo nextest run -p paw-engine --no-run -j 8` after a touch of
+`crates/paw-engine/src/lib.rs`, three times each, dev profile with mold,
+under external load (load average 15 to 21). Before: the commit before
+the change to one integration-test binary (2cb36c4c^). After: 2cb36c4c.
+
+| Build | Seconds, three runs |
+| --- | --- |
+| many test binaries | 2.78, 2.77, 2.61 |
+| one test binary | 2.06, 2.12, 2.04 |
+
+The ranges do not overlap: about 25 % less time for each change of the
+engine.
+
+## 2026-11-23: glibc against mimalloc as the global allocator
+
+`bench/profile/allocator.sh`, 5 pairs in turns, under `flock` and
+`taskset -c 16-23`. Two dev-profile builds of main at cd367da1: one as
+it is (mimalloc), and one with the `#[global_allocator]` line removed
+(glibc). Measured under heavy external load: load average 18 to 29.
+Median (range) of the pairs.
+
+| Measure | glibc | mimalloc |
+| --- | ---: | ---: |
+| help index: slices | 237 (220 to 263) | 214 (194 to 311) |
+| help index: slices over 5 ms | 3 (1 to 6) | 2 (0 to 2) |
+| help index: longest slice, ms | 8.0 (5.8 to 12.0) | 5.8 (4.7 to 8.1) |
+| help index: build, ms | 969 (895 to 1072) | 865 (781 to 1260) |
+| `j` on the large project: kernel ms a round | 8.35 (8.15 to 9.60) | 7.52 (7.50 to 8.21) |
+| `j`: callbacks over the 5 ms budget | 19 (16 to 22) | 15 (10 to 18) |
+| `j`: first frame, ms | 7.40 (6.60 to 8.20) | 6.00 (5.70 to 7.10) |
+
+mimalloc is better in each median. Only the kernel time of `j` has
+ranges that do not overlap (about 10 % less). The other ranges overlap
+under this load, so they show a direction, not a size. The audio
+thread allocates nothing, so the allocator does not change it (the
+`no_alloc` tests pass with mimalloc).
 
 ## 2026-11-23: the trace compiler in the first press of a key
 
