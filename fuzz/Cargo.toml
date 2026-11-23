@@ -20,6 +20,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+# The chain language (chain_text).
+chain-syntax = { path = "../crates/chain-syntax" }
 paw-core.workspace = true
 paw-proto.workspace = true
 paw-tui = { path = "../crates/paw-tui" }
@@ -51,6 +53,13 @@ bench = false
 [[bin]]
 name = "terminal_keys"
 path = "fuzz_targets/terminal_keys.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chain_text"
+path = "fuzz_targets/chain_text.rs"
 test = false
 doc = false
 bench = false

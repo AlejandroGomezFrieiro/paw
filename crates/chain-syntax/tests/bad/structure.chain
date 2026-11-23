@@ -1,0 +1,19 @@
+chain 1
+compressor #1 key=@3
+compressor #2 key=@2
+compressor #3 key=@9
+eq #4
+  compressor #5
+band #6 xover=2kHz,150Hz
+  | Low
+band #7 xover=1kHz
+  | Low
+  | Mid
+  | High
+  mods
+    lfo #8 -> #1.threshold -3dB
+rack #10
+  saturation #11
+  mods
+    macro #12 -> #11.drve +3dB, #11.curve +1, #11.drive +3Hz
+    wobble #13

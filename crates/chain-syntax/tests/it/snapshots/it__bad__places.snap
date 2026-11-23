@@ -1,0 +1,28 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 1
+  2 | | Dry
+    | ^ 2:1: error E109: a `|` branch goes under a split, one step in
+  3 | layer #1
+  4 |   eq #2
+  5 |   | Wet
+    |   ^ 5:3: error E109: a split holds `|` branches or nodes, not both: put these nodes in a branch
+  6 |     eq #3
+  7 |     mods
+    |     ^ 7:5: error E109: `mods` goes under a split or at the top level, not under a branch
+  8 |       macro #4
+  9 |   checks
+    |   ^ 9:3: error E109: `checks` goes at the top level only
+ 10 |     latency <= 6ms
+ 11 | chain 1
+    | ^ 11:1: error E109: the header `chain 1` comes once, on the first line
+ 12 | mods
+ 13 |   lfo #5 rate=1Hz
+ 14 | mods
+    | ^ 14:1: error E109: a split has one `mods` block: put each modulator in the first one
+ 15 |   macro #6
+ 16 | checks
+ 17 |   latency 6ms
+    |   ^ 17:3: error E106: a check compares a measure with a value, such as `latency <= 6ms`

@@ -1,0 +1,7 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2
+    |       ^ 1:7: error E102: this text is in version 2 of the language; this reader knows version 1
+  2 | eq #1

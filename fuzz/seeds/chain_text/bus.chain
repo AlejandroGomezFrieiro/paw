@@ -1,0 +1,13 @@
+chain 1 "Bus"
+-- a comment
+eq #2 hp=90Hz
+band #8 xover=150Hz,2.5kHz
+  | Low #81
+    compressor #5 ratio=4 key=@in
+  | High
+rack #20 "Glue"
+  saturation #21 drive=2dB
+  mods
+    macro #31 value=40% -> #21.drive +6dB
+checks
+  latency <= 6ms

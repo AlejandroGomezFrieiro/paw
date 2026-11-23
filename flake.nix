@@ -368,6 +368,23 @@
         touch $out
       '';
 
+      # tools/chaindeps.lua: no crate of the chain language (crates/chain-*)
+      # depends on a crate of paw, so the language stays generic. It reads
+      # the manifests as text.
+      chainDeps = pkgs: pkgs.runCommand "paw-chaindeps" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./tools/chaindeps.lua
+            (nixpkgs.lib.fileset.fileFilter (file: file.name == "Cargo.toml") ./crates)
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit pkgs.coreutils ];
+      } ''
+        cd $src && luajit tools/chaindeps.lua
+        touch $out
+      '';
+
       # tools/testlint.lua: no test sleeps, reads the clock or checks a
       # speed beyond tests/timing-allowed.txt. It reads text only.
       testLint = pkgs: pkgs.runCommand "paw-testlint" {
@@ -424,9 +441,9 @@
       # `nix flake check`: clippy, rustfmt, the Rust tests a sandbox can run,
       # the program itself, Vale on the docs, the website with its link check, `cyan check` on the Teal,
       # luacheck on the Lua, how much the formatters would change, and the
-      # check against tests that depend on time, and the order of layers in
-      # the runtime.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; website = website pkgs; });
+      # check against tests that depend on time, the order of layers in
+      # the runtime, and the chain crates that depend on no paw crate.
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

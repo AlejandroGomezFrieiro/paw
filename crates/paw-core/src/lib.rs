@@ -6,6 +6,7 @@
 pub mod api;
 pub mod attr_map;
 pub mod bake;
+pub mod chain_schema;
 pub mod clipfile;
 pub mod clock;
 pub mod codec;

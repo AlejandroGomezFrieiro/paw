@@ -1,0 +1,7 @@
+chain 1
+eq #1
+	compressor #2
+   compressor #3
+layer #4
+  | Dry
+      eq #5

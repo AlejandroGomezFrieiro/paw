@@ -12,6 +12,8 @@ paw-measure.workspace = true
 paw-proto.workspace = true
 paw-raster.workspace = true
 paw-scene.workspace = true
+# The chain language: the schema of paw's kinds (`paw chain schema`).
+chain-syntax.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

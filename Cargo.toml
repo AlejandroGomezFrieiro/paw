@@ -7,6 +7,7 @@ members = ["crates/*", "fuzz"]
 # (`fuzz/`, cargo-fuzz on nightly Rust): `cargo check -p paw-fuzz` checks
 # them on stable, and tools/fuzz.sh runs them.
 default-members = [
+  "crates/chain-syntax",
   "crates/paw-core",
   "crates/paw-engine",
   "crates/paw-listen",
@@ -37,6 +38,8 @@ paw-proto = { path = "crates/paw-proto" }
 paw-listen = { path = "crates/paw-listen", default-features = false }
 paw-raster = { path = "crates/paw-raster" }
 paw-scene = { path = "crates/paw-scene" }
+# The chain language, generic: it depends on no paw crate.
+chain-syntax = { path = "crates/chain-syntax" }
 anyhow = "1"
 # Typed errors where a caller tells one failure from another. Already in
 # Cargo.lock through other crates.

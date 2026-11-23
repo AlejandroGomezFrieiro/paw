@@ -761,6 +761,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chain-syntax"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "proptest",
+ "serde",
+ "serde_json",
+ "strsim",
+ "thiserror 2.0.21",
+ "winnow",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3177,6 +3190,7 @@ dependencies = [
  "anyhow",
  "base64",
  "blake3",
+ "chain-syntax",
  "flacenc",
  "flate2",
  "include_dir",
@@ -3237,6 +3251,7 @@ dependencies = [
 name = "paw-fuzz"
 version = "0.1.0"
 dependencies = [
+ "chain-syntax",
  "crossterm",
  "libfuzzer-sys",
  "paw-core",
@@ -3392,6 +3407,7 @@ name = "paw-tui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chain-syntax",
  "clap",
  "crossterm",
  "libc",

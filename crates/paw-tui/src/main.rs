@@ -13,7 +13,7 @@ use std::process::ExitCode;
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result, bail};
-use args::{Attach, Cli, ClipCommand, ClockChoice, Command, Connect, Ctl};
+use args::{Attach, ChainCommand, Cli, ClipCommand, ClockChoice, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::clock::{ManualClock, WallClock};
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
@@ -370,17 +370,31 @@ fn clip_cat(file: &std::path::Path) -> Result<()> {
 enum Start {
     /// A subcommand ran; this is the exit code.
     Done(i32),
-    /// Start the kernel; the flag is `paw doctor`.
-    Kernel(Box<args::Run>, bool),
+    /// Start the kernel for what [`Purpose`] says.
+    Kernel(Box<args::Run>, Purpose),
+}
+
+/// Why the kernel starts.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Purpose {
+    /// A session, or a script (`-l`).
+    Session,
+    /// `paw doctor`: its script, with the audio device of the machine.
+    Doctor,
+    /// `paw chain schema`: the kinds of device after the start, then exit.
+    ChainSchema,
 }
 
 /// Run the subcommands that need no kernel, or pick the options to start one.
 fn dispatch(cli: Cli) -> Result<Start> {
     Ok(match cli.command {
-        None => Start::Kernel(Box::new(cli.run), false),
+        None => Start::Kernel(Box::new(cli.run), Purpose::Session),
         Some(Command::Clip { command: ClipCommand::Cat { file } }) => {
             clip_cat(&file)?;
             Start::Done(0)
+        }
+        Some(Command::Chain { command: ChainCommand::Schema(schema) }) => {
+            Start::Kernel(Box::new(schema.run), Purpose::ChainSchema)
         }
         Some(Command::Ctl(call)) => {
             ctl(call)?;
@@ -413,7 +427,7 @@ fn dispatch(cli: Cli) -> Result<Start> {
             run.script = std::iter::once(doctor_script()?.to_string_lossy().into_owned())
                 .chain(own)
                 .collect();
-            Start::Kernel(Box::new(run), true)
+            Start::Kernel(Box::new(run), Purpose::Doctor)
         }
     })
 }
@@ -598,10 +612,11 @@ fn open_and_feed(args: &args::Run, kernel: &mut Kernel) -> Result<()> {
 }
 
 fn run() -> Result<i32> {
-    let (args, doctor) = match dispatch(Cli::parse())? {
+    let (args, purpose) = match dispatch(Cli::parse())? {
         Start::Done(code) => return Ok(code),
-        Start::Kernel(args, doctor) => (*args, doctor),
+        Start::Kernel(args, purpose) => (*args, purpose),
     };
+    let schema_only = purpose == Purpose::ChainSchema;
     if let Some(file) = &args.startuptime {
         startuptime::start(file);
     }
@@ -612,7 +627,8 @@ fn run() -> Result<i32> {
     }
     let script = args.script_path();
     let script_args = args.script_args();
-    let scripted = script.is_some();
+    // The schema needs no terminal, socket or sound: it starts as a script does.
+    let scripted = script.is_some() || schema_only;
     if join_running(&args, scripted)? {
         return Ok(0);
     }
@@ -625,7 +641,7 @@ fn run() -> Result<i32> {
     // A script only makes sound if it asks for a device.
     let backend = match args.audio.as_deref() {
         Some(word) => BackendChoice::from(word),
-        None if scripted && !doctor => BackendChoice::Null,
+        None if scripted && purpose != Purpose::Doctor => BackendChoice::Null,
         None => BackendChoice::Auto,
     };
     let (registry, plugin_notes, scanned) = plugins::registry(&args, display_note);
@@ -668,6 +684,10 @@ fn run() -> Result<i32> {
         startuptime::event("terminal");
     }
     kernel.boot()?;
+    if schema_only {
+        println!("{}", kernel.chain_schema());
+        return Ok(0);
+    }
     if let Some(line) = &described {
         kernel.eval("paw.api.log(...)", &[line])?;
     }
