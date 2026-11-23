@@ -249,6 +249,7 @@ local record api
    project_read: function(path: string, files?: {string:string}): types.ProjectData
    project_recover: function(path: string, opts?: types.OpenOptions): any
    project_reload: function()
+   project_replace: function(project: types.ProjectData)
    project_save: function(path?: string): string
    project_save_files: function(paths: {string}): {string}
    project_screen: function(): types.ProjectScreen

@@ -2762,6 +2762,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_read(path, files)`: Read a project folder (`song` or `song/project.toml`) without opening it, in the form that `undo_project` gives. `files` holds the files that paw writes in the folder, by their path in it, for a version that is not on the disk, such as a revision of git. paw reads the media from the disk. See extensions/projdiff.
 - `paw.api.project_recover(path, opts)`: Open a file written by `project_backup` as the project it was a copy of: under that project's own file name, and as changed. `opts`: `as_path` opens it under that file name instead (for a `.bak`, which has no note), and what `project_load` takes.
 - `paw.api.project_reload()`: Read a project kept in a folder again, as one undo step.
+- `paw.api.project_replace(project)`: Put a whole project, in the form that `undo_project` gives, in place of the open one, as one edit. Its path and its undo history stay, and the parts that did not change keep running. See extensions/projdiff.
 - `paw.api.project_save(path)`
 - `paw.api.project_save_files(paths)`: Save only these files of a project kept in a folder, by their path in it. Returns the paths written.
 - `paw.api.project_screen()`: The tabs and windows that the project file keeps, as plain data, or nil. They are not part of the song: setting them is not an edit, and the next save writes them (paw/layout.tl).

@@ -11291,6 +11291,13 @@ function paw.api.project_recover(path, opts) end
 --- Read a project kept in a folder again, as one undo step.
 function paw.api.project_reload() end
 
+--- Put a whole project, in the form that `undo_project` gives, in
+--- place of the open one, as one edit. Its path and its undo
+--- history stay, and the parts that did not change keep running.
+--- See extensions/projdiff.
+---@param project any
+function paw.api.project_replace(project) end
+
 ---@param path string?
 function paw.api.project_save(path) end
 
