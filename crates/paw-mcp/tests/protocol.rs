@@ -928,3 +928,84 @@ fn the_manual_and_the_api_are_resources() {
     assert!(templates["result"]["resourceTemplates"].as_array().unwrap().len() >= 2);
     c.finish();
 }
+
+/// A stereo WAV with two tones on each side, in 32-bit float so that both
+/// readers decode the same samples.
+fn write_tones(path: &Path) {
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: 48_000,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut wav = hound::WavWriter::create(path, spec).unwrap();
+    let tone = |hz: f64, i: usize| (2.0 * std::f64::consts::PI * hz * i as f64 / 48_000.0).sin();
+    for i in 0..96_000 {
+        let left = 0.5 * tone(220.0, i) + 0.1 * tone(3_000.0, i);
+        let right = 0.3 * tone(110.0, i) - 0.4 * tone(8_000.0, i);
+        wav.write_sample(left as f32).unwrap();
+        wav.write_sample(right as f32).unwrap();
+    }
+    wav.finalize().unwrap();
+}
+
+/// The number after `label` in `text`.
+fn number_after(text: &str, label: &str) -> f64 {
+    let (_, rest) = text
+        .split_once(label)
+        .unwrap_or_else(|| panic!("no {label:?} in:\n{text}"));
+    rest.split_whitespace().next().unwrap().parse().unwrap()
+}
+
+/// `:mix` (the kernel's `paw.api.measure`) and the MCP's `analyze_audio`
+/// read one file alike: the sample peak and each octave band. The MCP text
+/// gives one decimal, so the numbers agree to its rounding.
+#[test]
+fn analyze_audio_and_mix_give_the_same_numbers() {
+    let dir = scratch("measure");
+    let file = dir.path().join("tones.wav");
+    write_tones(&file);
+    let mut args = vec!["--spawn", "--allow-eval", "--"];
+    args.extend(KERNEL_ARGS);
+    let mut c = Client::start(&dir, &args);
+    c.initialize("2025-03-26");
+
+    let text = c.ok("analyze_audio", json!({ "path": "tones.wav" }));
+    let code = format!(
+        "local m = paw.api.measure({{ file = {:?} }})
+         local out = {{ string.format('peak %.6f', m.sample_peak) }}
+         for _, b in ipairs(m.bands) do out[#out + 1] = string.format('%s %.6f', b.name, b.share) end
+         return table.concat(out, ' ')",
+        file.display().to_string()
+    );
+    let kernel = c.ok("lua", json!({ "code": code }));
+    let kernel = format!("{} ", kernel.lines().next().unwrap());
+    c.finish();
+
+    let rounding = 0.05 + 1e-6;
+    let mcp_peak = number_after(&text, "left: peak ").max(number_after(&text, "right: peak "));
+    let mix_peak = number_after(&kernel, "peak ");
+    assert!((mcp_peak - mix_peak).abs() <= rounding, "{text}\n{kernel}");
+
+    // The MCP gives each octave band relative to the loudest one.
+    let octaves = [
+        "31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k",
+    ];
+    let loudest = octaves
+        .iter()
+        .map(|band| number_after(&kernel, &format!(" {band} ")))
+        .fold(f64::MIN, f64::max);
+    let spectrum = text
+        .lines()
+        .find(|l| l.starts_with("spectrum ("))
+        .unwrap_or_else(|| panic!("no spectrum in:\n{text}"));
+    let spectrum = format!("{spectrum} ");
+    for band in octaves {
+        let mcp = number_after(&spectrum, &format!(" {band} "));
+        let mix = number_after(&kernel, &format!(" {band} ")) - loudest;
+        assert!(
+            (mcp - mix).abs() <= rounding,
+            "band {band}: {mcp} and {mix}\n{text}\n{kernel}"
+        );
+    }
+}

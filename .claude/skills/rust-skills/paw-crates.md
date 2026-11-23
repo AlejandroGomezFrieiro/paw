@@ -127,7 +127,7 @@ real-time crates, read its code for the audio thread rules.
 | FLAC, write | `flacenc` (paw uses it) | |
 | Sample-rate conversion | `rubato` (paw uses it) | |
 | FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
-| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `measure/analysis.rs` (see below) | `ebur128` |
+| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `paw-measure/src/analysis.rs` (see below) | `ebur128` |
 | Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
@@ -206,10 +206,11 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
-- **FFT:** done. `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`
-  (`rfft`, main thread only: no device calls an FFT in `process`) and
-  `paw-core/src/measure/analysis.rs` use `realfft`.
-- **Loudness:** `paw-core/src/measure/analysis.rs` keeps its own BS.1770
+- **FFT:** done. `paw-engine/src/devices/dsp.rs` (`rfft`, main thread
+  only: no device calls an FFT in `process`) and
+  `paw-measure/src/analysis.rs` use `realfft`. `paw-mcp` takes its
+  spectrum from `paw-measure`.
+- **Loudness:** `paw-measure/src/analysis.rs` keeps its own BS.1770
   K-weighting, gates, loudness range and true peak. Compared with `ebur128`
   0.1.11 (2026-11-21): integrated, momentary and short-term agree to 0.001
   LU and true peak to 0.1 dB, but the crate takes the short-term blocks for

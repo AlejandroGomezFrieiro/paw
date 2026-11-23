@@ -3167,6 +3167,7 @@ dependencies = [
  "mlua",
  "paw-engine",
  "paw-luadev",
+ "paw-measure",
  "paw-proto",
  "paw-raster",
  "paw-scene",
@@ -3285,14 +3286,22 @@ dependencies = [
  "clap",
  "hound",
  "include_dir",
+ "paw-measure",
  "paw-proto",
- "realfft",
  "rmcp",
  "rustix 1.1.6",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "paw-measure"
+version = "0.1.0"
+dependencies = [
+ "realfft",
+ "serde",
 ]
 
 [[package]]

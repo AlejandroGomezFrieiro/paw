@@ -12,6 +12,7 @@ default-members = [
   "crates/paw-listen",
   "crates/paw-luadev",
   "crates/paw-mcp",
+  "crates/paw-measure",
   "crates/paw-plugins",
   "crates/paw-proto",
   "crates/paw-raster",
@@ -31,6 +32,7 @@ paw-engine = { path = "crates/paw-engine", default-features = false }
 paw-core = { path = "crates/paw-core" }
 paw-plugins = { path = "crates/paw-plugins" }
 paw-luadev = { path = "crates/paw-luadev" }
+paw-measure = { path = "crates/paw-measure" }
 paw-proto = { path = "crates/paw-proto" }
 paw-listen = { path = "crates/paw-listen", default-features = false }
 paw-raster = { path = "crates/paw-raster" }

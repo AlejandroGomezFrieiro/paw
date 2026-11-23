@@ -51,6 +51,7 @@ crates.
 | `paw-scene` | What all frontends share of a view: the cells and their styles, and the scene. A scene is the drawing of a view as nodes in cell units. It has no Lua and no UI. |
 | `paw-raster` | Changes the drawings of views (the operations of `paw.canvas`) into pixels, with music fonts. Also the kitty graphics protocol that shows them in a terminal. |
 | `paw-proto` | The client side of the control protocol, with TLS. A program that only talks to a kernel does not need the kernel to build. |
+| `paw-measure` | Measures a sound: loudness, true peak, levels, stereo and the spectrum in octave bands. The kernel (`paw.api.measure`, and so `:mix`) and `paw-mcp` both use it, so they give the same numbers. |
 | `paw-listen` | Plays the sound of an instance on the computer where a terminal or a graphical window is attached. |
 | `paw-tui` | The terminal frontend and the `paw` binary. |
 | `paw-gui` | The graphical frontend, written with egui. It is a client of the control socket. Its tests drive the window on a private X display. |

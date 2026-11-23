@@ -8,6 +8,7 @@ description = "The kernel: project model, engine sync, Lua host, cell grid, even
 [dependencies]
 paw-engine.workspace = true
 paw-luadev.workspace = true
+paw-measure.workspace = true
 paw-proto.workspace = true
 paw-raster.workspace = true
 paw-scene.workspace = true
