@@ -227,6 +227,11 @@ pub trait Controller {
     }
     /// Called regularly, for whatever the device needs done on the main thread.
     fn idle(&mut self) {}
+    /// Given as the device goes into an engine: the device wakes the engine
+    /// with it when it must run its next block for a reason that sends the
+    /// engine no message (a plugin asks for a block), so that an engine at
+    /// rest runs it.
+    fn set_waker(&mut self, _waker: crate::Waker) {}
     /// A value of a parameter as the device itself writes it ("440 Hz",
     /// "Saw"), by position in [`params`](Self::params). None when the
     /// device has no text of its own for it.

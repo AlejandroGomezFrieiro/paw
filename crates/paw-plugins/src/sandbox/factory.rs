@@ -133,6 +133,7 @@ impl RemoteFactory {
             answered_seen: 0,
             stalled_since: None,
             reread: None,
+            engine: None,
         };
         Ok((controller, ours))
     }

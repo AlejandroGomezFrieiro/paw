@@ -46,6 +46,10 @@ pub(super) struct Header {
     /// before it ends, read once it has.
     pub(super) reason_len: AtomicU32,
     reason: UnsafeCell<[u8; REASON]>,
+    /// The plugin asked for a block between blocks (`request_process`):
+    /// set by the helper's main thread, taken by the DAW's, which wakes the
+    /// device and the engine.
+    pub(super) wake: AtomicU32,
 }
 
 /// One block's context and counts, in the header. The audio thread whose
@@ -84,6 +88,7 @@ const _: () = {
     assert!(std::mem::offset_of!(Header, latency) == 120);
     assert!(std::mem::offset_of!(Header, reason_len) == 136);
     assert!(std::mem::offset_of!(Header, reason) == 140);
+    assert!(std::mem::offset_of!(Header, wake) == 1164);
     assert!(std::mem::size_of::<Header>() == 1168);
 };
 

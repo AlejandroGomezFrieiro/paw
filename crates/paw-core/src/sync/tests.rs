@@ -74,6 +74,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
             sample_rate: 48000.0,
             warnings: &mut warnings,
             offline: true,
+            waker: Default::default(),
         };
         let mut sent = Vec::new();
         let before = compiled(&map);
@@ -303,6 +304,7 @@ fn follows(follow: Follow) -> bool {
         sample_rate: 48000.0,
         warnings: &mut warnings,
         offline: true,
+        waker: Default::default(),
     };
     let mut map = Mapper::new();
     map.follow = follow;
@@ -405,6 +407,7 @@ fn compiles(states: &[&Project]) -> (Mapper, usize) {
             sample_rate: 48000.0,
             warnings: &mut warnings,
             offline: true,
+            waker: Default::default(),
         };
         let before = clips::COMPILES.with(|c| c.get());
         sync(old, state, &mut map, &mut ctx, &mut |_| {}, &mut Vec::new());

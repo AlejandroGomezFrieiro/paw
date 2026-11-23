@@ -7,8 +7,12 @@
 //! The engine rests as a whole after [`QUIET_BLOCKS`] quiet blocks in a row,
 //! and a message or a MIDI input event wakes it in the same callback, so
 //! the first sound comes in the same block as it would without the rest.
+//! A device whose plugin asks for a block from another thread wakes it
+//! through a [`Waker`].
 
-use std::sync::atomic::Ordering::Relaxed;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::{Acquire, Relaxed, Release};
 
 use crate::device::silent;
 
@@ -20,6 +24,32 @@ pub(super) const QUIET_BLOCKS: u32 = 8;
 /// The meters must have fallen below this (-100 dB) before the engine rests
 /// and sets them to zero: lower than any meter shows.
 const METER_FLOOR: f32 = 1e-5;
+
+/// Wakes a resting engine without a message, from any thread: a plugin
+/// that asks for a block calls it from its own thread or from the audio
+/// thread, and the main thread after it gives a device a state that the
+/// device takes on only in its next block. Lock-free, with no allocation.
+/// Clones wake the same engine; a default one wakes no engine until a host
+/// passes its wakes on ([`take`](Self::take)).
+#[derive(Clone, Debug, Default)]
+pub struct Waker(Arc<AtomicBool>);
+
+impl Waker {
+    /// Make the engine's next callback run its blocks, even if it rests.
+    /// What the device set before the call (its own wake flag) is seen by
+    /// that callback.
+    pub fn wake(&self) {
+        self.0.store(true, Release);
+    }
+
+    /// Whether a wake came since the last take, and clear it: for the
+    /// engine at the start of each callback, and for a host that passes
+    /// wakes on (a plugin's helper process).
+    pub fn take(&self) -> bool {
+        // A load first: most callbacks find no wake, and write nothing.
+        self.0.load(Relaxed) && self.0.swap(false, Acquire)
+    }
+}
 
 /// How near the engine is to rest.
 #[derive(Default)]

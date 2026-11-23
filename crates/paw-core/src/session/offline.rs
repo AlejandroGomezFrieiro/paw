@@ -63,6 +63,7 @@ impl Session {
         engine.set_offline(true);
         let mut live = LiveDevices::new();
         let mut map = Mapper::new();
+        let waker = handle.waker();
         {
             let mut send = |msg| {
                 let mut msg = msg;
@@ -84,6 +85,7 @@ impl Session {
                 sample_rate: sample_rate as f32,
                 warnings: &mut self.warnings,
                 offline: true,
+                waker,
             };
             sync(
                 &Project::default(),

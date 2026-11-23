@@ -14,10 +14,14 @@
 //! reads its value back. `stub.hold 1` makes its next block wait, after it
 //! looked for a state to take on, until `stub_clap_release`
 //! (`stub_clap_held` says that it waits): a state given then comes while
-//! a block is under way.
+//! a block is under way. `stub.restart` makes it ask the host for a
+//! restart (`request_restart`), and `stub.activations` answers how many
+//! times this instance was activated. `stub.move` and `stub.tell` ask the
+//! host for a block (`request_process`), as a plugin that changes by
+//! itself does.
 
 use std::ffi::{CStr, c_char, c_void};
-use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering::Relaxed, Ordering::SeqCst};
+use std::sync::atomic::{AtomicU32, Ordering::Relaxed, Ordering::SeqCst};
 
 use clap_sys::events::{
     CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_GESTURE_END,
@@ -65,14 +69,32 @@ static TELL: AtomicU32 = AtomicU32::new(u32::MAX);
 static QUIET: AtomicU32 = AtomicU32::new(0);
 /// The next block waits (1), a block waits now (2), or none waits (0).
 static HOLD: AtomicU32 = AtomicU32::new(0);
-/// The host, to ask it for a block.
-static HOST: AtomicPtr<clap_host> = AtomicPtr::new(std::ptr::null_mut());
+/// What each instance keeps of its own, in its `plugin_data`: the host
+/// that made it, to ask it for a block or a restart, and how many times it
+/// was activated.
+struct Instance {
+    host: *const clap_host,
+    activations: AtomicU32,
+}
+
+/// The instance's own data.
+unsafe fn instance<'a>(plugin: *const clap_plugin) -> &'a Instance {
+    unsafe { &*((*plugin).plugin_data as *const Instance) }
+}
 
 /// Ask the host for a block.
-fn wake() {
-    let host = HOST.load(Relaxed);
-    if !host.is_null() {
-        unsafe { (*host).request_process.unwrap()(host) };
+unsafe fn wake(plugin: *const clap_plugin) {
+    unsafe {
+        let host = instance(plugin).host;
+        (*host).request_process.unwrap()(host);
+    }
+}
+
+/// Ask the host to deactivate the plugin and activate it again.
+unsafe fn restart(plugin: *const clap_plugin) {
+    unsafe {
+        let host = instance(plugin).host;
+        (*host).request_restart.unwrap()(host);
     }
 }
 
@@ -169,12 +191,12 @@ struct PawCall {
     ) -> bool,
 }
 unsafe extern "C" fn paw_call(
-    _: *const clap_plugin,
+    plugin: *const clap_plugin,
     method: *const c_char,
     data: *const u8,
     size: usize,
-    _: *mut c_void,
-    _: Write,
+    out: *mut c_void,
+    write: Write,
 ) -> bool {
     let (method, data) = unsafe {
         (
@@ -182,16 +204,23 @@ unsafe extern "C" fn paw_call(
             std::slice::from_raw_parts(data, size),
         )
     };
+    if method == c"stub.activations" {
+        let count = unsafe { instance(plugin) }.activations.load(Relaxed).to_string();
+        unsafe { write.unwrap()(out, count.as_ptr(), count.len()) };
+        return true;
+    }
     let value = std::str::from_utf8(data)
         .ok()
         .and_then(|t| t.trim().parse().ok());
     let Some(value) = value else { return false };
     if method == c"stub.move" {
         MOVE.store(value, Relaxed);
-        wake();
+        unsafe { wake(plugin) };
     } else if method == c"stub.tell" {
         TELL.store(value, Relaxed);
-        wake();
+        unsafe { wake(plugin) };
+    } else if method == c"stub.restart" {
+        unsafe { restart(plugin) };
     } else if method == c"stub.quiet" {
         QUIET.store(value, Relaxed);
     } else if method == c"stub.hold" {
@@ -275,9 +304,13 @@ unsafe extern "C" fn init(_: *const clap_plugin) -> bool {
     true
 }
 unsafe extern "C" fn destroy(plugin: *const clap_plugin) {
-    drop(unsafe { Box::from_raw(plugin as *mut clap_plugin) });
+    unsafe {
+        drop(Box::from_raw((*plugin).plugin_data as *mut Instance));
+        drop(Box::from_raw(plugin as *mut clap_plugin));
+    }
 }
-unsafe extern "C" fn activate(_: *const clap_plugin, _: f64, _: u32, _: u32) -> bool {
+unsafe extern "C" fn activate(plugin: *const clap_plugin, _: f64, _: u32, _: u32) -> bool {
+    unsafe { instance(plugin) }.activations.fetch_add(1, Relaxed);
     true
 }
 unsafe extern "C" fn nothing(_: *const clap_plugin) {}
@@ -474,10 +507,13 @@ unsafe extern "C" fn create_plugin(
     if unsafe { CStr::from_ptr(id) } != c"dev.paw.stub" {
         return std::ptr::null();
     }
-    HOST.store(host as *mut clap_host, Relaxed);
+    let instance = Instance {
+        host,
+        activations: AtomicU32::new(0),
+    };
     Box::into_raw(Box::new(clap_plugin {
         desc: &DESC.0,
-        plugin_data: std::ptr::null_mut(),
+        plugin_data: Box::into_raw(Box::new(instance)).cast(),
         init: Some(init),
         destroy: Some(destroy),
         activate: Some(activate),

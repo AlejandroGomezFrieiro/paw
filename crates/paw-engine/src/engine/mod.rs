@@ -40,6 +40,7 @@ use clock::PlayHead;
 pub use device_rt::{KeyBuf, OutBufs, key_buf, out_bufs};
 pub use handle::EngineHandle;
 pub use msg::Msg;
+pub use rest::Waker;
 pub use schedule::{SchedEntry, Schedule};
 pub use shared::Shared;
 pub use stats::{BLOCK_BUCKETS, BLOCK_STATS_FLOOR_NS, BlockStats, BlockSummary};
@@ -138,6 +139,9 @@ pub struct Engine {
     rest: Rest,
     /// Some track hears an audio input: the engine does not rest.
     listening: bool,
+    /// Woken from outside the message queue (a plugin asked for a block):
+    /// the next callback does not rest.
+    waker: Waker,
     /// Rendering to a file, as fast as it goes: work is shared between
     /// threads whenever that is faster. Live, only when one thread could
     /// come near the time a block has.
@@ -154,6 +158,7 @@ impl Engine {
             (0..MAX_TRACKS).map(|_| Guarded::new(None)).collect();
         *tracks[TrackSlot::MASTER.index()].get_mut() = Some(TrackRt::new());
         let schedule = Schedule::new(vec![SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE)], 0);
+        let waker = Waker::default();
         let engine = Engine {
             sample_rate,
             tracks,
@@ -198,6 +203,7 @@ impl Engine {
             sleep: true,
             rest: Rest::default(),
             listening: false,
+            waker: waker.clone(),
             offline: false,
         };
         (
@@ -208,6 +214,7 @@ impl Engine {
                 shared,
                 sample_rate,
                 midi_tx: Some(midi_tx),
+                waker,
             },
         )
     }

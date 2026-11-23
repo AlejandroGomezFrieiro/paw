@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, bail};
+use paw_engine::Waker;
 use paw_engine::device::{Change, Controller, ParamInfo, Ports};
 use rustix::process::Signal;
 use super::*;
@@ -39,9 +40,20 @@ pub(super) struct RemoteController {
     /// many blocks: its values are read again once it has answered
     /// another, as some plugins take a state on only in their next block.
     pub(super) reread: Option<u32>,
+    /// The engine the device is in ([`Controller::set_waker`]).
+    pub(super) engine: Option<Waker>,
 }
 
 impl RemoteController {
+    /// Have the plugin run in the next block, though it said it was at
+    /// rest and the engine may rest.
+    fn wake(&self) {
+        self.link.wake.store(true, Ordering::Relaxed);
+        if let Some(engine) = &self.engine {
+            engine.wake();
+        }
+    }
+
     /// Note that the helper is gone and why, once.
     pub(super) fn end(&mut self, why: HelperError) {
         if self.ended.is_none() {
@@ -171,7 +183,7 @@ impl Controller for RemoteController {
 
     fn load_state(&mut self, state: &[u8]) -> Result<()> {
         self.ask(&Request::LoadState(state), STATE_LIMIT)?;
-        self.link.wake.store(true, Ordering::Relaxed);
+        self.wake();
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         self.refresh_values();
         Ok(())
@@ -209,6 +221,10 @@ impl Controller for RemoteController {
             tail = tail.wrapping_add(1);
         }
         header.change_tail.store(tail, Ordering::Release);
+        // The plugin asked for a block in its helper.
+        if header.wake.swap(0, Ordering::Acquire) != 0 {
+            self.wake();
+        }
         // The values of a state the plugin has taken on since.
         if let Some(at) = self.reread
             && self.link.answered.load(Ordering::Relaxed) != at
@@ -271,6 +287,10 @@ impl Controller for RemoteController {
         self.link.shm.header().latency.load(Ordering::Relaxed)
     }
 
+    fn set_waker(&mut self, waker: Waker) {
+        self.engine = Some(waker);
+    }
+
     fn set_offline(&mut self, offline: bool) {
         self.link
             .shm
@@ -303,7 +323,7 @@ impl Controller for RemoteController {
             data,
         };
         let answer = self.ask(&request, STATE_LIMIT)?;
-        self.link.wake.store(true, Ordering::Relaxed);
+        self.wake();
         self.reread = Some(self.link.answered.load(Ordering::Relaxed));
         // A preset sets the plugin's parameters anew.
         if method == paw_engine::device::method::PRESET_LOAD {
