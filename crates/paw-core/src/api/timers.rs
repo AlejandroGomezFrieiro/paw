@@ -24,6 +24,9 @@ const TURNS_AT_ONE_INSTANT: u32 = 1000;
 /// (about ten blocks): what it played is heard of, and a take is written,
 /// before it plays more.
 const AUDIO_TURN: Duration = Duration::from_millis(100);
+/// The most sound that one `wait_blocks` plays: a count past it is a
+/// mistake, which would keep the main loop busy for ever.
+const MOST_BLOCKS_TIME: Duration = Duration::from_secs(60);
 
 /// The functions of the timers that are due, with one-shot timers removed
 /// and repeating ones moved on.
@@ -251,13 +254,20 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // moves to the end of the last of them, the timers due on the way
         // fire, and the engine plays exactly that many blocks. Gives the
         // number of blocks, or 0 when the engine plays on its own and
-        // nothing was done.
+        // nothing was done. More than 60 seconds of blocks is an error.
         // @return integer
         fn wait_blocks(lua, sh, blocks => u64) {
             let end = sh.session.borrow().stepped_end_of(blocks);
             match (end, sh.clock.manual()) {
                 (Some(end), Some(clock)) => {
-                    sh.advance(lua, clock, end.saturating_sub(clock.now()))?;
+                    let time = end.saturating_sub(clock.now());
+                    if time > MOST_BLOCKS_TIME {
+                        return Err(mlua::Error::runtime(format!(
+                            "wait_blocks plays at most {} s of blocks, not {blocks} blocks",
+                            MOST_BLOCKS_TIME.as_secs()
+                        )));
+                    }
+                    sh.advance(lua, clock, time)?;
                     Ok(blocks)
                 }
                 _ => Ok(0),

@@ -84,6 +84,7 @@ const CREATE_LIMIT: Duration = Duration::from_secs(45);
 const STATE_LIMIT: Duration = Duration::from_secs(30);
 const QUICK_LIMIT: Duration = Duration::from_secs(10);
 /// A plugin that answers no block for this long while it is asked for them
+/// (on the wall clock, or in the sound time of the blocks it was late for)
 /// is taken to have hung: it is ended and reported, and can be restarted.
 const STALL_LIMIT: Duration = Duration::from_secs(2);
 /// The longest a render waits for one block. A plugin that takes longer is

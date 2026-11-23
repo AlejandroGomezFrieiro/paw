@@ -37,7 +37,7 @@ pub(super) struct RemoteController {
     /// Blocks answered when last looked at, and since when none have been
     /// while some came late.
     pub(super) answered_seen: u32,
-    pub(super) stalled_since: Option<Instant>,
+    pub(super) stall: Option<Stall>,
     /// The plugin was given a state or a call when this was the last
     /// block asked of it: its values are read again once it has answered
     /// a later one, as some plugins take a state on only in their next
@@ -392,15 +392,44 @@ impl Controller for RemoteController {
             let why = self.link.shm.header().reason();
             self.end(why.map_or(HelperError::LateInRender, HelperError::Exited));
         } else if answered != answered_before {
-            self.stalled_since = None;
-        } else if late != late_before || self.stalled_since.is_some() {
-            let since = *self.stalled_since.get_or_insert_with(Instant::now);
-            if since.elapsed() >= STALL_LIMIT {
+            self.stall = None;
+        } else if late != late_before || self.stall.is_some() {
+            let late_ns = self.link.late_ns.load(Ordering::Relaxed);
+            let stall = self.stall.get_or_insert_with(|| Stall::new(late_ns));
+            if stall.over(late_ns, STALL_LIMIT) {
                 self.end(HelperError::Stalled(STALL_LIMIT));
             }
         }
         self.ended.as_ref().map(ToString::to_string)
     }
+}
+
+/// A helper that came late and has answered no block since.
+pub(super) struct Stall {
+    since: Instant,
+    /// [`Link::late_ns`] when the stall began.
+    late_ns: u64,
+}
+
+impl Stall {
+    fn new(late_ns: u64) -> Self {
+        Self { since: Instant::now(), late_ns }
+    }
+
+    /// The stall has gone on for `limit`: on the wall clock, or in the
+    /// sound time of the blocks that were late since it began. On a
+    /// sound card the two go together. The stepped backend plays blocks
+    /// faster than the wall clock, and only the sound time is the same in
+    /// each run.
+    fn over(&self, late_ns: u64, limit: Duration) -> bool {
+        self.since.elapsed() >= limit || late_for(self.late_ns, late_ns, limit)
+    }
+}
+
+/// The blocks that were late from `from_ns` to `to_ns` of late sound time
+/// (see [`Link::late_ns`]) add up to `limit`.
+fn late_for(from_ns: u64, to_ns: u64, limit: Duration) -> bool {
+    u128::from(to_ns.saturating_sub(from_ns)) >= limit.as_nanos()
 }
 
 impl Drop for RemoteController {
@@ -420,5 +449,19 @@ impl Drop for RemoteController {
         }
         self.link.dead.store(true, Ordering::Relaxed);
         self.kill();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The stepped backend plays late blocks faster than the wall clock:
+    /// their sound time alone ends a stall.
+    #[test]
+    fn a_stall_is_over_after_its_limit_of_late_sound() {
+        let limit = Duration::from_secs(2);
+        assert!(!late_for(1_000, 1_000 + 1_999_999_999, limit));
+        assert!(late_for(1_000, 1_000 + 2_000_000_000, limit));
     }
 }

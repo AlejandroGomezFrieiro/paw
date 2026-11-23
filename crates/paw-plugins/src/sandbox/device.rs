@@ -1,6 +1,6 @@
 //! The DAW's side: the audio thread's stand-in for a hosted plugin.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -18,6 +18,10 @@ pub(super) struct Link {
     pub(super) dead: AtomicBool,
     /// Blocks the helper did not answer in time.
     pub(super) late: AtomicU32,
+    /// The sound time of those blocks, in nanoseconds: a stall is measured
+    /// in it too, as the engine can play blocks faster than the wall clock
+    /// (the stepped backend of the tests).
+    pub(super) late_ns: AtomicU64,
     /// Blocks it did answer.
     pub(super) answered: AtomicU32,
     /// The plugin was given a state or a call: it is run in the next block
@@ -221,6 +225,12 @@ impl RemoteDevice {
         true
     }
 
+    /// Add the sound time of a block that was late to [`Link::late_ns`].
+    fn count_late_time(&self, ctx: &ProcessCtx, frames: usize) {
+        let ns = frames as f64 * 1e9 / f64::from(ctx.sample_rate.max(1.0));
+        self.link.late_ns.fetch_add(ns as u64, Ordering::Relaxed);
+    }
+
     /// The block was not back in time: it stays outstanding, and the
     /// helper gets no other until it has answered it.
     fn give_up(&mut self, offline: bool) {
@@ -325,14 +335,16 @@ impl Device for RemoteDevice {
             self.pending.events.clear();
             return self.without(io);
         }
+        let frames = io.left.len().min(self.link.shm.max_block);
         if !self.caught_up(io) {
+            self.count_late_time(ctx, frames);
             return self.without(io);
         }
-        let frames = io.left.len().min(self.link.shm.max_block);
         self.tell_priority();
         self.write_block(ctx, io, frames);
         self.ask();
         if !self.wait_for_answer(ctx, frames) {
+            self.count_late_time(ctx, frames);
             return self.without(io);
         }
         self.read_block(io, frames);
