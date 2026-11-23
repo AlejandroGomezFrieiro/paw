@@ -661,7 +661,7 @@ function ctx:option(name: string)
 end
 
 function ctx:pause()
-  if until_ms and pass and coroutine.running() == pass and api.now() >= until_ms then
+  if until_ms and pass and coroutine.running() == pass and api.real_ms() >= until_ms then
     local e = current
     current = nil
     coroutine.yield()
@@ -742,7 +742,7 @@ end
 --- it when nil). True when nothing waits.
 function M.run(budget?: number): boolean
   local outer = until_ms
-  until_ms = budget and api.now() + budget or nil
+  until_ms = budget and api.real_ms() + budget or nil
   while true do
     if not pass then
       apply_pending()
@@ -762,7 +762,7 @@ function M.run(budget?: number): boolean
       return false
     end
     pass = nil
-    if until_ms and api.now() >= until_ms then
+    if until_ms and api.real_ms() >= until_ms then
       apply_pending()
       until_ms = outer
       return next(queue) == nil
@@ -869,7 +869,7 @@ schedule = function()
   if slices.job("derived") then
     return
   end
-  started = started or api.now()
+  started = started or api.real_ms()
   slices.run("derived", slice, {ms = SLICE, after = 30})
 end
 
@@ -1086,7 +1086,7 @@ function M.progress(after?: number): Progress
   if not started or not M.busy() then
     return nil
   end
-  local ms = api.now() - started
+  local ms = api.real_ms() - started
   if ms < (after or 1000) then
     return nil
   end

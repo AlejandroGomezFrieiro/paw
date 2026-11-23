@@ -19,12 +19,13 @@ use std::os::unix::ffi::OsStrExt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use rustix::fs::inotify;
 
 use super::folder::{self, PROJECT_FILE};
+use crate::clock::{Clock, WallClock};
 use crate::model::{ClipContent, Project, Track};
 
 /// Changes that come closer together than this are one burst.
@@ -55,7 +56,10 @@ pub(super) struct FileWatch {
     /// What paw itself last wrote to or moved away from a path.
     written: HashMap<PathBuf, u64>,
     pending: BTreeSet<PathBuf>,
-    last: Instant,
+    /// When the last of `pending` changed, on `clock`.
+    last: Duration,
+    /// The schedule clock that the settle waits on.
+    pub(super) clock: Arc<dyn Clock>,
     /// Files changed outside paw that are not acted on yet.
     pub changed: BTreeSet<PathBuf>,
 }
@@ -70,13 +74,25 @@ impl Default for FileWatch {
             outside: BTreeSet::new(),
             written: HashMap::new(),
             pending: BTreeSet::new(),
-            last: Instant::now(),
+            last: Duration::ZERO,
+            clock: Arc::new(WallClock::new()),
             changed: BTreeSet::new(),
         }
     }
 }
 
 impl FileWatch {
+    /// When the changes seen so far have settled and are acted on, on the
+    /// schedule clock; None when no change waits.
+    pub(super) fn next_due(&self) -> Option<Duration> {
+        (!self.pending.is_empty()).then(|| self.last + SETTLE)
+    }
+
+    /// How many changed files wait for the settle.
+    pub(super) fn waiting(&self) -> usize {
+        self.pending.len()
+    }
+
     /// Watch these folders and no others.
     fn set_dirs(&mut self, dirs: BTreeSet<PathBuf>) {
         if self.fd.is_none() && !dirs.is_empty() {
@@ -170,10 +186,10 @@ impl FileWatch {
             let path = dir.join(OsStr::from_bytes(name));
             if self.counts(&path) {
                 self.pending.insert(path);
-                self.last = Instant::now();
+                self.last = self.clock.now();
             }
         }
-        if self.pending.is_empty() || self.last.elapsed() < SETTLE {
+        if self.next_due().is_none_or(|due| self.clock.now() < due) {
             return None;
         }
         let mut changed = Vec::new();

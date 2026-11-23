@@ -53,9 +53,9 @@ function M.run(bars, opts, rounds, how)
   view:edit(id)
   local function paint() return paw.canvas.paint("notation", W, H, opts) end
   local function time(fn)
-    local t = api.now()
+    local t = api.real_ms()
     local r = fn()
-    return api.now() - t, r
+    return api.real_ms() - t, r
   end
   local out = {}
   local drawing
@@ -121,9 +121,9 @@ function M.pair(bars, opts, rounds)
   -- Each from a clean heap, so that neither pays for the other's garbage.
   local function time(fn)
     collectgarbage()
-    local t = api.now()
+    local t = api.real_ms()
     fn()
-    return api.now() - t
+    return api.real_ms() - t
   end
   paint()
   local clip = view:clip()

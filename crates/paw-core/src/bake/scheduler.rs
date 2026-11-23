@@ -20,12 +20,13 @@ use std::hash::Hash;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::Result;
 use paw_engine::AudioData;
 
 use super::store::Entry;
+use crate::clock::{Clock, WallClock};
 use crate::peaks::Summary;
 
 /// How long a key must be wanted before it is made.
@@ -189,16 +190,17 @@ impl Ready {
     }
 }
 
+/// The times are schedule times (`Scheduler::clock`).
 enum State {
     /// Wanted since then.
-    Waiting(Instant),
+    Waiting(Duration),
     /// Being made; `told` once its partial sound was noted in `finished`.
     Running {
         shared: Arc<Shared>,
         serial: u64,
         /// Wanted since then; started then.
-        since: Instant,
-        started: Instant,
+        since: Duration,
+        started: Duration,
         told: bool,
     },
     Done(Ready),
@@ -252,6 +254,8 @@ pub struct Scheduler<K> {
     pub finished: Vec<K>,
     /// Bakes started, ever: for tests and `:checkhealth`.
     pub started: usize,
+    /// The schedule clock that the settle waits on.
+    clock: Arc<dyn Clock>,
 }
 
 impl<K> Default for Scheduler<K> {
@@ -274,11 +278,19 @@ impl<K> Scheduler<K> {
             failures: Vec::new(),
             finished: Vec::new(),
             started: 0,
+            clock: Arc::new(WallClock::new()),
         }
     }
 }
 
 impl<K: Clone + Eq + Hash> Scheduler<K> {
+    /// Wait the settle on `clock` from now on. Give it before the first
+    /// [`ask`](Self::ask): the times of the bakes that wait are on the old
+    /// clock.
+    pub fn set_clock(&mut self, clock: Arc<dyn Clock>) {
+        self.clock = clock;
+    }
+
     /// Ask for `key`; when it is not known, it waits, to be made by the bake
     /// `make` gives (none: nothing to make it from).
     pub fn ask(&mut self, key: &K, make: impl FnOnce() -> Option<Arc<dyn Bake>>) {
@@ -289,7 +301,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
             let job = Job {
                 bake: Some(bake),
                 priority: Priority::Background,
-                state: State::Waiting(Instant::now()),
+                state: State::Waiting(self.clock.now()),
             };
             self.jobs.insert(key.clone(), job);
         }
@@ -334,6 +346,18 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
             Some(State::Running { shared, .. }) => fraction(shared),
             _ => 0.0,
         }
+    }
+
+    /// When the first bake that waits has waited `settle`, on the schedule
+    /// clock: the next poll after it starts that bake.
+    pub fn next_due(&self, settle: Duration) -> Option<Duration> {
+        self.jobs
+            .values()
+            .filter_map(|job| match job.state {
+                State::Waiting(since) => Some(since + settle),
+                _ => None,
+            })
+            .min()
     }
 
     /// Whether anything waits or is being made.
@@ -460,12 +484,12 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
     /// about to play or what a window shows takes the place of the oldest
     /// background bake.
     fn start_due(&mut self, settle: Duration) {
-        let now = Instant::now();
-        let mut due: Vec<(Priority, Instant, K)> = self
+        let now = self.clock.now();
+        let mut due: Vec<(Priority, Duration, K)> = self
             .jobs
             .iter()
             .filter_map(|(key, job)| match job.state {
-                State::Waiting(since) if now.duration_since(since) >= settle => {
+                State::Waiting(since) if now.saturating_sub(since) >= settle => {
                     Some((job.priority, since, key.clone()))
                 }
                 _ => None,
@@ -539,7 +563,7 @@ impl<K: Clone + Eq + Hash> Scheduler<K> {
         match bake.start(task) {
             Ok(()) => {
                 self.started += 1;
-                job.state = State::Running { shared, serial: self.serial, since, started: Instant::now(), told: false };
+                job.state = State::Running { shared, serial: self.serial, since, started: self.clock.now(), told: false };
             }
             Err(err) => {
                 self.failures.push(format!("{what}: {err:#}"));
@@ -600,8 +624,14 @@ fn fraction(shared: &Shared) -> f64 {
 mod tests {
     use super::*;
 
-    /// A bake on a thread that runs until it is cancelled or let go.
-    struct Hold(Arc<AtomicBool>);
+    use std::sync::Mutex;
+
+    use crate::clock::ManualClock;
+
+    /// A bake that runs until the test ends: it keeps its task and never
+    /// ends it, so no thread runs and nothing waits.
+    #[derive(Default)]
+    struct Hold(Mutex<Vec<Task>>);
 
     impl Bake for Hold {
         fn lane(&self) -> Lane {
@@ -611,22 +641,13 @@ mod tests {
             "holding".into()
         }
         fn start(self: Arc<Self>, task: Task) -> Result<()> {
-            std::thread::spawn(move || {
-                while !task.cancelled() && !self.0.load(Ordering::Relaxed) {
-                    std::thread::sleep(Duration::from_millis(1));
-                }
-                let result = if task.cancelled() { Err(anyhow::anyhow!("stopped")) } else {
-                    let silence = || vec![0.0; 16].into();
-                    Ok(Made::Sound(Arc::new(AudioData { sample_rate: 48_000, channels: [silence(), silence()] })))
-                };
-                task.end(result);
-            });
+            self.0.lock().unwrap().push(task);
             Ok(())
         }
     }
 
     fn hold() -> Option<Arc<dyn Bake>> {
-        Some(Arc::new(Hold(Arc::new(AtomicBool::new(false)))))
+        Some(Arc::new(Hold::default()))
     }
 
     #[test]
@@ -671,16 +692,19 @@ mod tests {
 
     #[test]
     fn a_value_dragged_through_many_bakes_the_last_only() {
+        let clock = Arc::new(ManualClock::default());
         let mut bakes: Scheduler<u32> = Scheduler::new(4, 1);
-        let settle = SETTLE;
+        bakes.set_clock(clock.clone());
         // A ratio dragged: a new key each 5 ms, each wanted alone.
         for ratio in 0..20 {
             bakes.ask(&ratio, hold);
-            bakes.poll(&HashMap::from([(ratio, Priority::Playing)]), settle);
-            std::thread::sleep(Duration::from_millis(5));
+            bakes.poll(&HashMap::from([(ratio, Priority::Playing)]), SETTLE);
+            clock.advance_to(clock.now() + Duration::from_millis(5));
         }
-        std::thread::sleep(settle);
-        bakes.poll(&HashMap::from([(19, Priority::Playing)]), settle);
+        assert_eq!(bakes.started, 0, "no bake before the last one waited the settle");
+        assert_eq!(bakes.next_due(SETTLE), Some(Duration::from_millis(95) + SETTLE), "the last one is due a settle after it was asked for");
+        clock.advance_to(Duration::from_millis(95) + SETTLE);
+        bakes.poll(&HashMap::from([(19, Priority::Playing)]), SETTLE);
         assert_eq!(bakes.started, 1, "one bake");
         assert_eq!(bakes.status(&19), Status::Running);
     }

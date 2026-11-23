@@ -210,6 +210,7 @@ local record api
    note_off: function(track: integer, pitch?: integer)
    note_on: function(track: integer, pitch: integer, velocity?: number, attr?: types.NoteAttr)
    now: function(): number
+   pending: function(): types.Pending
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
    plugins_dirs: function(): {string: {string}}
@@ -248,6 +249,7 @@ local record api
    project_unshelve: function()
    quit: function(code?: integer)
    read_dir: function(path: string): {types.DirEntry}
+   real_ms: function(): number
    redo: function(): boolean
    reload: function()
    render: function(path: string, opts?: types.RenderOptions): types.RenderResult
@@ -289,6 +291,7 @@ local record api
    startup_timed: function(): boolean
    state_get: function(key: string): any
    state_set: function(key: string, value: any)
+   step: function()
    str_width: function(text: string): integer
    tempo_at: function(beat: number): number
    tempo_bar_length: function(beat: number): number

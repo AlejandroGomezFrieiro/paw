@@ -695,13 +695,13 @@ end
 --- Pump the engine until `fn()` is true or `seconds` pass. Returns whether
 --- it became true. For scripts and offline renders; the UI pumps on a timer.
 function M.wait(fn, seconds)
-  local deadline = api.now() + (seconds or 60) * 1000
+  local deadline = api.real_ms() + (seconds or 60) * 1000
   while true do
     if dirty then M.sync() end
     engine.pump()
     if fn() then return true end
     if engine.state == "failed" or engine.state == "missing" then return false end
-    if api.now() > deadline then return false end
+    if api.real_ms() > deadline then return false end
     api.sleep(10)
   end
 end

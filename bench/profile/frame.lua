@@ -36,9 +36,9 @@ local times = {}
 for i = 1, rounds do
   paw.keymap.feed(list[(i - 1) % #list + 1])
   if prof then prof.start("fi1", sample) end
-  local t = api.now()
+  local t = api.real_ms()
   api.ui_snapshot(W, H)
-  times[i] = api.now() - t
+  times[i] = api.real_ms() - t
   if prof then prof.stop() end
 end
 if out then

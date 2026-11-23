@@ -43,11 +43,11 @@ local function wav(path, seconds)
   f:close()
 end
 
-local start = api.now()
+local start = api.real_ms()
 local round = 0
 local first = rss()
 print(string.format("start rss %d kB", first))
-while api.now() - start < minutes * 60000 do
+while api.real_ms() - start < minutes * 60000 do
   round = round + 1
   -- A new file each round, as importing new material would.
   local file = string.format("%s/sound-%d.wav", dir, round % 50)
@@ -93,7 +93,7 @@ while api.now() - start < minutes * 60000 do
       string.format(
         "round %d  %.1f min  rss %d kB  audio files %d  xruns %d",
         round,
-        (api.now() - start) / 60000,
+        (api.real_ms() - start) / 60000,
         rss(),
         e.audio_files or -1,
         e.xruns

@@ -226,9 +226,9 @@ case("api: live note velocity NaN", function()
 end)
 case("api: render tail 1e12", function()
   synth_track()
-  local t0 = api.now()
+  local t0 = api.real_ms()
   local info = api.render(dir .. "/long.wav", { tail = 1e12 })
-  return "BAD", string.format("rendered %s s in %.0f ms", tostring(info.seconds), api.now() - t0)
+  return "BAD", string.format("rendered %s s in %.0f ms", tostring(info.seconds), api.real_ms() - t0)
 end)
 case("api: render end 1e15", function()
   synth_track()
@@ -326,13 +326,13 @@ case("api: 1e6 notes in one clip", function()
   for i = 1, 1000000 do
     notes[i] = { pitch = 36 + i % 48, start = i * 0.001, length = 0.01 }
   end
-  local t0 = api.now()
+  local t0 = api.real_ms()
   api.clip_add(t, { start = 0, length = 1001, notes = notes })
   paw.flush()
-  local add = api.now() - t0
-  t0 = api.now()
+  local add = api.real_ms() - t0
+  t0 = api.real_ms()
   api.render(dir .. "/many.wav", { ["end"] = 64, tail = 0 })
-  return "ok", string.format("added in %.0f ms, rendered 64 beats in %.0f ms", add, api.now() - t0)
+  return "ok", string.format("added in %.0f ms, rendered 64 beats in %.0f ms", add, api.real_ms() - t0)
 end)
 
 if name == "list" then
@@ -344,9 +344,9 @@ if name == "list" then
 end
 local fn = cases[name]
 if not fn then error("no case " .. tostring(name)) end
-local t0 = api.now()
+local t0 = api.real_ms()
 local ok, outcome, detail = pcall(fn)
-local record = { workload = "abuse", case = name, ms = api.now() - t0 }
+local record = { workload = "abuse", case = name, ms = api.real_ms() - t0 }
 if ok then
   record.outcome, record.detail = outcome, detail
 else

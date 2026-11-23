@@ -9,7 +9,7 @@ M.dir = debug.getinfo(1, "S").source:sub(2):match("(.*)/") or "."
 M.tmp = os.getenv("BENCH_TMP") or "/tmp/paw-bench"
 os.execute("mkdir -p '" .. M.tmp .. "'")
 
-M.now = api.now
+M.now = api.real_ms
 
 --- Milliseconds of processor time that this thread has used. A bench of
 --- the kernel's own work reads this and not the clock: on a loaded machine
@@ -35,9 +35,9 @@ end
 
 --- Milliseconds `fn` takes, and what it returns.
 function M.time(fn, ...)
-  local t = api.now()
+  local t = api.real_ms()
   local r = fn(...)
-  return api.now() - t, r
+  return api.real_ms() - t, r
 end
 
 local function encode(v)

@@ -13,7 +13,10 @@
 -- (docs/how-to/run-the-tests.md, "Write a test that does not depend on
 -- time"). A count that goes down also fails, until its line is made
 -- smaller, so the list only gets shorter. A read of the machine has no
--- allow-list: each one fails. The window (crates/paw-gui) is
+-- allow-list: each one fails. It also checks the clocks of the product code:
+-- only the files of `M.real_time` read the wall clock (`api.real_ms()`), and
+-- a budget reader there does not read the schedule clock (`api.now()`).
+-- The window (crates/paw-gui) is
 -- paused: the check skips it until that work starts again (TASK-160).
 local M = {}
 
@@ -216,6 +219,75 @@ end
 
 M.ALLOWED = "tests/timing-allowed.txt"
 
+-- The clocks of the product code ------------------------------------------------------
+
+--- The product files that read the wall clock, `api.real_ms()`. Each one
+--- measures a budget of work or waits for another thread or process. Every
+--- other product file reads only the schedule clock, `api.now()`, which a
+--- test steps (`paw --clock manual`). A file with `budget = true` reads only
+--- the wall clock: a read of `api.now()` there is a budget on the schedule
+--- clock, which does not move in a test, so its loop never ends.
+M.real_time = {
+  ["extensions/doctor/lua/doctor/init.lua"] = {},
+  ["extensions/doctor/lua/doctor/report.lua"] = { budget = true },
+  ["extensions/notation/lua/notation/bench.lua"] = { budget = true },
+  ["extensions/utau/lua/utau/engine.lua"] = {},
+  ["extensions/utau/lua/utau/init.lua"] = {},
+  ["extensions/vinput/lua/vinput/run.lua"] = {},
+  ["runtime/lua/paw/defaults/project.lua"] = {},
+  ["runtime/lua/paw/derived.tl"] = {},
+  ["runtime/lua/paw/help.tl"] = {},
+  ["runtime/lua/paw/limit.tl"] = { budget = true },
+  ["runtime/lua/paw/lsp/init.tl"] = {},
+  ["runtime/lua/paw/profile.tl"] = { budget = true },
+  ["runtime/lua/paw/slices.tl"] = { budget = true },
+}
+
+--- The Lua and Teal files of the product under `root`: the runtime and the
+--- extensions, without their tests and the lessons of the tutor.
+function M.product_files(root)
+  local cd = "cd '" .. root .. "' 2>/dev/null && "
+  local out = {}
+  for _, file in
+    ipairs(lines_of(cd .. "find runtime/lua extensions \\( -name '*.lua' -o -name '*.tl' \\) 2>/dev/null | sort"))
+  do
+    if not (file:match("/tests[^/]*%.lua$") or file:find(LESSONS)) then out[#out + 1] = file end
+  end
+  return out
+end
+
+--- The problems of the clocks of the product code under `root`.
+function M.check_clocks(root)
+  local problems = {}
+  for _, file in ipairs(M.product_files(root)) do
+    local now, real = 0, 0
+    for line in ((read(root .. "/" .. file) or "") .. "\n"):gmatch("(.-)\n") do
+      if not line:match("^%s*%-%-") then
+        local _, n = line:gsub("api%.now%(%)", "")
+        local _, r = line:gsub("api%.real_ms%(", "")
+        now, real = now + n, real + r
+      end
+    end
+    local listed = M.real_time[file]
+    if real > 0 and not listed then
+      problems[#problems + 1] = string.format(
+        "%s: %d of `api.real_ms()`, the wall clock. A delay or a throttle reads `api.now()`;"
+          .. " a budget of work goes in the list `real_time` of tools/testlint.lua",
+        file,
+        real
+      )
+    elseif now > 0 and listed and listed.budget then
+      problems[#problems + 1] = string.format(
+        "%s: %d of `api.now()` in a budget reader. A budget of work reads `api.real_ms()`:"
+          .. " the schedule clock does not move in a test",
+        file,
+        now
+      )
+    end
+  end
+  return problems
+end
+
 --- The problems of the tree at `root` (default "."): a list of lines, empty
 --- when the counts and the allow-list agree.
 function M.check(root)
@@ -280,6 +352,9 @@ function M.check(root)
       end
     end
   end
+  for _, problem in ipairs(M.check_clocks(root)) do
+    problems[#problems + 1] = problem
+  end
   table.sort(problems)
   return problems
 end
@@ -299,7 +374,11 @@ if arg and arg[0] and arg[0]:match("testlint%.lua$") then
     print(string.format("testlint: %d problems", #problems))
     os.exit(1)
   end
-  print("testlint: no test reads the machine, or depends on time beyond " .. M.ALLOWED)
+  print(
+    "testlint: no test reads the machine, or depends on time beyond "
+      .. M.ALLOWED
+      .. ", and each clock read of the product is on its clock"
+  )
 end
 
 return M

@@ -19,9 +19,9 @@ for i = 1, rounds do
   -- Forget what was read: the reading is made again from all the notes.
   song.reset()
   harmony.invalidate()
-  local t = api.now()
+  local t = api.real_ms()
   chords = harmony.builtin(0, math.huge)
-  times[i] = api.now() - t
+  times[i] = api.real_ms() - t
 end
 table.sort(times)
 local parts = {}

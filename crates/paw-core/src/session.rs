@@ -56,6 +56,8 @@ mod midi_out;
 mod nests;
 mod promote;
 mod save;
+mod schedule;
+pub use schedule::Work;
 pub use save::SaveOpts;
 pub use nests::NestOpts;
 mod monitor;

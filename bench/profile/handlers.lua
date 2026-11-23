@@ -55,9 +55,9 @@ end
 -- The parts of the end of the turn under way that took 0.3 ms or more.
 local parts = {}
 local function timed(event, where, fn, ...)
-  local t = api.now()
+  local t = api.real_ms()
   local results = { fn(...) }
-  local ms = api.now() - t
+  local ms = api.real_ms() - t
   add(event, where, ms)
   if ms >= 0.3 then parts[#parts + 1] = string.format("%s %s %.1f", event, where, ms) end
   return unpack(results, 1, table.maxn(results))
@@ -75,9 +75,9 @@ local guard = paw.limit.guard
 paw.limit.guard = function(name, fn, ...)
   if name ~= "an event handler" then return guard(name, fn, ...) end
   parts = {}
-  local kb, t = collectgarbage("count"), api.now()
+  local kb, t = collectgarbage("count"), api.real_ms()
   local results = { timed("(settle)", "all of it", guard, name, fn, ...) }
-  local ms = api.now() - t
+  local ms = api.real_ms() - t
   if ms > 4 and #slow_turns < 20 then
     slow_turns[#slow_turns + 1] = string.format(
       "%s\t(slow turn)\t%.1f ms, heap %d to %d KB\t%s",

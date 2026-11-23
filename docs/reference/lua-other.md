@@ -27,14 +27,16 @@ A key should take a few milliseconds. Work that takes longer, for example readin
 ```lua
 local i = 1
 paw.slices("count", function(ms)
-  local deadline = paw.api.now() + ms
-  while i <= #list and paw.api.now() < deadline do
+  local deadline = paw.api.real_ms() + ms
+  while i <= #list and paw.api.real_ms() < deadline do
     -- the work for list[i]
     i = i + 1
   end
   return i > #list
 end)
 ```
+
+A step measures its time with `paw.api.real_ms()`, the time on the wall. `paw.api.now()` is the time that timers and delays wait for, and in a test it moves only when the test lets time pass.
 
 paw itself uses three jobs. The job `harmony` reads the chords and the keys again after an edit. The job `pick` reads the items of a picker that has `more`, for example the files picker (`<Space>ff`) and the text of the project (`<Space>fg`). The job `help` makes the index of help a second after paw starts, so that the first `:help` opens at once.
 

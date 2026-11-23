@@ -67,9 +67,15 @@ impl Loads {
     }
 
     pub fn busy(&self) -> bool {
+        self.count() > 0
+    }
+
+    /// How many devices wait or are being made.
+    pub fn count(&self) -> usize {
         self.devices
             .values()
-            .any(|load| !matches!(load, Load::Failed(_)))
+            .filter(|load| !matches!(load, Load::Failed(_)))
+            .count()
     }
 }
 

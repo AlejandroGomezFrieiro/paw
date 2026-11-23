@@ -20,6 +20,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use crate::clock::Clock;
 use crate::grid::{Caps, Grid, Highlights, KeptCells};
 use crate::io::Io;
 use crate::model::NoteAttr;
@@ -38,7 +39,8 @@ pub struct Env {
 
 pub struct Timer {
     pub id: u64,
-    pub due: Instant,
+    /// When it fires, on the schedule clock (`Shared::clock`).
+    pub due: Duration,
     pub repeat: Option<Duration>,
     /// In the registry, not held as a `Function`: each Lua value that Rust
     /// holds takes a slot of a stack that has room for about 8000, and a
@@ -89,7 +91,12 @@ pub struct Shared {
     pub log: RefCell<VecDeque<String>>,
     /// Helper processes and sockets that extensions opened.
     pub io: RefCell<Io>,
+    /// When the kernel started, on the wall: `paw.api.real_ms` and the time
+    /// limit of Lua (`watchdog`) measure from it.
     pub started: Instant,
+    /// The schedule clock of the process (`paw --clock`): the timers,
+    /// `paw.api.now` and the settle delays of the session read it.
+    pub clock: Arc<dyn Clock>,
     /// The connections on the control socket, for pushing events to them.
     pub clients: crate::rpc::Clients,
     /// The connection whose terminal the input being handled came from, or

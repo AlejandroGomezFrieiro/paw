@@ -345,8 +345,8 @@ command("engine", function(ctx)
   -- The audio thread takes the new threads at its next block: wait for it,
   -- so that the count said is the one that runs.
   if wanted and wanted ~= before then
-    local deadline = api.now() + 500
-    while api.engine_get().threads == before and api.now() < deadline do
+    local deadline = api.real_ms() + 500
+    while api.engine_get().threads == before and api.real_ms() < deadline do
       api.sleep(5)
     end
   end

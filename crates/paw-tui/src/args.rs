@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 const EXAMPLES: &str = "\
 ctl and attach reach the instance on this machine's socket, or on another one with
@@ -106,6 +106,10 @@ pub struct Run {
     /// Do not open the audio device's input
     #[arg(long)]
     pub no_input: bool,
+    /// Schedule time for timers and delays: wall, or manual for tests
+    /// (it moves only when a script waits)
+    #[arg(long, value_enum, value_name = "CLOCK", default_value_t)]
+    pub clock: ClockChoice,
     /// Control socket path (default: $XDG_RUNTIME_DIR/paw.sock)
     #[arg(long, value_name = "PATH")]
     pub listen: Option<PathBuf>,
@@ -228,4 +232,14 @@ impl Doctor {
         }
         own
     }
+}
+
+/// The schedule clock of the process (`--clock`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum ClockChoice {
+    /// Schedule time is the time on the wall.
+    #[default]
+    Wall,
+    /// Schedule time moves only when a script waits (`paw.wait`): for tests.
+    Manual,
 }

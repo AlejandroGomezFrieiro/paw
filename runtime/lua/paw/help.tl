@@ -1100,14 +1100,14 @@ end
 --- The name of the job in `paw.slices`.
 local JOB = "help"
 
---- The build being made at idle, and when its slice ends (`api.now()`).
+--- The build being made at idle, and when its slice ends (`api.real_ms()`).
 --- `slice_end` is `math.huge` outside a slice, so that `pause()` never
 --- yields in a build made at once.
 local preparing: thread
 local slice_end = math.huge
 
 local function pause()
-  if api.now() >= slice_end then
+  if api.real_ms() >= slice_end then
     coroutine.yield()
   end
 end
@@ -1115,7 +1115,7 @@ end
 --- Resume the build being made at idle until it ends or its slice is over
 --- (`ms` milliseconds; `math.huge` to finish it). Returns true when it ended.
 local function resume(co: thread, ms: number): boolean
-  slice_end = api.now() + ms
+  slice_end = api.real_ms() + ms
   local ok, err = coroutine.resume(co)
   slice_end = math.huge
   if ok and coroutine.status(co) == "suspended" then

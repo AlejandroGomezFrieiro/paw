@@ -21,6 +21,7 @@ use mlua::{FromLuaMulti, Function, IntoLuaMulti, Lua, LuaSerdeExt, Table, Value 
 use serde_json::Value;
 
 use crate::api::{self, Env, Shared};
+use crate::clock::Clock;
 use crate::grid::{Caps, Color, Grid, Highlights, Style};
 use crate::remote::{self, RemoteFrontend};
 use crate::rpc::{ClientId, Clients};
@@ -123,6 +124,8 @@ pub struct KernelOpts {
     /// Running a script (`-l`), not a session somebody works in.
     pub scripted: bool,
     pub argv: Vec<String>,
+    /// The schedule clock of the process (`paw --clock`).
+    pub clock: Arc<dyn Clock>,
 }
 
 pub struct Kernel {
@@ -169,6 +172,7 @@ impl Kernel {
         session.set_bakes(Some(crate::bake::Store::user(&opts.dirs)));
         session.sources.keep_index_in(crate::media::index::LocalIndex::default_file(&opts.dirs));
         session.dirs = opts.dirs;
+        session.set_clock(&opts.clock);
         let (tx, rx) = channel();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties
@@ -205,6 +209,7 @@ impl Kernel {
             log: RefCell::new(VecDeque::new()),
             io: RefCell::new(Default::default()),
             started,
+            clock: opts.clock,
             clients: Clients::default(),
             midi_in,
             input_from: Cell::new(0),
@@ -663,19 +668,20 @@ impl Kernel {
         let shown = if self.frontends.is_empty() { "ready, no screen" } else { "first frame" };
         self.startup_done(shown);
         loop {
-            let next_timer = self.shared.timers.borrow().iter().map(|t| t.due).min();
+            // The timers wait on the schedule clock. A manual clock moves
+            // only in a script's wait: here a timer in its future comes
+            // back to this loop with nothing due, which costs one turn.
+            let now = self.shared.clock.now();
+            let next_timer = self.shared.timers.borrow().iter().map(|t| t.due.saturating_sub(now)).min();
             // Hosted plugins need regular attention on this thread.
             let next_idle = self
                 .shared
                 .session
                 .borrow()
                 .needs_idle()
-                .then(|| last_idle + IDLE_PERIOD);
+                .then(|| (last_idle + IDLE_PERIOD).saturating_duration_since(Instant::now()));
             let msg = match next_timer.into_iter().chain(next_idle).min() {
-                Some(due) => match self
-                    .rx
-                    .recv_timeout(due.saturating_duration_since(Instant::now()))
-                {
+                Some(wait) => match self.rx.recv_timeout(wait) {
                     Ok(msg) => Some(msg),
                     Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => {

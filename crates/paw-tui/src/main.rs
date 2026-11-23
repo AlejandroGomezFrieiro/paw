@@ -10,11 +10,12 @@ mod terminal;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result, bail};
-use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
+use args::{Attach, Cli, ClipCommand, ClockChoice, Command, Connect, Ctl};
 use clap::Parser;
+use paw_core::clock::{ManualClock, WallClock};
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
 use paw_proto::dirs::Dirs;
 use paw_engine::backend::{BackendChoice, BackendOptions};
@@ -639,6 +640,10 @@ fn run() -> Result<i32> {
         clean: args.clean,
         scripted,
         argv: script_args.clone(),
+        clock: match args.clock {
+            ClockChoice::Wall => Arc::new(WallClock::new()),
+            ClockChoice::Manual => Arc::new(ManualClock::default()),
+        },
     })?;
 
     startuptime::event("kernel, engine, audio device");
