@@ -780,8 +780,11 @@ local LEVEL: {Level: integer} = {track = 1, clip = 2, note = 3}
 
 local function scope_clips(r: Range): {types.Clip}
   local out: {types.Clip} = {}
+  -- A range of time asks the kernel only for the clips that meet it.
+  local from: number = r.from and r.from - EPS
+  local to: number = r.to
   local function add_track(id: integer)
-    for _, c in ipairs(api.clip_list(id)) do
+    for _, c in ipairs(api.clip_list(id, from, to)) do
       out[#out + 1] = c
     end
   end
@@ -815,6 +818,13 @@ end
 
 local function inside(r: Range, at: number): boolean
   return not r.from or (at >= r.from - EPS and at < r.to - EPS)
+end
+
+--- Whether clip `c` plays in the time of range `r`. A note that sounds
+--- starts inside its clip, so a clip outside the time has no note that
+--- starts in it: only a note that a trim of the clip hides.
+local function meets(r: Range, c: types.Clip): boolean
+  return not r.from or (c.start < r.to and c.start + c.length > r.from - EPS)
 end
 
 --- The notes of a MIDI clip that can start in the range `r`, and the place
@@ -869,7 +879,7 @@ function M.items(r: Range, kind: Level): {Item}
       if inside(r, c.start) then
         out[#out + 1] = {kind = "clip", track = c.track, clip = c, at = c.start, order = order[c.track]}
       end
-    elseif c.kind == "midi" then
+    elseif c.kind == "midi" and c.note_count > 0 and meets(r, c) then
       local notes, places = notes_near(c, r)
       for i, n in ipairs(notes) do
         local at = c.start + n.start
@@ -1380,17 +1390,14 @@ function M.apply(changes?: {Changed}, remove?: {Item})
   for _, c in ipairs(changes or {}) do
     local item, ch = c.item, c.change
     if item.kind == "note" then
-      local n = item.note
+      -- Only the fields that change: the kernel keeps the others. They are
+      -- set one by one, so that the table holds only those (thousands of
+      -- notes are thousands of tables).
+      local set: objects.NoteChangeInput = {index = item.place}
+      set.start, set.length, set.pitch, set.velocity = ch.start, ch.length, ch.pitch, ch.velocity
+      set.meta, set.attr = ch.meta or item.note.meta, ch.attr
       local e = clip_edit(item)
-      e.set[#e.set + 1] = {
-        index = item.place,
-        start = ch.start or n.start,
-        length = ch.length or n.length,
-        pitch = ch.pitch or n.pitch,
-        velocity = ch.velocity or n.velocity,
-        meta = ch.meta or n.meta or {},
-        attr = ch.attr,
-      }
+      e.set[#e.set + 1] = set
     elseif item.kind == "clip" then
       api.clip_set(item.clip.id, {name = ch.name, start = ch.start, muted = ch.muted})
     else
@@ -2364,13 +2371,19 @@ ex(
     local items = notes_in(ctx)
     commands.about(plural(#items, "note"))
     local changes: {Changed} = {}
-    for i, item in ipairs(items) do
+    for _, item in ipairs(items) do
       -- On the song's grid, so that clips that start off it still line up.
-      -- A strength under 100 moves each note that part of the way.
+      -- A strength under 100 moves each note that part of the way. A note
+      -- on the grid already is not sent.
       local moved = transform.quantize(
         {item.note}, {grid = grid, strength = strength / 100, offset = item.at - item.note.start}
       )
-      changes[i] = {item = item, change = {start = moved[1].start}}
+      if moved[1].start ~= item.note.start then
+        changes[#changes + 1] = {item = item, change = {start = moved[1].start}}
+      end
+    end
+    if #changes == 0 then
+      return paw.notify(string.format("%s on the grid of %g beats already", plural(#items, "note"), grid))
     end
     M.apply(changes)
     paw.notify(

@@ -277,6 +277,29 @@ test("ex: transpose, quantize, > and j work on ranges", function()
   eq(#t:clips(), 1, ":1,3j joins them")
 end)
 
+test("ex: :quantize moves the notes that play in its bars, and says so when they are on the grid", function()
+  local t = song()
+  local a, c = t:clips()[1], t:clips()[3]
+  -- Clip a plays bar 1 only: a trim of it hides a note at a time of bar 3.
+  a:add_note({ pitch = 72, start = 8.3, length = 0.5 })
+  api.undo_checkpoint()
+  local function hidden() return a:notes()[#a:notes()].start end
+  local steps = #api.undo_tree().states
+
+  keys(":3quantize 1/4<CR>")
+  local said = paw.ui.messages[#paw.ui.messages].text
+  eq(said, "4 notes on the grid of 1 beats already", "nothing moves")
+  eq(#api.undo_tree().states, steps, "and nothing is an undo step")
+
+  c:set_note(2, { start = 1.3 })
+  api.undo_checkpoint()
+  keys(":3quantize 1/4<CR>")
+  eq(c:notes()[2].start, 1, "the note of bar 3 off the grid is on it")
+  eq(hidden(), 8.3, "the note that clip a hides is not in bar 3")
+  keys("u")
+  eq(c:notes()[2].start, 1.3, "u gives it back")
+end)
+
 test("ex: normal runs keys at each bar, track or match", function()
   song()
   local seen = {}

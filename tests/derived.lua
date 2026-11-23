@@ -195,6 +195,72 @@ test("derived: a mute reads again only the muted track's windows, and a volume c
   eq(text:find("harmony.track_window (family): 256 values", 1, true) ~= nil, true, ":checkhealth derived:\n" .. text)
 end)
 
+test("derived: after :quantize of one bar, the job reads only that bar's windows, a few entries at a time", function()
+  fresh()
+  -- Four tracks of eight one-bar clips, with notes off the beat.
+  local tracks = {}
+  for t = 1, 4 do
+    tracks[t] = paw.add_track({ name = "Part " .. t })
+    for bar = 0, 7 do
+      local notes = {}
+      for beat = 0, 3 do
+        notes[#notes + 1] = { pitch = 50 + t * 4 + bar, start = beat + 0.1, length = 0.5, velocity = 90 }
+      end
+      tracks[t]:add_clip({ start = bar * 4, length = 4, notes = notes })
+    end
+  end
+  paw.flush()
+  song.update()
+  local before = song.stats("harmony.track_window")
+
+  T.keys(":3quantize 1/4<CR>")
+  paw.flush()
+  -- The job in slices of no time at all: each stops at the next entry to make.
+  local widest, count = 0, made()
+  while not derived.run(0) do
+    widest = math.max(widest, made() - count)
+    count = made()
+  end
+  widest = math.max(widest, made() - count)
+  local windows = song.stats("harmony.track_window")
+  -- A place's edges count: the window that ends where a moved note starts too.
+  eq(windows.made - before.made, 4 * 9, "4 tracks by the 8 windows of bar 3 and the one before are made again")
+  eq(windows.hits - before.hits, 0, "no window of the other bars is looked at")
+  eq(widest <= 8, true, "a slice makes a few entries, not the windows of the song: " .. widest)
+  local got, want = both()
+  eq(got, want, "and the reading is the one of all the notes")
+end)
+
+test("derived: an error deep in the job leaves no value half made: the next reading is right", function()
+  fresh()
+  local clips = {}
+  for t = 1, 3 do
+    local notes = {}
+    for beat = 0, 7 do
+      notes[#notes + 1] = { pitch = 48 + t * 4 + beat % 3, start = beat, length = 1, velocity = 90 }
+    end
+    clips[t] = paw.add_track({ name = "Part " .. t }):add_clip({ start = 0, length = 8, notes = notes })
+  end
+  paw.flush()
+  song.update()
+  local notes = clips[2]:notes()
+  notes[1].pitch = 70
+  clips[2]:set_notes(notes)
+  api.undo_checkpoint()
+  paw.flush()
+  -- The kernel fails to give the notes of a clip while the job reads them.
+  local clip_notes = api.clip_notes
+  T.after(function() api.clip_notes = clip_notes end)
+  api.clip_notes = function() error("the notes are not there") end
+  T.fails(function()
+    while not derived.run(0) do
+    end
+  end, "the notes are not there", "the job stops at the error")
+  api.clip_notes = clip_notes
+  local got, want = both()
+  eq(got, want, "then the reading is the one of all the notes")
+end)
+
 test("derived: K on a note names its chord, and says the chord is being read after an edit", function()
   fresh()
   local notes = {}

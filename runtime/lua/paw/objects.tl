@@ -1338,11 +1338,13 @@ function Clip:shifted(semitones: integer): Clip
   return setmetatable({id = self.id, shift = semitones} as Clip, getmetatable(self))
 end
 
--- A change of a note with its `pitch` as a stored MIDI number.
+-- A change of a note with its `pitch` as a stored MIDI number. A number
+-- with no shift passes as it is (`music.pitch`): only a name or a shift
+-- makes a copy.
 local function note_change(change: NoteChangeInput, shift: integer): types.NoteChange
-  if change.pitch then
-    return util.merge(change as {string: Value}, {pitch = (music.pitch(change.pitch) - shift) as Value})
-      as types.NoteChange
+  local pitch = change.pitch
+  if pitch is string or (pitch and shift ~= 0) then
+    return util.merge(change as {string: Value}, {pitch = (music.pitch(pitch) - shift) as Value}) as types.NoteChange
   end
   return change as types.NoteChange
 end
