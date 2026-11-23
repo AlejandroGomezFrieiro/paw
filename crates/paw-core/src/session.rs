@@ -73,7 +73,6 @@ mod ports;
 mod posts;
 pub mod render;
 pub mod tags;
-mod tempo;
 mod undo;
 mod watch;
 pub use watch::Lost;

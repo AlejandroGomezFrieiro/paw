@@ -19,6 +19,7 @@ use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Track};
 use crate::sync::ModelEvent;
 
+mod tempo;
 mod tracks;
 pub use tracks::ControlMove;
 
