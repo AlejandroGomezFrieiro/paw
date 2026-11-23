@@ -210,6 +210,11 @@ pub enum Msg {
     /// Whether devices at rest are left asleep through silent blocks (see
     /// [`Device::resting`]). The sound is the same either way.
     SetSleep(bool),
+    /// Nothing to change: it only keeps the engine from resting through the
+    /// callback that takes it, so that each device is asked again whether
+    /// it rests. The main thread sends it after it gives a device a state
+    /// that the device takes on only in its next block (Surge XT).
+    Wake,
 }
 
 pub(super) enum Garbage {
