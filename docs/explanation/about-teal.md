@@ -317,8 +317,11 @@ each other.
 | Done | The frontend | `frontend`, `remote`, `render`, `media`: 5,290 lines of Teal, 9 fewer entries on the allow-list, and no `any` or `paw.Untyped` in these modules | 3,800 | wave 3 |
 | Done | The pencil of the piano roll | `roll_draw` (moved when it changed) and the new `chords`: 1,400 lines of Teal, 1 fewer entry on the allow-list, and no `any` in these modules | 350 | wave 4 |
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
-| 5 | Keys and views | `keymap`, `keyrule`, `keybar`, `defaults/`, `views/`, `roles/` | 15,000 | wave 4, and the work on the keys that runs now |
-| 5 | Extensions | one agent for each: `notation` (20,000), `utau` (8,000), `plugstate` (5,700), `interop` (4,000), the others (under 3,200 each) | 60,000 | the modules of paw that each uses |
+| Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
+| Done | The piano roll | `views/pianoroll`, `views/pianoroll_mouse`, `views/pianoroll_strip`, `roll_clips`: 3,701 lines of Teal, 1 fewer entry on the allow-list, the 10 records that other modules kept of the piano roll gone, and no `any` or `paw.Untyped` in these modules | 2,430 | the keys |
+| 5 | Views | `defaults/`, the other `views/`, `roles/` | 13,000 | the keys |
+| Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
+| 5 | Extensions | one agent for each: `plugstate` (5,700), the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
 The spike moved 1,100 lines in a part of a day, with the checker. An area
 of wave 1 or 2 is about one day of work for one agent, and an area of wave
@@ -835,3 +838,129 @@ value, and the port calls each one time.
 `paw.lanes`, `paw.curves` and `paw.query` call `paw.frontend`, and
 `paw.frontend` names their types, so those modules declare the part of
 `paw.frontend` that they call.
+
+## What the checker found in the keys
+
+The checker found no error that changed what a key does, and the tests pass
+with no change. Most of what it found was in the records that 14 other
+modules kept of `paw.keymap`, and in the contracts that a view gives the
+keymap.
+
+The keymap was one file of 1,597 lines. The port moves the registers and
+the macros to `paw/keymap/registers.tl`, and the marks, the jump list and
+the change list to `paw/keymap/marks.tl`. `paw.keymap` still gives all of
+their functions, so a configuration and an extension call them as before.
+
+The keymap found a key by a walk of every mapping of each scope, for each
+key that you type. It now keeps, for each mode and scope, the prefixes of
+the mappings, so a key needs one look in a table for each scope. A prefix
+ends at the end of a key, so `<` is no longer a prefix of `<C-a>`. No key
+that the keyboard sends is `<` alone, because the keyboard sends `<lt>`.
+
+`mode.changed` was made as a descriptor in five modules, each with its own
+record of the payload. `paw.keymap.mode_changed` is now the one descriptor,
+and `paw.keymap.ModeChanged` is the one record.
+
+Eleven modules had their own record of the payload of `option.changed`,
+and two had their own of `render.before`. Now the module that sends an
+event gives its descriptor and its record: `paw.option.changed`,
+`paw.render.before`, `paw.events.startup` and `paw.events.exit`. A
+descriptor also declares the name of its event, so a handler that waits
+for a name that nothing declares is in the log, and `:checkhealth events`
+lists it. The first run found `theme.changed`, an event that nothing
+sends, in the articulations extension. `tools/apidoc.lua` writes the rows
+of these descriptors on the page on events.
+
+The contracts of a view missed some fields that the keymap reads:
+
+- `view:subscope()` can give a list of scopes, as the piano roll does.
+- `view.insert_hints` says that insert mode is a choice of keys that the key
+  line lists.
+- A place on the jump list keeps the scope of the window (`scoped` and
+  `scope` in `paw.contracts.GridMark`).
+- `ctx.op_count` is the count of an operator made with `count = "operator"`.
+
+A register holds a table that the code that yanked it makes, so its type is
+an interface, `paw.keymap.Register`, with only `kind`. A module that yanks
+gives its own record of a register that is a `Register`, and it casts what
+`paw.keymap.getreg` gives back to its record.
+
+`paw.edit` kept its own record of a region, and that record did not agree
+with `paw.contracts.Region`, so the frontend could not give a selection of
+the keymap to it. `paw.edit` uses the contract now.
+
+## What the checker found in the piano roll
+
+The checker found no error that changed what the piano roll does, and the
+tests pass with no change. Most of what it found was in how the piano roll
+and the modules around it named each other.
+
+Ten modules kept their own record of the piano roll, and some kept records
+of its layers, its clips and its marks too. The records did not agree:
+one gave a layer the clip as `clip`, and another as `data`. Each module
+now names the types of the piano roll. The module
+`paw.views.pianoroll` gives the record of the view, `PianoRoll`, and the
+records of a layer, a tool, a band, a note mark and a hit region. The
+view itself is still `paw.ui.views.pianoroll`.
+
+`paw.roll_clips` gives the record of a clip that the piano roll edits as an
+interface, `paw.roll_clips.Part`. The frontend keeps more fields of a part,
+so it has a record of its own that is a `Part`.
+
+The piano roll loaded `paw.roll_draw` at its end, and `paw.roll_draw`
+names the types of the piano roll. In Teal that is a loop, so
+`paw/init.lua` now loads `paw.roll_draw` after the views.
+
+The velocity strip changed what the piano roll draws by putting its own
+function in place of `view:render`. The view now has a field `strip`,
+which `view:render` calls after it draws the roll. `view:render` was one
+function of about 300 lines, and it is now a short function that calls
+one function for each part: the title, the ruler, the rows, the
+playhead, the velocities, the cursor and the scroll bar.
+
+`view:window_target` gives the clip of the window as a number, and the
+contract of a view said text. The contract now says text or a number.
+A change to text would change the files that save the layout.
+
+The picker of `:roll.tracks` read a third argument in its action for
+Enter, to change the text of the line. The picker never gives that
+argument, so the line keeps its old text after Enter. The port removed
+the code that could not run, and the line still does not change. The
+bug needs a fix and a test.
+
+`pianoroll.opened` and `roll_clips.changed` had a descriptor in the
+module that sends them and a second one in `paw.lsp`. `paw.lsp` now uses
+the descriptors of the modules that send them.
+
+## What the checker found in interop
+
+The checker found no error that changed what an import or an export does,
+and the tests of the extension pass with no change. It found the following
+smaller problems.
+
+`interop.register` copied each field of the table that it got to the format,
+also `module`, and it gave `import = false` to `paw.formats` as it was. It
+gives the fields of a format now (`paw.formats.Format`).
+
+`interop.device_types()` kept `false` for a kind of device that is not
+installed, so a caller got a device type or `false`. It gives nil now, and it
+keeps the kinds that are not installed in a set of its own, so each kind is
+still looked up once.
+
+A document of `interop.rpp.format` found its `project` with a function on its
+metatable, so the field had no type. The document now keeps `project` as a
+field, and it sets the field again when its children change.
+
+A token of a line can be a number that a script set. The data lines of a block
+and the name of a node took each token as text, so a number there stopped the
+code. They turn a number into text first, as REAPER writes it.
+
+`interop.db` used `paw.dsp`, which is Lua for the audio thread and has no
+types. It now does the same arithmetic itself, so it gives the same numbers.
+
+A merge kept the master of the file as `false` in the table of the tracks by
+their id. It is in a set of its own now, and the table holds track ids only.
+
+The strict check of the test suite did not find the other modules of an
+extension, because only `tools/tlcheck.sh` put the `lua/` folder of each
+extension on the path. The test gives these folders to `paw.lang.check` now.

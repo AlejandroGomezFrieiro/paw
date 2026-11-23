@@ -15,6 +15,7 @@ local record Opts
    bend_step: number
    braille: boolean
    budget_ms: number
+   check_stamps: boolean
    chords: string | boolean
    click_accent: boolean
    click_level: number

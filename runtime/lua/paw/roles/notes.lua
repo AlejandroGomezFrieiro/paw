@@ -1,5 +1,5 @@
 -- The roles of views that show notes on a plane of beats and pitches (the
--- piano roll, paw/views/pianoroll.lua): notes, the keyboard beside them,
+-- piano roll, paw/views/pianoroll.tl): notes, the keyboard beside them,
 -- the playhead and scroll bars, each drawn in cells as the terminal always
 -- drew it and painted by a window as what it is, where it is between cells
 -- (crates/paw-gui/src/roles.rs).

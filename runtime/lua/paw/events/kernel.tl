@@ -5,7 +5,7 @@
 --   local kernel = require("paw.events.kernel")
 --   paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)
 
-local type events = require("paw.events")
+local events = require("paw.events")
 local type types = require("paw.types")
 
 local record kernel
@@ -255,50 +255,50 @@ local record kernel
    files_changed: events.Event<FilesChanged>
 end
 
-kernel.changed = { name = "changed" }
-kernel.project_changed = { name = "project.changed" }
-kernel.project_loaded = { name = "project.loaded" }
-kernel.project_saved = { name = "project.saved" }
-kernel.track_added = { name = "track.added" }
-kernel.track_changed = { name = "track.changed" }
-kernel.track_removed = { name = "track.removed" }
-kernel.track_moved = { name = "track.moved" }
-kernel.track_copied = { name = "track.copied" }
-kernel.chain_copied = { name = "chain.copied" }
-kernel.clip_added = { name = "clip.added" }
-kernel.clip_changed = { name = "clip.changed" }
-kernel.clip_removed = { name = "clip.removed" }
-kernel.clip_copied = { name = "clip.copied" }
-kernel.lane_added = { name = "lane.added" }
-kernel.lane_changed = { name = "lane.changed" }
-kernel.lane_removed = { name = "lane.removed" }
-kernel.cue_changed = { name = "cue.changed" }
-kernel.device_added = { name = "device.added" }
-kernel.device_changed = { name = "device.changed" }
-kernel.device_removed = { name = "device.removed" }
-kernel.device_ready = { name = "device.ready" }
-kernel.device_stopped = { name = "device.stopped" }
-kernel.device_invalid = { name = "device.invalid" }
-kernel.param_touched = { name = "param.touched" }
-kernel.transport_changed = { name = "transport.changed" }
-kernel.transport_play = { name = "transport.play" }
-kernel.transport_stop = { name = "transport.stop" }
-kernel.transport_seek = { name = "transport.seek" }
-kernel.transport_record = { name = "transport.record" }
-kernel.transport_recorded = { name = "transport.recorded" }
-kernel.midi_in = { name = "midi.in" }
-kernel.midi_lost = { name = "midi.lost" }
-kernel.midi_returned = { name = "midi.returned" }
-kernel.engine_started = { name = "engine.started" }
-kernel.audio_lost = { name = "audio.lost" }
-kernel.audio_restored = { name = "audio.restored" }
-kernel.render_progress = { name = "render.progress" }
-kernel.render_done = { name = "render.done" }
-kernel.render_failed = { name = "render.failed" }
-kernel.render_cancelled = { name = "render.cancelled" }
-kernel.bake_progress = { name = "bake.progress" }
-kernel.media_missing = { name = "media.missing" }
-kernel.proc_output = { name = "proc.output" }
-kernel.files_changed = { name = "files.changed" }
+kernel.changed = events.event("changed")
+kernel.project_changed = events.event("project.changed")
+kernel.project_loaded = events.event("project.loaded")
+kernel.project_saved = events.event("project.saved")
+kernel.track_added = events.event("track.added")
+kernel.track_changed = events.event("track.changed")
+kernel.track_removed = events.event("track.removed")
+kernel.track_moved = events.event("track.moved")
+kernel.track_copied = events.event("track.copied")
+kernel.chain_copied = events.event("chain.copied")
+kernel.clip_added = events.event("clip.added")
+kernel.clip_changed = events.event("clip.changed")
+kernel.clip_removed = events.event("clip.removed")
+kernel.clip_copied = events.event("clip.copied")
+kernel.lane_added = events.event("lane.added")
+kernel.lane_changed = events.event("lane.changed")
+kernel.lane_removed = events.event("lane.removed")
+kernel.cue_changed = events.event("cue.changed")
+kernel.device_added = events.event("device.added")
+kernel.device_changed = events.event("device.changed")
+kernel.device_removed = events.event("device.removed")
+kernel.device_ready = events.event("device.ready")
+kernel.device_stopped = events.event("device.stopped")
+kernel.device_invalid = events.event("device.invalid")
+kernel.param_touched = events.event("param.touched")
+kernel.transport_changed = events.event("transport.changed")
+kernel.transport_play = events.event("transport.play")
+kernel.transport_stop = events.event("transport.stop")
+kernel.transport_seek = events.event("transport.seek")
+kernel.transport_record = events.event("transport.record")
+kernel.transport_recorded = events.event("transport.recorded")
+kernel.midi_in = events.event("midi.in")
+kernel.midi_lost = events.event("midi.lost")
+kernel.midi_returned = events.event("midi.returned")
+kernel.engine_started = events.event("engine.started")
+kernel.audio_lost = events.event("audio.lost")
+kernel.audio_restored = events.event("audio.restored")
+kernel.render_progress = events.event("render.progress")
+kernel.render_done = events.event("render.done")
+kernel.render_failed = events.event("render.failed")
+kernel.render_cancelled = events.event("render.cancelled")
+kernel.bake_progress = events.event("bake.progress")
+kernel.media_missing = events.event("media.missing")
+kernel.proc_output = events.event("proc.output")
+kernel.files_changed = events.event("files.changed")
 
 return kernel

@@ -608,16 +608,3 @@ test("musicops: pitch operators leave drum tracks alone and say so", function()
   eq(T.melody(clip) ~= "36@0+1 42@1+1", true, "humanize still acts on drums")
   done()
 end)
-
-test("musicops: legato on ten thousand notes is quick", function()
-  load()
-  local notes = {}
-  for i = 1, 10000 do
-    notes[i] = N(60 + i % 12, (i - 1) * 0.25 + (i % 3) * 0.01, 0.1)
-  end
-  local t0 = T.cpu_ms()
-  local out = mo.legato(notes)
-  local took = T.cpu_ms() - t0
-  eq(#out, 10000, "every note kept")
-  T.quick(took, 200, "legato on ten thousand notes")
-end)

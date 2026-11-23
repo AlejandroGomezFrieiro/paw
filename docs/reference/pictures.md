@@ -75,7 +75,7 @@ end
 
 `paw.plot.curve(g, px, opts)` draws a curve, and the drawing has these parts:
 
-- the lines of the bars and beats, from the tempo map (`paw.draw.bar_lines`), cut at each bar on the edge of a cell
+- the lines of the bars and beats, from the tempo map of the window's time (`paw.draw.bar_lines`), cut at each bar on the edge of a cell
 - the area under the curve, and the line, with one sample for each pixel from `paw.curves.value_at`
 - a small mark at each point
 

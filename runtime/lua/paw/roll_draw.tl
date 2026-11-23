@@ -27,6 +27,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
@@ -36,6 +37,8 @@ local type MarkersModule = require("paw.markers")
 local type TempoModule = require("paw.tempo")
 local type CommandsModule = require("paw.commands")
 local type SnippetModule = require("paw.snippet")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 
 --- The edge of the note being drawn that the cursor is on.
 local enum Edge
@@ -130,53 +133,12 @@ local record Session
   step: boolean
 end
 
---- An edited clip of the roll (paw/roll_clips.lua): its id, the clip, and
---- where it starts in the roll's beats (`offset`) and the project's.
-local record Part
-  id: integer
-  clip: objects.Clip
-  offset: number
-  start: number
-  length: number
-  track: integer
-end
-
-local record Clips
-  parts: function(): {Part}
-  target: function(beat: number, parts?: {Part}): Part
-  span: function(): number, number
-end
-
---- What a layer of the piano roll gets (paw/views/pianoroll.lua).
-local record Layer
-  data: types.Clip
-  plane: contracts.Plane
-  width: integer
-  hue: DrawModule.Hue
-  row: function(pitch: integer): integer
-  x: function(beat: number): integer
-end
-
---- The props of a note mark (paw/roles/notes.lua).
-local record NoteMark is contracts.MarkProps
-  label: string
-  style: string
-  color: string
-  velocity: integer
-  pending: boolean
-  bend: number
-  bend_at: number
-end
-
---- The piano roll, as far as this module reads it.
-local record Roll
-  beat: number
-  pitch: integer
-  clip: function(self: Roll): objects.Clip
-  step_length: function(self: Roll): number
-  set_step: function(self: Roll, length: number)
-  layer: function(name: string, order: integer, paint: function(Layer))
-end
+-- The piano roll (paw/views/pianoroll.tl) and the clips it edits
+-- (paw/roll_clips.tl).
+local type PianoRoll = Roll.PianoRoll
+local type Layer = Roll.Layer
+local type NoteMark = Roll.NoteMark
+local type Part = RollClipsModule.Part
 
 local record Frontend
   refresh: function()
@@ -187,6 +149,7 @@ local record Theme
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   draw: DrawModule
   harmony: HarmonyModule
@@ -197,21 +160,17 @@ local record Paw is partial.Paw
   pick: function(spec: contracts.PickSource<ChordsModule.Voiced>)
   time: objects.Time
   clip: function(id: integer): objects.Clip
-  roll_clips: Clips
+  roll_clips: RollClipsModule
   frontend: Frontend
 end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
---- The payload of `mode.changed` (paw/keymap.lua).
-local record ModeChanged
-  mode: string
-  old: string
-end
+--- The payload of `mode.changed` (paw/keymap.tl).
+local type ModeChanged = KeymapModule.ModeChanged
 
 --- A key an extension adds to the pencil (`M.key`): `run(count, char)`.
-local record PencilKey
-  desc: string
+local record PencilKey is contracts.OwnedEntry
   char: boolean
   run: function(count: integer, char: string)
 end
@@ -225,7 +184,8 @@ local record M
   type Bend = Bend
   type PencilKey = PencilKey
   type Edge = Edge
-  --- The keys extensions added, by their keys (`M.key`).
+  --- The keys extensions added, by their keys (`M.key`). paw/ext.lua
+  --- takes an extension's keys away when it unloads.
   keys: {string: PencilKey}
   --- A clip's controller moves, none read when it has none.
   controls_of: function(id: integer): {types.Control}
@@ -258,10 +218,10 @@ seats.keep(
   function(): Seat return {} end
 )
 
-local function roll(): Roll
-  return paw.ui.views.pianoroll as Roll
+local function roll(): PianoRoll
+  return paw.ui.views.pianoroll as PianoRoll
 end
-local function clips(): Clips
+local function clips(): RollClipsModule
   return paw.roll_clips
 end
 
@@ -1816,9 +1776,10 @@ local function write(): string
         e.set[#e.set + 1] = change
         changed_n = changed_n + 1
       else
-        local note = (paw.ui.views.pianoroll as {string: function(objects.Clip, types.Note): types.Note}).new_note(
+        -- The roll's modules change the note (`entering`); the kernel takes it.
+        local note = roll().new_note(
           part.clip, {pitch = n.pitch, start = math.max(0, start), length = n.length, velocity = n.velocity}
-        )
+        ) as types.Note
         if n.fields then
           if n.fields.attr then
             note.attr = n.fields.attr
@@ -2139,13 +2100,18 @@ stepin.target(
 --- A key of the pencil from an extension: `lhs` in the piano roll's
 --- insert mode, `spec.run(count, char)` with the count typed before it
 --- (and the key typed after it, with `spec.char`). It reads and changes
---- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`.
----   paw.roll_draw.key("gs", { desc = "Staccato: half as long", run = function(n) ... end })
+--- `paw.roll_draw.pen()`, then calls `paw.roll_draw.shown()`. The key bar
+--- shows it after the pencil's own keys, by `spec.order` (50 when not
+--- given), then by key.
+---   paw.roll_draw.key("gs", { desc = "Staccato: half as long", order = 10, run = function(n) ... end })
 function M.key(lhs: string, spec: PencilKey)
+  spec.key = lhs
+  spec.order = spec.order or 50
+  spec.ext = spec.ext or paw.ext.caller()
   M.keys[lhs] = spec
   paw.keymap.set(
     lhs,
-    function(ctx: {string: string})
+    function(ctx: contracts.KeyContext)
       if not begin() then
         return
       end
@@ -2153,6 +2119,16 @@ function M.key(lhs: string, spec: PencilKey)
     end,
     {view = "pianoroll", mode = "i", desc = spec.desc, char = spec.char or nil}
   )
+end
+
+--- The keys that extensions added to the pencil, by `order`, then by key.
+function M.list(): {PencilKey}
+  local out: {PencilKey} = {}
+  for _, spec in pairs(M.keys) do
+    out[#out + 1] = spec
+  end
+  table.sort(out, util.by_order)
+  return out
 end
 
 -- Entering insert mode in the piano roll starts a note at the cursor;
@@ -2164,7 +2140,7 @@ local record Entered
 end
 local entered: Entered
 events.on(
-  events.event("mode.changed") as events.Event<ModeChanged>,
+  paw.keymap.mode_changed,
   function(e: ModeChanged)
     if e.old == "i" and e.mode == "c" and session then
       return

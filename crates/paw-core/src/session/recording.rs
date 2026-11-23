@@ -246,7 +246,7 @@ impl Session {
             Some(path) => std::path::absolute(path)
                 .unwrap_or_else(|_| path.clone())
                 .with_file_name("media"),
-            None => scratch_media_dir(),
+            None => scratch_media_dir(&self.dirs),
         }
     }
 
@@ -774,7 +774,7 @@ impl Session {
     /// beside the project and points the clips there. The originals stay,
     /// because earlier undo steps still refer to them.
     pub(super) fn adopt_recordings(&mut self, path: &Path) -> Result<()> {
-        let scratch = scratch_media_dir();
+        let scratch = scratch_media_dir(&self.dirs);
         let media = std::path::absolute(path)?.with_file_name("media");
         let mut moved: HashMap<PathBuf, PathBuf> = HashMap::new();
         for file in media::files(&self.project) {
@@ -801,9 +801,8 @@ impl Session {
 }
 
 /// Where recordings go while the project has no file.
-fn scratch_media_dir() -> PathBuf {
-    let base = paw_proto::dirs::data().unwrap_or_else(std::env::temp_dir);
-    base.join("paw").join("recordings")
+fn scratch_media_dir(dirs: &Dirs) -> PathBuf {
+    dirs.paw_data().join("recordings")
 }
 
 /// The track that plays in engine slot `slot`.

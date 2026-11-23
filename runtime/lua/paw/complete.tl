@@ -39,12 +39,13 @@ local limit = require("paw.limit")
 local util = require("paw.util")
 local music = require("paw.music")
 local type types = require("paw.types")
-local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
 local type DrawModule = require("paw.draw")
+local type Roll = require("paw.views.pianoroll")
 
 --- A note of an item as a source gives it: `start` (or `at`) in beats from
 --- the clip's start.
@@ -162,22 +163,11 @@ local record ShowOptions
 end
 
 --- The switch of the window's piano roll toolbar.
-local record Tool
-  label: string
-  on: boolean
-  act: string
-  tip: string
-end
+local type Tool = Roll.Tool
 
 --- The payload of `complete.changed`: whether something shows.
 local record Changed
   shown: boolean
-end
-
---- The payload of `option.changed`, as far as this module reads it.
-local record OptionChanged
-  name: string
-  value: options.Value
 end
 
 --- What each seat has of its own.
@@ -188,37 +178,11 @@ local record SeatState
   audition_stop: function()
 end
 
--- What this module reads of the modules that are still in Lua.
-
---- What a layer of the piano roll gets (paw/views/pianoroll.lua).
-local record Layer
-  data: types.Clip
-  roll: contracts.Buf
-  width: integer
-  top: integer
-  rows: integer
-  x: function(beat: number): integer
-  row: function(pitch: integer): integer
-end
-
---- The piano roll, as far as this module reads it.
-local record Roll
-  clip_id: integer
-  beat: number
-  pitch: integer
-  clip: function(self: Roll): objects.Clip
-  set: function(self: Roll, pitch: integer, beat: number)
-  layer: function(name: string, order: integer, paint: function(Layer))
-  key_scope: function(self: Roll, name: string, order: integer, on: function(): boolean)
-  tool: function(self: Roll, name: string, fn: function(): Tool)
-end
-
---- A hit region of the badge: a gesture of the window.
-local record ActHit is contracts.HitAction
-  act: string
-  arg: integer
-  tip: string
-end
+-- The piano roll (paw/views/pianoroll.tl): a layer of it, the roll, and
+-- a hit region of the badge (a gesture of the window).
+local type Layer = Roll.Layer
+local type PianoRoll = Roll.PianoRoll
+local type ActHit = Roll.ActHit
 
 --- The gestures of the window (paw/frontend.tl) that this module adds.
 local record Acts
@@ -234,6 +198,7 @@ local record Frontend
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   frontend: Frontend
   harmony: HarmonyModule
@@ -258,7 +223,7 @@ local record M
   type Changed = Changed
   --- The sources, by name.
   sources: {string: Source}
-  --- The event `complete.changed`.
+  --- The event `complete.changed`: suggestions appeared or disappeared.
   changed: events.Event<Changed>
   cancel: function()
   audition: function()
@@ -295,8 +260,8 @@ seats.keep(
   function(): SeatState return {} end
 )
 
-local function roll(): Roll
-  return paw.ui.views.pianoroll as Roll
+local function roll(): PianoRoll
+  return paw.ui.views.pianoroll as PianoRoll
 end
 local function frontend(): Frontend
   return paw.frontend
@@ -1018,10 +983,9 @@ events.on(
   end
 )
 
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "complete_auto" then
       if e.value then
         M.poke()

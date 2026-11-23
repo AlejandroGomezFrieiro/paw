@@ -143,6 +143,9 @@ impl Session {
         touched: Option<bool>,
     ) {
         project.refresh_tempo();
+        // The clips of a link read their notes each on their own from a
+        // project file: in memory they share them.
+        project.join_links();
         self.apply_open_opts(&mut project);
         // Another project: a trial of this one's is over with it.
         self.audition.trial = None;
@@ -160,6 +163,10 @@ impl Session {
             self.undo_file_swap(Default::default());
         }
         self.undo.touched = touched.unwrap_or(false);
+        // Another project is a change: what Lua keeps by the count of edits
+        // (paw/groups.tl, paw/scope.tl) reads the new project at once, not at
+        // the end of the turn when `project.loaded` is sent.
+        self.undo.edits += 1;
         self.dirty = true;
         self.undo.restoring = true;
         // The count-in is the user's, not the project's.
@@ -338,6 +345,10 @@ impl Session {
     }
 
     pub fn project_save(&mut self, path: Option<&Path>) -> Result<PathBuf> {
+        // An empty path would save into the current folder.
+        if path.is_some_and(|path| path.as_os_str().is_empty()) {
+            bail!("a project needs a path to save to, not an empty one");
+        }
         let path = path
             .map(Path::to_path_buf)
             .or_else(|| self.path.clone())

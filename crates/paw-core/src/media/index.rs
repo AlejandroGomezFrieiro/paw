@@ -61,13 +61,9 @@ pub struct LocalIndex {
 }
 
 impl LocalIndex {
-    /// `$XDG_STATE_HOME/paw/media-index`. The kernel's own unit tests keep
-    /// the index in memory, so that they never write into the user's folders.
-    pub fn default_file() -> Option<PathBuf> {
-        if cfg!(test) {
-            return None;
-        }
-        Some(paw_proto::state_dir().join("media-index"))
+    /// `$XDG_STATE_HOME/paw/media-index`.
+    pub fn default_file(dirs: &paw_proto::dirs::Dirs) -> PathBuf {
+        dirs.paw_state().join("media-index")
     }
 
     /// The index kept in `file`, with what it holds now. A file that cannot

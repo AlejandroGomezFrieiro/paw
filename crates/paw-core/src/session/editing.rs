@@ -2,6 +2,7 @@
 
 use crate::events::{ClipCopied, KernelEvent as E, TrackCopied};
 use super::*;
+use crate::model::Links;
 
 impl Session {
     /// Change the project. The engine catches up at the next [`flush`](Self::flush).
@@ -10,21 +11,31 @@ impl Session {
     /// first, then change). It then makes no undo step and does not mark the
     /// project modified, so that the next undo undoes the last real edit.
     pub fn edit<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
-        let result = self.edit_named(f);
-        if result.is_ok() {
-            // A note is named as it is made, so that it can be addressed at once.
-            self.project.name_notes_since(&self.named.0, &self.named.1);
-            self.named = (self.project.tracks.clone(), self.project.master.clone());
-        }
-        result
+        self.edit_then(f, true)
     }
 
     /// An edit that leaves every note with an id of its own, so that nothing
     /// need be named after it: one note added, changed or removed, which on
     /// a clip of many thousands would otherwise cost a look at all of them.
     pub fn edit_named<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>) -> Result<R> {
+        self.edit_then(f, false)
+    }
+
+    /// The edit, then what follows each edit that did not fail: its new
+    /// notes named (with `name`), then the clips of each link it changed
+    /// given the changed notes, so that they share the same named notes.
+    fn edit_then<R>(&mut self, f: impl FnOnce(&mut Project) -> Result<R>, name: bool) -> Result<R> {
+        let links = Links::before(&self.project);
         let result = f(&mut self.project);
         if result.is_ok() {
+            if name {
+                // A note is named as it is made, so that it can be addressed at once.
+                self.project.name_notes_since(&self.named.0, &self.named.1);
+            }
+            links.spread(&mut self.project);
+            if name {
+                self.named = (self.project.tracks.clone(), self.project.master.clone());
+            }
             self.undo.history.edited();
             self.files_there.forget();
             self.dirty = true;

@@ -18,6 +18,8 @@ struct Latest {
     transport: Transport,
     path: Option<PathBuf>,
     modified: bool,
+    /// The directory `:recover` looks in (`runtime/lua/paw/autosave.lua`).
+    recovery: PathBuf,
 }
 
 static LATEST: Mutex<Option<Latest>> = Mutex::new(None);
@@ -32,16 +34,10 @@ impl Session {
                 transport: self.transport.clone(),
                 path: self.path.clone(),
                 modified: self.undo.touched || !self.undo.history.at_saved(),
+                recovery: self.dirs.paw_state().join("recovery"),
             });
         }
     }
-}
-
-/// The directory `:recover` looks in (`runtime/lua/paw/autosave.lua`).
-fn recovery_dir() -> PathBuf {
-    paw_proto::dirs::state()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("paw/recovery")
 }
 
 /// Write the last known state of the project as a safety copy, if it has
@@ -62,8 +58,8 @@ pub fn write_copy(why: &str) -> Option<PathBuf> {
             "panic": why,
         },
     });
-    let dir = recovery_dir();
-    std::fs::create_dir_all(&dir).ok()?;
+    let dir = &latest.recovery;
+    std::fs::create_dir_all(dir).ok()?;
     let path = dir.join(format!("panic-{pid}-{time}.json"));
     crate::safe::write_file(&path, serde_json::to_string(&file).ok()?.as_bytes(), false).ok()?;
     Some(path)

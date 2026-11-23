@@ -126,8 +126,19 @@ local function ask(track)
   end)
 end
 
-local function edited(event)
+-- A clip or device removed with its track: the track is gone, and the
+-- reads of `M.state` would fail, which costs much more than a list.
+local function gone(track)
+  local ids = api.track_list({ all = true })
+  for i = 1, #ids do
+    if ids[i] == track then return false end
+  end
+  return true
+end
+
+local function edited(event, name)
   if event.restored or not event.track then return end
+  if name:match("%.removed$") and gone(event.track) then return end
   if M.state(event.track) then ask(event.track) end
 end
 for _, name in ipairs({

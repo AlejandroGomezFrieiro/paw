@@ -9,7 +9,9 @@
 -- It writes runtime/types/paw.lua, a LuaLS meta file (point `workspace.library`
 -- at runtime/types, and editors complete `paw.*` in a configuration or an
 -- extension), and docs/reference/api.md, the reference `:help` shows (`:help
--- paw.commands.define`). tests/apidoc.lua checks both are up to date and
+-- paw.commands.define`). It also writes the Teal declarations, the kernel's
+-- event descriptors and the rows of the runtime's events in
+-- docs/reference/events.md. tests/apidoc.lua checks that all are up to date and
 -- that every public function says what it does.
 local api = paw.api
 local M = {}
@@ -50,7 +52,9 @@ function M.modules()
   local loaded = {}
   for name, value in pairs(package.loaded) do
     if type(value) == "table" and (name == "paw" or name:match("^paw%.")) and name ~= "paw.api" and ours(name) then
-      loaded[value] = name
+      -- A table under two names (paw.frontend is paw.frontend.core) takes
+      -- the shorter, whatever the order of `pairs`.
+      if not loaded[value] or #name < #loaded[value] then loaded[value] = name end
     end
   end
   local found, out = {}, {}
@@ -133,8 +137,9 @@ local function params_of(fn)
 end
 
 -- The other files that add functions to `paw.api`, each with `api.set("name",
--- lua.create_function(|lua, args: Types| ...))` (or tempo_api.rs's `reader`)
--- under its `//` comment.
+-- lua.create_function(guarded!("name", |lua, args: Types| ...)))` (or
+-- tempo_api.rs's `reader!` and `nest_reader!`, whose closures leave out
+-- the first argument, `clip`) under its `//` comment.
 M.KERNEL_FILES = {
   "crates/paw-core/src/fs_api.rs",
   "crates/paw-core/src/tempo_api.rs",
@@ -180,7 +185,7 @@ end
 local function kernel_file(path, out)
   local lines = lines_of(path) or {}
   for i, line in ipairs(lines) do
-    local name = line:match('^%s*"([%w_]+)",%s*$') or line:match('^%s*reader%(lua, api, shared, "([%w_]+)"')
+    local name = line:match('^%s*"([%w_]+)",%s*$') or line:match('^%s*[%w_]*reader!%(lua, api, shared, "([%w_]+)"')
     if name and type(api[name]) == "function" and not out[name] then
       -- The closure's arguments: the last one, `pattern: Types`.
       local text = table.concat(lines, " ", i, math.min(i + 3, #lines))
@@ -191,13 +196,21 @@ local function kernel_file(path, out)
       if last and last:find(":") then
         args, types = last:match("^%s*(.-)%s*:%s*(.-)%s*$")
       end
+      -- A `nest_reader` passes its first argument, the block, before them.
+      if line:match("nest_reader!%(") or (lines[i - 4] or ""):match("^%s*nest_reader!%($") then
+        local function first(list, item)
+          local inner = list:match("^%((.*)%)$") or list
+          return "(" .. item .. (inner ~= "" and (", " .. inner) or "") .. ")"
+        end
+        args, types = first(args, "clip"), first(types, "Id")
+      end
       -- The comment over it, past the lines that start the call.
       local n = i - 1
       while
         n > 0
         and (
           lines[n]:match("^%s*api%.set%($")
-          or lines[n]:match("^%s*reader%($")
+          or lines[n]:match("^%s*[%w_]*reader!%($")
           or lines[n]:match("^%s*lua,%s*$")
           or lines[n]:match("^%s*api,%s*$")
           or lines[n]:match("^%s*shared,%s*$")
@@ -1379,7 +1392,8 @@ function M.kernel_events()
     '--   local kernel = require("paw.events.kernel")',
     "--   paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)",
     "",
-    'local type events = require("paw.events")',
+    -- A value: each descriptor declares its name (`paw.events.event`).
+    'local events = require("paw.events")',
     'local type types = require("paw.types")',
     "",
     "local record kernel",
@@ -1414,7 +1428,7 @@ function M.kernel_events()
       out[#out + 1] = "   --- " .. line
     end
     out[#out + 1] = "   " .. key .. ": events.Event<" .. v.type .. ">"
-    values[#values + 1] = "kernel." .. key .. ' = { name = "' .. v.serde .. '" }'
+    values[#values + 1] = "kernel." .. key .. ' = events.event("' .. v.serde .. '")'
   end
   out[#out + 1] = "end"
   out[#out + 1] = ""
@@ -1457,6 +1471,118 @@ function M.role_props()
   return table.concat(out, "\n")
 end
 
+-- The events of the runtime -------------------------------------------------------------
+--
+-- The module that sends an event exports its descriptor (paw/events.tl): a
+-- field of the module's record, `changed: events.Event<Changed>`, under a
+-- comment `--- The event `option.changed`: when it comes.`. The rows
+-- between the two marks of docs/reference/events.md come from these
+-- fields and from the fields of their payload records.
+
+M.EVENTS_PAGE = "docs/reference/events.md"
+local EVENTS_BEGIN = "<!-- The rows below come from tools/apidoc.lua: change the descriptors, not the rows. -->"
+local EVENTS_END = "<!-- The end of the rows from tools/apidoc.lua. -->"
+
+-- The file of a record type as a module names it: its own, types.tl or
+-- the kernel's events. Nil for the empty payload of paw/events.tl.
+local function record_file(type_name, path)
+  local qualifier, name = type_name:match("^([%w_]+)%.([%w_]+)$")
+  if not qualifier then return path, type_name end
+  if qualifier == "types" then return "runtime/lua/paw/types.tl", name end
+  if qualifier == "kernel" then return M.EVENTS_TL, name end
+  if qualifier == "events" and name == "Payload" then return nil end
+  error(path .. ": the payload type " .. type_name .. " is in no file that tools/apidoc.lua reads")
+end
+
+--- The names of the fields of the record `name` in the file `path`, in
+--- order: the fields one level in from the line `record name`.
+local function record_field_names(path, name)
+  local lines = lines_of(path) or {}
+  for i, line in ipairs(lines) do
+    local indent = line:match("^(%s*)local record " .. name .. "%f[^%w_]")
+      or line:match("^(%s*)record " .. name .. "%f[^%w_]")
+    if indent then
+      local fields, inner = {}, nil
+      for j = i + 1, #lines do
+        local l = lines[j]
+        if l:match("^" .. indent .. "end%s*$") then break end
+        local pad = l:match("^(%s+)%S")
+        inner = inner or (pad and not l:match("^%s*%-%-") and pad)
+        local field = pad == inner and l:match("^%s+([%w_]+)%??:%s")
+        if field then fields[#fields + 1] = field end
+      end
+      return fields
+    end
+  end
+  error(path .. ": no record " .. name .. " for the payload of an event")
+end
+
+--- The descriptors that the runtime's modules export, sorted by the name
+--- of the event: `{ event, payload, when, teal }`. A descriptor whose
+--- comment does not say which event it is and when it comes is an error.
+function M.runtime_events()
+  -- The shortest name from `paw` of each module, for the column "In Teal".
+  local reached = {}
+  for _, m in ipairs(M.modules()) do
+    if m.module and not reached[m.module] then reached[m.module] = m.name end
+  end
+  local rows = {}
+  for module, value in pairs(package.loaded) do
+    local base = type(value) == "table" and module:match("^paw%.") and "runtime/lua/" .. module:gsub("%.", "/")
+    local path = base and ((read(base .. ".tl") and base .. ".tl") or (read(base .. "/init.tl") and base .. "/init.tl"))
+    local lines = path and lines_of(path) or {}
+    for i, line in ipairs(lines) do
+      -- paw/events.tl names its own type `Event`, the others `events.Event`.
+      local key, payload = line:match("^  ([%w_]+): events%.Event<([%w_.]+)>%s*$")
+      if not key and path == "runtime/lua/paw/events.tl" then
+        key, payload = line:match("^  ([%w_]+): Event<([%w_.]+)>%s*$")
+      end
+      if key then
+        local doc = {}
+        local n = i - 1
+        while lines[n] and lines[n]:match("^%s*%-%-%-") do
+          table.insert(doc, 1, (lines[n]:gsub("^%s*%-%-%- ?", "")))
+          n = n - 1
+        end
+        local event, when = table.concat(doc, " "):match("^The event `([^`]+)`: (.-)%.?$")
+        local descriptor = value[key]
+        if not event then
+          error(path .. ":" .. i .. ": say `--- The event `name`: when it comes.` over the descriptor " .. key)
+        end
+        if type(descriptor) ~= "table" or descriptor.name ~= event then
+          error(path .. ":" .. i .. ": the descriptor " .. key .. " is not the event `" .. event .. "`")
+        end
+        local file, record = record_file(payload, path)
+        local fields = file and record_field_names(file, record) or {}
+        rows[#rows + 1] = {
+          event = event,
+          payload = #fields == 0 and "{}" or "{ " .. table.concat(fields, ", ") .. " }",
+          when = when,
+          teal = (reached[module] or 'require("' .. module .. '")') .. "." .. key,
+        }
+      end
+    end
+  end
+  table.sort(rows, function(a, b) return a.event < b.event end)
+  return rows
+end
+
+--- The text of docs/reference/events.md, with the rows of the runtime's
+--- descriptors between its marks.
+function M.events_page()
+  local text = read(M.EVENTS_PAGE) or ""
+  local head, tail =
+    text:match("^(.-" .. EVENTS_BEGIN:gsub("%p", "%%%0") .. "\n).-(" .. EVENTS_END:gsub("%p", "%%%0") .. ".*)$")
+  if not head then error(M.EVENTS_PAGE .. ": the marks of the generated rows are missing") end
+  local out = { head, "\n", "| Event | Payload | When | In Teal |\n", "| --- | --- | --- | --- |\n" }
+  for _, row in ipairs(M.runtime_events()) do
+    out[#out + 1] = string.format("| `%s` | `%s` | %s | `%s` |\n", row.event, row.payload, row.when, row.teal)
+  end
+  out[#out + 1] = "\n"
+  out[#out + 1] = tail
+  return table.concat(out)
+end
+
 --- What is out of date: a list of the files whose text differs.
 function M.stale()
   local out = {}
@@ -1471,6 +1597,7 @@ function M.stale()
   if read(M.ANY) ~= M.lowered(anys) then out[#out + 1] = M.ANY end
   if read(M.EVENTS_TL) ~= M.kernel_events() then out[#out + 1] = M.EVENTS_TL end
   if read(M.PROPS_TL) ~= M.role_props() then out[#out + 1] = M.PROPS_TL end
+  if read(M.EVENTS_PAGE) ~= M.events_page() then out[#out + 1] = M.EVENTS_PAGE end
   return out
 end
 
@@ -1488,6 +1615,7 @@ function M.write()
     [M.ANY] = M.lowered(anys),
     [M.EVENTS_TL] = M.kernel_events(),
     [M.PROPS_TL] = M.role_props(),
+    [M.EVENTS_PAGE] = M.events_page(),
   }) do
     local f = assert(io.open(path, "w"))
     f:write(text)
@@ -1523,6 +1651,7 @@ else
     M.TEAL_OPTS,
     M.EVENTS_TL,
     M.PROPS_TL,
+    M.EVENTS_PAGE,
     M.ANY,
   }, ", "))
   api.quit(0)

@@ -136,9 +136,11 @@ fn send_on(
         buf.clear();
         buf.extend(chunk);
         let frames = encoder.push(&buf);
-        let ids = listeners.lock().unwrap().clone();
+        // The lock stays held while the frames are queued: so a connection
+        // that `monitor.unlisten` removed gets no frame after its reply.
+        let ids = listeners.lock().unwrap();
         for frame in &frames {
-            for id in &ids {
+            for id in ids.iter() {
                 clients.push(*id, "audio.frame", frame);
             }
         }

@@ -138,6 +138,7 @@ end
 
 --- The key names of all the devices of a track. When two devices name a
 --- key, the first in the chain wins.
+--- @type function(track: integer): {integer:string}
 function M.key_names(track)
   local ok, t = pcall(api.track_get, track)
   local out = {}

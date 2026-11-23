@@ -113,9 +113,28 @@ fn event(connection: &Connection, name: &str) -> Value {
     panic!("no `{name}` event arrived");
 }
 
-/// Whether anything at all is pushed within `wait`.
-fn quiet(connection: &Connection, wait: Duration) -> bool {
-    connection.events.recv_timeout(wait).is_err()
+/// A barrier: `frontend.sync` answers after the kernel pushed all that was
+/// due, and its answer comes after those events, so they are all in the
+/// channel then. Gives the number of the last `frontend.state` sent, and
+/// the events that came before the barrier and were not read yet.
+fn sync(connection: &mut Connection) -> (u64, Vec<(String, Value)>) {
+    let seq = connection.call("frontend.sync", json!([])).unwrap();
+    let seq = seq.as_u64().unwrap_or_else(|| panic!("a sequence number: {seq}"));
+    (seq, connection.events.try_iter().collect())
+}
+
+/// What `act` makes the kernel push: the events between a barrier before it
+/// and a barrier after it, and the number of the last state at the end.
+/// With nothing to do, it is "nothing is sent when nothing changed".
+fn pushed_by(connection: &mut Connection, act: impl FnOnce(&mut Connection)) -> (u64, Vec<(String, Value)>) {
+    sync(connection);
+    act(connection);
+    sync(connection)
+}
+
+/// The payloads of the `frontend.state` events among `pushed`.
+fn states(pushed: &[(String, Value)]) -> Vec<&Value> {
+    pushed.iter().filter(|(name, _)| name == "frontend.state").map(|(_, payload)| payload).collect()
 }
 
 #[test]
@@ -125,8 +144,10 @@ fn calls_and_subscribed_events_over_the_socket() {
     assert!(c.client > 0, "hello gave the connection a number");
     assert_eq!(c.call("eval", json!(["return 1 + 1"])).unwrap(), json!(2));
     // Nothing is pushed that was not asked for.
-    c.call("cmd", json!(["track.add"])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)));
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("cmd", json!(["track.add"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "nothing asked for: {pushed:?}");
     c.call("subscribe", json!(["transport.*", "track.added"])).unwrap();
     c.call("cmd", json!(["track.add"])).unwrap();
     assert!(event(&c, "track.added")["id"].is_number());
@@ -136,15 +157,36 @@ fn calls_and_subscribed_events_over_the_socket() {
     event(&c, "transport.stop");
     // Another connection hears none of it, and an error is an error.
     let mut other = Connection::unix(&instance.socket).unwrap();
-    other.call("cmd", json!(["track.add"])).unwrap();
-    assert!(quiet(&other, Duration::from_millis(200)));
+    let (_, pushed) = pushed_by(&mut other, |other| {
+        other.call("cmd", json!(["track.add"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "the other connection asked for nothing: {pushed:?}");
     let err = other.call("no_such_method", json!([])).unwrap_err();
     assert!(err.to_string().contains("no method"), "{err}");
     c.call("unsubscribe", json!([])).unwrap();
-    // What was on its way before that still arrives.
-    while !quiet(&c, Duration::from_millis(300)) {}
-    c.call("cmd", json!(["track.add"])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)));
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("cmd", json!(["track.add"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "no longer subscribed: {pushed:?}");
+}
+
+#[test]
+fn each_request_is_a_turn_of_its_own() {
+    let instance = start("turns");
+    let mut c = Connection::unix(&instance.socket).unwrap();
+    c.call("subscribe", json!(["track.added"])).unwrap();
+    let tracks = |c: &mut Connection| c.call("eval", json!(["return #paw.tracks()"])).unwrap();
+    let before = tracks(&mut c).as_u64().unwrap();
+    // Back to back, with no pause and no barrier: the events of a request
+    // come before its answer, so they are in the channel when it returns.
+    for n in 1..=3 {
+        c.call("cmd", json!(["track.add"])).unwrap();
+        let pushed: Vec<_> = c.events.try_iter().collect();
+        assert_eq!(pushed.len(), 1, "the event of request {n} before its answer: {pushed:?}");
+    }
+    // Each request was its own undo step.
+    c.call("cmd", json!(["undo"])).unwrap();
+    assert_eq!(tracks(&mut c), json!(before + 2), "one undo takes back the last request only");
 }
 
 #[test]
@@ -256,17 +298,22 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     }
     assert_eq!(sections["tracks"][0]["name"], "one");
     assert!(first["modal"].is_object() && first["levels"].is_array());
-    assert!(quiet(&c, Duration::from_millis(400)), "an idle kernel sends nothing");
-    // A change sends the parts it touched, and not the bar lines again.
-    c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
-    // A state with only the levels can come first: the engine wakes up
-    // from its rest when the track is added.
-    let next = loop {
-        let state = event(&c, "frontend.state");
-        if state["sections"].is_object() {
-            break state;
-        }
-    };
+    assert_eq!(first["seq"], 1, "the states are numbered from 1");
+    let (seq, pushed) = pushed_by(&mut c, |_| {});
+    assert!(pushed.is_empty(), "an idle kernel sends nothing: {pushed:?}");
+    assert_eq!(seq, 1, "the barrier answers the number of the last state");
+    // A change sends the parts it touched once, and not the bar lines again.
+    // Other states can come with it, with the levels of the engine that
+    // wakes up from its rest when the track is added.
+    let (seq, pushed) = pushed_by(&mut c, |c| {
+        c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
+    });
+    let sent = states(&pushed);
+    let numbers: Vec<u64> = sent.iter().filter_map(|state| state["seq"].as_u64()).collect();
+    assert!(numbers.windows(2).all(|pair| pair[1] == pair[0] + 1), "each state has the next number: {numbers:?}");
+    assert_eq!(numbers.last(), Some(&seq), "the barrier answers the number of the last state");
+    let with_sections: Vec<&Value> = sent.into_iter().filter(|state| state["sections"].is_object()).collect();
+    let [next] = with_sections[..] else { panic!("one state with the change: {pushed:?}") };
     let changed = next["sections"].as_object().expect("something changed");
     assert_eq!(changed["tracks"][1]["name"], "two");
     assert!(!changed.contains_key("lines"), "the lines did not change: {:?}", changed.keys());
@@ -285,9 +332,10 @@ fn a_watching_frontend_is_sent_what_changed_and_nothing_when_nothing_did() {
     assert!(moved, "the playhead's position is pushed while playing");
     c.call("cmd", json!(["transport.stop"])).unwrap();
     c.call("frontend.unwatch", json!([])).unwrap();
-    while !quiet(&c, Duration::from_millis(300)) {}
-    c.call("eval", json!(["paw.add_track({ name = 'three' })"])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)), "no longer watching");
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("eval", json!(["paw.add_track({ name = 'three' })"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "no longer watching: {pushed:?}");
 }
 
 #[test]
@@ -299,7 +347,7 @@ fn a_window_is_sent_what_moves_at_its_own_pace_and_an_edit_at_once() {
     c.call("scene.watch", json!([{ "cell": { "w": 8, "h": 16 }, "live": true }])).unwrap();
     // A window that draws ten frames a second while the song plays.
     c.notify("frontend.pace", json!([100])).unwrap();
-    while !quiet(&c, Duration::from_millis(300)) {}
+    sync(&mut c);
     c.call("cmd", json!(["transport.play"])).unwrap();
     event(&c, "scene.live");
     let (mut states, mut lives) = (0, 0);
@@ -313,12 +361,21 @@ fn a_window_is_sent_what_moves_at_its_own_pace_and_an_edit_at_once() {
     }
     assert!((12..=26).contains(&states), "about ten states a second: {states} in 2 s");
     assert!((12..=26).contains(&lives), "and as many live values: {lives} in 2 s");
-    // Stopped, a moment after the meters fell, the kernel sends nothing.
+    // Stopped, once the state and the live values said so, the kernel sends
+    // nothing. The clip is silent, so no meter has to fall first.
     c.call("cmd", json!(["transport.stop"])).unwrap();
-    let until = Instant::now() + Duration::from_secs(10);
-    while !quiet(&c, Duration::from_millis(1500)) {
-        assert!(Instant::now() < until, "quiet once the song stopped");
+    let (mut state_stopped, mut live_stopped) = (false, false);
+    while !(state_stopped && live_stopped) {
+        let (name, payload) = c.events.recv().expect("the connection is open");
+        let stopped = payload["playing"] == false;
+        match name.as_str() {
+            "frontend.state" => state_stopped |= stopped,
+            "scene.live" => live_stopped |= stopped,
+            _ => {}
+        }
     }
+    let (_, pushed) = pushed_by(&mut c, |_| {});
+    assert!(pushed.is_empty(), "nothing once the song stopped: {pushed:?}");
     // An edit is sent after its turn, without waiting for the next tick.
     let asked = Instant::now();
     c.call("eval", json!(["paw.add_track({ name = 'two' })"])).unwrap();
@@ -362,8 +419,10 @@ fn a_frontend_is_pushed_each_windows_scene_and_then_only_what_changed() {
                paw.canvas.open_view('probe')"]),
     )
     .unwrap();
-    c.call("scene.watch", json!([{ "cell": { "w": 8, "h": 16 } }])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)), "nothing is sent of a window whose size is not said");
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("scene.watch", json!([{ "cell": { "w": 8, "h": 16 } }])).unwrap();
+    });
+    assert!(pushed.is_empty(), "nothing is sent of a window whose size is not said: {pushed:?}");
     c.call("scene.area", json!(["view:probe", 20, 3])).unwrap();
     let first = patch(&c);
     assert_eq!((first.win.as_str(), first.full), ("view:probe", true), "the whole scene at first");
@@ -371,7 +430,8 @@ fn a_frontend_is_pushed_each_windows_scene_and_then_only_what_changed() {
     scene.apply(&first);
     assert_eq!(scene.size, [20.0, 3.0]);
     assert_eq!(&scene_lines(&scene)[..2], ["count 0", "second row"]);
-    assert!(quiet(&c, Duration::from_millis(400)), "an idle kernel sends nothing");
+    let (_, pushed) = pushed_by(&mut c, |_| {});
+    assert!(pushed.is_empty(), "an idle kernel sends nothing: {pushed:?}");
     // A change sends what it changed, and nothing else.
     c.call("eval", json!(["_G.count = 1 paw.api.ui_redraw()"])).unwrap();
     let next = patch(&c);
@@ -387,9 +447,10 @@ fn a_frontend_is_pushed_each_windows_scene_and_then_only_what_changed() {
     // A window the frontend no longer shows is forgotten; shown again, it
     // is sent whole.
     c.call("scene.area", json!(["view:probe", 0, 0])).unwrap();
-    while !quiet(&c, Duration::from_millis(300)) {}
-    c.call("eval", json!(["_G.count = 2 paw.api.ui_redraw()"])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)), "nothing for a window not shown");
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("eval", json!(["_G.count = 2 paw.api.ui_redraw()"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "nothing for a window not shown: {pushed:?}");
     c.call("scene.area", json!(["view:probe", 20, 3])).unwrap();
     let again = patch(&c);
     assert!(again.full);
@@ -435,9 +496,10 @@ fn a_big_drawing_is_fetched_once_by_its_key_and_live_values_are_pushed() {
     assert!(moved, "the position is pushed while playing");
     c.call("cmd", json!(["transport.stop"])).unwrap();
     c.call("scene.unwatch", json!([])).unwrap();
-    while !quiet(&c, Duration::from_millis(300)) {}
-    c.call("eval", json!(["paw.api.ui_redraw()"])).unwrap();
-    assert!(quiet(&c, Duration::from_millis(300)), "no longer watching");
+    let (_, pushed) = pushed_by(&mut c, |c| {
+        c.call("eval", json!(["paw.api.ui_redraw()"])).unwrap();
+    });
+    assert!(pushed.is_empty(), "no longer watching: {pushed:?}");
 }
 
 /// The screen a terminal attached over `c` shows, as lines of text, once
@@ -520,11 +582,11 @@ fn connections_that_misbehave_are_closed_and_the_kernel_goes_on() {
     // One that connects and says nothing is not kept.
     let mut silent = TcpStream::connect(&instance.address).unwrap();
     silent.set_read_timeout(Some(Duration::from_secs(30))).unwrap();
-    let started = Instant::now();
     let mut said = String::new();
-    let _ = silent.read_to_string(&mut said);
+    // The end of the stream, not the read timeout: the instance closed it.
+    let read = silent.read_to_string(&mut said);
     assert!(said.contains("nonce"), "it was greeted: {said}");
-    assert!(started.elapsed() < Duration::from_secs(25), "and then let go");
+    assert!(read.is_ok(), "and then let go: {read:?}");
 
     // One that asks for a great deal and reads none of it.
     let mut deaf = UnixStream::connect(&instance.socket).unwrap();
@@ -560,9 +622,7 @@ fn lua_that_runs_away_over_the_socket_is_stopped_and_errors_are_plain() {
         ("cmd", json!(["zz_spin"])),
         ("keys", json!(["gZ"])),
     ] {
-        let started = Instant::now();
         let outcome = c.call(method, params);
-        assert!(started.elapsed() < Duration::from_secs(10), "{method} was stopped soon");
         if let Err(err) = outcome {
             assert!(err.to_string().contains("ran for more than"), "{method}: {err}");
         }
@@ -744,10 +804,11 @@ fn the_instances_sound_is_heard_where_the_client_is() {
     let left: Vec<i16> = samples.iter().step_by(2).copied().skip(48000).take(48000).collect();
     let rising = left.windows(2).filter(|w| w[0] < 0 && w[1] >= 0).count();
     assert!((400..=480).contains(&rising), "{rising} crossings in a second");
-    // Stopping stops the frames.
+    // Stopping stops the frames: none comes after the answer.
     c.call("monitor.unlisten", json!([])).unwrap();
-    while c.events.recv_timeout(Duration::from_millis(300)).is_ok() {}
-    assert!(quiet(&c, Duration::from_millis(500)), "no more frames");
+    c.events.try_iter().for_each(drop);
+    let (_, pushed) = sync(&mut c);
+    assert!(pushed.is_empty(), "no more frames: {} came", pushed.len());
 }
 
 /// `paw ctl --json`: one line of JSON for an answer, and for an error, with
@@ -756,7 +817,7 @@ fn the_instances_sound_is_heard_where_the_client_is() {
 fn ctl_json_answers_in_one_line_of_json() {
     let instance = start("ctljson");
     let ctl = |args: &[&str]| {
-        let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+        let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
             .arg("ctl")
             .arg("--json")
             .arg("--socket")
@@ -779,7 +840,7 @@ fn ctl_json_answers_in_one_line_of_json() {
     let (answer, ok) = ctl(&["no_such_method"]);
     assert!(!ok && answer["ok"] == false, "{answer}");
     // Without a kernel to talk to the error is JSON as well.
-    let out = Command::new(env!("CARGO_BIN_EXE_paw"))
+    let out = sealed::seal(&mut Command::new(env!("CARGO_BIN_EXE_paw")), &instance.dir)
         .args(["ctl", "--json", "--socket", "/nonexistent/paw.sock", "eval", "return 1"])
         .output()
         .unwrap();

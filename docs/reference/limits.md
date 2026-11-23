@@ -340,9 +340,6 @@ The limits page lists what paw does not do, and the known limits of what it does
     once.
   - An audio clip or a looped clip that a block cuts at its start does not
     play, and promote leaves it out.
-  - Inside a subproject, the bars are the bars of the song where its block
-    is. A meter of its own that the song's map does not have
-    (`meter=own`) is not drawn yet.
   - Promote works on a subproject with one block, on a row that holds
     nothing else.
   - `<Space>zw` and `<Space>zW` refuse a view with an audio clip or a

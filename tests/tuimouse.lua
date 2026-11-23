@@ -344,6 +344,134 @@ test("the tempo lane: a click adds a change, a drag on one moves it, a right cli
   paw.tempolane.show(false)
 end)
 
+--- Tempo points as text: "120@0 90@8".
+local function tempo_text(points)
+  local out = {}
+  for i, p in ipairs(points) do
+    out[i] = string.format("%g@%g", p.bpm, p.beat)
+  end
+  return table.concat(out, " ")
+end
+
+--- A row Cue with a block at bar 5 (beat 16) of a subproject Cue of 16
+--- beats, entered with znn, its tempo `time` ("own" or "follow"), the
+--- tempo lane shown and painted from the subproject's start.
+local function in_cue(time)
+  start()
+  local row = paw.add_track({ name = "Cue" })
+  local nest = api.nest_add({ name = "Cue", length = 16 })
+  api.track_add({ name = "Synth", nest = nest })
+  api.clip_add(row.id, { nest = nest, start = 16 })
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_track(row.id)
+  paw.cursor.set_beat(17)
+  -- A new subproject follows the song's time already.
+  if time ~= "follow" then paw.keymap.feed(":nest.time " .. time .. "<CR>") end
+  paw.keymap.feed("znn")
+  paw.tempolane.show(true)
+  T.after(function() paw.tempolane.show(false) end)
+  arrange.scroll = 0
+  shot()
+  api.undo_checkpoint()
+  return nest
+end
+
+test(
+  "the tempo lane inside a subproject with its own tempo: a click makes a change in its map, not the song's",
+  function()
+    local nest = in_cue("own")
+    -- The lower row of the lane is the slower half: below 120.
+    click(x_of(8), arrange.geometry.layout.ruler_rows - 1)
+    local own = api.nest_get(nest).tempo.points
+    eq(#own .. " " .. own[2].beat, "2 8", "a change at its beat 8")
+    eq(own[2].bpm < 120, true, "slower, as the row clicked")
+    eq(tempo_text(api.tempo_points().tempos), "120@0", "the song's map as it was")
+    api.undo_checkpoint()
+    paw.keymap.feed("u")
+    eq(tempo_text(api.nest_get(nest).tempo.points), "120@0", "u takes it back in one step")
+  end
+)
+
+test("the tempo lane inside a subproject that follows the song: a click makes a change at the song's beat", function()
+  in_cue("follow")
+  click(x_of(8), arrange.geometry.layout.ruler_rows - 1)
+  local song = api.tempo_points().tempos
+  eq(#song .. " " .. song[2].beat, "2 24", "its beat 8 is the song's beat 24")
+  api.undo_checkpoint()
+  apart()
+  shot()
+  -- The change shows at its beat 8 in the window: a drag moves it from there.
+  local line = paw.tempolane.fraction(song[2].bpm) >= 0.5 and arrange.geometry.layout.ruler_rows - 2
+    or arrange.geometry.layout.ruler_rows - 1
+  drag(x_of(8), line, x_of(10), line)
+  eq(api.tempo_points().tempos[2].beat, 26, "dragged two beats on, in the song's beats")
+  api.undo_checkpoint()
+  paw.keymap.feed("u")
+  eq(api.tempo_points().tempos[2].beat, 24, "u takes the drag back in one step")
+  paw.keymap.feed("u")
+  eq(tempo_text(api.tempo_points().tempos), "120@0", "and the click in another")
+end)
+
+--- Signature changes as text: "0:4/4 8:2/4".
+local function meter_text(changes)
+  local out = {}
+  for i, s in ipairs(changes or {}) do
+    out[i] = string.format("%g:%d/%d", s.beat, s.num, s.den)
+  end
+  return table.concat(out, " ")
+end
+
+test("inside a subproject, the flags on the ruler move and remove the changes of the window's map", function()
+  -- Each row: how the subproject keeps time, and the map that its flags
+  -- stand for: its own, or the song's from its start at beat 16.
+  local cases = {
+    { time = "own", own = true, offset = 0 },
+    { time = "follow", own = false, offset = 16 },
+  }
+  local tempo, signature = "120@0 90@%d", "0:4/4 %d:2/4"
+  for _, case in ipairs(cases) do
+    local nest = in_cue(case.time)
+    local function tempos() return tempo_text(case.own and api.nest_get(nest).tempo.points or api.tempo_points().tempos) end
+    local function meter()
+      local n = api.nest_get(nest)
+      return meter_text(case.own and n.meter.changes or api.tempo_points().signatures)
+    end
+    local function at(pattern, beat) return string.format(pattern, beat + case.offset) end
+    paw.tempolane.add(4, 90)
+    paw.tempolane.signature_set(8, 2, 4)
+    api.undo_checkpoint()
+    eq(tempos() .. " | " .. meter(), at(tempo, 4) .. " | " .. at(signature, 8), case.time .. ": the changes")
+    -- A drag of two beats moves the tempo change, one of four the signature
+    -- change, to a bar line of 2/4.
+    shot()
+    local x, y = find("▾90")
+    drag(x, y, x + 8, y)
+    eq(tempos(), at(tempo, 6), case.time .. ": the tempo change dragged to its beat 6")
+    api.undo_checkpoint()
+    apart()
+    shot()
+    x, y = find("‖2/4")
+    drag(x, y, x + 16, y)
+    eq(meter(), at(signature, 12), case.time .. ": the signature change dragged to its beat 12")
+    api.undo_checkpoint()
+    paw.keymap.feed("u")
+    eq(meter(), at(signature, 8), case.time .. ": u takes the drag back in one step")
+    -- A right click on each offers to remove it.
+    for _, flag in ipairs({ { "▾90", "Remove tempo change" }, { "‖2/4", "Remove signature change" } }) do
+      apart()
+      shot()
+      x, y = find(flag[1])
+      click(x, y, "right")
+      click(find(flag[2]))
+      api.undo_checkpoint()
+    end
+    eq(tempos() .. " | " .. meter(), "120@0 | 0:4/4", case.time .. ": both removed")
+    paw.keymap.feed("u")
+    eq(meter(), at(signature, 8), case.time .. ": u brings the signature change back in one step")
+  end
+end)
+
 test("a marker drags in its band under the ruler, and a click on it goes there", function()
   two_tracks()
   local mk = paw.markers.add(8, "Chorus")

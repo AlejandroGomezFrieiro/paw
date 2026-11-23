@@ -1,6 +1,7 @@
 //! Clips: their fields, notes, controls and audio.
 
 use super::*;
+use crate::model::Overrides;
 
 impl Session {
     pub fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
@@ -16,6 +17,7 @@ impl Session {
         let clip = self.project.clip(id).unwrap();
         let mut view = clip_json(clip, track, &self.files_there);
         self.note_stretching(clip, &mut view);
+        view.link_count = clip.link.as_deref().map(|name| self.project.link_count(name));
         Ok(view)
     }
 
@@ -235,7 +237,14 @@ impl Session {
             .with_context(|| format!("no track {track}"))?
             .nest;
         self.project.check_place(nest, host)?;
-        Ok((content, (held.length - opts.offset).max(1e-3), held.name.clone()))
+        // A subproject with a tempo of its own lasts its seconds in the song.
+        let length = if host.is_none() && held.has_own_tempo() {
+            let timing = held.timing(self.project.tempo_map(), None, opts.start, opts.offset);
+            timing.song_beat(held.length) - opts.start
+        } else {
+            held.length - opts.offset
+        };
+        Ok((content, length.max(1e-3), held.name.clone()))
     }
 
     /// The checks of a new clip's timing, fades, stretch and loop.
@@ -243,10 +252,14 @@ impl Session {
         if !length.is_finite() || length <= 0.0 || !opts.start.is_finite() || opts.start < 0.0 {
             bail!("clips need a start of at least 0 and a length above 0");
         }
+        check_clip_beat("the end of the clip", length)?;
         check_fade(opts.fade_in)?;
         check_fade(opts.fade_out)?;
         if kind == ClipKind::Midi && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
             bail!("only audio clips fade");
+        }
+        if kind != ClipKind::Midi && (opts.transpose != 0 || opts.velocity != 0) {
+            bail!("only MIDI clips have a transpose and a velocity change");
         }
         let stretch = opts.stretch.unwrap_or(1.0);
         stretching::check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
@@ -291,6 +304,8 @@ impl Session {
             meta: opts.meta,
             source,
             origin: None,
+            link: None,
+            overrides: Overrides { transpose: opts.transpose, velocity: opts.velocity },
         }
     }
 
@@ -430,6 +445,7 @@ impl Session {
                     if !length.is_finite() || length <= 0.0 {
                         bail!("clip length must be above 0");
                     }
+                    check_clip_beat("the end of the clip", length)?;
                     c.length = length;
                 }
                 (Some(ClipField::Muted), _) => c.muted = de(key, value)?,
@@ -452,6 +468,12 @@ impl Session {
                 }
                 (Some(ClipField::FadeOut), ClipContent::Audio { .. }) => {
                     c.fade_out = check_fade(de(key, value)?)?;
+                }
+                (Some(ClipField::Transpose), ClipContent::Midi { .. }) => {
+                    c.overrides.transpose = override_value(key, value)?;
+                }
+                (Some(ClipField::Velocity), ClipContent::Midi { .. }) => {
+                    c.overrides.velocity = override_value(key, value)?;
                 }
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
@@ -614,6 +636,8 @@ enum ClipField {
     Gain,
     FadeIn,
     FadeOut,
+    Transpose,
+    Velocity,
 }
 
 impl ClipField {
@@ -630,9 +654,25 @@ impl ClipField {
             "gain" => Self::Gain,
             "fade_in" => Self::FadeIn,
             "fade_out" => Self::FadeOut,
+            "transpose" => Self::Transpose,
+            "velocity" => Self::Velocity,
             _ => return None,
         })
     }
+}
+
+/// An override of a MIDI clip (`model/overrides.rs`): a whole number from
+/// -127 to 127, nil for 0.
+fn override_value(key: &str, value: Value) -> Result<i8> {
+    if value.is_null() {
+        return Ok(0);
+    }
+    // Lua gives numbers as floats.
+    let amount: f64 = de(key, value)?;
+    if amount.fract() != 0.0 || !(-127.0..=127.0).contains(&amount) {
+        bail!("`{key}` is a whole number from -127 to 127, not {amount}");
+    }
+    Ok(amount as i8)
 }
 
 /// Move clip `id`, on the timeline, to the end of the track that `value` names.

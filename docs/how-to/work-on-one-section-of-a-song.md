@@ -51,4 +51,5 @@ in the time of the bridge. The status line then shows
 ## See also
 
 - [How to work on one group of a large project](work-on-one-group.md)
+- [How to work on a section in another meter](work-on-a-section-in-another-meter.md)
 - [Markers and regions](../reference/markers.md)

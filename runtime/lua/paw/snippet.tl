@@ -40,6 +40,7 @@ local music = require("paw.music")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type HarmonyModule = require("paw.harmony")
@@ -47,6 +48,7 @@ local type EditModule = require("paw.edit")
 local type AuditionModule = require("paw.audition")
 local type CompleteModule = require("paw.complete")
 local type DrawModule = require("paw.draw")
+local type Roll = require("paw.views.pianoroll")
 
 --- A note of a snippet, in project beats: `start` (or `at`), and in the
 --- context the note's `place` in the clip (from 1).
@@ -221,10 +223,7 @@ local record Finished
 end
 
 --- The payload of `mode.changed`.
-local record ModeChanged
-  mode: string
-  old: string
-end
+local type ModeChanged = KeymapModule.ModeChanged
 
 --- What `Ctx:voice` takes: the beats it leads from and into, the pitches
 --- before and after it (found when nil), how many, the style, the range,
@@ -255,21 +254,9 @@ end
 
 -- What this module reads of the modules that are still in Lua.
 
---- What a layer of the piano roll gets (paw/views/pianoroll.lua).
-local record Layer
-  clip: types.Clip
-  roll: contracts.Buf
-  rows: integer
-  x: function(beat: number): integer
-  row: function(pitch: integer): integer
-end
-
---- The piano roll, as far as this module reads it.
-local record Roll
-  beat: number
-  pitch: integer
-  clip: function(self: Roll): objects.Clip
-end
+--- What a layer of the piano roll gets, and the roll (paw/views/pianoroll.tl).
+local type Layer = Roll.Layer
+local type PianoRoll = Roll.PianoRoll
 
 --- What `paw.pick.state()` gives, as far as this module reads it.
 local record PickState
@@ -285,6 +272,7 @@ local record Pick
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   ui: UiModule
   pick: Pick
   harmony: HarmonyModule
@@ -319,9 +307,10 @@ local record M
   previewing: Previewing
   --- Snippets as a source of suggestions (`paw.complete`).
   source: CompleteModule.Source
-  --- The event `snippet.expanded`.
+  --- The event `snippet.expanded`: a snippet went into a clip.
   expanded: events.Event<Expanded>
-  --- The event `snippet.finished`.
+  --- The event `snippet.finished`: a snippet stopped, and the notes that it
+  --- wrote stay.
   finished: events.Event<Finished>
   finish: function()
 end
@@ -562,7 +551,7 @@ end
 --- `selection` (a region; the visual selection's when nil).
 function M.context(opts?: ContextOptions): Ctx, string
   opts = opts or {}
-  local roll = paw.ui.views.pianoroll as Roll
+  local roll = paw.ui.views.pianoroll as PianoRoll
   local clip = roll and roll:clip()
   if not clip then
     return nil, "open a MIDI clip in the piano roll"
@@ -860,7 +849,7 @@ function M.active(): Active
   if not active then
     return nil
   end
-  local roll = paw.ui.views.pianoroll as Roll
+  local roll = paw.ui.views.pianoroll as PianoRoll
   local clip = roll and roll:clip()
   local stale = project_edits("edits") ~= active.edits or not pcall(api.clip_get, active.clip)
   local away = not clip
@@ -1182,7 +1171,7 @@ function M.preview_marks(clip_id: integer): {Mark}
 end
 
 --- Paint the snippet layer of the piano roll (order 40, see
---- `views/pianoroll.lua`). It marks the notes of the active snippet, and
+--- `views/pianoroll.tl`). It marks the notes of the active snippet, and
 --- shows its range along the bottom with the items of Tab and `<C-n>`. It
 --- shows the notes that the picker would write as ghosts.
 function M.paint(p: Layer)
@@ -1260,12 +1249,11 @@ M.source = {
   end,
 }
 
-local startup: events.Event<kernel.Nothing> = events.event("startup")
 local escape: events.Event<kernel.Nothing> = events.event("escape")
-local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
+local mode_changed = paw.keymap.mode_changed
 
 events.on(
-  startup,
+  events.startup,
   function()
     if paw.complete then
       paw.complete.register(M.source)

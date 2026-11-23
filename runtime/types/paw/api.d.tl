@@ -17,6 +17,7 @@ local record api
    base64_decode: function(text: string): string, string
    base64_encode: function(data: string, opts?: types.Base64Options): string
    blocks: function(device?: integer): integer
+   build: function(): types.Build
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
    canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
    canvas_pixels: function(key: string): types.PictureBlob
@@ -39,6 +40,7 @@ local record api
    clip_kind_define: function(name: string)
    clip_kind_remove: function(name: string)
    clip_kinds: function(): {string}
+   clip_link: function(id: integer): integer
    clip_list: function(track: integer, from?: number, to?: number): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
@@ -57,6 +59,7 @@ local record api
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
    clip_to_cues: function(id: integer, track: integer): integer
+   clip_unlink: function(id: integer)
    clip_warp_add: function(id: integer, beat: number): integer
    clip_warp_move: function(id: integer, index: integer, beat: number): integer
    clip_warp_remove: function(id: integer, index: integer)
@@ -184,17 +187,32 @@ local record api
    midi_test_ports: function(ports: {string})
    midi_ump: function(event: types.MidiEvent): {integer}
    nest_add: function(opts?: types.NestOptions): integer
+   nest_beat: function(clip: integer, beat: number): number
    nest_get: function(id: integer): types.Nest
    nest_list: function(): {integer}
+   nest_own_tempo: function(clip: integer): boolean
    nest_promote: function(clip: integer): types.NestPromoted
    nest_save: function(opts: types.NestSaveOptions): types.NestSaved
    nest_set: function(id: integer, patch: types.Nest)
    nest_set: function(id: integer, key: string, value: nil)
+   nest_song_beat: function(clip: integer, beat: number): number
+   nest_tempo_at: function(clip: integer, beat: number): number
+   nest_tempo_bar_length: function(clip: integer, beat: number): number
+   nest_tempo_bar_of: function(clip: integer, beat: number): integer
+   nest_tempo_bar_start: function(clip: integer, bar: integer): number
+   nest_tempo_bbt: function(clip: integer, beat: number): integer, integer, number
+   nest_tempo_from_bbt: function(clip: integer, bar: integer, beat: integer, fraction?: number): number
+   nest_tempo_is_bar_line: function(clip: integer, beat: number): boolean
+   nest_tempo_points: function(clip: integer): types.TempoPoints
+   nest_tempo_seconds: function(clip: integer, beat: number): number
+   nest_tempo_signature: function(clip: integer, beat: number): integer, integer
+   nest_unique: function(clip: integer): integer
    note_off: function(track: integer, pitch?: integer)
    note_on: function(track: integer, pitch: integer, velocity?: number, attr?: types.NoteAttr)
    now: function(): number
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
+   plugins_dirs: function(): {string: {string}}
    plugins_remove_dir: function(dir: string, kinds: {string})
    plugins_rescan: function(name?: string): {string}
    preview_get: function(): types.Preview
@@ -290,7 +308,7 @@ local record api
    tempo_set_points: function(tempos: {types.TempoPoint}, sigs: {types.SigPoint})
    tempo_signature: function(beat: number): integer, integer
    test_devices: function()
-   test_panic: function(why: string)
+   test_panic: function(why: string, inside?: boolean)
    timer_start: function(ms: number, repeat_: boolean, func: function()): integer
    timer_stop: function(id: integer)
    toml_decode: function(text: string): any, string
@@ -359,6 +377,8 @@ local record api
    undo_step: function(n: integer): integer
    undo_travel: function(seconds: number): integer
    undo_tree: function(): types.UndoTree
+   view_ranges: function(): {types.ViewRange}
+   view_ranges_set: function(ranges: {types.ViewRange})
    wait: function(ms: number)
    warnings: function(): {string}
    which: function(program: string): string

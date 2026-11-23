@@ -8,6 +8,12 @@ local type contracts = require("paw.contracts")
 local type Untyped = require("paw.untyped")
 
 local record partial
+   record Controls
+      chosen: function(clip: integer): {integer}
+      fraction: function(kind: string, value: number): number
+      is: function(control: types.Control, kind: string, number: integer): boolean
+      metamethod __index: function(Controls, string): Untyped
+   end
    record Ext
       bundled: function(): {string}
       caller: function(): string
@@ -23,12 +29,9 @@ local record partial
       register: function(name: string, fn: contracts.HealthCheck, opts?: contracts.HealthOptions)
       metamethod __index: function(Health, string): Untyped
    end
-   record Keymap
-      mode: string
-      parse: function(lhs: string): {string}
-      repeat_as: function(keys: {string})
-      selection: function(): contracts.Region
-      metamethod __index: function(Keymap, string): Untyped
+   record Plugins
+      key_names: function(track: integer): {integer:string}
+      metamethod __index: function(Plugins, string): Untyped
    end
    record TrackKinds
       define: function(name: string, spec: contracts.TrackKind): contracts.TrackKind
@@ -39,6 +42,7 @@ local record partial
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
       cancel: function(handle: integer)
       command: contracts.Command
+      controls: Controls
       defer: function(fn: function(), ms?: number): integer
       device_types: function(): {types.DeviceType}
       every: function(ms: number, fn: function()): integer
@@ -47,9 +51,9 @@ local record partial
       files: Files
       flush: function()
       health: Health
-      keymap: Keymap
       notify: function(text: string, level?: string)
       off: function(id: integer)
+      plugins: Plugins
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
       timers: {integer:function()}

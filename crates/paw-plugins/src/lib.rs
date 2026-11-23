@@ -16,6 +16,7 @@
 
 pub mod attach;
 pub mod clap;
+mod dirs;
 mod echo;
 pub mod libs;
 pub mod lv2;
@@ -25,12 +26,13 @@ pub mod sandbox;
 pub mod vst3;
 mod window;
 
+pub use dirs::PluginDirs;
 pub use window::repair_display_env;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::thread::ThreadId;
 use std::time::UNIX_EPOCH;
 
@@ -67,14 +69,19 @@ pub(crate) fn debug_assert_main_thread() {
 /// Listing what a CLAP or VST3 file contains means loading it, which for some
 /// plugins is slow and noisy (bridged Windows plugins start Wine). The result
 /// is remembered in `cache_file`, so a file is only loaded again when it
-/// changes or when a plugin from it is actually used.
-pub fn register(registry: &mut Registry, cache_file: Option<&Path>) -> Vec<String> {
+/// changes or when a plugin from it is actually used. `dirs` says where
+/// to look.
+pub fn register(
+    registry: &mut Registry,
+    cache_file: Option<&Path>,
+    dirs: &PluginDirs,
+) -> Vec<String> {
     MAIN_THREAD.get_or_init(|| std::thread::current().id());
     let mut cache = Cache::load(cache_file);
     let mut notes = Vec::new();
-    scan::<clap::Clap>(registry, &mut cache, &mut notes);
-    lv2::scan(registry, &mut cache, &mut notes);
-    scan::<vst3::Vst3>(registry, &mut cache, &mut notes);
+    scan::<clap::Clap>(registry, &mut cache, &mut notes, dirs);
+    lv2::scan(registry, &mut cache, &mut notes, dirs);
+    scan::<vst3::Vst3>(registry, &mut cache, &mut notes, dirs);
     cache.save(cache_file);
     if !cache.skipped.is_empty() {
         let n = cache.skipped.len();
@@ -98,6 +105,7 @@ pub fn rescan(
     registry: &mut Registry,
     cache_file: Option<&Path>,
     name: Option<&str>,
+    dirs: &PluginDirs,
 ) -> Vec<String> {
     let mut cache = Cache::load(cache_file);
     match name {
@@ -117,76 +125,40 @@ pub fn rescan(
         }
     }
     cache.write();
-    let notes = register(registry, cache_file);
-    sandbox::wrap(registry);
+    let notes = register(registry, cache_file, dirs);
+    sandbox::wrap(registry, dirs);
     notes
 }
-
-/// Directories added for this session ([`add_dir`]), looked in for CLAP
-/// and VST3 plugins besides the usual ones.
-static ADDED_DIRS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
-
-/// How the directories added are handed to a plugin's helper, which has to
-/// find the plugin where this process did.
-pub(crate) const ADDED_DIRS_ENV: &str = "PAW_PLUGIN_DIRS";
 
 /// Look in `dir` for CLAP and VST3 plugins from now on, as well as where
 /// plugins are usually installed (an extension that ships its own plugins
 /// adds the directory they are built into), and register those in it now.
 /// Returns the device kinds found there, and notes on files that could not
-/// be used. The directory is kept until the program ends; later rescans
-/// look in it too.
+/// be used. `dirs` keeps the directory, and later rescans with it look in
+/// it too, until [`PluginDirs::remove`].
 pub fn add_dir(
     registry: &mut Registry,
     cache_file: Option<&Path>,
+    dirs: &mut PluginDirs,
     dir: &Path,
 ) -> (Vec<String>, Vec<String>) {
     MAIN_THREAD.get_or_init(|| std::thread::current().id());
-    {
-        let mut dirs = ADDED_DIRS.lock().unwrap();
-        if !dirs.iter().any(|d| d == dir) {
-            dirs.push(dir.to_path_buf());
-        }
-    }
+    dirs.add(dir);
     // Only the new directory is looked into; the cache keeps what it knew
     // of the rest, which is why it is not saved (and pruned) here.
     let mut cache = Cache::load(cache_file);
     let mut found = Registry::default();
     let mut notes = Vec::new();
-    let dirs = [dir.to_path_buf()];
-    scan_in::<clap::Clap>(&mut found, &mut cache, &mut notes, &dirs);
-    scan_in::<vst3::Vst3>(&mut found, &mut cache, &mut notes, &dirs);
-    sandbox::wrap(&mut found);
+    let only = [dir.to_path_buf()];
+    scan_in::<clap::Clap>(&mut found, &mut cache, &mut notes, dirs, &only);
+    scan_in::<vst3::Vst3>(&mut found, &mut cache, &mut notes, dirs, &only);
+    sandbox::wrap(&mut found, dirs);
     let mut kinds = Vec::new();
     for factory in found.iter() {
         kinds.push(factory.info().kind.clone());
         registry.register(factory.clone());
     }
     (kinds, notes)
-}
-
-/// Look in `dir` no more: an extension that added it was taken away.
-pub fn remove_dir(dir: &Path) {
-    ADDED_DIRS.lock().unwrap().retain(|d| d != dir);
-}
-
-/// The directories added so far, as [`ADDED_DIRS_ENV`] holds them.
-pub(crate) fn added_dirs_env() -> Option<std::ffi::OsString> {
-    let dirs = ADDED_DIRS.lock().unwrap();
-    if dirs.is_empty() {
-        return None;
-    }
-    std::env::join_paths(dirs.iter()).ok()
-}
-
-/// Take the directories a helper was handed ([`ADDED_DIRS_ENV`]).
-pub(crate) fn adopt_added_dirs() {
-    if let Some(paths) = std::env::var_os(ADDED_DIRS_ENV) {
-        ADDED_DIRS
-            .lock()
-            .unwrap()
-            .extend(std::env::split_paths(&paths));
-    }
 }
 
 /// One plugin inside a plugin file, as remembered between runs.
@@ -234,45 +206,55 @@ pub(crate) trait PluginFormat {
     /// extension of its files.
     const NAME: &'static str;
     const FORMAT: DeviceFormat;
-    /// The environment variable that replaces the usual places to look.
-    const ENV: &'static str;
     /// The same plugin found in two places is registered once (the first).
     const ONE_PER_ID: bool;
     /// The file in `bundle` that the cache is keyed by, or `None` to pass
     /// the bundle over.
     fn library(bundle: &Path) -> Option<PathBuf>;
-    /// Load `bundle` and list the plugins in it, in this process.
-    fn list(bundle: &Path) -> anyhow::Result<Vec<Found>>;
+    /// The usual folders of the format in `dirs`.
+    fn usual(dirs: &PluginDirs) -> &[PathBuf];
+    /// Load `bundle` and list the plugins in it, in this process. The
+    /// libraries that it needs are looked for in `libraries`.
+    fn list(bundle: &Path, libraries: &[PathBuf]) -> anyhow::Result<Vec<Found>>;
     /// The device kind of a plugin, unique in `registry`.
     fn kind(found: &Found, registry: &Registry) -> String;
     /// The factory of a plugin found in `bundle`, or `None` when its id is
-    /// not one the format can use.
-    fn factory(info: DeviceInfo, bundle: &Path) -> Option<Rc<dyn DeviceFactory>>;
+    /// not one the format can use. `dirs` gives the folders that the
+    /// plugin's load and presets need.
+    fn factory(
+        info: DeviceInfo,
+        bundle: &Path,
+        dirs: &PluginDirs,
+    ) -> Option<Rc<dyn DeviceFactory>>;
 }
 
-/// Register the plugins of format `F` found where that format is installed.
+/// Register the plugins of format `F` found where that format is installed:
+/// its usual folders in `dirs`, then the folders added.
 pub(crate) fn scan<F: PluginFormat>(
     registry: &mut Registry,
     cache: &mut Cache,
     notes: &mut Vec<String>,
+    dirs: &PluginDirs,
 ) {
-    scan_in::<F>(registry, cache, notes, &search_dirs(F::ENV, F::NAME));
+    scan_in::<F>(registry, cache, notes, dirs, &dirs.search(F::usual(dirs)));
 }
 
-/// Register the plugins of format `F` in the files under `dirs`.
+/// Register the plugins of format `F` in the files under `folders`. `dirs`
+/// gives the folders of the libraries and presets that the plugins need.
 pub(crate) fn scan_in<F: PluginFormat>(
     registry: &mut Registry,
     cache: &mut Cache,
     notes: &mut Vec<String>,
-    dirs: &[PathBuf],
+    dirs: &PluginDirs,
+    folders: &[PathBuf],
 ) {
     let mut seen = std::collections::HashSet::new();
-    for bundle in find_bundles(dirs, F::NAME) {
+    for bundle in find_bundles(folders, F::NAME) {
         let Some(library) = F::library(&bundle) else {
             continue;
         };
         match cache.plugins(&library, || {
-            list_apart(F::NAME, &bundle, || F::list(&bundle))
+            list_apart(F::NAME, &bundle, || F::list(&bundle, &dirs.libraries))
         }) {
             Ok(found) => {
                 for plugin in found {
@@ -281,7 +263,7 @@ pub(crate) fn scan_in<F: PluginFormat>(
                     }
                     let kind = F::kind(&plugin, registry);
                     let info = plugin.device_info(kind, F::FORMAT);
-                    if let Some(factory) = F::factory(info, &bundle) {
+                    if let Some(factory) = F::factory(info, &bundle, dirs) {
                         registry.register(factory);
                     }
                 }
@@ -499,12 +481,14 @@ pub(crate) fn list_apart(
 }
 
 /// Run as the helper that says what is in one plugin file: `args` are the
-/// format and the file. The answer is the last line it prints.
-pub fn scan_main(args: &[String]) -> i32 {
+/// format and the file, and `dirs` says where the libraries that it needs
+/// are. The answer is the last line it prints.
+pub fn scan_main(args: &[String], dirs: &PluginDirs) -> i32 {
     MAIN_THREAD.get_or_init(|| std::thread::current().id());
+    let libraries = &dirs.libraries;
     let found: Result<Vec<Found>, String> = match args {
-        [format, path] if format == "vst3" => vst3::list_file(Path::new(path)),
-        [format, path] if format == "clap" => clap::list_file(Path::new(path)),
+        [format, path] if format == "vst3" => vst3::list_file(Path::new(path), libraries),
+        [format, path] if format == "clap" => clap::list_file(Path::new(path), libraries),
         _ => Err(anyhow::anyhow!("usage: plugin-scan <vst3|clap> <file>")),
     }
     .map_err(|err| format!("{err:#}"));
@@ -530,38 +514,6 @@ pub(crate) fn mtime(path: &Path) -> u64 {
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map_or(0, |d| d.as_secs())
-}
-
-/// Directories to search for one plugin format: the format's environment
-/// variable if set, else the usual per-user and system locations; and those
-/// added by [`add_dir`].
-pub(crate) fn search_dirs(env: &str, name: &str) -> Vec<PathBuf> {
-    let mut dirs = usual_dirs(env, name);
-    dirs.extend(ADDED_DIRS.lock().unwrap().iter().cloned());
-    dirs
-}
-
-fn usual_dirs(env: &str, name: &str) -> Vec<PathBuf> {
-    if let Some(paths) = std::env::var_os(env) {
-        return std::env::split_paths(&paths).collect();
-    }
-    let mut dirs = Vec::new();
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        dirs.push(home.join(format!(".{name}")));
-        dirs.push(home.join(format!(".nix-profile/lib/{name}")));
-    }
-    if let Some(user) = std::env::var_os("USER") {
-        dirs.push(
-            Path::new("/etc/profiles/per-user")
-                .join(user)
-                .join("lib")
-                .join(name),
-        );
-    }
-    for prefix in ["/run/current-system/sw/lib", "/usr/local/lib", "/usr/lib"] {
-        dirs.push(Path::new(prefix).join(name));
-    }
-    dirs
 }
 
 /// Every entry under `dirs` whose name ends in `extension`, searching
@@ -744,5 +696,44 @@ pub(crate) fn write_output(left: &mut [f32], right: &mut [f32], out: &[&[f32]], 
             *dl = l[i];
             *dr = r[i];
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file in `dir` that ends in `.clap` and is no plugin: the scan
+    /// notes each one that it finds, and loads nothing.
+    fn broken_plugin(dir: &Path, name: &str) -> PathBuf {
+        std::fs::create_dir_all(dir).unwrap();
+        let file = dir.join(name);
+        std::fs::write(&file, b"not a shared library").unwrap();
+        file
+    }
+
+    #[test]
+    fn the_scan_searches_the_usual_folders_and_the_added_ones_only() {
+        let root = tempfile::tempdir().unwrap();
+        let usual = broken_plugin(&root.path().join("clap"), "usual.clap");
+        let added = broken_plugin(&root.path().join("extension"), "added.clap");
+        broken_plugin(&root.path().join("elsewhere"), "elsewhere.clap");
+        let mut dirs = PluginDirs {
+            clap: vec![root.path().join("clap")],
+            ..PluginDirs::default()
+        };
+        dirs.add(added.parent().unwrap());
+
+        let mut registry = Registry::default();
+        let (mut cache, mut notes) = (Cache::load(None), Vec::new());
+        scan::<clap::Clap>(&mut registry, &mut cache, &mut notes, &dirs);
+
+        let noted: Vec<bool> = [&usual, &added]
+            .iter()
+            .map(|file| notes.iter().any(|note| note.starts_with(&*file.to_string_lossy())))
+            .collect();
+        assert_eq!(noted, [true, true], "both folders are searched: {notes:?}");
+        assert_eq!(notes.len(), 2, "no other folder is searched: {notes:?}");
+        assert_eq!(registry.iter().count(), 0, "no plugin is registered");
     }
 }

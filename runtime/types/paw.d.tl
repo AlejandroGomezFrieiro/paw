@@ -34,6 +34,8 @@ local type HarmonyModule = require("paw.harmony")
 local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
 local type InsertModule = require("paw.insert")
+local type KeymapModule = require("paw.keymap")
+local type KeyruleModule = require("paw.keyrule")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
@@ -46,6 +48,7 @@ local type MidifileModule = require("paw.midifile")
 local type MouseModule = require("paw.mouse")
 local type MusicModule = require("paw.music")
 local type NestModule = require("paw.nest")
+local type NotesModule = require("paw.notes")
 local type ObjectsModule = require("paw.objects")
 local type OptionModule = require("paw.options")
 local type PanesModule = require("paw.panes")
@@ -58,6 +61,7 @@ local type RegexModule = require("paw.regex")
 local type RemoteModule = require("paw.remote")
 local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
+local type RollClipsModule = require("paw.roll_clips")
 local type RollDrawModule = require("paw.roll_draw")
 local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
@@ -105,7 +109,7 @@ global record paw
    commands: CommandsModule
    complete: CompleteModule
    contracts: ContractsModule
-   controls: Untyped
+   controls: Partial.Controls
    cursor: CursorModule
    curves: CurvesModule
    defer: function(fn: function(), ms?: number): integer
@@ -141,8 +145,8 @@ global record paw
    is_audio_file: Untyped
    is_chain_file: Untyped
    json: Untyped
-   keymap: Partial.Keymap
-   keyrule: Untyped
+   keymap: KeymapModule
+   keyrule: KeyruleModule
    lane: function(id: integer): ObjectsModule.Lane
    lanes: LanesModule
    lang: LangModule
@@ -163,6 +167,7 @@ global record paw
    mouse: MouseModule
    music: MusicModule
    nest: NestModule
+   notes: NotesModule
    notify: function(text: string, level?: string)
    off: function(id: integer)
    on: function<P>(event: EventsModule.Event<P>, fn: function(P, string), opts?: EventsModule.OnOptions): integer
@@ -175,7 +180,7 @@ global record paw
    params: Untyped
    pick: PickModule
    plot: PlotModule
-   plugins: Untyped
+   plugins: Partial.Plugins
    profile: ProfileModule
    project: ObjectsModule.Project
    qf: QfModule
@@ -195,7 +200,7 @@ global record paw
    restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
    restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
    roles: RolesModule
-   roll_clips: Untyped
+   roll_clips: RollClipsModule
    roll_draw: RollDrawModule
    routes: Untyped
    ruler: RulerModule

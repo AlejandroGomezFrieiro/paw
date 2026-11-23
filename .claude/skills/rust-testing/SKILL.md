@@ -26,7 +26,7 @@ shows the behavior:
 | The engine (devices, clips, the mix) | An integration test in `crates/paw-engine/tests` that makes an `Engine` and calls `engine.process()` block by block |
 | The kernel through Lua (commands, keys, views) | A Lua test, not Rust (`lua-testing`) |
 | The remote protocol | `crates/paw-tui/tests/remote.rs` or `crates/paw-mcp/tests/protocol.rs` |
-| The terminal input (escape sequences) | `crates/paw-tui/tests/join.rs` |
+| The terminal input (escape sequences) | The unit tests of `crates/paw-tui/src/keys.rs`, with `keys::Scripted` |
 | The window | Paused: do not write, build or run window tests (see part 9) |
 
 The engine tests are the model: they make an `Engine`, send messages
@@ -96,28 +96,57 @@ fn check(keys: &str, expected: &[Event]) {
   `undo_of_a_split_gives_one_clip`, not `split_2`. The body has three
   parts in this order: arrange, act, assert.
 
-## 5. Golden files with `insta` (planned, TASK-155)
+## 5. Golden files with `insta`
 
 Use a golden file for a text output that is longer than about five
-lines. Examples: a scene, a protocol message, a project folder, a `.midi2` clip,
-the undo file.
+lines. `insta` is a dev-dependency of the workspace (features `json`
+and `filters`). These golden files exist, and a new one follows them:
+
+| Format | Test | Crate |
+| --- | --- | --- |
+| A scene, one node of each kind, as the wire has it | `a_new_window_sends_each_kind_of_node_as_the_golden_file_has_it` | `paw-scene` |
+| The client's side of the control protocol, with a kernel in memory | `the_client_speaks_the_protocol_as_the_golden_file_has_it` | `paw-proto` |
+| A `.midi2` clip: its text and its packets | `a_clip_file_has_the_packets_of_the_golden_file` | `paw-core` (`clipfile.rs`) |
+| A project folder on the disk | `a_project_folder_has_the_files_of_the_golden_file` | `paw-core` (`session/folder.rs`) |
+| The undo folder | `an_undo_folder_has_the_files_of_the_golden_file` | `paw-core` (`undofile.rs`) |
 
 - Use the most specific macro: `assert_snapshot!` for text,
   `assert_debug_snapshot!` for a `Debug` value, `assert_json_snapshot!`
-  for a value that `serde` writes.
+  for a value that `serde` writes. Write a small function that puts
+  one node, packet or message on each line of the text, for the diff.
 - An inline snapshot (`assert_snapshot!(x, @"...")`) is for short
   output. A file in `snapshots/` next to the test is for long output.
-- Hide each value that changes from run to run: ids, paths, times
-  (`insta::with_settings!` with `filters`, or the redact settings of
-  `assert_json_snapshot!`).
-- To accept a change, run `cargo insta review` and read each diff. Name
-  the accepted snapshots in the commit message. A review of the diff is
-  the test. Never accept with `INSTA_FORCE_PASS` or with a blind
-  `cargo insta accept`.
-- CI sets `INSTA_UPDATE=no`, so a new or changed snapshot that is not
-  committed fails.
+- A folder on the disk: write it under a `TempDir`, and snapshot
+  `crate::golden::folder_text(dir)` (`paw-core`, test builds only). It
+  gives each file with its path in the folder, and a `.midi2` clip as
+  `paw clip cat` shows it.
+- Hide each value that changes from run to run: paths, times, ids from
+  a counter or a random source. Use `insta::Settings` with `add_filter`.
+  `crate::golden::settings(dir)` replaces the path of `dir` with `[dir]`
+  and shortens each BLAKE3 hash to eight digits:
 
-## 6. Property tests with `proptest` (planned, TASK-156)
+```rust
+crate::golden::settings(dir.path()).bind(|| {
+    insta::assert_snapshot!(crate::golden::folder_text(dir.path()));
+});
+```
+
+- A value that the test gives (a fixed nonce, a fixed time) need not be
+  hidden. Give the code such a value as an argument, and do not read the
+  clock in the test.
+- To make or accept snapshots, run `cargo insta test -p <crate>` and
+  then `cargo insta review`, and read each diff. Name the accepted
+  snapshots in the commit message. A review of the diff is the test.
+  Never accept with `INSTA_FORCE_PASS` or with a blind
+  `cargo insta accept`.
+- The flake's `tests` check sets `INSTA_UPDATE=no`, so a new or changed
+  snapshot that is not committed fails.
+- The terminal screen has golden files on the Lua side:
+  `T.expect_screen` in `tests/screens/`, accepted with
+  `PAW_BLESS=1 tests/tools/suite.sh only "<words>"` (skill `lua-testing`,
+  part 7). Do not test the layout of a view with `insta`.
+
+## 6. Property tests with `proptest`
 
 Use a property test for a rule that is true for each input:
 
@@ -126,16 +155,44 @@ Use a property test for a rule that is true for each input:
 - An inverse: an undo of a change gives the old state.
 - An equivalence: two ways to compute one value give the same value.
 
+Where they are:
+
+| Module | The property |
+| --- | --- |
+| `paw-core/src/clipfile/props.rs` | A `.midi2` clip on ticks, written and read again, is the same clip; a clip file read and written again is the same bytes |
+| `paw-core/src/undofile/props.rs` | An undo file, written and read again, gives each state and its files |
+| `paw-core/src/xml/props.rs` | An XML tree, written as the DAWproject writer writes it and read again, is the same tree |
+| `paw-core/src/attr_map/props.rs` | An attribute map, saved in the project file and read again, is the same map |
+| `paw-core/src/model/props.rs` | An undo gives the project before a change, and a redo the project after it |
+| `paw-engine/src/tempo/props.rs` | A beat to seconds and back is the same beat |
+
 Rules:
 
-- Write one strategy for each type of input, and keep it next to the
-  type's tests.
-- Commit the files in `proptest-regressions/`. The crate runs each saved
-  case first.
-- Use the default count of cases in the normal run. The nightly tier in
-  CI sets `PROPTEST_CASES`.
-- A failure that a property test finds becomes a normal example test too, with
-  a name that tells the bug.
+- Put the properties of a module in `<module>/props.rs`, declared with
+  `#[cfg(test)] mod props;` beside `mod tests`. Each property is one
+  `#[test]` in a `proptest!` block.
+- Start the block with `#![proptest_config(crate::props::config())]`.
+  `config()` (`paw-core/src/props.rs`) gives the default count of cases
+  and a fixed seed, so each run tries the same cases. `PROPTEST_CASES`
+  and `PROPTEST_RNG_SEED` change them. `paw-engine` has its own copy of
+  `config()` in `tempo/props.rs`.
+- Write one strategy for each type of input, and keep it in the
+  `props.rs` of that type. Generate only valid input (a clip that
+  `Control::problem` takes, a map that `AttrMap::plan` takes). An
+  error path has an example test (part 12).
+- A limit for a float has its reason in a comment, for example "a
+  millionth of a beat, far under a tick".
+- Do not set `cases` in the code. The normal run uses the default
+  count (256). The nightly tier sets `PROPTEST_CASES=10000` and a new
+  `PROPTEST_RNG_SEED` (part 15).
+- A failure is shrunk to a small case, and `proptest` writes its seed to
+  `crates/<crate>/proptest-regressions/<module path>.txt`. Commit that
+  file. Each run tries its cases first.
+- A failure is a bug in the code or in the property. A bug in the code
+  gets a ticket, a fix, and an example test with a name that tells the
+  bug, next to the property (see `a_lyric_that_is_not_ascii_comes_back`
+  in `clipfile/props.rs`). Never make the property weaker (a smaller
+  range, a wider limit) to make it pass.
 
 ## 7. Sound
 
@@ -242,11 +299,17 @@ the owner's computer or folders. Mock what it needs.
   yabridge bridge in `~/.vst3` starts wine), not the user name, not the
   system fonts, not the desktop bus, not the network. It does not use
   the owner's display, audio devices or configuration.
-- A test that starts paw seals the command first. The helper
-  `crates/<crate>/tests/sealed/mod.rs` gives a scratch home, a scratch
-  `WINEPREFIX` and empty plugin folders. A test that loads a plugin sets
-  its own folder after the seal. Also give `--audio null` (or `test`)
-  and `--clean`.
+- A test that starts paw (or `paw ctl`, or `paw-mcp`) seals the command.
+  The helper `crates/<crate>/tests/sealed/mod.rs` gives the environment
+  of `tests/tools/env.sh` under the test's folder: a scratch home,
+  scratch `XDG_*` folders, the test's folder as `XDG_RUNTIME_DIR` (keep
+  it short: a socket path must fit in 108 bytes), a scratch
+  `WINEPREFIX`, empty plugin folders, the user name `paw-test`, no system
+  configuration of git and no desktop bus. It sets only the variables
+  that the caller did not set before the call. A test that loads a
+  plugin sets its own folder before or after the seal. Also give
+  `--audio null` (or `test`) and `--clean`. paw-tui and paw-mcp each
+  have a copy of the helper: change both.
 
 ```rust
 mod sealed;
@@ -258,7 +321,9 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 
 - Library code does not read `HOME`, `USER` or a `*_PATH` variable
   itself. `main` resolves the folders and gives them as an argument. A
-  unit test then gives a folder under its `TempDir`.
+  unit test then gives a folder under its `TempDir`. paw-plugins still
+  reads `HOME`, `USER` and the plugin path variables itself (TASK-162
+  moves them to an argument).
 - Mock what is needed: the stub CLAP plugin (`examples/stub_clap`), a
   fake behind a trait, or a scratch folder. Never an installed plugin.
 - Run paw by hand only through `tests/tools/run.sh`. It uses the same
@@ -270,6 +335,11 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
   `Instant`, a share of a processor, or a count that changes with speed.
   To guard a cost, count the work (renders, compiles, cells drawn). A
   time goes to `bench/`.
+- The lint `tools/testlint.lua` counts `thread::sleep`, `Instant::now`,
+  `cpu_percent` and `quiet(` with a `Duration` in the Rust tests. A count
+  over `tests/timing-allowed.txt` fails the suite and `nix flake check`.
+  It also fails on each `var("HOME")`, `var_os("USER")`, `home_dir(`,
+  `/etc/passwd` or `"/home/` in the test code. These have no allow-list.
 - A test does not sleep: no `std::thread::sleep`, no busy loop, no
   `recv_timeout` as the condition of a pass. Step the code: call
   `engine.process()`, call the `poll` of a scheduler with a time that
@@ -277,7 +347,9 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - Check that a thing does not happen only after a sync point. First
   send a sync request, or step to quiescence, and advance past each
   timer that could make it happen. Then check. "Nothing came in 400 ms"
-  is not a check (the remote barrier is planned, TASK-150).
+  is not a check. In the remote tests, `pushed_by` in `remote.rs` sends
+  `frontend.sync`, then the request, then `frontend.sync` again. The
+  check reads the events between the two answers.
 - A wait for another thread or process is a wait for an event: a
   channel message, an acknowledgment, a handshake. The one limit of
   time is the stall guard of nextest (`slow-timeout` in
@@ -306,15 +378,36 @@ assert_eq!(error.to_string(), "the clip ends in its header");
   contract of a function, for example an index out of range. A failure
   that a user can cause is an `Err`, not a panic.
 
-## 13. Fuzz targets (planned, TASK-159)
+## 13. Fuzz targets
 
-A parser of input from outside paw (MIDI files, `.midi2` clips, project
-JSON, terminal input, the remote protocol) gets a cargo-fuzz target in
-the `fuzz/` crate. The target calls the same `check` helper as the
-tests and checks "an error, not a panic". The fuzz crate needs nightly
-Rust and is not a default member of the workspace. CI builds it, and the
-nightly tier in CI runs it. A crash that the fuzzer finds becomes a
-normal regression test in its crate.
+A reader of input from outside paw has a cargo-fuzz target in the
+`fuzz/` crate (`paw-fuzz`). Each target calls the same function as the
+program. A panic, an input that does not end in the time limit, or
+a run out of memory is a failure:
+
+| Target | Input | Code under test |
+| --- | --- | --- |
+| `clip_file` | A `.midi2` clip file | `clipfile::decode`, then `clipfile::text` |
+| `project_folder` | The files of a project folder, each after a line `=== <path>` | `session::folder::read_from`, with a `ProjectFiles` in memory that never reads the disk |
+| `remote` | Lines of JSON from the other side of a connection | `remote::apply` on one grid, `remote::input_of`, `paw_proto::monitor::decode` |
+| `terminal_keys` | Text: ESC is Escape, NUL is a pause, DEL is a resize | `keys::Joiner` over `keys::Scripted`, the source of the unit tests |
+
+- The crate is a workspace member, but not a default member. `cargo
+  build` and `cargo test` at the top do not build it. Use `cargo check -p
+  paw-fuzz` to check it on stable. The flake check `clippy` also checks
+  it.
+- The seeds of each target are in `fuzz/seeds/<target>`. Keep them small
+  (a few KB in all). Make them with paw in the test environment
+  (`tests/tools/run.sh`). Do not copy a file of the machine.
+- Agents do not run a fuzzer. The fuzz runs are the nightly tier, in CI
+  only: `tools/fuzz.sh` (cargo-fuzz and nightly Rust). The dev shell has
+  neither.
+- Each crash becomes a ticket and a plain regression test in the crate
+  that crashed, with a comment that names the target. Do not change the
+  target to hide the crash.
+- A new reader of outside input gets a target, and a row in this table.
+  The MIDI file reader (`midifile.tl`) and the DAWproject and RPP readers
+  are Teal. They have no target until they are Rust.
 
 ## 14. Flakes
 
@@ -340,8 +433,24 @@ cargo nextest run -p <crate>                  # the edit loop: one crate
 cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
-cargo insta review                            # planned: read and accept snapshots
+cargo insta test -p <crate>                   # run the tests, keep new snapshots as .snap.new
+cargo insta review                            # read and accept snapshots
+PAW_BLESS=1 tests/tools/suite.sh only "<words>"  # accept the golden screens (Lua)
+cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'  # the property tests
+cargo check -p paw-fuzz                       # the fuzz targets compile (stable)
+tools/fuzz.sh                                 # nightly tier, CI only: run each target
 ```
+
+The nightly tier (in CI only, TASK-145 and TASK-42) runs the property
+tests with more cases and a new seed each night:
+
+```sh
+PROPTEST_CASES=10000 PROPTEST_RNG_SEED=$(date +%Y%m%d) \
+  cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'
+```
+
+A failure there writes its file in `proptest-regressions/`. Commit it
+with the fix (part 6).
 
 ## 16. Before you commit
 

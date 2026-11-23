@@ -24,7 +24,10 @@
 local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
+local transform = require("paw.notes")
 local type types = require("paw.types")
+local type contracts = require("paw.contracts")
+local type registers = require("paw.keymap.registers")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -38,16 +41,7 @@ end
 --- `c1`, its `kind` ("char", "line" or "block"), in the arrange view
 --- maybe `clips`, a set of clip ids, and in the piano roll maybe `notes`,
 --- the ids of notes by the id of their clip.
-local record Region
-  kind: string
-  view: string
-  r0: number
-  r1: number
-  c0: number
-  c1: number
-  clips: {integer: boolean}
-  notes: {integer: {integer: boolean}}
-end
+local type Region = contracts.Region
 
 local type ClipSnapshot = objects.ClipSnapshot
 
@@ -68,8 +62,7 @@ end
 --- time with what each track holds in it (`"range"`: `length`, `rows`), or
 --- notes of the piano roll (`"notes"`: `shape`, the region's kind, `top`,
 --- its highest pitch, `length` and `notes`).
-local record Yanked
-  kind: string
+local record Yanked is registers.Register
   tracks: {objects.TrackSnapshot}
   length: number
   rows: {{ClipSnapshot}}
@@ -184,6 +177,11 @@ local function piece(c: types.Clip, notes: {types.Note}, from: number, to: numbe
       snap.controls = snap.controls or {}
       snap.controls[#snap.controls + 1] = with(move, {start = (move.start + moved.shift) as Value})
     end
+  elseif c.nest then
+    -- A block: a copy plays the same subproject (one subproject, two
+    -- blocks), from where the piece begins in it.
+    snap.nest, snap.play = c.nest, c.play
+    snap.offset = (c.offset or 0) + (a - c.start)
   elseif c.kind == "midi" then
     snap.notes = {}
     for _, n in ipairs(notes) do
@@ -468,11 +466,7 @@ function A.quantize(region: Region)
       api.clip_set(c.id, {start = util.round(c.start, grid)})
       api.clip_set(c.id, {length = math.max(grid, util.round(c.length, grid))})
       if c.kind == "midi" then
-        local notes = api.clip_notes(c.id)
-        for _, n in ipairs(notes) do
-          n.start = util.round(n.start, note_grid)
-        end
-        api.clip_set_notes(c.id, notes)
+        api.clip_set_notes(c.id, transform.quantize(api.clip_notes(c.id), {grid = note_grid}))
       end
     end
   end
@@ -540,13 +534,24 @@ function A.join(track: integer, from: number, to: number, only?: {integer: boole
   local notes, controls = api.clip_notes(first.id), api.clip_controls(first.id)
   for i = 2, #clips do
     local by = clips[i].start - first.start
+    -- The notes of a clip with other overrides (`:clip.override`) than the
+    -- first's keep their sound: the difference goes into them. A note that
+    -- does not play stays out.
+    local up = (clips[i].transpose or 0) - (first.transpose or 0)
+    local louder = (clips[i].velocity or 0) - (first.velocity or 0)
     for _, n in ipairs((api.clip_notes(clips[i].id))) do
-      n.start = n.start + by
-      notes[#notes + 1] = n
+      n.start, n.pitch = n.start + by, n.pitch + up
+      n.velocity = util.clamp(n.velocity + louder, 1, 127) as integer
+      if n.pitch >= 0 and n.pitch <= 127 then
+        notes[#notes + 1] = n
+      end
     end
     for _, move in ipairs(api.clip_controls(clips[i].id)) do
       move.start = move.start + by
-      controls[#controls + 1] = move
+      move.key = move.key and move.key + up
+      if not move.key or (move.key >= 0 and move.key <= 127) then
+        controls[#controls + 1] = move
+      end
     end
     api.clip_remove(clips[i].id)
   end

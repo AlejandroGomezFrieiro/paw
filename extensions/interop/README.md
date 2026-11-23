@@ -97,17 +97,18 @@ local interop = require("interop")
 interop.register({ name = "rpp", desc = "REAPER projects", extensions = { "rpp" }, project = true, module = "interop.rpp" })
 ```
 
-The two modules are the worked examples:
+The two modules are the worked examples. They are written in Teal, so the
+types of what they read and write are checked:
 
-- `interop.rpp` (`lua/interop/rpp/`): `format.lua` reads and writes the
-  text of a `.rpp` file as a tree, `import.lua` makes the tracks, clips,
-  lanes and devices of paw from it, `export.lua` writes them back, `fx.lua`
-  maps the plugins, `midi.lua` the MIDI.
+- `interop.rpp` (`lua/interop/rpp/`): `format.tl` reads and writes the
+  text of a `.rpp` file as a tree, `import.tl` makes the tracks, clips,
+  lanes and devices of paw from it, `export.tl` writes them back, `fx.tl`
+  maps the plugins, `midi.tl` the MIDI.
 - `interop.dawproject` (`lua/interop/dawproject/`): the archive with
-  `paw.zip`, the XML with `paw.xml`, `import.lua` and `export.lua` as
-  above, `vst3.lua` the `.vstpreset` files of VST3 plugins.
+  `paw.zip`, the XML with `paw.xml`, `import.tl` and `export.tl` as
+  above, `vst3.tl` the `.vstpreset` files of VST3 plugins.
 
-What both use is in `interop` (`lua/interop/init.lua`), for a new format
+What both use is in `interop` (`lua/interop/init.tl`), for a new format
 too:
 
 | Function | Effect |
@@ -120,7 +121,13 @@ too:
 | `interop.device_types()` | the kinds of device by kind, looked up as they are met |
 | `interop.tempo_from_seconds(tempos, signatures)` | a tempo map from points in seconds, in beats (`paw.api.tempo_from_seconds`) |
 | `interop.db(gain)` | a gain as decibels from -120 to 24 |
+| `interop.amp(db)` | decibels as a gain, 0 at -120 dB and below |
+| `interop.markers()`, `interop.add_markers(list)` | the markers and regions of the project, and new ones added after them |
+| `interop.sections()` | the song sections of the sections extension, or none when it is not loaded |
 | `interop.vst3_split(state)`, `interop.vst3_join(component, controller)` | the parts of the state of a VST3 plugin |
+
+A format written in Teal can name the types of what its `import` and
+`export` take and give, `interop.Options` and `interop.Result`.
 
 [Write an importer or exporter](../../docs/how-to/write-an-importer-or-exporter.md)
 makes a small format step by step.

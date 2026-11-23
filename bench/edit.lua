@@ -184,7 +184,37 @@ elseif mode == "scale" then
     track_add_ms = add_track,
     rss_kb = B.rss(),
   })
+elseif mode == "turn" then
+  -- The end of a turn alone, in a project of n synth tracks: the kernel's
+  -- `settle` (events, hooks, scenes, the frontend state) and the undo step.
+  -- A request of a connection pays it once (TASK-174), with nothing changed
+  -- (a read) or after its edit.
+  local _, ids = B.time(B.build, { tracks = n, kind = "midi", fx = true, bars = 16 })
+  local function finish()
+    paw._kernel.settle()
+    api.undo_checkpoint()
+  end
+  finish()
+  local empty, edited = {}, {}
+  for i = 1, 200 do
+    local t = api.now()
+    finish()
+    empty[i] = api.now() - t
+    api.track_set(ids[(i * 7) % #ids + 1], "volume", -(i % 12))
+    t = api.now()
+    finish()
+    edited[i] = api.now() - t
+  end
+  local se, sd = B.stats(empty), B.stats(edited)
+  B.emit({
+    workload = "turn",
+    tracks = n,
+    empty_ms = se.p50,
+    empty_max_ms = se.max,
+    edited_ms = sd.p50,
+    edited_max_ms = sd.max,
+  })
 else
-  error("usage: edit.lua clips|notes|scale <n>")
+  error("usage: edit.lua clips|notes|scale|turn <n>")
 end
 api.quit(0)

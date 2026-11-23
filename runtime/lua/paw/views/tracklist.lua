@@ -147,7 +147,7 @@ local function resolver(lines, what)
   end
   return function(name, row)
     local list = by_name[name]
-    -- A narrowed tab lists its group's tracks: the others are named as they are.
+    -- A narrowed window lists its scope's tracks: the others are named as they are.
     if not list and paw.scope.limits_tracks() then
       for _, id in ipairs(api.track_list()) do
         if api.track_get(id, "name") == name and not paw.scope.contains(id) then
@@ -177,7 +177,7 @@ tb.kind("tracks", {
   end,
   read = function()
     local out = {}
-    -- In a narrowed tab, the tracks of its group: the others are left as they are.
+    -- In a narrowed window, the tracks of its scope: the others are left as they are.
     for i, id in ipairs(paw.scope.tracks()) do
       out[i] = { id = id, track = api.track_get(id) }
     end
@@ -408,7 +408,7 @@ tb.kind("tracks", {
         step(string.format("move %s from %d to %d", quote(e.fields.name), e.from, e.place))
       end
       step("order the tracks as the lines are", function(st)
-        -- In a narrowed tab, its tracks keep the place in the list they had.
+        -- In a narrowed window, its tracks keep the place in the list they had.
         local i = 0
         local first = paw.scope.limits_tracks() and paw.scope.tracks()[1]
         for k, id in ipairs(first and api.track_list() or {}) do

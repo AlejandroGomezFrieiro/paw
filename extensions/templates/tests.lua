@@ -176,8 +176,8 @@ test("templates: the path a template is saved to is said from ~ when it is under
   local track = paw.add_track({ name = "Pad" })
   paw.cursor.set_track(track)
   paw.ui.focus("arrange")
+  -- The templates are in T.scratch/templates (see load).
+  T.home(T.scratch)
   T.keys(":template.save Home path<CR>")
-  local path, home = templates.path("track", "Home path"), os.getenv("HOME") or ""
-  local said = home ~= "" and path:sub(1, #home + 1) == home .. "/" and "~" .. path:sub(#home + 1) or path
-  eq(paw.ui.message.text, "track “Home path” saved as a template (" .. said .. ")", "the message")
+  eq(paw.ui.message.text, "track “Home path” saved as a template (~/templates/track/Home path.json)", "the message")
 end)

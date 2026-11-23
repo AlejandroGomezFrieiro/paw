@@ -122,8 +122,14 @@ local record ClipSnapshot
   formants: boolean
   meta: types.Meta
   cue: boolean
+  transpose: integer
+  velocity: integer
   notes: {types.Note}
   controls: {types.Control}
+  --- A block: the subproject it places (the copy places it too) and what
+  --- it plays of it.
+  nest: integer
+  play: string | types.NestTrack
 end
 
 --- What `Track:add_clip` takes: what `paw.api.clip_add` takes, with notes
@@ -232,6 +238,7 @@ local record Paw
   record Scope
     nest: function(): ScopeLevel
     origin: function(): number
+    own_time: function(): types.NestTime
   end
   ui: Ui
   scope: Scope
@@ -398,12 +405,18 @@ local record M
     bent: boolean
     formants: boolean
     warp: {types.WarpMarker}
+    transpose: integer
+    velocity: integer
+    --- On a handle from `Clip:shifted`, the semitones that the pitches it
+    --- reads and takes are above the clip's stored pitches.
+    shift: integer
     get: function(self: Clip): types.Clip
     exists: function(self: Clip): boolean
     remove: function(self: Clip)
     track: function(self: Clip): Track
     notes: function(self: Clip, range?: NoteRangeInput): {types.Note}, {integer}
     note_at: function(self: Clip, pitch: Pitch, beat: number): types.Note, integer
+    shifted: function(self: Clip, semitones: integer): Clip
     set_note: function(self: Clip, index: integer, fields: NoteChangeInput): integer
     remove_note: function(self: Clip, index: integer)
     edit_notes: function(self: Clip, edit: NotesEditInput)
@@ -571,16 +584,22 @@ local record M
     bar_start: function(n: integer): number
     signature_at: function(beat?: number): integer, integer
     tempo_at: function(beat?: number): number
+    tempo_points: function(): {types.TempoPoint}
+    signature_points: function(): {types.SigPoint}
     bar_of: function(beat: number): integer
     bar_floor: function(beat: number): number
     bar_ceil: function(beat: number): number
     bars: function(from: number, to: number): {BarLine}
+    lines: function(from: number, to: number, limit?: integer): {types.TempoLine}
     format: function(beats: number): string
     seconds: function(beats: number, at?: number): number
     to_seconds: function(beat: number): number
     to_beat: function(seconds: number): number
     clock: function(beat: number): string
     origin: function(): number
+    own: function(): types.NestTime
+    song_beat: function(beat: number): number
+    local_beat: function(song_beat: number): number
   end
 
   points: function(points: {PointInput}): {types.LanePoint}
@@ -1233,6 +1252,12 @@ class(
   end
 )
 
+-- The semitones a handle from `Clip:shifted` adds to the stored pitches; 0
+-- for a plain handle. Read raw: any other field is the kernel's.
+local function shift_of(clip: Clip): integer
+  return rawget(clip as {string: integer}, "shift") or 0
+end
+
 --- Everything about the clip as plain data (`paw.api.clip_get`).
 function Clip:get(): types.Clip
   return api.clip_get(self.id)
@@ -1262,27 +1287,79 @@ end
 --- the place of each note in the whole list, for `set_note` and `remove_note`:
 ---   local notes, at = clip:notes({ from = 4, to = 8, low = "C3", high = "C5" })
 function Clip:notes(range?: NoteRangeInput): {types.Note}, {integer}
+  local shift = shift_of(self)
   if range and (range.low or range.high) then
     range = util.merge(
       range as {string: Value},
-      {low = range.low and music.pitch(range.low) as Value, high = range.high and music.pitch(range.high) as Value}
+      {
+        low = range.low and (music.pitch(range.low) - shift) as Value,
+        high = range.high and (music.pitch(range.high) - shift) as Value,
+      }
     ) as NoteRangeInput
   end
-  return api.clip_notes(self.id, range as types.NoteRange)
+  local notes, places = api.clip_notes(self.id, range as types.NoteRange)
+  if shift == 0 then
+    return notes, places
+  end
+  -- The notes at the pitches they play. A note that the shift takes out of
+  -- the MIDI range does not play, and is left out.
+  local shown: {types.Note} = {}
+  local at: {integer} = {}
+  for i, n in ipairs(notes) do
+    local pitch = n.pitch + shift
+    if pitch >= 0 and pitch <= 127 then
+      n.pitch = pitch
+      shown[#shown + 1] = n
+      at[#at + 1] = places and places[i] or i
+    end
+  end
+  return shown, at
 end
 
 --- The note on a pitch that sounds at a beat of the clip, and its place in
 --- the notes of the clip. Nothing when there is no such note.
 function Clip:note_at(pitch: Pitch, beat: number): types.Note, integer
-  return api.clip_note_at(self.id, music.pitch(pitch), beat)
+  local shift = shift_of(self)
+  local note, place = api.clip_note_at(self.id, music.pitch(pitch) - shift, beat)
+  if note then
+    note.pitch = note.pitch + shift
+  end
+  return note, place
 end
 
--- A change of a note with its `pitch` as a MIDI number.
-local function note_change(change: NoteChangeInput): types.NoteChange
-  if change.pitch then
-    return util.merge(change as {string: Value}, {pitch = music.pitch(change.pitch) as Value}) as types.NoteChange
+--- A handle on the same clip whose pitches are `semitones` above the
+--- stored ones. The notes that it reads, and the notes and pitches that it
+--- takes, are at those pitches. The piano roll edits a clip with a
+--- transpose through such a handle, so that it shows each note at the pitch
+--- it plays at.
+function Clip:shifted(semitones: integer): Clip
+  if semitones == 0 then
+    return self
+  end
+  return setmetatable({id = self.id, shift = semitones} as Clip, getmetatable(self))
+end
+
+-- A change of a note with its `pitch` as a stored MIDI number. A number
+-- with no shift passes as it is (`music.pitch`): only a name or a shift
+-- makes a copy.
+local function note_change(change: NoteChangeInput, shift: integer): types.NoteChange
+  local pitch = change.pitch
+  if pitch is string or (pitch and shift ~= 0) then
+    return util.merge(change as {string: Value}, {pitch = (music.pitch(pitch) - shift) as Value}) as types.NoteChange
   end
   return change as types.NoteChange
+end
+
+-- Notes as `add_note` takes each, normalized, at their stored pitches.
+local function stored_notes(clip: Clip, notes: {NoteInput}): {types.Note}
+  local out = M.notes(notes)
+  local shift = shift_of(clip)
+  if shift ~= 0 then
+    for _, n in ipairs(out) do
+      n.pitch = n.pitch - shift
+    end
+  end
+  return out
 end
 
 --- Change one note, by its place in the notes of the clip (from 1). The
@@ -1290,7 +1367,7 @@ end
 --- the new place of the note, because notes stay in the order of their
 --- start. `attr = false` removes its attribute.
 function Clip:set_note(index: integer, fields: NoteChangeInput): integer
-  return api.clip_note_set(self.id, index, note_change(fields))
+  return api.clip_note_set(self.id, index, note_change(fields, shift_of(self)))
 end
 
 --- Remove the note at a place among the clip's notes (from 1).
@@ -1303,10 +1380,11 @@ end
 ---   clip:edit_notes({ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note } })
 function Clip:edit_notes(edit: NotesEditInput)
   local set: {types.NoteChange} = {}
+  local shift = shift_of(self)
   for i, change in ipairs(edit.set or {}) do
-    set[i] = note_change(change)
+    set[i] = note_change(change, shift)
   end
-  api.clip_notes_edit(self.id, {set = set, remove = edit.remove or {}, add = M.notes(edit.add or {})})
+  api.clip_notes_edit(self.id, {set = set, remove = edit.remove or {}, add = stored_notes(self, edit.add or {})})
 end
 
 --- The waveform of an audio clip: `n` { min, max, rms } entries. Each entry
@@ -1319,7 +1397,7 @@ end
 
 --- Replace every note of the clip with `notes` (as `add_note` takes each).
 function Clip:set_notes(notes: {NoteInput})
-  api.clip_set_notes(self.id, M.notes(notes))
+  api.clip_set_notes(self.id, stored_notes(self, notes))
 end
 
 --- The events of the clip that are not notes: controller moves, the pitch
@@ -1331,7 +1409,17 @@ end
 --- for the note on that key only, as in MIDI 2.0: its own bend, pressure
 --- or controller.
 function Clip:controls(): {types.Control}
-  return api.clip_controls(self.id)
+  local controls = api.clip_controls(self.id)
+  local shift = shift_of(self)
+  if shift ~= 0 then
+    -- A move of one key follows its note.
+    for _, c in ipairs(controls) do
+      if c.key then
+        c.key = c.key + shift
+      end
+    end
+  end
+  return controls
 end
 
 ---   clip:set_controls({ { start = 0, type = "cc", number = 64, value = 1 },
@@ -1339,22 +1427,23 @@ end
 function Clip:set_controls(controls: {ControlInput})
   local out: {types.Control} = {}
   for i, c in ipairs(controls) do
-    out[i] = c.key and util.merge(c as {string: Value}, {key = music.pitch(c.key) as Value}) as types.Control
-      or c as types.Control
+    out[i] = c.key
+      and util.merge(c as {string: Value}, {key = (music.pitch(c.key) - shift_of(self)) as Value}) as types.Control or c
+      as types.Control
   end
   api.clip_set_controls(self.id, out)
 end
 
 --- Add several notes as one edit (as `add_note` takes each).
 function Clip:add_notes(notes: {NoteInput})
-  api.clip_add_notes(self.id, M.notes(notes))
+  api.clip_add_notes(self.id, stored_notes(self, notes))
 end
 
 ---   clip:add_note({ pitch = "E4", start = 1, length = 0.5, velocity = 90 })
 ---   clip:add_note({ pitch = "G4", start = 2, attr = paw.attr.m2("11.A") })   -- pizzicato
 --- Returns the note's place among the clip's notes.
 function Clip:add_note(note: NoteInput): integer
-  return api.clip_note_add(self.id, M.notes({note})[1])
+  return api.clip_note_add(self.id, stored_notes(self, {note})[1])
 end
 
 --- The clip as plain data, for `paw.restore_clip`.
@@ -1386,11 +1475,16 @@ function Clip:snapshot(): ClipSnapshot
     meta = next(c.meta) and c.meta or nil,
     -- A clip off the timeline, played only when cued.
     cue = c.cue or nil,
+    -- A MIDI clip's overrides: the copy plays as the clip does.
+    transpose = c.transpose ~= 0 and c.transpose or nil,
+    velocity = c.velocity ~= 0 and c.velocity or nil,
   }
   if c.kind == "midi" then
-    snap.notes = self:notes()
+    -- The stored notes, also through a shifted handle: the copy has the
+    -- same transpose.
+    snap.notes = api.clip_notes(self.id)
     if c.control_count > 0 then
-      snap.controls = self:controls()
+      snap.controls = api.clip_controls(self.id)
     end
   end
   return snap
@@ -1671,6 +1765,10 @@ setmetatable(
   } as metatable<M.Project>
 )
 
+-- The playhead was put at a beat by hand (`seek` below): the transport
+-- keys in paw/defaults/transport.lua listen.
+local playhead_placed: events.Event<events.Payload> = events.event("playhead.placed")
+
 -- `paw.transport.play()`, `paw.transport.position`, `paw.transport.loop_enabled = true`
 local transport: M.Transport = {
   play = api.transport_play,
@@ -1680,7 +1778,7 @@ local transport: M.Transport = {
   record = function() paw.ui.poke(); api.transport_record() end,
   --- Put the playhead at a beat. While the song is stopped, play starts
   --- from there until the cursor moves (`paw.opt.play_from`).
-  seek = function(beats: number) api.transport_seek(beats); events.emit("playhead.placed") end,
+  seek = function(beats: number) api.transport_seek(beats); events.emit(playhead_placed) end,
   get = api.transport_get,
   toggle = function()
     if api.transport_get().playing then
@@ -1862,8 +1960,38 @@ M.time = time
 -- subproject, beat 0 is where the subproject's block starts in the song
 -- (`origin`), and bars are the song's bars there, so that a subproject
 -- shows the song's meter at its place. Bar numbers stay the song's;
--- `paw.scope.bar_offset` counts them from 1 at the scope's start. A beat of
--- the song (the playhead's) is `beat - time.origin()` in the window's time.
+-- `paw.scope.bar_offset` counts them from 1 at the scope's start.
+--
+-- A subproject with its own tempo or meter counts in its own map instead
+-- (`paw.scope.own_time`): its bars from 1, at its tempo. A beat of the song
+-- (the playhead's) is `time.local_beat(beat)` in the window's time, and
+-- back with `time.song_beat`.
+
+--- The map the window counts in, and the song's beat of its beat 0: the
+--- song's map, or a subproject's own map (no offset then).
+local record Map
+  bar_of: function(self: Map, beat: number): integer
+  bar_start: function(self: Map, bar: integer): number
+  bar_length: function(self: Map, beat: number): number
+  signature: function(self: Map, beat: number): integer, integer
+  tempo: function(self: Map, beat: number): number
+  bbt: function(self: Map, beat: number): integer, integer, number
+  seconds: function(self: Map, beat: number): number
+  lines: function(self: Map, from: number, to: number, limit?: integer): {types.TempoLine}
+end
+
+local song_map: Map = {
+  bar_of = function(_: Map, beat: number): integer return api.tempo_bar_of(beat) end,
+  bar_start = function(_: Map, bar: integer): number return api.tempo_bar_start(bar) end,
+  bar_length = function(_: Map, beat: number): number return api.tempo_bar_length(beat) end,
+  signature = function(_: Map, beat: number): (integer, integer) return api.tempo_signature(beat) end,
+  tempo = function(_: Map, beat: number): number return api.tempo_at(beat) end,
+  bbt = function(_: Map, beat: number): (integer, integer, number) return api.tempo_bbt(beat) end,
+  seconds = function(_: Map, beat: number): number return api.tempo_seconds(beat) end,
+  lines = function(_: Map, from: number, to: number, limit?: integer): {types.TempoLine}
+    return api.tempo_lines(from, to, limit)
+  end,
+}
 
 --- The song's beat of beat 0 of the window's time: where the subproject
 --- the window is in starts in the song; 0 in the song.
@@ -1872,62 +2000,132 @@ function time.origin(): number
   return scope and scope.origin and scope.origin() or 0
 end
 
+--- The own time of the subproject the window is in, when it has its own
+--- tempo or meter; else nil.
+function time.own(): types.NestTime
+  local scope = paw.scope
+  return scope and scope.own_time and scope.own_time() or nil
+end
+
+--- The map the window counts in, and what to add to its beats for that map.
+local function window_map(): Map, number
+  local own = time.own()
+  if own then
+    return own as Map, 0
+  end
+  return song_map, time.origin()
+end
+
+--- The song's beat of a beat of the window's time, and back.
+function time.song_beat(beat: number): number
+  local own = time.own()
+  if own then
+    return own:song_beat(beat)
+  end
+  return beat + time.origin()
+end
+function time.local_beat(song_beat: number): number
+  local own = time.own()
+  if own then
+    return own:nest_beat(song_beat)
+  end
+  return song_beat - time.origin()
+end
+
 --- Length in beats of the bar at beat `at` (the first bar if left out).
 function time.bar(at?: number): number
-  return api.tempo_bar_length((at or 0) + time.origin())
+  local m, o = window_map()
+  return m:bar_length((at or 0) + o)
 end
 
 --- Beat where bar `n` (1-based) starts.
 function time.bar_start(n: integer): number
-  return api.tempo_bar_start(n - 1) - time.origin()
+  local m, o = window_map()
+  return m:bar_start(n - 1) - o
 end
 
 --- The signature (two numbers) and the tempo at a beat, as `paw.tempo` has them.
 function time.signature_at(beat?: number): integer, integer
-  return api.tempo_signature((beat or 0) + time.origin())
+  local m, o = window_map()
+  return m:signature((beat or 0) + o)
 end
 function time.tempo_at(beat?: number): number
-  return api.tempo_at((beat or 0) + time.origin())
+  local m, o = window_map()
+  return m:tempo((beat or 0) + o)
+end
+
+--- The tempo points of the window's time, the start's first: { beat, bpm,
+--- ramp }, beats of the window. In a subproject with its own tempo, its
+--- own points; else the song's, from the window's origin.
+function time.tempo_points(): {types.TempoPoint}
+  local own = time.own()
+  if own then
+    return own:points().tempos
+  end
+  local o = time.origin()
+  local out: {types.TempoPoint} = {}
+  for i, p in ipairs(api.tempo_points().tempos) do
+    out[i] = {beat = p.beat - o, bpm = p.bpm, ramp = p.ramp}
+  end
+  return out
+end
+
+--- The signature points of the window's time, the start's first: { beat,
+--- num, den, bar }, beats of the window, bars of its map. In a subproject
+--- with its own tempo or meter, its own points; else the song's, from the
+--- window's origin.
+function time.signature_points(): {types.SigPoint}
+  local own = time.own()
+  if own then
+    return own:points().signatures
+  end
+  local o = time.origin()
+  local out: {types.SigPoint} = {}
+  for i, s in ipairs(api.tempo_points().signatures) do
+    out[i] = {beat = s.beat - o, num = s.num, den = s.den, bar = s.bar}
+  end
+  return out
 end
 
 --- The bar (1-based) a beat is in.
 function time.bar_of(beat: number): integer
-  return api.tempo_bar_of(beat + time.origin()) + 1
+  local m, o = window_map()
+  return m:bar_of(beat + o) + 1
 end
 
 --- Where the bar a beat is in starts.
 function time.bar_floor(beat: number): number
-  local o = time.origin()
-  return api.tempo_bar_start(api.tempo_bar_of(beat + o)) - o
+  local m, o = window_map()
+  return m:bar_start(m:bar_of(beat + o)) - o
 end
 
 --- The first bar line at or after a beat.
 function time.bar_ceil(beat: number): number
-  local o = time.origin()
+  local m, o = window_map()
   local song = beat + o
-  local bar = api.tempo_bar_of(song)
-  local start = api.tempo_bar_start(bar)
+  local bar = m:bar_of(song)
+  local start = m:bar_start(bar)
   -- The bar of a beat a hair before a bar line can be the bar after the
   -- line (the kernel rounds): its start is then the line asked for, not
   -- a bar before the next one.
   if start >= song - 1e-12 then
     return start - o
   end
-  return api.tempo_bar_start(bar + 1) - o
+  return m:bar_start(bar + 1) - o
 end
 
 --- The bar lines from beat `from` up to `to`: { beat, bar } each, bars
 --- counting from 1.
 function time.bars(from: number, to: number): {BarLine}
-  local o = time.origin()
+  local m, o = window_map()
   local out: {BarLine} = {}
   from, to = from + o, to + o
-  local bar = api.tempo_bar_of(math.max(0, from))
-  if api.tempo_bar_start(bar) < from - 1e-9 then
+  local bar = m:bar_of(math.max(0, from))
+  if m:bar_start(bar) < from - 1e-9 then
     bar = bar + 1
   end
   while #out < 10000 do
-    local beat = api.tempo_bar_start(bar)
+    local beat = m:bar_start(bar)
     if beat >= to then
       break
     end
@@ -1937,10 +2135,26 @@ function time.bars(from: number, to: number): {BarLine}
   return out
 end
 
+--- The bar and beat lines from beat `from` up to `to`, at most `limit`:
+--- { beat, bar, index } each, `index` 0 on a bar line, bars from 1, as
+--- `paw.tempo.lines` gives them for the song. In a subproject with its own
+--- meter, they are its bars.
+function time.lines(from: number, to: number, limit?: integer): {types.TempoLine}
+  local m, o = window_map()
+  local out = m:lines(from + o, to + o, limit)
+  if o ~= 0 then
+    for _, line in ipairs(out) do
+      line.beat = line.beat - o
+    end
+  end
+  return out
+end
+
 --- "bar.beat.hundredths" for a position in beats, counting from 1; beats
 --- are of the signature's unit (an eighth in 6/8).
 function time.format(beats: number): string
-  local bar, beat, frac = api.tempo_bbt(beats + time.origin())
+  local m, o = window_map()
+  local bar, beat, frac = m:bbt(beats + o)
   local part = math.floor(frac * 100 + 0.5)
   if part >= 100 then
     part = 99
@@ -1950,21 +2164,22 @@ end
 
 --- Seconds that `beats` beats take from beat `at` (the start if left out).
 function time.seconds(beats: number, at?: number): number
-  at = (at or 0) + time.origin()
-  return api.tempo_seconds(at + beats) - api.tempo_seconds(at)
+  local m, o = window_map()
+  at = (at or 0) + o
+  return m:seconds(at + beats) - m:seconds(at)
 end
 
 --- Seconds from the start of the song to beat `beat`, and back.
 function time.to_seconds(beat: number): number
-  return api.tempo_seconds(beat + time.origin())
+  return api.tempo_seconds(time.song_beat(beat))
 end
 function time.to_beat(seconds: number): number
-  return api.tempo_beat(seconds) - time.origin()
+  return time.local_beat(api.tempo_beat(seconds))
 end
 
 --- "m:ss.s" for a beat's time from the start of the song.
 function time.clock(beat: number): string
-  local seconds = api.tempo_seconds(beat + time.origin())
+  local seconds = time.to_seconds(beat)
   return string.format("%d:%04.1f", math.floor(seconds / 60), seconds % 60)
 end
 

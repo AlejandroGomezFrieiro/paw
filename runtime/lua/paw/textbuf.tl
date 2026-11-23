@@ -27,6 +27,7 @@ local events = require("paw.events")
 local commands = require("paw.commands")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type SeatsModule = require("paw.seats")
 local type CanvasModule = require("paw.canvas")
 local type UiModule = require("paw.ui")
@@ -118,8 +119,7 @@ end
 
 --- What a register holds that this module puts: lines (with the buffer
 --- they were yanked from), a block of rows, or text. Others put tracks.
-local record Register
-  kind: string
+local record Register is KeymapModule.Register
   lines: {Line}
   source: string
   rows: {string}
@@ -159,41 +159,8 @@ local record Cell
   col: integer
 end
 
--- What this module reads of the modules that are still in Lua.
-
 --- What `paw.keymap.set` takes besides the key and what it does.
-local record MapOptions
-  view: string
-  desc: string
-  mode: string | {string}
-  motion: boolean
-  linewise: boolean
-  jump: boolean
-  char: boolean
-  repeatable: boolean
-  operator: function(region: Region, ctx?: KeyContext)
-  object: function(): Region
-end
-
---- The last selection that visual mode closed: where it started, and the
---- row of the cursor when it closed.
-local record Visual
-  row: number
-  cursor_row: number
-end
-
---- paw/keymap.lua, as far as this module calls it.
-local record Keymap
-  mode: string
-  last_visual: Visual
-  set: function(lhs: string, rhs: contracts.KeyFn, opts: MapOptions)
-  set_mode: function(mode: string)
-  setreg: function(value: Register, name: string, yank?: boolean)
-  getreg: function(name: string): Register
-  normal: function(keys: string)
-  selection: function(): Region
-  changed: function()
-end
+local type MapOptions = KeymapModule.MapOptions
 
 --- What a key of a kind gets, wrapped by `paw.layout.powers`.
 local type Wrapped = function(ctx: KeyContext, region?: Region): Region
@@ -235,6 +202,7 @@ local record PawState
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   seats: SeatsModule
   canvas: CanvasModule
   mouse: MouseModule
@@ -246,7 +214,7 @@ local record Paw is partial.Paw
 end
 local paw = (_G as {string: Paw}).paw
 local layout = paw.layout as Layout
-local keymap = paw.keymap as Keymap
+local keymap = paw.keymap
 local function ui(): UiModule
   return paw.ui
 end
@@ -266,7 +234,7 @@ local record InsertOptions
   block: Block
 end
 
-local type Operator = function(region: Region, ctx?: KeyContext)
+local type Operator = KeymapModule.Operator
 
 --- The operators of the text.
 local record Ops
@@ -611,7 +579,9 @@ end
 
 --- Make a kind of text buffer. It shows for the names that its `pattern`
 --- matches (`paw://` and the others). See `docs/reference/lua-views.md`. A kind with
---- `readonly` (the message for a change) cannot change. `gutter = false`
+--- `readonly` (the message for a change) cannot change. A kind with
+--- `scratch` (the message for `:w`) is never written, and `:q` closes it
+--- with its changes. `gutter = false`
 --- removes the line numbers. paw does not read a `static` kind again when
 --- the project changes. `paint(canvas, x, y, text, kind, width, row, buf)`
 --- draws a line in place of the usual colors.
@@ -1609,15 +1579,12 @@ function M.insert(how: string, opts?: InsertOptions)
   begin_insert(win, buf, opts and opts.block)
 end
 
---- The payload of `mode.changed` (paw/keymap.lua): the mode, and the one before.
-local record ModeChanged
-  mode: string
-  old: string
-end
+--- The payload of `mode.changed` (paw/keymap.tl): the mode, and the one before.
+local type ModeChanged = KeymapModule.ModeChanged
 
 -- Insert mode ends when the window loses the keyboard.
 events.on(
-  events.event("mode.changed") as events.Event<ModeChanged>,
+  paw.keymap.mode_changed,
   function(e: ModeChanged)
     if e.old == "i" and e.mode ~= "i" and ins then
       insert_finish()
@@ -1834,7 +1801,7 @@ function M.put(before: boolean, register?: string, count?: integer)
   if not win then
     return
   end
-  local value = keymap.getreg(register)
+  local value = keymap.getreg(register) as Register
   if not value then
     return paw.notify("nothing to put yet", "warn")
   end
@@ -1990,7 +1957,7 @@ end
 
 -- Text objects ------------------------------------------------------------------------
 
-local type Object = function(): Region
+local type Object = KeymapModule.TextObject
 
 local function word_object(around: boolean, big: boolean): Object
   return function(): Region
@@ -2380,6 +2347,10 @@ ex.w = function(c: ExLine): boolean
   if c.args ~= "" or c.ranged then
     return false
   end
+  if c.buf.state.kind.scratch then
+    paw.notify(c.buf.state.kind.scratch, "warn")
+    return
+  end
   M.write(c.buf, c.bang)
 end
 ex.write = ex.w
@@ -2396,6 +2367,9 @@ ex.e = function(c: ExLine): boolean
 end
 ex.edit = ex.e
 ex.wq = function(c: ExLine): boolean
+  if c.buf.state.kind.scratch then
+    return ex.w(c)
+  end
   if not c.t:modified() then
     return false
   end
@@ -2406,7 +2380,8 @@ ex.q = function(c: ExLine): boolean
   if c.bang then
     M.reload(c.buf)
   end
-  if not c.t:modified() then
+  -- A scratch kind's changes are never written: they go with the window.
+  if c.buf.state.kind.scratch or not c.t:modified() then
     return false
   end
   paw.notify("the buffer has changes: `:w` applies them, `:q!` closes the window without", "warn")
@@ -2723,7 +2698,7 @@ local function render(win: Window, canvas: Buf, ctx?: contracts.RenderContext)
       canvas:text(0, y, "~", "Faint")
     else
       local g = gs[row]
-      if g then
+      if g and G > 0 then
         canvas:text(0, y, string.format("%3s", g.number), "TrackIndex")
         canvas:text(3, y, g.sign, g.style)
       end
@@ -2771,7 +2746,7 @@ local function render(win: Window, canvas: Buf, ctx?: contracts.RenderContext)
       "the project changed since this was read: `:e!` reads it again, `:w!` applies your changes over it", "Warn"
   elseif mode == "i" then
     text, style = "Esc leaves insert mode · fields are two spaces apart", "Dim"
-  elseif modified then
+  elseif modified and not st.kind.scratch then
     text, style = "`:w` shows what will change and applies it · `:e!` throws the changes away · `u` undoes", "Dim"
   else
     text, style =
@@ -2986,7 +2961,7 @@ M.buf = current_buf
 -- Keys -----------------------------------------------------------------------------------------
 
 local map = keymap.set
-local nx = {"n", "x"}
+local nx: {KeymapModule.Mode} = {"n", "x"}
 local function tmap(lhs: string, rhs: contracts.KeyFn, desc: string, opts?: MapOptions)
   local o: MapOptions = opts and util.merge(opts as {string: Data}, {}) as MapOptions or {}
   o.view, o.desc = "textbuf", desc

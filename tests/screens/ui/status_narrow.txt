@@ -1,0 +1,9 @@
+{1: NOR } {2:■}{3: 1.1.00}{4: │ }120 bpm 4/4                               {5:● }{6:untitled}
+--
+0: fg=#c9ced8 bg=#16191f
+1: fg=#101216 bg=#6aa9e9 bold
+2: fg=#8a91a3 bg=#16191f
+3: fg=#eef1f6 bg=#16191f bold
+4: fg=#363d4b bg=#16191f
+5: fg=#f5a95c bg=#16191f
+6: fg=#c9ced8 bg=#16191f bold

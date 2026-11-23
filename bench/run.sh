@@ -18,13 +18,16 @@ te="$root/third_party/build-te_bench/te_bench_artefacts/Release/te_bench"
 reps="${REPS:-3}"
 
 export BENCH_TMP="${BENCH_TMP:-/tmp/paw-bench}"
-mkdir -p "$BENCH_TMP/home" "$here/results"
-# Keep both programs away from the real configuration, caches and data.
-export XDG_CACHE_HOME="$BENCH_TMP/home/cache" XDG_DATA_HOME="$BENCH_TMP/home/data" XDG_CONFIG_HOME="$BENCH_TMP/home/config"
+mkdir -p "$here/results"
+# Keep both programs away from the machine: a scratch home, XDG and runtime
+# folders, no plugin folders, as in the tests (tests/tools/env.sh).
+ROOT=$root
+PAW_TEST_SCRATCH="$BENCH_TMP/sealed"
+. "$root/tests/tools/env.sh"
 out="$here/results/$name.jsonl"
 
 d() { "$paw" --clean --no-plugins -l "$here/$1" "${@:2}" 2>/dev/null | grep '^{' >> "$out" || echo "FAILED: paw $*" >&2; }
-t() { [ -n "$te" ] && { HOME="$BENCH_TMP/home" "$te" "$@" 2>/dev/null | grep '^{' >> "$out" || echo "FAILED: te_bench $*" >&2; }; return 0; }
+t() { [ -n "$te" ] && { "$te" "$@" 2>/dev/null | grep '^{' >> "$out" || echo "FAILED: te_bench $*" >&2; }; return 0; }
 
 # The audio file both engines play.
 "$paw" --clean --no-plugins -e "dofile('$here/lib.lua').wav()" -l /dev/null >/dev/null 2>&1 || true
@@ -67,7 +70,7 @@ for r in $(seq "$reps"); do
     d edit.lua clips "$n"; d edit.lua clips "$n" nosync; t edit "$n"
     d edit.lua notes "$n"; d edit.lua notes "$n" nosync; t notes "$n"
   done
-  for n in 10 100 500 1000; do d edit.lua scale "$n"; done
+  for n in 10 100 500 1000; do d edit.lua scale "$n"; d edit.lua turn "$n"; done
 done
 
 echo "save/load and memory" >&2

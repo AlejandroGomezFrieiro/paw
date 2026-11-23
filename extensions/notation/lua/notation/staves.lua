@@ -639,7 +639,7 @@ paw.command("score", function(ctx)
     end
     tracks, label = scope.tracks(group), "the score of " .. api.track_get(group, "name")
   end
-  -- Alone: the tracks the tab is narrowed to, whichever they are then.
+  -- Alone: the tracks of the scope of the window, whichever they are then.
   local F = S.show(tracks, label, { scope = words == "" and not tracks })
   if F then shown_message(F) end
 end, {

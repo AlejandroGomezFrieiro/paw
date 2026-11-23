@@ -55,8 +55,78 @@ local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, part =
 local cleanups = {}
 local function after(fn) cleanups[#cleanups + 1] = fn end
 
+-- The errors that reached the message line --------------------------------
+--
+-- paw.try reports an error as a message and does not raise it: an event
+-- handler, a timer, a job and each key go through it. So the runner wraps
+-- paw.try and keeps each error that it reports while a test runs. A test
+-- fails when one of them is not an error that it expects
+-- (`T.expect_error`), and when an error that it expects does not come.
+-- The modules look up `paw.try` at each call, so the wrapper sees all of them.
+local reported, expected = {}, {}
+local paw_try = paw.try
+
+-- Where an error that paw.try caught comes from, in words.
+local function origin(fn, ...)
+  if fn == paw.limit.named then return (...) end -- "a handler of `render.before`", "the job x"
+  if fn == paw.keymap.dispatch then return "the key " .. tostring((...)) end
+  if type(fn) ~= "function" then return tostring(fn) end
+  local info = debug.getinfo(fn, "S")
+  return info.short_src .. ":" .. info.linedefined
+end
+
+function paw.try(fn, ...)
+  local result = { paw_try(fn, ...) }
+  if not result[1] then
+    -- The text as the message line shows it: paw.try has just said it.
+    local said = paw.ui.messages[#paw.ui.messages]
+    reported[#reported + 1] =
+      { text = said and said.text or tostring(result[2]), from = origin(fn, ...), whole = tostring(result[2]) }
+  end
+  return unpack(result, 1, table.maxn(result))
+end
+
+--- Say that the test gives an error that reaches the message line, and
+--- that matches `pattern` (a Lua pattern). It can come any number of
+--- times; the test fails if it does not come at all.
+local function expect_error(pattern) expected[#expected + 1] = { pattern = pattern, seen = false } end
+
+-- The errors of the test that it did not expect, and the expected errors
+-- that did not come, in words. Empties both lists for the next test.
+local function unexpected_errors()
+  local words = {}
+  for _, r in ipairs(reported) do
+    local known = false
+    for _, e in ipairs(expected) do
+      if r.text:find(e.pattern) then
+        e.seen, known = true, true
+      end
+    end
+    if not known then
+      words[#words + 1] = "an error reached the message line: "
+        .. r.text
+        .. " (from "
+        .. r.from
+        .. ")\n  "
+        .. r.whole:gsub("\n", "\n  ")
+    end
+  end
+  for _, e in ipairs(expected) do
+    if not e.seen then words[#words + 1] = "no error matched the expected " .. string.format("%q", e.pattern) end
+  end
+  reported, expected = {}, {}
+  return words
+end
+
+-- Two tables are equal when they hold the same values: paw.inspect sorts
+-- the keys, so equal tables give the same text.
+local function same(got, want)
+  if type(got) == "table" and type(want) == "table" then return paw.inspect(got) == paw.inspect(want) end
+  return got == want
+end
+
 local function eq(got, want, what)
-  if got ~= want then
+  if not same(got, want) then
     error(string.format("%s: got %s, want %s", what or "value", paw.inspect(got), paw.inspect(want)), 2)
   end
 end
@@ -78,8 +148,8 @@ end
 --- Wait until `cond()` gives a value that is not false or nil, and give
 --- that value. Timers fire and events come meanwhile, as between key
 --- presses (`paw.wait`). Fails with `what` after `ms` milliseconds (30
---- seconds if not given): a loaded machine is slow, not wrong, so give the
---- time that the slowest machine needs, not the time that it usually takes.
+--- seconds if not given). The limit shows a fault, not a speed: a test
+--- does not give its own (docs/how-to/run-the-tests.md).
 local function until_(cond, what, ms)
   ms = ms or 30000
   local deadline = api.now() + ms
@@ -90,10 +160,6 @@ local function until_(cond, what, ms)
     paw.wait(5)
   end
 end
-
--- Speed: processor time, and a limit that grows on a loaded machine.
-local speed = dofile("tests/tools/speed.lua")
-local cpu_ms, quick = speed.cpu_ms, speed.quick
 
 --- Wait until the engine has run `n` (1 if not given) whole audio blocks
 --- after this call, so that what was sent to it before is in effect: a
@@ -175,8 +241,21 @@ local function fresh()
   for _, w in ipairs(L.windows(paw.ui.layout)) do
     if w.scope and paw.scope then paw.scope.restore(nil, w) end
   end
+  -- The views that an earlier test popped out into windows of their own
+  -- (a tuner, a meter) go back: the start layout has no such window.
+  for _, w in ipairs(paw.canvas.windows()) do
+    paw.canvas.close(w.name)
+  end
   paw.ui.close()
   paw.ui.focus("arrange")
+  -- `<C-w>p` goes to the window before: a new test has none.
+  L.tab().prev = nil
+  -- The quickfix lists of an earlier test address its project: a new
+  -- project starts with none.
+  local qf = paw.qf.stack()
+  qf.lists, qf.at = {}, 0
+  -- An error of an earlier test would stay named on the key line.
+  require("paw.views.cmdline").read_errors()
   paw.flush()
 end
 
@@ -326,6 +405,26 @@ local function keys(text)
   api.undo_checkpoint()
 end
 
+-- The home folder of a test. env.sh gives the run a scratch HOME, and a test
+-- reads no home folder of its own accord: a test of `~` takes a folder of its
+-- own with T.home, so that what it expects does not depend on the run.
+local ffi = require("ffi")
+pcall(ffi.cdef, "int setenv(const char *name, const char *value, int overwrite);")
+local run_home, homes = os.getenv("HOME"), 0
+
+--- Make HOME `dir` (else a new folder under T.scratch) until the test ends,
+--- and give the folder.
+local function home(dir)
+  if not dir then
+    homes = homes + 1
+    dir = scratch .. "/home-" .. homes
+  end
+  os.execute("mkdir -p '" .. dir .. "'")
+  ffi.C.setenv("HOME", dir, 1)
+  after(function() ffi.C.setenv("HOME", run_home, 1) end)
+  return dir
+end
+
 -- The tests ------------------------------------------------------------------
 --
 -- This file is the runner and the helpers; the tests are in files of their
@@ -389,19 +488,20 @@ local T = {
   eq = eq,
   near = near,
   fails = fails,
+  expect_error = expect_error,
+  take_errors = unexpected_errors,
   fresh = fresh,
   start = start,
   screen = screen,
   render = render,
   tone = tone,
-  cpu_ms = cpu_ms,
-  quick = quick,
   until_ = until_,
   next_block = next_block,
   until_beat = until_beat,
   until_recorded = until_recorded,
   stop = stop,
   scratch = scratch,
+  home = home,
   read_file = read_file,
   write_wav = write_wav,
   samples = samples,
@@ -414,6 +514,8 @@ local T = {
   keys = keys,
   roll_notes = roll_notes,
 }
+-- T.expect_screen and the check of unused golden files (tests/tools/golden.lua).
+local golden_unused = dofile("tests/tools/golden.lua")(T)
 local files = {}
 local function lua_files(dir, pattern)
   local found = {}
@@ -471,10 +573,13 @@ end
 -- starts as it does in the full suite, whatever ran before it. A handler,
 -- timer or key mapping of test code that is still there, and an extension
 -- that the runner cannot unload, fail "<part> leaves no state behind".
+-- The runner also compares the state of the kernel that no registry holds
+-- (`kernel` below). Any change of it is a leak, whatever code made it, and
+-- the message names the first test that left it.
 -- `tests/leaks-allowed.txt` lists the leaks that are known, one
 -- "<part> <kind>" on each line: the list only gets shorter.
 
-local kinds = { "hooks", "timers", "keys", "extensions" }
+local kinds = { "hooks", "timers", "keys", "extensions", "engine", "midi", "step" }
 local watched = { hooks = true, timers = true, keys = true }
 
 -- Whether a function's source is a test file.
@@ -500,15 +605,89 @@ for _, reg in ipairs(paw.ext.registries) do
   if watched[reg.kind] then registries[reg.kind] = reg end
 end
 
--- The entries of the watched registries, by kind and key, and the loaded
--- extensions.
+-- State of the kernel that a test can change with the API, outside the
+-- registries. `read` gives a label in words, which the check compares, and
+-- the value that `put` takes to put it back. `put` runs in the order of the
+-- list: an engine restart also empties the MIDI test ports.
+local kernel = {
+  {
+    -- The audio backend and its settings (`api.engine_restart`).
+    kind = "engine",
+    read = function()
+      local e = api.engine_get()
+      local label = string.format("%s %g Hz %d frames", e.backend, e.sample_rate, e.buffer_size)
+      return label .. (e.midi and " with MIDI" or ""), e
+    end,
+    put = function(e)
+      api.engine_restart({
+        backend = e.backend,
+        sample_rate = e.sample_rate,
+        buffer_size = e.buffer_size,
+        midi = e.midi,
+      })
+    end,
+  },
+  {
+    -- The MIDI inputs: the test ports on the null backend
+    -- (`api.midi_test_ports`), and the ports of the program's own
+    -- (`paw.midi.open_port`), which are marked "own".
+    kind = "midi",
+    read = function()
+      local names, tests, own = {}, {}, {}
+      for _, port in ipairs(api.midi_inputs()) do
+        if port.own then
+          own[port.name] = true
+          names[#names + 1] = port.name .. " (own)"
+        else
+          tests[#tests + 1] = port.name
+          names[#names + 1] = port.name
+        end
+      end
+      return "ports {" .. table.concat(names, ", ") .. "}", { tests = tests, own = own }
+    end,
+    put = function(ports)
+      api.midi_test_ports(ports.tests)
+      for _, port in ipairs(api.midi_inputs()) do
+        if port.own and not ports.own[port.name] then api.midi_close_port(port.name) end
+      end
+    end,
+  },
+  {
+    -- The step input controls that Lua bound and no file saved.
+    kind = "step",
+    read = function()
+      local sources = {}
+      for _, b in ipairs(paw.step.bindings()) do
+        if not b.saved then sources[#sources + 1] = paw.step.source_text(b.source) end
+      end
+      table.sort(sources)
+      return "controls {" .. table.concat(sources, ", ") .. "}", sources
+    end,
+    put = function(sources)
+      local keep = {}
+      for _, text in ipairs(sources) do
+        keep[text] = true
+      end
+      for _, b in ipairs(paw.step.bindings()) do
+        if not b.saved and not keep[paw.step.source_text(b.source)] then paw.step.unbind(b.source) end
+      end
+    end,
+  },
+}
+
+-- The entries of the watched registries, by kind and key, the loaded
+-- extensions, and the state of the kernel, by kind.
 local function fingerprint()
-  local out = { extensions = {} }
+  local out = { extensions = {}, kernel = {} }
   for name in pairs(paw.ext.loaded) do
     out.extensions[name] = true
   end
   for kind, reg in pairs(registries) do
     out[kind] = reg.snapshot()
+  end
+  for _, state in ipairs(kernel) do
+    local label, value = state.read()
+    out.kernel[state.kind] = { label = label, value = value }
   end
   return out
 end
@@ -542,12 +721,20 @@ local function differences(base, now)
   end
   table.sort(changed)
   if #changed > 0 then out.extensions = table.concat(changed, ", ") end
+  for _, state in ipairs(kernel) do
+    local was, is = base.kernel[state.kind].label, now.kernel[state.kind].label
+    if was ~= is then out[state.kind] = was .. " -> " .. is end
+  end
   return out
 end
 
 -- Put back what the tests changed since `base`: the entries that test code
--- made, and the extensions (those loaded since are unloaded).
+-- made, the extensions (those loaded since are unloaded), and the state of
+-- the kernel.
 local function reset(base, now)
+  for _, state in ipairs(kernel) do
+    if base.kernel[state.kind].label ~= state.read() then pcall(state.put, base.kernel[state.kind].value) end
+  end
   for kind, reg in pairs(registries) do
     for key, value in pairs(now[kind]) do
       if value ~= base[kind][key] and made_by_tests(value) then pcall(reg.put, key, base[kind][key]) end
@@ -597,12 +784,32 @@ end
 -- The options as the run started. The runner gives them back after each
 -- test, so a test never sees what an earlier test set: the leak check does
 -- not need to look at them.
+-- Each window that the screen keeps is drawn too, and a test fails when
+-- one drew other cells with the same stamp (paw/ui.tl). It is set
+-- before the snapshot of the options, so each test gets it back.
+paw.opt.check_stamps = true
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
+-- The first test of the part that left each kind of kernel state changed,
+-- by kind. A test that puts the state back clears its entry.
+local left_by = {}
+local function note_kernel(t)
+  for _, state in ipairs(kernel) do
+    if state.read() == base.kernel[state.kind].label then
+      left_by[state.kind] = nil
+    elseif not left_by[state.kind] then
+      left_by[state.kind] = t.name
+    end
+  end
+end
 local function check(part)
   local now = fingerprint()
   local found = differences(base, now)
+  for kind, name in pairs(left_by) do
+    if found[kind] then found[kind] = found[kind] .. ' (test "' .. name .. '")' end
+  end
+  left_by = {}
   reset(base, now)
   -- The runner unloads the extensions that the tests loaded: only one that
   -- it cannot unload, or one that a test unloaded, is a leak.
@@ -624,13 +831,34 @@ local function check(part)
   end
 end
 
+--- The windows that drew other cells with the same stamp while `fn` ran.
+local function stamps_kept(fn)
+  local misses = paw.ui.stamp_misses
+  for i = #misses, 1, -1 do
+    misses[i] = nil
+  end
+  local skipped = fn()
+  if #misses > 0 then error(table.concat(misses, "\n"), 0) end
+  return skipped
+end
 for i, t in ipairs(selected) do
-  local ok, err = xpcall(t.fn, debug.traceback)
+  -- An error that came between two tests is of no test.
+  reported, expected = {}, {}
+  local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
   for j = #cleanups, 1, -1 do
     pcall(cleanups[j])
     cleanups[j] = nil
   end
   paw.option.restore(start_options)
+  note_kernel(t)
+  -- A test that skips did not reach what it expects; a test that failed
+  -- also names the errors, which can be why.
+  local errors = table.concat(unexpected_errors(), "\n")
+  if ok and type(err) ~= "string" and errors ~= "" then
+    ok, err = false, errors
+  elseif not ok and errors ~= "" then
+    err = tostring(err) .. "\n" .. errors
+  end
   if ok and type(err) == "string" then
     print("skip  " .. t.name .. " (" .. err .. ")")
   elseif ok then
@@ -659,12 +887,19 @@ if #stale > 0 then
       .. table.concat(stale, ", ")
   )
 end
+failed = failed + golden_unused()
 os.execute("rm -rf '" .. scratch .. "'")
 local left = {}
 for path in pairs(files_before and checkout_files() or {}) do
-  -- Code and pages that a person writes while the suite runs are not left
-  -- behind by a test.
-  if not files_before[path] and not path:match("%.rs$") and not path:match("%.lua$") and not path:match("%.md$") then
+  -- Code and pages that a person writes while the suite runs, and the golden
+  -- screens that PAW_BLESS=1 writes, are not left behind by a test.
+  if
+    not files_before[path]
+    and not path:match("%.rs$")
+    and not path:match("%.lua$")
+    and not path:match("%.md$")
+    and not path:match("/screens/[^/]+/[^/]+%.txt$")
+  then
     left[#left + 1] = path
   end
 end

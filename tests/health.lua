@@ -19,6 +19,13 @@ local function levels(result)
   return table.concat(out, " ")
 end
 
+--- The fonts of the machine are not read: the fonts check gets `family`.
+local real_cjk_font = paw.health.cjk_font
+local function cjk_font(family)
+  paw.health.cjk_font = function() return family end
+  T.after(function() paw.health.cjk_font = real_cjk_font end)
+end
+
 -- The errors a test means to cause are read, as `:messages` reads them,
 -- so that the key line of the tests after it does not point at them.
 local function read_errors()
@@ -27,6 +34,7 @@ local function read_errors()
 end
 
 test("checkhealth: the core's checks each report, with a level and advice", function()
+  cjk_font(nil)
   for _, name in ipairs({ "paw", "audio", "plugins", "ffmpeg", "terminal", "window", "fonts", "extensions" }) do
     local r = paw.health.run(name)
     eq(#r.items > 0, true, name .. " says something")
@@ -45,7 +53,21 @@ test("checkhealth: the core's checks each report, with a level and advice", func
   eq(#audio.items[1].advice > 0, true, "with advice")
 end)
 
+test("checkhealth fonts: names the font for Japanese and Chinese text, or warns that there is none", function()
+  cjk_font("Noto Sans CJK JP")
+  local found = paw.health.run("fonts").items[1]
+  eq(
+    found.level .. " " .. found.text,
+    "ok a font for Japanese and Chinese text in the window: Noto Sans CJK JP",
+    "a font"
+  )
+  cjk_font(nil)
+  local none = paw.health.run("fonts").items[1]
+  eq(none.level .. " " .. none.text, "warn no font for Japanese or Chinese text found by fontconfig", "no font")
+end)
+
 test("checkhealth: the command shows every check, or the ones named", function()
+  cjk_font(nil)
   paw.cmd("checkhealth")
   local text = pager_text()
   paw.ui.close()
@@ -158,3 +180,37 @@ test("checkhealth: the extensions check lists versions and requirements, and a f
     if paw.health.checks[name] then eq(#paw.health.run(name).items > 0, true, name .. "'s own check reports") end
   end
 end)
+
+test(
+  "checkhealth: a handler that waits for an event by a misspelled name or family is in the log once and in the check",
+  function()
+    T.start()
+    local function logged(name)
+      local count = 0
+      for _, line in ipairs(paw.api.log_get()) do
+        if line:find("`" .. name .. "`", 1, true) then count = count + 1 end
+      end
+      return count
+    end
+    local typo, real = paw.on("projct.saved", function() end), paw.on("project.saved", function() end)
+    local again, option = paw.on("projct.saved", function() end), paw.on("option.changed", function() end)
+    -- Patterns: a family with no declared event in it, one with, and every event.
+    local empty, family, every =
+      paw.on("undo.*", function() end), paw.on("track.*", function() end), paw.on("*", function() end)
+    T.after(function()
+      for _, id in ipairs({ typo, real, again, option, empty, family, every }) do
+        paw.off(id)
+      end
+    end)
+    eq(logged("projct.saved"), 1, "the misspelled name, one time for two handlers")
+    eq(logged("undo.*"), 1, "the family that holds no event (the events are undo and redo)")
+    eq(logged("project.saved") + logged("option.changed"), 0, "not the names that paw declares")
+    eq(logged("track.*") + logged("*"), 0, "not a family of declared events, or every event")
+    T.keys(":checkhealth events<CR>")
+    local text = pager_text()
+    paw.ui.close()
+    eq(text:find("- WARN a handler waits for `projct.saved`", 1, true) ~= nil, true, ":checkhealth events names it")
+    eq(text:find("- WARN a handler waits for `undo.*`", 1, true) ~= nil, true, "and the empty family")
+    eq(text:find("project.saved", 1, true), nil, "and only the misspelled ones")
+  end
+)

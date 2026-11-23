@@ -70,7 +70,10 @@ paw-gui --socket /tmp/studio.sock
 ```
 
 The client gives the `id`, and the reply has the same `id`. paw replies to
-the requests of one connection in their order. A request with
+the requests of one connection in their order. Each request is one action,
+so paw sends the events that it caused before its reply, and one undo takes
+it back. Keys that a terminal sends with `ui.input` can share a turn, as
+keys typed fast do. A request with
 `"id": null` gets a reply with `"id": null`. Send such requests when you do
 not need the reply.
 
@@ -87,6 +90,7 @@ not need the reply.
 | `frontend.watch` | `{ "interval": ms, "seat": "own" or "instance" }`. Defaults: 33, `"own"`. | Sends `frontend.state` events from now on. See [`frontend.watch`](#frontendwatch). |
 | `frontend.pace` | `ms` | While the song plays, sends what moves at most once in `ms` milliseconds (8 to 1000). See [`frontend.watch`](#frontendwatch). |
 | `frontend.unwatch` | | Stops them. |
+| `frontend.sync` | | Sends now what is due to the connection, then replies the number of the last `frontend.state` that it got, 0 for none. See [`frontend.sync`](#frontendsync). |
 | `scene.watch` | `{ "cell": { "w", "h" }, "roles": [...], "live": bool }` | Sends `scene.patch` events from now on, and `scene.live` events with `live`. See [Scenes](#scenes). |
 | `scene.area` | A window, a width, a height in cell units | Tells the size of a window. 0 by 0 tells that the window does not show. |
 | `scene.input` | A window, a pointer event in cell units | Sends the pointer over a window. |
@@ -210,7 +214,7 @@ make values that the window does not draw.
 
 ```json
 {"event": "frontend.state", "payload": {
-  "revision": 41, "playing": true, "position": 12.5, "time": "4.1.50",
+  "seq": 7, "revision": 41, "playing": true, "position": 12.5, "time": "4.1.50",
   "levels": [0.31, 0.3, 0, 0], "cpu": 0.075, "modal": { "mode": "n" },
   "sections": { "tracks": [ … ], "clips": [ … ] }
 }}
@@ -220,6 +224,10 @@ The payload has the values that move without a change to the project: the
 playhead, the meters, the mode. It is what `paw.frontend.state(known)`
 returns when the project did not change.
 
+- `seq` is the number of the state. The first state that a connection
+  gets is 1, and each next state has the next number. The numbers go on
+  after `frontend.unwatch` and a new `frontend.watch`, and they start again
+  only on a new connection.
 - `cpu` is the load of the engine, averaged over about one second, in steps
   of 2.5% (`paw.audio.load`), so an idle program does not send a new
   value when one block takes a little longer.
@@ -242,6 +250,32 @@ returns when the project did not change.
 | `kinds` | The kinds of device. |
 
 An idle program sends nothing.
+
+### `frontend.sync`
+
+`frontend.sync` is a barrier for a program that must know that it has all
+that paw sent. paw first finishes the keys of `ui.input` that came before
+it, as at the end of a turn, so their events go out and their undo step
+closes. Then
+it sends to the connection what is due without waiting for a timer: the
+`frontend.state` of the changes, and the scenes and `scene.live` values of
+`scene.watch`. A part that moves only with time, such as a window that
+shows a clock, waits for its next tick.
+
+The reply is the `seq` of the last `frontend.state` that the connection
+got, or 0 when it got none. paw writes a reply after the events that came
+before it, so when the program reads the reply, it has already read each
+of those events.
+
+When nothing changed, paw sends nothing between two syncs. A test uses
+this to check that a request sends nothing: a sync, the request, a sync
+again, and no event between the two replies.
+
+```json
+{"id": 9, "method": "frontend.sync", "params": []}
+{"event": "frontend.state", "payload": { "seq": 8, "sections": { "tracks": [ … ] }, … }}
+{"id": 9, "result": 8}
+```
 
 ## Scenes
 
@@ -586,8 +620,9 @@ runtime.
 | Name | Effect |
 | --- | --- |
 | `Connection::unix(path)` | Connects to a Unix socket. |
-| `Connection::tcp(address, token)` | Connects over TLS. It remembers the certificate in the state directory. |
+| `Connection::tcp_with(address, token, &Wire::tls(&dirs))` | Connects over TLS. It remembers the certificate in the state directory of `dirs`. |
 | `Connection::tcp_with(address, token, &Wire::…)` | Connects with TLS and a different file of known certificates, or without TLS. |
+| `dirs::Dirs::from_vars(\|name\| std::env::var_os(name))` | Finds the folders of the user from `XDG_*` and `HOME`. The program does this once when it starts, and gives the folders to the functions that need them. |
 | `call(method, params)` | Sends a request and waits for its reply. |
 | `notify(method, params)` | Sends a request without a reply. |
 | `events` | The channel of events. |

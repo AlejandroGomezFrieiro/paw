@@ -21,9 +21,32 @@ While you type a command, a list above the command line shows what the line can 
 | `Shift-Tab`, `Ctrl-p` | Puts the previous item in the line. |
 | `Enter` | Runs the line. On a directory, it opens the directory in the list. |
 | `Up`, `Down` | The lines typed before. |
+| `Ctrl-f` | Opens the [command-line window](#the-command-line-window), with the text typed so far on its last line. |
 | `Esc` | Closes the command line. |
 
 A command name that is not complete runs the command of that name with `.open`, if an extension has one, so `:notation` runs `:notation.open`. Otherwise paw shows the commands that the name can mean.
+
+## The command-line window
+
+<!-- tags: cmdwin q: q/ -->
+
+The command-line window shows the commands that you typed before as lines of text, so that you can edit a long command, for example a `:g` line, and run it again. It opens in a window along the bottom of the screen, with the oldest line first and the cursor on an empty last line.
+
+| Key | Effect |
+| --- | --- |
+| `q:` | Opens the window with the history of `:`. |
+| `q/` | Opens the window with the history of `/`, the searches. |
+| `Ctrl-f` | In the command line or another prompt, opens the window with the history of that prompt, and the text typed so far is on the last line. |
+
+In the window, every key of [lists edited as text](lists-edited-as-text.md) works, in normal mode and in insert mode, so you can move to a line with `k` and change a word with `cw`.
+
+| Key or command | Effect |
+| --- | --- |
+| `Enter` in normal mode | Closes the window, and runs the line under the cursor in the window that you were in before. The line goes in the history. |
+| `:q`, `Ctrl-c` | Closes the window and runs nothing. |
+| `:w` | Writes nothing, and shows a message. |
+
+Your edits to the lines don't change the history, and only the line that you run is added to it.
 
 ## Options
 

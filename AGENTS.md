@@ -158,8 +158,10 @@ nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check
 nix develop -c tools/tlcheck.sh                 # cyan check on all .tl files (the suite does it too)
 nix develop -c luacheck .                       # unused and undefined names in the .lua files
 nix develop -c tools/fmtcheck.sh                # every Lua and Teal file formatted (`fix` formats them)
+nix develop -c luajit tools/layers.lua          # no module of the runtime reads a higher layer (the suite does it too)
 nix develop -c tools/vale.sh                   # the docs
 nix build .#website                            # the manual as a static site (tools/website/build.sh)
+nix develop -c cargo check -p paw-fuzz          # the fuzz targets compile (tools/fuzz.sh runs them, CI only)
 nix flake check                                # all of the checks
 ```
 
@@ -168,6 +170,10 @@ nix flake check                                # all of the checks
 - No test depends on time or load: no sleep, no deadline as an
   assertion, no count of frames. Wait for an event or a state. A time in
   milliseconds goes to `bench/`. A test checks behavior, not speed.
+- `tools/testlint.lua` refuses a new sleep, clock read or speed check in
+  a test. The suite and `nix flake check` run it. Its allow-list
+  `tests/timing-allowed.txt` only gets shorter. It also refuses a read
+  of `HOME`, `USER` or `/etc/passwd`, or a `/home/` path, in a test.
 - Check that a thing does not happen only after a sync point: first let
   the kernel do its work (a state, a block, a sync request), and go past
   each timer that could make it happen. "Nothing came in 300 ms" is not
@@ -176,7 +182,8 @@ nix flake check                                # all of the checks
   the home folder, not the installed plugins, not the user name, the
   fonts, the desktop bus or the network. `tests/tools/env.sh` (Lua) and
   `sealed::seal` in `crates/*/tests/sealed/mod.rs` (Rust) give a scratch
-  home and empty plugin folders. Mock what a test needs: the stub CLAP
+  home, scratch XDG and runtime folders, empty plugin folders and the
+  user name `paw-test`. A Lua test of `~` uses `T.home()`. Mock what a test needs: the stub CLAP
   plugin, a fake behind a trait, or a scratch folder. Run paw by hand
   only through `tests/tools/run.sh`.
 - A flaky test is a bug in the test. No retries. Do not change a time or

@@ -1232,7 +1232,11 @@ local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lo
   for _, clip in ipairs(track:clips() as {Untyped}) do
     local c = clip:get() as types.Clip
     if c.kind == "midi" and not c.muted and (not only or only[clip.id as integer]) then
-      for _, n in ipairs(clip:notes() as {types.Note}) do
+      -- The clip's overrides (`:clip.override`) as it plays them: its notes
+      -- at the pitches they play, with the velocity change.
+      local played = clip:shifted(c.transpose or 0)
+      local louder = c.velocity or 0
+      for _, n in ipairs(played:notes() as {types.Note}) do
         if n.start >= -1e-9 and n.start < c.length - 1e-9 then
           local length = math.min(n.length, c.length - n.start)
           local note_meta = (n.meta or {}) as M.NoteMeta
@@ -1240,7 +1244,7 @@ local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lo
             tick = (c.start + n.start) * EXPORT_PPQ,
             length = length * EXPORT_PPQ,
             pitch = n.pitch,
-            velocity = n.velocity,
+            velocity = math.max(1, math.min(127, n.velocity + louder)),
             channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
             lyric = type(note_meta.lyric) == "string" and note_meta.lyric or nil,
             attr = n.attr,
@@ -1251,8 +1255,9 @@ local function export_track(track: Untyped, only: {integer: boolean}, lost: M.Lo
           end
         end
       end
-      for _, k in ipairs(c.control_count > 0 and clip:controls() as {types.Control} or {}) do
-        if k.start >= -1e-9 and k.start < c.length - 1e-9 then
+      for _, k in ipairs(c.control_count > 0 and played:controls() as {types.Control} or {}) do
+        local in_range = not k.key or (k.key >= 0 and k.key <= 127)
+        if in_range and k.start >= -1e-9 and k.start < c.length - 1e-9 then
           local raw: Control = {
             tick = (c.start + k.start) * EXPORT_PPQ,
             type = k.type,

@@ -1,6 +1,6 @@
 # Subprojects
 
-<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW -->
+<!-- tags: subproject subprojects nest :nest.new <Space>za nest_track :nest.list :nest.outputs :nest.promote <Space>zp :scope.write <Space>zw <Space>zW :nest.time :nest.meter :nest.unique -->
 
 A subproject is a section of the song with tracks of its own and a
 timeline of its own. The song plays it from a row of its own, its return
@@ -56,15 +56,28 @@ song back where it was, in one step.
 `:nest.new` writes `name=`, `bars=` and `meter=` too, for example
 `:nest.new name=Slow part bars=4 meter=3/4`.
 
+Two more words change what `:nest.new` does with the time of the song:
+
+- `meter=own`, for example `:nest.new Ballad 8 6/8 meter=own`, gives the
+  subproject its meter and leaves the tempo map of the song as it is. The
+  song keeps its bars over the block, so the two meters run side by side,
+  and nothing after the section moves. The message ends with `(the song's
+  meter stays)`. Inside the subproject, the ruler, the grid and the
+  status line count its meter.
+- `tempo=own` gives the subproject a tempo of its own from the start, at
+  the tempo of the song where the block starts. The message ends with
+  `its own tempo, 120 bpm`, with the tempo it took.
+
 | Option | Default | Effect |
 | --- | --- | --- |
 | `nest_track` | `"track"` | The track that a new subproject starts with: `"track"` for a plain track, as `o` adds, or the name of a kind of track, for example `"vocal"`. |
 
 ## Time inside a subproject
 
-A subproject follows the tempo of the song. Its bars are the bars of the
-song at the place of its block, counted from 1, so a subproject over a 6/8
-section shows bars of 6/8.
+A subproject follows the tempo and the meter of the song unless you give
+it its own. Its bars are then the bars of the song at the place of its
+block, counted from 1, so a subproject over a 6/8 section shows bars of
+6/8.
 
 - `:tempo` inside a subproject changes the tempo map of the song at the
   place in the song, and the message names the bar of the song. For
@@ -80,6 +93,58 @@ section shows bars of 6/8.
 
 See [Tempo and time signatures](tempo.md) for the commands.
 
+### Its own tempo and meter
+
+| Command | Effect |
+| --- | --- |
+| `:nest.time own` | Give the subproject at the cursor a tempo of its own, the tempo of the song over its first block. The sound doesn't change at first. One undo step. |
+| `:nest.time own 90` | The same, at 90 bpm throughout. |
+| `:nest.time follow` | Make the subproject follow the tempo of the song again. |
+| `:nest.meter 6/8` | Give the subproject a meter of its own, and leave the tempo map of the song as it is. |
+| `:nest.meter follow` | Make the subproject count the bars of the song again. |
+
+The subproject at the cursor is the one the window is in, or else the one
+of the block at the cursor.
+
+A subproject with its own tempo keeps its seconds when the song's tempo
+changes. A ritardando of the song over the block leaves its notes where
+they were in time, and each block keeps its start in the song and lasts
+as long as the subproject plays at its own tempo, so its length in beats
+of the song follows. The devices inside the subproject get its tempo and
+its bars, so a delay synced to the tempo follows the subproject.
+
+Inside a subproject with its own tempo, the ruler counts its own bars at
+its own tempo, and with `scopebars=both` the row under it shows the
+song's bars where they fall. `:tempo` then changes the tempo of the
+subproject and not the song's, and the message says so, for example
+`90 bpm: the subproject's own tempo`. The status line shows `own tempo`,
+and `K` on a block says `own tempo` where it otherwise says `follows the
+tempo`.
+
+The tempo lane (`zT`) shows the tempo of the subproject. A tempo change
+that you make inside it goes into the tempo of the subproject at its own
+beat, and the song's tempo stays as it was. You can make the change with
+`:tempo.ramp`, `:tempo.remove`, `:tempo.tap` or `:tempo.move`, on the
+lane with the mouse or `grt`, with a tempo flag on the ruler, or in the
+curve editor of `paw://tempo`. A signature change (`:timesig`,
+`:timesig.remove`, or a signature flag on the ruler) goes into the meter
+of the subproject. If the subproject counted the song's meter, it gets a
+meter of its own, the meter that it showed, with the change in it.
+
+Inside a subproject that follows the song's tempo, the tempo lane shows
+the song's tempo from the start of the block. A change that you make on
+the lane goes into the song's tempo at the same place in the song. For
+example, in 4/4 with the block at bar 5, a change at bar 3 of the
+subproject is a change at bar 7 of the song. The tempo flags and the
+signature flags on the ruler, and the curve editor of `paw://tempo`, work
+the same way.
+
+A subproject with its own meter and no tempo of its own counts its own
+bars from the start of its block, in its meter, while the song keeps its
+bars. Inside it, `:timesig`, `:timesig.remove` and the signature flags on
+the ruler change its own meter, and a tempo change goes into the song's
+tempo at the same place in the song.
+
 ## The return row and its blocks
 
 The arrange view draws each block of a subproject on its return row in a
@@ -90,7 +155,7 @@ window draws the same blocks.
 | Keys or command | Effect |
 | --- | --- |
 | `za` on a return row | Show the tracks of the subproject under the row, in the time of the song, or hide them again. On one of those tracks, `za` hides them and puts the cursor on the row. |
-| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. |
+| `K` on a block | Describe the subproject, for example `nest Ballad · 6/8 · 8 bars · follows the tempo · 2 tracks · 1 instance · live`. The count of instances is the number of places where the song plays the subproject. |
 | `:nest.list` | Choose a subproject from a list of its blocks, with the subprojects that no block plays (`unused`), and go inside it. |
 | `:nest.outputs stems` | On the return row of a subproject, give the subproject a row for each of its tracks, named after the track, in a group under the return row. One undo step. |
 | `:nest.outputs master` | On the return row or a stem row, go back to one return row. One undo step. |
@@ -110,6 +175,23 @@ the fader, the sends and the devices of each stem row act on one track,
 and those of the return row on their sum. The master track of the
 subproject does not play with stems: its devices and fader are skipped.
 
+## One subproject in several places
+
+A copy of a block plays the same subproject, so the song can play one
+section in several places. For example, `yic` on the block at bar 9 and
+`p` at bar 97 give a second block of the same subproject. An edit inside
+the subproject, through either block, changes what both blocks play, and
+`K` on either block says `2 instances`.
+
+| Command | Effect |
+| --- | --- |
+| `:nest.unique` | Make the block at the cursor a subproject of its own, a copy named `Ballad 2` that only this block plays. The other blocks keep the subproject. One undo step. |
+
+The message names the copy and the places of the others, for example
+`Ballad 2: the block at bar 97 is a subproject of its own; Ballad still
+plays at bar 9`. When the window is inside the subproject through that
+block, it goes inside the copy.
+
 ## Save a view as a subproject
 
 | Keys or command | Effect |
@@ -126,7 +208,9 @@ that you type, else the name of the view or of its region. A name has no
 is a path to a folder.
 
 The subproject keeps the meter of the song over that time as its own,
-so the song's bars stay where they are. The markers and regions inside
+so the song's bars stay where they are. Inside a subproject with a meter
+of its own, a view saves that meter instead: a view of a 6/8 subproject
+gives a subproject in 6/8. The markers and regions inside
 the time move into the subproject. A region over the whole time stays in
 the song. A view with no time takes the song from its start to the end
 of the last clip of its tracks, and the subproject then follows the
@@ -196,6 +280,16 @@ the subproject was, so that you keep your place:
   that region if there is none.
 - A subproject with its own meter writes the meter into the tempo map of
   the song over the block, and the meter of the song back after it.
+- A subproject with its own tempo writes its tempo into the tempo map of
+  the song over the block, and the tempo of the song back after it, so the
+  render stays the same. The block then lasts its beats of the
+  subproject, and the song after it moves by the difference in beats. The
+  message says so, for example `its own tempo, 90 bpm, in the song's map
+  over bars 5-8, and 120 bpm back after it`.
+- When other blocks play the subproject too, promote works on a copy that
+  only this block plays, as `:nest.unique` makes. The other blocks keep
+  the subproject, and the message says where it still plays, for example
+  `Ballad still plays at bar 97`.
 - A subproject with a key of its own, in its `meta.key` (for example
   `"D minor"`), gives that key to the region named after it, when the key
   differs from the key of the song. The region is then a key over its
@@ -215,7 +309,7 @@ cut at the edges of the blocks, and the blocks, the subproject and its
 tracks go. The window shows a view of those tracks over the time of the
 region.
 
-Promote refuses a subproject that has more than one block, a stem row
-(`:nest.outputs master` first), and a return row that holds other clips.
+Promote refuses a stem row (`:nest.outputs master` first), and a return
+row that holds clips that aren't blocks.
 Per track, it refuses a subproject with blocks at two places, and a track
 of the subproject that has devices, lanes, or a fader or pan of its own.

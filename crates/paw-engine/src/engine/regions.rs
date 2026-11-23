@@ -6,6 +6,8 @@ use crate::clip::{AudioRegion, ClipSet};
 use crate::device::ProcessCtx;
 use crate::tempo::TempoMap;
 
+use super::clock::Clock;
+
 pub(super) const DECLICK_SECONDS: f64 = 0.003;
 
 /// Gain a fraction `x` of the way into a fade: a quarter sine, so that two
@@ -17,55 +19,68 @@ pub(super) fn fade_curve(x: f64) -> f32 {
 /// Add every audio region overlapping beats `start..end` into the block.
 /// Regions keep to time: a region plays its file at its own rate from the
 /// moment its start beat falls on, whatever the tempo does meanwhile.
+///
+/// The frames a region sounds on, and where in it each frame is, come from
+/// the clock that gives the block's beats: they do not depend on where the
+/// blocks fall. With one tempo throughout, its fades and length are in
+/// beats per frame, as before there were tempo maps; else in seconds.
 pub(super) fn mix_audio(
     clips: &ClipSet,
     left: &mut [f32],
     right: &mut [f32],
     (start, end): (f64, f64),
     map: &TempoMap,
-    bpf: Option<f64>,
+    clock: &Clock,
     ctx: &ProcessCtx,
 ) {
-    if bpf.is_some() {
-        return mix_audio_constant(clips, left, right, (start, end), ctx);
-    }
     let n = left.len();
     let sr = ctx.sample_rate as f64;
-    let t0 = ctx.seconds;
+    // Beats per frame, when the map has one tempo throughout.
+    let constant = map.is_constant().then(|| ctx.tempo / (60.0 * sr));
     for region in clips.regions(start, end) {
         if region.end <= start || region.start >= end {
             continue;
         }
-        // The region's edges, in frames from the block's first frame.
-        let (rs, re) = (map.seconds(region.start), map.seconds(region.end));
-        let first = if rs > t0 {
-            ((rs - t0) * sr).ceil() as usize
-        } else {
-            0
-        };
-        let last = (((re - t0) * sr).ceil() as usize).min(n);
+        // The frames of the block whose beats are in the region, and how
+        // many frames into the region the block's first frame is.
+        let first = clock.first_frame_at(region.start).min(n);
+        let last = clock.first_frame_at(region.end).min(n);
+        let at = clock.frames_into(region.start);
         let src_rate = region.data.sample_rate as f64;
         // Fades, in frames. An edge cut into the middle of a recording gets
         // a few milliseconds of one even when none was asked for, or it clicks.
         let declick = DECLICK_SECONDS * sr;
+        let (fade_in, fade_out, length) = match constant {
+            Some(bpf) => (
+                region.fade_in / bpf,
+                region.fade_out / bpf,
+                (region.end - region.start) / bpf,
+            ),
+            None => {
+                let (rs, re) = (map.seconds(region.start), map.seconds(region.end));
+                (
+                    (map.seconds(region.start + region.fade_in) - rs) * sr,
+                    (re - map.seconds(region.end - region.fade_out)) * sr,
+                    (re - rs) * sr,
+                )
+            }
+        };
         let span = Span {
             frames: first..last,
-            origin: (t0 - rs + region.offset) * src_rate,
+            origin: (at / sr + region.offset) * src_rate,
             step: src_rate / sr,
-            fade_in: ((map.seconds(region.start + region.fade_in) - rs) * sr)
-                .max(if region.declick_in { declick } else { 0.0 }),
-            fade_out: ((re - map.seconds(region.end - region.fade_out)) * sr)
-                .max(if region.declick_out { declick } else { 0.0 }),
-            length: (re - rs) * sr,
-            at: (t0 - rs) * sr,
+            fade_in: fade_in.max(if region.declick_in { declick } else { 0.0 }),
+            fade_out: fade_out.max(if region.declick_out { declick } else { 0.0 }),
+            length,
+            at,
         };
         span.play(region, left, right);
     }
 }
 
-/// [`mix_audio`] for one tempo throughout, in beats per frame: the
-/// arithmetic of before there were tempo maps, so that such songs render
-/// the very same samples.
+/// Audio regions for one tempo throughout, in beats per frame from the
+/// block's start beat: for a launched slot, which plays from its own phase
+/// and not on the song's clock.
 pub(crate) fn mix_audio_constant(
     clips: &ClipSet,
     left: &mut [f32],

@@ -2,12 +2,12 @@
 -- gives back to it. A view, a buffer type, a kind of text buffer, a kind of
 -- track, a kind of clip, a role, a picker, a status line component, a query field, a
 -- source of grep, a health check and a manifest. Each record has the
--- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.lua,
+-- fields that the runtime reads (paw/ui.tl, paw/layout.tl, paw/keymap.tl,
 -- paw/mouse.tl, paw/scene.tl, paw/canvas.tl, paw/statusline.tl and the
 -- other readers), with the types that they read.
 --
 -- Types only: the module is an empty table at run time. It requires only
--- paw.types, so a module of the runtime in Teal can require it, and the
+-- the types of paw.types, paw.objects and paw.util, so a module of the runtime in Teal can require it, and the
 -- functions of the modules in Lua that take a contract name it in their
 -- `@type` lines (tools/apidoc.lua). In an extension in Teal they are
 -- `paw.contracts.View`, `paw.contracts.PickSource<T>` and the others:
@@ -24,6 +24,8 @@ local type types = require("paw.types")
 -- The objects of tracks and devices (paw/objects.tl), which a kind of
 -- track gets. Only their types come in: paw/objects.tl requires no contract.
 local type objects = require("paw.objects")
+-- `util.Ordered`, the key and the place of an entry (`OwnedEntry`).
+local type util = require("paw.util")
 
 local record contracts
   -- Drawing in cells ----------------------------------------------------------
@@ -323,6 +325,8 @@ local record contracts
   --- and the name.
   record KeyContext
     count: integer
+    --- An operator's own count, when it is made with `count = "operator"`.
+    op_count: integer
     register: string
     keys: string
     char: string
@@ -363,9 +367,13 @@ local record contracts
   --- A place that a view's `grid.mark` keeps and `grid.jump` goes back
   --- to: the row and the column, and what else the view needs to find it
   --- again (a text buffer's name), or the arrange view's `track` and `beat`.
+  --- A place on the jump list also has the scope of the window (`scope`,
+  --- and `scoped` true; nil `scope` is the song).
   record GridMark is {number | string}
     track: integer
     beat: number
+    scoped: boolean
+    scope: Scope
   end
 
   --- A place of a search in a grid.
@@ -435,6 +443,10 @@ local record contracts
     modal: boolean
     --- Draws the view in cells.
     render: function(self: View, buf?: Buf, ctx?: RenderContext)
+    --- A text of what `render` reads that no event announces, such as
+    --- the cursor and the scroll of the window. A window without the
+    --- keyboard whose text did not change keeps its cells.
+    stamp: function(self: View, ctx?: RenderContext): string
     --- Gets the keys that have no mapping. True when it took the key.
     on_key: function(self: View, key: string): boolean
     on_mouse: function(self: View, e: MouseEvent): boolean
@@ -448,7 +460,11 @@ local record contracts
     grid: Grid
     status: function(self: View, ctx?: StatusContext): string | {Piece}
     describe: function(self: View): Description
-    subscope: function(self: View): string
+    --- The scopes of mappings that come before the view's own: one, or a
+    --- list with the first first (`paw.keymap.scopes`).
+    subscope: function(self: View): string | {string}
+    --- True when insert mode is a choice of keys that the key line lists.
+    insert_hints: boolean
     title_of: function(self: View): string
     --- Pixels, in a graphical frontend and a terminal that shows images.
     paint: function(self: View, g: Painter, ctx?: PaintContext)
@@ -475,8 +491,11 @@ local record contracts
     --- The state of each window, by the names of its fields.
     window_state: {string}
     window_fresh: {string}
+    --- Each window has its own table of `window_state` (an instance), not
+    --- the fields swapped into the view's table.
+    window_instances: boolean
     open_target: function(self: View, target: string): boolean, string
-    window_target: function(self: View): string
+    window_target: function(self: View): string | integer
     share: Share
     time_axis: function(self: View, ctx?: RenderContext): number, number, number
     set_time_axis: function(self: View, left: number, zoom: number, ctx?: RenderContext)
@@ -760,6 +779,9 @@ local record contracts
     name: string
     pattern: string
     readonly: string
+    --- The lines are to edit and use, not to write: `:w` gives this
+    --- message, and `:q` closes the window with the changes.
+    scratch: string
     gutter: boolean
     static: boolean
     hint: string
@@ -814,6 +836,8 @@ local record contracts
     clip_start: string
     --- Before the name of a block of a subproject.
     nest: string
+    --- After the name of a linked clip.
+    link: string
     punch_in: string
     punch_out: string
     meter_full: string
@@ -1156,6 +1180,16 @@ local record contracts
     remove: function()
   end
 
+  --- An entry that an extension adds to a list of keys (an insert kind,
+  --- a key of the pencil): its key, what it does in a few words, its
+  --- place in the lists (lower first, then by key; 50 when not given),
+  --- and the extension that added it (nil for the user's).
+  --- `paw.ext.unload` takes away the entries of an extension.
+  interface OwnedEntry is util.Ordered
+    desc: string
+    ext: string
+  end
+
   --- A key of the arrange view's insert mode (`paw.insert.add`): what it
   --- inserts at the cursor. `kind` is `midi`, `audio` (a file, asked
   --- for), `region`, `marker`, `automation` (a point of the lane), or the
@@ -1166,12 +1200,10 @@ local record contracts
   --- of track it goes on (`track` for a track of no kind; nil for every
   --- one), and `per_track` changes it on a kind of track. `open(ctx,
   --- item)` is what `<CR>` does after it: open the item in its editor.
-  --- `order` places it in the hints; `hidden` keeps it out of
-  --- `paw.opt.insertkeys`.
-  record InsertKind
-    key: string
+  --- `order` places it in `paw.opt.insertkeys` when it is added;
+  --- `hidden` keeps it out of `paw.opt.insertkeys`.
+  record InsertKind is OwnedEntry
     kind: string
-    desc: string
     length: InsertLength
     name: string
     notes: {objects.NoteInput}
@@ -1180,11 +1212,7 @@ local record contracts
     per_track: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
-    order: number
     hidden: boolean
-    --- The extension whose code added or last changed it, nil for the
-    --- user's (paw/ext.lua: what an extension owns).
-    ext: string
   end
 
   --- What `paw.insert.set` changes of a key: only the fields given. `key`
@@ -1201,7 +1229,7 @@ local record contracts
     per_track: {string: InsertPatch}
     insert: function(ctx: InsertContext): InsertedItem, string
     open: function(ctx: InsertContext, item: InsertedItem)
-    order: number
+    order: integer
     hidden: boolean
   end
 
@@ -1864,14 +1892,16 @@ local record contracts
   -- Extensions -------------------------------------------------------------------
 
   --- An extension's `manifest.lua`: its name, its version, what it is,
-  --- the versions of the API and of other extensions it needs, and the
-  --- names others may require it by.
+  --- the versions of the API and of other extensions it needs, the
+  --- names others may require it by, and what it needs of the build
+  --- (`paw.api.build().features`).
   record Manifest
     name: string
     version: string
     description: string
     requires: {string: string}
     provides: {string}
+    needs: {string}
   end
 
   --- An extension that paw loaded, or tried to (`paw.ext.loaded`): its
@@ -1883,6 +1913,8 @@ local record contracts
     version: string
     ok: boolean
     error: string
+    --- True when it did not load because the build lacks what it needs.
+    needs_unmet: boolean
   end
 end
 

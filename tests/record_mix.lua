@@ -37,6 +37,7 @@ test("the cursor reaches the master: j after the last track, $ and l in the mixe
   eq(paw.master:devices()[1] and paw.master:devices()[1].kind, "limiter", "a adds a device to the master")
   keys("3-")
   eq(paw.master.volume, -3, "- lowers the master's fader")
+  T.expect_error("^the master track has no clips")
   keys(":clip.add length=4<CR>")
   eq(#paw.master:clips(), 0, "the master takes no clips")
   eq(said():find("master track has no clips") ~= nil, true, "and says so: " .. said())
@@ -262,17 +263,18 @@ end)
 
 test(":render expands ~ as :import and :export do", function()
   start()
+  local home = T.home()
   local render = require("paw.render")
   local real, got = render.render, nil
   T.after(function() render.render = real end)
   render.render = function(path)
     got = path
-    return { peak = 0, length = 0, path = path, sample_rate = 48000 }
+    return { peak = 0, length = 0, seconds = 0, path = path, sample_rate = 48000 }
   end
   keys(":render ~/paw-mix.wav<CR>")
   render.render = real
-  eq(got, os.getenv("HOME") .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
-  eq(paw.util.expand_path("~"), os.getenv("HOME"), "~ alone is the home folder")
+  eq(got, home .. "/paw-mix.wav", ":render ~/ names a file in the home folder")
+  eq(paw.util.expand_path("~"), home, "~ alone is the home folder")
   eq(paw.util.expand_path("~x/a.wav"), "~x/a.wav", "~ before a name stays as it is")
   eq(paw.util.expand_path("a/~/b"), "a/~/b", "and ~ after the start")
 end)

@@ -37,10 +37,12 @@ command("track.pan.set", function()
   end)
 end, { desc = "Type the track's pan: L30, R25, C, or -100 to 100; +=10 and -=10 step" })
 command("tempo.set", function()
-  -- The tempo in force at the cursor: the change at or before it.
-  local point = paw.tempo.point_at(cursor.beat)
+  -- The tempo in force at the cursor: the change at or before it, in the
+  -- window's map as the tempo lane edits it (inside a subproject with its
+  -- own tempo, its own map).
+  local point = paw.tempolane.point_at(cursor.beat)
   paw.ui.ask_value({ label = "Tempo", now = point.bpm, unit = "bpm", min = 1, max = 999 }, function(v)
-    api.tempo_set(point.beat, v)
+    paw.tempolane.add(point.beat, v)
     paw.notify(
       string.format("tempo %g bpm from %s", v, point.beat == 0 and "the start" or "bar " .. paw.time.bar_of(point.beat))
     )

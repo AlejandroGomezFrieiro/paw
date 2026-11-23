@@ -366,6 +366,40 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   reset()
 end)
 
+test("K in a region scope, with no clip under the cursor: its path, its bars and the song's, its meter", function()
+  start()
+  local o, from = bridge()
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from + 1)
+  keys("znar")
+  keys("K")
+  local lines = {}
+  for _, line in ipairs(paw.ui.views.pager.lines) do
+    lines[#lines + 1] = line.text
+  end
+  local text = table.concat(lines, "\n")
+  eq(text:find("Song › Bridge · bars 1-8 (song 17-24) · 6/8 · 7 tracks\n", 1, true) ~= nil, true, text)
+  eq(text:find("Track  Violins", 1, true) ~= nil, true, "then the track")
+  reset()
+end)
+
+test("a region scope follows its region when the region gets longer, and u takes it back", function()
+  start()
+  local o, from, to = bridge()
+  paw.cursor.set_track(o.violins)
+  paw.cursor.set_beat(from + 1)
+  keys("znar")
+  local a, b = paw.scope.span()
+  eq(a == from and b == to, true, "the bridge's time")
+  paw.markers.set(paw.markers.find("Bridge").id, { length = to - from + 6 })
+  a, b = paw.scope.span()
+  eq(a == from and b == to + 6, true, "the window shows the longer region at once")
+  keys("u")
+  a, b = paw.scope.span()
+  eq(a == from and b == to, true, "u: the bridge's time again")
+  reset()
+end)
+
 test("in a region, znn enters the region inside it at the cursor, and ]z its sibling in the same parent", function()
   start()
   orchestra()
@@ -476,6 +510,8 @@ test("in Song › Bridge, :%quantize sees the bridge's time, and @19 names a bar
   start()
   local o, from, to = bridge()
   local clip = clip_over(o.cellos, 15, 27)
+  -- A long note before the bridge that sounds into it: not in its time.
+  api.clip_note_add(clip.id, { pitch = 50, start = from - clip.start - 2.9, length = 8 })
   paw.flush()
   keys(":narrow Bridge<CR>")
   keys(":%quantize 1/4<CR>")

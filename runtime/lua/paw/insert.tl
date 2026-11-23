@@ -20,8 +20,9 @@
 --   paw.insert.remove("f")
 --
 -- The keys that work are those in `paw.opt.insertkeys`; `add` puts a new
--- key there. A kind of clip (`paw.clip_kinds.define`) with an `insert` key
--- gets one too. The contract is `paw.contracts.InsertKind`.
+-- key there, at the place of its `order`. A kind of clip
+-- (`paw.clip_kinds.define`) with an `insert` key gets one too. The
+-- contract is `paw.contracts.InsertKind`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -30,8 +31,10 @@ local events = require("paw.events")
 local commands = require("paw.commands")
 local objects = require("paw.objects")
 local cursor = require("paw.cursor")
+local util = require("paw.util")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
+local type KeymapModule = require("paw.keymap")
 local type MarkersModule = require("paw.markers")
 
 local type Kind = contracts.InsertKind
@@ -39,29 +42,8 @@ local type Patch = contracts.InsertPatch
 local type Context = contracts.InsertContext
 local type Item = contracts.InsertedItem
 
---- What a mapping's function gets, as far as this module reads it.
-local record MapContext
-  count: integer
-end
-
---- The options of `paw.keymap.set` this module gives.
-local record MapOptions
-  mode: string
-  view: string
-  desc: string
-  repeatable: boolean
-  hint: boolean
-  order: integer
-end
-
---- `paw.keymap` (paw/keymap.lua), the part of it that this module calls.
-local record Keymap
-  mode: string
-  set: function(lhs: string, rhs: function(ctx: MapContext), opts: MapOptions)
-  del: function(lhs: string, opts: MapOptions)
-  set_mode: function(mode: string)
-  human: function(keys: string): string
-end
+--- What a mapping's function gets.
+local type MapContext = contracts.KeyContext
 
 --- `paw.track_kinds` (paw/track_kinds.lua), the part this module reads.
 local record TrackKinds
@@ -99,6 +81,7 @@ local record ClipKinds
 end
 
 local record Paw is partial.Paw
+  keymap: KeymapModule
   markers: MarkersModule
   clip_kinds: ClipKinds
   time: objects.Time
@@ -107,8 +90,8 @@ end
 local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
-local function keymap(): Keymap
-  return paw.keymap as Keymap
+local function keymap(): KeymapModule
+  return paw.keymap
 end
 
 --- What one insert session has made, newest last, and the count typed.
@@ -176,9 +159,30 @@ local function sync()
   api.ui_redraw()
 end
 
+--- A copy of `list` with `key` in it at the place of its kind's `order`
+--- (`util.by_order`): before the first key whose kind comes after it, else
+--- last. A key with no kind does not move the others.
+local function placed(list: {string}, key: string): {string}
+  local spec = M.kinds[key]
+  local copy: {string} = {}
+  local put = false
+  for _, k in ipairs(list) do
+    local other = M.kinds[k]
+    if not put and other and util.by_order(spec, other) then
+      copy[#copy + 1], put = key, true
+    end
+    copy[#copy + 1] = k
+  end
+  if not put then
+    copy[#copy + 1] = key
+  end
+  return copy
+end
+
 --- Add a key, or put a new kind in place of the one on it. It goes into
---- `paw.opt.insertkeys` (unless `hidden`), so it works at once.
----   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars" })
+--- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
+--- it works at once.
+---   paw.insert.add("M", { kind = "midi", desc = "A 4-bar clip", length = "4 bars", order = 15 })
 function M.add(key: string, spec: Kind): Kind
   assert(
     type(key) == "string" and key ~= "" and type(spec) == "table",
@@ -188,15 +192,11 @@ function M.add(key: string, spec: Kind): Kind
   spec.key = key
   spec.desc = spec.desc or ("A " .. tostring(spec.kind))
   spec.order = spec.order or 50
+  spec.ext = spec.ext or paw.ext.caller()
   M.kinds[key] = spec
   local list = shown()
   if not spec.hidden and not has(list, key) then
-    local copy: {string} = {}
-    for i, k in ipairs(list) do
-      copy[i] = k
-    end
-    copy[#copy + 1] = key
-    set_shown(copy)
+    set_shown(placed(list, key))
   end
   sync()
   return spec
@@ -519,7 +519,7 @@ local function step_after(item: Item)
   cursor.set_beat(item.start + length)
 end
 
-local function placed(spec: Kind, item: Item)
+local function took(spec: Kind, item: Item)
   session.items[#session.items + 1] = item
   session.specs[#session.specs + 1] = spec
   step_after(item)
@@ -568,7 +568,7 @@ press = function(key: string)
       name = spec.name,
     }
     ctx.placed = function(item: Item)
-      placed(spec, item)
+      took(spec, item)
       paw.notify("inserted " .. item.text .. " at " .. paw.time.format(item.start))
     end
     local fn = spec.insert or builtin[spec.kind] or (paw.clip_kinds.spec(spec.kind) and custom_clip)
@@ -585,7 +585,7 @@ press = function(key: string)
       end
       break
     end
-    placed(spec, item)
+    took(spec, item)
     made_n, last = made_n + 1, item
   end
   if last then
@@ -670,11 +670,8 @@ function M.describe(): string
 end
 
 -- A session is what is typed from `i` to `<Esc>`.
-local record ModeChanged
-  mode: string
-  old: string
-end
-local mode_changed: events.Event<ModeChanged> = events.event("mode.changed")
+local type ModeChanged = KeymapModule.ModeChanged
+local mode_changed = paw.keymap.mode_changed
 events.on(
   mode_changed,
   function(e: ModeChanged)
@@ -685,13 +682,9 @@ events.on(
 )
 
 -- `:set insertkeys=m,r` takes effect at once.
-local record OptionChanged
-  name: string
-end
-local option_changed: events.Event<OptionChanged> = events.event("option.changed")
 events.on(
-  option_changed,
-  function(e: OptionChanged)
+  options.changed,
+  function(e: options.Changed)
     if e.name == "insertkeys" then
       sync()
     end

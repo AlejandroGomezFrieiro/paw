@@ -219,9 +219,9 @@ local record M
   timer: integer
   --- The completion requests still out.
   pending_completion: {Out}
-  --- The event `lsp.status`.
+  --- The event `lsp.status`: a language server started, failed or stopped.
   status_changed: events.Event<StatusChanged>
-  --- The event `lsp.analysis`.
+  --- The event `lsp.analysis`: the analysis of a clip arrived from a language server.
   analysed: events.Event<Analysed>
   log_path: function(name: string): string
 end
@@ -537,6 +537,14 @@ local function close_doc(client: Client, uri: string)
     if M.analysis[id] and M.analysis[id].client == client.name then
       M.analysis[id] = nil
     end
+    -- The last server with the clip's document: its key need not be
+    -- kept up to date after each edit.
+    for _, other in pairs(clients) do
+      if other.docs[uri] then
+        return
+      end
+    end
+    document.release(id)
   end
 end
 
@@ -1721,16 +1729,15 @@ local function offer()
   )
 end
 offer()
-local startup: events.Event<kernel.Nothing> = events.event("startup")
-events.on(startup, offer)
+events.on(events.startup, offer)
 
 -- Following the project ------------------------------------------------------------
 
-local pianoroll_opened: events.Event<kernel.Nothing> = events.event("pianoroll.opened")
-local roll_clips_changed: events.Event<kernel.Nothing> = events.event("roll_clips.changed")
-local exit: events.Event<kernel.Nothing> = events.event("exit")
+-- The piano roll and its clips load before this module (paw/init.lua).
+local pianoroll = require("paw.views.pianoroll")
+local roll_clips = require("paw.roll_clips")
 events.on(
-  pianoroll_opened,
+  pianoroll.opened,
   function()
     if next(clients) then
       M.sync()
@@ -1741,14 +1748,14 @@ events.on(A.changed, schedule)
 events.on(paw.cursor.changed, schedule)
 -- Every clip the piano roll edits is open with the servers, not only the active one.
 events.on(
-  roll_clips_changed,
+  roll_clips.changed,
   function()
     if next(clients) then
       M.sync()
     end
   end
 )
-events.on(exit, function() M.stop() end)
+events.on(events.exit, function() M.stop() end)
 
 -- `:lsp` -------------------------------------------------------------------------
 

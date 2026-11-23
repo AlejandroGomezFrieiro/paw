@@ -237,11 +237,19 @@ M.register("window", function(h)
   h.info("while the song plays, the window draws " .. tostring(fps) .. " frames a second (paw.opt.window_fps)")
 end, { desc = "the graphical window and the OpenGL that draws it" })
 
-M.register("fonts", function(h)
+--- The name of a font for Japanese and Chinese text on this computer, or nil.
+--- `:checkhealth fonts` reports it.
+function M.cjk_font()
+  -- A field of the module: a test puts a fake in it and reads no font of the machine.
   local p = io.popen("fc-list ':lang=ja:outline=true' family 2>/dev/null")
   local found = p and p:read("*l")
   if p then p:close() end
-  if found and found ~= "" then
+  if found and found ~= "" then return found end
+end
+
+M.register("fonts", function(h)
+  local found = M.cjk_font()
+  if found then
     h.ok("a font for Japanese and Chinese text in the window: " .. found)
   else
     h.warn(
@@ -287,6 +295,8 @@ M.register("extensions", function(h)
           )
         end
       end
+    elseif e.needs_unmet then
+      h.error(name .. ": " .. e.error, { "a build of paw with these features loads it (`paw.api.build()`)" })
     else
       h.error(
         name .. ": " .. tostring(e.error):match("^[^\n]*"),
@@ -308,6 +318,19 @@ M.register("teal", function(h)
     h.warn(string.format("%s: %d type error%s; it loads as it is", file, #list, #list == 1 and "" or "s"), list)
   end
 end, { desc = "the types of the configuration and extensions written in Teal" })
+
+M.register("events", function(h)
+  local names = paw.events.undeclared()
+  if #names == 0 then
+    h.ok("each event that a handler waits for by its name or its family is one that paw or an extension declares")
+  end
+  for _, name in ipairs(names) do
+    h.warn(
+      "a handler waits for `" .. name .. "`, which matches no event that a part of paw or an extension declares",
+      { "check the name for a typo", "an extension declares its own events with paw.events.event(name)" }
+    )
+  end
+end, { desc = "the names of the events that handlers wait for" })
 
 M.register("derived", function(h) require("paw.derived").health(h) end, {
   desc = "the data paw derives from the project (the chords of the song): values, memory and limits",

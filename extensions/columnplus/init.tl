@@ -192,13 +192,9 @@ apply()
 -- The number of the cursor's track, in the color of the accent.
 paw.trackcolumn.set("number", {styles = {cursor = "Accent"}})
 
-local record OptionChanged
-  name: string
-end
-local option_changed: paw.events.Event<OptionChanged> = paw.events.event("option.changed")
 paw.on(
-  option_changed,
-  function(e: OptionChanged)
+  paw.option.changed,
+  function(e: paw.option.Changed)
     if e.name == "columnplus_folds" or e.name == "columnplus_foldfirst" or e.name == "ascii" then
       apply()
     end

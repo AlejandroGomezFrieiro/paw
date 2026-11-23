@@ -4,4 +4,5 @@ return {
   version = "0.1.0",
   description = "paw's own sample player, a CLAP plugin for SFZ and Decent Sampler instruments",
   requires = { paw = "^1.0" },
+  needs = { "native" },
 }

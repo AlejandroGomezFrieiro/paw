@@ -153,10 +153,7 @@ local record Draw
   g: Glyphs
 end
 --- A row of cells to draw on (`paw.buf`).
-local record Buf
-  width: integer
-  text: function(Buf, x: integer, y: integer, text: string, hl?: string)
-end
+local type Buf = contracts.Buf
 local record Paw is partial.Paw
   music: MusicModule
   markers: MarkersModule
@@ -189,7 +186,7 @@ local record M
   --- Words in a track's name, or its devices', and the range a part for it is written in.
   ranges: {Range}
   default_range: Range
-  --- The event that says the reading changed.
+  --- The event `harmony.changed`: the chords that paw hears changed.
   changed: events.Event<Changed>
   parse_key: function(spec: KeyArg): Key
   key_name: function(key: KeyArg): string

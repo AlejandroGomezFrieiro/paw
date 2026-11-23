@@ -144,6 +144,10 @@ local function on_key(key, pasted)
       return redraw()
     end
   end
+  if key == "<C-f>" and a.history_name then
+    -- The history of the prompt, in a window to edit as text (paw/cmdwin.tl).
+    return require("paw.cmdwin").edit()
+  end
   if key == "<CR>" then
     -- A directory chosen from the list is gone into rather than run.
     if chosen and chosen.label:match("/$") then
@@ -300,6 +304,26 @@ function M.state()
     history = active.history_name,
     ghost = active.ghost,
   }
+end
+
+--- Close the open prompt without running it, and give it back, with the
+--- text typed so far, so that `resume` can run it later. Nil when no prompt
+--- with a history is open.
+function M.detach()
+  local a = active
+  if not (a and a.history_name) then return nil end
+  local typed = text()
+  finish(false)
+  return a, typed
+end
+
+--- Run a prompt that `detach` gave, with `line` as its text, as if it was
+--- typed there and Enter was pressed: the line goes in its history.
+function M.resume(state, line)
+  active = state
+  state.selected, state.matches, state.match, state.index = false, nil, nil, nil
+  set_text(line)
+  finish(true)
 end
 
 --- Add a line to a prompt's history, as if typed there.
@@ -539,9 +563,16 @@ function M.unread_error()
   for i = #list, math.max(1, #list - 50), -1 do
     local m = list[i]
     if m.level == "error" then
-      if m.time > seen_at and api.now() - m.time < ERROR_SHOWN then return m end
+      if not m.read and m.time > seen_at and api.now() - m.time < ERROR_SHOWN then return m end
       return nil
     end
+  end
+end
+
+--- Count every error shown so far as read: the key line stops naming it.
+function M.read_errors()
+  for _, m in ipairs(paw.ui.messages) do
+    if m.level == "error" then m.read = true end
   end
 end
 

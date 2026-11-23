@@ -6,3 +6,10 @@ third_party/
 .claude/worktrees/
 # The cache of direnv.
 .direnv/
+# What the fuzzers find and keep (tools/fuzz.sh); the seeds are in fuzz/seeds.
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Python caches of the bench scripts.
+__pycache__/

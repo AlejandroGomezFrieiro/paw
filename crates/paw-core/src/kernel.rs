@@ -32,6 +32,10 @@ use crate::watchdog::Watchdog;
 /// drawn from here, so this is also their frame rate.
 const IDLE_PERIOD: Duration = Duration::from_millis(16);
 
+/// The request that first ends the turn of the terminal keys before it
+/// (`frontend.sync`).
+const SYNC_METHOD: &str = "frontend.sync";
+
 static RUNTIME: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../runtime/lua");
 
 /// The same modules as bytecode (made by build.rs).
@@ -107,6 +111,14 @@ pub struct KernelOpts {
     pub registry: Registry,
     pub config_dir: PathBuf,
     pub runtime_dir: Option<PathBuf>,
+    /// The user's home folder, which `~/` names in a project's files: the
+    /// program reads it once at its start (`HOME`). `None` keeps every path
+    /// outside a project absolute.
+    pub home: Option<PathBuf>,
+    /// The user's base directories (data, state, cache, runtime): the
+    /// program resolves them once at its start, and the kernel keeps its
+    /// files in them.
+    pub dirs: paw_proto::dirs::Dirs,
     pub clean: bool,
     /// Running a script (`-l`), not a session somebody works in.
     pub scripted: bool,
@@ -148,12 +160,15 @@ impl Kernel {
     pub fn new(opts: KernelOpts) -> Result<Self> {
         // The devices chosen on this machine before, unless the command line
         // names others.
-        let device_file = crate::audio::file();
+        let device_file = crate::audio::file(&opts.dirs);
         let mut backend = opts.backend.clone();
         crate::audio::apply(&mut backend, &crate::audio::load(&device_file));
         let mut session = Session::new(&backend, opts.registry)?;
         session.device_file = Some(device_file);
-        session.set_bakes(Some(crate::bake::Store::user()));
+        session.home = crate::session::folder::Home::new(opts.home);
+        session.set_bakes(Some(crate::bake::Store::user(&opts.dirs)));
+        session.sources.keep_index_in(crate::media::index::LocalIndex::default_file(&opts.dirs));
+        session.dirs = opts.dirs;
         let (tx, rx) = channel();
         // MIDI input goes straight to the engine; scripts hear of it here.
         // It waits in a queue of its own, which a script that waits empties
@@ -470,6 +485,38 @@ impl Kernel {
         self.shared.session.borrow_mut().checkpoint();
     }
 
+    /// A request of a connection to the Lua runtime (`eval`, `cmd`, the
+    /// methods of paw/remote.tl), in the seat of `client`. It is one action,
+    /// so it is a turn of its own: the turn closes before the answer goes.
+    fn request(&mut self, client: ClientId, method: String, params: &Value) -> Result<Value> {
+        // The barrier of a frontend (paw/remote.tl): the terminal keys taken
+        // before it in this turn end their turn first. Their events go out,
+        // their undo step closes, and what they changed is pushed before the
+        // answer.
+        if method == SYNC_METHOD {
+            self.settle();
+        }
+        self.enter(client);
+        // A command run over a connection may answer it (`:upload`, `:listen`).
+        self.shared.input_from.set(client);
+        let result = (|| {
+            let params = api::to_lua(&self.lua, params)?;
+            let value: LuaValue = self.call("rpc", (method, params, client))?;
+            self.lua.from_value::<Value>(value)
+        })()
+        .map_err(|err| anyhow!(told(&err)));
+        self.shared.input_from.set(0);
+        // The end of the turn, in the instance's seat as at the end of each
+        // turn of `run`. A client that sends its next request at once gets
+        // it in the same batch of messages, so without this its requests
+        // shared one turn: one undo step, and no events until it paused.
+        // The events are queued before the answer, so the client reads them
+        // first.
+        self.enter(0);
+        self.settle();
+        result
+    }
+
     fn handle(&mut self, msg: KernelMsg) {
         match msg {
             KernelMsg::Input(event) => self.input(0, event),
@@ -490,17 +537,7 @@ impl Kernel {
                     let mut session = self.shared.session.borrow_mut();
                     self.monitor.call(client, &method, &mut session)
                 } else {
-                    self.enter(client);
-                    // A command run over a connection may answer it (`:upload`, `:listen`).
-                    self.shared.input_from.set(client);
-                    let result = (|| {
-                        let params = api::to_lua(&self.lua, &params)?;
-                        let value: LuaValue = self.call("rpc", (method, params, client))?;
-                        self.lua.from_value::<Value>(value)
-                    })()
-                    .map_err(|err| anyhow!(told(&err)));
-                    self.shared.input_from.set(0);
-                    result
+                    self.request(client, method, &params)
                 };
                 // The one place an error becomes the text a client sees.
                 let _ = reply.send(result.map_err(|err| format!("{err:#}")));
@@ -649,7 +686,9 @@ impl Kernel {
             };
             if let Some(msg) = msg {
                 self.handle(msg);
-                // Take whatever else is already waiting before drawing.
+                // Take whatever else is already waiting before drawing: keys
+                // typed fast share one turn and one frame. A request of a
+                // connection ends its own turn (`request`).
                 while let Ok(msg) = self.rx.try_recv() {
                     self.handle(msg);
                 }

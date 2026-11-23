@@ -86,6 +86,14 @@ local paw = (_G as {string:Paw}).paw
 - **Events:** in Teal, `paw.on` takes a descriptor, not a string:
   `paw.on(kernel.project_saved, function(p: kernel.Saved) … end)`. A module
   that emits its own events exports `paw.events.event<P>(name)` descriptors.
+  Each event has one owner: the module that sends it exports the descriptor
+  and the payload record (`options.changed`, `options.Changed`), and the
+  other modules use them. Do not make a second descriptor or record of an
+  event. Put `--- The event `name`: when it comes.` over the field of the
+  descriptor: `tools/apidoc.lua` writes the rows of
+  `docs/reference/events.md` from it. `paw.events.event` also declares the
+  name. paw logs a `paw.on` by text with a name that no module declares
+  (`:checkhealth events`).
 - **Kernel setters** take a typed patch, one undo step:
   `api.track_set(id, { name = "Bass", volume = -6 })`. A patch cannot carry
   `nil`: to clear a field, keep the key form `api.track_set(id, "output", nil)`.
@@ -128,7 +136,7 @@ local paw = (_G as {string:Paw}).paw
 | `pcall`/`xpcall` of a function with no results gives no second value | `pcall(f, x) as (boolean, string)` |
 | A field of a module record with a local alias in its type is copied as it is into paw.d.tl when another module holds the value (`paw.ui.roles`) | qualify the types of exported fields and functions (`contracts.X`) |
 | `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
-| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
+| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl). `tools/layers.txt` gives which module is lower ([the layers](../paw-code/layers.md)) |
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
 | A field typed `{A \| B}` given a table literal that mixes a text and records (`items = { "-", { label = ... } }`) is not inferred | put the list in a local of that type first (`local items: {contracts.MenuEntry} = { ... }`) |
 | A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
@@ -139,6 +147,19 @@ local paw = (_G as {string:Paw}).paw
 | `a or b` of two function types, or of a flag and a record | compare: `(spec.preview ~= nil or spec.audition ~= nil)` |
 | A module that stores values of many item types (`paw.pick`'s open picker) | erase the type once where the value goes in (`spec as PickSource<Item>`), and give it back to the owner's own functions |
 | JSON whose shape depends on the method (`params`, `result` of JSON-RPC) | an empty record (`rpc.Payload`) cast once by each handler to its method's record; user JSON values are `util.Data` |
+| A cast to a function type in an argument list (`xpcall(f, g as function(string): string, key)`) reads `, key` as a second result | put the type in parentheses: `g as (function(string): string)` |
+| Two aliases of the same tuple (`{string, string}`) in two modules do not agree | one module names it, the other uses that name (`DrawModule.KeyHint`) |
+| `<` on two values of an enum | cast each value to `string` first |
+| A record of another module that adds fields with `is` (`record ProjectFile is KeymapModule.ProjectPlaces`) | the base must be an `interface`, not a record |
+| A value that each caller fills with its own fields (a register) | an interface with the common field (`KeymapModule.Register`); each caller has `record X is KeymapModule.Register` and casts what it reads back |
+| A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
+| Callers read and change a field of a module as a live table (`paw.keymap.registers`), and each seat has its own | keep one table; the `keep` of the seat copies the contents out and in |
+| A module keeps its own copy of a contract record (`paw.edit` had its own `Region`) | use the contract: two copies give "Region is not a Region" |
+| `local type X = require(m)` of a module that returns a value (a view): "'require' did not return a type" | the module returns a record with `type` fields and the value as a field (`paw.views.pianoroll` gives `PianoRoll`, `Layer`, `view`) |
+| A module puts its own function in place of a method of another (the strip replaced `view:render`) | a function field of the other, which its method calls (`view.strip.draw`) |
+| A module requires at its end a module that names its types (`pianoroll` loaded `roll_draw`): a loop | the module that loads both requires the higher one after the lower one (paw/init.lua) |
+| `local paw = (_G as ...).paw` in a module that paw.d.tl does not name (`views/pianoroll_mouse`): the strict check counts a shadowed `paw` | use the typed global `paw` there |
+| Ten modules kept their own record of one view, and the records did not agree (`clip` and `data` of a layer) | the view's module exports the records; each other module names them |
 
 ## What stays Lua
 

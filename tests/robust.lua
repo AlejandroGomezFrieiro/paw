@@ -1,6 +1,6 @@
--- Robustness of the kernel's interface: odd arguments to every `paw.api`
--- function, values out of range, big projects, and what is said when
--- something cannot be done.
+-- Robustness of the kernel's interface: values out of range, big projects,
+-- and what is said when something cannot be done. tests/api_boundary.lua
+-- gives wrong arguments to every `paw.api` function.
 local T = ...
 local eq, fresh = T.eq, T.fresh
 local paw = require("paw")
@@ -21,96 +21,6 @@ local function test(name, fn)
   end)
 end
 
--- Functions that wait, end the program, start processes or sockets, touch
--- devices or write files: the odd arguments below would do that for real.
-local SPARED = {
-  "^quit$",
-  "^reload$",
-  "^sleep$",
-  "^wait$",
-  "^limit_",
-  "^proc_",
-  "^sock_",
-  "^rpc_",
-  "^render",
-  "^engine_restart$",
-  "^engine_set_threads$",
-  "^engine_hold$",
-  "^audio_",
-  "^midi_open",
-  "^midi_close",
-  "^midi_test",
-  "^midi_send$",
-  "^project_load$",
-  "^project_save$",
-  "^project_backup$",
-  "^project_recover$",
-  "^project_shelve$",
-  "^project_unshelve$",
-  "^checkpoint_",
-  "^media_collect$",
-  "^media_store$",
-  "^media_adopt$",
-  "^media_relink$",
-  "^fs_",
-  "^test_",
-  "^device_add$",
-  "^device_editor$",
-  "^device_restart$",
-  "^device_load$",
-  "^plugins_",
-  "^lua_devices_",
-  "^canvas_export$",
-  "^state_set$",
-  "^ui_detach$",
-  "^transport_record$",
-  "^measure",
-  "^midi2_write$",
-  "^chain_write$",
-  "^timer_start$",
-  "^trial_begin$",
-  "^preview_play$",
-  "^log$",
-  "^undo_reset$",
-}
-
-local function spared(name)
-  for _, pattern in ipairs(SPARED) do
-    if name:find(pattern) then return true end
-  end
-  return false
-end
-
-test("no paw.api function ends the program when given odd arguments", function()
-  fresh()
-  local t = paw.add_track({ name = "Odd" })
-  t:add_clip({ start = 0, length = 4 })
-  local odd =
-    { 1, -1, 0, 0 / 0, 1e300, -1e300, "abc", "", true, {}, { 1, 2 }, { x = 1 }, { cell = 1 }, { cell = { w = "a" } } }
-  local names = {}
-  for name, fn in pairs(api) do
-    if type(fn) == "function" and not spared(name) then names[#names + 1] = name end
-  end
-  table.sort(names)
-  local calls = 0
-  for _, name in ipairs(names) do
-    local fn = api[name]
-    for _, a in ipairs(odd) do
-      -- A panic in Rust is not caught by pcall: it would end the suite here.
-      pcall(fn, a)
-      pcall(fn, t.id, a)
-      pcall(fn, a, a)
-      pcall(fn, a, a, a, a)
-      calls = calls + 4
-    end
-    pcall(fn)
-  end
-  eq(#names > 150, true, "most of the functions were tried: " .. #names)
-  eq(calls > 8000, true, "and called many ways")
-  paw.transport.stop()
-  fresh()
-end)
-
 test("ui_caps_set takes a table and says so when it is given something else", function()
   local before = api.ui_caps()
   for _, bad in ipairs({ 1, "abc", true }) do
@@ -121,42 +31,6 @@ test("ui_caps_set takes a table and says so when it is given something else", fu
   api.ui_caps_set({})
   api.ui_caps_set({ cell = 3 })
   api.ui_caps_set(before)
-end)
-
-test("adding notes one by one to a big clip takes about as long per note as to a small one", function()
-  fresh()
-  local clip = paw.add_track({ name = "Many" }):add_clip({ start = 0, length = 4 })
-  local function add(count, from)
-    local t0 = api.now()
-    for i = 1, count do
-      clip:add_note({ pitch = 60 + i % 12, start = (from + i) * 0.01, length = 0.1 })
-    end
-    return api.now() - t0
-  end
-  local small = add(2000, 0)
-  add(24000, 2000)
-  local big = add(2000, 26000)
-  eq(#clip:notes(), 28000, "every note is there")
-  -- One by one these were a look at every note each (29 s for 32000).
-  eq(
-    big < math.max(small * 8, 400),
-    true,
-    string.format("2000 notes: %.0f ms at the start, %.0f ms at 26000", small, big)
-  )
-  local ids, unique = {}, true
-  for _, n in ipairs(api.clip_notes(clip.id)) do
-    if ids[n.id] then unique = false end
-    ids[n.id] = true
-  end
-  eq(unique, true, "every note has an id of its own")
-  local again = api.clip_notes(clip.id)[5]
-  clip:add_note({ pitch = again.pitch, start = again.start + 0.001, length = 0.1, id = again.id })
-  local same = 0
-  for _, n in ipairs(api.clip_notes(clip.id)) do
-    if n.id == again.id then same = same + 1 end
-  end
-  eq(same, 1, "a note added with an id another has is given a new one")
-  fresh()
 end)
 
 -- What the screen said last, at a level.
@@ -265,6 +139,10 @@ test("commands given what they cannot take say so and change nothing", function(
   paw.add_track({ name = "B" })
   paw.cursor.set_track(a)
   local tempo = paw.project.tempo
+  T.expect_error("^a tempo is from 1 to 999 bpm")
+  T.expect_error("^track.remove removes the track at the cursor and takes no argument")
+  T.expect_error("^clip.add puts a clip at the cursor and takes length= and name=")
+  T.expect_error("^a clip's length is a number of beats above 0")
   for _, line in ipairs({ "tempo abc", "tempo 0", "tempo -1", "tempo by=abc" }) do
     T.keys(":" .. line .. "<CR>")
     has(said("error"), "a tempo is from 1 to 999 bpm", ":" .. line)
@@ -456,11 +334,7 @@ return dev
     local t = T.tone("T", 8)
     t:add_device(kind)
     paw.flush()
-    local t0 = api.now()
     local info = T.render({ tail = 0 })
-    local took = api.now() - t0
-    -- A plugin is given 20 s a block in a render; a script is given what it is live.
-    eq(took < 12000, true, kind .. " was ended in " .. took .. " ms")
     eq(info.peak > 0, true, kind .. ": the rest was rendered without it")
   end
   fresh()

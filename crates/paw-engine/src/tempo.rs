@@ -336,7 +336,7 @@ impl TempoMap {
     /// Where bar `bar` (counting from 0) starts, in beats.
     pub fn bar_start(&self, bar: i64) -> f64 {
         let b = self.bars_at_bar(bar);
-        b.beat + (bar - b.bar) as f64 * b.len
+        b.beat + bar.saturating_sub(b.bar) as f64 * b.len
     }
 
     /// The signature of bar `bar` (counting from 0).
@@ -349,7 +349,8 @@ impl TempoMap {
     /// a bar cut short by the next signature point.
     pub fn bar_length(&self, beat: f64) -> f64 {
         let bar = self.bar_of(beat);
-        self.bar_start(bar + 1) - self.bar_start(bar)
+        // Saturating, as `bar_of`: the last bar there is has no next one.
+        self.bar_start(bar.saturating_add(1)) - self.bar_start(bar)
     }
 
     /// Whether a bar starts at this beat.
@@ -454,8 +455,8 @@ pub struct Place {
 
 /// A track's own time, which the devices on it see in their transport: a
 /// subproject's bars, bar 1 at the start of the block that plays, with the
-/// song's tempo there. Made on the main thread; reading it on the audio
-/// thread allocates nothing.
+/// song's tempo there or its own. Made on the main thread; reading it on
+/// the audio thread allocates nothing.
 #[derive(Clone, Debug)]
 pub struct LocalTime {
     /// By `from`.
@@ -463,6 +464,10 @@ pub struct LocalTime {
     /// Its own meter, in its own beats; `None` for the song's meter where
     /// it plays.
     meter: Option<TempoMap>,
+    /// With a tempo of its own, its meter holds that tempo too: its
+    /// position is the beat of `meter` at its seconds from the place's
+    /// beat 0, not a shift of the song's beat.
+    own_tempo: bool,
 }
 
 impl LocalTime {
@@ -473,7 +478,23 @@ impl LocalTime {
         places.sort_by(|a, b| a.from.total_cmp(&b.from));
         let tempo = [TempoPoint { beat: 0.0, bpm: 120.0, ramp: false }];
         let meter = (!sigs.is_empty()).then(|| TempoMap::new(&tempo, sigs));
-        Self { places: places.into(), meter }
+        Self { places: places.into(), meter, own_tempo: false }
+    }
+
+    /// The same time with a tempo of its own (`tempos` in its own beats,
+    /// the first at 0); empty `tempos` change nothing. Its meter is the
+    /// first signature of the song when it has none of its own.
+    pub fn with_tempo(mut self, tempos: &[TempoPoint]) -> Self {
+        if tempos.is_empty() {
+            return self;
+        }
+        let sigs: Vec<SigPoint> = match &self.meter {
+            Some(m) => m.signatures().collect(),
+            None => vec![SigPoint { beat: 0.0, num: 4, den: 4 }],
+        };
+        self.meter = Some(TempoMap::new(tempos, &sigs));
+        self.own_tempo = true;
+        self
     }
 
     /// The place that the song's beat is in: the last that starts at or
@@ -490,8 +511,14 @@ impl LocalTime {
         let Some(place) = self.place_at(song.position) else {
             return *song;
         };
-        let position = song.position - place.zero;
         let seconds = song.seconds - map.seconds(place.zero);
+        let (position, tempo) = match &self.meter {
+            Some(own) if self.own_tempo => {
+                let position = own.beat(seconds);
+                (position, own.tempo(position))
+            }
+            _ => (song.position - place.zero, song.tempo),
+        };
         let (sig_num, sig_den, bar, bar_start) = match &self.meter {
             Some(own) => {
                 let (num, den) = own.signature(position);
@@ -504,6 +531,7 @@ impl LocalTime {
             }
         };
         crate::device::ProcessCtx {
+            tempo,
             position,
             seconds,
             bar,
@@ -515,6 +543,8 @@ impl LocalTime {
     }
 }
 
+#[cfg(test)]
+mod props;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -696,6 +726,7 @@ mod tests {
         });
         assert_eq!(n, 100, "nothing out there, and the count stops it");
         assert_eq!(m.bar_of(1e300), i64::MAX, "a beat past every bar is in the last");
+        assert_eq!(m.bar_length(1e300), 0.0, "the last bar has no next one to end it");
     }
 
     #[test]

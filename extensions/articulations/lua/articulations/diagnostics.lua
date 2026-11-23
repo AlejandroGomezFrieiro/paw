@@ -175,7 +175,10 @@ function M.check()
   published = now
 end
 
-for _, pattern in ipairs({ "clip.*", "track.*", "project.loaded", "articulations.bound", "undo.*" }) do
+-- Check again after each change of the notes or the maps. Undo and redo
+-- need no handler of their own: the changes that they put back come as
+-- these events too, with `restored = true`.
+for _, pattern in ipairs({ "clip.*", "track.*", "project.loaded", "articulations.bound" }) do
   paw.on(pattern, function() M.schedule() end)
 end
 
