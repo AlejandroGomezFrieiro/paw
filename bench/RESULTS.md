@@ -87,6 +87,91 @@ The decision:
 shared binary did not have the change. Run
 `bench/quality.lua 16 3 5` with a build of the branch.
 
+## 2026-11-23: the trace compiler in the first press of a key
+
+An earlier profile found about 45 % of the `jit.profile` samples of each
+first key of the scenario `scope` in the state J (LuaJIT's trace
+compiler). This section explains that share and the change that lowers
+it.
+
+Setup: the shared binary of main (8e91e5b0, dev profile) with the Lua of
+main ("main") and of the branch ("branch") as dev runtimes, in turns,
+under the measure lock on cores 16 to 23. The load average was 1.4 to 17,
+measured under external load. A key is the processor time of the kernel
+thread from the key until the screen is quiet for 250 ms. Two new probes
+of `bench/profile/drive.py` give the numbers that do not depend on the
+load: `traces` (the traces that LuaJIT started, compiled and stopped, and
+its flushes) and `--vmstates` (`perf` cycles in each part of LuaJIT).
+
+### What the 45 % was
+
+- Part of it came from the probe. The start and the stop of
+  `jit.profile` flush all traces: each key had 2 flushes, and each key
+  compiled all its code again. Without the probe, `j`, `k`, `w` and `b`
+  compile 0 to 15 traces.
+- The rest is real. With `--vmstates` (no flush by the probe), the trace
+  compiler was 33 to 41 % of the cycles of the 15 first-press keys of
+  `scope` on main (3 runs). For one key it was 21 to 78 %.
+- The cause is the size of the trace cache. LuaJIT keeps at most 1 000
+  traces (`maxtrace`). When it needs one more, it throws all traces away
+  and compiles each hot path again. The start of paw with the large
+  project makes about 1 000 traces, and the keys of `scope` make 2 700
+  more. On main, paw flushed once during the start and 2 or 3 times
+  during the 21 keys of `scope`. The highest trace number at each flush
+  was 1 000.
+- About 30 % of the started traces stop with no result (abort). The
+  reasons, in order: a loop left in a root trace, closures (the
+  bytecodes `UCLO` and `FNEW`), `...` (`VARG`), a return to a lower
+  frame, an inner loop, the loop unroll limit. These are costs of the
+  style of the code, not of a parameter.
+
+### What was tried
+
+`jit.opt.start` in `--setup`, 6 rounds of `scope` in turns (the main runtime
+in all). "First keys" is the sum of the 15 keys of `scope` that run once
+(not the moves, which run 5 times).
+
+| Parameters | First keys | Traces started | Flushes |
+| --- | ---: | ---: | ---: |
+| defaults | 422 to 517 ms | 2 809 to 3 999 | 2 to 3 |
+| `maxtrace=8000`, `maxmcode=16384` | 330 to 356 ms | 1 114 to 1 202 | 0 |
+| `hotloop=200` | 396 to 580 ms | 2 602 to 2 796 | 2 to 3 |
+| `hotexit=40` | 418 to 491 ms | 2 472 to 3 008 | 1 to 2 |
+| `maxtrace=8000`, `maxmcode=16384`, `hotloop=200` | 332 to 431 ms | 1 048 to 1 291 | 0 |
+
+Only the larger cache gives a difference larger than the spread.
+`hotloop` and `hotexit` do not. The runtime now sets `maxtrace=8000` and
+`maxmcode=16384` before it loads (`runtime/lua/paw/jit.tl`).
+
+### Main against the branch
+
+| Measure | Main | Branch |
+| --- | ---: | ---: |
+| `scope`, first keys, 5 pairs | 446 to 535 ms | 325 to 416 ms |
+| `scope`, traces started in all keys | 2 991 to 4 164 | 1 131 to 1 256 |
+| `scope`, flushes | 2 to 3 | 0 |
+| `scope --vmstates`, the trace compiler in the first keys, 3 pairs | 33 to 41 % | 15 to 25 % |
+| `scope-keys ':%quantize 1/4\r,u' --times 8`, 4 pairs: `:%quantize` (median of each run) | 93 to 116 ms (54 to 143) | 45 to 54 ms (42 to 100) |
+| the same, `u` | 46 to 70 ms (35 to 87) | 34 to 39 ms (32 to 76) |
+| `scope-keys 'j,k' --times 20`, 3 pairs: `j` | 6.8 to 7.5 ms (4.9 to 17) | 6.6 to 7.0 ms (5.0 to 40) |
+| the same, `k` | 6.9 to 7.6 ms (4.8 to 38) | 5.9 to 6.8 ms (4.9 to 38) |
+| `startup`, large project, 4 runs of 3 | 170 to 173 ms (167 to 175) | 168 to 172 ms (167 to 175) |
+| `startup`, resident memory after the start | 70.0 to 72.2 MB | 71.1 to 73.3 MB |
+
+A repeated `:%quantize` and `u` now cost half: on main, each pair made
+hundreds of new traces, so the cache filled again and again, and each
+flush made all the code compile again. Moves and the start show no
+measurable difference.
+
+The cost is memory. After the keys of `scope` and 3 more rounds of them,
+the branch has 3 057 traces with 2.4 MB of machine code (main: 453
+traces after its last flush, 0.4 MB). The resident memory was 117 MB
+against 106 MB, but the Lua heap differed by 15 MB in the same runs, so
+the part of the traces is not clear from these runs. The number of traces
+still grows, by about 150 for each round of `scope`. A long session can
+fill the 8 000 traces or the 16 MB of machine code, and LuaJIT flushes
+then, as before.
+
 ## 2026-11-23: the check of a frozen track after an edit
 
 A frozen track keeps the key of what its file was made from
