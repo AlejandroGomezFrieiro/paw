@@ -1113,8 +1113,9 @@ test("guide: use articulations with a plugin instrument", function()
   eq(art.info(bass.id).map, "plugins/orchestral-tools/sine-cc", ":art.map binds a map by its name")
 
   -- A map of your own.
-  keys(":art.new My bass<CR>")
   local file = api.env().config_dir .. "/articulations/my-bass.art.toml"
+  T.after(function() os.remove(file) end)
+  keys(":art.new My bass<CR>")
   eq(T.read_file(file) ~= nil, true, "an empty map to write in")
 
   -- The drums of a drum plugin.

@@ -495,7 +495,7 @@ local record contracts
     --- the fields swapped into the view's table.
     window_instances: boolean
     open_target: function(self: View, target: string): boolean, string
-    window_target: function(self: View): string
+    window_target: function(self: View): string | integer
     share: Share
     time_axis: function(self: View, ctx?: RenderContext): number, number, number
     set_time_axis: function(self: View, left: number, zoom: number, ctx?: RenderContext)
@@ -1892,14 +1892,16 @@ local record contracts
   -- Extensions -------------------------------------------------------------------
 
   --- An extension's `manifest.lua`: its name, its version, what it is,
-  --- the versions of the API and of other extensions it needs, and the
-  --- names others may require it by.
+  --- the versions of the API and of other extensions it needs, the
+  --- names others may require it by, and what it needs of the build
+  --- (`paw.api.build().features`).
   record Manifest
     name: string
     version: string
     description: string
     requires: {string: string}
     provides: {string}
+    needs: {string}
   end
 
   --- An extension that paw loaded, or tried to (`paw.ext.loaded`): its
@@ -1911,6 +1913,8 @@ local record contracts
     version: string
     ok: boolean
     error: string
+    --- True when it did not load because the build lacks what it needs.
+    needs_unmet: boolean
   end
 end
 

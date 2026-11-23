@@ -5,14 +5,14 @@
 //! (TASK-191: the host read them after the block under way, found the old
 //! values, and never read them again.)
 
-use std::path::PathBuf;
-
 use paw_engine::device::{Change, Instance};
 use paw_engine::{EventBuf, Io, ProcessCtx, Registry};
+use paw_plugins::PluginDirs;
+use tempfile::TempDir;
 
 /// A directory holding the stub, as `stub.clap`. `cargo test` builds the
 /// examples beside the tests.
-fn stub_dir() -> PathBuf {
+fn stub_dir() -> TempDir {
     let exe = std::env::current_exe().unwrap();
     let built = exe
         .parent()
@@ -24,9 +24,8 @@ fn stub_dir() -> PathBuf {
         "{} is built by `cargo test`",
         built.display()
     );
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stub-plugin-state");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::copy(&built, dir.join("stub.clap")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::copy(&built, dir.path().join("stub.clap")).unwrap();
     dir
 }
 
@@ -34,7 +33,8 @@ fn stub_dir() -> PathBuf {
 fn a_state_given_while_a_block_runs_is_read_back_after_the_next_block() {
     let dir = stub_dir();
     let mut registry = Registry::default();
-    let (kinds, notes) = paw_plugins::add_dir(&mut registry, None, &dir);
+    let mut dirs = PluginDirs::default();
+    let (kinds, notes) = paw_plugins::add_dir(&mut registry, None, &mut dirs, dir.path());
     assert_eq!(
         kinds,
         ["clap:dev.paw.stub"],
@@ -49,7 +49,7 @@ fn a_state_given_while_a_block_runs_is_read_back_after_the_next_block() {
         .create(48000.0, 256)
         .unwrap();
     let mut controller = controller.unwrap();
-    let lib = unsafe { libloading::Library::new(dir.join("stub.clap")).unwrap() };
+    let lib = unsafe { libloading::Library::new(dir.path().join("stub.clap")).unwrap() };
     let held: libloading::Symbol<extern "C" fn() -> bool> =
         unsafe { lib.get(b"stub_clap_held\0").unwrap() };
     let release: libloading::Symbol<extern "C" fn()> =

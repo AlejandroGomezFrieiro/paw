@@ -114,5 +114,5 @@ The piano roll draws the layers below, from back to front.
 - `marks(clip_id)` gives what the graphical window draws for the layer:
   boxes or chips in the beats of the clip. Layers with an order below 20
   are behind the notes, and layers with an order of 20 or more are in front.
-- The comment on `layer` in `runtime/lua/paw/views/pianoroll.lua` gives
+- The comment on `layer` in `runtime/lua/paw/views/pianoroll.tl` gives
   each field. The `context` layer is an example of both functions.

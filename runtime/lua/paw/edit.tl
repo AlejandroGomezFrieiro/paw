@@ -27,7 +27,7 @@ local options = require("paw.options")
 local transform = require("paw.notes")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
-local type KeymapModule = require("paw.keymap")
+local type registers = require("paw.keymap.registers")
 local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
@@ -62,7 +62,7 @@ end
 --- time with what each track holds in it (`"range"`: `length`, `rows`), or
 --- notes of the piano roll (`"notes"`: `shape`, the region's kind, `top`,
 --- its highest pitch, `length` and `notes`).
-local record Yanked is KeymapModule.Register
+local record Yanked is registers.Register
   tracks: {objects.TrackSnapshot}
   length: number
   rows: {{ClipSnapshot}}

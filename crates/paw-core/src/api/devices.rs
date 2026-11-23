@@ -158,6 +158,26 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 None => Ok(LuaValue::Nil),
             }
         }
+        // The folders where paw looks for plugins, for each format, in the order
+        // that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`.
+        // They include the folders that `plugins_add_dir` added. Returns nil where
+        // paw cannot find plugins.
+        // @return {string: {string}}
+        fn plugins_dirs(lua, sh, () => ()) {
+            let dirs = sh.session.borrow().registry.plugin_dirs();
+            match dirs {
+                Some(dirs) => {
+                    let table = lua.create_table()?;
+                    for (format, folders) in dirs {
+                        let folders: Vec<String> =
+                            folders.iter().map(|f| f.to_string_lossy().into_owned()).collect();
+                        table.raw_set(format, folders)?;
+                    }
+                    Ok(LuaValue::Table(table))
+                }
+                None => Ok(LuaValue::Nil),
+            }
+        }
         // Load an attachment: a native library that an extension ships, which
         // paw offers each CLAP plugin that it makes from now on (see
         // `crates/paw-plugins/include/paw_attach.h`). Returns the name of the
@@ -191,13 +211,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             paw_engine::guard::register_test_devices(&mut sh.session.borrow_mut().registry);
             Ok(())
         }
-        // Panic, as a bug in the program does. Tests use it to see what paw keeps.
+        // Panic, as a bug in the program does. Tests use it to see what paw
+        // keeps. The panic ends the program, as a bug outside `paw.api`
+        // does, and paw writes a safety copy. With `inside`, it is a bug in
+        // this function: the call gives an error, and the program goes on.
         // @return nil
-        fn test_panic(_, _sh, why => String) {
-            if !why.is_empty() {
+        fn test_panic(_, _sh, (why, inside) => (String, Option<bool>)) {
+            if why.is_empty() {
+                return Ok(());
+            }
+            if inside == Some(true) {
                 panic!("{why}");
             }
-            Ok(())
+            super::end_program(&why)
         }
         // Make plugins apart from the main loop (true), or wait for each as
         // it is added (false, what scripts start with). Returns what it was.

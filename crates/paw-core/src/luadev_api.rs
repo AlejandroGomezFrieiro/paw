@@ -7,7 +7,7 @@ use std::rc::Rc;
 use paw_luadev::Scanned;
 use mlua::{Lua, Table};
 
-use crate::api::Shared;
+use crate::api::{Shared, guarded};
 
 fn scanned(lua: &Lua, scanned: Scanned) -> mlua::Result<Table> {
     let out = lua.create_table()?;
@@ -34,11 +34,11 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     api.set(
         "lua_devices_add",
-        lua.create_function(move |lua, (dir, rank): (String, Option<u8>)| {
+        lua.create_function(guarded!("lua_devices_add", move |lua, (dir, rank): (String, Option<u8>)| {
             let mut session = sh.session.borrow_mut();
             let found = paw_luadev::add_dir(&mut session.registry, Path::new(&dir), rank.unwrap_or(0));
             scanned(lua, found)
-        })?,
+        }))?,
     )?;
     // Look in `dir` no more: a script of the same name elsewhere makes its
     // scripts' kinds from now on, or nothing does. Returns the kinds of
@@ -47,10 +47,10 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     api.set(
         "lua_devices_remove",
-        lua.create_function(move |_, dir: String| {
+        lua.create_function(guarded!("lua_devices_remove", move |_, dir: String| {
             let mut session = sh.session.borrow_mut();
             Ok(paw_luadev::remove_dir(&mut session.registry, Path::new(&dir)))
-        })?,
+        }))?,
     )?;
     // Look at every script again, loading those that changed. Same answer
     // as `lua_devices_add`; `changed` are the kinds whose devices are now
@@ -59,10 +59,10 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     let sh = shared.clone();
     api.set(
         "lua_devices_rescan",
-        lua.create_function(move |lua, ()| {
+        lua.create_function(guarded!("lua_devices_rescan", move |lua, ()| {
             let mut session = sh.session.borrow_mut();
             scanned(lua, paw_luadev::rescan(&mut session.registry))
-        })?,
+        }))?,
     )?;
     // Every script found: `{ kind, path, name, category, error, active }`,
     // `active` false for one hidden by a script of the same name in a
@@ -70,7 +70,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return {types.LuaDeviceScript}
     api.set(
         "lua_devices",
-        lua.create_function(|lua, ()| {
+        lua.create_function(guarded!("lua_devices", |lua, ()| {
             let list = lua.create_table()?;
             for s in paw_luadev::scripts() {
                 let t = lua.create_table()?;
@@ -83,7 +83,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 list.push(t)?;
             }
             Ok(list)
-        })?,
+        }))?,
     )?;
     Ok(())
 }

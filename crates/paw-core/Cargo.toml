@@ -8,6 +8,7 @@ description = "The kernel: project model, engine sync, Lua host, cell grid, even
 [dependencies]
 paw-engine.workspace = true
 paw-luadev.workspace = true
+paw-measure.workspace = true
 paw-proto.workspace = true
 paw-raster.workspace = true
 paw-scene.workspace = true
@@ -68,7 +69,9 @@ mlua = { version = "0.12", features = ["lua52", "vendored", "serde"] }
 mlua = { version = "0.12", features = ["luajit", "vendored"] }
 
 [dev-dependencies]
+insta.workspace = true
 tempfile = "3"
+proptest.workspace = true
 
 [[bench]]
 name = "nest_expand"

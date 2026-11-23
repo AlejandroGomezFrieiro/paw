@@ -4,4 +4,5 @@ return {
   version = "0.1.0",
   description = "Virtual inputs: a guitar heard as MIDI through gdi2m, as a port any track takes",
   requires = { paw = "^1.0" },
+  needs = { "processes" },
 }

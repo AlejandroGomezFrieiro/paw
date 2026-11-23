@@ -24,6 +24,9 @@ pub(super) struct RemoteFactory {
     /// How to start the helper, where it is not the plugins' one.
     pub(super) argv: Option<Vec<String>>,
     pub(super) env: Vec<(String, String)>,
+    /// The folders added in the DAW when this factory was made, as
+    /// [`crate::dirs::ADDED_DIRS_ENV`] gives them to the helper.
+    pub(super) added_dirs: Option<std::ffi::OsString>,
 }
 
 /// The methods by which the stand-in asks the helper for a parameter's
@@ -70,8 +73,8 @@ impl RemoteFactory {
             .arg(max_block.to_string())
             .envs(self.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null());
-        if let Some(dirs) = crate::added_dirs_env() {
-            command.env(crate::ADDED_DIRS_ENV, dirs);
+        if let Some(dirs) = &self.added_dirs {
+            command.env(crate::dirs::ADDED_DIRS_ENV, dirs);
         }
         if let Some(libs) = crate::attach::env() {
             command.env(crate::attach::ATTACH_ENV, libs);

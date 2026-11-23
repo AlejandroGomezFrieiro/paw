@@ -38,7 +38,7 @@ local type LanesModule = require("paw.lanes")
 local type MusicModule = require("paw.music")
 local type objects = require("paw.objects")
 local type AddressModule = require("paw.address")
-local type TempoModule = require("paw.tempo")
+local type TempolaneModule = require("paw.tempolane")
 
 --- The shape of the stretch that leaves a point.
 local type Shape = types.LaneShape
@@ -116,7 +116,8 @@ local record Paw is partial.Paw
   music: MusicModule
   address: AddressModule
   device: function(id: integer): objects.Device
-  tempo: TempoModule
+  tempolane: TempolaneModule
+  time: objects.Time
   params: Params
 end
 local paw = (_G as {string: Paw}).paw
@@ -324,7 +325,7 @@ local function tempo_target(uri: string): Target
     step = 1,
   }
   local lo, hi = math.huge, -math.huge
-  for _, q in ipairs(paw.tempo.points()) do
+  for _, q in ipairs(paw.time.tempo_points()) do
     lo, hi = math.min(lo, q.bpm), math.max(hi, q.bpm)
   end
   t.lo = math.max(1, math.floor((lo - 30) / 10) * 10)
@@ -333,7 +334,7 @@ local function tempo_target(uri: string): Target
   t.format = function(v: number): string return string.format("%g BPM", math.floor(v * 100 + 0.5) / 100) end
   t.points = function(): {Point}
     local out: {Point} = {}
-    for i, q in ipairs(paw.tempo.points()) do
+    for i, q in ipairs(paw.time.tempo_points()) do
       out[i] = {beat = q.beat, value = q.bpm, shape = q.ramp and "linear" or "hold", tension = 0}
     end
     return out
@@ -348,15 +349,8 @@ local function tempo_target(uri: string): Target
       end
       tempos[#tempos + 1] = {beat = q.beat, bpm = util.clamp(q.value, t.min, t.max), ramp = q.shape == "linear"}
     end
-    -- It starts at the start of the song.
-    if #tempos == 0 then
-      return
-    end
-    if tempos[1].beat > 1e-9 then
-      table.insert(tempos, 1, {beat = 0, bpm = tempos[1].bpm})
-    end
-    tempos[1].beat = 0
-    paw.tempo.set_points(tempos, nil)
+    -- Beats of the window's time: the lane's rule finds the map.
+    paw.tempolane.set_points(tempos)
   end
   return t
 end

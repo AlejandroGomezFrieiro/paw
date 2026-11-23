@@ -175,6 +175,9 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 
 - A beat has 61440 ticks. paw rounds the time of a note and of a
   controller move to a tick.
+- A clip holds times up to a million beats from its start, before or
+  after it, and a clip is at most a million beats long. paw refuses an edit
+  that goes further, and it refuses to read or write a clip file that does.
 - Notes are MIDI 2.0 note-on and note-off messages with velocities of 16
   bits and their attribute. Controller moves are MIDI 2.0 messages with
   values of 32 bits.
@@ -303,8 +306,8 @@ and the drivers for version control.
   changes.
 - A copy that a session left after a bad end shows at the next start.
   `:recover` opens it, with the name of the project that it is a copy of.
-- A panic writes a safety copy before paw stops, and says where the copy
-  is (see [The audio engine](engine.md#a-device-that-fails)).
+- A panic that stops paw writes a safety copy first, and paw says where the
+  copy is (see [The audio engine](engine.md#a-device-that-fails)).
 - A take is in the safety copy from its start (see
   [Recording](recording.md#files)).
 

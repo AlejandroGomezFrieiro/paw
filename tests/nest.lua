@@ -649,6 +649,7 @@ test(":scope.write takes a name; a word with a slash is a path, and the song doe
   local before = project_text()
   keys("6|")
   keys("znar")
+  T.expect_error("~/lib/bridge is a path")
   keys(":scope.write ~/lib/bridge<CR>")
   eq(paw.ui.message.text:find("~/lib/bridge is a path", 1, true) ~= nil, true, paw.ui.message.text)
   eq(project_text(), before, "nothing saved")
@@ -715,6 +716,7 @@ test(
     paw.flush()
     api.undo_checkpoint()
     paw.scope.enter({ kind = "range", tracks = { t.Bass }, from = 16, to = 34, name = "Bridge" })
+    T.expect_error("^compressor on Bass listens to Kick")
     keys("<Space>zW")
     eq(paw.ui.message.text, "compressor on Bass listens to Kick: take Kick in too, or use <Space>zw", "refused")
     eq(#api.nest_list(), 0, "nothing saved")
@@ -1011,6 +1013,148 @@ test(
       true,
       paw.ui.message.text
     )
+  end
+)
+
+-- Tempo and meter edits inside one ----------------------------------------------------------
+
+--- Tempo points as text: "120@0 90@8", a ramp marked ">".
+local function tempo_text(points)
+  local out = {}
+  for i, p in ipairs(points or {}) do
+    out[i] = string.format("%g@%g%s", p.bpm, p.beat, p.ramp and ">" or "")
+  end
+  return table.concat(out, " ")
+end
+
+--- Signature changes as text: "0:4/4 8:6/8".
+local function meter_text(changes)
+  local out = {}
+  for i, s in ipairs(changes or {}) do
+    out[i] = string.format("%g:%d/%d", s.beat, s.num, s.den)
+  end
+  return table.concat(out, " ")
+end
+
+--- The Cue of `cue`, its time set with the keys `how` on its block (none
+--- to follow the song), then entered with znn, the cursor at its beat 10.
+--- Gives the tempo and the meter of the song and of the subproject as text.
+local function inside_cue(how)
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  if how then keys(how) end
+  keys("znn")
+  paw.cursor.set_beat(10)
+  api.undo_checkpoint()
+  return function()
+    local n = api.nest_get(b.nest)
+    return {
+      song = tempo_text(paw.tempo.points()) .. " | " .. signatures(),
+      own = tempo_text(n.tempo.mode == "own" and n.tempo.points) .. " | " .. meter_text(
+        n.meter.mode == "own" and n.meter.changes
+      ),
+    }
+  end
+end
+
+-- Each row: how the subproject keeps time, and where its beat 8 is in
+-- the map that an edit changes: its own map, or the song's at beat 24.
+local tempo_cases = {
+  { name = "its own tempo", how = ":nest.time own<CR>", own = true },
+  { name = "the song's tempo", how = nil, own = false },
+}
+
+test(
+  "inside a subproject, :tempo.ramp, :tempo.tap and :tempo.remove edit the window's map, one undo step each",
+  function()
+    -- A clock that the test steps, far after the taps of other tests.
+    local clock = 1e12
+    local now = api.now
+    api.now = function() return clock end
+    T.after(function() api.now = now end)
+    for _, case in ipairs(tempo_cases) do
+      local maps = inside_cue(case.how)
+      local before = maps()
+      local name, other = case.own and "own" or "song", case.own and "song" or "own"
+      local function map() return maps()[name] end
+      -- Its beat 8: in its own map, or at the song's beat 24, in 4/4.
+      local function with(bpm, ramp)
+        local change = string.format("%d@%d%s", bpm, case.own and 8 or 24, ramp or "")
+        return "120@0 " .. change .. (case.own and " | " or " | 0:4/4")
+      end
+      keys(":tempo 90 at 3<CR>")
+      eq(map(), with(90), case.name .. ": a change at its bar 3")
+      keys(":tempo.ramp<CR>")
+      eq(map(), with(90, ">"), case.name .. ": the change before the cursor ramps")
+      keys("u")
+      eq(map(), with(90), case.name .. ": u takes the ramp back")
+      keys(":tempo.tap<CR>")
+      clock = clock + 600
+      keys(":tempo.tap<CR>")
+      clock = clock + 5000
+      eq(map(), with(100), case.name .. ": a tap each 0.6 s is 100 bpm")
+      keys("u")
+      eq(map(), with(90), case.name .. ": u takes the tap back")
+      keys(":tempo.remove<CR>")
+      eq(map(), case.own and "120@0 | " or "120@0 | 0:4/4", case.name .. ": the change goes")
+      keys("u")
+      eq(map(), with(90), case.name .. ": u brings it back")
+      eq(maps()[other], before[other], case.name .. ": the other map as it was")
+    end
+  end
+)
+
+test("inside a subproject, :timesig and :timesig.remove edit the window's meter, one undo step each", function()
+  local cases = {
+    -- Its own meter of 3/4: its bar 3 is its beat 6.
+    { name = "its own meter", how = ":nest.meter 3/4<CR>", map = "own", set = "0:3/4 6:6/8", was = "0:3/4" },
+    -- Its own tempo, the song's meter: the 4/4 it shows becomes its own.
+    { name = "its own tempo", how = ":nest.time own<CR>", map = "own", set = "0:4/4 8:6/8", was = "" },
+    -- The song's tempo and meter: its bar 3 is the song's bar 7, beat 24.
+    { name = "the song's time", how = nil, map = "song", set = "0:4/4 24:6/8", was = "0:4/4" },
+  }
+  for _, case in ipairs(cases) do
+    local maps = inside_cue(case.how)
+    local function meter() return maps()[case.map]:match("| (.*)$") end
+    local other = case.map == "own" and "song" or "own"
+    local before = maps()[other]
+    keys(":timesig 6/8 at 3<CR>")
+    eq(meter(), case.set, case.name .. ": 6/8 from its bar 3")
+    eq(paw.ui.message.text, "6/8 from bar 3", case.name .. ": the message")
+    keys("u")
+    eq(meter(), case.was, case.name .. ": u takes it back")
+    keys(":timesig 6/8 at 3<CR>")
+    api.undo_checkpoint()
+    keys(":timesig.remove 3<CR>")
+    eq(paw.ui.message.text, "removed the signature change at bar 3", case.name .. ": the message of the removal")
+    eq(meter() == case.set, false, case.name .. ": the change goes")
+    keys("u")
+    eq(meter(), case.set, case.name .. ": u brings it back")
+    eq(maps()[other], before, case.name .. ": the other map as it was")
+  end
+end)
+
+test(
+  "inside a subproject, o in the curve editor of paw://tempo adds a change to the window's map at its beat",
+  function()
+    for _, case in ipairs(tempo_cases) do
+      local maps = inside_cue(case.how)
+      local before = maps()
+      paw.cursor.set_beat(8)
+      keys(":sp paw://tempo<CR>")
+      keys("o")
+      local m = maps()
+      local map, other = m.song, "own"
+      if case.own then
+        map, other = m.own, "song"
+      end
+      eq(map:match("^120@0 120@(%d+)"), case.own and "8" or "24", case.name .. ": a change at its beat 8: " .. map)
+      eq(m[other], before[other], case.name .. ": the other map as it was")
+      keys("u")
+      eq(maps().song .. maps().own, before.song .. before.own, case.name .. ": one undo step")
+      reset()
+    end
   end
 )
 

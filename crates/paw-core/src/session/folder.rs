@@ -232,6 +232,7 @@ struct Writer<'a> {
     /// of a part share one.
     written: HashMap<Vec<u8>, PathBuf>,
     dir: &'a Path,
+    home: &'a Home,
 }
 
 impl Writer<'_> {
@@ -255,7 +256,7 @@ impl Writer<'_> {
             cues.push(self.clip(clip, folder, &mut taken)?);
         }
         // A chain kept in a file outside the folder: named, not written.
-        let outside_chain = track.chain_source.as_ref().map(|f| outside_name(f, self.dir));
+        let outside_chain = track.chain_source.as_ref().map(|f| self.home.outside_name(f, self.dir));
         let mut devices = Vec::new();
         if outside_chain.is_none() {
             let (chain, states) = chain_files(track)?;
@@ -323,7 +324,7 @@ impl Writer<'_> {
                         self.layout.clip_files.insert(clip.id, file.clone());
                     }
                 }
-                order.push(outside_name(source, self.dir).to_string_lossy().into_owned());
+                order.push(self.home.outside_name(source, self.dir).to_string_lossy().into_owned());
                 continue;
             }
             let name = unique(&mut folders, &file_name(&track.name), "");
@@ -346,14 +347,15 @@ impl Writer<'_> {
         };
         // A clip that refers to a file outside goes on referring to it.
         if let Some(source) = &clip.source {
-            let file = outside_name(source, self.dir);
+            let file = self.home.outside_name(source, self.dir);
             self.layout.clip_files.insert(clip.id, source.clone());
             return clip_entry(clip, Some(&file));
         }
         if let Some(link) = &clip.link {
             return self.linked_clip(clip, link, notes, controls);
         }
-        let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+        let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
         let path = match self.written.get(&bytes) {
             Some(path) => path.clone(),
             None => {
@@ -383,7 +385,8 @@ impl Writer<'_> {
     fn linked_clip(&mut self, clip: &Clip, link: &str, notes: &Notes, controls: &[Control]) -> Result<Value> {
         let path = Path::new(LINKED_DIR).join(format!("{link}.midi2"));
         if !self.layout.files.contains_key(&path) {
-            let bytes = clipfile::encode(notes.iter(), controls, 0.0);
+            let bytes = clipfile::encode(notes.iter(), controls, 0.0)
+                .with_context(|| format!("writing the linked clip {link}"))?;
             self.layout.files.insert(path.clone(), bytes);
         }
         self.layout.clip_files.insert(clip.id, path.clone());
@@ -510,7 +513,8 @@ impl Writer<'_> {
             content.insert("signals_file".into(), json!(path));
         }
         if let Some(ClipContent::Midi { notes, controls }) = custom.sound.as_ref().map(|s| s.content()) {
-            let bytes = clipfile::encode(notes.iter(), controls, clip.length);
+            let bytes = clipfile::encode(notes.iter(), controls, clip.length)
+            .with_context(|| format!("writing clip {}", clip.id))?;
             let path = self.clip_file(folder, taken, &stem, ".sound", "midi2", bytes);
             content.insert("sound".into(), json!({ "kind": "midi", "file": path }));
         }
@@ -518,32 +522,47 @@ impl Writer<'_> {
     }
 }
 
-/// How a project names a file outside its folder: from the home folder as
-/// `~/...` when it is there, else the absolute path.
-fn outside_name(file: &Path, dir: &Path) -> PathBuf {
-    if let Ok(rel) = file.strip_prefix(dir) {
-        return rel.to_path_buf();
-    }
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from)
-        && let Ok(rel) = file.strip_prefix(&home)
-    {
-        return Path::new("~").join(rel);
-    }
-    file.to_path_buf()
-}
+/// The home folder that `~/` names in a project's files. The program finds
+/// it once at its start and gives it to the session (`KernelOpts::home`),
+/// so that the library code does not read `HOME`. With no home folder, a
+/// path outside the project stays absolute and a `~/` path stays as it is.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Home(Option<PathBuf>);
 
-/// A path as a project file gives it, made absolute: `~/` from the home
-/// folder, a relative one from the project's folder.
-pub fn resolve(file: &Path, dir: &Path) -> PathBuf {
-    if let Ok(rel) = file.strip_prefix("~")
-        && let Some(home) = std::env::var_os("HOME")
-    {
-        return PathBuf::from(home).join(rel);
+impl Home {
+    /// The home folder at `path`, or no home folder.
+    pub fn new(path: Option<PathBuf>) -> Self {
+        Self(path)
     }
-    if file.is_absolute() {
+
+    /// How a project in the folder `dir` names a file: from `dir` when it
+    /// is in it, from the home folder as `~/...` when it is there, else by
+    /// the absolute path.
+    fn outside_name(&self, file: &Path, dir: &Path) -> PathBuf {
+        if let Ok(rel) = file.strip_prefix(dir) {
+            return rel.to_path_buf();
+        }
+        if let Some(home) = &self.0
+            && let Ok(rel) = file.strip_prefix(home)
+        {
+            return Path::new("~").join(rel);
+        }
         file.to_path_buf()
-    } else {
-        tidy(&dir.join(file))
+    }
+
+    /// A path as a project file in the folder `dir` gives it, made
+    /// absolute: `~/` from the home folder, a relative one from `dir`.
+    pub fn resolve(&self, file: &Path, dir: &Path) -> PathBuf {
+        if let Ok(rel) = file.strip_prefix("~")
+            && let Some(home) = &self.0
+        {
+            return home.join(rel);
+        }
+        if file.is_absolute() {
+            file.to_path_buf()
+        } else {
+            tidy(&dir.join(file))
+        }
     }
 }
 
@@ -570,8 +589,9 @@ pub fn layout(
     transport: &Value,
     screen: Option<&Value>,
     dir: &Path,
+    home: &Home,
 ) -> Result<Layout> {
-    lay_out(project, transport, screen, dir, None)
+    lay_out(project, transport, screen, dir, home, None)
 }
 
 /// The files of each track laid out alone, kept from one [`layout_cached`]
@@ -598,7 +618,7 @@ impl TrackCache {
             None => {
                 // Alone: no file is shared with another track, so the files
                 // stay right whatever the other tracks become.
-                let mut alone = Writer { layout: Layout::default(), written: HashMap::new(), dir: w.dir };
+                let mut alone = Writer { layout: Layout::default(), written: HashMap::new(), dir: w.dir, home: w.home };
                 alone.track(track, folder)?;
                 CachedTrack { _track: Arc::clone(track), files: alone.layout.files.into_iter().collect() }
             }
@@ -621,10 +641,11 @@ pub fn layout_cached(
     transport: &Value,
     screen: Option<&Value>,
     dir: &Path,
+    home: &Home,
     cache: &mut TrackCache,
 ) -> Result<Layout> {
     cache.before = std::mem::take(&mut cache.now);
-    lay_out(project, transport, screen, dir, Some(cache))
+    lay_out(project, transport, screen, dir, home, Some(cache))
 }
 
 fn lay_out(
@@ -632,12 +653,14 @@ fn lay_out(
     transport: &Value,
     screen: Option<&Value>,
     dir: &Path,
+    home: &Home,
     mut cache: Option<&mut TrackCache>,
 ) -> Result<Layout> {
     let mut w = Writer {
         layout: Layout::default(),
         written: HashMap::new(),
         dir,
+        home,
     };
     let order = w.tracks(project.song_tracks(), Path::new(""), cache.as_deref_mut())?;
     match cache {
@@ -915,29 +938,35 @@ fn read_json(fs: &dyn ProjectFiles, path: &Path) -> Result<Value> {
 
 /// The JSON of a track from its folder, its clips' files still to read:
 /// (track, the files its MIDI clips name by the clips' place).
-fn read_track(fs: &dyn ProjectFiles, dir: &Path, folder: &Path, problems: &mut Vec<String>) -> Result<Value> {
+fn read_track(
+    fs: &dyn ProjectFiles,
+    home: &Home,
+    dir: &Path,
+    folder: &Path,
+    problems: &mut Vec<String>,
+) -> Result<Value> {
     let base = dir.join(folder);
     let mut track = read_json(fs, &base.join("track.json"))?;
     // A chain kept in a file outside the folder: the track refers to it.
     let chain_file = track
         .as_object_mut()
         .and_then(|t| t.remove("devices_file"))
-        .and_then(|v| v.as_str().map(|s| resolve(Path::new(s), &base)));
+        .and_then(|v| v.as_str().map(|s| home.resolve(Path::new(s), &base)));
     let (chain, chain_source) = match chain_file {
-        Some(file) => match read_chain(fs, &file, problems) {
+        Some(file) => match read_chain(fs, home, &file, problems) {
             Ok(chain) => (chain, Some(file)),
             Err(e) => {
                 problems.push(format!("{e:#}: the track has no devices until it is there"));
                 (Vec::new(), Some(file))
             }
         },
-        None => (read_chain(fs, &base.join("devices.json"), problems)?, None),
+        None => (read_chain(fs, home, &base.join("devices.json"), problems)?, None),
     };
     let mut lanes = Vec::new();
     if let Some(Value::Array(list)) = track.get("lanes") {
         for name in list {
             let Some(name) = name.as_str() else { continue };
-            lanes.push(read_json(fs, &resolve(Path::new(name), &base))?);
+            lanes.push(read_json(fs, &home.resolve(Path::new(name), &base))?);
         }
     }
     let map = track.as_object_mut().context("a track")?;
@@ -952,7 +981,12 @@ fn read_track(fs: &dyn ProjectFiles, dir: &Path, folder: &Path, problems: &mut V
 /// The devices of a chain file (a `devices.json`), each with its state
 /// read from the file beside it that it names. A file that is not there is
 /// an empty chain.
-pub fn read_chain(fs: &dyn ProjectFiles, file: &Path, problems: &mut Vec<String>) -> Result<Vec<Value>> {
+pub fn read_chain(
+    fs: &dyn ProjectFiles,
+    home: &Home,
+    file: &Path,
+    problems: &mut Vec<String>,
+) -> Result<Vec<Value>> {
     let base = file.parent().map(Path::to_path_buf).unwrap_or_default();
     let devices = match read_json(fs, file) {
         Ok(Value::Array(list)) => list,
@@ -970,7 +1004,7 @@ pub fn read_chain(fs: &dyn ProjectFiles, file: &Path, problems: &mut Vec<String>
             .and_then(Value::as_str)
             .map(str::to_string)
         {
-            let path = resolve(Path::new(&name), &base);
+            let path = home.resolve(Path::new(&name), &base);
             match fs.read(&path) {
                 Ok(bytes) => d["state"] = json!(BASE64.encode(bytes)),
                 Err(e) => problems.push(format!("{}: {e}", path.display())),
@@ -981,7 +1015,7 @@ pub fn read_chain(fs: &dyn ProjectFiles, file: &Path, problems: &mut Vec<String>
             let mut files = serde_json::Map::new();
             for (key, name) in names {
                 let Some(name) = name.as_str() else { continue };
-                let path = resolve(Path::new(name), &base);
+                let path = home.resolve(Path::new(name), &base);
                 match fs.read(&path) {
                     Ok(bytes) => {
                         files.insert(key, json!(BASE64.encode(bytes)));
@@ -1073,11 +1107,12 @@ fn renumber(track: &mut Value, used: &mut BTreeSet<u64>, devices_only: bool) {
 /// master with no sends, because the tracks it played into are not here.
 pub fn read_outside_track(
     fs: &dyn ProjectFiles,
+    home: &Home,
     folder: &Path,
     used: &mut BTreeSet<u64>,
     problems: &mut Vec<String>,
 ) -> Result<Value> {
-    let mut track = read_track(fs, Path::new(""), folder, problems)
+    let mut track = read_track(fs, home, Path::new(""), folder, problems)
         .with_context(|| format!("reading the track {}", folder.display()))?;
     renumber(&mut track, used, false);
     if let Some(map) = track.as_object_mut() {
@@ -1107,18 +1142,24 @@ fn is_outside_entry(name: &str) -> bool {
 
 /// Take the file a clip's entry names out of it, leaving an empty note
 /// list to fill.
-fn take_clip_file(fs: &dyn ProjectFiles, clip: &mut Value, files: &mut Vec<(u64, PathBuf)>, dir: &Path) -> Result<()> {
+fn take_clip_file(
+    fs: &dyn ProjectFiles,
+    home: &Home,
+    clip: &mut Value,
+    files: &mut Vec<(u64, PathBuf)>,
+    dir: &Path,
+) -> Result<()> {
     let id = clip.get("id").and_then(Value::as_u64).unwrap_or(0);
     let Some(content) = clip.get_mut("content") else {
         return Ok(());
     };
     if content.get("kind").and_then(Value::as_str) == Some("custom") {
-        return take_custom_files(fs, content, dir);
+        return take_custom_files(fs, home, content, dir);
     }
     if content.get("kind").and_then(Value::as_str) == Some("audio") {
         // An audio clip's edit list, from its file.
         if let Some(file) = content.as_object_mut().and_then(|c| c.remove("edits_file")) {
-            let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
+            let path = home.resolve(Path::new(file.as_str().unwrap_or_default()), dir);
             content["edits"] = read_json(fs, &path).unwrap_or_else(|_| json!([]));
         }
         return Ok(());
@@ -1127,15 +1168,15 @@ fn take_clip_file(fs: &dyn ProjectFiles, clip: &mut Value, files: &mut Vec<(u64,
         return Ok(());
     }
     if let Some(file) = content.get("file").and_then(Value::as_str) {
-        files.push((id, resolve(Path::new(file), dir)));
+        files.push((id, home.resolve(Path::new(file), dir)));
     }
     *content = json!({ "kind": "midi", "notes": [] });
     Ok(())
 }
 
 /// The text of a file that a custom clip's entry names.
-fn read_text(fs: &dyn ProjectFiles, file: &str, dir: &Path) -> Result<String> {
-    let path = resolve(Path::new(file), dir);
+fn read_text(fs: &dyn ProjectFiles, home: &Home, file: &str, dir: &Path) -> Result<String> {
+    let path = home.resolve(Path::new(file), dir);
     let bytes = fs.read(&path).with_context(|| format!("reading {}", path.display()))?;
     String::from_utf8(bytes.into_owned()).with_context(|| format!("reading {}", path.display()))
 }
@@ -1143,26 +1184,26 @@ fn read_text(fs: &dyn ProjectFiles, file: &str, dir: &Path) -> Result<String> {
 /// Put the files that a custom clip's entry names back into it: its data,
 /// its signals and its sound when that is MIDI. An error names the file and,
 /// for JSON, the line and column.
-fn take_custom_files(fs: &dyn ProjectFiles, content: &mut Value, dir: &Path) -> Result<()> {
+fn take_custom_files(fs: &dyn ProjectFiles, home: &Home, content: &mut Value, dir: &Path) -> Result<()> {
     let Some(map) = content.as_object_mut() else {
         return Ok(());
     };
     let data = map.get("data").and_then(Value::as_object);
     if let Some(file) = data.and_then(|d| d.get("json_file")).and_then(Value::as_str) {
-        let value = read_json(fs, &resolve(Path::new(file), dir))?;
+        let value = read_json(fs, &home.resolve(Path::new(file), dir))?;
         map.insert("data".into(), json!({ "json": value }));
     } else if let Some(file) = data.and_then(|d| d.get("text_file")).and_then(Value::as_str) {
         let ext = data.and_then(|d| d.get("ext")).cloned().unwrap_or(Value::Null);
-        let text = read_text(fs, file, dir)?;
+        let text = read_text(fs, home, file, dir)?;
         map.insert("data".into(), json!({ "text": { "ext": ext, "text": text } }));
     }
     if let Some(file) = map.remove("signals_file") {
-        let path = resolve(Path::new(file.as_str().unwrap_or_default()), dir);
+        let path = home.resolve(Path::new(file.as_str().unwrap_or_default()), dir);
         map.insert("signals".into(), read_json(fs, &path)?);
     }
     let sound = map.get("sound").and_then(|s| s.get("file")).and_then(Value::as_str);
     if let Some(file) = sound {
-        let path = resolve(Path::new(file), dir);
+        let path = home.resolve(Path::new(file), dir);
         let bytes = fs.read(&path).with_context(|| format!("reading {}", path.display()))?;
         let read = clipfile::decode(&bytes).with_context(|| format!("reading {}", path.display()))?;
         let midi = ClipContent::Midi { notes: Notes::from(read.notes), controls: read.controls };
@@ -1172,25 +1213,25 @@ fn take_custom_files(fs: &dyn ProjectFiles, content: &mut Value, dir: &Path) -> 
 }
 
 /// Read a project folder (`dir/project.toml`) from the disk.
-pub fn read(dir: &Path) -> Result<Read> {
-    read_from(&DiskFiles, dir)
+pub fn read(home: &Home, dir: &Path) -> Result<Read> {
+    read_from(&DiskFiles, home, dir)
 }
 
 /// Read the project folder `dir` from `fs`: the disk, or its files in
 /// memory.
-pub fn read_from(fs: &dyn ProjectFiles, dir: &Path) -> Result<Read> {
-    read_with(fs, dir, &dir.join(PROJECT_FILE))
+pub fn read_from(fs: &dyn ProjectFiles, home: &Home, dir: &Path) -> Result<Read> {
+    read_with(fs, home, dir, &dir.join(PROJECT_FILE))
 }
 
 /// Read a project folder with `head_path` in place of its `project.toml`
 /// (its `.bak`, for one that is damaged).
-pub fn read_with(fs: &dyn ProjectFiles, dir: &Path, head_path: &Path) -> Result<Read> {
+pub fn read_with(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path) -> Result<Read> {
     let (mut head, order, nest_names, transport) = read_head(fs, head_path)?;
     let mut problems = Vec::new();
     let mut files = Vec::new();
     let mut entries: Vec<TrackEntry> = order.iter().map(|name| TrackEntry::of(name, Path::new(""), None)).collect();
     let mut nests = nests::read_heads(fs, dir, &nest_names, &mut entries)?;
-    let (mut tracks, master) = read_all_tracks(fs, dir, &entries, &mut files, &mut problems)?;
+    let (mut tracks, master) = read_all_tracks(fs, home, dir, &entries, &mut files, &mut problems)?;
     nests::tag_tracks(&mut nests, &entries, &mut tracks)?;
     let map = head
         .as_object_mut()
@@ -1282,6 +1323,7 @@ impl TrackEntry {
 /// files that the tracks name are collected in `files`.
 fn read_all_tracks(
     fs: &dyn ProjectFiles,
+    home: &Home,
     dir: &Path,
     entries: &[TrackEntry],
     files: &mut Vec<(u64, PathBuf)>,
@@ -1292,7 +1334,7 @@ fn read_all_tracks(
         for key in ["clips", "cues"] {
             if let Some(Value::Array(clips)) = track.get_mut(key) {
                 for clip in clips {
-                    take_clip_file(fs, clip, files, root)?;
+                    take_clip_file(fs, home, clip, files, root)?;
                 }
             }
         }
@@ -1308,13 +1350,13 @@ fn read_all_tracks(
             read_tracks.push(None);
             continue;
         }
-        let track = read_track(fs, dir, &entry.folder, problems)
+        let track = read_track(fs, home, dir, &entry.folder, problems)
             .with_context(|| format!("reading the track {}", entry.folder.display()))?;
         ids_in(&track, &mut used);
         read_tracks.push(Some(track));
     }
     let mut master = if fs.exists(&dir.join("master/track.json")) {
-        read_track(fs, dir, Path::new("master"), problems)?
+        read_track(fs, home, dir, Path::new("master"), problems)?
     } else {
         serde_json::to_value(&*Project::default().master)?
     };
@@ -1330,8 +1372,8 @@ fn read_all_tracks(
             continue;
         }
         // A track folder outside the project: read from where it is.
-        let folder = resolve(&entry.folder, dir);
-        let track = read_outside_track(fs, &folder, &mut used, problems)?;
+        let folder = home.resolve(&entry.folder, dir);
+        let track = read_outside_track(fs, home, &folder, &mut used, problems)?;
         tracks.push(fix(track, files, &track_root(&folder))?);
     }
     let master = fix(master, files, dir)?;
@@ -1463,7 +1505,7 @@ impl super::Session {
         self.capture_states();
         let project = self.file_project(&file);
         let transport = serde_json::to_value(&self.transport)?;
-        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir, &self.home)?;
         self.add_media_file(&mut layout, &dir);
         Ok(Some((dir, layout)))
     }
@@ -1582,7 +1624,7 @@ impl super::Session {
     pub(super) fn project_load_folder(&mut self, path: &Path) -> Result<()> {
         let file = std::path::absolute(project_file(path))?;
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
-        let read = read(&dir)?;
+        let read = read(&self.home, &dir)?;
         let mut project = read.project;
         project
             .validate()
@@ -1628,13 +1670,13 @@ impl super::Session {
         }
         let mut used = self.used_ids();
         let mut problems = Vec::new();
-        let mut value = read_outside_track(&DiskFiles, &folder, &mut used, &mut problems)?;
+        let mut value = read_outside_track(&DiskFiles, &self.home, &folder, &mut used, &mut problems)?;
         let root = track_root(&folder);
         let mut files = Vec::new();
         for key in ["clips", "cues"] {
             if let Some(Value::Array(clips)) = value.get_mut(key) {
                 for clip in clips {
-                    take_clip_file(&DiskFiles, clip, &mut files, &root)?;
+                    take_clip_file(&DiskFiles, &self.home, clip, &mut files, &root)?;
                 }
             }
         }
@@ -1681,7 +1723,7 @@ impl super::Session {
             bail!("{}: no such chain file", file.display());
         }
         let mut problems = Vec::new();
-        let chain = read_chain(&DiskFiles, &file, &mut problems)?;
+        let chain = read_chain(&DiskFiles, &self.home, &file, &mut problems)?;
         let mut used = self.used_ids();
         let mut value = json!({ "devices": chain });
         renumber(&mut value, &mut used, true);
@@ -1731,7 +1773,7 @@ impl super::Session {
         let bak = std::path::absolute(bak)?;
         let dir = bak.parent().map(Path::to_path_buf).unwrap_or_default();
         let file = dir.join(PROJECT_FILE);
-        let read = read_with(&DiskFiles, &dir, &bak)?;
+        let read = read_with(&DiskFiles, &self.home, &dir, &bak)?;
         let mut project = read.project;
         project
             .validate()
@@ -1779,7 +1821,7 @@ impl super::Session {
             project.name = name.clone();
         }
         let transport = serde_json::to_value(&self.transport)?;
-        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir)?;
+        let mut layout = layout(&project, &transport, self.screen.as_ref(), &dir, &self.home)?;
         self.add_media_file(&mut layout, &dir);
         let done = commit(&dir, &layout, only)?;
         // Its own writes are not changes made outside paw.
@@ -1937,7 +1979,7 @@ mod tests {
         .into();
         let mut p = Project::default();
         p.tracks.push(Arc::new(track));
-        let first = layout(&p, &json!({}), None, &dir).unwrap();
+        let first = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap();
         let clips = Path::new("tracks/Show/clips");
         let names: Vec<_> = first
             .files
@@ -1962,13 +2004,13 @@ mod tests {
         commit(&dir, &first, None).unwrap();
         // Read it back, with no kind defined anywhere: the same value, and
         // saved again as the same bytes.
-        let read = read(&dir).unwrap();
+        let read = read(&Home::default(), &dir).unwrap();
         assert!(read.problems.is_empty(), "{:?}", read.problems);
         let ClipContent::Custom(video) = &read.project.tracks[0].clips[0].content else {
             panic!("a custom clip");
         };
         assert_eq!(video.data, KindData::Json(data.into()));
-        let again = super::layout(&read.project, &json!({}), None, &dir).unwrap();
+        let again = super::layout(&read.project, &json!({}), None, &dir, &Home::default()).unwrap();
         assert_eq!(again.files, first.files);
         let ClipContent::Custom(c) = &read.project.tracks[0].clips[2].content else {
             panic!("a custom clip");
@@ -1983,22 +2025,46 @@ mod tests {
     }
 
     fn read_err(dir: &Path) -> anyhow::Error {
-        read(dir).err().expect("the data file is not JSON")
+        read(&Home::default(), dir).err().expect("the data file is not JSON")
+    }
+
+    /// The demo song of tests/fixtures.
+    fn demo() -> Project {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/demo-song.json");
+        let file: Value = serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
+        serde_json::from_value(file["project"].clone()).unwrap()
+    }
+
+    #[test]
+    fn a_project_folder_has_the_files_of_the_golden_file() {
+        // Two tracks of the demo song: a synth with a clip, a lane of
+        // automation and a send, and the effect track that the send feeds.
+        let mut song = demo();
+        song.tracks.retain(|t| matches!(t.name.as_str(), "Lead" | "Reverb"));
+        song.meta.insert("composer".into(), json!("paw"));
+        let transport = serde_json::to_value(crate::session::Transport::default()).unwrap();
+        let screen = json!({ "tabs": [{ "view": "arrange" }] });
+        let dir = tempfile::tempdir().unwrap();
+        let layout = layout(&song, &transport, Some(&screen), dir.path(), &Home::default()).unwrap();
+        commit(dir.path(), &layout, None).unwrap();
+        crate::golden::settings(dir.path()).bind(|| {
+            insta::assert_snapshot!(crate::golden::folder_text(dir.path()));
+        });
     }
 
     #[test]
     fn a_project_comes_back_from_its_folder() {
         let dir = scratch("round");
         let p = project(3, 4);
-        let layout = layout(&p, &json!({}), None, &dir).unwrap();
+        let layout = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap();
         commit(&dir, &layout, None).unwrap();
-        let read = read(&dir).unwrap();
+        let read = read(&Home::default(), &dir).unwrap();
         assert_eq!(read.project.tracks.len(), 3);
         let mut named = read.project.clone();
         named.name_notes(&Project::default());
         assert!(notes_of(&named) == notes_of(&p), "the notes differ");
         // The same project, the same bytes, and nothing written again.
-        let again = super::layout(&read.project, &json!({}), None, &dir).unwrap();
+        let again = super::layout(&read.project, &json!({}), None, &dir, &Home::default()).unwrap();
         assert_eq!(again.files, layout.files);
         let done = commit(&dir, &again, None).unwrap();
         assert!(done.written.is_empty(), "{:?}", done.written);
@@ -2015,9 +2081,6 @@ mod tests {
     #[test]
     fn a_project_comes_back_from_its_files_in_memory() {
         use crate::session::project_files::MemoryFiles;
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/demo-song.json");
-        let file: Value = serde_json::from_slice(&std::fs::read(fixture).unwrap()).unwrap();
-        let demo: Project = serde_json::from_value(file["project"].clone()).unwrap();
         let mut show = Project::default();
         let mut track = Track::new(1);
         track.clips = vec![custom(
@@ -2030,15 +2093,41 @@ mod tests {
         show.tracks.push(Arc::new(track));
         // Nothing is on the disk: every file comes from the map.
         let dir = scratch("memory");
-        for p in [demo, project(3, 4), show] {
-            let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir).unwrap();
+        for p in [demo(), project(3, 4), show] {
+            let layout = layout(&p, &json!({ "tempo": 1 }), Some(&json!({ "tabs": [] })), &dir, &Home::default()).unwrap();
             let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
-            let read = read_from(&MemoryFiles::new(&dir, files), &dir).unwrap();
+            let read = read_from(&MemoryFiles::new(&dir, files), &Home::default(), &dir).unwrap();
             assert!(read.problems.is_empty(), "{:?}", read.problems);
             assert_eq!(canonical(&read.project), canonical(&p));
             assert_eq!((read.transport, read.screen), (json!({ "tempo": 1 }), Some(json!({ "tabs": [] }))));
         }
         assert!(!dir.exists());
+    }
+
+    /// A chain file in the home folder that the session gives is named
+    /// `~/...` in `track.json`, and comes back as the same absolute path.
+    /// With no home folder, the project names it by its absolute path.
+    #[test]
+    fn a_file_in_the_home_folder_is_named_from_it() {
+        use crate::session::project_files::MemoryFiles;
+        // Paths only: the files stay in memory and the chain file is not
+        // there, so the test reads nothing of the machine.
+        let dir = Path::new("/scratch/song");
+        let chain = PathBuf::from("/scratch/home/chains/lead/devices.json");
+        let mut track = Track::new(1);
+        track.chain_source = Some(chain.clone());
+        let mut project = Project::default();
+        project.tracks.push(Arc::new(track));
+        let check = |home: Home, named: &str| {
+            let layout = layout(&project, &json!({}), None, dir, &home).unwrap();
+            let entry: Value = serde_json::from_slice(&layout.files[Path::new("tracks/track/track.json")]).unwrap();
+            assert_eq!(entry["devices_file"], json!(named), "the name with {home:?}");
+            let files = layout.files.into_iter().map(|(k, v)| (k, Arc::from(v))).collect();
+            let read = read_from(&MemoryFiles::new(dir, files), &home, dir).unwrap();
+            assert_eq!(read.project.tracks[0].chain_source.as_ref(), Some(&chain), "read back with {home:?}");
+        };
+        check(Home::new(Some("/scratch/home".into())), "~/chains/lead/devices.json");
+        check(Home::default(), "/scratch/home/chains/lead/devices.json");
     }
 
     /// `cargo test --release -p paw-core folder::tests::timing -- --ignored --nocapture`
@@ -2047,14 +2136,14 @@ mod tests {
     fn timing() {
         let dir = scratch("timing");
         let p = project(100, 8);
-        let layout = layout(&p, &json!({}), None, &dir).unwrap();
+        let layout = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap();
         commit(&dir, &layout, None).unwrap();
         let text = serde_json::to_string_pretty(&p).unwrap();
         let mut folder = Vec::new();
         let mut one = Vec::new();
         for _ in 0..15 {
             let t = std::time::Instant::now();
-            let r = read(&dir).unwrap();
+            let r = read(&Home::default(), &dir).unwrap();
             folder.push(t.elapsed().as_secs_f64() * 1000.0);
             assert_eq!(r.project.tracks.len(), 100);
             let t = std::time::Instant::now();

@@ -693,6 +693,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.ext
 
+- `paw.ext.build_has(feature)`: True if this build of paw has `feature`, one of the names of `paw.api.build().features` such as `"processes"`. An extension that works without a feature, but has one part that uses it, checks it here.
 - `paw.ext.bundled()`: The names of the bundled extensions, loaded or not, sorted.
 - `paw.ext.bundled_dir()`: The directory of the extensions that come with paw: `$PAW_HOME/extensions`, or `extensions` under the current directory in a source tree. Nil when there is no such directory.
 - `paw.ext.caller()`: The loaded extension whose code called the function this is called from, or nil for the core's or the user's.
@@ -1827,7 +1828,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_clips.span()`: The stretch of the roll the editable clips cover: from, to. In a scope with time, only its time, as the arrange view (`0` and `$` stop there).
 - `paw.roll_clips.step_track(n, wrap)`: Make active the track `n` places after the track of the active clip, in the tracks that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other track.
 - `paw.roll_clips.target(beat, parts)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
-- `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays.
+- `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays. Returns whether the clip is editable now, nil for a clip that is not MIDI.
 - `paw.roll_clips.tracks()`: The tracks whose notes can show behind the notes of the roll. These are the tracks with MIDI clips (of the scope, in a narrowed window), but not the track of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
 - `paw.roll_clips.visible()`: The tracks whose notes the roll shows, in the order of the track list: the active clip's and those shown behind it.
 
@@ -1926,6 +1927,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scene.closed(client)`: A connection closed or stopped to watch. paw keeps no more data for it.
 - `paw.scene.live()`: The values that move the bound nodes of a frontend (see the `bind` of crates/paw-scene). These are the playhead, the clock and the load of the engine. For each track id, they are the meter, the recent peak, the clip light and the input. paw rounds them to what a frontend can show. So a program that does nothing has no new data to send (the load is as `paw.audio.load` gives it, as `frontend.watch` sends it). Each call gives the current values.
 - `paw.scene.set_pace(ms)`: Tick every `ms` while something moves (`frontend.pace`).
+- `paw.scene.sync(client)`: Send connection `client` now what it would get after the turn: the windows whose drawing changed, and the live values when they changed. A window that moves only with time waits for its next tick. `frontend.sync` calls it.
 - `paw.scene.turn()`: Call it after a turn of the kernel. paw pushes now, not at the next tick, the windows whose drawing can be different.
 - `paw.scene.wake()`: Something started to move (the song, a note played): tick at the pace from now.
 - `paw.scene.watchers()`: The watchers: `{ client, windows }` each. `windows` is the names of the windows whose size it gave.
@@ -2020,7 +2022,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.snippet.load_dir(dir, source)`: Load every `*.lua` file of a directory: each calls `paw.snippet.add` or returns a list of snippets. `source` is "config" or "extension".
 - `paw.snippet.marks(clip_id)`: The active snippet's notes and span in the clip's beats, for drawing: `{ name, notes, from, to, label }`, or nil.
 - `paw.snippet.offered(view)`: The snippets offered in `view` (the focused one when nil), by name.
-- `paw.snippet.paint(p)`: Paint the snippet layer of the piano roll (order 40, see `views/pianoroll.lua`). It marks the notes of the active snippet, and shows its range along the bottom with the items of Tab and `<C-n>`. It shows the notes that the picker would write as ghosts.
+- `paw.snippet.paint(p)`: Paint the snippet layer of the piano roll (order 40, see `views/pianoroll.tl`). It marks the notes of the active snippet, and shows its range along the bottom with the items of Tab and `<C-n>`. It shows the notes that the picker would write as ghosts.
 - `paw.snippet.pick(opts)`: Open the picker of the snippets of the focused view. Enter expands the selected snippet `count` times.
 - `paw.snippet.preview(name, opts)`: What a snippet would write here, but does not write: `{ notes, choices, ctx }` or nil and why.
 - `paw.snippet.preview_marks(clip_id)`: The notes that the snippet under the selection of the picker would write, in the beats of the clip, to draw them. Nil when no picker of snippets is open.
@@ -2174,8 +2176,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempolane.ramp(beat, on)`: Make the change at `beat` ramp to the next, or hold again.
 - `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall. The map is the window's: inside a subproject with its own tempo, its own.
 - `paw.tempolane.remove(beat)`: Remove the change at `beat`. You cannot remove the change at the start.
+- `paw.tempolane.set_points(points)`: Replace every tempo point of the window's time with `points`, beats of the window, as the curve editor of paw://tempo writes them. The map starts with a change at its start: when no point is there, one with the first point's tempo holds until it.
 - `paw.tempolane.show(on)`: Show the row, or hide it (`on` false).
 - `paw.tempolane.shown()`: True if the row shows.
+- `paw.tempolane.signature_move(beat, to)`: Move the signature change at `beat` to beat `to`, both of the window's time; a change there goes. The one at the start does not move, and none moves onto it.
+- `paw.tempolane.signature_remove(beat)`: Remove the signature change at a beat of the window's time. You cannot remove the one at the start.
+- `paw.tempolane.signature_set(beat, num, den)`: Start a bar of `num`/`den` at a beat of the window's time, or change the signature that starts there.
 - `paw.tempolane.toggle()`: Show the tempo lane, or hide it. Returns true if it shows.
 
 ## Module paw.textbuf
@@ -2411,6 +2417,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.util.inspect`: the same as `paw.inspect`.
 - `paw.util.merge(base, extra)`: Shallow copy with the fields of `extra` laid over it.
 - `paw.util.round(v, step)`: `v` rounded to the nearest multiple of `step` (1).
+- `paw.util.wrap(text, width)`: Break text into lines of at most `width` columns, at spaces. A word wider than `width` gets a line of its own. Empty text gives one empty line.
 
 ## Module paw.vca
 
@@ -2467,6 +2474,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.base64_decode(text)`: The bytes of base64 text, either alphabet, with or without its padding; spaces and line ends are left out. Nil and the reason when it is not base64.
 - `paw.api.base64_encode(data, opts)`: Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and `opts.pad = false` leaves out the `=` at the end.
 - `paw.api.blocks(device)`: The number of audio blocks that the engine finished since it started. With a device id, the number of blocks that this device ran: the blocks that it slept through do not count. A change sent to the engine is in effect in the block after the next one that finishes, so wait until the count is two more (the test helper `T.next_block` does this). Nil for a device that the engine does not have.
+- `paw.api.build()`: What this build of paw has: `{ vm, features }`. `vm` is the Lua that runs the code, `"luajit"` or `"lua52"`. `features` lists what an extension can name in the `needs` of its manifest: `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs, `io.popen`), `"network"` (sockets and requests over the network) and `"native"` (parts that Nix builds, such as plugins).
 - `paw.api.canvas_export(path, format, pages, scale)`: Write drawings (the operations of `paw.canvas.paint`) to a file: `format` "pdf" (one page for each drawing), "svg" or "png" (the first). Each page is `{ ops, width, height }` in pixels. `scale` is the points for one pixel in a PDF (0.75: 96 pixels to the inch).
 - `paw.api.canvas_image(bytes, w, h, format)`: Keep a picture of pixels for drawings to name (`paw.canvas.image`): `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row; `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns its content key, its width and its height.
 - `paw.api.canvas_pixels(key)`: A picture of pixels kept under `key`, as a window is sent it: its size and its pixels as straight RGBA in base64. Nil for a key not kept (any more).
@@ -2657,6 +2665,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.now()`
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
+- `paw.api.plugins_dirs()`: The folders where paw looks for plugins, for each format, in the order that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`. They include the folders that `plugins_add_dir` added. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_remove_dir(dir, kinds)`: Stop to find plugins in a directory added with `plugins_add_dir`, and make no more devices of `kinds`, the kinds found there. Devices that exist continue to work.
 - `paw.api.plugins_rescan(name)`: Examine the plugin files again (all, or those that `name` matches). This includes the files that failed before. Returns notes on the files that paw cannot use, or nil without plugins.
 - `paw.api.preview_get()`
@@ -2751,7 +2760,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.tempo_set_points(tempos, sigs)`: Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
 - `paw.api.tempo_signature(beat)`
 - `paw.api.test_devices()`: Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use them to see what a bad device does to the other devices.
-- `paw.api.test_panic(why)`: Panic, as a bug in the program does. Tests use it to see what paw keeps.
+- `paw.api.test_panic(why, inside)`: Panic, as a bug in the program does. Tests use it to see what paw keeps. The panic ends the program, as a bug outside `paw.api` does, and paw writes a safety copy. With `inside`, it is a bug in this function: the call gives an error, and the program goes on.
 - `paw.api.timer_start(ms, repeat, func)`: --- timers ---
 - `paw.api.timer_stop(id)`
 - `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.

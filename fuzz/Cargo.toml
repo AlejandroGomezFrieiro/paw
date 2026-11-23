@@ -1,0 +1,56 @@
+# The fuzz targets of paw (cargo-fuzz, libFuzzer): the readers of what comes
+# from outside the program. Each target calls the code that the program
+# calls, and a panic, a hang or a run out of memory is a failure.
+#
+# The crate is a member of the workspace but not a default member, so a
+# plain `cargo build`, `cargo check` or `cargo test` at the top does not
+# build it. `cargo fuzz` needs nightly Rust; on stable,
+# `cargo check -p paw-fuzz` checks that the targets still compile.
+# tools/fuzz.sh runs every target: the nightly tier, in CI only.
+[package]
+name = "paw-fuzz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fuzz targets for the readers of input from outside paw."
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+paw-core.workspace = true
+paw-proto.workspace = true
+paw-tui = { path = "../crates/paw-tui" }
+# The events that the terminal's keys arrive as (paw-tui's keys.rs).
+crossterm = "0.29"
+serde_json.workspace = true
+
+[[bin]]
+name = "clip_file"
+path = "fuzz_targets/clip_file.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "project_folder"
+path = "fuzz_targets/project_folder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "remote"
+path = "fuzz_targets/remote.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "terminal_keys"
+path = "fuzz_targets/terminal_keys.rs"
+test = false
+doc = false
+bench = false

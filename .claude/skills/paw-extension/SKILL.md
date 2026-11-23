@@ -107,7 +107,7 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
 
 ```
 extensions/<name>/
-  manifest.lua      return { name, version, description, requires = { paw = "^1.0" } }
+  manifest.lua      return { name, version, description, requires = { paw = "^1.0" }, needs = {} }
   init.tl           runs at load (or init.lua): require your modules, register things
   lua/<name>/…      your modules (on the require path), .tl or .lua
   devices/*.lua     Lua devices (JSFX-style DSP), optional

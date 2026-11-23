@@ -1585,6 +1585,7 @@ local record types
     sound_start: number
     sound_end: number
     bands: {SpectrumBand}
+    centroid: number
     series: MeasureSeries
     tracks: {TrackPeak}
     elapsed: number
@@ -1657,6 +1658,13 @@ local record types
     rate: integer
     channels: integer
     seconds: number
+  end
+
+  --- What a build of paw has (`build`): its Lua and the features that
+  --- the `needs` of a manifest names.
+  record Build
+    vm: string
+    features: {string}
   end
 
   --- The space of a disk, in bytes (`fs_space`).

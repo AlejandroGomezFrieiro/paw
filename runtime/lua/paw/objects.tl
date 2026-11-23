@@ -585,6 +585,7 @@ local record M
     signature_at: function(beat?: number): integer, integer
     tempo_at: function(beat?: number): number
     tempo_points: function(): {types.TempoPoint}
+    signature_points: function(): {types.SigPoint}
     bar_of: function(beat: number): integer
     bar_floor: function(beat: number): number
     bar_ceil: function(beat: number): number
@@ -1338,11 +1339,13 @@ function Clip:shifted(semitones: integer): Clip
   return setmetatable({id = self.id, shift = semitones} as Clip, getmetatable(self))
 end
 
--- A change of a note with its `pitch` as a stored MIDI number.
+-- A change of a note with its `pitch` as a stored MIDI number. A number
+-- with no shift passes as it is (`music.pitch`): only a name or a shift
+-- makes a copy.
 local function note_change(change: NoteChangeInput, shift: integer): types.NoteChange
-  if change.pitch then
-    return util.merge(change as {string: Value}, {pitch = (music.pitch(change.pitch) - shift) as Value})
-      as types.NoteChange
+  local pitch = change.pitch
+  if pitch is string or (pitch and shift ~= 0) then
+    return util.merge(change as {string: Value}, {pitch = (music.pitch(pitch) - shift) as Value}) as types.NoteChange
   end
   return change as types.NoteChange
 end
@@ -2063,6 +2066,23 @@ function time.tempo_points(): {types.TempoPoint}
   local out: {types.TempoPoint} = {}
   for i, p in ipairs(api.tempo_points().tempos) do
     out[i] = {beat = p.beat - o, bpm = p.bpm, ramp = p.ramp}
+  end
+  return out
+end
+
+--- The signature points of the window's time, the start's first: { beat,
+--- num, den, bar }, beats of the window, bars of its map. In a subproject
+--- with its own tempo or meter, its own points; else the song's, from the
+--- window's origin.
+function time.signature_points(): {types.SigPoint}
+  local own = time.own()
+  if own then
+    return own:points().signatures
+  end
+  local o = time.origin()
+  local out: {types.SigPoint} = {}
+  for i, s in ipairs(api.tempo_points().signatures) do
+    out[i] = {beat = s.beat - o, num = s.num, den = s.den, bar = s.bar}
   end
   return out
 end

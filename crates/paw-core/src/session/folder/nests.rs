@@ -196,7 +196,7 @@ mod tests {
     }
 
     fn save(p: &Project, dir: &Path) -> Layout {
-        let files = layout(p, &Value::Null, None, dir).expect("a layout");
+        let files = layout(p, &Value::Null, None, dir, &Home::default()).expect("a layout");
         commit(dir, &files, None).expect("saved");
         files
     }
@@ -240,9 +240,9 @@ mod tests {
         ] {
             assert!(dir.join(file).is_file(), "{file} is written");
         }
-        let read = read(&dir).expect("read back");
+        let read = read(&Home::default(), &dir).expect("read back");
         read.project.validate().expect("valid when read back");
-        let again = layout(&read.project, &Value::Null, None, &dir).expect("a layout");
+        let again = layout(&read.project, &Value::Null, None, &dir, &Home::default()).expect("a layout");
         assert_eq!(first.files, again.files);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -258,7 +258,7 @@ mod tests {
         assert!(!dir.join("nests/Bridge").exists());
         assert!(dir.join("unused/nests/Bridge/nest.toml").is_file());
         assert!(dir.join("unused/nests/Bridge/tracks/Keys/clips/riff.midi2").is_file());
-        assert!(!read(&dir).expect("read").project.nests.contains_key(&NestId(10)));
+        assert!(!read(&Home::default(), &dir).expect("read").project.nests.contains_key(&NestId(10)));
         // Another unused nest of the same name keeps the first where it is.
         let mut other = song(40);
         other.track_mut(1).expect("Ballad").clips = Default::default();

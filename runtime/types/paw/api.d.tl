@@ -17,6 +17,7 @@ local record api
    base64_decode: function(text: string): string, string
    base64_encode: function(data: string, opts?: types.Base64Options): string
    blocks: function(device?: integer): integer
+   build: function(): types.Build
    canvas_export: function(path: string, format: string, pages: {types.CanvasPage}, scale?: number)
    canvas_image: function(bytes: string, w?: integer, h?: integer, format?: string): string, integer, integer
    canvas_pixels: function(key: string): types.PictureBlob
@@ -211,6 +212,7 @@ local record api
    now: function(): number
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
+   plugins_dirs: function(): {string: {string}}
    plugins_remove_dir: function(dir: string, kinds: {string})
    plugins_rescan: function(name?: string): {string}
    preview_get: function(): types.Preview
@@ -306,7 +308,7 @@ local record api
    tempo_set_points: function(tempos: {types.TempoPoint}, sigs: {types.SigPoint})
    tempo_signature: function(beat: number): integer, integer
    test_devices: function()
-   test_panic: function(why: string)
+   test_panic: function(why: string, inside?: boolean)
    timer_start: function(ms: number, repeat_: boolean, func: function()): integer
    timer_stop: function(id: integer)
    toml_decode: function(text: string): any, string

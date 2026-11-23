@@ -594,6 +594,7 @@ test("a key whose handler never returns is stopped with an error naming it", fun
   start()
   local limit = paw.opt.lua_limit
   paw.opt.lua_limit = 300
+  T.expect_error("the key gZ %(zz runaway%) ran for more than")
   paw.keymap.set("gZ", endless(), { view = "arrange", desc = "zz runaway" })
   paw._kernel.key("g")
   paw._kernel.key("Z")
@@ -621,6 +622,8 @@ test("a command and a timer that run away are stopped too", function()
   start()
   local limit = paw.opt.lua_limit
   paw.opt.lua_limit = 300
+  T.expect_error("the command `zz_forever` ran for more than")
+  T.expect_error("a timer ran for more than")
   paw.command("zz_forever", endless(), { desc = "never ends" })
   paw.limit.guard("test", paw.commands.run, "zz_forever")
   has(last_error(), "the command `zz_forever` ran for more than", "a command")

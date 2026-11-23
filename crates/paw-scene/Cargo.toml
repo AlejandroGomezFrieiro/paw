@@ -9,3 +9,6 @@ description = "What a view shows, for every frontend: cells and their styles, an
 serde.workspace = true
 serde_json.workspace = true
 unicode-width = "0.2"
+
+[dev-dependencies]
+insta.workspace = true

@@ -582,17 +582,12 @@ mod tests {
     }
 
     #[test]
-    fn nodes_on_the_wire_are_short() {
-        let mut node = run("t3,5", 3.0, 5.0, "hi");
-        node.style = Style { fg: Some(Color::Rgb(255, 0, 0)), ..Style::default() };
-        node.clip = Some([0.0, 0.0, 80.0, 24.5]);
-        assert_eq!(
-            serde_json::to_value(&node).unwrap(),
-            json!({ "k": "t3,5", "t": "run", "text": "hi", "r": [3, 5, 2, 1], "clip": [0, 0, 80, 24.5], "s": { "fg": "#ff0000" } })
-        );
-        let picture = Node::new("p", Kind::Picture(Picture { ops: None, blob: Some("pic:1f".into()), px: [78.0, 34.0], under: true }), [1.0, 2.0, 10.0, 2.0]);
-        let back: Node = serde_json::from_value(serde_json::to_value(&picture).unwrap()).unwrap();
-        assert_eq!(back, picture);
+    fn each_kind_of_node_comes_back_the_same_from_the_wire() {
+        // The golden file of `each_kind` holds what goes on the wire.
+        for node in each_kind().nodes.values() {
+            let back: Node = serde_json::from_value(serde_json::to_value(node).unwrap()).unwrap();
+            assert_eq!(&back, node, "node {}", node.key);
+        }
     }
 
     #[test]
@@ -712,6 +707,59 @@ mod tests {
         scene.push(None, Node::new("n", Kind::Role { role: "note".into(), props: json!({}) }, [2.4, 0.0, 2.2, 1.0]));
         scene.push(Some("n"), fill("n/cells", [-0.4, 0.0, 3.0, 1.0], Some('#'), Style::default()));
         assert_eq!(lines(&scene.to_cells())[0], "  ###   ");
+    }
+
+    /// A window with one node of each kind, and each field a node may
+    /// have: a track row (a group with a cut, its name, a highlight, a
+    /// fader role and its cells), a roll (a plane with a note role), and two pictures,
+    /// one drawn inline and one sent by its content key.
+    fn each_kind() -> Scene {
+        let mut scene = Scene::new([24.0, 6.0]);
+        scene.fg = "#d0d0d0".into();
+        scene.bg = "#101010".into();
+        scene.cursor = Some([3.0, 1.0]);
+        scene.push(None, fill("bg", [0.0, 0.0, 24.0, 6.0], Some(' '), Style { bg: Some(Color::Indexed(235)), ..Style::default() }));
+        let mut row = Node::new("track:1", Kind::Group, [0.0, 0.0, 24.0, 1.0]);
+        row.clip = Some([0.0, 0.0, 12.5, 1.0]);
+        row.hit = Some(json!({ "kind": "track", "id": 1 }));
+        scene.push(None, row);
+        let mut name = run("track:1/name", 0.0, 0.0, "Bass");
+        name.style = Style { fg: Some(Color::Rgb(255, 128, 0)), on: BOLD, ..Style::default() };
+        scene.push(Some("track:1"), name);
+        // A highlight: a fill that keeps the characters under it.
+        scene.push(Some("track:1"), fill("track:1/selected", [0.0, 0.0, 4.0, 1.0], None, Style { off: BOLD, ..Style::default() }));
+        let mut fader = Node::new("fader:1", Kind::Role { role: "fader".into(), props: json!({ "db": -6.0, "min": -60.0 }) }, [6.0, 0.0, 6.0, 1.0]);
+        fader.bind = Some("meter:1".into());
+        scene.push(Some("track:1"), fader);
+        scene.push(Some("fader:1"), fill("fader:1/cells", [0.0, 0.0, 4.5, 1.0], Some('='), Style::default()));
+        for node in roll().nodes.into_values().filter(|n| n.key != "bg") {
+            scene.nodes.insert(node.key.clone(), node);
+        }
+        scene.root.push("roll".into());
+        let ops = json!([{ "op": "line", "from": [0, 0], "to": [16, 8], "color": "#ffffff" }]);
+        scene.push(None, Node::new("scope", Kind::Picture(Picture { ops: Some(ops), blob: None, px: [16.0, 8.0], under: false }), [20.0, 1.0, 4.0, 2.0]));
+        scene.push(None, Node::new("wave", Kind::Picture(Picture { ops: None, blob: Some("pic:1f".into()), px: [64.0, 16.0], under: true }), [20.0, 3.0, 4.0, 2.0]));
+        scene
+    }
+
+    /// A patch as text: its fields but the nodes on the first line, then
+    /// each node as it goes on the wire, one to a line.
+    fn wire_lines(patch: &Patch) -> String {
+        let head = Patch { set: Vec::new(), ..patch.clone() };
+        let mut text = serde_json::to_string(&head).unwrap();
+        for node in &patch.set {
+            text.push('\n');
+            text.push_str(&serde_json::to_string(node).unwrap());
+        }
+        text
+    }
+
+    #[test]
+    fn a_new_window_sends_each_kind_of_node_as_the_golden_file_has_it() {
+        let mut patch = Scene::diff(&Scene::default(), &each_kind(), "1");
+        // As the kernel sends the first scene of a window.
+        patch.full = true;
+        insta::assert_snapshot!(wire_lines(&patch));
     }
 
     #[test]

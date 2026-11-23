@@ -81,6 +81,7 @@ comment next to the code:
 | Small vectors on the stack | `arrayvec`, `smallvec` | own fixed arrays with a length |
 | Benchmarks of Rust code | `criterion` or `divan` | `Instant::now()` loops |
 | Snapshot tests | `insta` | hand-written golden files |
+| Property tests (a dev-dependency) | `proptest` (paw uses it) | a loop over random inputs |
 
 The table is a guide, not a list of required crates. A row with no use in
 paw adds nothing. A change from paw's code to a crate keeps the behavior.
@@ -126,7 +127,7 @@ real-time crates, read its code for the audio thread rules.
 | FLAC, write | `flacenc` (paw uses it) | |
 | Sample-rate conversion | `rubato` (paw uses it) | |
 | FFT | `realfft` (paw uses it) | a radix-2 FFT by hand |
-| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `measure/analysis.rs` (see below) | `ebur128` |
+| Loudness (BS.1770, EBU R 128: integrated, short-term, range, true peak) | paw's own in `paw-measure/src/analysis.rs` (see below) | `ebur128` |
 | Lock-free queues to the audio thread | `rtrb` (paw uses it) | |
 | A test that the audio thread does not allocate | `assert_no_alloc` | an own `GlobalAlloc` in each test |
 | Denormals off on a thread | `no_denormals` | own MXCSR code |
@@ -187,7 +188,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   thread, the terminal's input thread, the watchdog, and the render and
   stretch threads.
 - **SHA-256:** done: `paw-proto/src/lib.rs` uses `ring::digest`.
-- **Hex:** five `fn hex` (paw-plugins vst3.rs, paw-proto, paw-gui theme.rs,
+- **Hex:** five `fn hex` (paw-plugins vst3/mod.rs, paw-proto, paw-gui theme.rs,
   paw-raster vector.rs, paw-scene cells.rs). One color type with
   `FromStr`/`Display` for colors, and one function for bytes.
 - **Signals:** `paw-engine/src/record.rs` (SIGXFSZ). (Done:
@@ -195,7 +196,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **Memory maps:** done: `paw-engine/src/samples.rs` and
   `paw-engine/src/host.rs` use `memmap2`, `paw-plugins/src/sandbox/shm.rs`
   and `paw-raster/src/kitty.rs` use `rustix` for shared memory.
-- **Bit flags:** `paw-plugins/src/vst3.rs` (the VST3 process-context flags),
+- **Bit flags:** `paw-plugins/src/vst3/events.rs` (the VST3 process-context flags),
   `paw-engine/src/midi.rs` (ALSA capabilities), the engine's faults.
 - **Dates:** `paw-core/src/fs_api.rs` `deletion_date`.
 - **Percent-encoding:** `paw-core/src/fs_api.rs` `percent_encode`.
@@ -205,10 +206,11 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
 - **WAV writers:** `paw-engine/src/record.rs` (a take, header kept valid
   as it grows: `hound`'s `WavWriter::flush` does this),
   and `paw-listen/src/lib.rs`. (The sampler's `audio.rs` is on `hound` now.)
-- **FFT:** done. `paw-mcp/src/audio.rs`, `paw-engine/src/devices/dsp.rs`
-  (`rfft`, main thread only: no device calls an FFT in `process`) and
-  `paw-core/src/measure/analysis.rs` use `realfft`.
-- **Loudness:** `paw-core/src/measure/analysis.rs` keeps its own BS.1770
+- **FFT:** done. `paw-engine/src/devices/dsp.rs` (`rfft`, main thread
+  only: no device calls an FFT in `process`) and
+  `paw-measure/src/analysis.rs` use `realfft`. `paw-mcp` takes its
+  spectrum from `paw-measure`.
+- **Loudness:** `paw-measure/src/analysis.rs` keeps its own BS.1770
   K-weighting, gates, loudness range and true peak. Compared with `ebur128`
   0.1.11 (2026-11-21): integrated, momentary and short-term agree to 0.001
   LU and true peak to 0.1 dB, but the crate takes the short-term blocks for
@@ -221,7 +223,7 @@ Found with grep at a72467cf. Each refactor part that owns the file fixes it.
   `atomic_float`. The `no_alloc.rs` test and `no_denormals` stay paw's own,
   for the reasons above.
 - **CLAP host:** done. `clack-host` 0.2 (crates.io, on the same
-  `clap-sys` 0.5) covers all that `paw-plugins/src/clap.rs` uses, with
+  `clap-sys` 0.5) covers all that `paw-plugins/src/clap/` uses, with
   `clack-extensions` (same version). paw still opens the file itself
   (`libs.rs`) and gives Clack the entry (`PluginEntry::load_from_raw`),
   and keeps it for good, so Clack never calls `deinit`. The port, in

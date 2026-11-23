@@ -1,19 +1,20 @@
 //! What a model can learn from a render without ears: levels per channel,
 //! level over time, and where the energy sits in the spectrum.
 //!
-//! These are plain signal measurements (sample peak, RMS in dBFS, an averaged
-//! FFT in octave bands), not perceptual loudness: RMS is not LUFS.
+//! These are plain signal measurements (sample peak, RMS in dBFS, octave
+//! bands), not perceptual loudness: RMS is not LUFS. The numbers come from
+//! `paw-measure`, the analyzer that the kernel's `paw.api.measure` (and so
+//! `:mix`) uses too; this module only reads the file and writes the text.
 
 use std::fmt::Write as _;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
+use paw_measure::{Analysis, Analyzer, FLOOR_DB, Levels};
 
-const FFT_SIZE: usize = 4096;
-/// Octave band centres, ISO 266.
-const BANDS: [f64; 10] = [
-    31.5, 63.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
-];
+/// The bands of [`Analysis::bands`] below and above the octave bands, which
+/// the summary leaves out.
+const OUTSIDE_THE_OCTAVES: [&str; 2] = ["sub", "air"];
 /// At or below this a signal counts as silence.
 const SILENCE_DB: f64 = -90.0;
 
@@ -22,6 +23,13 @@ pub struct Audio {
     pub bits: u16,
     /// One vector of samples per channel, in -1..1.
     pub channels: Vec<Vec<f32>>,
+}
+
+impl Audio {
+    /// The length in frames: samples per channel.
+    pub fn frames(&self) -> usize {
+        self.channels.first().map_or(0, Vec::len)
+    }
 }
 
 pub fn read_wav(path: &Path) -> Result<Audio> {
@@ -86,18 +94,12 @@ pub enum Segments {
 /// One line of levels for a stem: `peak -3.1 dBFS, RMS -17.2 dBFS`, or
 /// `silent`.
 pub fn level_line(audio: &Audio) -> String {
-    let (mut peak, mut sum, mut count) = (0f32, 0f64, 0usize);
-    for ch in &audio.channels {
-        for s in ch {
-            peak = peak.max(s.abs());
-            sum += (*s as f64).powi(2);
-        }
-        count += ch.len();
-    }
+    let levels = all_channels(audio, 0, audio.frames());
+    let peak = levels.peak();
     if db(peak as f64) <= SILENCE_DB {
         return "silent".into();
     }
-    let rms = (sum / count.max(1) as f64).sqrt();
+    let rms = levels.rms();
     format!(
         "peak {} dBFS, RMS {} dBFS",
         fmt_db(db(peak as f64)),
@@ -107,7 +109,7 @@ pub fn level_line(audio: &Audio) -> String {
 
 /// The summary, as compact text.
 pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result<String> {
-    let frames = audio.channels.first().map_or(0, Vec::len);
+    let frames = audio.frames();
     if frames == 0 {
         bail!("the file holds no audio");
     }
@@ -124,12 +126,11 @@ pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result
         audio.bits
     )?;
 
+    let channels: Vec<Levels> = audio.channels.iter().map(|ch| Levels::of(ch)).collect();
     let mut overall_peak = 0f64;
-    for (name, ch) in names.iter().zip(&audio.channels) {
-        let peak = ch.iter().fold(0f32, |m, s| m.max(s.abs())) as f64;
-        let rms = (ch.iter().map(|s| (*s as f64).powi(2)).sum::<f64>() / ch.len() as f64).sqrt();
-        let clipped = ch.iter().filter(|s| s.abs() >= 0.999).count();
-        let dc = ch.iter().map(|s| *s as f64).sum::<f64>() / ch.len() as f64;
+    for (name, levels) in names.iter().zip(&channels) {
+        let (peak, rms) = (levels.peak() as f64, levels.rms());
+        let (clipped, dc) = (levels.clipped(), levels.dc());
         overall_peak = overall_peak.max(peak);
         write!(
             out,
@@ -150,41 +151,24 @@ pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result
         out.push_str("SILENT: nothing above -90 dBFS.\n");
         return Ok(out);
     }
-    if audio.channels.len() == 2 {
-        let (l, r) = (&audio.channels[0], &audio.channels[1]);
-        let (mut lr, mut ll, mut rr, mut mid, mut side) = (0f64, 0f64, 0f64, 0f64, 0f64);
-        for (a, b) in l.iter().zip(r) {
-            let (a, b) = (*a as f64, *b as f64);
-            lr += a * b;
-            ll += a * a;
-            rr += b * b;
-            mid += ((a + b) / 2.0).powi(2);
-            side += ((a - b) / 2.0).powi(2);
-        }
-        let correlation = if ll > 0.0 && rr > 0.0 {
-            lr / (ll * rr).sqrt()
-        } else {
-            0.0
-        };
-        let width = if side <= 1e-20 {
+    let analysis = programme(audio);
+    if let [left, right] = channels.as_slice() {
+        // `side` is the side level relative to mid; with no side at all it
+        // reads the floor.
+        let width = if analysis.side <= FLOOR_DB {
             "mono (left = right)".to_string()
         } else {
-            format!(
-                "side {} dB below mid",
-                fmt_db(db(mid.sqrt()) - db(side.sqrt()))
-            )
+            format!("side {} dB below mid", fmt_db(-analysis.side))
         };
         writeln!(
             out,
-            "stereo: correlation {correlation:.2} (1 mono, 0 wide, <0 out of phase), {width}, balance L-R {:+.1} dB",
-            db(ll.sqrt()) - db(rr.sqrt())
+            "stereo: correlation {:.2} (1 mono, 0 wide, <0 out of phase), {width}, balance L-R {:+.1} dB",
+            analysis.correlation,
+            db(left.rms()) - db(right.rms())
         )?;
     }
 
     // Level over time.
-    let mono: Vec<f32> = (0..frames)
-        .map(|i| audio.channels.iter().map(|c| c[i]).sum::<f32>() / audio.channels.len() as f32)
-        .collect();
     let pieces = split(frames, rate, &segments, max_segments);
     let unit = match segments {
         Segments::Bars { .. } => "bars",
@@ -196,19 +180,11 @@ pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result
     )?;
     let mut line = String::new();
     for (label, from, to) in &pieces {
-        let mut sum = 0f64;
-        let mut peak = 0f32;
-        for ch in &audio.channels {
-            for s in &ch[*from..*to] {
-                sum += (*s as f64).powi(2);
-                peak = peak.max(s.abs());
-            }
-        }
-        let n = ((to - from) * audio.channels.len()).max(1);
+        let levels = all_channels(audio, *from, *to);
         let entry = format!(
             "{label} {}/{}",
-            fmt_db(db((sum / n as f64).sqrt())),
-            fmt_db(db(peak as f64))
+            fmt_db(db(levels.rms())),
+            fmt_db(db(levels.peak() as f64))
         );
         if line.len() + entry.len() > 100 {
             writeln!(out, " {}", line.trim_end().trim_end_matches('·').trim_end())?;
@@ -221,29 +197,59 @@ pub fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result
         writeln!(out, " {}", line.trim_end().trim_end_matches('·').trim_end())?;
     }
 
-    let (bands, centroid) = spectrum(&mono, rate);
-    let loudest = bands.iter().cloned().fold(f64::MIN, f64::max);
+    // The octave bands up to the Nyquist frequency, each relative to the
+    // loudest of them. A band's centre is the geometric mean of its edges.
+    let octaves: Vec<_> = analysis
+        .bands
+        .iter()
+        .filter(|band| !OUTSIDE_THE_OCTAVES.contains(&band.name.as_str()))
+        .take_while(|band| (band.low * band.high).sqrt() < rate / 2.0)
+        .collect();
+    let loudest = octaves
+        .iter()
+        .map(|band| band.share)
+        .fold(f64::MIN, f64::max);
     write!(
         out,
         "spectrum (octave bands, dB relative to the loudest band):"
     )?;
-    for (centre, level) in BANDS.iter().zip(&bands) {
-        if *centre >= rate / 2.0 {
-            break;
-        }
-        let label = if *centre >= 1000.0 {
-            format!("{}k", super::music::num(centre / 1000.0))
-        } else {
-            super::music::num(*centre)
-        };
-        write!(out, " {label} {}", fmt_db(level - loudest))?;
+    for band in octaves {
+        write!(out, " {} {}", band.name, fmt_db(band.share - loudest))?;
     }
+    let centroid = analysis.centroid;
     writeln!(
         out,
         "\nspectral centroid {centroid:.0} Hz ({})",
         brightness(centroid)
     )?;
     Ok(out)
+}
+
+/// The levels of all channels together over the frames `from..to`.
+fn all_channels(audio: &Audio, from: usize, to: usize) -> Levels {
+    let mut levels = Levels::default();
+    for ch in &audio.channels {
+        levels.push(&ch[from..to]);
+    }
+    levels
+}
+
+/// The analysis of the file as a stereo programme: left and right as they
+/// are, one channel on both sides, and more than two mixed down to one.
+fn programme(audio: &Audio) -> Analysis {
+    let mut analyzer = Analyzer::new(audio.sample_rate as f64);
+    match audio.channels.as_slice() {
+        [left, right] => analyzer.push(left, right),
+        [mono] => analyzer.push(mono, mono),
+        channels => {
+            let share = 1.0 / channels.len() as f32;
+            let mix: Vec<f32> = (0..audio.frames())
+                .map(|i| channels.iter().map(|ch| ch[i]).sum::<f32>() * share)
+                .collect();
+            analyzer.push(&mix, &mix);
+        }
+    }
+    analyzer.finish()
 }
 
 fn channel_names(n: usize) -> Vec<String> {
@@ -316,58 +322,6 @@ fn split(frames: usize, rate: f64, segments: &Segments, max: usize) -> Vec<(Stri
     out
 }
 
-/// Mean power per octave band in dB, and the spectral centroid in Hz.
-fn spectrum(mono: &[f32], rate: f64) -> (Vec<f64>, f64) {
-    let window: Vec<f64> = (0..FFT_SIZE)
-        .map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / FFT_SIZE as f64).cos())
-        .collect();
-    let mut power = vec![0f64; FFT_SIZE / 2];
-    let mut frames = 0;
-    let plan = realfft::RealFftPlanner::<f64>::new().plan_fft_forward(FFT_SIZE);
-    let mut frame = plan.make_input_vec();
-    let mut bins = plan.make_output_vec();
-    // Hop by a whole frame; with at most 2000 frames spread over the file.
-    let total = mono.len().saturating_sub(FFT_SIZE) / FFT_SIZE + 1;
-    let step = total.div_ceil(2000).max(1);
-    let mut start = 0;
-    while start < mono.len() {
-        for i in 0..FFT_SIZE {
-            frame[i] = mono.get(start + i).copied().unwrap_or(0.0) as f64 * window[i];
-        }
-        plan.process(&mut frame, &mut bins).expect("lengths match the plan");
-        for (p, bin) in power.iter_mut().zip(&bins) {
-            *p += bin.norm_sqr();
-        }
-        frames += 1;
-        start += FFT_SIZE * step;
-    }
-    let bin_hz = rate / FFT_SIZE as f64;
-    let mut bands = vec![0f64; BANDS.len()];
-    let (mut weighted, mut total_power) = (0f64, 0f64);
-    for (k, p) in power.iter().enumerate().skip(1) {
-        let f = k as f64 * bin_hz;
-        let p = p / frames.max(1) as f64;
-        weighted += f * p;
-        total_power += p;
-        if let Some(b) = BANDS
-            .iter()
-            .position(|c| f >= c / std::f64::consts::SQRT_2 && f < c * std::f64::consts::SQRT_2)
-        {
-            bands[b] += p;
-        }
-    }
-    let bands = bands
-        .into_iter()
-        .map(|p| if p > 0.0 { 10.0 * p.log10() } else { -200.0 })
-        .collect();
-    let centroid = if total_power > 0.0 {
-        weighted / total_power
-    } else {
-        0.0
-    };
-    (bands, centroid)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,10 +347,25 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("correlation 1.00"), "{text}");
-        assert!(text.contains(" 1k 0.0"), "{text}");
-        let (bands, centroid) = spectrum(&sine(1000.0, 1.0, 0.5), 48000.0);
-        assert!((centroid - 1000.0).abs() < 50.0, "{centroid}");
-        assert!(bands[5] > bands[3] + 30.0);
+        assert!(text.contains("mono (left = right)"), "{text}");
+        assert_eq!(band(&text, "1k"), 0.0, "{text}");
+        assert!(band(&text, "250") < -30.0, "{text}");
+        let centroid: f64 = after(&text, "spectral centroid ").parse().unwrap();
+        assert!((centroid - 1000.0).abs() < 50.0, "{text}");
+    }
+
+    /// The word after `label` in `text`.
+    fn after<'a>(text: &'a str, label: &str) -> &'a str {
+        let (_, rest) = text
+            .split_once(label)
+            .unwrap_or_else(|| panic!("no {label:?}"));
+        rest.split_whitespace().next().unwrap()
+    }
+
+    /// The level of an octave band on the spectrum line.
+    fn band(text: &str, label: &str) -> f64 {
+        let line = text.lines().find(|l| l.starts_with("spectrum (")).unwrap();
+        after(line, &format!(" {label} ")).parse().unwrap()
     }
 
     #[test]

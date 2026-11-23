@@ -70,7 +70,7 @@ for r in $(seq "$reps"); do
     d edit.lua clips "$n"; d edit.lua clips "$n" nosync; t edit "$n"
     d edit.lua notes "$n"; d edit.lua notes "$n" nosync; t notes "$n"
   done
-  for n in 10 100 500 1000; do d edit.lua scale "$n"; done
+  for n in 10 100 500 1000; do d edit.lua scale "$n"; d edit.lua turn "$n"; done
 done
 
 echo "save/load and memory" >&2

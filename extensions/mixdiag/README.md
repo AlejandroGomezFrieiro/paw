@@ -141,8 +141,9 @@ does not apply these rules.
 
 ### Measurements
 
-The measurement is in Rust, in `crates/paw-core/src/measure/`, and scripts
-call it as `paw.api.measure*` (see below). A private engine renders the
+The measurement is in Rust, in the crate `crates/paw-measure`, which the
+MCP server uses too. The kernel's part is in `crates/paw-core/src/measure/`,
+and scripts call it as `paw.api.measure*` (see below). A private engine renders the
 project, as `paw.render` does, but into memory, on a worker thread, and paw
 measures the audio during the render.
 
@@ -158,12 +159,13 @@ measures the audio during the render.
 | Correlation, width, side level | Pearson correlation of left and right. Side energy over mid plus side | arithmetic |
 | Mono-sum loss | K-weighted loudness of (L+R)/2 on both sides, over the blocks that the stereo measurement kept | arithmetic on BS.1770 |
 | Spectral balance | Hann-windowed FFT of the mid signal, frames of about 1/6 s. The share of energy in each octave band, IEC 61260-1 base-ten mid frequencies 31.5 Hz to 16 kHz, with `sub` below and `air` above | the bands of IEC. No target curve |
+| Spectral centroid | the mean frequency of the same spectrum, weighted by power | arithmetic |
 | Peaks of each track | the post-fader meter of each track, read every engine block (1024 samples) | |
 | Series every 100 ms | momentary and short-term loudness, correlation (400 ms and for each 100 ms), mono loss, sample and true peak. DC for each second | |
 
 #### Accuracy
 
-Rust tests (`cargo test -p paw-core --lib measure`) make the following
+Rust tests (`cargo test -p paw-measure`) make the following
 signals:
 
 | Signal | Expected | Read |
@@ -250,6 +252,7 @@ The fields of the result:
 | `correlation`, `width`, `side`, `mono_loss` | the stereo image |
 | `sound_start`, `sound_end` | where sound starts and stops |
 | `bands` | `{ name, low, high, share }` |
+| `centroid` | Hz, the spectral centroid. 0 for silence |
 | `tracks` | `{ id, peak, peak_at, over_at }` |
 | `series` | `hop`, `momentary`, `short_term`, `correlation`, `correlation_hop`, `mono_loss`, `sample_peak`, `true_peak`, `dc_left`, `dc_right`. Point `i` is the window that ends at `(i + 1) * hop` seconds. `-150` is silence |
 | `sample_rate`, `frames`, `seconds`, `elapsed` | the measurement |

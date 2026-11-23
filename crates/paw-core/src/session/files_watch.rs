@@ -363,7 +363,7 @@ impl super::Session {
             bail!("only a project kept in a folder is read again");
         };
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
-        let read = folder::read(&dir)?;
+        let read = folder::read(&self.home, &dir)?;
         let mut project = read.project;
         project
             .validate()

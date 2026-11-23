@@ -61,6 +61,7 @@ local type RegexModule = require("paw.regex")
 local type RemoteModule = require("paw.remote")
 local type RenderModule = require("paw.render")
 local type RolesModule = require("paw.roles")
+local type RollClipsModule = require("paw.roll_clips")
 local type RollDrawModule = require("paw.roll_draw")
 local type RulerModule = require("paw.ruler")
 local type SceneModule = require("paw.scene")
@@ -108,7 +109,7 @@ global record paw
    commands: CommandsModule
    complete: CompleteModule
    contracts: ContractsModule
-   controls: Untyped
+   controls: Partial.Controls
    cursor: CursorModule
    curves: CurvesModule
    defer: function(fn: function(), ms?: number): integer
@@ -179,7 +180,7 @@ global record paw
    params: Untyped
    pick: PickModule
    plot: PlotModule
-   plugins: Untyped
+   plugins: Partial.Plugins
    profile: ProfileModule
    project: ObjectsModule.Project
    qf: QfModule
@@ -199,7 +200,7 @@ global record paw
    restore_device: function(snap: ObjectsModule.DeviceSnapshot, track: integer | ObjectsModule.Track, index?: integer): ObjectsModule.Device
    restore_track: function(snap: ObjectsModule.TrackSnapshot, index?: integer): ObjectsModule.Track
    roles: RolesModule
-   roll_clips: Untyped
+   roll_clips: RollClipsModule
    roll_draw: RollDrawModule
    routes: Untyped
    ruler: RulerModule

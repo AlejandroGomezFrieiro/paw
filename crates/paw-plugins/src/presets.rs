@@ -310,7 +310,7 @@ fn draft_entry(entry: &PluginEntry) -> Option<PluginEntry> {
     let draft = entry.get_factory::<DraftFactory>()?;
     DRAFT.set(draft.0.as_ptr().cast_const().cast());
     // SAFETY: `DRAFT_ENTRY` is static, its `init` and `deinit` do nothing, and its factory is
-    // the draft factory of `entry`'s file, which is never unloaded (see clap.rs's `Library`).
+    // the draft factory of `entry`'s file, which is never unloaded (see clap/library.rs's `Library`).
     unsafe { PluginEntry::load_from_raw(&DRAFT_ENTRY, c"paw-draft-presets") }.ok()
 }
 
@@ -369,21 +369,18 @@ pub fn clap_preset_parts(id: &str) -> Result<(Option<PresetLocation>, Option<CSt
 // --- VST3 ---------------------------------------------------------------------
 
 /// Where `.vstpreset` files are kept for a plugin, as the VST3 SDK sets out
-/// for Linux: `~/.vst3/presets/<vendor>/<plugin>`, then the system's, then
-/// `$VST3_PRESET_PATH` (directories separated by `:`, each laid out the same
-/// way), and presets shipped inside the plugin's bundle.
-pub fn vst3_preset_dirs(vendor: &str, plugin: &str, bundle: Option<&Path>) -> Vec<PathBuf> {
-    let mut roots: Vec<PathBuf> = Vec::new();
-    if let Some(extra) = std::env::var_os("VST3_PRESET_PATH") {
-        roots.extend(std::env::split_paths(&extra));
-    }
-    if let Some(home) = std::env::var_os("HOME") {
-        roots.push(PathBuf::from(home).join(".vst3/presets"));
-    }
-    roots.push("/usr/share/vst3/presets".into());
-    roots.push("/usr/local/share/vst3/presets".into());
+/// for Linux: `<root>/<vendor>/<plugin>` for each of `roots` in order
+/// ([`crate::PluginDirs`] gives `$VST3_PRESET_PATH`, then
+/// `~/.vst3/presets`, then the system's), then the presets shipped inside
+/// the plugin's bundle. Only the folders that exist.
+pub fn vst3_preset_dirs(
+    roots: &[PathBuf],
+    vendor: &str,
+    plugin: &str,
+    bundle: Option<&Path>,
+) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = roots
-        .into_iter()
+        .iter()
         .map(|root| root.join(vendor).join(plugin))
         .collect();
     if let Some(bundle) = bundle {
@@ -475,6 +472,34 @@ pub fn write_vstpreset(class: &str, comp: &[u8], cont: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vst3_presets_are_looked_for_under_each_root_in_order_then_in_the_bundle() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = |rel: &str| {
+            let dir = root.path().join(rel);
+            std::fs::create_dir_all(&dir).unwrap();
+            dir
+        };
+        let first = folder("first/Vendor/Plugin");
+        let second = folder("second/Vendor/Plugin");
+        let shipped = folder("Plugin.vst3/Contents/Resources/Presets");
+        folder("second/Vendor/Other");
+        let roots = [
+            root.path().join("second"),
+            root.path().join("none"),
+            root.path().join("first"),
+        ];
+
+        let bundle = root.path().join("Plugin.vst3");
+        let dirs = vst3_preset_dirs(&roots, "Vendor", "Plugin", Some(&bundle));
+
+        assert_eq!(
+            dirs,
+            [second, first, shipped],
+            "the folders that exist, in the order of the roots"
+        );
+    }
 
     #[test]
     fn vstpreset_round_trips() {

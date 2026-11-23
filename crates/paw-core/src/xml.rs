@@ -512,3 +512,6 @@ pub fn encode(root: &Table, opts: &EncodeOpts) -> mlua::Result<String> {
     Ok(out)
 }
 
+
+#[cfg(test)]
+mod props;

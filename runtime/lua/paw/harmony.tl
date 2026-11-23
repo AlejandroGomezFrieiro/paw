@@ -153,10 +153,7 @@ local record Draw
   g: Glyphs
 end
 --- A row of cells to draw on (`paw.buf`).
-local record Buf
-  width: integer
-  text: function(Buf, x: integer, y: integer, text: string, hl?: string)
-end
+local type Buf = contracts.Buf
 local record Paw is partial.Paw
   music: MusicModule
   markers: MarkersModule

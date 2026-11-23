@@ -13,6 +13,8 @@ pub mod events;
 pub mod ext_api;
 pub mod audio;
 pub mod freeze;
+#[cfg(test)]
+mod golden;
 pub mod fs_api;
 pub mod grid;
 pub mod history;
@@ -26,6 +28,8 @@ pub mod measure;
 pub mod model;
 pub mod monitor;
 pub mod peaks;
+#[cfg(test)]
+mod props;
 pub mod remote;
 pub mod resample;
 pub mod rpc;

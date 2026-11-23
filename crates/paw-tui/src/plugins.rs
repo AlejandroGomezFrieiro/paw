@@ -16,14 +16,29 @@ pub fn registry(args: &args::Run, display_note: Option<String>) -> (Registry, Ve
     if let Ok(exe) = std::env::current_exe() {
         paw_luadev::set_helper(exe, paw_plugins::sandbox::remote);
     }
+    // The folders to search are resolved once, here at the start, from
+    // this program's environment. The scan, the rescans and the folders
+    // that extensions add share the one value.
+    let dirs = std::rc::Rc::new(std::cell::RefCell::new(paw_plugins::PluginDirs::from_env(
+        |name| std::env::var_os(name),
+    )));
     // Directories an extension adds are looked in even without the
     // plugins installed on the machine.
     let cache = crate::cache_dir().join("plugins.json");
     registry.set_add_dir(std::rc::Rc::new({
-        let cache = cache.clone();
-        move |registry, dir| paw_plugins::add_dir(registry, Some(&cache), dir)
+        let (cache, dirs) = (cache.clone(), dirs.clone());
+        move |registry, dir| {
+            paw_plugins::add_dir(registry, Some(&cache), &mut dirs.borrow_mut(), dir)
+        }
     }));
-    registry.set_remove_dir(std::rc::Rc::new(paw_plugins::remove_dir));
+    registry.set_remove_dir(std::rc::Rc::new({
+        let dirs = dirs.clone();
+        move |dir| dirs.borrow_mut().remove(dir)
+    }));
+    registry.set_plugin_dirs(std::rc::Rc::new({
+        let dirs = dirs.clone();
+        move || dirs.borrow().by_format()
+    }));
     registry.set_attach(std::rc::Rc::new(paw_plugins::attach::add));
     let mut plugin_notes = if args.no_plugins {
         Vec::new()
@@ -37,10 +52,10 @@ pub fn registry(args: &args::Run, display_note: Option<String>) -> (Registry, Ve
                 Some(&cache),
             );
         }
-        let notes = paw_plugins::register(&mut registry, Some(&cache));
-        paw_plugins::sandbox::wrap(&mut registry);
+        let notes = paw_plugins::register(&mut registry, Some(&cache), &dirs.borrow());
+        paw_plugins::sandbox::wrap(&mut registry, &dirs.borrow());
         registry.set_rescan(std::rc::Rc::new(move |registry, name| {
-            paw_plugins::rescan(registry, Some(&cache), name)
+            paw_plugins::rescan(registry, Some(&cache), name, &dirs.borrow())
         }));
         notes
     };
@@ -68,8 +83,11 @@ pub fn registry(_args: &args::Run, display_note: Option<String>) -> (Registry, V
 /// It changes the environment: call it while no other thread runs.
 pub unsafe fn repair_display_env() -> Option<String> {
     #[cfg(not(target_vendor = "browserpod"))]
-    // SAFETY: The caller promises that no other thread runs.
-    return unsafe { paw_plugins::repair_display_env() };
+    {
+        let home = crate::home_dir();
+        // SAFETY: The caller promises that no other thread runs.
+        unsafe { paw_plugins::repair_display_env(home.as_deref()) }
+    }
     #[cfg(target_vendor = "browserpod")]
     None
 }
@@ -94,8 +112,11 @@ pub unsafe fn host(args: &[String]) -> i32 {
                 })
             };
         }
+        // The helper looks for the plugin where the program that started it
+        // did: the same environment, and the folders that it added.
+        let dirs = paw_plugins::PluginDirs::for_helper(|name| std::env::var_os(name));
         // SAFETY: As the caller promises.
-        unsafe { paw_plugins::sandbox::serve(args) }
+        unsafe { paw_plugins::sandbox::serve(args, &dirs) }
     }
     #[cfg(target_vendor = "browserpod")]
     {
@@ -108,7 +129,10 @@ pub unsafe fn host(args: &[String]) -> i32 {
 /// `paw plugin-scan`: look into plugin files. Returns the exit code.
 pub fn scan(args: &[String]) -> i32 {
     #[cfg(not(target_vendor = "browserpod"))]
-    return paw_plugins::scan_main(args);
+    return paw_plugins::scan_main(
+        args,
+        &paw_plugins::PluginDirs::from_env(|name| std::env::var_os(name)),
+    );
     #[cfg(target_vendor = "browserpod")]
     {
         let _ = args;
