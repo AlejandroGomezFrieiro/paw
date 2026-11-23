@@ -1230,7 +1230,7 @@ end)
 
 test("guide: personalize the track column and the ruler", function()
   fresh()
-  local fold, number = paw.trackcolumn.components.fold, paw.trackcolumn.components.number
+  local fold, number = paw.trackcolumn.components:get("fold"), paw.trackcolumn.components:get("number")
   T.after(function()
     paw.trackcolumn.add("fold", fold)
     paw.trackcolumn.add("number", number)

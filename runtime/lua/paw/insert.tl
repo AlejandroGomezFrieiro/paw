@@ -26,7 +26,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local type registry = require("paw.registry")
+local registry = require("paw.registry")
 local options = require("paw.options")
 local events = require("paw.events")
 local commands = require("paw.commands")
@@ -103,10 +103,10 @@ local record Session
 end
 
 local record M
-  --- The keys and what each inserts, by key.
-  kinds: {string: Kind}
+  --- The keys and what each inserts, by key, with the extension that
+  --- added or changed each one (`add`, `set`).
+  kinds: registry.Registry<Kind>
 end
-M.kinds = {}
 
 local session: Session = {items = {}, specs = {}}
 
@@ -142,7 +142,7 @@ local function sync()
   local km = keymap()
   local active: {string: boolean} = {}
   for i, key in ipairs(shown()) do
-    local spec = M.kinds[key]
+    local spec = M.kinds:get(key)
     if spec then
       active[key] = true
       if made[key] ~= spec or made_at[key] ~= i then
@@ -164,11 +164,11 @@ end
 --- (`util.by_order`): before the first key whose kind comes after it, else
 --- last. A key with no kind does not move the others.
 local function placed(list: {string}, key: string): {string}
-  local spec = M.kinds[key]
+  local spec = M.kinds:get(key)
   local copy: {string} = {}
   local put = false
   for _, k in ipairs(list) do
-    local other = M.kinds[k]
+    local other = M.kinds:get(k)
     if not put and other and util.by_order(spec, other) then
       copy[#copy + 1], put = key, true
     end
@@ -179,6 +179,39 @@ local function placed(list: {string}, key: string): {string}
   end
   return copy
 end
+
+-- The keys that an extension moved with `set`: the kind at the old key
+-- is hidden under a copy until the extension unloads.
+local moved: {string: boolean} = {}
+
+-- A key that goes leaves `paw.opt.insertkeys`, and a key that an
+-- extension moved comes back to its place there when the extension
+-- unloads. Then the mappings follow.
+M.kinds = registry.new(
+  "insert",
+  "keys of insert mode",
+  {
+    label = function(key: string, spec: Kind): string return not spec.hidden and key .. " (insert mode)" or nil end,
+    changed = function(key: string, spec: Kind)
+      local list = shown()
+      if not spec then
+        local kept: {string} = {}
+        for _, k in ipairs(list) do
+          if k ~= key then
+            kept[#kept + 1] = k
+          end
+        end
+        set_shown(kept)
+      elseif moved[key] and not spec.hidden then
+        moved[key] = nil
+        if not has(list, key) then
+          set_shown(placed(list, key))
+        end
+      end
+      sync()
+    end,
+  }
+)
 
 --- Add a key, or put a new kind in place of the one on it. It goes into
 --- `paw.opt.insertkeys` (unless `hidden`) at the place of its `order`, so
@@ -194,31 +227,24 @@ function M.add(key: string, spec: Kind): Kind
   spec.desc = spec.desc or ("A " .. tostring(spec.kind))
   spec.order = spec.order or 50
   spec.ext = spec.ext or paw.ext.caller()
-  M.kinds[key] = spec
+  M.kinds:put(key, spec)
   local list = shown()
   if not spec.hidden and not has(list, key) then
     set_shown(placed(list, key))
+    sync()
   end
-  sync()
   return spec
 end
 
---- Take a key away, and out of `paw.opt.insertkeys`.
+--- Take a key away, and out of `paw.opt.insertkeys`. The kind that it
+--- replaced, if any, comes back.
 function M.remove(key: string)
-  M.kinds[key] = nil
-  local list: {string} = {}
-  for _, k in ipairs(shown()) do
-    if k ~= key then
-      list[#list + 1] = k
-    end
-  end
-  set_shown(list)
-  sync()
+  M.kinds:remove(key)
 end
 
 --- A copy of `from` with the fields of `patch` that are given. A copy, not
---- a change in place, so that an extension that unloads puts back the one
---- it found (paw/ext.lua).
+--- a change in place, so that it goes over the one it changed, which comes
+--- back when the extension that changed it unloads.
 local function patched(from: Kind, patch: Patch): Kind
   local out: {string: Field} = {}
   for k, v in pairs(from as {string: Field}) do
@@ -236,7 +262,7 @@ end
 ---   paw.insert.set("r", { name = "Verse %d", length = "marker" })
 ---   paw.insert.set("m", { length = "1 bar", key = "n" })
 function M.set(key: string, patch: Patch): Kind
-  local spec = M.kinds[key]
+  local spec = M.kinds:get(key)
   if not spec then
     error("no insert key `" .. tostring(key) .. "`", 2)
   end
@@ -245,7 +271,8 @@ function M.set(key: string, patch: Patch): Kind
   local to = patch.key or key
   copy.key = to
   if to ~= key then
-    M.kinds[key] = nil
+    -- The new key takes the place of the old one in the list first: the
+    -- removal of the old key takes it out of the list.
     local list: {string} = {}
     for _, k in ipairs(shown()) do
       if k == key then
@@ -255,15 +282,22 @@ function M.set(key: string, patch: Patch): Kind
       end
     end
     set_shown(list)
+    if copy.ext then
+      -- An extension hides the kind at the old key under a copy, so that
+      -- its unload gives the key back.
+      moved[key] = true
+      M.kinds:put(key, patched(spec, {hidden = true} as Patch))
+    else
+      M.kinds:remove(key)
+    end
   end
-  M.kinds[to] = copy
-  sync()
+  M.kinds:put(to, copy)
   return copy
 end
 
 --- What a key inserts, or nil.
 function M.get(key: string): Kind
-  return M.kinds[key]
+  return M.kinds:get(key)
 end
 
 --- The keys that work, in the order of `paw.opt.insertkeys`, each with
@@ -271,8 +305,8 @@ end
 function M.list(): {Kind}
   local out: {Kind} = {}
   for _, key in ipairs(shown()) do
-    if M.kinds[key] then
-      out[#out + 1] = M.kinds[key]
+    if M.kinds:get(key) then
+      out[#out + 1] = M.kinds:get(key)
     end
   end
   return out
@@ -408,7 +442,7 @@ builtin.audio = function(ctx: Context): Item, string
       prompt = "File: ",
       label = "Insert a file",
       complete = function(text: string): {commands.Entry}
-        return commands.completers.audio_files(text) as {commands.Entry}
+        return commands.completers:get("audio_files")(text) as {commands.Entry}
       end,
     },
     function(text: string)
@@ -531,7 +565,7 @@ end
 press = function(key: string)
   local count = session.count or 1
   session.count = nil
-  local base = M.kinds[key]
+  local base = M.kinds:get(key)
   if not base then
     return paw.notify("`" .. key .. "` inserts nothing: K lists the keys", "warn")
   end

@@ -1030,7 +1030,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.insert.insert(key, count)`: Insert what `key` inserts at the cursor, as if typed in insert mode (`count` times).
 - `paw.insert.list()`: The keys that work, in the order of `paw.opt.insertkeys`, each with what it inserts.
 - `paw.insert.open()`: `<CR>`: open what was inserted last, and end insert mode; with nothing inserted, enter notes at the cursor, in a new clip if there is none.
-- `paw.insert.remove(key)`: Take a key away, and out of `paw.opt.insertkeys`.
+- `paw.insert.remove(key)`: Take a key away, and out of `paw.opt.insertkeys`. The kind that it replaced, if any, comes back.
 - `paw.insert.set(key, patch)`: Change what a key inserts, a built-in key too: only the fields of `patch` that are given. With `key`, the kind moves to that key (in the same place of `paw.opt.insertkeys`). The key gets a changed copy.
 
   ```lua
@@ -1921,7 +1921,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
 - `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
-- `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`.
+- `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`. The part that it replaced, if any, comes back.
 - `paw.ruler.remove_lane(name)`: Take a lane away.
 - `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The part becomes a changed copy, as with `paw.trackcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
 
@@ -2251,8 +2251,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.trackcolumn.describe(track)`: What the components shown say of `track` for `K` (their `describe`), a line each, in their order.
 - `paw.trackcolumn.draw(buf, L, y, track, ctx)`: Draw one line of the column for `track` at line `y` of `buf` (the column's own part of the view), with what `ctx` says of the line.
 - `paw.trackcolumn.layout(frame, room)`: The column for one draw over the tracks of `frame`, at most `room` columns wide: the components named in `paw.opt.trackcolumn`, in their order, each as wide as it says. A component that fails takes no room.
-- `paw.trackcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.trackcolumn`.
-- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy: `paw.trackcolumn.add(name, old)` with the table it had before puts that back.
+- `paw.trackcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.trackcolumn`. The component that it replaced, if any, comes back.
+- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy: `paw.trackcolumn.add(name, old)` with the table it had before puts that back. The change of an extension goes when the extension unloads.
 
   ```lua
   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })

@@ -4359,7 +4359,8 @@ function paw.insert.list() end
 --- inserted, enter notes at the cursor, in a new clip if there is none.
 function paw.insert.open() end
 
---- Take a key away, and out of `paw.opt.insertkeys`.
+--- Take a key away, and out of `paw.opt.insertkeys`. The kind that it
+--- replaced, if any, comes back.
 ---@param key any
 function paw.insert.remove(key) end
 
@@ -7608,7 +7609,8 @@ function paw.ruler.loop_text(from, to, on) end
 ---@param beat any
 function paw.ruler.relative(bar, beat) end
 
---- Take a part away, and its name out of `paw.opt.barlabel`.
+--- Take a part away, and its name out of `paw.opt.barlabel`. The part
+--- that it replaced, if any, comes back.
 ---@param name any
 function paw.ruler.remove(name) end
 
@@ -9031,6 +9033,7 @@ function paw.trackcolumn.draw(buf, L, y, track, ctx) end
 function paw.trackcolumn.layout(frame, room) end
 
 --- Take a component away, and its name out of `paw.opt.trackcolumn`.
+--- The component that it replaced, if any, comes back.
 ---@param name any
 function paw.trackcolumn.remove(name) end
 
@@ -9038,7 +9041,8 @@ function paw.trackcolumn.remove(name) end
 --- (to put it elsewhere), `width`, `render`, `click`, `describe`, and the
 --- `glyphs` and `styles` it draws with (merged into its own). The
 --- component becomes a changed copy: `paw.trackcolumn.add(name, old)`
---- with the table it had before puts that back.
+--- with the table it had before puts that back. The change of an
+--- extension goes when the extension unloads.
 ---   paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
 ---   paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
 ---@param name any

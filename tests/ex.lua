@@ -492,7 +492,7 @@ test("ex: an extension adds a pattern field and a command that takes a range", f
   paw.command("test.count", function(ctx) counted = #ex.items(ctx.range, "note") end, { range = true })
   run("t1 2,3test.count")
   eq(counted, 8, "a command with a range finds the notes in it")
-  ex.fields.lyric = nil
+  ex.fields:remove("lyric")
 end)
 
 test("ex: a clip whatever an extension keeps with it is MIDI, edited as any other", function()

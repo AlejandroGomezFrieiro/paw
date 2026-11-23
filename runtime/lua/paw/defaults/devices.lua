@@ -127,7 +127,7 @@ command("device.set", function(ctx)
 end, {
   desc = "Set parameters: `device.set synth cutoff=800 wave=2`",
   complete = function(_, info)
-    if info.index == 1 then return paw.commands.completers.track_devices() end
+    if info.index == 1 then return paw.commands.completers:get("track_devices")() end
     local track = cursor.track()
     local device = track and track:device(info.words[1])
     local out = {}

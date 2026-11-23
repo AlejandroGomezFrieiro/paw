@@ -3268,7 +3268,7 @@ function M.setup()
           return {}
         end
         local out = M.buffer_names() as {string | commands.Candidate}
-        for _, c in ipairs(commands.completers.openable(text)) do
+        for _, c in ipairs(commands.completers:get("openable")(text)) do
           out[#out + 1] = c as commands.Candidate
         end
         return out

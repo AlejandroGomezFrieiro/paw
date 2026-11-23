@@ -105,7 +105,7 @@ test("track column: an extension's part shows in its order, and set moves a buil
       if ctx.line == 0 then return { { "E", "TrackSign" } } end
     end,
   })
-  local fold = paw.trackcolumn.components.fold
+  local fold = paw.trackcolumn.components:get("fold")
   after(function()
     paw.trackcolumn.remove("ext")
     paw.trackcolumn.add("fold", fold)

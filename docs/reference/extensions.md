@@ -105,6 +105,7 @@ A registry holds entries by name and records which extension put each entry ther
 | Registry | Entries |
 | --- | --- |
 | `paw.commands.specs` | commands, by name |
+| `paw.commands.completers` | completers of command arguments |
 | `paw.ui.views` | views |
 | `paw.layout.types` | buffer types |
 | `paw.textbuf.kinds` | kinds of text buffer |
@@ -113,6 +114,15 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.ui.roles` | roles |
 | `paw.pick.sources` | picker sources |
 | `paw.statusline.components` | status line components |
+| `paw.query.fields` | query fields, by kind and name (`"note pitch"`) |
+| `paw.ex.fields` | fields of `:s` and `:g` |
+| `paw.ex.views` | views of ranges |
+| `paw.trackcolumn.components` | parts of the track column |
+| `paw.trackcolumn.signs` | signs of the track column |
+| `paw.ruler.labels` | parts of the bar labels |
+| `paw.insert.kinds` | keys of insert mode in the arrange view |
+| `paw.grep.sources` | grep sources |
+| `paw.curves.providers` | curve providers |
 
 A module or an extension that takes entries from other extensions can make its own registry, and then `:extensions`, `paw.ext.provides` and `paw.ext.unload` work with it without any other change.
 

@@ -161,7 +161,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.statusline.component("owned", function() return "O" end)
     paw.grep.source("owned", function(add) end)
     paw.ex.field("owned", { level = "note", type = "number", get = function() return 1 end })
-    paw.commands.completers.owned = function() return {} end
+    paw.commands.completers:put("owned", function() return {} end)
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
     table.insert(paw.frontend.bands, function() return {} end)
@@ -233,15 +233,15 @@ test("what an extension registers is its own, and unloading it takes all of it a
     if item.track_kind == "ownedkind" then error("its kind is still in the menu") end
   end
   eq(paw.pick.sources:get("owned"), nil, "its picker source")
-  eq(paw.query.fields.track.ownedness, nil, "its query field")
+  eq(paw.query.fields:get("track ownedness"), nil, "its query field")
   eq(paw.statusline.components:get("owned"), nil, "its status line component")
-  eq(paw.grep.sources.owned, nil, "its grep source")
+  eq(paw.grep.sources:get("owned"), nil, "its grep source")
   for _, name in ipairs(paw.grep.order) do
     eq(name ~= "owned", true, "and its place in the order")
   end
-  eq(paw.ex.fields.owned, nil, "its field")
-  eq(paw.commands.completers.owned, nil, "its completer")
-  eq(paw.curves.providers.owned, nil, "its curve provider")
+  eq(paw.ex.fields:get("owned"), nil, "its field")
+  eq(paw.commands.completers:get("owned"), nil, "its completer")
+  eq(paw.curves.providers:get("owned"), nil, "its curve provider")
   for _, layer in ipairs(paw.ui.layers.arrange.header or {}) do
     eq(layer.name ~= "owned", true, "its layer")
   end
@@ -351,7 +351,7 @@ test("an extension's pencil keys and insert keys work, show in the key bar by or
   eq(paw.ext.unload("pens"), true, "unloads")
   eq(paw.roll_draw.keys.gs, nil, "its pencil key is gone from paw.roll_draw.keys")
   eq(paw.roll_draw.keys.gz, nil, "both of them")
-  eq(paw.insert.kinds.Q, nil, "its insert key is gone")
+  eq(paw.insert.get("Q"), nil, "its insert key is gone")
   eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "and out of paw.opt.insertkeys")
   T.keys("igsgz<Esc>")
   paw.ui.focus("arrange")
@@ -557,6 +557,25 @@ local registries = {
     put = "paw.clip_kinds.define(%q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
   },
   { reg = paw.roles.registry, core = "chip", put = "paw.ui.role(%q, { cells = function() end })" },
+  {
+    reg = paw.query.fields,
+    prefix = "note ",
+    core = "pitch",
+    put = "paw.query.field('note', %q, function() return 1 end)",
+  },
+  {
+    reg = paw.ex.fields,
+    core = "pitch",
+    put = "paw.ex.field(%q, { level = 'note', type = 'number', get = function() return 1 end })",
+  },
+  { reg = paw.ex.views, put = "paw.ex.view(%q, { song = function(col) return col end })" },
+  { reg = paw.commands.completers, core = "tracks", put = "paw.commands.completers:put(%q, function() return {} end)" },
+  { reg = paw.trackcolumn.components, core = "fold", put = "paw.trackcolumn.add(%q, { render = function() end })" },
+  { reg = paw.trackcolumn.signs, core = "diagnostics", put = "paw.trackcolumn.sign(%q, { render = function() end })" },
+  { reg = paw.ruler.labels, core = "number", put = "paw.ruler.add(%q, { render = function() end })" },
+  { reg = paw.insert.kinds, core = "m", put = "paw.insert.add(%q, { kind = 'midi', desc = 'Mine' })" },
+  { reg = paw.grep.sources, put = "paw.grep.source(%q, function() end)" },
+  { reg = paw.curves.providers, core = "lsp", put = "paw.curves.provide(%q, function() end)" },
 }
 
 test(
@@ -584,6 +603,20 @@ test(
     end
   end
 )
+
+test("an extension that moves an insert key to another key gives the old key back when it unloads", function()
+  write(dir("mover") .. "/init.lua", "paw.insert.set('m', { key = 'Z' })")
+  local m = paw.insert.get("m")
+  T.after(function() paw.ext.unload("mover") end)
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "the built-in insert keys")
+  paw.ext.load(dir("mover"))
+  eq(table.concat(paw.opt.insertkeys, ","), "Z,a,r,',f", "Z in place of m")
+  eq(paw.insert.get("Z").kind, m.kind, "Z inserts what m did")
+  paw.ext.unload("mover")
+  eq(table.concat(paw.opt.insertkeys, ","), "m,a,r,',f", "m is back in its place")
+  eq(paw.insert.get("m"), m, "with its kind")
+  eq(paw.insert.get("Z"), nil, "and Z is gone")
+end)
 
 test("an entry over another extension's stays when the other unloads, and checkhealth says so", function()
   write(dir("under") .. "/init.lua", "paw.pick.sources:put('regtest_shared', { desc = 'under', items = {} })")

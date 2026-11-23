@@ -61,7 +61,7 @@ end)
 test("rulerplus: :ext.unload puts the bar labels back as they were", function()
   T.fresh()
   local labels = {}
-  for k, v in pairs(paw.ruler.labels) do
+  for k, v in pairs(paw.ruler.labels:entries()) do
     labels[k] = v
   end
   local shown = table.concat(paw.opt.barlabel, ",")
@@ -69,9 +69,9 @@ test("rulerplus: :ext.unload puts the bar labels back as they were", function()
   paw.ext.load("extensions/rulerplus")
   paw.keymap.feed(":ext.unload rulerplus<CR>")
   for k, v in pairs(labels) do
-    eq(paw.ruler.labels[k], v, "the part " .. k)
+    eq(paw.ruler.labels:get(k), v, "the part " .. k)
   end
-  for k in pairs(paw.ruler.labels) do
+  for k in pairs(paw.ruler.labels:entries()) do
     eq(labels[k] ~= nil, true, "no part left: " .. k)
   end
   eq(table.concat(paw.opt.barlabel, ","), shown, "paw.opt.barlabel")

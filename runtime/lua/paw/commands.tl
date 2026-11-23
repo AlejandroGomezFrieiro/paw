@@ -86,7 +86,9 @@ local record M
   specs: registry.Registry<Spec>
   owner: function(): string
   line_handlers: {function(string, Context): boolean}
-  completers: {string: Completer}
+  --- The completers by name, with the extension that added each one.
+  --- `paw.commands.completers:put(name, fn)` adds one.
+  completers: registry.Registry<Completer>
 end
 
 -- What this module reads of `paw`, which paw/init.lua makes. A module of the
@@ -756,7 +758,7 @@ end
 --   complete = { "tracks", "devices" }       -- the first a track, the second a device
 --   complete = function(text, info) return { "on", "off" } end
 --
--- A name is one of `paw.commands.completers` below; a function gets the
+-- A name is one of `paw.commands.completers` (a registry) below; a function gets the
 -- text after the command's name and `info` with `word` (the word being
 -- typed), `index` (which argument it is, from 1) and `words` (those before
 -- it), and returns candidates: strings, or `{ text = ..., desc = ... }`.
@@ -824,7 +826,8 @@ local function by_text(out: {Item}): {Item}
   return out
 end
 
-M.completers = {
+M.completers = registry.new("completers", "completers")
+local builtin: {string: Completer} = {
   commands = function(): {Item}
     local out: {Item} = {}
     for _, spec in ipairs(M.list()) do
@@ -889,7 +892,7 @@ M.completers = {
     return files(word, ext)
   end,
   -- What `import` takes: sound files and the files of the formats that read.
-  importable = function(word: string): {Item} return M.completers.audio_files(word) end,
+  importable = function(word: string): {Item} return M.completers:get("audio_files")(word) end,
   -- What `export` writes: the files of the formats that write.
   exportable = function(word: string): {Item} return files(word, set_of(paw.formats.extensions("export"))) end,
   -- Projects, and the files of formats that hold whole projects.
@@ -915,6 +918,9 @@ M.completers = {
     return files(word, ext)
   end,
 }
+for name, fn in pairs(builtin) do
+  M.completers:put(name, fn)
+end
 
 --- Candidates from one completer (a name, a list of names by position, or
 --- a function), as items.
@@ -924,7 +930,7 @@ local function candidates(spec: Spec, rest: string, info: Info): {Item}, boolean
     how = how[info.index]
   end
   if how is string then
-    local fn = M.completers[how]
+    local fn = M.completers:get(how)
     return fn and fn(info.word, info) or {}, true
   end
   if not (how is CompleteFn) then

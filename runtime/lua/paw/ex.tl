@@ -28,6 +28,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local registry = require("paw.registry")
 local util = require("paw.util")
 local commands = require("paw.commands")
 local options = require("paw.options")
@@ -202,10 +203,12 @@ local record M
   type Chosen = Chosen
   type Changed = Changed
   type Shown = Shown
-  --- How each view reads ranges, by its name (`paw.ex.view`).
-  views: {string: ExView}
-  --- The fields of patterns, by name (`paw.ex.field`).
-  fields: {string: Field}
+  --- How each view reads ranges, by its name, with the extension that
+  --- told it (`paw.ex.view`).
+  views: registry.Registry<ExView>
+  --- The fields of patterns, by name, with the extension that added each
+  --- one (`paw.ex.field`).
+  fields: registry.Registry<Field>
   selection_range: function(): Range
   split: function(rest: string): string, string, integer
   mark: function(state: Shown, item: Item, change: Change | boolean)
@@ -234,12 +237,12 @@ end
 -- `pitches`, its `clips`); `each_clip(r, run)`, how a command of its own
 -- is run on a range of its clips, `run(r)` for each.
 
-M.views = {}
+M.views = registry.new("ex_views", "views of ranges")
 
 --- Tell how a view of your own maps its columns to the beats of the song,
 --- and which clips it edits, for ranges. See `docs/reference/lua-commands.md`.
 function M.view(name: string, spec: ExView)
-  M.views[name] = spec
+  M.views:put(name, spec)
 end
 
 local function roll(): PianoRoll
@@ -269,7 +272,7 @@ M.view(
 )
 
 local function adapter(): ExView
-  return M.views[ui().focused] or {}
+  return M.views:get(ui().focused) or {}
 end
 
 local function song_of(col: number): number
@@ -492,7 +495,7 @@ function M.selection_range(): Range
     fail("no selection made in this view yet for '<,'>")
   end
   local view = region.view or ui().focused
-  local spec = M.views[view] or {}
+  local spec = M.views:get(view) or {}
   local r: Range = {selection = true, region = region, view = view}
   local song = spec.song or function(c: number): number return c end
   if view == "arrange" then
@@ -967,14 +970,14 @@ end
 -- without it the field can be matched but not set. A field of a shallower
 -- level is read from the clip or track of a deeper item.
 
-M.fields = {}
+M.fields = registry.new("ex_fields", "fields of :s and :g")
 
 --- A field that `:s` and `:g` patterns can name (`lyric:la`): `level`
 --- (note, clip or track), `type`, `get(item)`, `set(item, value, change)`.
 function M.field(name: string, spec: FieldSpec)
   assert(name is string and name:match("^[%a_][%w_]*$"), "a field's name is a word")
   assert(LEVEL[spec.level], "a field's level is note, clip or track")
-  M.fields[name:lower()] = util.merge(spec as {string: util.Data}, {name = name:lower()}) as Field
+  M.fields:put(name:lower(), util.merge(spec as {string: util.Data}, {name = name:lower()}) as Field)
 end
 
 M.field(
@@ -1075,7 +1078,7 @@ local pitch_word = music.pitch_word
 
 local function field_names(): string
   local out: {string} = {}
-  for name in pairs(M.fields) do
+  for name in pairs(M.fields:entries()) do
     out[#out + 1] = name
   end
   table.sort(out)
@@ -1142,7 +1145,7 @@ local function alternative(text: string, term: string): Alternative
     return {test = function(): boolean return true end}
   end
   local name, rest = text:match("^([%a_][%w_]*)(.*)$")
-  local spec = name and M.fields[name:lower()]
+  local spec = name and M.fields:get(name:lower())
   if spec then
     for _, op in ipairs(MATCH_OPS) do
       if rest:sub(1, #op) == op then
@@ -1198,7 +1201,7 @@ local function alternative(text: string, term: string): Alternative
   end
   local p = pitch_word(text)
   if p then
-    local get = M.fields.pitch.get
+    local get = M.fields:get("pitch").get
     if p.class then
       return {
         level = "note",
@@ -1283,7 +1286,7 @@ function M.replacement(text: string, pattern: Pattern): {Set}
       set = {field = "pitch", op = "+", value = tonumber(by)}
     else
       local name, rest = word:match("^([%a_][%w_]*)(.*)$")
-      local spec = name and M.fields[name:lower()]
+      local spec = name and M.fields:get(name:lower())
       if not spec then
         fail("`%s`: not a pitch, `+12`, or a field to set (fields: %s)", word, field_names())
       end
@@ -1312,7 +1315,7 @@ function M.replacement(text: string, pattern: Pattern): {Set}
         set.value = value_of(kind, set.value as string, word)
       end
     end
-    local spec = M.fields[set.field]
+    local spec = M.fields:get(set.field)
     if spec.level ~= pattern.level then
       fail("`%s` sets %ss, but the pattern matches %ss", word, spec.level, pattern.level)
     end
@@ -1326,7 +1329,7 @@ end
 function M.change(item: Item, sets: {Set}, pattern: Pattern): Change
   local change: Change = {}
   for _, set in ipairs(sets) do
-    local spec = M.fields[set.field]
+    local spec = M.fields:get(set.field)
     local now = spec.get(item)
     local value: ExValue
     if spec.type == "text" then
@@ -2995,7 +2998,7 @@ function M.complete_pattern(line: string): {commands.Entry}
     return nil
   end
   local out: {commands.Entry} = {}
-  for name, spec in pairs(M.fields) do
+  for name, spec in pairs(M.fields:entries()) do
     if name:sub(1, #word) == word:lower() and name ~= word:lower() then
       out[#out + 1] = {text = head .. name, label = name, desc = spec.desc}
     end
