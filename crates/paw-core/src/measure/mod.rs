@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering::Relaxed};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
@@ -114,6 +114,32 @@ impl Drop for Job {
     }
 }
 
+/// The measurements whose thread still runs: `paw.api.pending()` counts
+/// them, so that a wait of the tests waits for them.
+#[derive(Clone, Default)]
+pub struct Running(Arc<AtomicUsize>);
+
+impl Running {
+    pub fn count(&self) -> usize {
+        self.0.load(Relaxed)
+    }
+
+    /// Count one more until the token that it gives is dropped, at the end
+    /// of the thread (also when it fails).
+    fn enter(&self) -> RunningToken {
+        self.0.fetch_add(1, Relaxed);
+        RunningToken(self.0.clone())
+    }
+}
+
+struct RunningToken(Arc<AtomicUsize>);
+
+impl Drop for RunningToken {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Relaxed);
+    }
+}
+
 fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
     let done = Arc::new(AtomicU64::new(0));
     let cancel = Arc::new(AtomicBool::new(false));
@@ -126,10 +152,12 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
         }
         let data = AudioData::load(&path)?;
         let total = data.frames() as u64;
+        let token = shared.measures.enter();
         let thread =
             std::thread::Builder::new()
                 .name("measure".into())
                 .spawn(move || -> Outcome {
+                    let _token = token;
                     let mut analyzer = Analyzer::new(data.sample_rate as f64);
                     let [left, right] = &data.channels;
                     for (l, r) in left.chunks(1 << 16).zip(right.chunks(1 << 16)) {
@@ -173,9 +201,11 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
         tempo,
     } = offline;
     let rate = sample_rate as f64;
+    let token = shared.measures.enter();
     let thread = std::thread::Builder::new()
         .name("measure".into())
         .spawn(move || -> Outcome {
+            let _token = token;
             // The analysis runs beside the render on a thread of its own, a
             // few pieces behind it.
             let (tx, rx) = std::sync::mpsc::sync_channel::<(Vec<f32>, Vec<f32>)>(4);

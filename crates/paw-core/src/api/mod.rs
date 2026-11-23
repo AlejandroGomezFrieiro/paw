@@ -111,6 +111,8 @@ pub(crate) struct Shared {
     /// Interrupts Lua that has run past its time limit.
     pub watchdog: Watchdog,
     /// The scenes graphical frontends are sent (`crate::scene`).
+    /// The measurements that run on threads of their own.
+    pub measures: crate::measure::Running,
     pub scenes: RefCell<crate::scene::Scenes>,
     pub env: Env,
 }

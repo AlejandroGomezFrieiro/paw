@@ -60,9 +60,9 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
 | `T.until_(cond, what)` | Settle, then check a state. While the state waits for the engine (a meter, a device that sleeps, the playhead), the engine plays block by block, and the clock moves with it. Fails with "nothing is left to do, and <what> is false" when no work is left, after about 2 s of blocks. While the song plays, it fails after 30 s of the song. |
-| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended, and the files of stretched clips have a hash. The clock does not move. A job that polls at no delay is not work. |
+| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads, renders and measurements ended, and the files of stretched clips have a hash. The clock does not move. A job that polls at no delay is not work. |
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, the engine plays the blocks of that time, then the kernel settles. |
-| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. Fails after `ms` of schedule time. |
+| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block; while a helper works, each step first waits the time of the block on the wall clock. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Play exactly `n` blocks (1 if not given), so that a change sent before is in effect. The clock moves by their time. With `device`, play until that device ran `n` blocks: a device that sleeps does not count them. |
 | `T.meter(track)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
 | `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |

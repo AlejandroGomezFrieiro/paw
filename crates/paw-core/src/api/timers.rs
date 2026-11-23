@@ -74,6 +74,8 @@ pub(crate) struct Pending {
     pub plugin_loads: usize,
     /// Renders running on a thread of their own.
     pub renders: usize,
+    /// Measurements of the mix running on threads of their own.
+    pub measures: usize,
     /// Files changed outside paw that wait for their settle.
     pub files: usize,
     /// MIDI that came in from ports and is not heard yet.
@@ -123,6 +125,7 @@ impl Shared {
             hashing: work.hashing,
             plugin_loads: work.plugin_loads,
             renders: work.renders,
+            measures: self.measures.count(),
             files: work.files,
             midi: self.midi_in.lock().unwrap().len(),
             helpers: self.io.borrow_mut().working(),
@@ -276,8 +279,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // The work that is not done yet, by kind: timers due now and all the
         // timers, the time until the next timer or delay is due (`next_ms`),
         // bakes, files of stretched clips being hashed, plugins being loaded,
-        // renders, changed files, MIDI that came in, and helper processes. A
-        // test waits until nothing is in flight.
+        // renders, measurements, changed files, MIDI that came in, and helper
+        // processes. A test waits until nothing is in flight.
         // @return types.Pending
         fn pending(lua, sh, () => ()) { super::to_lua(lua, &sh.pending()) }
 

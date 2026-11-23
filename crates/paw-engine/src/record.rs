@@ -166,7 +166,9 @@ pub struct Written {
 }
 
 /// How often a writer brings its file's header up to date and flushes it to
-/// the disk, so that a crash or a power cut loses no more than this.
+/// the disk, so that a crash or a power cut loses no more than this: on the
+/// wall clock, or in the sound it wrote, which the stepped backend of the
+/// tests records faster than the wall clock.
 pub const HEADER_EVERY: Duration = Duration::from_secs(2);
 
 // paw does not use `hound` for takes (decided). For 32-bit float it writes a
@@ -295,6 +297,8 @@ pub fn spawn_writer(
             let mut buf = vec![0f32; 16384];
             let mut bytes = Vec::with_capacity(buf.len() * 4);
             let mut updated = Instant::now();
+            let every_frames = u64::from(sample_rate) * HEADER_EVERY.as_secs();
+            let mut updated_frames = 0;
             let mut error = None;
             loop {
                 // Read the flag first: whatever was captured before it was set
@@ -303,8 +307,11 @@ pub fn spawn_writer(
                 let (got, _) = ring.pop_partial_slice(&mut buf);
                 let empty = got.is_empty();
                 let written = file.write(got, &mut bytes).and_then(|()| {
-                    if updated.elapsed() >= HEADER_EVERY {
+                    if updated.elapsed() >= HEADER_EVERY
+                        || file.frames() - updated_frames >= every_frames
+                    {
                         updated = Instant::now();
+                        updated_frames = file.frames();
                         file.update()?;
                     }
                     Ok(())

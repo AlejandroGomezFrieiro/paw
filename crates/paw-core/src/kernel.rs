@@ -244,6 +244,7 @@ impl Kernel {
             input_from: Cell::new(0),
             detach: RefCell::new(Vec::new()),
             watchdog: Watchdog::new(started),
+            measures: Default::default(),
             scenes: Default::default(),
             env: Env {
                 config_dir: opts.config_dir,

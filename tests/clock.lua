@@ -17,18 +17,18 @@ local function timer(fn, ms)
   T.after(function() paw.cancel(id) end)
 end
 
-test("T.until_ on a condition that never holds fails at once with 'nothing is left to do'", function()
+test("T.until_ on a condition that never holds fails with 'nothing is left to do', before a later timer", function()
   local skip = manual()
   if skip then return skip end
   local fired = false
-  timer(function() fired = true end, 100)
+  -- T.until_ plays about two seconds of blocks before it gives up: the
+  -- timer is due after them.
+  timer(function() fired = true end, 10000)
   fails(function()
     T.until_(function() return false end, "the thing")
   end, "nothing is left to do, and the thing is false", "a wait for a state that never comes")
-  T.advance(99)
-  eq(fired, false, "no schedule time passed in the wait")
-  T.advance(1)
-  eq(fired, true, "the timer fires 100 ms after it started")
+  eq(fired, false, "the wait does not go on to a timer")
+  T.advance_until(function() return fired end, "the timer", 10000)
 end)
 
 test("T.advance fires each timer at its own time, in order, and paw.api.pending names the next one", function()

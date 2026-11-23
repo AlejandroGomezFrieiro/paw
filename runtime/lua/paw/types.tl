@@ -1174,6 +1174,7 @@ local record types
     hashing: integer
     plugin_loads: integer
     renders: integer
+    measures: integer
     files: integer
     midi: integer
     helpers: integer

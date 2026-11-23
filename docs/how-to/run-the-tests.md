@@ -281,13 +281,13 @@ example a bake, the loading of a plugin or a render.
 
 | Helper | What it does |
 | --- | --- |
-| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads and renders have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
+| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads, renders and measurements of the mix have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
 | `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, the audio engine plays the blocks of that time, and then the kernel settles. |
 | `T.next_block(n)` | Plays `n` blocks of sound, so that a change that the test made is heard. The clock moves by the time of the blocks. |
 | `T.meter(track)` | Gives the left and right levels of the meter of a track after the blocks that played last. |
 | `T.level(track)` | Plays one more block and gives the left level of the meter of a track. Use it to wait for a level in `T.until_`. |
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock moves with these blocks. |
-| `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. It fails when `ms` milliseconds have passed on the clock. |
+| `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program works, each block first waits for its time in real time, so that the clock doesn't run ahead of the program. It fails when `ms` milliseconds have passed on the clock. |
 | `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |
 | `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter. |
 

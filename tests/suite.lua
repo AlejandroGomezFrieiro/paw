@@ -289,7 +289,14 @@ local function stepped() return MANUAL and api.engine_get().stepped == true end
 -- again: its timer is not work left.
 local function working(p)
   local idle = paw.slices.job("collector") and 1 or 0
-  return math.max(0, p.timers_due - idle) + p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi > 0
+  return math.max(0, p.timers_due - idle)
+      + p.bakes_running
+      + p.hashing
+      + p.plugin_loads
+      + p.renders
+      + p.measures
+      + p.midi
+    > 0
 end
 
 --- Whether the engine plays: the song plays or records, a take is being
@@ -338,7 +345,7 @@ local function settle()
     api.step()
     local p = api.pending()
     if not working(p) then return p end
-    if p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi == 0 then
+    if p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.measures + p.midi == 0 then
       only_timers = only_timers + 1
       if only_timers >= POLL_TURNS then return p end
     else
@@ -560,6 +567,10 @@ local function advance_until(cond, what, ms)
     local left = limit - api.now()
     if left <= 0 then error(string.format("%s is false after %g ms", what, ms), 2) end
     if busy(p) or not p.next_ms then
+      -- A helper process works on the wall clock, and the stepped engine
+      -- would take the clock past it at once: first give it the time of
+      -- the block, as an engine on the wall clock does.
+      if p.helpers > 0 and stepped() then api.sleep(block_ms()) end
       one_block()
     else
       advance(math.min(math.max(1, math.ceil(p.next_ms)), left))
