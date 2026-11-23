@@ -73,12 +73,19 @@ test("track column: open and folded groups as a tree, nested", function()
   eq(row("Low"):find("Low +2", 1, true) ~= nil, true, "and says how many it holds")
 end)
 
-test("track column: a draw works out the tree of groups once, whatever the count of tracks", function()
-  orchestra()
+test("track column: a draw works out the tree of groups once, whatever the count of tracks, and keeps it", function()
+  local _, low = orchestra()
   lines()
   local before = paw.trackcolumn.tree_builds
+  paw.keymap.feed("j")
   lines()
-  eq(paw.trackcolumn.tree_builds - before, 1, "one tree for the six tracks and two groups of a draw")
+  eq(paw.trackcolumn.tree_builds - before, 0, "a move keeps the tree")
+  paw.groups.fold(low, true)
+  paw.flush()
+  before = paw.trackcolumn.tree_builds
+  lines()
+  eq(paw.trackcolumn.tree_builds - before, 1, "a fold: one tree for the tracks and groups of the draw")
+  eq(after_number(row("Low")), "╰▸", "the tree that it drew is the new one")
 end)
 
 test("groups: a project opened in the turn that read the groups gives its own groups", function()

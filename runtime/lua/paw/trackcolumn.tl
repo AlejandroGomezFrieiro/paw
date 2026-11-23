@@ -53,6 +53,7 @@ end
 --- paw/scope.tl, the part of it that this module reads.
 local record Scope
   current: function(): Field
+  window: function(): contracts.Window
 end
 local record Paw is partial.Paw
   groups: GroupsModule
@@ -84,8 +85,8 @@ local record M
   type Layout = Layout
   components: {string: Component}
   signs: {string: Sign}
-  --- How many times the column worked out the tree of groups, one time for
-  --- each draw of the arrange view. Tests count the work of a draw with it.
+  --- How many times the column worked out the tree of groups: at most one
+  --- time for each draw of the arrange view. Tests count the work with it.
   tree_builds: integer
 end
 M.components, M.signs, M.tree_builds = {}, {}, 0
@@ -365,10 +366,13 @@ M.sign(
 
 -- The folds of groups, as a tree: an open group has `▾` on its line and a
 -- guide down its members, `╰` on the last; a folded one has `▸`. Each
--- level of nesting is a column. Worked out once for each layout, from the
--- tracks that it draws (`width`), and read by `render` for each line and by
--- `click`.
+-- level of nesting is a column. Worked out at most once for each layout,
+-- from the tracks that it draws (`width`), and read by `render` for each
+-- line and by `click`. It is kept while its key is the same: the tracks
+-- drawn, the window and the change count of its folds, and the edits of
+-- the project (the groups).
 local record Tree
+  key: string
   depth: {integer: integer}
   chain: {integer: {integer}}
   group: {integer: boolean}
@@ -378,10 +382,23 @@ local record Tree
   width: integer
 end
 
-local function tree_of(rows: {integer}): Tree
+local project_field = api.project_get as function(key: string): integer
+
+local function tree_key(rows: {integer}): string
+  local folds = paw.folds
+  return table.concat(rows as {string}, ",")
+    .. "|"
+    .. tostring(paw.scope.window())
+    .. "|"
+    .. folds.generation
+    .. "|"
+    .. project_field("edits")
+end
+
+local function tree_of(rows: {integer}, key: string): Tree
   M.tree_builds = M.tree_builds + 1
   local groups, folds = paw.groups, paw.folds
-  local t: Tree = {depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
+  local t: Tree = {key = key, depth = {}, chain = {}, group = {}, folded = {}, fold = {}, last = {}, width = 0}
   for i, id in ipairs(rows) do
     local chain: {integer} = {}
     local at = groups.of(id)
@@ -411,11 +428,18 @@ local frame_rows: {integer} = {}
 -- The tree of the last layout's tracks.
 local tree: Tree
 
-local function current_tree(): Tree
-  if not tree then
-    tree = tree_of(frame_rows)
+-- The tree of `rows`: the kept one while its key is the same.
+local function tree_for(rows: {integer}): Tree
+  local key = tree_key(rows)
+  if not (tree and tree.key == key) then
+    tree = tree_of(rows, key)
   end
   return tree
+end
+
+-- The tree for `render` and `click`, of the last layout.
+local function current_tree(): Tree
+  return tree or tree_for(frame_rows)
 end
 
 M.add(
@@ -426,7 +450,7 @@ M.add(
     -- members, `last` on its last member; paw's own (`paw.draw.g`, ASCII
     -- with `paw.opt.ascii`) when not set.
     glyphs = {},
-    width = function(frame: Frame): integer tree = tree_of(frame.rows); return tree.width end,
+    width = function(frame: Frame): integer return tree_for(frame.rows).width end,
     render = function(track: integer, ctx: Context): Cells
       local t = current_tree()
       if not t.chain[track] then
