@@ -645,18 +645,88 @@ test("<Space>zw then <Space>zp gives the same project, ids aside", function()
   eq(canonical(), before, "the project as it was before <Space>zw")
 end)
 
-test(":scope.write takes a name; a word with a slash is a path, and the song does not change", function()
-  bridge()
-  local before = project_text()
-  keys("6|")
-  keys("znar")
-  T.expect_error("~/lib/bridge is a path")
-  keys(":scope.write ~/lib/bridge<CR>")
-  eq(paw.ui.message.text:find("~/lib/bridge is a path", 1, true) ~= nil, true, paw.ui.message.text)
-  eq(project_text(), before, "nothing saved")
-  keys(":scope.write Middle eight<CR>")
-  eq(api.nest_get(api.nest_list()[1]).name, "Middle eight", "the name as typed")
-end)
+test(
+  ":scope.write with a slash writes the view as a project that opens alone and sounds the same, the song as it was; with a name it saves a subproject",
+  function()
+    bridge()
+    local home = T.home()
+    local before, step, heard = project_text(), step_name(), sound(16, 34)
+    keys("6|")
+    keys("znar")
+    keys(":scope.write ~/lib/bridge<CR>")
+    eq(
+      paw.ui.message.text:find("wrote the view Bridge to ~/lib/bridge: 2 tracks", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    eq(project_text(), before, "the song did not change")
+    eq(step_name(), step, "no undo step")
+    T.expect_error("has files in it already")
+    keys(":scope.write ~/lib/bridge<CR>")
+    eq(
+      paw.ui.message.text:find(home .. "/lib/bridge has files in it already", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    keys(":scope.write Middle eight<CR>")
+    eq(api.nest_get(api.nest_list()[1]).name, "Middle eight", "a name saves a subproject, as typed")
+    paw.scope.widen(true)
+    api.project_new()
+    api.project_load(home .. "/lib/bridge")
+    paw.flush()
+    eq(names(api.track_list()), "Bass Keys", "the view's tracks")
+    eq(api.device_get(api.track_get(api.track_list()[1]).devices[1]).kind, "synth", "with their devices")
+    eq(signatures(), "0:6/8", "the meter of the view's time")
+    eq(regions(), "Bridge@0+18 Fill@12+4", "its regions, from beat 0")
+    eq(apart(sound(0, 18), heard) <= 1, true, "the same render as the view in the song")
+  end
+)
+
+test(
+  ":nest.export writes the subproject as a project that opens alone and renders the same as its block; the song does not change",
+  function()
+    local b = ballad_68()
+    -- The block alone: no lane on its row, and a slower song over it,
+    -- which the subproject follows.
+    for _, lane in ipairs(api.lane_list(b.row)) do
+      api.lane_remove(lane.id)
+    end
+    api.tempo_set(128, 90)
+    api.tempo_set(152, 180)
+    os.execute("mkdir -p '" .. T.scratch .. "/nest-export'")
+    local samples = {}
+    for i = 1, 12000 do
+      samples[i] = 0.25
+    end
+    api.clip_add(b.piano, { start = 6, file = T.write_wav(T.scratch .. "/nest-export/hit.wav", samples) })
+    paw.flush()
+    api.undo_checkpoint()
+    local before, heard = project_text(), sound(128, 152)
+    paw.cursor.set_track(b.row)
+    paw.cursor.set_beat(130)
+    local dir = T.scratch .. "/nest-export/Ballad"
+    keys(":nest.export " .. dir .. "<CR>")
+    eq(
+      paw.ui.message.text:find("wrote the subproject Ballad to " .. dir .. ": 2 tracks, 1 media file", 1, true) ~= nil,
+      true,
+      paw.ui.message.text
+    )
+    eq(project_text(), before, "the song did not change")
+    eq(
+      #T.read_file(dir .. "/media/hit.wav"),
+      #T.read_file(T.scratch .. "/nest-export/hit.wav"),
+      "its sound file copied in"
+    )
+    api.project_new()
+    api.project_load(dir)
+    paw.flush()
+    eq(names(api.track_list()), "Piano Strings", "its tracks are the project's")
+    eq(api.project_get().tempo, 90, "the song's tempo over its block")
+    eq(signatures(), "0:6/8", "its own meter")
+    eq(regions(), "Intro@0+6 Theme@12+12", "its regions")
+    eq(apart(sound(0, 24), heard) <= 1, true, "the same render as its block, its master's lane included")
+  end
+)
 
 test(". after <Space>zw saves the next view beside it", function()
   bridge()

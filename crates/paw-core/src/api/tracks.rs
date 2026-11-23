@@ -1,5 +1,6 @@
 //! `paw.api`: tracks.
 
+use std::path::Path;
 use std::rc::Rc;
 
 use mlua::{Lua, Table, Value as LuaValue};
@@ -151,6 +152,31 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn nest_save(lua, sh, opts => LuaValue) {
             let saved = sh.session.borrow_mut().nest_save(options(lua, opts)?).lua()?;
             to_lua(lua, &serde_json::to_value(saved).map_err(mlua::Error::external)?)
+        }
+        // Write a subproject as a project folder of its own at `dir`, a new
+        // or empty folder. Its tracks become the project's tracks and its
+        // master the master. A subproject that follows the song's tempo or
+        // meter gets the song's from its first block. Its media are copied
+        // into `media/`. The song does not change. Returns `path` (the
+        // new `project.toml`), `tracks`, `media` (the files copied),
+        // `missing` and `changes`.
+        // @return types.NestExported
+        fn nest_export(lua, sh, (id, dir) => (u64, String)) {
+            let exported = sh.session.borrow_mut().nest_export(NestId(id), Path::new(&dir)).lua()?;
+            to_lua(lua, &serde_json::to_value(exported).map_err(mlua::Error::external)?)
+        }
+        // Write a view as a project folder of its own at `dir`, a new or
+        // empty folder: copies of `tracks` with their devices, their clips
+        // and lanes from `from` to `to` (beats of their place) from beat
+        // 0, the markers and regions inside, and the tempo and meter of the
+        // time. A route to a track outside the view is cut, and `changes`
+        // tells each cut. The song does not change. Returns what
+        // `nest_export` returns.
+        // @param opts types.ScopeExportOptions
+        // @return types.NestExported
+        fn scope_export(lua, sh, (opts, dir) => (LuaValue, String)) {
+            let exported = sh.session.borrow_mut().scope_export(options(lua, opts)?, Path::new(&dir)).lua()?;
+            to_lua(lua, &serde_json::to_value(exported).map_err(mlua::Error::external)?)
         }
         // Change a subproject: a table of the entries to change (`name`,
         // `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives

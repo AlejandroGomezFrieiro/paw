@@ -6180,6 +6180,15 @@ function paw.nest.content_key(c) end
 ---@param c any
 function paw.nest.describe(c) end
 
+--- Write subproject `nest` as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:nest.export` does: its tracks, its
+--- master, its markers and regions, its tempo and meter as its first
+--- block plays them, and its media copied in (`paw.api.nest_export`). The
+--- song does not change. Returns the message.
+---@param nest any
+---@param folder any
+function paw.nest.export(nest, folder) end
+
 --- The subproject `id`, or nil when there is none.
 ---@param id any
 function paw.nest.get(id) end
@@ -6270,6 +6279,16 @@ paw.nest.under = paw.groups.under
 --- copy. Call it in one undo step. Returns the message.
 ---@param clip any
 function paw.nest.unique(clip) end
+
+--- Write the window's view as a project folder of its own at `folder`
+--- (`~/` is the home folder), as `:scope.write <folder>` does: copies of
+--- its tracks with their devices, their clips and lanes in its time, the
+--- markers and regions inside, the tempo and meter of its time, and the
+--- media copied in (`paw.api.scope_export`). Inside a subproject, the
+--- subproject, as `paw.nest.export` writes it. The song does not change. Returns
+--- the message.
+---@param folder any
+function paw.nest.write(folder) end
 
 --- Snap the starts of the notes to a grid. `opts.strength` says how far a
 --- note moves, `opts.swing` moves every second grid line later, and
@@ -10720,6 +10739,17 @@ function paw.api.nest_add(opts) end
 ---@param beat number
 function paw.api.nest_beat(clip, beat) end
 
+--- Write a subproject as a project folder of its own at `dir`, a new
+--- or empty folder. Its tracks become the project's tracks and its
+--- master the master. A subproject that follows the song's tempo or
+--- meter gets the song's from its first block. Its media are copied
+--- into `media/`. The song does not change. Returns `path` (the
+--- new `project.toml`), `tracks`, `media` (the files copied),
+--- `missing` and `changes`.
+---@param id integer
+---@param dir string
+function paw.api.nest_export(id, dir) end
+
 --- A subproject as a table: its fields, `tracks` (its tracks in order,
 --- without its master) and `used` (whether the song plays it). With
 --- `key`, only that field of its own (`name`, `length`, `master`...):
@@ -11154,6 +11184,17 @@ function paw.api.scene_picture(rect, opts) end
 ---@param client integer
 ---@param roles string[]
 function paw.api.scene_roles(client, roles) end
+
+--- Write a view as a project folder of its own at `dir`, a new or
+--- empty folder: copies of `tracks` with their devices, their clips
+--- and lanes from `from` to `to` (beats of their place) from beat
+--- 0, the markers and regions inside, and the tempo and meter of the
+--- time. A route to a track outside the view is cut, and `changes`
+--- tells each cut. The song does not change. Returns what
+--- `nest_export` returns.
+---@param opts any
+---@param dir string
+function paw.api.scope_export(opts, dir) end
 
 ---@param beat number
 function paw.api.signature_remove(beat) end

@@ -188,6 +188,7 @@ local record api
    midi_ump: function(event: types.MidiEvent): {integer}
    nest_add: function(opts?: types.NestOptions): integer
    nest_beat: function(clip: integer, beat: number): number
+   nest_export: function(id: integer, dir: string): types.NestExported
    nest_get: function(id: integer): types.Nest
    nest_list: function(): {integer}
    nest_own_tempo: function(clip: integer): boolean
@@ -274,6 +275,7 @@ local record api
    scene_open: function(rect: types.Rect, opts?: types.SceneOpenOptions): boolean
    scene_picture: function(rect: types.Rect, opts: types.ScenePictureOptions)
    scene_roles: function(client: integer, roles: {string})
+   scope_export: function(opts: types.ScopeExportOptions, dir: string): types.NestExported
    signature_remove: function(beat: number)
    signature_set: function(beat: number, num: integer, den: integer)
    sleep: function(ms: number)
