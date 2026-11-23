@@ -8,14 +8,14 @@ The arrange view shows the tracks as rows and the time as columns, and it is the
 
 - A rule between the track headers and the timeline.
 - The ruler, with bar numbers and beat ticks. The playback loop shows as a bright band on the ruler and a shade over the lanes while looping is on. With looping off, the band stays on the ruler in dim colors (`RulerLoopOff`), so that you see the range that `gL` brings back.
-- A thin amber playhead.
+- A thin amber playhead. Over the body of a clip, the playhead shades its column instead, so the notes or the waveform under it stay in view.
 - The track headers. Each has the chips `M` `S` `R` `I` (mute, solo, arm, monitor). If there are enough rows, a header also shows the level and volume and the pan. It can also show the devices, the output (`→ Bus`), the sends (`↗ Reverb -9`) and the input.
 - A letter before the name of a track of a kind that an extension defines.
 - The master track, pinned at the bottom. Its header is like the others, with the levels of both sides in one row, and the timeline beside it shows its volume automation if it has any. `j` on the last track goes to the master, and `/master` finds it. On the master, `+` `-` `grv` change its volume and `a` adds a device to it. It has no clips, and `dd` does not remove it.
 
 The tracks share the rows of the window, and each track gets three to four rows (`paw.opt.track_height`). `Ctrl-=` and `Ctrl--` make the tracks of the window taller or shorter, and `Ctrl-0` fits them to the window again (see [Vertical zoom](#vertical-zoom)). The headers are 26, 22, 18 or 12 columns wide, depending on the width of the screen (`paw.opt.header_width`). The track column and the bar numbers of the ruler are described in [The track column](#the-track-column) and [Relative bars](#relative-bars).
 
-A clip has a name row and a darker body that shows its notes or waveform in the color of its track. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
+A clip has a name row and a darker body that shows its notes or waveform in the color of its track. Each column of the body shows the notes or the sound of its own stretch of time, from the first column on, so a note on the first beat of a clip fills the first column. A thin line at the left end of the name row marks where the clip starts. The clip under the cursor shows in the full color, and the track of the cursor has a brighter header and a tinted lane.
 
 ## Keys
 
