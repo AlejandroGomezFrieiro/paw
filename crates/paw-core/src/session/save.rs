@@ -553,7 +553,8 @@ impl Session {
                 Some(g) => list.iter().rposition(|t| t.id == g || in_group(&p, t, g)).map_or(list.len(), |i| i + 1),
                 None => {
                     let top = p.track(first).map_or(first, |t| outermost(&p, t));
-                    list.iter().position(|t| t.id == top && top != first).or(slot).unwrap_or(list.len())
+                    let above_group = if top == first { None } else { list.iter().position(|t| t.id == top) };
+                    above_group.or(slot).unwrap_or(list.len())
                 }
             };
             list.insert(at, row.clone());
