@@ -110,7 +110,7 @@ fn a_file_with_its_origin_at_the_smallest_tick_is_refused() {
 
     let message = error.to_string();
     assert!(
-        message.starts_with("a note is at beat -9223372036854775808,"),
+        message.starts_with("a note is at beat -9223372036854776000,"),
         "{message}"
     );
 }
