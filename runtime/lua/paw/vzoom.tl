@@ -34,14 +34,8 @@ local record Layout
   current: function(): Window
   bound: function(name: string): Window
 end
-local record Geometry
-  th: integer
-end
-local record ArrangeView
-  geometry: Geometry
-end
 local record Views
-  arrange: ArrangeView
+  arrange: contracts.ArrangeView
 end
 local record Ui
   focused: string

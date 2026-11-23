@@ -215,7 +215,7 @@ end)
 
 test("frames: a row of the timeline the cursor is not on shows each change to its clips and colours", function()
   -- Such a row puts back the cells it drew last when nothing it is drawn
-  -- from changed (paw/views/arrange.lua): each change must still show.
+  -- from changed (paw/views/arrange.tl): each change must still show.
   T.fresh()
   local W, H = 120, 40
   local one, two = paw.add_track({ name = "one" }), paw.add_track({ name = "two" })

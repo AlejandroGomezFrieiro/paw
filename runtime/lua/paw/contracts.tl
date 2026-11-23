@@ -139,6 +139,79 @@ local record contracts
     put_kept: function(self: Buf, key: string, x: number, y: number, w: number, h: number): boolean
   end
 
+  -- The props of the widget roles ----------------------------------------------
+  -- paw/roles/widgets.lua and paw/roles/notes.lua define these roles in
+  -- Lua; a view in Teal marks them with these records.
+
+  --- A `label`: its `text` in `style`, placed by `align`; a window writes
+  --- it in `font` ("sans", "title", else monospace) in the colour `tone`.
+  record LabelMark is MarkProps
+    text: string
+    style: Style
+    align: string
+    font: string
+    tone: string
+    capital: boolean
+    strike: boolean
+    label: string
+  end
+
+  --- A `button`: its `text` in `style`, in `on_style` when `on`; a
+  --- window draws `icon` or writes `words`, with no face when `quiet`.
+  record ButtonMark is MarkProps
+    text: string
+    words: string
+    icon: string
+    style: Style
+    on_style: Style
+    tone: string
+    on: boolean
+    off: boolean
+    quiet: boolean
+    menu: boolean
+    label: string
+  end
+
+  --- A `switch`: its `letter`, in `style` when `on`; a window lights it
+  --- in `tone`, or draws `icon`.
+  record SwitchMark is MarkProps
+    letter: string
+    on: boolean
+    style: Style
+    tone: string
+    icon: string
+    label: string
+  end
+
+  --- A `knob`: `value` from -1 to 1, or its `text`, in `style`; round
+  --- in a window with `round`.
+  record KnobMark is MarkProps
+    value: number
+    text: string
+    style: Style
+    round: boolean
+    label: string
+  end
+
+  --- A part of the playhead's line: `{ y, h, style, glyph }`, rows of
+  --- the rectangle; `glyph` false keeps the character under it.
+  type PlayheadSpan = {number, number, string, string | boolean}
+
+  --- The `playhead`: the beat `at`, from the beat `from` at the left edge,
+  --- `per` columns a beat, shown between `lo` and `hi`. `spans` are where
+  --- a terminal draws its line, `spans_at(x)` those at another column, and
+  --- `jumps` (`{ from, to, width }` each) the time folds it waits on.
+  record PlayheadMark is MarkProps
+    at: number
+    from: number
+    per: number
+    lo: number
+    hi: number
+    spans: {PlayheadSpan}
+    spans_at: function(x: integer): {PlayheadSpan}
+    jumps: {{number, number, number}}
+  end
+
   -- Painting in pixels ---------------------------------------------------------
 
   --- How a painter draws a shape or text: `fill`, `stroke`, `color`,
@@ -500,6 +573,54 @@ local record contracts
     time_axis: function(self: View, ctx?: RenderContext): number, number, number
     set_time_axis: function(self: View, left: number, zoom: number, ctx?: RenderContext)
     buftype: Buftype
+  end
+
+  --- What each layer of the arrange view gets (`paw.ui.views.arrange.layers`):
+  --- `ruler`, the timeline's part of the ruler row; `ruler2`, its second
+  --- row when `ruler2` asks for one (else nil); `lanes`, the timeline
+  --- below, down to the master track; `x(beat)`, the column of a beat in
+  --- any of them; `scroll` the beat at the left edge, `zoom` columns a
+  --- beat, `span` the beats shown; `top`, `rows` and `th`, the first track
+  --- shown, how many rows, and rows a track.
+  record ArrangeLayer
+    ruler: Buf
+    ruler2: Buf
+    lanes: Buf
+    x: function(beat: number): integer
+    scroll: number
+    zoom: number
+    span: number
+    top: integer
+    rows: integer
+    th: integer
+  end
+
+  --- Where the arrange view drew its parts last: the columns of the
+  --- headers with the rule (`hw`), rows a track (`th`), how many rows,
+  --- columns a beat (`zoom`) and the beats the timeline shows (`span`).
+  interface ArrangeGeometry
+    hw: integer
+    th: integer
+    rows: integer
+    zoom: number
+    span: number
+  end
+
+  --- The arrange view (paw/views/arrange.tl), as other modules use it:
+  --- what an extension draws on its timeline (`layers`, by name, in name
+  --- order) and what asks for a second row of its ruler (`ruler2`, by
+  --- name: true when it has something to show); its scroll, its
+  --- geometry, and the column of a beat (`col`).
+  interface ArrangeView is View
+    scroll: number
+    top: integer
+    geometry: ArrangeGeometry
+    layers: {string: function(view: ArrangeView, layer: ArrangeLayer)}
+    ruler2: {string: function(view: ArrangeView): boolean}
+    col: function(self: ArrangeView, beat: number): integer
+    center: function(self: ArrangeView)
+    place: function(self: ArrangeView, right?: boolean)
+    scroll_by: function(self: ArrangeView, bars: number)
   end
 
   --- An entry of a menu at the pointer (`paw.ui.menu`): its `label`, what

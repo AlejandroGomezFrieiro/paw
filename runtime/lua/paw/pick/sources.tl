@@ -111,11 +111,6 @@ local record DevicesView
   row: integer
 end
 
---- The arrange view (paw/views/arrange.lua, in Lua): what this module calls of it.
-local record Arrange
-  center: function(self: Arrange)
-end
-
 --- A message of the program (`paw.ui.messages`).
 local record Message
   level: string
@@ -393,7 +388,7 @@ end
 
 -- The arrange view, centred on the cursor when it can be.
 local function center()
-  local arrange = paw.ui.views.arrange as Arrange
+  local arrange = paw.ui.views.arrange as contracts.ArrangeView
   if arrange.center then
     arrange:center()
   end
@@ -866,7 +861,7 @@ local function make(pick: Pick): Sources
       paw.ui.focus("arrange")
       paw.cursor.set_track(c.track)
       paw.cursor.set_beat(c.start)
-      local arrange = paw.ui.views.arrange as Arrange
+      local arrange = paw.ui.views.arrange as contracts.ArrangeView
       arrange:center()
     end,
     delete = function(list: {ClipLine})

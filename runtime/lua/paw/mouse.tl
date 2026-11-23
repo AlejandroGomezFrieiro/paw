@@ -38,7 +38,9 @@ local opt = options.opt
 
 --- What a gesture does with the pointer it holds (`grab`): `drag` for
 --- each move, `up` at the release, `cancel` when another button is pressed.
-local record Handlers
+--- A view's gesture adds what it draws while it holds the pointer
+--- (`record Grab is MouseModule.Handlers`).
+local interface Handlers
   drag: function(e: MouseEvent)
   up: function(e: MouseEvent)
   cancel: function()

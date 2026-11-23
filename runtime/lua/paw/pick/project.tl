@@ -67,11 +67,6 @@ local record Ext
   load_bundled: function(name: string): contracts.ExtEntry, string
 end
 
---- The arrange view (paw/views/arrange.lua, in Lua): what this module calls of it.
-local record Arrange
-  center: function(self: Arrange)
-end
-
 --- The devices' presets (paw/fx.lua, in Lua): the picker of the device under the cursor.
 local record Fx
   pick: function()
@@ -231,7 +226,7 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
       keymap.push_jump()
       paw.ui.focus("arrange")
       paw.cursor.set_beat(m.beat)
-      local arrange = paw.ui.views.arrange as Arrange
+      local arrange = paw.ui.views.arrange as contracts.ArrangeView
       if arrange.center then
         arrange:center()
       end

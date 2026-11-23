@@ -235,18 +235,6 @@ local record Roll
   layer: function(name: string, order: integer, paint: function(RollLayer))
 end
 
---- What a layer of the arrange view's ruler gets: the ruler and the column
---- of a beat.
-local record RulerLayer
-  ruler: contracts.Buf
-  x: function(beat: number): integer
-end
-
---- The arrange view, as far as this module adds to it.
-local record Arrange
-  layers: {string: function(view: Arrange, layer: RulerLayer)}
-end
-
 --- What a layer of a view's part gets (`paw.ui.layer`): its cells, where
 --- the part is and what it shows.
 local record ClipOfLayer
@@ -1117,8 +1105,8 @@ paw.trackcolumn.sign(
   }
 )
 -- Stretches of time on the arrange view's ruler (one of its layers).
-local arrange = paw.ui.views.arrange as Arrange
-arrange.layers.diagnostics = function(_: Arrange, c: RulerLayer)
+local arrange = paw.ui.views.arrange as contracts.ArrangeView
+arrange.layers.diagnostics = function(_: contracts.ArrangeView, c: contracts.ArrangeLayer)
   if not next(store) then
     return
   end

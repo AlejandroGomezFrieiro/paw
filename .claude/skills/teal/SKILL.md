@@ -155,6 +155,10 @@ local paw = (_G as {string:Paw}).paw
 | A part split out of a module needs a function of the module that requires it (`registers.replay`, `marks.on_jump`) | a function field of the part, which the module sets after it requires the part |
 | Callers read and change a field of a module as a live table (`paw.keymap.registers`), and each seat has its own | keep one table; the `keep` of the seat copies the contents out and in |
 | A module keeps its own copy of a contract record (`paw.edit` had its own `Region`) | use the contract: two copies give "Region is not a Region" |
+| A view whose table is the module (`paw/views/arrange.tl`), and another module names its types | the view is the module record: `local record Arrange is contracts.ArrangeView ... end`, `local view = Arrange`, and `return Arrange`. `return view` gives a value, and `local type A = require(...)` then fails with "did not return a type" |
+| Modules that the view uses also name the type of the view (`paw.scope`, `paw.vzoom`): a cycle | put the part that they use in `contracts.tl` as an interface (`ArrangeView`); the record of the view extends it and makes its fields narrower (`geometry: Geometry` for `ArrangeGeometry`) |
+| A gesture adds fields to the handlers of `paw.mouse.grab` (`arrange`, `d`) | `paw.mouse.Handlers` is an interface: `record Grab is MouseModule.Handlers`, and a function that takes a `Grab`. A table literal for an interface parameter does not accept the added fields |
+| A role of `roles/widgets.lua` or `roles/notes.lua` (Lua) that Teal marks | its record of props is in `contracts.tl` (`LabelMark`, `ButtonMark`, `SwitchMark`, `KnobMark`, `PlayheadMark`) |
 
 ## What stays Lua
 

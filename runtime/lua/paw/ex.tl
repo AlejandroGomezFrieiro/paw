@@ -150,14 +150,9 @@ local record Roll
   layer: function(name: string, order: number, paint: function(RollLayer))
 end
 
---- What a layer of the arrange view's ruler gets (paw/views/arrange.lua).
-local record ArrangeLayer
-  ruler: contracts.Buf
-  x: function(beat: number): number
-end
-local record Arrange
-  layers: {string: function(view: Arrange, layer: ArrangeLayer)}
-end
+--- The arrange view (paw/views/arrange.tl), and what a layer of it gets.
+local type Arrange = contracts.ArrangeView
+local type ArrangeLayer = contracts.ArrangeLayer
 
 --- What a layer of a part of the arrange view gets (`paw.ui.layer`):
 --- the buffer, where to draw and what it draws.
