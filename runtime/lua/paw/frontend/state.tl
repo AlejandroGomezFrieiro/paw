@@ -456,56 +456,22 @@ end
 --- What take `take` of a clip plays, for the picture in its take lane. For
 --- sound, this is a waveform as `M.peaks` gives it, at `points` points. For
 --- MIDI, it is the notes as `M.preview` gives them. It repeats as a looped
---- clip repeats. The waveform of the take that plays is the waveform of the
---- clip, stretched. The waveform of a different take is its file, made
---- shorter or longer in time as the clip stretches it.
+--- clip repeats (`paw.takes.peaks` gives the waveform).
 function M.take_preview(id: integer, take: integer, points?: number): {number}
   local ok, got = pcall(api.clip_get, id)
   if not ok then
     return {}
   end
   local clip = got as types.Clip
-  local c = paw.takes.content(clip, take)
   local flat: {number} = {}
   if clip.kind == "audio" then
     local n = util.clamp(math.floor(points or M.peak_points), 8, 4096) as integer
-    local takes = paw.takes.of(clip)
-    if takes and take == takes.active then
-      local fetched, peaks = pcall(api.clip_peaks, id, n)
-      for i, p in ipairs(fetched and peaks as {types.Peak} or {}) do
-        flat[3 * i - 2], flat[3 * i - 1], flat[3 * i] = p[1], p[2], p[3]
-      end
-      return flat
-    end
-    local seconds = paw.stretch.file_seconds(clip, clip.length)
-    local fetched: boolean
-    local peaks: {types.Peak}
-    if clip.loop and clip.loop_length then
-      -- One repeat's worth, laid along the clip as it repeats.
-      local period = paw.stretch.file_seconds(clip, clip.loop_length)
-      local lead = clip.loop_start / clip.loop_length * period
-      local per = util.clamp(math.ceil(n * period / seconds), 1, 4096) as integer
-      local fetched_one, one = pcall(api.media_peaks, c.file, math.max(0, c.offset + lead), period, per)
-      fetched = fetched_one
-      local repeat_peaks = one as {types.Peak}
-      if fetched and #repeat_peaks > 0 then
-        peaks = {}
-        for i = 1, n do
-          local at = (i - 0.5) * seconds / n
-          local phase = ((at - lead) % period) / period
-          peaks[i] = repeat_peaks[math.min(#repeat_peaks, math.floor(phase * #repeat_peaks) + 1)]
-        end
-      end
-    else
-      local fetched_all, all = pcall(api.media_peaks, c.file, c.offset, seconds, n)
-      fetched, peaks = fetched_all, all as {types.Peak}
-    end
-    local gain = 10 ^ ((c.gain or 0) / 20)
-    for i, p in ipairs(fetched and peaks or {}) do
-      flat[3 * i - 2], flat[3 * i - 1], flat[3 * i] = p[1] * gain, p[2] * gain, p[3] * gain
+    for i, p in ipairs(paw.takes.peaks(clip, take, n)) do
+      flat[3 * i - 2], flat[3 * i - 1], flat[3 * i] = p[1], p[2], p[3]
     end
     return flat
   end
+  local c = paw.takes.content(clip, take)
   local i = 0
   for _, n in ipairs(paw.stretch.sounding(clip, c.notes, M.preview_notes)) do
     if i >= M.preview_notes then

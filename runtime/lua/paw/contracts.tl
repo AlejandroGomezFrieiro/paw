@@ -960,6 +960,8 @@ local record contracts
     loop_in: string
     loop_out: string
     clip_start: string
+    --- In the last cell of a block of a subproject, at its right edge.
+    clip_end: string
     --- Before the name of a block of a subproject.
     nest: string
     --- After the name of a linked clip.

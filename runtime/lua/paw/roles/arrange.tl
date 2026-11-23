@@ -33,6 +33,7 @@ local record ClipProps is contracts.MarkProps
   per: number
   repeats: {number}
   warps: {number}
+  moves: {number | boolean}
   fade_in: number
   fade_out: number
   gain: number
@@ -114,8 +115,13 @@ local record M
   type HmeterProps = HmeterProps
 end
 
+-- The fewest columns of a clip's label that its take mark leaves.
+local LABEL_ROOM = 4
+
 --- What a clip's row says in `room` columns: its label, and its take mark
---- after it, or before it where both do not fit.
+--- after it (`riff ‹2/4›`). Where both do not fit, the label keeps its room:
+--- the mark gives only the take that plays (`rif…‹2›`), and goes away where
+--- it would leave fewer than LABEL_ROOM columns of the label.
 local function title(p: ClipProps, room: integer): string
   local label = p.label or p.name or ""
   if not p.mark then
@@ -125,7 +131,14 @@ local function title(p: ClipProps, room: integer): string
   if api.str_width(full) <= room then
     return full
   end
-  return "‹" .. p.mark .. "› " .. label
+  local short = "‹" .. p.mark:match("^[^/]*") .. "›"
+  local left = room - api.str_width(short)
+  if left < math.min(api.str_width(label), LABEL_ROOM) then
+    return label
+  end
+  -- A space between them where the label is whole and leaves one.
+  local cut = util.fit(label, left):gsub("%s+$", "")
+  return cut .. (api.str_width(cut) < left and " " or "") .. short
 end
 
 --- Where a beat falls in a role marked from beat `from`, `per` columns a
@@ -140,11 +153,14 @@ local function into(p: ClipProps, at: number): integer
 end
 
 --- A clip on the timeline: a row with its `label` (its name, how it is
---- stretched) and its take `mark` ("2/4": `label ‹2/4›`, or `‹2/4› label`
---- where that does not fit, so that the mark stays in view) over its body,
---- a hairline where it starts (on the name row only, so that each cell
---- of the body shows exactly its time), a notch where each repeat of a looped
---- clip begins (`repeats`, beats from its start) and a mark on each warp marker (`warps`, the same). `per` is
+--- stretched) and its take `mark` ("2/4": `label ‹2/4›`, or `lab…‹2›`
+--- where that does not fit) over its body. On the name row only, so that
+--- each cell of the body shows exactly its time: a hairline where it
+--- starts, a mark on each warp marker (`warps`, beats from its start),
+--- and after the label a notch where each repeat of a looped clip begins
+--- (`repeats`, the same) and a small curve of the controller that moves
+--- most in a MIDI clip (`moves`, its height from 0 to 1 in each column,
+--- false before its first move). `per` is
 --- columns a beat. The terminal draws the row in `title_style` and the
 --- body in `body_style`, and `body(buf, props)` draws what is in the body (notes,
 --- a waveform). A window paints it in `color` (its track's), lit when
@@ -177,6 +193,7 @@ role(
       per = "columns a beat",
       repeats = "list of beats",
       warps = "list of beats",
+      moves = "list of numbers 0..1 or false",
       fade_in = "beats",
       fade_out = "beats",
       gain = "dB",
@@ -212,36 +229,50 @@ role(
         return
       end
       buf:fill(0, 0, w, 1, " ", p.title_style)
-      local x0 = w > 2 and 1 or 0
-      buf:text(x0, 0, title(p, w - x0))
       if h >= 2 then
         buf:fill(0, 1, w, h - 1, " ", p.body_style)
         if p.body then
           p.body(buf, p)
         end
       end
+      local x0 = w > 2 and 1 or 0
+      local text = title(p, w - x0)
+      buf:text(x0, 0, text)
+      -- The marks in the clip are on the name row, as the hairline is, so
+      -- that each cell of the body shows the notes or the sound of exactly
+      -- its time. The curve and the notches are after the label, so that
+      -- it stays whole.
+      local free = x0 + api.str_width(text)
+      -- The controller moves of a MIDI clip: a small curve, a cell's
+      -- height in each column, a space after the label.
+      for x = free + 1, w - 1 do
+        local height = p.moves and p.moves[x + 1]
+        if height is number then
+          buf:text(x, 0, g.eighths[math.floor(util.clamp(height * 8 + 0.5, 1, 8))])
+        end
+      end
       -- A notch where each repeat of a looped clip begins.
       for _, at in ipairs(p.repeats or {}) do
         local x = into(p, at)
-        if x > 0 and x < w and h >= 2 then
-          buf:fill(x, 1, 1, h - 1, g.step, "ClipEdge")
+        if x >= free and x < w then
+          buf:fill(x, 0, 1, 1, g.step, "ClipEdge")
         end
       end
-      -- A warp marker, where a moment of the file is pinned to a beat.
+      -- A warp marker, where a moment of the file is pinned to a beat. It
+      -- is a thing to move, so it stays in view over a letter of the label.
       for _, at in ipairs(p.warps or {}) do
         local x = into(p, at)
         if x > 0 and x < w then
-          buf:fill(x, 0, 1, h, g.tick, "ClipWarp")
+          buf:fill(x, 0, 1, 1, g.tick, "ClipWarp")
         end
       end
       -- A hairline where the clip starts, so that clips side by side stay
-      -- apart. It is on the name row only: each cell of the body shows the
-      -- notes or the sound of exactly its time, the first cell too.
+      -- apart.
       buf:fill(0, 0, 1, 1, g.clip_start, "ClipEdge")
-      -- A block of a subproject has a frame: a line where it ends too, on
-      -- the name row for the same reason.
+      -- A block of a subproject has a frame: a line at the right edge of
+      -- its last cell too, which stands against the next cell's lines.
       if p.nest and w > 2 then
-        buf:fill(w - 1, 0, 1, 1, g.clip_start, "ClipEdge")
+        buf:fill(w - 1, 0, 1, 1, g.clip_end, "ClipEdge")
       end
       -- Where a scope cuts it: `‹` and the name where the scope starts (the
       -- start of the clip is out of sight), `›` where it ends.

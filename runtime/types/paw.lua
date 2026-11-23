@@ -3513,9 +3513,7 @@ function paw.frontend.state(known) end
 --- What take `take` of a clip plays, for the picture in its take lane. For
 --- sound, this is a waveform as `M.peaks` gives it, at `points` points. For
 --- MIDI, it is the notes as `M.preview` gives them. It repeats as a looped
---- clip repeats. The waveform of the take that plays is the waveform of the
---- clip, stretched. The waveform of a different take is its file, made
---- shorter or longer in time as the clip stretches it.
+--- clip repeats (`paw.takes.peaks` gives the waveform).
 ---@param id any
 ---@param take any
 ---@param points any
@@ -8722,6 +8720,16 @@ function paw.takes.new(id, name) end
 --- clip that has only what it plays.
 ---@param clip any
 function paw.takes.of(clip) end
+
+--- The waveform of take `index` of an audio clip, as `n` `{ min, max, rms }`
+--- across the clip, as `paw.api.clip_peaks` gives the clip's. The take that
+--- plays is the clip's own waveform, stretched. Another take is its file,
+--- stretched in time as the clip stretches it, and repeated as a looped
+--- clip repeats. Nothing for a missing file.
+---@param clip any
+---@param index any
+---@param n any
+function paw.takes.peaks(clip, index, n) end
 
 --- The takes of a piece of a clip, from beat `from` to `to` of the
 --- timeline: what a cut gives to each side. Sound keeps its entries as they
