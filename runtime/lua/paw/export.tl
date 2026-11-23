@@ -119,6 +119,8 @@ end
 --- What the last export did: `paw.export.last()`.
 local record Last
   plan: Plan
+  --- How many files it was to write.
+  total: integer
   --- What each file came to, in the order of the plan.
   results: {types.RenderResult}
   failed: {Failure}
@@ -191,6 +193,7 @@ M.words = {
   {"wait=", {"true"}, "export in the foreground"},
 }
 
+-- The kinds of the built-in devices that change their level by the level that they hear.
 local DYNAMICS: {string: boolean} = {compressor = true, limiter = true, gate = true}
 
 --- True for a device that changes its level by the level that it hears: a
@@ -220,6 +223,7 @@ for _, tag in ipairs(render.tag_names) do
   KNOWN[tag] = true
 end
 
+-- The values of `tap=`.
 local TAPS: {string: boolean} = {pre = true, post = true, groups = true, master = true}
 
 --- The formats paw writes sound in, by their endings.
@@ -246,6 +250,7 @@ local function other_format(word: string): boolean
   return e ~= nil and not sound_endings()[e] and paw.formats.for_path(word, "export") ~= nil
 end
 
+--- A word of the command line as text, or nil.
 local function text_of(v: commands.Arg): string
   if v == nil then
     return nil
@@ -255,6 +260,7 @@ end
 
 -- The tracks ---------------------------------------------------------------------------
 
+--- The name of a track.
 local function name_of(id: integer): string
   return api.track_get(id).name
 end
@@ -498,6 +504,7 @@ local function safe(text: string): string
   return (text:gsub("[/\\%c]", "_"))
 end
 
+--- The name of the project, or "render" before it has one.
 local function project_name(): string
   local name = api.project_get().name
   return (name and name ~= "") and name or "render"
@@ -689,11 +696,10 @@ function M.preset_names(): {string}
   return out
 end
 
---- The plan of the words of `:export`, as `commands.parse` gives them, and
---- a range. See `M.plan`.
-function M.plan_args(args: Args, range?: Range): Plan
+--- The words of `:export`: the preset's, then the words typed, which win.
+--- Gives the preset, the target that the user typed, and the words.
+local function read_words(args: Args): Preset, string, {string: string}
   local preset, typed = preset_and_target(args)
-  -- The words of the preset, then the words typed, which win.
   local words: {string: string} = {}
   for k, v in pairs(preset and preset.words or {}) do
     words[k] = v
@@ -706,55 +712,54 @@ function M.plan_args(args: Args, range?: Range): Plan
       words[k] = v == true and "true" or tostring(v)
     end
   end
+  return preset, typed, words
+end
 
-  -- WHAT: the tracks of the range, else the mix of the scope.
-  local left_out: {string} = {}
-  local given: {integer}
-  if range and range.tracks then
-    given = {}
-    for _, id in ipairs(outermost(range.tracks)) do
-      if api.track_get(id).mute then
-        left_out[#left_out + 1] = name_of(id) .. ", muted"
-      else
-        given[#given + 1] = id
-      end
-    end
-    if #given == 0 then
-      error(
-        string.format(
-          "%s: every track of the range is muted, so there is nothing to export", range.text or "the range"
-        ),
-        0
-      )
+--- The tracks of the range without the muted ones, which go into
+--- `left_out`; nil with no range.
+local function heard(range: Range, left_out: {string}): {integer}
+  if not (range and range.tracks) then
+    return nil
+  end
+  local given: {integer} = {}
+  for _, id in ipairs(outermost(range.tracks)) do
+    if api.track_get(id).mute then
+      left_out[#left_out + 1] = name_of(id) .. ", muted"
+    else
+      given[#given + 1] = id
     end
   end
-  -- WHEN.
-  local span = span_of(range, words["in"])
-  -- WHERE in the signal.
-  local tap = (words.tap or "master") as types.RenderTap
-  if not TAPS[tap] then
-    error("tap=" .. tostring(tap) .. ": use pre, post, groups or master", 0)
+  if #given == 0 then
+    error(string.format("%s holds only muted tracks: nothing to export", range.text or "the range"), 0)
   end
-  local kinds = each_list(words.each)
-  local per_track = kinds[1] == "group" or kinds[1] == "track" or kinds[1] == "clip" or kinds[2] ~= nil
-  if (tap == "pre" or tap == "post") and not given and not per_track then
-    error("tap=" .. tap .. " is the sound of tracks: give them, as in :t2export tap=" .. tap .. ", or each=track", 0)
-  end
-  local channels = (words.channels or "stereo") as Channels
-  if channels ~= "stereo" and channels ~= "mono" and channels ~= "auto" then
-    error("channels=" .. tostring(channels) .. ": use stereo, mono or auto", 0)
-  end
+  return given
+end
 
-  -- HOW MANY: one item for each, or two joined (each=region,group).
+--- True when `each=` makes renders of single tracks or groups.
+local function per_track(kinds: {Each}): boolean
+  for _, kind in ipairs(kinds) do
+    if kind ~= "region" then
+      return true
+    end
+  end
+  return false
+end
+
+--- The items of the plan: one for each item of `each=`, or for each pair
+--- of two joined (`each=region,group`), with the number of each in its set.
+local function items_and_numbers(
+  kinds: {Each}, given: {integer}, span: Span, level: string, left_out: {string}
+): {Item}, {integer}
   local items: {Item} = {{}}
   local nth: {integer} = {1}
   for depth, kind in ipairs(kinds) do
-    local list = items_of(kind, given, span, words.level, left_out)
+    local list = items_of(kind, given, span, level, left_out)
     local joined: {Item} = {}
     local numbers: {integer} = {}
     for i, outer in ipairs(items) do
       for k, inner in ipairs(list) do
         joined[#joined + 1] = {unit = inner.unit or outer.unit, span = inner.span or outer.span}
+        -- `{n}` counts the items of the first kind.
         numbers[#numbers + 1] = depth == 1 and k or nth[i]
       end
     end
@@ -767,12 +772,16 @@ function M.plan_args(args: Args, range?: Range): Plan
       0
     )
   end
+  return items, nth
+end
 
-  -- NAMES: the target, or the preset's, or the default.
-  local target = typed or (preset and preset.target)
-  if not target then
-    target = given and "{tracks}.wav" or "{project}.wav"
-  end
+--- The target of the files, with the fields that `each=` needs and its
+--- ending: the target typed, the preset's, or the default. Gives the
+--- target and its ending.
+local function target_of(
+  typed: string, preset: Preset, given: {integer}, words: {string: string}, kinds: {Each}
+): string, string
+  local target = typed or (preset and preset.target) or (given and "{tracks}.wav" or "{project}.wav")
   local format = words.format and words.format:lower()
   local endings = sound_endings()
   if format and not endings[format] then
@@ -799,15 +808,24 @@ function M.plan_args(args: Args, range?: Range): Plan
   if #added > 0 then
     stem = stem .. ((folder or stem == "") and "" or " ") .. table.concat(added, " - ")
   end
-  target = stem .. "." .. ext
   -- A format that needs an encoder that paw does not have is refused
   -- before anything is rendered.
   local why = api.render_check(project_name() .. "." .. ext, options.opt.ffmpeg)
   if why then
     error(why, 0)
   end
+  return stem .. "." .. ext, ext
+end
 
-  local options: render.Options = {
+--- The options of `paw.render` that the words give, the same for each file.
+local function file_options(words: {string: string}): render.Options
+  local tags: {string: string} = {}
+  for _, key in ipairs(render.tag_names) do
+    if words[key] and words[key] ~= "true" then
+      tags[key] = words[key]
+    end
+  end
+  return {
     tail = tonumber(words.tail) or 2,
     rate = tonumber(words.rate) as integer,
     bits = tonumber(words.bits) as integer,
@@ -816,43 +834,66 @@ function M.plan_args(args: Args, range?: Range): Plan
     bitrate = tonumber(words.bitrate) as integer,
     normalize = tonumber(words.normalize),
     loudness = tonumber(words.loudness),
+    tags = next(tags) ~= nil and tags as types.RenderTags or nil,
   }
-  local tags: {string: string} = {}
-  for _, key in ipairs(render.tag_names) do
-    if words[key] and words[key] ~= "true" then
-      tags[key] = words[key]
-    end
-  end
-  options.tags = next(tags) ~= nil and tags as types.RenderTags or nil
+end
 
+--- The names of tracks, joined with `+`.
+local function joined_names(ids: {integer}): string
+  local names: {string} = {}
+  for _, id in ipairs(ids) do
+    names[#names + 1] = name_of(id)
+  end
+  return table.concat(names, "+")
+end
+
+--- The plan of the words of `:export`, as `commands.parse` gives them, and
+--- a range. See `M.plan`.
+function M.plan_args(args: Args, range?: Range): Plan
+  local preset, typed, words = read_words(args)
+  local left_out: {string} = {}
+  -- WHAT, WHEN, WHERE in the signal, HOW the file is, HOW MANY files.
+  local given = heard(range, left_out)
+  local span = span_of(range, words["in"])
+  local tap = (words.tap or "master") as types.RenderTap
+  if not TAPS[tap] then
+    error("tap=" .. tostring(tap) .. ": use pre, post, groups or master", 0)
+  end
+  local kinds = each_list(words.each)
+  -- The mix of a window narrowed to a group is the mix of the group.
+  local scope = paw.scope.group()
+  if not given and scope and not per_track(kinds) then
+    given = {scope}
+  end
+  if (tap == "pre" or tap == "post") and not given and not per_track(kinds) then
+    error("tap=" .. tap .. " is the sound of tracks: give them, as in :t2export tap=" .. tap .. ", or each=track", 0)
+  end
+  local channels = (words.channels or "stereo") as Channels
+  if channels ~= "stereo" and channels ~= "mono" and channels ~= "auto" then
+    error("channels=" .. tostring(channels) .. ": use stereo, mono or auto", 0)
+  end
+  local items, nth = items_and_numbers(kinds, given, span, words.level, left_out)
+  local target, ext = target_of(typed, preset, given, words, kinds)
+
+  -- One render for each item, with its file.
   local renders: {Render} = {}
   local used: {string: integer} = {}
   local date = os.date("%Y-%m-%d") as string
-  -- `{tracks}`: the names of the range, or the project's for the mix.
-  local range_names: {string} = {}
-  for _, id in ipairs(given or {}) do
-    range_names[#range_names + 1] = name_of(id)
-  end
-  local tracks_name = #range_names > 0 and table.concat(range_names, "+") or project_name()
+  local tracks_name = given and joined_names(given) or project_name()
   for i, item in ipairs(items) do
     local tracks = item.unit and {item.unit.id} or given
     local s = item.span or span
     local unit_name = item.unit and item.unit.name or tracks_name
-    local file = place(
-      fill(
-        target,
-        {
-          project = project_name(),
-          track = unit_name,
-          group = unit_name,
-          tracks = tracks_name,
-          region = s.region or s.when,
-          n = string.format("%02d", nth[i]),
-          date = date,
-        }
-      ),
-      typed ~= nil
-    )
+    local fields = {
+      project = project_name(),
+      track = unit_name,
+      group = unit_name,
+      tracks = tracks_name,
+      region = s.region or s.when,
+      n = string.format("%02d", nth[i]),
+      date = date,
+    }
+    local file = place(fill(target, fields), typed ~= nil)
     -- Two files of one name get a number each.
     used[file] = (used[file] or 0) + 1
     if used[file] > 1 then
@@ -864,7 +905,6 @@ function M.plan_args(args: Args, range?: Range): Plan
         holds[#holds + 1] = n
       end
     end
-    local exists = io.open(file) ~= nil
     renders[i] = {
       file = file,
       tracks = tracks,
@@ -876,7 +916,7 @@ function M.plan_args(args: Args, range?: Range): Plan
       tap = (tracks or tap == "groups") and tap or "master",
       channels = channels,
       title = item.unit and item.unit.name or nil,
-      replaces = exists and not in_renders(file),
+      replaces = io.open(file) ~= nil and not in_renders(file),
     }
   end
   local confirm = #renders > 1
@@ -887,7 +927,7 @@ function M.plan_args(args: Args, range?: Range): Plan
     renders = renders,
     left_out = left_out,
     notes = #renders > 1 and dynamics_notes(renders) or {},
-    options = options,
+    options = file_options(words),
     confirm = confirm,
     wait = words.wait == "true",
   }
@@ -906,10 +946,18 @@ end
 
 -- The queue ----------------------------------------------------------------------------
 
---- The export that runs: its plan, the render that runs now, and what the
---- renders came to so far. Nil when no export runs.
+--- A file of the queue, with the plan that it comes from.
+local record Step
+  plan: Plan
+  render: Render
+end
+
+--- The export that runs: its first plan, the files of the queue (an export
+--- started while it runs adds its own), the one that renders now, and what
+--- the renders came to so far. Nil when no export runs.
 local record Job
   plan: Plan
+  queue: {Step}
   index: integer
   results: {types.RenderResult}
   failed: {Failure}
@@ -998,14 +1046,12 @@ local function summary(done: Last): string, string
     level = "error"
   end
   if done.cancelled then
-    parts[#parts + 1] = string.format("export cancelled; %d of %d files written", n, #done.plan.renders)
+    parts[#parts + 1] = string.format("export cancelled; %d of %d files written", n, done.total)
     level = "info"
   elseif #parts > 0 then
     parts[#parts + 1] = string.format("%d file%s written", n, n == 1 and "" or "s")
   end
-  if how and #parts > 0 and not done.cancelled then
-    return table.concat(parts, "; "), level
-  end
+  -- A failure or a cancel says what happened in place of the files.
   if #parts > 0 then
     return table.concat(parts, "; "), level
   end
@@ -1016,7 +1062,13 @@ end
 local function finish()
   local done = job
   job, render.batch = nil, nil
-  last = {plan = done.plan, results = done.results, failed = done.failed, cancelled = done.cancelled}
+  last = {
+    plan = done.plan,
+    total = #done.queue,
+    results = done.results,
+    failed = done.failed,
+    cancelled = done.cancelled,
+  }
   local text, level = summary(last)
   last.message = text
   paw.notify(text, level)
@@ -1032,12 +1084,13 @@ local function start_next()
     return finish()
   end
   job.index = job.index + 1
-  local r = job.plan.renders[job.index]
-  if not r then
+  local step = job.queue[job.index]
+  if not step then
     return finish()
   end
-  render.batch = {index = job.index, total = #job.plan.renders}
-  local opts = render_options(job.plan, r)
+  local r = step.render
+  render.batch = {index = job.index, total = #job.queue}
+  local opts = render_options(step.plan, r)
   opts.background, opts.quiet = true, true
   local ok, err = pcall(write, r.file, opts) as (boolean, string)
   if not ok then
@@ -1048,8 +1101,8 @@ end
 
 --- True when the render of `path` is the one of the export that runs.
 local function ours(path: string): boolean
-  local r = job and job.plan.renders[job.index]
-  return r ~= nil and r.file == path
+  local step = job and job.queue[job.index]
+  return step ~= nil and step.render.file == path
 end
 
 events.on(
@@ -1088,14 +1141,26 @@ function M.run(plan: Plan)
   if #plan.renders == 0 then
     error("nothing to export", 0)
   end
+  local steps: {Step} = {}
+  for i, r in ipairs(plan.renders) do
+    steps[i] = {plan = plan, render = r}
+  end
   if job then
-    for _, r in ipairs(plan.renders) do
-      job.plan.renders[#job.plan.renders + 1] = r
+    for _, step in ipairs(steps) do
+      job.queue[#job.queue + 1] = step
+    end
+    if render.batch then
+      render.batch.total = #job.queue
     end
     return
   end
-  job = {plan = plan, index = 0, results = {}, failed = {}}
+  job = {plan = plan, queue = steps, index = 0, results = {}, failed = {}}
   if not plan.wait then
+    local n = #plan.renders
+    paw.notify(
+      (n == 1 and ("exporting " .. shown(plan.renders[1].file)) or string.format("exporting %d files", n))
+        .. " · Esc cancels"
+    )
     return start_next()
   end
   for i, r in ipairs(plan.renders) do
@@ -1303,13 +1368,6 @@ local function export(ctx: commands.Context, bang: boolean): commands.Result
     return M.confirm(plan)
   end
   M.run(plan)
-  if not plan.wait then
-    local n = #plan.renders
-    paw.notify(
-      (n == 1 and ("exporting " .. shown(plan.renders[1].file)) or string.format("exporting %d files", n))
-        .. " · Esc cancels"
-    )
-  end
 end
 
 --- Complete the words of `:export`: the presets, the files of other

@@ -200,7 +200,7 @@ test(
     eq(paw.export.lines(p)[4], "left out: Keys, muted", "in the plan")
     T.fails(
       function() plan("", "t/Keys/") end,
-      "t/Keys/: every track of the range is muted, so there is nothing to export",
+      "t/Keys/ holds only muted tracks: nothing to export",
       "only muted tracks"
     )
     eq(plan("each=track").notes, {}, "no note without a compressor")
@@ -304,17 +304,18 @@ test("exports run in one queue with their progress on the status line; Esc and :
   for _, cancel in ipairs({ "<Esc>", ":export.cancel<CR>" }) do
     local before = paw.export.last()
     keys(":export! tracks channels=stereo tail=600<CR>")
-    eq(paw.export.running(), true, "the export runs: " .. tostring(paw.export.last() and paw.export.last().message))
+    eq(paw.export.running(), true, "the export runs")
+    keys(":export mix.wav<CR>")
     eq(
-      T.screen(140, 10):find("exporting 1/3 Kick.wav %d+%% · Esc cancels") ~= nil,
+      T.screen(140, 10):find("exporting 1/4 Kick.wav %d+%% · Esc cancels") ~= nil,
       true,
-      "the status line says which file"
+      "a second export waits in the same queue, and the status line says which file"
     )
     keys(cancel)
     local done = exported(before)
     eq(done.cancelled, true, cancel .. " cancels the queue")
-    eq(io.open(s.dir .. "/renders/tracks/Bass.wav"), nil, "the last file is not written")
-    eq(done.message:match("^export cancelled; %d of 3 files written$") ~= nil, true, done.message)
+    eq(io.open(s.dir .. "/renders/mix.wav"), nil, "the last file is not written")
+    eq(done.message:match("^export cancelled; %d of 4 files written$") ~= nil, true, done.message)
   end
 end)
 
@@ -337,4 +338,15 @@ test("<Space>e exports the mix, stems, tracks and regions, and again; in visual 
   keys("V<Space>em")
   done = exported(done)
   eq(done.results[1].path, s.dir .. "/renders/Bass.wav", "visual <Space>em: the selected track")
+end)
+
+test("<Space>tf freezes the track at the cursor and <Space>tF unfreezes it, one undo step each", function()
+  local s = song()
+  paw.cursor.set_track(s.bass)
+  keys("<Space>tf")
+  eq(paw.freeze.frozen(s.bass.id) ~= nil, true, "<Space>tf freezes")
+  keys("<Space>tF")
+  eq(paw.freeze.frozen(s.bass.id), nil, "<Space>tF unfreezes")
+  keys("u")
+  eq(paw.freeze.frozen(s.bass.id) ~= nil, true, "u gives the freeze back")
 end)

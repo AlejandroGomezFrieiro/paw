@@ -820,7 +820,7 @@ several notes. Its type says so now, an integer or nil.
 `paw.render` was a function, and the module of the render was out of the
 way. Now `paw.render` is the module, and a call of it renders, so
 `paw.render(path, opts)` is `paw.render.render(path, opts)`. The other
-names (`paw.render_stems`, `paw.render_status` and the others) are the
+names (`paw.render_status`, `paw.render_tags` and the others) are the
 functions of the module, so they have its types. `paw.render_ranges` is the
 table of the ranges itself, not a table that passes each key on.
 

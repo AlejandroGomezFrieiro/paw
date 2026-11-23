@@ -608,12 +608,13 @@ spec(
       local file = tostring(job.path):match("([^/]+)$") or tostring(job.path)
       local verb = job.stage == "encoding" and "encoding" or "rendering"
       local batch = paw.render.batch
+      local count = ""
       if batch then
         verb = "exporting"
-        file = (batch.total > 1 and (batch.index .. "/" .. batch.total .. " ") or "") .. file
+        count = batch.total > 1 and (batch.index .. "/" .. batch.total .. " ") or ""
       end
-      local text = width >= 120 and (verb .. " " .. file .. " " .. pct .. " · Esc cancels")
-        or width >= 80 and (verb:sub(1, 6) .. " " .. pct .. " · Esc")
+      local text = width >= 120 and (verb .. " " .. count .. file .. " " .. pct .. " · Esc cancels")
+        or width >= 80 and (verb:sub(1, 6) .. " " .. count .. pct .. " · Esc")
         or (verb:sub(1, 6) .. " " .. pct)
       return {{text, "StatusRec"}}
     end,

@@ -13,6 +13,7 @@ A frozen track plays a rendered file instead of its clips and devices. The devic
 | `:t2,t4freeze` | Freeze a range of tracks. |
 | `:freeze tail=4` | Render 4 seconds after the end (default: 2). |
 | `:unfreeze` | Play the clips and devices again. On a track inside a frozen group, unfreeze the group. |
+| `<Space>tf`, `<Space>tF` | `:freeze` and `:unfreeze` of the track at the cursor, or of the selected tracks in visual mode. |
 
 ## Rules
 

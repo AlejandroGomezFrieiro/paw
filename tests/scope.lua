@@ -1144,6 +1144,7 @@ test(":render stems shows a plan of one file per group, and they add up to the m
   end
   eq(files("stems"), "Strings.wav Brass.wav", "in a scope: its groups")
   eq(files("tracks"), "Violins.wav Cellos.wav Horns.wav", "per track")
+  eq(files(""), "Orchestra.wav", "and the mix of the scope is the mix of its group")
   paw.scope.widen()
   reset()
 end)

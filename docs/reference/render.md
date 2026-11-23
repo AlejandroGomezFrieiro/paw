@@ -10,13 +10,150 @@ the steps, see [How to export a song as WAV, FLAC or MP3](../how-to/export-a-son
 
 | Command | Effect |
 | --- | --- |
+| `:export` | Export the song, a part of it, or its tracks to sound files (see `:export`). |
+| `:export!` | The same, with no plan first, and it replaces files. |
+| `:export.cancel` | Stop the export and the files that wait after it. |
 | `:render mix.flac` | Render the song to a file (see below). |
 | `:render.cancel` | Stop the render. |
 | `:render.tags` | Show or set the tags of the project (see Tags). |
 | `:render stems` | Render one file for each group (see Stems). |
 | `:render.regions out` | Render each region to a file of its own (see Regions). |
-| `:stems out` | Render one file for each track into `out` (default: `renders/stems`), as `paw.render_stems`. |
+| `:stems out` | Render one file for each track into `out` (default: `renders/stems`), as `:export out/ each=track` does. |
 | `:track.bounce` | Render a track to a new audio track (see Bounce). |
+
+## `:export`
+
+`:export` writes the mix of the song to `renders/<project>.wav` in the
+folder of the project. A range before the command chooses the tracks and
+the time, as it does for each command that takes a range (see
+[Ex commands](ex.md#ranges-of-time)), and the words after it choose the files:
+
+```
+:[tracks] [time] export[!] [preset] [target] [word=value ...]
+```
+
+| Line | What paw writes |
+| --- | --- |
+| `:export` | the song, through the master, to `renders/song.wav` |
+| `:export song.flac` | the song as a FLAC file |
+| `:17,32export bridge.wav` | bars 17 to 32 |
+| `:export in=loop loop.wav` | the loop |
+| `:export in=Chorus` | the region Chorus |
+| `:t/Drums/export drums.wav` | the group Drums alone, through the master |
+| `:t2,t4export` | tracks 2 to 4 as one file, `renders/<names>.wav` |
+| `:'<,'>export` | the tracks and the time of the selection |
+| `:export stems` | one file for each group (a preset, see below) |
+| `:export tracks` | one file for each track |
+| `:export regions` | one file for each region |
+| `:export each=region,group` | one file for each group in each region |
+
+An ending of another program's file, such as `.mid` or `.rpp`, writes that
+format instead (see [MIDI](midi.md), and `:help formats` for the list).
+
+### The words
+
+| Word | Values | Default |
+| --- | --- | --- |
+| `each=` | `group`, `track`, `region`, `clip`, or two joined: `region,group` | one file |
+| `tap=` | `pre`, `post`, `groups`, `master` (see the table of `tap` under Lua) | `master` |
+| `channels=` | `stereo`, `mono`, or `auto` (one channel when both sides are equal) | `stereo` |
+| `in=` | `loop`, or the name of a region | the song |
+| `format=` | `wav`, `flac`, `mp3`, `ogg`, `opus`, when the target has no ending | `wav` |
+| `level=` | with `each=region`: a level from 1, or `leaves` | every region |
+| `wait=true` | export in the foreground | |
+| `tail=`, `rate=`, `bits=`, `dither=`, `quality=`, `bitrate=`, `normalize=`, `loudness=`, and the tags | as for `:render` below | `tail=2` |
+
+- `each=group` makes one file for each group at the top level, and one for
+  each track outside a group. In a window narrowed to a group, the top
+  level is the inside of the group.
+- `each=track` makes one file for each track that has clips. With a range,
+  a group of the range gives the tracks inside it.
+- `tap=pre` and `tap=post` need tracks: a range of tracks, or
+  `each=group`, `each=track` or `each=clip`.
+- A word typed after a preset changes the word of the preset:
+  `:export stems format=flac`.
+
+### Presets
+
+| Preset | Words | Files |
+| --- | --- | --- |
+| `mix` | none | `{project}.wav` |
+| `review` | `quality=high loudness=-14` | `{project}.mp3` |
+| `stems` | `each=group tap=master channels=auto` | `stems/{group}.wav` |
+| `tracks` | `each=track tap=post channels=auto` | `tracks/{track}.wav` |
+| `regions` | `each=region` | `regions/{n} {region}.wav` |
+
+`paw.export.presets.<name> = { target = "...", words = { ... } }` in
+`init.lua` adds a preset.
+
+### Names and folders
+
+The target is a file, a folder that ends in `/`, or a name with fields:
+
+| Field | What it holds |
+| --- | --- |
+| `{project}` | the name of the project |
+| `{track}`, `{group}` | the name of the track or group of the file |
+| `{tracks}` | the names of the range, joined with `+` |
+| `{region}` | the name of the region, with the regions around it: `Chorus 2 - Verse A` |
+| `{n}` | the number of the file in the set, with two digits |
+| `{date}` | the date, as `2026-11-23` |
+
+- A name with no folder goes into `renders/` of the project. A path with a
+  folder goes there, and `~/` is the home folder.
+- With `each=` and a target without its field, paw adds the field:
+  `:export stems out/` writes `out/Drums.wav`.
+- When two files get the same name, the second one gets a number:
+  `Bass 2.wav`.
+- paw replaces a file in `renders/` without a question. To replace a file
+  in another folder, press `y` in the plan or type `:export!`.
+
+### The plan
+
+Before an export of more than one file, or one that replaces a file
+outside `renders/`, paw shows the plan in a float. The plan lists each
+file with what it holds, when, its tap and its channels. Below the files,
+it names the muted tracks that it leaves out, and it says when a
+compressor, limiter or gate on a group or on the master makes the files
+differ a little from the mix.
+
+| Key | Effect |
+| --- | --- |
+| `y`, `Enter` | write the files |
+| `n`, `Esc` | close the plan, and write nothing |
+| `j`, `k` | scroll |
+
+A range of only muted tracks writes nothing, and the message says so.
+
+### Progress and the result
+
+The files render one at a time, in one queue. The status line shows
+`exporting 3/12 Bass.wav 43% · Esc cancels`. `Esc` in normal mode, or
+`:export.cancel`, stops the whole queue. At the end, one message names the
+files, their length and the peak, for example `wrote 2 files to
+renders/stems (3:21 each, peak -0.8 dB)`. `:messages` keeps it.
+
+### Keys
+
+| Keys | Effect |
+| --- | --- |
+| `<Space>em` | `:export`, the mix |
+| `<Space>es` | `:export stems` |
+| `<Space>et` | `:export tracks` |
+| `<Space>er` | `:export regions` |
+| `<Space>ee` | the last export again |
+
+In visual mode, `<Space>em`, `<Space>es`, `<Space>et` and `<Space>er`
+export the tracks and the time of the selection.
+
+### Lua
+
+| Function | Result |
+| --- | --- |
+| `paw.export.plan(words, range)` | The plan of `:export` with these words: `{ renders, left_out, notes, confirm }`. Each render has its `file`, `tracks`, `from`, `to`, `when`, `tap` and `channels`. `range` is `paw.ex.range("t2,t4 5,8")`, or nil. |
+| `paw.export.run(plan)` | Write the files of a plan. |
+| `paw.export.last()` | What the last export wrote: `{ results, failed, cancelled, message }`. |
+| `paw.export.cancel()` | Stop the export. |
 
 ## `:render`
 
@@ -204,13 +341,12 @@ Each point holds all the points before it.
 | `paw.render_status()` | The render that runs: `{ path, fraction, seconds, cancelling, stage, queued }`. |
 | `paw.render_cancel()` | Stop it. |
 | `paw.render_ranges.chorus = function() return 32, 48 end` | Add a named range. |
-| `paw.render_stems(dir, opts)` | Write one file for each track. |
 
 The graphical window finds the render in `paw.frontend.state().modal.render`.
 
 ## Stems
 
-`paw.render_stems(dir, opts)` writes one file for each track. The files add
+`:export each=track` writes one file for each track. The files add
 up to the mix exactly through sends, returns and buses that only filter,
 delay or mix. A compressor or a limiter on a shared bus hears each stem
 alone and acts on a stem differently than on the sum, so with those the files
@@ -230,14 +366,13 @@ group, into `renders/stems`:
 | `:render stems` | One file for each group, into `renders/stems`. |
 | `:render stems out` | The same, into `out`. |
 | `:render stems tracks` | One file for each track. |
-| `:render Strings` | One group, to `renders/Strings.wav`. |
+| `:render Strings` | One group, to `renders/Strings.wav`, with no plan. |
 
 - In a window narrowed to a group, `:render stems` writes the parts of its group.
 - The options of `:render` apply (`format=flac`, `tail=`, `bits=`,
   `master=false`, and the others).
-- In Lua, `paw.stems.plan({ dir, format, tracks, group })` gives the list
-  (`{ id, name, file, holds }`), and `paw.stems.render(plan, opts)` writes
-  it.
+- In Lua, `paw.export.plan("stems")` gives the plan, and
+  `paw.export.run(plan)` writes it.
 
 ## Bounce
 

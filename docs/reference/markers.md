@@ -74,7 +74,7 @@ A marker named `key D minor` is a key change, and the harmony reading uses it fr
 | `dar` | Delete the clips in the innermost region that the cursor is in, on every track. The region stays. |
 | `d2ar` | Delete the clips in the region around that region (its parent). `3ar` is the next level out. |
 | `<Space>rl`, `:region.loop Verse` | Set the playback loop to the region that the cursor is in, or to the one named, and turn looping on. |
-| `<Space>rR`, `:render.regions out` | Render each region to a file of its own: `01 Intro.wav`, and the next files. A region inside another region has the path in its name: `02 Chorus 2 - 01 Verse A.wav`. Each number is the place among the regions with the same parent. `level=1` renders only the top level, `level=2` only the second level, and `level=leaves` the regions with no region inside. `<Space>rR` asks for the folder. |
+| `:render.regions out` | Render each region to a file of its own: `01 Intro.wav`, and the next files. A region inside another region has the path in its name: `02 Chorus 2 - 01 Verse A.wav`. Each number is the place among the regions with the same parent. `level=1` renders only the top level, `level=2` only the second level, and `level=leaves` the regions with no region inside. With no folder, it asks for the folder. `<Space>er` exports the regions with `:export regions` (see [Render](render.md#export)). |
 | `<Space>fm` `<Space>fr` | Find a marker, a region, in a picker. The region picker shows the regions as a tree, and its preview shows the path. |
 
 A region is also a range for `:render`: `:render out.wav range=Verse`
