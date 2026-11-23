@@ -4,12 +4,12 @@ use std::os::fd::{AsRawFd, BorrowedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
-use paw_engine::device::{Category, DeviceFactory, DeviceInfo, Instance, Ports, Rest, Starting};
+use paw_engine::device::{Category, DeviceFactory, DeviceInfo, Instance, Ports, Rest, StartTest, Starting};
 use rustix::process::Signal;
 use super::*;
 use super::shm::*;
@@ -34,16 +34,6 @@ pub(super) struct RemoteFactory {
 pub(super) const PARAM_TEXT: &str = "paw.param.text";
 pub(super) const PARAM_VALUE: &str = "paw.param.value";
 
-/// How long a plugin may take to be made: [`CREATE_LIMIT`], or the seconds
-/// in `PAW_PLUGIN_CREATE_LIMIT` (for tests).
-fn create_limit() -> Duration {
-    std::env::var("PAW_PLUGIN_CREATE_LIMIT")
-        .ok()
-        .and_then(|text| text.parse::<f64>().ok())
-        .filter(|secs| secs.is_finite() && *secs > 0.0)
-        .map_or(CREATE_LIMIT, Duration::from_secs_f64)
-}
-
 /// Why a helper gave no answer: whether it timed out, and the error.
 pub(super) fn silence(err: &std::io::Error) -> bool {
     matches!(
@@ -54,8 +44,9 @@ pub(super) fn silence(err: &std::io::Error) -> bool {
 
 impl RemoteFactory {
     /// Start the helper, which makes the plugin. Its first word, read with
-    /// [`made`](Self::made), says whether that worked.
-    fn spawn(&self, sample_rate: f32, max_block: usize) -> Result<(RemoteController, UnixStream)> {
+    /// [`made`](Self::made), says whether that worked. With `hang` (for a
+    /// test), the helper waits until it is ended before it makes the plugin.
+    fn spawn(&self, sample_rate: f32, max_block: usize, hang: bool) -> Result<(RemoteController, UnixStream)> {
         let argv = match &self.argv {
             Some(argv) => argv,
             None => host_command().context("plugins are hosted in-process here")?,
@@ -79,8 +70,12 @@ impl RemoteFactory {
         if let Some(libs) = crate::attach::env() {
             command.env(crate::attach::ATTACH_ENV, libs);
         }
-        if TEST_HANG.load(Ordering::Relaxed) {
+        // What a test asked of this plugin (see `follow_test_env`).
+        if kind_test(&self.info.kind).hang {
             command.env("PAW_PLUGIN_TEST_HANG", "1");
+        }
+        if hang {
+            command.env("PAW_PLUGIN_HOST_HANG", "1");
         }
         if let Some(cache) = CACHE.lock().unwrap().as_ref() {
             command.arg(cache);
@@ -119,6 +114,7 @@ impl RemoteFactory {
         });
         let controller = RemoteController {
             name: self.info.name.clone(),
+            kind: self.info.kind.clone(),
             link,
             stream: ours.try_clone()?,
             child,
@@ -161,7 +157,11 @@ impl RemoteFactory {
                 pending: Pending::new(),
                 told_priority: false,
                 rest: Rest::default(),
-                offline_limit: if self.argv.is_some() { STALL_LIMIT } else { OFFLINE_LIMIT },
+                offline_limit: kind_test(&self.info.kind).deadline.unwrap_or(if self.argv.is_some() {
+                    STALL_LIMIT
+                } else {
+                    OFFLINE_LIMIT
+                }),
             }),
             controller: Some(Box::new(controller)),
         }
@@ -253,9 +253,9 @@ impl DeviceFactory for RemoteFactory {
     }
 
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
-        let (mut controller, mut ours) = self.spawn(sample_rate, max_block)?;
+        let (mut controller, mut ours) = self.spawn(sample_rate, max_block, false)?;
         // Its first word is that the plugin exists, or why it does not.
-        let limit = create_limit();
+        let limit = CREATE_LIMIT;
         ours.set_read_timeout(Some(limit))?;
         let hello = match receive(&mut ours) {
             Ok(Ok(answer)) => serde_json::from_slice::<Hello>(&answer)
@@ -281,11 +281,12 @@ impl DeviceFactory for RemoteFactory {
         sample_rate: f32,
         max_block: usize,
         state: Option<Vec<u8>>,
+        test: StartTest,
     ) -> Option<Box<dyn Starting>> {
         let factory = self.clone();
         let (tell, answer) = std::sync::mpsc::channel();
-        let limit = create_limit();
-        let controller = match self.spawn(sample_rate, max_block) {
+        let limit = test.deadline.unwrap_or(CREATE_LIMIT);
+        let controller = match self.spawn(sample_rate, max_block, test.hang) {
             Ok((controller, ours)) => {
                 let spawned = std::thread::Builder::new()
                     .name("plugin-start".into())

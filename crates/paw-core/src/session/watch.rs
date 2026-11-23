@@ -11,7 +11,8 @@
 
 use crate::events::{AudioLost, AudioRestored, KernelEvent as E, MidiPort};
 use std::collections::BTreeSet;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use paw_engine::backend::{self, BackendChoice, BackendOptions, find_device};
@@ -19,6 +20,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::Session;
+use crate::clock::{Clock, WallClock};
 
 /// How often the device and the MIDI ports are looked at.
 const LOOK: Duration = Duration::from_millis(200);
@@ -28,7 +30,10 @@ pub(super) struct Watch {
     pub auto: bool,
     /// How often to look for it while it is gone.
     pub period: Duration,
-    last_look: Instant,
+    /// The schedule clock that the looks wait on (`Session::set_clock`).
+    pub clock: Arc<dyn Clock>,
+    /// When the device and the ports were last looked at, on `clock`.
+    last_look: Duration,
     gone: Option<Gone>,
     /// The MIDI ports there were at the last look, and those that went.
     ports: Option<BTreeSet<String>>,
@@ -40,7 +45,8 @@ impl Default for Watch {
         Self {
             auto: true,
             period: Duration::from_secs(3),
-            last_look: Instant::now(),
+            clock: Arc::new(WallClock::new()),
+            last_look: Duration::ZERO,
             gone: None,
             ports: None,
             ports_gone: BTreeSet::new(),
@@ -54,7 +60,17 @@ struct Gone {
     wanted: BackendOptions,
     /// Its name, as told.
     name: String,
-    next_try: Instant,
+    /// When to look for it next, on the schedule clock.
+    next_try: Duration,
+}
+
+impl Watch {
+    /// The next time on the schedule clock when the watch looks: the next
+    /// look, or the next try of a device that went.
+    pub(super) fn next_due(&self) -> Duration {
+        let look = self.last_look + LOOK;
+        self.gone.as_ref().map_or(look, |gone| look.min(gone.next_try))
+    }
 }
 
 /// The audio device that went away and is waited for (`engine_get().lost`).
@@ -68,10 +84,11 @@ pub struct Lost<'a> {
 impl Session {
     /// Look after the device and the MIDI ports: called from `idle`.
     pub(super) fn watch_devices(&mut self) {
-        if self.watch.last_look.elapsed() < LOOK {
+        let now = self.watch.clock.now();
+        if now < self.watch.last_look + LOOK {
             return;
         }
-        self.watch.last_look = Instant::now();
+        self.watch.last_look = now;
         // Another device was opened meanwhile: nothing to wait for.
         if self.watch.gone.is_some() && self.engine.stream.info.backend != BackendChoice::Null {
             self.watch.gone = None;
@@ -85,7 +102,7 @@ impl Session {
             .watch
             .gone
             .as_ref()
-            .is_some_and(|g| self.watch.auto && Instant::now() >= g.next_try)
+            .is_some_and(|g| self.watch.auto && now >= g.next_try)
         {
             let _ = self.audio_reconnect();
         }
@@ -137,7 +154,7 @@ impl Session {
         self.watch.gone = Some(Gone {
             wanted,
             name: name.clone(),
-            next_try: Instant::now() + self.watch.period,
+            next_try: self.watch.clock.now() + self.watch.period,
         });
         let auto = self.watch.auto;
         self.doc.emit(E::AudioLost(AudioLost { device: name, reason: why, recording, auto }));
@@ -148,7 +165,7 @@ impl Session {
         let Ok(list) = backend::list_devices(wanted) else {
             return false;
         };
-        if list.backend == BackendChoice::Null && wanted.backend != BackendChoice::Null {
+        if list.backend == BackendChoice::Null && !wanted.backend.is_null() {
             return false;
         }
         match wanted.output_device.as_deref() {
@@ -163,7 +180,7 @@ impl Session {
         let Some(gone) = self.watch.gone.as_mut() else {
             return Ok(true);
         };
-        gone.next_try = Instant::now() + self.watch.period;
+        gone.next_try = self.watch.clock.now() + self.watch.period;
         if !Self::device_back(&gone.wanted) {
             return Ok(false);
         }
@@ -171,7 +188,7 @@ impl Session {
         match self.engine_restart(&wanted) {
             Ok(())
                 if self.engine.stream.info.backend != BackendChoice::Null
-                    || wanted.backend == BackendChoice::Null =>
+                    || wanted.backend.is_null() =>
             {
                 self.watch.gone = None;
                 let engine = self.engine_info();
@@ -206,7 +223,7 @@ impl Session {
         if let Some(period) = period {
             self.watch.period = period.max(Duration::from_millis(10));
             if let Some(gone) = self.watch.gone.as_mut() {
-                gone.next_try = gone.next_try.min(Instant::now() + self.watch.period);
+                gone.next_try = gone.next_try.min(self.watch.clock.now() + self.watch.period);
             }
         }
     }

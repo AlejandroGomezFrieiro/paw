@@ -3,6 +3,7 @@
 -- chunks and blocks) and in MP3, Ogg and Opus (read back with ffprobe, and
 -- skipped without ffmpeg). Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, fails, fresh = T.test, T.eq, T.fails, T.fresh
 local api = paw.api
 
@@ -238,7 +239,7 @@ test("the tags are given to :export, :export.tags and the window's dialog, and k
   eq(paw.render_tags().artist, "Ana", "and do not change them")
   paw.frontend.act.render({ path = dir .. "/b.wav", tail = 0, tags = { artist = "Cy", year = "1999" } })
   while paw.render_status() do
-    paw.wait(10)
+    advance(10)
   end
   info = wav_info(T.read_file(dir .. "/b.wav"))
   eq(info.IART .. "|" .. info.ICRD, "Cy|1999", "the dialog's tags are written")

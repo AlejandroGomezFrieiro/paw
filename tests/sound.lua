@@ -3,6 +3,7 @@ local T = ...
 local test, eq, near, fails, fresh, render, tone = T.test, T.eq, T.near, T.fails, T.fresh, T.render, T.tone
 local until_, scratch, read_file, write_file, frequency, channel_peaks =
   T.until_, T.scratch, T.read_file, T.write_file, T.frequency, T.channel_peaks
+local meter, next_block = T.meter, T.next_block
 local paw = require("paw")
 local api = paw.api
 local fixtures = "tests/fixtures/"
@@ -29,12 +30,31 @@ test("playback that starts inside a note sounds that note", function()
   paw.project.tempo = 240
   paw.transport.seek(2)
   paw.transport.play()
-  until_(function() return select(1, t:meter()) > 0.01 end, "playing from inside the note")
+  until_(function() return select(1, meter(t)) > 0.01 end, "playing from inside the note")
   paw.transport.seek(40)
-  until_(function() return select(1, t:meter()) < 0.005 end, "jumping past the note to stop it")
+  until_(function() return select(1, meter(t)) < 0.005 end, "jumping past the note to stop it")
   paw.transport.seek(4)
-  until_(function() return select(1, t:meter()) > 0.01 end, "jumping back into the note to start it")
+  until_(function() return select(1, meter(t)) > 0.01 end, "jumping back into the note to start it")
   paw.transport.stop()
+end)
+
+test("a song played on stepped blocks gives the same meter each time, to the bit", function()
+  if not T.stepped() then return "the engine is not on the stepped backend" end
+  local function play()
+    -- A new engine, which counts its blocks from the start.
+    api.engine_restart({ backend = "null" })
+    fresh()
+    local t = tone("held", 8)
+    paw.transport.seek(0)
+    paw.transport.play()
+    next_block(37)
+    local left, right = meter(t)
+    T.stop()
+    return { left, right }
+  end
+  local first = play()
+  eq(first[1] > 0.01, true, "the note sounds")
+  eq(play(), first, "the same blocks give the same levels")
 end)
 
 test("the fader and pan do what they say", function()

@@ -2,6 +2,7 @@
 -- leader, counts before Alt-j, Alt-k and &, `[` and `]` that act at once,
 -- tap tempo, and searches over the whole description of a key.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh, keys = T.test, T.eq, T.near, T.fresh, T.keys
 local api = paw.api
 
@@ -79,7 +80,7 @@ test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]
   eq(c:notes()[1].velocity, 120, "[ then g is the grid key: the velocity change is taken back")
   eq(paw.opt.grid .. " " .. paw.opt.note_grid ~= grids, true, "and [g made the grid finer")
   paw.keymap.feed("]g")
-  paw.wait(paw.opt.timeoutlen + 100)
+  advance(paw.opt.timeoutlen + 100)
   eq(paw.keymap.pending(), "", "nothing is left half typed after the wait")
   paw.undo()
   eq(c:notes()[1].velocity, 110, "each press is one undo step")
@@ -100,7 +101,7 @@ test("[ and ] on a selection of notes act at once, as in normal mode", function(
   api.undo_checkpoint()
   paw.keymap.feed("vie]")
   eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "110 110", "vie ] is louder at once, with no wait for ]g")
-  paw.wait(paw.opt.timeoutlen + 100)
+  advance(paw.opt.timeoutlen + 100)
   paw.keymap.feed("gv[")
   eq(c:notes()[1].velocity .. " " .. c:notes()[2].velocity, "100 100", "gv [ is softer at once")
 end)

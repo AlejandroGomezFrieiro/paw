@@ -205,11 +205,22 @@ tests. Follow these rules when you write a test:
 - Check that a thing does not happen only after the kernel did its work,
   for example after `T.next_block`. A check that nothing happened in some
   milliseconds passes on a slow machine for the wrong reason.
-- Check sound in an offline render with `T.render`, not in a live meter
-  after a wait.
+- Check sound in an offline render with `T.render`. To check a meter,
+  play some blocks with `T.next_block` and read the meter with
+  `T.meter`, not with `:meter()` after a wait.
 - Make a plugin or a helper process that the test controls wait for the
-  test, for example with a file that the test removes, and don't compare a
-  delay with a deadline.
+  test, and don't compare a delay with a deadline. A plugin takes these
+  test commands through `paw.api.device_call(id, command, data)`:
+  - `sandbox.hold` and `sandbox.release`: a plugin that is loading stays
+    loading until the test releases it. `T.settle` doesn't wait for it.
+  - `sandbox.hang`: a plugin that has not started to load hangs while it
+    is made, and a running plugin stops answering, with the plugins of its
+    kind that paw makes after it. The data `0` ends it.
+  - `sandbox.deadline`: paw gives up on that plugin after the milliseconds
+    in the data, as it would on one that hangs. For a running plugin, a
+    render waits that long for a block of a plugin of its kind.
+- Wait for `device.state_applied` to know that a plugin took on a state
+  that paw gave it, and not for a time.
 - Make all of the state that the test reads. Start from `T.fresh()`, and
   put back what the test changes with `T.after`.
 
@@ -217,16 +228,21 @@ tests. Follow these rules when you write a test:
 
 The suite runs paw with `--clock manual`. On that clock, the time that
 timers and delays wait for (`paw.api.now()`) moves only when a test moves
-it, so a test of a delay always gives the same result. Work on other
-threads still takes its own time, for example a bake, the loading of a
-plugin or a render. The audio engine also still plays in real time.
+it, so a test of a delay always gives the same result. The audio engine
+plays on the `step` backend: it plays a block of sound only when the clock
+gets to the end of that block. So a meter after some blocks has the same
+value in each run. Work on other threads still takes its own time, for
+example a bake, the loading of a plugin or a render.
 
 | Helper | What it does |
 | --- | --- |
 | `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads and renders have ended. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
-| `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, and then the kernel settles. First the audio engine plays one block. While the song plays or records, it plays the blocks of all of `ms`, so the clock doesn't get ahead of the sound. |
-| `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock doesn't move, but while the song plays it keeps step with the sound. |
+| `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, the audio engine plays the blocks of that time, and then the kernel settles. |
+| `T.next_block(n)` | Plays `n` blocks of sound, so that a change that the test made is heard. The clock moves by the time of the blocks. |
+| `T.meter(track)` | Gives the left and right levels of the meter of a track after the blocks that played last. |
+| `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock moves with these blocks. |
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. It fails when `ms` milliseconds have passed on the clock. |
+| `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |
 | `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter. |
 
 For example, a test of a delay of 150 ms checks the state after

@@ -25,7 +25,7 @@ server for AI assistants), and `--help` on each program prints its options.
 | `--clean` | Does not load your configuration and extensions. |
 | `--config <dir>` | The configuration directory. The default is `~/.config/paw`. |
 | `--runtime <dir>` | Loads the Lua runtime from this directory, not the copy in the program. |
-| `--audio <name>` | The audio backend: `auto`, `null`, `pipewire`, `alsa` or `jack`. paw in a BrowserPod pod has `page` instead of the last three (see [paw in a BrowserPod pod](../../web/browserpod/README.md)). |
+| `--audio <name>` | The audio backend: `auto`, `null`, `step`, `pipewire`, `alsa` or `jack`. paw in a BrowserPod pod has `page` instead of the last three (see [paw in a BrowserPod pod](../../web/browserpod/README.md)). `step` is the null backend for the tests: paw plays the sound only as the clock moves, so a test knows how much sound played. Use it with `--clock manual`. |
 | `--rate <hz>` | The sample rate. |
 | `--buffer <n>` | The frames for each audio callback. |
 | `--output <name>` | The output device, by its name or a part of it (see `:audio`). |

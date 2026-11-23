@@ -1,6 +1,7 @@
 -- A project as a folder of files: project.toml, a folder per track, a MIDI
 -- 2.0 clip file per clip, files no longer used moved to unused/.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
 local api = paw.api
@@ -404,11 +405,9 @@ local function save_outside(path, text)
   os.rename(path .. ".swp", path)
 end
 
+--- Let the clock move until paw has seen a change made outside it.
 local function wait_for_change()
-  local limit = api.now() + 3000
-  while #api.project_changed_files() == 0 and api.now() < limit do
-    paw.wait(50)
-  end
+  T.advance_until(function() return #api.project_changed_files() > 0 end, "the change outside paw to be seen", 3000)
   paw.flush()
 end
 
@@ -416,7 +415,7 @@ test("a file changed outside paw is asked about at the next key, read again as o
   local _, bass = song()
   local dir = folder("watch")
   paw.project.save(dir)
-  paw.wait(400)
+  advance(400)
   eq(#api.project_changed_files(), 0, "paw's own save is not a change from outside")
   local path = dir .. "/tracks/Bass/track.json"
   local text = T.read_file(path)

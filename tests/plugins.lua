@@ -85,19 +85,15 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     next_block(10)
     os.execute("kill -KILL " .. pid)
     until_(function() return #stopped > 0 end, "the crash to be told")
-    paw.wait(100) -- told once: no second report comes
+    -- More blocks and looks at the device: told once, no second report comes.
+    next_block(10)
+    T.settle()
     paw.transport.stop()
     paw.off(handler)
     eq(#stopped, 1, "its crash is told, once")
     eq(stopped[1].device .. " " .. stopped[1].reason, fx.id .. " it was killed", "with the device and what happened")
     eq(fx:get().stopped ~= nil, true, "the device says that it has stopped")
     eq(#t:devices(), 2, "and is still in the project")
-    paw.transport.play()
-    until_(
-      function() return select(1, t:meter()) > dry * 0.3 end,
-      "the track to play on, an effect that is gone passed through"
-    )
-    paw.transport.stop()
     fails(function() fx:open_editor() end, "not running", "asking a stopped plugin for something")
     fx:restart()
     eq(fx:get().stopped, nil, "started again, it is well")

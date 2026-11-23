@@ -3,6 +3,7 @@
 -- track's timeline, until stopped. No extension is loaded here: the core
 -- works without one. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local api = paw.api
 
@@ -90,7 +91,7 @@ test("cues: a clip that plays keeps playing while other clips off the timeline c
   until_(function() return state(t.id).clip == second end, "the second clip to start", 5000)
   api.clip_remove(first)
   paw.flush()
-  paw.wait(50)
+  advance(50)
   eq(state(t.id).clip, second, "the same clip plays on")
   api.clip_remove(second)
   paw.flush()

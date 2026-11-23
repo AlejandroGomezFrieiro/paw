@@ -2,6 +2,7 @@
 -- paw/roll_draw.tl): keys of a MIDI controller, sent with paw.midi.inject
 -- from test ports of the null backend. Loaded by tests/suite.lua.
 local T = ...
+local meter = T.meter
 local eq, fresh, melody = T.eq, T.fresh, T.melody
 local api = paw.api
 local draw = paw.roll_draw
@@ -213,9 +214,9 @@ test("step input: :step.learn binds a pad, which then rests and reaches no track
   play(36, 100, "Test Pads")
   eq(draw.label():match("^STEP rest"), "STEP rest", "the pad rests: " .. draw.label())
   T.next_block(20)
-  eq(track:meter() <= 0.005, true, "the Lua device on the track got no note")
+  eq(meter(track) <= 0.005, true, "the Lua device on the track got no note")
   play(36, 100, "Test Keys")
-  T.until_(function() return track:meter() > 0.02 end, "the key of the other port to sound")
+  T.until_(function() return meter(track) > 0.02 end, "the key of the other port to sound")
   typed("<Esc>")
   eq(melody(clip), "36@0.25+0.25", "a rest, then C2 from the keyboard")
 end)

@@ -37,11 +37,7 @@ local function fresh_dir(name)
 end
 
 local function wait_idle()
-  for _ = 1, 6000 do
-    if not paw.render_status() then return end
-    paw.wait(10)
-  end
-  error("the render did not end")
+  T.until_(function() return not paw.render_status() end, "the render to end")
 end
 
 local function missing()
@@ -148,16 +144,11 @@ test("cancelling during the encode stops it and leaves nothing", function()
   -- encode starts, so wait by the clock; and cancel whatever happens, so
   -- that a failure here leaves no render running for the tests after it.
   local seen
-  local deadline = api.now() + 120000
-  while api.now() < deadline do
+  T.until_(function()
     local s = paw.render_status()
-    if not s then break end
-    if s.stage == "encoding" then
-      seen = s
-      break
-    end
-    paw.wait(2)
-  end
+    if s and s.stage == "encoding" then seen = s end
+    return seen or not s
+  end, "the encode to start", 120000)
   if not seen then
     if paw.render_status() then
       paw.cmd("export.cancel")

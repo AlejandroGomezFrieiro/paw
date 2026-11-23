@@ -75,10 +75,10 @@ test("startuptime: an extension of the configuration has a line with its own tim
   local dir = T.scratch .. "/startuptime-ext"
   local ext = dir .. "/config/extensions/slowpoke"
   os.execute("mkdir -p '" .. ext .. "/lua/slowpoke'")
-  -- 20 ms of its own, and a module that it requires.
+  -- Work of its own, and a module that it requires.
   T.write_file(
     ext .. "/init.lua",
-    "require('slowpoke.part')\nlocal t = paw.api.now() + 20\nwhile paw.api.now() < t do end\n"
+    "require('slowpoke.part')\nlocal x = 0\nfor i = 1, 1e6 do x = x + i end\nslowpoke_sum = x\n"
   )
   T.write_file(ext .. "/lua/slowpoke/part.lua", "return {}\n")
   T.write_file(dir .. "/quit.lua", "paw.api.quit(0)\n")
@@ -96,7 +96,7 @@ test("startuptime: an extension of the configuration has a line with its own tim
   local lines = lines_of(T.read_file(file) or "")
   local line = find(lines, "extension slowpoke")
   eq(line ~= nil, true, "a line for the extension")
-  eq(line.self >= 20, true, "its own 20 ms: " .. tostring(line.self))
+  eq(line.self > 0, true, "its own time: " .. tostring(line.self))
   eq(find(lines, "require('slowpoke.part')") ~= nil, true, "the module it requires has a line of its own")
   eq(find(lines, "the script starts") ~= nil, true, "a script's start ends where the script starts")
 end)

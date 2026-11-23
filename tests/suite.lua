@@ -157,15 +157,28 @@ end
 -- time (`api.now()`, the timers, the settle delays) moves only when a test
 -- lets it pass with `T.advance`, so a test steps each timer in its order
 -- and does not race it. The manual clock reads 0 until something waits,
--- so the runner knows it at its start. Work on other threads and in other
--- processes (bakes, plugin loads, renders) still takes wall time: a wait
--- for it is a wait for an event, and the one limit of wall time is the
--- stall guard. A test that needs real time is live (`T.live`), and runs
--- in a second paw on the wall clock.
+-- so the runner knows it at its start. The audio engine runs on the
+-- stepped backend then: it plays a block only when the clock gets to its
+-- end, so the sound, the meters and the playhead are one time with the
+-- clock, and a test that reads a meter after `T.next_block(n)` reads the
+-- same value in each run. Work on other threads and in other processes
+-- (bakes, plugin loads, renders) still takes wall time: a wait for it is
+-- a wait for an event, and the one limit of wall time is the stall guard.
+-- A test that needs real time is live (`T.live`), and runs in a second paw
+-- on the wall clock and the null backend.
 local MANUAL = api.now() == 0
 -- The stall guard: the wall time that one wait may take. It shows a fault,
 -- not a speed.
 local STALL_MS = 30000
+
+-- The engine plays on the stepped backend from the start: each later start
+-- on the null backend is stepped too. A kernel without it (`api.wait_blocks`)
+-- keeps the null backend, whose clock thread plays on the wall clock.
+if MANUAL and api.wait_blocks then api.engine_restart({ backend = "step" }) end
+
+--- Whether the engine plays only as the clock moves. A test can start it
+--- on another backend (the `test` device), which plays on the wall clock.
+local function stepped() return MANUAL and api.engine_get().stepped == true end
 
 -- Work that a turn or another thread does now: a settle waits for it. The
 -- job `collector` (paw.collector) is idle work that each turn can start
@@ -175,8 +188,9 @@ local function working(p)
   return math.max(0, p.timers_due - idle) + p.bakes_running + p.plugin_loads + p.renders + p.midi > 0
 end
 
--- The audio engine plays, records, closes a take or plays a sound file on
--- its own. It runs on the wall clock (until the stepped audio backend).
+--- Whether the engine plays: the song plays or records, a take is being
+--- closed, or a sound file plays. It changes the state as it plays: on the
+--- stepped backend as the clock moves, else on the wall clock by itself.
 local function engine_plays()
   local t = api.transport_get()
   local preview = api.preview_get()
@@ -186,43 +200,12 @@ local function engine_plays()
     or (preview ~= nil and (preview.state == "playing" or preview.state == "loading"))
 end
 
--- Something that goes on in real time and can change the state without a
--- turn of the test: the engine that plays, and helper processes that
--- still write.
-local function active(p) return p.helpers > 0 or engine_plays() end
+-- Something that goes on and can change the state while the test waits:
+-- the engine that plays, and helper processes that still write.
+local function busy(p) return p.helpers > 0 or engine_plays() end
 
 local function stalled(what, level)
   error(string.format("stalled: %s after %d ms of wall time", what, STALL_MS), level + 1)
-end
-
---- Wait until the engine has run `n` (1 if not given) whole audio blocks
---- after this call, so that what was sent to it before is in effect: a
---- parameter, a note, a change to a track. Changes not yet sent are sent
---- first. With `device`, count the blocks that this device ran: a device
---- that sleeps through silence does not count them. The engine runs on the
---- wall clock (until the stepped audio backend): the stall guard is the limit.
-local function next_block(n, device)
-  paw.flush()
-  -- The block under way may have started before the change came: the
-  -- next one to finish does not count.
-  local start = api.blocks(device)
-  if start == nil then error("the engine has no device " .. tostring(device), 2) end
-  local want = start + (n or 1) + 1
-  local guard = api.real_ms() + STALL_MS
-  while (api.blocks(device) or 0) < want do
-    if api.real_ms() > guard then
-      stalled(
-        string.format(
-          "the engine ran %d of %d blocks%s",
-          (api.blocks(device) or 0) - start,
-          want - start,
-          device and (" of device " .. device) or ""
-        ),
-        2
-      )
-    end
-    api.sleep(1)
-  end
 end
 
 -- The turns in a row with only timers due, after which they are a poll: a
@@ -259,14 +242,14 @@ local function block_ms()
   return math.ceil((e.buffer_size or 512) * 1000 / (e.sample_rate or 48000))
 end
 
---- Let the engine run `n` blocks, as far as it runs: an engine with no
---- device, for example one that was unplugged, runs none. It waits at most
---- four times the time of the blocks, at least 250 ms, and does not fail.
---- True when the engine ran them. After an engine ran none, it looks
---- only briefly (50 ms) until the engine runs a block again: a restarted
---- engine counts its blocks from the start.
+--- Let a backend that plays on the wall clock run `n` blocks, as far as
+--- it runs: an engine with no device, for example one that was unplugged,
+--- runs none. It waits at most four times the time of the blocks, at least
+--- 250 ms, and does not fail. True when the engine ran them. After an
+--- engine ran none, it looks only briefly (50 ms) until the engine runs a
+--- block again: a restarted engine counts its blocks from the start.
 local stopped_at
-local function catch_up(n)
+local function catch_up_on_the_wall(n)
   local start = api.blocks()
   if not start then return false end
   local full = api.real_ms() + math.max(250, 4 * n * block_ms())
@@ -285,13 +268,15 @@ local function catch_up(n)
 end
 
 --- Let `ms` milliseconds of schedule time pass: each timer and settle
---- delay that is due in that time fires in its order, and then the kernel
---- settles. The engine runs on the wall clock (until the stepped audio
---- backend): first it runs one block, or the blocks of `ms` while it
+--- delay that is due in that time fires in its order, the stepped engine
+--- plays the blocks of that time, and then the kernel settles. An engine
+--- on the wall clock first runs one block, or the blocks of `ms` while it
 --- plays, so the clock does not go past the sound. On the wall clock (a
 --- live test) it waits `ms`.
 local function advance(ms)
-  if MANUAL and ms > 0 then catch_up(engine_plays() and math.ceil(ms / block_ms()) or 1) end
+  if MANUAL and ms > 0 and not stepped() then
+    catch_up_on_the_wall(engine_plays() and math.ceil(ms / block_ms()) or 1)
+  end
   api.wait(ms)
   if MANUAL then settle() end
 end
@@ -300,39 +285,101 @@ end
 -- time passes at once, and the kernel settles after it.
 if MANUAL then paw.wait = advance end
 
--- The audio blocks that the engine runs before a wait says that nothing is
--- left to do, about two seconds of sound: the engine runs on the wall clock
--- (until the stepped audio backend). A change that it takes in, a
+--- Let the engine play one block, and settle. On the stepped backend the
+--- clock moves to the end of the block; else the clock moves by the time
+--- of a block, as far as the engine catches up on the wall clock.
+local function one_block()
+  if stepped() then
+    api.wait_blocks(1)
+    settle()
+  else
+    advance(block_ms())
+  end
+end
+
+--- Let the engine play `n` (1 if not given) whole blocks after this call,
+--- so that what was sent to it before is in effect: a parameter, a note,
+--- a change to a track. Changes not yet sent are sent first. With
+--- `device`, count the blocks that this device ran: a device that sleeps
+--- through silence does not count them. On the stepped backend it plays
+--- exactly `n` blocks (and the clock moves by their time), or, with
+--- `device`, as many as the device needs, up to the blocks of the stall
+--- guard. An engine on the wall clock runs on its own: then it waits for
+--- the blocks, and the stall guard is the limit.
+local function next_block(n, device)
+  n = n or 1
+  paw.flush()
+  local start = api.blocks(device)
+  if start == nil then error("the engine has no device " .. tostring(device), 2) end
+  if stepped() then
+    if not device then
+      api.wait_blocks(n)
+      return
+    end
+    for _ = 1, math.ceil(STALL_MS / block_ms()) do
+      if api.blocks(device) >= start + n then return end
+      api.wait_blocks(1)
+    end
+    error(string.format("the device %s ran %d of %d blocks", device, api.blocks(device) - start, n), 2)
+  end
+  -- The block under way may have started before the change came: the
+  -- next one to finish does not count.
+  local want = start + n + 1
+  local guard = api.real_ms() + STALL_MS
+  while (api.blocks(device) or 0) < want do
+    if api.real_ms() > guard then
+      stalled(
+        string.format(
+          "the engine ran %d of %d blocks%s",
+          (api.blocks(device) or 0) - start,
+          want - start,
+          device and (" of device " .. device) or ""
+        ),
+        2
+      )
+    end
+    api.sleep(1)
+  end
+end
+
+-- The audio blocks that the engine plays before a wait says that nothing is
+-- left to do, about two seconds of sound: a change that it takes in, a
 -- device that falls asleep or a meter that falls shows after some blocks.
 local ENGINE_BLOCKS = 200
 
---- Settle, then let the engine run up to ENGINE_BLOCKS blocks, until
+--- Settle, then let the engine play up to ENGINE_BLOCKS blocks, until
 --- `cond()` holds. Gives the value of `cond()`, or false when nothing is
---- left to do and it is still false, or nil when something is still
---- active (a helper process, or the engine that plays).
+--- left to do and it is still false, or nil when something is still busy
+--- (a helper process, or the engine that plays).
 local function quiet(cond)
   for _ = 1, ENGINE_BLOCKS do
     local p = settle()
     local value = cond()
     if value then return value end
-    if active(p) then return nil end
-    -- An engine that runs no blocks changes nothing more.
-    if not catch_up(1) then break end
+    if busy(p) then return nil end
+    if stepped() then
+      one_block()
+    elseif not catch_up_on_the_wall(1) then
+      -- An engine that runs no blocks changes nothing more.
+      break
+    end
   end
   local p = settle()
   local value = cond()
   if value then return value end
-  if active(p) then return nil end
+  if busy(p) then return nil end
   return false
 end
 
 --- Wait until `cond()` gives a value that is not false or nil, and give
---- that value. The kernel settles, and no schedule time passes, but while
---- the song plays the clock keeps step with the sound. When
---- nothing is left to do and `cond()` is still false, it fails: a timer
---- that waits for the clock is not work left (`T.advance_until` moves the
---- clock to it). A live test waits on the wall clock for at most `ms`
---- milliseconds (30 seconds if not given).
+--- that value. The kernel settles, and the engine plays block by block
+--- while the condition waits for it (a meter, the playhead, a device that
+--- sleeps): then the clock keeps step with the sound. When nothing is
+--- left to do and `cond()` is still false, it fails: a timer that waits
+--- for the clock is not work left (`T.advance_until` moves the clock to
+--- it). While the song plays, it fails after 30 seconds of the song. A
+--- live test waits on the wall clock for at most `ms` milliseconds (30
+--- seconds if not given).
 local function until_(cond, what, ms)
   what = what or "the condition"
   if not MANUAL then
@@ -346,14 +393,15 @@ local function until_(cond, what, ms)
     end
   end
   local guard = api.real_ms() + STALL_MS
+  local limit = api.now() + STALL_MS
   while true do
     local value = quiet(cond)
     if value then return value end
     if value == false then error("nothing is left to do, and " .. what .. " is false", 2) end
     if api.real_ms() > guard then stalled(what, 2) end
-    -- While the song plays, the clock keeps step with the sound: one block.
+    if api.now() > limit then error(string.format("%s is false after %d ms of the song", what, STALL_MS), 2) end
     if engine_plays() then
-      advance(block_ms())
+      one_block()
     else
       api.sleep(1)
     end
@@ -383,8 +431,8 @@ end
 --- Let schedule time pass, from one due timer or delay to the next, until
 --- `cond()` gives a value that is not false or nil, and give that value.
 --- With no timer due, or while a helper process or the engine that plays
---- is active, the clock moves by one audio block at most: so a state that
---- a time, the meters or a helper makes comes too. Fails when `ms`
+--- is busy, the clock moves by one audio block at most: so a state that a
+--- time, the meters or a helper makes comes too. Fails when `ms`
 --- milliseconds of schedule time passed.
 local function advance_until(cond, what, ms)
   what = what or "the condition"
@@ -396,24 +444,40 @@ local function advance_until(cond, what, ms)
     if value then return value end
     local left = limit - api.now()
     if left <= 0 then error(string.format("%s is false after %g ms", what, ms), 2) end
-    local step = math.max(1, math.ceil(p.next_ms or block_ms()))
-    if active(p) then step = math.min(step, block_ms()) end
-    advance(math.min(step, left))
+    if busy(p) or not p.next_ms then
+      one_block()
+    else
+      advance(math.min(math.max(1, math.ceil(p.next_ms)), left))
+    end
   end
 end
 
---- Wait until the playhead, after it went round the loop `rounds` times (0
---- if not given), is at `beat` or past it. A test that plays or records
---- waits for the playhead, not for a time: on a loaded machine a time
---- slept is longer than the time asked for.
+--- The level of the meter of `thing` (a track, or another thing with
+--- `:meter()`) after the blocks that the engine played last: left and
+--- right peaks, as linear gain. On the manual clock the engine must be on
+--- the stepped backend, so that the level is the same in each run: play
+--- with `T.next_block(n)`, `T.advance(ms)` or `T.until_beat`, then read it.
+--- A live test reads it on the wall clock.
+local function meter(thing)
+  if MANUAL and api.wait_blocks and not stepped() then
+    error("a meter is read on the stepped backend (or in a live test), not on " .. api.engine_get().backend, 2)
+  end
+  return thing:meter()
+end
+
+--- Let the song play until the playhead, after it went round the loop
+--- `rounds` times (0 if not given), is at `beat` or past it. A test that
+--- plays or records waits for the playhead, not for a time: the clock
+--- moves block by block with the sound. Fails after `ms` milliseconds of
+--- the song (30 seconds if not given).
 local function until_beat(beat, rounds, ms)
   local before, wraps = paw.transport.position, 0
-  until_(function()
+  advance_until(function()
     local now = paw.transport.position
     if now < before then wraps = wraps + 1 end
     before = now
     return wraps >= (rounds or 0) and now >= beat
-  end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms)
+  end, string.format("the playhead at beat %g after %d times round the loop", beat, rounds or 0), ms or STALL_MS)
 end
 
 --- Wait until each take that stopped is clips in the project, and the
@@ -725,6 +789,8 @@ local T = {
   until_meters_at_rest = until_meters_at_rest,
   manual = MANUAL,
   next_block = next_block,
+  stepped = stepped,
+  meter = meter,
   until_beat = until_beat,
   until_recorded = until_recorded,
   stop = stop,

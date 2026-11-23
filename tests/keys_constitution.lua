@@ -6,6 +6,7 @@
 -- drive the mixer, the device panel and the piano roll as grids. Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
 local keymap = paw.keymap
@@ -31,7 +32,7 @@ local function waited(text)
   local before = paw.opt.timeoutlen
   paw.opt.timeoutlen = 20
   keymap.feed(text)
-  paw.wait(150)
+  advance(150)
   paw.opt.timeoutlen = before
   api.undo_checkpoint()
 end

@@ -3,6 +3,7 @@
 -- The kernel's part (whose turn it is) is played here by calling its entry
 -- points the way it does. Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 local K = paw._kernel
@@ -117,7 +118,7 @@ test("a timer started in a seat runs in that seat", function()
   as(9, function()
     paw.defer(function() seen = paw.seats.current end, 1)
   end)
-  paw.wait(30)
+  advance(30)
   K.seat_close(9, "terminal")
   eq(seen, 9, "the deferred function ran in the terminal's seat")
 end)

@@ -224,8 +224,8 @@ Rules:
   clock), make a small trait with two adapters: the real one and a fake
   that the test controls. Examples: the `Clock` trait
   (`crates/paw-core/src/clock.rs`) with `WallClock` and `ManualClock`,
-  given to the bake scheduler with `set_clock`, the `test` and `null` audio
-  backends, the stub plugin `examples/stub_clap`.
+  given to the bake scheduler with `set_clock`, the `test`, `null` and
+  `step` audio backends, the stub plugin `examples/stub_clap`.
 - One adapter is a seam on paper. Add the trait only when the fake is
   the second adapter.
 - Prefer static dispatch (a generic parameter) in hot code, and
@@ -353,7 +353,11 @@ sealed::seal(&mut paw, dir.path()).args(["--clean", "--audio", "null"]);
 - A test that starts paw gives `--clock manual` when it steps timers or
   settle delays. Then `paw.api.wait(ms)` moves the clock, `paw.api.step()`
   does one turn of the loop, and `paw.api.pending()` gives the work that is
-  in flight.
+  in flight. Give also `--audio step` when it checks sound or meters: the
+  engine has no audio thread, and plays a block only when the clock gets
+  to its end. `paw.api.wait_blocks(n)` moves the clock by exactly `n`
+  blocks. In Rust, `backend::Stream::run_to(at)` and `end_of(n)` step
+  the stream of the `step` backend.
 - Check that a thing does not happen only after a sync point. First
   send a sync request, or step to quiescence, and advance past each
   timer that could make it happen. Then check. "Nothing came in 400 ms"

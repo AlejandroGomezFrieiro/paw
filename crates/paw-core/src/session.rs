@@ -526,6 +526,9 @@ pub struct Session {
     open_opts: loading::OpenOpts,
     /// The audio device and MIDI ports, watched for going and coming back.
     watch: watch::Watch,
+    /// The blocks of the stepped audio backend on the schedule clock: see
+    /// `session/schedule.rs`.
+    steps: schedule::Steps,
     /// Changes made outside paw to the open project's files.
     files_watch: files_watch::FileWatch,
     /// Whether the files that clips read are there, looked at no more than
@@ -603,7 +606,17 @@ impl Session {
         let mut session = Self {
             synced: doc.project.clone(),
             doc,
-            engine: engine::EngineLink { handle, map: Mapper::new(), stream, threads: 0, sleep: true, quality: Quality::Full, backend: opts.clone() },
+            engine: engine::EngineLink {
+                handle,
+                map: Mapper::new(),
+                stream,
+                threads: 0,
+                sleep: true,
+                quality: Quality::Full,
+                backend: opts.clone(),
+                null_steps: opts.backend == BackendChoice::Step,
+            },
+            steps: Default::default(),
             registry,
             audio: AudioCache::default(),
             trims: 0,

@@ -263,11 +263,7 @@ test("harmony: the reading is cached, follows edits and undo, and says when it c
   paw.flush()
   api.undo_checkpoint()
   eq(reading(), "0:C7", "an edit is read at once")
-  for _ = 1, 200 do
-    if changes > 0 then break end
-    paw.wait(25)
-  end
-  eq(changes >= 1, true, "and heard of")
+  T.advance_until(function() return changes > 0 end, "the change to be heard of", 5000)
   paw.undo()
   paw.flush()
   eq(reading(), "0:C", "and undone")
@@ -300,10 +296,7 @@ test(
       return table.concat(out, " ")
     end
     eq(shown(), "0:C 4:F 16:Dm", "a view gets the reading before the edit at once")
-    for _ = 1, 200 do
-      if H.fresh() then break end
-      paw.wait(10)
-    end
+    T.advance_until(H.fresh, "the new reading", 2000)
     eq(shown(), "0:C7 4:F 16:Dm", "and the new one once it is read")
   end
 )
@@ -503,11 +496,7 @@ test("harmony: the chords MIDI LSP's engine hears flow into the reading and the 
   paw.ui.views:get("pianoroll"):edit(keys:clips()[1])
   local ok, err = pcall(function()
     midilsp.start(true)
-    local deadline = api.now() + 30000
-    while H.provider() ~= "lsp" do
-      if api.now() > deadline then error("waited in vain for the engine's analysis", 0) end
-      paw.wait(20)
-    end
+    T.advance_until(function() return H.provider() == "lsp" end, "the engine's analysis", 30000)
     local first = H.at(0)
     eq(first.name, "Am", "the engine hears A minor at the start")
     eq(first["function"] ~= nil, true, "with its function: " .. tostring(first["function"]))

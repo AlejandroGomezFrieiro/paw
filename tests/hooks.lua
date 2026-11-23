@@ -18,7 +18,7 @@ local function hear(name, fn)
 end
 
 -- The end of a turn, as between two key presses.
-local function turn() paw.wait(0) end
+local function turn() T.settle() end
 
 local function names(changes)
   local out = {}

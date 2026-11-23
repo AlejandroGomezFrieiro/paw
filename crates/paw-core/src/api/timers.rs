@@ -20,6 +20,10 @@ const IDLE_PERIOD: Duration = Duration::from_millis(15);
 /// later timer makes is due at each turn: without this limit the clock
 /// never gets to that timer.
 const TURNS_AT_ONE_INSTANT: u32 = 1000;
+/// The most schedule time between two turns while the engine is stepped
+/// (about ten blocks): what it played is heard of, and a take is written,
+/// before it plays more.
+const AUDIO_TURN: Duration = Duration::from_millis(100);
 
 /// The functions of the timers that are due, with one-shot timers removed
 /// and repeating ones moved on.
@@ -68,7 +72,8 @@ pub struct Pending {
     pub files: usize,
     /// MIDI that came in from ports and is not heard yet.
     pub midi: usize,
-    /// Piped helper processes that have not closed their output.
+    /// Helper processes at work: piped ones that have not closed their
+    /// output, and others that still run.
     pub helpers: usize,
 }
 
@@ -113,7 +118,7 @@ impl Shared {
             renders: work.renders,
             files: work.files,
             midi: self.midi_in.lock().unwrap().len(),
-            helpers: self.io.borrow().open_pipes(),
+            helpers: self.io.borrow_mut().working(),
         }
     }
 
@@ -127,7 +132,8 @@ impl Shared {
 
     /// Let `by` of schedule time pass on the manual clock: move the clock
     /// from one due time to the next, with a turn at each, so that each
-    /// timer fires in its order and sees its own time.
+    /// timer fires in its order and sees its own time. A stepped engine
+    /// plays the blocks of that time in the turns (`Session::idle`).
     fn advance(&self, lua: &Lua, clock: &ManualClock, by: Duration) -> mlua::Result<()> {
         let target = clock.now() + by;
         let mut turns_here = 0;
@@ -140,7 +146,12 @@ impl Shared {
                 continue;
             }
             turns_here = 0;
-            match self.next_due_after(now) {
+            let mut next = self.next_due_after(now);
+            if self.session.borrow().is_audio_stepped() {
+                let audio = now + AUDIO_TURN;
+                next = Some(next.map_or(audio, |due| due.min(audio)));
+            }
+            match next {
                 Some(due) if due <= target => clock.advance_to(due),
                 _ => break,
             }
@@ -231,6 +242,23 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // processes, and close the undo step. No time passes.
         // @return nil
         fn step(lua, sh, () => ()) { sh.turn(lua, true) }
+        // On the stepped audio backend (`paw --audio step --clock manual`,
+        // the tests), let the time of `blocks` audio blocks pass: the clock
+        // moves to the end of the last of them, the timers due on the way
+        // fire, and the engine plays exactly that many blocks. Gives the
+        // number of blocks, or 0 when the engine plays on its own and
+        // nothing was done.
+        // @return integer
+        fn wait_blocks(lua, sh, blocks => u64) {
+            let end = sh.session.borrow().stepped_end_of(blocks);
+            match (end, sh.clock.manual()) {
+                (Some(end), Some(clock)) => {
+                    sh.advance(lua, clock, end.saturating_sub(clock.now()))?;
+                    Ok(blocks)
+                }
+                _ => Ok(0),
+            }
+        }
         // The work that is not done yet, by kind: timers due now and all the
         // timers, the time until the next timer or delay is due (`next_ms`),
         // bakes, plugins being loaded, renders, changed files, MIDI that came

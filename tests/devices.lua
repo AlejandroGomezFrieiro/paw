@@ -2,6 +2,7 @@
 -- parameters as text, sliders on a log scale, readings, and rendering
 -- through them in a project.
 local T = ...
+local advance = T.advance
 local test, eq, near, fresh, render = T.test, T.eq, T.near, T.fresh, T.render
 local paw = require("paw")
 local api = paw.api
@@ -101,17 +102,17 @@ test("devices: a compressor that looks ahead is lined up with the other tracks",
   eq(loud_samples(), "12000:0.40", "two clicks land on one sample")
   local c = a:add_device("compressor", { lookahead = 5, threshold = 0 })
   paw.flush()
-  paw.wait(50)
+  advance(50)
   near(api.engine_get().latency, 5, 0.01, "the engine knows the compressor is 5 ms late")
   eq(loud_samples(), "12000:0.40", "and holds the other track back to match")
   c:set("lookahead", 2)
   paw.flush()
-  paw.wait(50)
+  advance(50)
   near(api.engine_get().latency, 2, 0.01, "a new look-ahead is a new latency")
   eq(loud_samples(), "12000:0.40", "still together")
   a:add_device("gate", { lookahead = 3, threshold = -60 })
   paw.flush()
-  paw.wait(50)
+  advance(50)
   near(api.engine_get().latency, 5, 0.01, "a gate's look-ahead adds to it")
   eq(loud_samples(), "12000:0.40", "and still together")
 end)

@@ -132,13 +132,15 @@ impl SharedHandler<'_> for HostShared {
 
 impl<'a> MainThreadHandler<'a> for HostMain<'a> {}
 
+// The main thread is the audio thread while it runs the blocks of the
+// stepped backend (the tests).
 impl HostThreadCheckImpl for HostShared {
     fn is_main_thread(&self) -> bool {
-        is_main_thread()
+        is_main_thread() && !paw_engine::backend::audio_thread::stepping()
     }
 
     fn is_audio_thread(&self) -> bool {
-        !is_main_thread()
+        !self.is_main_thread()
     }
 }
 

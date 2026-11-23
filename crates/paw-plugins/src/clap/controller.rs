@@ -138,6 +138,10 @@ impl Controller for ClapController {
         self.failed.clone()
     }
 
+    fn state_pending(&self) -> bool {
+        self.reread.is_some_and(|mark| !self.shared.flags.blocks.after(mark))
+    }
+
     fn take_changes(&mut self) -> Vec<Change> {
         let mut out = Vec::new();
         // A plugin that takes a state on only in its next block has its

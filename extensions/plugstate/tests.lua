@@ -913,22 +913,14 @@ test(
   end
 )
 
---- Play from the start and wait until the playhead is past `beat` and
---- `done()` holds (four seconds at most); say whether it did.
-local function plays_past(beat, done)
+--- Play from the start until the playhead is past `beat` and `done()`
+--- holds, in four seconds of the song at most.
+local function plays_past(beat, done, what)
   api.transport_seek(0)
   api.transport_play()
   T.after(function() api.transport_stop() end)
-  local deadline = api.now() + 4000
-  while api.now() < deadline do
-    T.advance(20)
-    if api.transport_get().position > beat and done() then
-      api.transport_stop()
-      return true
-    end
-  end
+  T.advance_until(function() return api.transport_get().position > beat and done() end, what, 4000)
   api.transport_stop()
-  return false
 end
 
 test(
@@ -944,15 +936,15 @@ test(
     paw.flush()
     plugstate.lane_point(amp.id, 0, plugstate.lane_state(amp.id, nil, one))
     plugstate.lane_point(amp.id, 1, plugstate.lane_state(amp.id, nil, two))
-    eq(
-      plays_past(1, function() return plugstate.slot(amp.id).value == two end),
-      true,
-      "NAM holds the second model once the playhead is past its point"
+    plays_past(
+      1,
+      function() return plugstate.slot(amp.id).value == two end,
+      "NAM to hold the second model once the playhead is past its point"
     )
-    eq(
-      plays_past(0, function() return plugstate.slot(amp.id).value == one end),
-      true,
-      "and the first again when the song plays from the start"
+    plays_past(
+      0,
+      function() return plugstate.slot(amp.id).value == one end,
+      "NAM to hold the first model again when the song plays from the start"
     )
 
     local pkg = package("PAW_TEST_TONE3000")
@@ -965,10 +957,10 @@ test(
     paw.flush()
     plugstate.lane_point(tone.id, 0, (plugstate.lane_state(tone.id, nil, a)))
     plugstate.lane_point(tone.id, 1, (plugstate.lane_state(tone.id, nil, b)))
-    eq(
-      plays_past(1, function() return plugstate.slot(tone.id).value == b end),
-      true,
-      "TONE3000 holds the second preset once the playhead is past its point"
+    plays_past(
+      1,
+      function() return plugstate.slot(tone.id).value == b end,
+      "TONE3000 to hold the second preset once the playhead is past its point"
     )
   end
 )

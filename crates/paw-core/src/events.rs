@@ -105,6 +105,17 @@ pub struct DeviceTrouble {
     pub loading: bool,
 }
 
+/// A running device that took on a state given to it (a snapshot, a
+/// preset, an undo step, a state lane), its track, its name, and the
+/// number of that state among those given to it since it was made.
+#[derive(Debug, Clone, Serialize)]
+pub struct StateApplied {
+    pub device: Id,
+    pub track: Id,
+    pub name: String,
+    pub seq: u64,
+}
+
 /// A parameter moved by the host (`from = "host"`) or in the plugin's own
 /// window (`from = "editor"`, with its `value`): its key, and the
 /// device's own id for it.
@@ -330,6 +341,8 @@ pub enum KernelEvent {
     DeviceStopped(DeviceTrouble),
     #[serde(rename = "device.invalid")]
     DeviceInvalid(DeviceTrouble),
+    #[serde(rename = "device.state_applied")]
+    DeviceStateApplied(StateApplied),
     #[serde(rename = "param.touched")]
     ParamTouched(ParamTouched),
     #[serde(rename = "transport.changed")]

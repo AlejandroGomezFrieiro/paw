@@ -2,6 +2,7 @@
 -- panes that keep the arrange view its share, `,p` with no clip open, and
 -- help that lands on a one-line entry for a key. Loaded by tests/suite.lua.
 local T = ...
+local advance = T.advance
 local test, eq, fresh = T.test, T.eq, T.fresh
 local paw = require("paw")
 local api = paw.api
@@ -67,7 +68,7 @@ test("leader: Space Space plays and stops at once, and Space alone lists the lea
   paw.opt.hint_delay, paw.opt.timeoutlen = 20, 10000
   paw.keymap.feed("<Space>")
   eq(paw.transport.playing, false, "one Space only waits")
-  paw.wait(100)
+  advance(100)
   eq(paw.keymap.pending(), "<Space>", "still waiting, the list is on")
   eq(hint_of("m") ~= nil and hint_of("<Space>") ~= nil, true, "the list has the mix and play")
   eq(hint_of("e"), "+export", "and the export domain")
@@ -90,7 +91,7 @@ test(
     end)
     paw.opt.hint_delay, paw.opt.timeoutlen = 20, 100
     paw.keymap.feed("<localleader>")
-    paw.wait(400)
+    advance(400)
     eq(paw.keymap.pending(), paw.opt.localleader, "still waiting, the list is on")
     for _, key in ipairs({ "d", "t", "k", "m", "q", "l" }) do
       eq(
@@ -104,7 +105,7 @@ test(
     eq(paw.keymap.pending(), "", "Escape drops it")
     -- The leader is the global one here: no popover on it.
     paw.keymap.feed("<Space>")
-    paw.wait(400)
+    advance(400)
     eq((hint_of("d") or ""):match("^Popover") == nil, true, "Space d is not a popover")
     eq(hint_of("m") ~= nil, true, "and the mix is on it")
     paw.keymap.feed("<Esc>")
@@ -155,7 +156,7 @@ test("popover: an empty prompt shows examples, and Tab fills the line", function
   T.after(function() paw.opt.timeoutlen = wait end)
   paw.opt.timeoutlen = 20
   paw.keymap.feed("<localleader>d")
-  paw.wait(150)
+  advance(150)
   eq(#rows_with("pp p mp mf f ff  mp<f  sfz") > 0, true, "dynamics examples")
   paw.keymap.feed("<Tab>")
   eq(#rows_with("pp p mp mf f ff  mp<f  sfz"), 0, "gone once the line has text")
@@ -169,7 +170,7 @@ test("popover: an empty prompt shows examples, and Tab fills the line", function
   }) do
     paw.keymap.feed("<localleader>" .. key)
     -- An extension's longer mapping (the pattern's `,t…`) makes the popover wait out `timeoutlen`.
-    paw.wait(150)
+    advance(150)
     eq(#rows_with(ghost) > 0, true, "," .. key .. " shows " .. ghost .. " on\n" .. screen())
     paw.keymap.feed("<Esc>")
   end

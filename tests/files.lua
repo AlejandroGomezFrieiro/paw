@@ -4,6 +4,7 @@
 -- and the project's media folder. Only a scratch folder is touched.
 -- Loaded by tests/suite.lua with its helpers.
 local T = ...
+local advance = T.advance
 local test, eq, fresh, after = T.test, T.eq, T.fresh, T.after
 local api = paw.api
 local L = paw.layout
@@ -109,14 +110,6 @@ local function write()
 end
 
 local function open(dir) keys(":e " .. dir .. "<CR>") end
-
-local function wait_for(cond, ms)
-  local limit = api.now() + (ms or 5000)
-  while not cond() and api.now() < limit do
-    paw.wait(10)
-  end
-  return cond() and true or false
-end
 
 local function trash_dir() return os.getenv("XDG_DATA_HOME") .. "/Trash" end
 
@@ -337,30 +330,22 @@ test("files: a sound file is heard with gh, and as the cursor rests on it when a
   start()
   open(root)
   keys(":" .. row_of("kick.wav") .. "<CR>gh")
-  eq(
-    wait_for(function()
-      local s = paw.audition.state()
-      return s and s.kind == "file" and s.file:match("kick.wav$")
-    end),
-    true,
-    "gh plays it"
-  )
+  T.advance_until(function()
+    local s = paw.audition.state()
+    return s and s.kind == "file" and s.file:match("kick.wav$")
+  end, "gh plays it", 5000)
   paw.audition.stop()
   paw.opt.files_hear = true
   keys(":" .. row_of("notes.txt") .. "<CR>")
-  paw.wait(300)
+  advance(300)
   eq(paw.audition.state(), nil, "a text file makes no sound")
   keys(":" .. row_of("kick.wav") .. "<CR>")
-  eq(
-    wait_for(function()
-      local s = paw.audition.state()
-      return s and s.kind == "file"
-    end),
-    true,
-    "it plays when the cursor has rested"
-  )
+  T.advance_until(function()
+    local s = paw.audition.state()
+    return s and s.kind == "file"
+  end, "it plays when the cursor has rested", 5000)
   keys(":" .. row_of("notes.txt") .. "<CR>")
-  eq(wait_for(function() return paw.audition.state() == nil end), true, "and stops when it moves on")
+  T.advance_until(function() return paw.audition.state() == nil end, "and stops when it moves on", 5000)
   paw.opt.files_hear = false
 end)
 
