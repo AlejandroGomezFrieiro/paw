@@ -299,8 +299,9 @@ one change gives a small diff.
 | `paw.api.project_read(path, files)` | A project folder in the same form, without opening it. `files` gives the files that paw writes in the folder by their path in it, for a version that is not on the disk. |
 | `paw.api.project_file_managed(path)` | Whether a path in a project folder is one of the files that paw writes there. |
 
-`extensions/projdiff` uses them: a diff and a three-way merge of projects,
-and the drivers for version control.
+`extensions/projdiff` uses them: a diff and a three-way merge of projects.
+`paw.api.project_replace(project)` puts a whole project in the same form in
+place of the open one, as one undo step, and the merge uses it.
 
 ## Safety copies
 

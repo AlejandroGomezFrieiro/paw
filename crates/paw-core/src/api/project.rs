@@ -182,6 +182,15 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn project_reload(_, sh, () => ()) {
             sh.session.borrow_mut().project_reload().lua()
         }
+        // Put a whole project, in the form that `undo_project` gives, in
+        // place of the open one, as one edit. Its path and its undo
+        // history stay, and the parts that did not change keep running.
+        // See extensions/projdiff.
+        // @param project types.ProjectData
+        // @return nil
+        fn project_replace(lua, sh, project => LuaValue) {
+            sh.session.borrow_mut().project_replace(from_lua(lua, project)?).lua()
+        }
         // @return string
         fn project_save(_, sh, path => Option<String>) {
             let saved = sh.session.borrow_mut().project_save(path.as_deref().map(AsRef::as_ref)).lua()?;

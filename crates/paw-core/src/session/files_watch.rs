@@ -380,14 +380,9 @@ impl super::Session {
         };
         let dir = file.parent().map(Path::to_path_buf).unwrap_or_default();
         let read = folder::read(&self.home, &dir)?;
-        let mut project = read.project;
-        project
-            .validate()
+        let project = self
+            .in_place(read.project)
             .with_context(|| format!("{} cannot be loaded", dir.display()))?;
-        self.find_media(&mut project, &file);
-        project.refresh_tempo();
-        keep_same(&self.doc.project, &mut project);
-        self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
         if let Ok(transport) = serde_json::from_value::<super::Transport>(read.transport) {
             let keep = self.transport.clone();
             self.transport = super::Transport {
@@ -411,5 +406,21 @@ impl super::Session {
         // What is on the disk now is what paw has: saved.
         self.doc.undo.history.mark_saved(false);
         Ok(())
+    }
+
+    /// Make `project`, which came from outside the open project (its
+    /// folder, or a whole project as Lua gives it), ready to take its
+    /// place in one edit: checked, its media found from the project's
+    /// path, and each part that did not change shared with the open
+    /// project, so that the engine keeps what it runs for that part.
+    pub(super) fn in_place(&mut self, mut project: Project) -> Result<Project> {
+        project.validate()?;
+        if let Some(file) = self.path.clone() {
+            self.find_media(&mut project, &file);
+        }
+        project.refresh_tempo();
+        keep_same(&self.doc.project, &mut project);
+        self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
+        Ok(project)
     }
 }
