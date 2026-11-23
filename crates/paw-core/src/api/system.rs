@@ -8,10 +8,23 @@ use serde_json::Value;
 
 use super::{Shared, from_lua, to_lua};
 
-/// This program's directory under one of the XDG base directories.
-fn xdg_dir(base: Option<std::path::PathBuf>) -> String {
-    let base = base.unwrap_or_else(std::env::temp_dir);
-    base.join("paw").to_string_lossy().into_owned()
+// What `paw.api.build()` gives, so that the loader of extensions refuses one
+// whose `needs` this build does not have (runtime/lua/paw/ext.lua). The Lua
+// follows the mlua feature of Cargo.toml. TASK-99 puts processes and network
+// behind the cargo feature `native`; its gates go here too.
+#[cfg(not(target_vendor = "browserpod"))]
+const BUILD_VM: &str = "luajit";
+#[cfg(not(target_vendor = "browserpod"))]
+const BUILD_FEATURES: &[&str] = &["ffi", "processes", "network", "native"];
+// A BrowserPod pod: PUC Lua 5.2 without `ffi`, and no plugins.
+#[cfg(target_vendor = "browserpod")]
+const BUILD_VM: &str = "lua52";
+#[cfg(target_vendor = "browserpod")]
+const BUILD_FEATURES: &[&str] = &["processes", "network"];
+
+/// A folder as the Lua side sees it.
+fn lua_path(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
 }
 
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
@@ -88,6 +101,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // True while `paw --startuptime` times the start.
         // @return boolean
         fn startup_timed(_, _sh, () => ()) { Ok(crate::startuptime::is_on()) }
+        // What this build of paw has: `{ vm, features }`. `vm` is the Lua
+        // that runs the code, `"luajit"` or `"lua52"`. `features` lists
+        // what an extension can name in the `needs` of its manifest:
+        // `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs,
+        // `io.popen`), `"network"` (sockets and requests over the network)
+        // and `"native"` (parts that Nix builds, such as plugins).
+        // @return types.Build
+        fn build(lua, _sh, () => ()) {
+            let t = lua.create_table()?;
+            t.set("vm", BUILD_VM)?;
+            t.set("features", BUILD_FEATURES)?;
+            Ok(t)
+        }
         // @return types.Env
         fn env(lua, sh, () => ()) {
             let env = lua.create_table()?;
@@ -97,8 +123,9 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             env.set("scripted", sh.env.scripted)?;
             // Where the program keeps what is the user's but not configuration:
             // recordings and the like, and what it needs between runs.
-            env.set("data_dir", xdg_dir(paw_proto::dirs::data()))?;
-            env.set("state_dir", xdg_dir(paw_proto::dirs::state()))?;
+            let dirs = sh.session.borrow().dirs.clone();
+            env.set("data_dir", lua_path(&dirs.paw_data()))?;
+            env.set("state_dir", lua_path(&dirs.paw_state()))?;
             env.set("pid", std::process::id())?;
             env.set("argv", sh.env.argv.clone())?;
             // A hash of the Teal declarations and modules of the runtime: it

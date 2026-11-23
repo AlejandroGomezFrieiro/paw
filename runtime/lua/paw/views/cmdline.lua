@@ -563,9 +563,16 @@ function M.unread_error()
   for i = #list, math.max(1, #list - 50), -1 do
     local m = list[i]
     if m.level == "error" then
-      if m.time > seen_at and api.now() - m.time < ERROR_SHOWN then return m end
+      if not m.read and m.time > seen_at and api.now() - m.time < ERROR_SHOWN then return m end
       return nil
     end
+  end
+end
+
+--- Count every error shown so far as read: the key line stops naming it.
+function M.read_errors()
+  for _, m in ipairs(paw.ui.messages) do
+    if m.level == "error" then m.read = true end
   end
 end
 

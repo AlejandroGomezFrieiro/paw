@@ -336,7 +336,7 @@ impl TempoMap {
     /// Where bar `bar` (counting from 0) starts, in beats.
     pub fn bar_start(&self, bar: i64) -> f64 {
         let b = self.bars_at_bar(bar);
-        b.beat + (bar - b.bar) as f64 * b.len
+        b.beat + bar.saturating_sub(b.bar) as f64 * b.len
     }
 
     /// The signature of bar `bar` (counting from 0).
@@ -349,7 +349,8 @@ impl TempoMap {
     /// a bar cut short by the next signature point.
     pub fn bar_length(&self, beat: f64) -> f64 {
         let bar = self.bar_of(beat);
-        self.bar_start(bar + 1) - self.bar_start(bar)
+        // Saturating, as `bar_of`: the last bar there is has no next one.
+        self.bar_start(bar.saturating_add(1)) - self.bar_start(bar)
     }
 
     /// Whether a bar starts at this beat.
@@ -543,6 +544,8 @@ impl LocalTime {
 }
 
 #[cfg(test)]
+mod props;
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -723,6 +726,7 @@ mod tests {
         });
         assert_eq!(n, 100, "nothing out there, and the count stops it");
         assert_eq!(m.bar_of(1e300), i64::MAX, "a beat past every bar is in the last");
+        assert_eq!(m.bar_length(1e300), 0.0, "the last bar has no next one to end it");
     }
 
     #[test]

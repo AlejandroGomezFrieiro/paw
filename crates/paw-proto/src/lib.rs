@@ -15,7 +15,7 @@ pub mod tls;
 
 use std::io::Read;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 
@@ -36,12 +36,6 @@ const HELLO_TIME: Duration = Duration::from_secs(10);
 /// subscriptions, the screen for remote terminals, and TCP; 3 put TCP inside
 /// TLS and gave every attached terminal and window a seat of its own.
 pub const VERSION: u32 = 3;
-
-/// Where this program keeps what it learns on this machine:
-/// `$XDG_STATE_HOME/paw`, by default `~/.local/state/paw`.
-pub fn state_dir() -> PathBuf {
-    dirs::state().unwrap_or_else(std::env::temp_dir).join("paw")
-}
 
 /// A connection, as the kernel names it. 0 is no connection at all: the
 /// program's own terminal, or a call made from inside.
@@ -88,13 +82,6 @@ impl Connection {
             .with_context(|| format!("no running instance at {}", path.display()))?;
         let (reader, writer) = stream.into_split();
         Self::start(reader, Box::new(writer), None)
-    }
-
-    /// Connect to a kernel listening on the network, in TLS, holding it to
-    /// the certificate this machine remembers for `address`, and show the
-    /// token.
-    pub fn tcp(address: &str, token: &str) -> Result<Self> {
-        Self::tcp_with(address, token, &Wire::default())
     }
 
     /// Connect to a kernel listening on the network, the way `wire` says.
@@ -329,6 +316,85 @@ mod tests {
             hex(&sha256(&[b'a'; 119])),
             "31eba51c313a5c08226adf18d4a359cfdfd8d2e816b13f4af952f7ea6584dcfb"
         );
+    }
+
+    use std::sync::{Arc, Mutex};
+
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, DuplexStream};
+
+    /// The token and nonce of the kernel in memory, so that the proof is
+    /// the same in each run.
+    const TOKEN: &str = "0123456789abcdef";
+    const NONCE: &str = "6e6f6e6365";
+
+    /// What the kernel in memory replies to a request: the reply's fields
+    /// after `id`, and an event that it pushes after the reply.
+    fn answer(method: &str) -> (Value, Option<Value>) {
+        match method {
+            "hello" => (json!({ "result": { "version": VERSION, "client": 7 } }), None),
+            "subscribe" => (
+                json!({ "result": ["transport.*"] }),
+                Some(json!({ "event": "transport.play", "payload": { "position": 0 } })),
+            ),
+            "file.begin" => (json!({ "result": 1 }), None),
+            "file.chunk" => (json!({ "result": 10 }), None),
+            "file.end" => (json!({ "result": "media/take.wav" }), None),
+            "eval" => (json!({ "result": null }), None),
+            other => (json!({ "error": format!("no method `{other}`") }), None),
+        }
+    }
+
+    /// A kernel in memory at the other end of `stream`, as over the network:
+    /// it says hello first, then answers each request with [`answer`]. Each
+    /// line it reads goes into `transcript` after `>`, and each line it
+    /// writes after `<`, in the order of the wire. It records what it sends
+    /// before it sends it, so the transcript is whole when the client has
+    /// the reply.
+    async fn kernel(stream: DuplexStream, transcript: Arc<Mutex<Vec<String>>>) {
+        let (reader, mut writer) = tokio::io::split(stream);
+        let mut lines = BufReader::new(reader).lines();
+        let hello = json!({ "event": "hello", "payload": { "version": VERSION, "nonce": NONCE } });
+        let mut out = vec![hello];
+        loop {
+            let text: String = out.iter().map(|message| format!("{message}\n")).collect();
+            transcript.lock().unwrap().extend(out.iter().map(|message| format!("< {message}")));
+            writer.write_all(text.as_bytes()).await.unwrap();
+            let Ok(Some(line)) = lines.next_line().await else { break };
+            transcript.lock().unwrap().push(format!("> {line}"));
+            let request: Value = serde_json::from_str(&line).unwrap();
+            let (mut reply, event) = answer(request["method"].as_str().unwrap());
+            out.clear();
+            // A request with no id needs no reply.
+            if !request["id"].is_null() {
+                reply["id"] = request["id"].clone();
+                out.push(reply);
+            }
+            out.extend(event);
+        }
+    }
+
+    #[test]
+    fn the_client_speaks_the_protocol_as_the_golden_file_has_it() {
+        let transcript = Arc::new(Mutex::new(Vec::new()));
+        let (client, far) = tokio::io::duplex(1 << 16);
+        let runtime = runtime::handle().unwrap();
+        runtime.spawn(kernel(far, Arc::clone(&transcript)));
+        let (reader, writer) = tokio::io::split(client);
+        let mut connection = Connection::start(reader, Box::new(writer), Some(TOKEN)).unwrap();
+        // What the client makes of each reply goes after `=`.
+        let got = |line: String| transcript.lock().unwrap().push(format!("= {line}"));
+        got(format!("client {}", connection.client));
+        got(format!("{}", connection.call("subscribe", json!(["transport.*"])).unwrap()));
+        let (event, payload) = connection.events.recv().unwrap();
+        got(format!("event {event} {payload}"));
+        connection.notify("keys", json!(["gg"])).unwrap();
+        got(format!("{:#}", connection.call("nonsense", json!([])).unwrap_err()));
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("take.wav");
+        std::fs::write(&file, b"0123456789").unwrap();
+        got(connection.send_and_import(&file).unwrap());
+        drop(connection);
+        insta::assert_snapshot!(transcript.lock().unwrap().join("\n"));
     }
 
     #[test]

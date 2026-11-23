@@ -277,6 +277,7 @@ test("half-typed commands show what can follow, and are counted right", function
   eq(paw.keymap.hints(), nil, "Escape clears them")
   paw.opt.hint_delay = 500
   -- An operator that fails leaves normal mode behind.
+  T.expect_error("boom")
   paw.keymap.operator("gz", function() error("boom") end, { view = "arrange", desc = "Fails" })
   local before = paw.ui.messages[#paw.ui.messages]
   paw.keymap.feed("gzl")

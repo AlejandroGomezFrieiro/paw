@@ -136,7 +136,7 @@ local paw = (_G as {string:Paw}).paw
 | `pcall`/`xpcall` of a function with no results gives no second value | `pcall(f, x) as (boolean, string)` |
 | A field of a module record with a local alias in its type is copied as it is into paw.d.tl when another module holds the value (`paw.ui.roles`) | qualify the types of exported fields and functions (`contracts.X`) |
 | `paw.limit.named(name, fn, a, b)` with arguments of two types | a closure: `paw.limit.named(name, function(): boolean return fn(a, b) end)` |
-| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl) |
+| Two modules cannot name each other's types (`local type` requires in a cycle: "unknown type") | the lower module owns the shared records; the other declares only the part it calls (qf.tl and diagnostic.tl). `tools/layers.txt` gives which module is lower ([the layers](../paw-code/layers.md)) |
 | A record does not fit a contract's interface without `is` (records are nominal) | cast where the value goes in: `data = clip as contracts.QueryData` |
 | A field typed `{A \| B}` given a table literal that mixes a text and records (`items = { "-", { label = ... } }`) is not inferred | put the list in a local of that type first (`local items: {contracts.MenuEntry} = { ... }`) |
 | A record with an array part that also implements an interface | the array goes in the `is` list: `record Node is {Node}, contracts.Window` |
@@ -159,6 +159,11 @@ local paw = (_G as {string:Paw}).paw
 | Modules that the view uses also name the type of the view (`paw.scope`, `paw.vzoom`): a cycle | put the part that they use in `contracts.tl` as an interface (`ArrangeView`); the record of the view extends it and makes its fields narrower (`geometry: Geometry` for `ArrangeGeometry`) |
 | A gesture adds fields to the handlers of `paw.mouse.grab` (`arrange`, `d`) | `paw.mouse.Handlers` is an interface: `record Grab is MouseModule.Handlers`, and a function that takes a `Grab`. A table literal for an interface parameter does not accept the added fields |
 | A role of `roles/widgets.lua` or `roles/notes.lua` (Lua) that Teal marks | its record of props is in `contracts.tl` (`LabelMark`, `ButtonMark`, `SwitchMark`, `KnobMark`, `PlayheadMark`) |
+| `local type X = require(m)` of a module that returns a value (a view): "'require' did not return a type" | the module returns a record with `type` fields and the value as a field (`paw.views.pianoroll` gives `PianoRoll`, `Layer`, `view`) |
+| A module puts its own function in place of a method of another (the strip replaced `view:render`) | a function field of the other, which its method calls (`view.strip.draw`) |
+| A module requires at its end a module that names its types (`pianoroll` loaded `roll_draw`): a loop | the module that loads both requires the higher one after the lower one (paw/init.lua) |
+| `local paw = (_G as ...).paw` in a module that paw.d.tl does not name (`views/pianoroll_mouse`): the strict check counts a shadowed `paw` | use the typed global `paw` there |
+| Ten modules kept their own record of one view, and the records did not agree (`clip` and `data` of a layer) | the view's module exports the records; each other module names them |
 
 ## What stays Lua
 

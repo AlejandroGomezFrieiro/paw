@@ -275,6 +275,9 @@ impl Device for Eq {
         }
         self.started = true;
         for (l, r) in io.left.iter_mut().zip(io.right.iter_mut()) {
+            if self.rest.holds(*l, *r) {
+                continue;
+            }
             if self.clock.is_multiple_of(UPDATE) {
                 self.update();
             }

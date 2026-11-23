@@ -192,8 +192,10 @@ before it runs them.
 
 Loudness (integrated and short-term LUFS, loudness range, true peak) is the
 measurement of the kernel (`paw.api.measure`). The other values are plain
-signal measurements, which are the sample peak, the RMS in dBFS, and an
-averaged 4096-point FFT summed into octave bands.
+signal measurements, which are the sample peak, the RMS in dBFS, the stereo
+correlation and the share of energy in each octave band. The server and the
+kernel use the same code for these measurements, the crate `paw-measure`.
+So a file gives the same numbers here as in `:mix`.
 
 ### What an assistant can do
 

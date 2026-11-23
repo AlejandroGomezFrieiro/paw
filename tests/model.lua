@@ -252,6 +252,33 @@ test("numbers that are not finite are refused, so that a save always loads", fun
   eq(#paw.tracks(), 1, "the project saved and loaded")
 end)
 
+-- TASK-173: a note at 1e15 beats made the clip file writer hang on billions
+-- of clockstamps.
+test("times up to a million beats from a clip's start are kept, and further ones refused", function()
+  fresh()
+  local far, refused = 1e15, "million beats"
+  local t = paw.add_track()
+  fails(function() t:add_clip({ notes = { { pitch = 60, start = far, length = 1 } } }) end, refused, "a far note")
+  fails(
+    function() t:add_clip({ notes = { { pitch = 60, start = -far, length = 1 } } }) end,
+    refused,
+    "a note far before"
+  )
+  fails(function() t:add_clip({ start = 0, length = far }) end, refused, "a long clip")
+  local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  fails(function() clip:set_note(1, { start = far }) end, refused, "a note moved far")
+  fails(function() clip:set_note(1, { length = far }) end, refused, "a long note")
+  fails(function() clip:set_controls({ { start = far, type = "bend", value = 0 } }) end, refused, "a far move")
+  fails(function() clip.length = far end, refused, "a clip made long")
+  local file = { notes = { { pitch = 60, start = far, length = 1 } }, length = 4 }
+  fails(function() api.midi2_write(scratch .. "/far.midi2", file) end, refused, "a clip file")
+  eq(clip:notes()[1].start, 0, "a refused edit changes nothing")
+
+  clip:set_note(1, { start = 999999 })
+  paw.project.load(paw.project.save(scratch .. "/far"))
+  eq(paw.tracks()[1]:clips()[1]:notes()[1].start, 999999, "the furthest note is saved and loaded")
+end)
+
 test("note lists read and write the same through either path", function()
   fresh()
   local clip = paw.add_track():add_clip({ start = 0, length = 8 })

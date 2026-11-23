@@ -78,6 +78,20 @@ local function write_wav(path, frames)
   )
 end
 
+test("plugstate: factory presets are found beside the plugin folders that paw searches", function()
+  local p = load()
+  if not api.plugins_dirs() then return "skipped: this build hosts no plugins" end
+  -- A package as Nix lays it out: its plugins in lib/clap, its presets in share.
+  local package = T.scratch .. "/plugstate-package"
+  os.execute("mkdir -p '" .. package .. "/lib/clap' '" .. package .. "/share/maker/presets'")
+  T.write_file(package .. "/share/maker/presets/warm.json", "{}")
+  eq(#p.share_dirs("maker/presets"), 0, "not found before paw searches the package")
+  paw.plugins.add_dir(package .. "/lib/clap", "plugstate-test")
+  local found = p.share_dirs("maker/presets")
+  paw.plugins.remove_dir(package .. "/lib/clap")
+  eq(found[1], package .. "/share/maker/presets", "found once paw searches the package")
+end)
+
 test("plugstate: the sfizz state codec reads and writes back", function()
   load()
   local codec = require("plugstate.adapters").sfizz_codec

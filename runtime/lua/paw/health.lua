@@ -295,6 +295,8 @@ M.register("extensions", function(h)
           )
         end
       end
+    elseif e.needs_unmet then
+      h.error(name .. ": " .. e.error, { "a build of paw with these features loads it (`paw.api.build()`)" })
     else
       h.error(
         name .. ": " .. tostring(e.error):match("^[^\n]*"),

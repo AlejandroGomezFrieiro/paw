@@ -189,9 +189,12 @@ pub fn write_text(
         if w == 0 {
             continue;
         }
-        if clip.contains(col, y) && clip.contains(col + w - 1, y) {
+        // A column past the largest i32 is off any screen: the sums stop
+        // there and do not overflow.
+        let last = col.saturating_add(w - 1);
+        if clip.contains(col, y) && clip.contains(last, y) {
             touched(col, y);
-            touched(col + w - 1, y);
+            touched(last, y);
             let at = y as usize * row + col as usize;
             cells[at].ch = ch;
             style.apply(&mut cells[at]);
@@ -200,7 +203,7 @@ pub fn write_text(
                 style.apply(&mut cells[at + 1]);
             }
         }
-        col += w;
+        col = col.saturating_add(w);
     }
     col - x
 }
@@ -385,6 +388,17 @@ mod tests {
         let used = cells.text(Rect { x: 0, y: 0, w: 3, h: 1 }, 0, 0, "界界", Style::default());
         assert_eq!(used, 4, "the columns it takes, shown or not");
         assert_eq!(cells.cells.iter().map(|c| c.ch).collect::<Vec<_>>(), vec!['界', '\0', ' ', ' ']);
+    }
+
+    // Found while writing the fuzz target `remote` (TASK-159): a far
+    // terminal is sent text at any column, and a column past the largest
+    // i32 overflowed.
+    #[test]
+    fn text_at_the_last_column_of_i32_is_off_the_screen() {
+        let mut cells = Cells::new(4, 1);
+        let used = cells.text(cells.rect(), i32::MAX, 0, "界ab", Style::default());
+        assert_eq!(used, 0, "no column is left to take");
+        assert!(cells.cells.iter().all(|c| c.ch == ' '));
     }
 
     #[test]

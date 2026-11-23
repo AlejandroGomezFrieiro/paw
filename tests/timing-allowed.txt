@@ -16,8 +16,8 @@ crates/paw-engine/src/pool.rs thread::sleep 2
 crates/paw-engine/src/record.rs Instant::now 1
 crates/paw-engine/src/record.rs thread::sleep 2
 crates/paw-engine/src/samples.rs thread::sleep 1
-crates/paw-engine/tests/midi_out.rs Instant::now 6
-crates/paw-engine/tests/midi_out.rs thread::sleep 2
+crates/paw-engine/tests/midi_out.rs Instant::now 4
+crates/paw-engine/tests/midi_out.rs thread::sleep 1
 crates/paw-engine/tests/midi_ports.rs Instant::now 10
 crates/paw-engine/tests/midi_ports.rs thread::sleep 4
 crates/paw-engine/tests/no_alloc.rs thread::sleep 1
@@ -27,8 +27,7 @@ crates/paw-mcp/tests/protocol.rs Instant::now 4
 crates/paw-mcp/tests/protocol.rs thread::sleep 3
 crates/paw-tui/tests/join.rs Instant::now 6
 crates/paw-tui/tests/join.rs thread::sleep 3
-crates/paw-tui/tests/remote.rs Instant::now 15
-crates/paw-tui/tests/remote.rs quiet(Duration 17
+crates/paw-tui/tests/remote.rs Instant::now 13
 crates/paw-tui/tests/remote.rs thread::sleep 2
 crates/paw-tui/tests/safety.rs Instant::now 1
 crates/paw-tui/tests/safety.rs thread::sleep 3

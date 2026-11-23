@@ -27,7 +27,7 @@ use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 
 use super::Session;
-use super::folder::{PROJECT_FILE, resolve};
+use super::folder::PROJECT_FILE;
 use crate::freeze;
 use crate::media::hash::Hashing;
 use crate::media::{Changed, MediaRecord, MediaTable, SourceHash, Sources};
@@ -554,7 +554,7 @@ impl Session {
             return MediaTable::default();
         };
         match MediaTable::from_json(&bytes) {
-            Ok(table) => table.renamed(|p| Some(resolve(p, &dir))),
+            Ok(table) => table.renamed(|p| Some(self.home.resolve(p, &dir))),
             Err(e) => {
                 self.warnings.push(format!(
                     "{}: {e}; paw learns what each file is again",

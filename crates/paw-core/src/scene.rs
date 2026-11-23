@@ -24,7 +24,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use unicode_width::UnicodeWidthStr;
 
-use crate::api::{Shared, from_lua, to_lua};
+use crate::api::{Shared, from_lua, guarded, to_lua};
 
 /// A drawing whose operations take more than this as JSON is sent by its
 /// content key.
@@ -361,11 +361,11 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "scene_begin",
-        lua.create_function(move |_, (w, h): (f32, f32)| {
+        lua.create_function(guarded!("scene_begin", move |_, (w, h): (f32, f32)| {
             let scene = Scene::new([w.max(0.0), h.max(0.0)]);
             sh.scenes.borrow_mut().building = Some(Building::new(scene, false));
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // While a view is drawn for a scene: a node over a rectangle of it, in
@@ -383,7 +383,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return boolean
     api.set(
         "scene_open",
-        lua.create_function(move |lua, (rect, opts): (LuaValue, LuaValue)| {
+        lua.create_function(guarded!("scene_open", move |lua, (rect, opts): (LuaValue, LuaValue)| {
             let rect: Area = from_lua(lua, rect)?;
             // A role's props are data for a frontend, where an empty Lua
             // table is most often an empty list (no warp markers): sent as
@@ -391,16 +391,16 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             // none of the props.
             let opts: OpenOpts = lua.from_value_with(opts, DeserializeOptions::new().encode_empty_tables_as_array(true))?;
             sh.scenes.borrow_mut().open(rect.units(), opts).map_err(mlua::Error::runtime)
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // @return nil
     api.set(
         "scene_close",
-        lua.create_function(move |_, ()| {
+        lua.create_function(guarded!("scene_close", move |_, ()| {
             sh.scenes.borrow_mut().close();
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // The roles `client` draws itself: in what it is sent from now on,
@@ -408,10 +408,10 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "scene_roles",
-        lua.create_function(move |_, (client, roles): (u64, Vec<String>)| {
+        lua.create_function(guarded!("scene_roles", move |_, (client, roles): (u64, Vec<String>)| {
             sh.scenes.borrow_mut().roles.insert(client, roles.into_iter().collect());
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // What is under the point `x, y` (units) of what `client` has of the
@@ -420,7 +420,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return types.SceneHit
     api.set(
         "scene_hit",
-        lua.create_function(move |lua, (client, id, x, y): (u64, String, f32, f32)| {
+        lua.create_function(guarded!("scene_hit", move |lua, (client, id, x, y): (u64, String, f32, f32)| {
             let scenes = sh.scenes.borrow();
             let Some(found) = scenes.kept.get(&(client, id)).and_then(|s| s.hit([x, y])) else { return Ok(LuaValue::Nil) };
             let [rx, ry, rw, rh] = found.rect;
@@ -429,7 +429,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 "rect": { "x": rx, "y": ry, "w": rw, "h": rh },
             });
             to_lua(lua, &out)
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // Draw a view by itself, `cols` by `rows` cells, as a window shows it:
@@ -438,7 +438,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "scene_draw",
-        lua.create_function(move |lua, (name, cols, rows): (String, u16, u16)| {
+        lua.create_function(guarded!("scene_draw", move |lua, (name, cols, rows): (String, u16, u16)| {
             let start = |on: bool| -> mlua::Result<()> {
                 match sh.scenes.borrow_mut().building.as_mut() {
                     Some(b) => {
@@ -458,7 +458,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 (b.scene.fg, b.scene.bg) = (paw_scene::cells::hex(fg), paw_scene::cells::hex(bg));
             }
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // A drawing (`paw.canvas` operations) over a rectangle of the scene:
@@ -469,7 +469,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "scene_picture",
-        lua.create_function(move |lua, (rect, opts): (LuaValue, LuaValue)| {
+        lua.create_function(guarded!("scene_picture", move |lua, (rect, opts): (LuaValue, LuaValue)| {
             let rect: Area = from_lua(lua, rect)?;
             let opts: PictureOpts = from_lua(lua, opts)?;
             let mut scenes = sh.scenes.borrow_mut();
@@ -482,7 +482,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             node.clip = opts.clip.map(|c| c.units());
             b.scene.push(None, node);
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // The scene made, kept as what `client` has of the window `id`: the
@@ -492,7 +492,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return string, boolean
     api.set(
         "scene_end",
-        lua.create_function(move |_, (client, id): (u64, String)| {
+        lua.create_function(guarded!("scene_end", move |_, (client, id): (u64, String)| {
             let patch = sh.scenes.borrow_mut().end(client, &id);
             let Some(patch) = patch else { return Ok((None, true)) };
             let sent = client == 0 || sh.clients.send(client, format!(r#"{{"event":"scene.patch","payload":{patch}}}"#));
@@ -500,7 +500,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 sh.scenes.borrow_mut().forget(client, None);
             }
             Ok((Some(patch), sent))
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // Forget what `client` was sent of the window `id`, or of all of them:
@@ -508,10 +508,10 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return nil
     api.set(
         "scene_forget",
-        lua.create_function(move |_, (client, id): (u64, Option<String>)| {
+        lua.create_function(guarded!("scene_forget", move |_, (client, id): (u64, Option<String>)| {
             sh.scenes.borrow_mut().forget(client, id.as_deref());
             Ok(())
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // What `client` has of the window `id`, lowered to cells: as
@@ -519,7 +519,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return types.ViewSnapshot
     api.set(
         "scene_cells",
-        lua.create_function(move |lua, (client, id): (u64, String)| {
+        lua.create_function(guarded!("scene_cells", move |lua, (client, id): (u64, String)| {
             let scenes = sh.scenes.borrow();
             let Some(scene) = scenes.kept.get(&(client, id)) else { return Ok(LuaValue::Nil) };
             let (fg, bg) = scene.colors();
@@ -530,20 +530,20 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 "cursor": scene.cursor.map(|[x, y]| serde_json::json!({ "x": x, "y": y })),
             });
             to_lua(lua, &snapshot)
-        })?,
+        }))?,
     )?;
     let sh = shared.clone();
     // A drawing that `client` got from paw, by its content key.
     // @return {types.CanvasOp}
     api.set(
         "scene_blob",
-        lua.create_function(move |lua, (client, key): (u64, String)| {
+        lua.create_function(guarded!("scene_blob", move |lua, (client, key): (u64, String)| {
             let scenes = sh.scenes.borrow();
             match scenes.blobs.get(&client).and_then(|b| b.get(&key)) {
                 Some(ops) => to_lua(lua, ops),
                 None => Err(mlua::Error::runtime(format!("no drawing `{key}`"))),
             }
-        })?,
+        }))?,
     )?;
     Ok(())
 }

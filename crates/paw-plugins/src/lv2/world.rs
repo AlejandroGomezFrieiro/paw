@@ -3,12 +3,11 @@
 use std::ffi::{CStr, CString};
 use std::path::PathBuf;
 use std::ptr;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use paw_engine::{DeviceFormat, ParamInfo, Registry};
 use lilv_sys::*;
 
-use crate::search_dirs;
 use super::*;
 use super::factory::*;
 
@@ -50,23 +49,30 @@ pub(super) struct World {
 }
 
 // SAFETY: The World holds the lilv world and node pointers, made once and never freed. lilv is
-// not thread safe, and nothing here makes it so: these impls only let the static in `world()` hold
-// it. The convention that makes them sound is that `world()`, the only way to the World, is called
-// on the main thread only (the thread that called `crate::register`, or the one thread of a
-// helper process); the audio thread never calls it. `world()` checks this in debug builds.
+// not thread safe, and nothing here makes it so: these impls only let the static `WORLD` hold
+// it. The convention that makes them sound is that `world_in()` and `world()`, the only ways to
+// the World, are called on the main thread only (the thread that called `crate::register`, or the
+// one thread of a helper process); the audio thread never calls them. They check this in debug
+// builds.
 unsafe impl Send for World {}
-// SAFETY: See `Send`: the World is reached through `world()` on the main thread only.
+// SAFETY: See `Send`: the World is reached through `world_in()` and `world()` on the main thread
+// only.
 unsafe impl Sync for World {}
 
-/// lilv's world. Call it on the main thread only: lilv is not thread safe.
-pub(super) fn world() -> &'static World {
+/// lilv's world, made once for the program by the first [`world_in`].
+static WORLD: OnceLock<World> = OnceLock::new();
+
+/// lilv's world, made the first time with the bundles under `folders` (the
+/// LV2 folders of [`crate::PluginDirs`], with those added). The folders of
+/// a later call change nothing. Call it on the main thread only: lilv is
+/// not thread safe.
+pub(super) fn world_in(folders: &[PathBuf]) -> &'static World {
     crate::debug_assert_main_thread();
-    static WORLD: OnceLock<World> = OnceLock::new();
     // SAFETY: `lilv_world_new` makes a world that lives for the program; the nodes and options are made
     // from it here and never freed; strings passed are NUL-terminated CStrings that live through each call.
     WORLD.get_or_init(|| unsafe {
         let world = lilv_world_new();
-        let dirs: Vec<String> = search_dirs("LV2_PATH", "lv2")
+        let dirs: Vec<String> = folders
             .iter()
             .map(|d| d.to_string_lossy().into_owned())
             .collect();
@@ -116,6 +122,15 @@ pub(super) fn world() -> &'static World {
             file_types: uri("http://moddevices.com/ns/mod#fileTypes".into()),
         }
     })
+}
+
+/// lilv's world, which the factory of the plugin made ([`world_in`]) before
+/// anything that calls this could exist. Main thread only.
+pub(super) fn world() -> &'static World {
+    crate::debug_assert_main_thread();
+    WORLD
+        .get()
+        .expect("an LV2 plugin's factory makes lilv's world before its controller exists")
 }
 
 pub(super) unsafe fn node_text(node: *const LilvNode) -> String {
@@ -281,9 +296,8 @@ unsafe fn missing_feature(plugin: *const LilvPlugin) -> Option<String> {
 /// What the installed LV2 bundles look like: each bundle with the latest
 /// modification time of the bundle and the files directly in it. Adding,
 /// removing or changing a bundle changes this.
-fn bundle_stamps() -> Vec<(PathBuf, u64)> {
-    let dirs = search_dirs("LV2_PATH", "lv2");
-    crate::find_bundles(&dirs, "lv2")
+fn bundle_stamps(folders: &[PathBuf]) -> Vec<(PathBuf, u64)> {
+    crate::find_bundles(folders, "lv2")
         .into_iter()
         .map(|bundle| {
             let files = std::fs::read_dir(&bundle)
@@ -297,15 +311,22 @@ fn bundle_stamps() -> Vec<(PathBuf, u64)> {
         .collect()
 }
 
-pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mut Vec<String>) {
-    let bundles = bundle_stamps();
+/// Register the LV2 plugins under the LV2 folders of `dirs` and those added.
+pub(crate) fn scan(
+    registry: &mut Registry,
+    cache: &mut crate::Cache,
+    notes: &mut Vec<String>,
+    dirs: &crate::PluginDirs,
+) {
+    let folders: Arc<[PathBuf]> = dirs.search(&dirs.lv2).into();
+    let bundles = bundle_stamps(&folders);
     let known = cache.lv2.as_ref().filter(|c| c.bundles == bundles).cloned();
     let found = match known {
         // Unchanged since last time: register from the cache and leave lilv
         // to read the bundles when an LV2 plugin is first used.
         Some(found) => found,
         None => {
-            let found = scan_world(bundles);
+            let found = scan_world(bundles, &folders);
             cache.lv2 = Some(found.clone());
             cache.mark_changed();
             found
@@ -318,6 +339,8 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
             info,
             uri,
             plugin: OnceLock::new(),
+            folders: folders.clone(),
+            libraries: dirs.libraries.clone(),
         }));
     }
     if found.skipped > 0 {
@@ -329,8 +352,8 @@ pub(crate) fn scan(registry: &mut Registry, cache: &mut crate::Cache, notes: &mu
 }
 
 /// Load every bundle with lilv and list the plugins this host can run.
-fn scan_world(bundles: Vec<(PathBuf, u64)>) -> crate::Lv2Cache {
-    let w = world();
+fn scan_world(bundles: Vec<(PathBuf, u64)>, folders: &[PathBuf]) -> crate::Lv2Cache {
+    let w = world_in(folders);
     let mut found = crate::Lv2Cache {
         bundles,
         plugins: Vec::new(),

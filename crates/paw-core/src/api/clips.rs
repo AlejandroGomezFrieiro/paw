@@ -144,7 +144,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn media_store(_, sh, (megabytes, keep) => (Option<f64>, Option<f64>)) {
             let mut session = sh.session.borrow_mut();
             if let Some(megabytes) = megabytes {
-                session.set_media_store(Some(crate::peaks::media_dir()), megabytes);
+                let dir = crate::peaks::media_dir(&session.dirs);
+                session.set_media_store(Some(dir), megabytes);
                 if let (Some(keep), Some((dir, megabytes))) = (keep, session.media_store()) {
                     // Tidied apart: a big cache takes a while to look through.
                     let store = paw_engine::DiskStore { dir, limit: (megabytes * 1_048_576.0) as u64 };

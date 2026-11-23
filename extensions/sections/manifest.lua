@@ -4,4 +4,5 @@ return {
   version = "0.1.0",
   description = "Named sections of the song as text objects, and arranging by section",
   requires = { paw = "^1.0" },
+  needs = {},
 }

@@ -41,7 +41,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let func = Rc::new(lua.create_registry_value(func)?);
             let id = sh.next_timer.get() + 1;
             sh.next_timer.set(id);
-            let period = Duration::from_secs_f64(ms.max(0.0) / 1000.0);
+            let period = super::millis(ms);
             // A repeating timer with no period would starve everything else.
             let repeat = repeat.then(|| period.max(Duration::from_millis(1)));
             sh.timers.borrow_mut().push(Timer { id, due: Instant::now() + period, repeat, func });
@@ -68,7 +68,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return nil
         fn sleep(_, _sh, ms => f64) {
-            std::thread::sleep(Duration::from_secs_f64(ms.max(0.0) / 1000.0));
+            std::thread::sleep(super::millis(ms));
             Ok(())
         }
         // Let `ms` milliseconds pass. Timers fire and events come, as between the
@@ -76,7 +76,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // for the result of a timer uses `wait`.
         // @return nil
         fn wait(lua, sh, ms => f64) {
-            let deadline = Instant::now() + Duration::from_secs_f64(ms.max(0.0) / 1000.0);
+            let deadline = Instant::now() + super::millis(ms);
             let kernel: Table = lua.globals().get::<Table>("paw")?.get("_kernel")?;
             let (timer, settle): (Function, Function) = (kernel.get("timer")?, kernel.get("settle")?);
             let mut idled = Instant::now() - Duration::from_secs(1);

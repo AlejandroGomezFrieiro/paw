@@ -30,6 +30,7 @@ local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
 local type TrackColumnModule = require("paw.trackcolumn")
+local type Roll = require("paw.views.pianoroll")
 
 --- A severity: 1 (error) to 4 (hint), or one of the words `error`,
 --- `warning` (`warn`), `info` (`information`) and `hint`.
@@ -213,27 +214,9 @@ end
 
 -- What this module reads of the modules that are still in Lua.
 
---- What a layer of the piano roll gets (paw/views/pianoroll.lua): the
---- clip, the parts that it shows (clips and their offsets in beats), the
---- roll's cells and its ruler, the column of a beat and the row of a pitch.
-local record Part
-  id: integer
-  offset: number
-end
-local record RollLayer
-  clip: types.Clip
-  parts: {Part}
-  roll: contracts.Buf
-  ruler: contracts.Buf
-  x: function(beat: number): integer
-  row: function(pitch: integer): integer
-end
-
---- The piano roll (paw/views/pianoroll.lua), as far as this module reads it.
-local record Roll
-  clip_id: integer
-  layer: function(name: string, order: integer, paint: function(RollLayer))
-end
+--- What a layer of the piano roll gets, and the roll (paw/views/pianoroll.tl).
+local type RollLayer = Roll.Layer
+local type PianoRoll = Roll.PianoRoll
 
 --- What a layer of a view's part gets (`paw.ui.layer`): its cells, where
 --- the part is and what it shows.
@@ -1189,7 +1172,7 @@ function M.status(): {contracts.Piece}
   if not next(store) then
     return nil
   end
-  local view = paw.ui.views.pianoroll as Roll
+  local view = paw.ui.views.pianoroll as PianoRoll
   local n = M.count(paw.ui.visible("pianoroll") and view.clip_id or nil)
   if n.total == 0 then
     return nil
@@ -1274,7 +1257,7 @@ function M.marks(): Marks
   return {tracks = list, times = times}
 end
 
-local roll = paw.ui.views.pianoroll as Roll
+local roll = paw.ui.views.pianoroll as PianoRoll
 roll.layer("diagnostics", 30, function(p: RollLayer) M.paint_roll(p) end)
 
 -- The window's menu on a note: the `n`th of its fixes, as `actions` lists them.

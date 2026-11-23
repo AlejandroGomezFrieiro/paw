@@ -7,7 +7,6 @@
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::path::PathBuf;
 
 use paw_engine::{Attr, Event, EventBuf, EventKind, Io, ProcessCtx, Registry};
 
@@ -55,7 +54,7 @@ fn on_audio_thread(f: impl FnOnce()) -> usize {
     COUNT.with(Cell::get)
 }
 
-fn stub_dir() -> PathBuf {
+fn stub_dir() -> tempfile::TempDir {
     let exe = std::env::current_exe().unwrap();
     let built = exe
         .parent()
@@ -63,16 +62,17 @@ fn stub_dir() -> PathBuf {
         .unwrap()
         .join("examples/libstub_clap.so");
     assert!(built.exists(), "{} is built by `cargo test`", built.display());
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stub-plugin-no-alloc");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::copy(&built, dir.join("stub.clap")).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::copy(&built, dir.path().join("stub.clap")).unwrap();
     dir
 }
 
 #[test]
 fn a_clap_plugin_runs_without_allocating_on_the_audio_thread() {
     let mut registry = Registry::default();
-    paw_plugins::add_dir(&mut registry, None, &stub_dir());
+    let stub = stub_dir();
+    let mut dirs = paw_plugins::PluginDirs::default();
+    paw_plugins::add_dir(&mut registry, None, &mut dirs, stub.path());
     let mut instance = registry
         .get("clap:dev.paw.stub")
         .unwrap()

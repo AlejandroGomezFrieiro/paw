@@ -789,6 +789,10 @@ pub type RemoveDir = Rc<dyn Fn(&std::path::Path)>;
 /// Loads an attachment for plugins: see [`Registry::attach`].
 pub type Attach = Rc<dyn Fn(&std::path::Path) -> Result<String>>;
 
+/// The folders searched for the plugins of each format: see
+/// [`Registry::plugin_dirs`].
+pub type PluginDirs = Rc<dyn Fn() -> Vec<(String, Vec<std::path::PathBuf>)>>;
+
 #[derive(Default, Clone)]
 pub struct Registry {
     factories: BTreeMap<String, Rc<dyn DeviceFactory>>,
@@ -796,6 +800,7 @@ pub struct Registry {
     add_dir: Option<AddDir>,
     remove_dir: Option<RemoveDir>,
     attach: Option<Attach>,
+    plugin_dirs: Option<PluginDirs>,
     /// What scripts posted to every device of a kind: by kind, each topic
     /// with its latest data, in the order the topics were first posted.
     posts: BTreeMap<String, Vec<(String, Arc<[u8]>)>>,
@@ -852,6 +857,18 @@ impl Registry {
     pub fn add_dir(&mut self, dir: &std::path::Path) -> Option<(Vec<String>, Vec<String>)> {
         let add_dir = self.add_dir.clone()?;
         Some(add_dir(self, dir))
+    }
+
+    /// Say how to tell the folders searched for plugins.
+    pub fn set_plugin_dirs(&mut self, plugin_dirs: PluginDirs) {
+        self.plugin_dirs = Some(plugin_dirs);
+    }
+
+    /// The folders searched for the plugins of each format, in order, by
+    /// the name of the format (`clap`, `lv2`, `vst3`): those added with
+    /// [`Registry::add_dir`] too. `None` when this program hosts no plugins.
+    pub fn plugin_dirs(&self) -> Option<Vec<(String, Vec<std::path::PathBuf>)>> {
+        self.plugin_dirs.as_ref().map(|plugin_dirs| plugin_dirs())
     }
 
     /// Say how to load an attachment for plugins.

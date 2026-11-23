@@ -13,10 +13,11 @@ path = "src/main.rs"
 anyhow.workspace = true
 # The folders and the default socket, as the kernel finds them.
 paw-proto.workspace = true
+# The measurements, shared with the kernel's paw.api.measure.
+paw-measure.workspace = true
 serde_json.workspace = true
 arrayvec = "0.7"
 hound = "3.5"
-realfft = "3.5"
 rustix = { version = "1", default-features = false, features = ["std", "net", "process"] }
 include_dir = "0.7"
 serde.workspace = true

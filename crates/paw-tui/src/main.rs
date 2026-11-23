@@ -5,22 +5,39 @@
 
 mod args;
 mod graphics;
-mod keys;
 mod plugins;
 mod terminal;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result, bail};
 use args::{Attach, Cli, ClipCommand, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::{Kernel, KernelOpts, rpc, startuptime};
+use paw_proto::dirs::Dirs;
 use paw_engine::backend::{BackendChoice, BackendOptions};
+// The terminal's keys; terminal.rs reads them as `crate::keys`.
+use paw_tui::keys;
 use serde_json::Value;
 
+/// The user's home folder (`HOME`). The program reads it here only, and
+/// gives it to the parts that name files from it (`~/`).
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+/// The user's base directories (`XDG_*`, else folders in `HOME`). The
+/// program reads them here only, once, and gives them to the kernel and the
+/// parts that keep files in them.
+fn dirs() -> &'static Dirs {
+    static DIRS: OnceLock<Dirs> = OnceLock::new();
+    DIRS.get_or_init(|| Dirs::from_vars(|name| std::env::var_os(name)))
+}
+
 fn config_dir() -> PathBuf {
-    let base = paw_proto::dirs::config().unwrap_or_else(|| PathBuf::from("."));
+    let base = dirs().config.clone().unwrap_or_else(|| PathBuf::from("."));
     base.join("paw")
 }
 
@@ -54,16 +71,15 @@ fn restore_stderr() {
 }
 
 fn cache_dir() -> PathBuf {
-    let base = paw_proto::dirs::cache().unwrap_or_else(std::env::temp_dir);
-    base.join("paw")
+    dirs().paw_cache()
 }
 
 /// Connect to the instance `ctl` and `attach` are pointed at.
 fn connect(options: &Connect) -> Result<rpc::Connection> {
-    let socket = options.socket.clone().unwrap_or_else(rpc::default_path);
+    let socket = options.socket.clone().unwrap_or_else(|| rpc::default_path(dirs()));
     let address = options.connect.clone();
     let mut token = std::env::var("PAW_TOKEN").ok();
-    let mut wire = if options.no_tls { rpc::Wire::Plain } else { rpc::Wire::default() };
+    let mut wire = if options.no_tls { rpc::Wire::Plain } else { rpc::Wire::tls(dirs()) };
     let accept_new = options.accept_certificate;
     if let Some(path) = &options.token_file {
         let text = std::fs::read_to_string(path)
@@ -78,7 +94,7 @@ fn connect(options: &Connect) -> Result<rpc::Connection> {
             // On the machine the instance runs on, its token is at hand.
             let token = match token {
                 Some(token) => token,
-                None => std::fs::read_to_string(rpc::token_path())
+                None => std::fs::read_to_string(rpc::token_path(dirs()))
                     .map(|text| text.trim().to_string())
                     .context("--connect needs the token: --token, --token-file or $PAW_TOKEN")?,
             };
@@ -90,7 +106,7 @@ fn connect(options: &Connect) -> Result<rpc::Connection> {
                 eprintln!(
                     "paw: {address} is trusted from now on: its certificate is {print} \
                      (remembered in {})",
-                    rpc::known_path().display()
+                    rpc::known_file(dirs()).display()
                 );
             }
             Ok(connection)
@@ -176,6 +192,9 @@ fn attach(options: &Attach) -> Result<()> {
         (None, false) => None,
     };
     let mut connection = connect(&options.connect)?;
+    // `~/` in a file that the instance asks for is the home folder of this
+    // machine, resolved once here.
+    let home = home_dir();
     // What was typed and what the instance sends come in on one channel,
     // so that the loop sleeps until there is one or the other.
     let (incoming, arrived) = std::sync::mpsc::channel();
@@ -217,7 +236,7 @@ fn attach(options: &Attach) -> Result<()> {
                 }
                 "ui.detached" => return Ok(()),
                 // `:upload`: a file on this machine, for the instance.
-                "file.wanted" => send_wanted(&mut connection, &payload),
+                "file.wanted" => send_wanted(&mut connection, &payload, home.as_deref()),
                 "audio.frame" => {
                     if let Some(player) = &player {
                         let _ = player.push(&payload);
@@ -262,11 +281,12 @@ fn fetch_pixels(connection: &mut rpc::Connection, grid: &paw_core::grid::Grid) {
 }
 
 /// Send the file a `file.wanted` event names, from this machine, and import
-/// it; what went wrong is said on the instance's screen.
-fn send_wanted(connection: &mut rpc::Connection, payload: &Value) {
+/// it; what went wrong is said on the instance's screen. A name that starts
+/// with `~/` is in `home`.
+fn send_wanted(connection: &mut rpc::Connection, payload: &Value, home: Option<&Path>) {
     let Some(asked) = payload["path"].as_str() else { return };
-    let path = match (asked.strip_prefix("~/"), std::env::var_os("HOME")) {
-        (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
+    let path = match (asked.strip_prefix("~/"), home) {
+        (Some(rest), Some(home)) => home.join(rest),
         _ => PathBuf::from(asked),
     };
     let sent = if payload["import"].as_bool().unwrap_or(false) {
@@ -310,7 +330,7 @@ fn running_has(project: &std::path::Path) -> bool {
     let Some(wanted) = project_file_of(project) else {
         return false;
     };
-    let socket = rpc::default_path();
+    let socket = rpc::default_path(dirs());
     if !socket.exists() {
         return false;
     }
@@ -408,11 +428,18 @@ fn join_running(args: &args::Run, scripted: bool) -> Result<bool> {
 }
 
 /// A panic anywhere but inside a device (which the engine catches, bypasses
-/// and reports) writes a safety copy of the project before the program ends.
+/// and reports) or a function of `paw.api` (which gives a Lua error) writes a
+/// safety copy of the project before the program ends.
 fn install_safety_copy_hook() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if paw_engine::guard::in_device() {
+            return;
+        }
+        // The program goes on: the message goes to stderr, which is the log
+        // while the terminal shows paw.
+        if paw_core::api::in_call() {
+            hook(info);
             return;
         }
         let copy = paw_core::session::panic::write_copy(&info.to_string());
@@ -437,10 +464,12 @@ fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
         sender.send(paw_core::KernelMsg::Input(event)).is_ok()
     })?;
     // A panic message printed into the alternate screen would be lost.
-    // Only one on the main thread ends the program; a device's is caught.
+    // Only one on the main thread ends the program; a device's and one in a
+    // function of `paw.api` are caught.
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        if !paw_engine::guard::in_device() && std::thread::current().name() == Some("main") {
+        let caught = paw_engine::guard::in_device() || paw_core::api::in_call();
+        if !caught && std::thread::current().name() == Some("main") {
             terminal::restore();
             restore_stderr();
         }
@@ -476,7 +505,7 @@ fn serve_listeners(args: &args::Run, scripted: bool, kernel: &mut Kernel) -> Res
     let server = if scripted || args.no_listen {
         None
     } else {
-        let path = args.listen.clone().unwrap_or_else(rpc::default_path);
+        let path = args.listen.clone().unwrap_or_else(|| rpc::default_path(dirs()));
         match rpc::serve(&path, kernel.sender(), kernel.clients()) {
             Ok(server) => Some(server),
             // The socket is a convenience: carry on without it when it is taken.
@@ -498,12 +527,12 @@ fn serve_listeners(args: &args::Run, scripted: bool, kernel: &mut Kernel) -> Res
 
 /// Other machines may connect to `address`, if they know the token.
 fn listen_tcp(args: &args::Run, address: &str, kernel: &mut Kernel) -> Result<()> {
-    let token_file = args.token_file.clone().unwrap_or_else(rpc::token_path);
+    let token_file = args.token_file.clone().unwrap_or_else(|| rpc::token_path(dirs()));
     let token = rpc::token_at(&token_file)?;
     let identity = if args.no_tls {
         None
     } else {
-        Some(paw_core::tls::identity(&paw_core::tls::default_dir())?)
+        Some(paw_core::tls::identity(&paw_core::tls::default_dir(dirs()))?)
     };
     let config = identity.as_ref().map(|identity| identity.config.clone());
     let bound = rpc::serve_tcp(address, token, config, kernel.sender(), kernel.clients())?;
@@ -605,6 +634,8 @@ fn run() -> Result<i32> {
             .runtime
             .clone()
             .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
+        home: home_dir(),
+        dirs: dirs().clone(),
         clean: args.clean,
         scripted,
         argv: script_args.clone(),

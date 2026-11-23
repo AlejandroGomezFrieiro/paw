@@ -318,8 +318,9 @@ each other.
 | Done | The pencil of the piano roll | `roll_draw` (moved when it changed) and the new `chords`: 1,400 lines of Teal, 1 fewer entry on the allow-list, and no `any` in these modules | 350 | wave 4 |
 | Done | Scopes | `scope`, when scopes got time ranges and levels: 905 lines of Teal, 1 fewer entry on the allow-list, and no `any` or `paw.Untyped` in this module | 380 | wave 3 |
 | Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
+| Done | The piano roll | `views/pianoroll`, `views/pianoroll_mouse`, `views/pianoroll_strip`, `roll_clips`: 3,701 lines of Teal, 1 fewer entry on the allow-list, the 10 records that other modules kept of the piano roll gone, and no `any` or `paw.Untyped` in these modules | 2,430 | the keys |
 | Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_track`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
-| 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 9,800 | the keys |
+| 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
 | 5 | Extensions | one agent for each: `plugstate` (5,700), the others (under 3,200 each). `notation` and `utau` do not move to Teal, because they become native extensions in Rust | 56,000 | the modules of paw that each uses |
 
@@ -921,6 +922,49 @@ of one track are in `paw/views/arrange_track.tl`.
 The widget roles (`label`, `button`, `switch`, `knob` and `playhead`) are
 still defined in Lua, and their props had no record. The contracts give one
 record for each of them, so a view in Teal marks them with typed props.
+
+## What the checker found in the piano roll
+
+The checker found no error that changed what the piano roll does, and the
+tests pass with no change. Most of what it found was in how the piano roll
+and the modules around it named each other.
+
+Ten modules kept their own record of the piano roll, and some kept records
+of its layers, its clips and its marks too. The records did not agree:
+one gave a layer the clip as `clip`, and another as `data`. Each module
+now names the types of the piano roll. The module
+`paw.views.pianoroll` gives the record of the view, `PianoRoll`, and the
+records of a layer, a tool, a band, a note mark and a hit region. The
+view itself is still `paw.ui.views.pianoroll`.
+
+`paw.roll_clips` gives the record of a clip that the piano roll edits as an
+interface, `paw.roll_clips.Part`. The frontend keeps more fields of a part,
+so it has a record of its own that is a `Part`.
+
+The piano roll loaded `paw.roll_draw` at its end, and `paw.roll_draw`
+names the types of the piano roll. In Teal that is a loop, so
+`paw/init.lua` now loads `paw.roll_draw` after the views.
+
+The velocity strip changed what the piano roll draws by putting its own
+function in place of `view:render`. The view now has a field `strip`,
+which `view:render` calls after it draws the roll. `view:render` was one
+function of about 300 lines, and it is now a short function that calls
+one function for each part: the title, the ruler, the rows, the
+playhead, the velocities, the cursor and the scroll bar.
+
+`view:window_target` gives the clip of the window as a number, and the
+contract of a view said text. The contract now says text or a number.
+A change to text would change the files that save the layout.
+
+The picker of `:roll.tracks` read a third argument in its action for
+Enter, to change the text of the line. The picker never gives that
+argument, so the line keeps its old text after Enter. The port removed
+the code that could not run, and the line still does not change. The
+bug needs a fix and a test.
+
+`pianoroll.opened` and `roll_clips.changed` had a descriptor in the
+module that sends them and a second one in `paw.lsp`. `paw.lsp` now uses
+the descriptors of the modules that send them.
 
 ## What the checker found in interop
 

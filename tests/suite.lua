@@ -55,6 +55,69 @@ local function last(name, fn) lasts[#lasts + 1] = { name = name, fn = fn, part =
 local cleanups = {}
 local function after(fn) cleanups[#cleanups + 1] = fn end
 
+-- The errors that reached the message line --------------------------------
+--
+-- paw.try reports an error as a message and does not raise it: an event
+-- handler, a timer, a job and each key go through it. So the runner wraps
+-- paw.try and keeps each error that it reports while a test runs. A test
+-- fails when one of them is not an error that it expects
+-- (`T.expect_error`), and when an error that it expects does not come.
+-- The modules look up `paw.try` at each call, so the wrapper sees all of them.
+local reported, expected = {}, {}
+local paw_try = paw.try
+
+-- Where an error that paw.try caught comes from, in words.
+local function origin(fn, ...)
+  if fn == paw.limit.named then return (...) end -- "a handler of `render.before`", "the job x"
+  if fn == paw.keymap.dispatch then return "the key " .. tostring((...)) end
+  if type(fn) ~= "function" then return tostring(fn) end
+  local info = debug.getinfo(fn, "S")
+  return info.short_src .. ":" .. info.linedefined
+end
+
+function paw.try(fn, ...)
+  local result = { paw_try(fn, ...) }
+  if not result[1] then
+    -- The text as the message line shows it: paw.try has just said it.
+    local said = paw.ui.messages[#paw.ui.messages]
+    reported[#reported + 1] =
+      { text = said and said.text or tostring(result[2]), from = origin(fn, ...), whole = tostring(result[2]) }
+  end
+  return unpack(result, 1, table.maxn(result))
+end
+
+--- Say that the test gives an error that reaches the message line, and
+--- that matches `pattern` (a Lua pattern). It can come any number of
+--- times; the test fails if it does not come at all.
+local function expect_error(pattern) expected[#expected + 1] = { pattern = pattern, seen = false } end
+
+-- The errors of the test that it did not expect, and the expected errors
+-- that did not come, in words. Empties both lists for the next test.
+local function unexpected_errors()
+  local words = {}
+  for _, r in ipairs(reported) do
+    local known = false
+    for _, e in ipairs(expected) do
+      if r.text:find(e.pattern) then
+        e.seen, known = true, true
+      end
+    end
+    if not known then
+      words[#words + 1] = "an error reached the message line: "
+        .. r.text
+        .. " (from "
+        .. r.from
+        .. ")\n  "
+        .. r.whole:gsub("\n", "\n  ")
+    end
+  end
+  for _, e in ipairs(expected) do
+    if not e.seen then words[#words + 1] = "no error matched the expected " .. string.format("%q", e.pattern) end
+  end
+  reported, expected = {}, {}
+  return words
+end
+
 -- Two tables are equal when they hold the same values: paw.inspect sorts
 -- the keys, so equal tables give the same text.
 local function same(got, want)
@@ -177,6 +240,8 @@ local function fresh()
   -- project starts with none.
   local qf = paw.qf.stack()
   qf.lists, qf.at = {}, 0
+  -- An error of an earlier test would stay named on the key line.
+  require("paw.views.cmdline").read_errors()
   paw.flush()
 end
 
@@ -409,6 +474,8 @@ local T = {
   eq = eq,
   near = near,
   fails = fails,
+  expect_error = expect_error,
+  take_errors = unexpected_errors,
   fresh = fresh,
   start = start,
   screen = screen,
@@ -431,6 +498,8 @@ local T = {
   keys = keys,
   roll_notes = roll_notes,
 }
+-- T.expect_screen and the check of unused golden files (tests/tools/golden.lua).
+local golden_unused = dofile("tests/tools/golden.lua")(T)
 local files = {}
 local function lua_files(dir, pattern)
   local found = {}
@@ -757,6 +826,8 @@ local function stamps_kept(fn)
   return skipped
 end
 for i, t in ipairs(selected) do
+  -- An error that came between two tests is of no test.
+  reported, expected = {}, {}
   local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
   for j = #cleanups, 1, -1 do
     pcall(cleanups[j])
@@ -764,6 +835,14 @@ for i, t in ipairs(selected) do
   end
   paw.option.restore(start_options)
   note_kernel(t)
+  -- A test that skips did not reach what it expects; a test that failed
+  -- also names the errors, which can be why.
+  local errors = table.concat(unexpected_errors(), "\n")
+  if ok and type(err) ~= "string" and errors ~= "" then
+    ok, err = false, errors
+  elseif not ok and errors ~= "" then
+    err = tostring(err) .. "\n" .. errors
+  end
   if ok and type(err) == "string" then
     print("skip  " .. t.name .. " (" .. err .. ")")
   elseif ok then
@@ -792,12 +871,19 @@ if #stale > 0 then
       .. table.concat(stale, ", ")
   )
 end
+failed = failed + golden_unused()
 os.execute("rm -rf '" .. scratch .. "'")
 local left = {}
 for path in pairs(files_before and checkout_files() or {}) do
-  -- Code and pages that a person writes while the suite runs are not left
-  -- behind by a test.
-  if not files_before[path] and not path:match("%.rs$") and not path:match("%.lua$") and not path:match("%.md$") then
+  -- Code and pages that a person writes while the suite runs, and the golden
+  -- screens that PAW_BLESS=1 writes, are not left behind by a test.
+  if
+    not files_before[path]
+    and not path:match("%.rs$")
+    and not path:match("%.lua$")
+    and not path:match("%.md$")
+    and not path:match("/screens/[^/]+/[^/]+%.txt$")
+  then
     left[#left + 1] = path
   end
 end

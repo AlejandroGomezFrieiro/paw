@@ -21,8 +21,10 @@ use realfft::num_complex::Complex;
 use realfft::{RealFftPlanner, RealToComplex};
 use serde::Serialize;
 
+use crate::levels::{FULL_SCALE, Levels};
+
 /// Time between two points of every series, and the step of the gating blocks.
-pub const HOP_SECONDS: f64 = 0.1;
+pub(crate) const HOP_SECONDS: f64 = 0.1;
 /// Momentary loudness window: 400 ms, 4 hops.
 const MOMENTARY_HOPS: usize = 4;
 /// Short-term loudness window: 3 s, 30 hops.
@@ -32,9 +34,6 @@ const RELATIVE_GATE: f64 = -10.0;
 const LRA_RELATIVE_GATE: f64 = -20.0;
 /// What series hold where there is no sound to measure.
 pub const FLOOR_DB: f64 = -150.0;
-/// A sample at or above this is at digital full scale (it includes a 16-bit
-/// file's largest positive value, 32767/32768).
-const FULL_SCALE: f32 = 0.999_95;
 /// Consecutive full-scale samples that make a clipped run (Audacity's default),
 /// and unclipped samples that end one.
 const RUN_START: usize = 3;
@@ -73,9 +72,9 @@ fn lufs(power: f64) -> f64 {
 
 /// A biquad in direct form I, in f64.
 #[derive(Clone, Copy, Default)]
-pub(super) struct Biquad {
-    pub(super) b: [f64; 3],
-    pub(super) a: [f64; 2],
+pub(crate) struct Biquad {
+    pub(crate) b: [f64; 3],
+    pub(crate) a: [f64; 2],
     x: [f64; 2],
     y: [f64; 2],
 }
@@ -96,7 +95,7 @@ impl Biquad {
 /// analogue prototypes behind the standard's 48 kHz coefficients (the same
 /// derivation as libebur128's). At 48 kHz they reproduce the table in
 /// BS.1770-4 to the printed precision.
-pub(super) fn k_weighting(rate: f64) -> [Biquad; 2] {
+pub(crate) fn k_weighting(rate: f64) -> [Biquad; 2] {
     use std::f64::consts::PI;
     // Stage 1: a high shelf of about +4 dB above 1.5 kHz, for the head.
     let (f0, gain, q) = (1681.974450955533, 3.999843853973347, 0.7071752369554196);
@@ -337,6 +336,9 @@ pub struct Analysis {
     pub sound_end: Option<f64>,
 
     pub bands: Vec<Band>,
+    /// Spectral centroid of the mid signal in Hz: the mean frequency,
+    /// weighted by power. 0 for silence.
+    pub centroid: f64,
     pub series: Series,
 }
 
@@ -362,6 +364,9 @@ pub struct Series {
     pub dc_right: Vec<f64>,
 }
 
+/// Measures a stereo signal in one pass: give it the signal with
+/// [`push`](Self::push) in pieces of any length, then take the
+/// [`Analysis`] with [`finish`](Self::finish).
 pub struct Analyzer {
     rate: f64,
     hop_frames: usize,
@@ -375,17 +380,15 @@ pub struct Analyzer {
     tp_best: (f32, usize),
     sample_peak: f32,
     sample_peak_at: usize,
-    energy: [f64; 2],
-    sum: [f64; 2],
+    /// Plain levels of each channel: energy, sum, full-scale samples.
+    levels: [Levels; 2],
     mid: f64,
     side: f64,
     second: [f64; 2],
     in_second: usize,
     second_means: [Vec<f64>; 2],
     sound: Option<(usize, usize)>,
-    // Clipping.
-    clipped: usize,
-    overs: usize,
+    // Runs of clipped samples.
     streak: usize,
     open: Option<(usize, usize, f32)>,
     runs: Vec<Run>,
@@ -424,16 +427,13 @@ impl Analyzer {
             tp_best: (0.0, 0),
             sample_peak: 0.0,
             sample_peak_at: 0,
-            energy: [0.0; 2],
-            sum: [0.0; 2],
+            levels: [Levels::default(); 2],
             mid: 0.0,
             side: 0.0,
             second: [0.0; 2],
             in_second: 0,
             second_means: [Vec::new(), Vec::new()],
             sound: None,
-            clipped: 0,
-            overs: 0,
             streak: 0,
             open: None,
             runs: Vec::new(),
@@ -448,6 +448,7 @@ impl Analyzer {
         }
     }
 
+    /// The frames given so far.
     pub fn frames(&self) -> usize {
         self.frames
     }
@@ -475,8 +476,8 @@ impl Analyzer {
         let (lf, rf) = (l as f64, r as f64);
         let peak = l.abs().max(r.abs());
         self.hop_sums(lf, rf, peak, frame);
-        let mid = self.totals(lf, rf);
-        self.clipping(l, r, peak, frame);
+        let mid = self.totals(l, r);
+        self.clipping(peak, frame);
 
         self.fft_buf.push(mid);
         if self.fft_buf.len() == self.fft_size {
@@ -519,13 +520,12 @@ impl Analyzer {
         }
     }
 
-    /// Totals over the whole signal (energy, sum, mid and side, the mean of
-    /// each second); gives the mid sample.
-    fn totals(&mut self, lf: f64, rf: f64) -> f64 {
-        self.energy[0] += lf * lf;
-        self.energy[1] += rf * rf;
-        self.sum[0] += lf;
-        self.sum[1] += rf;
+    /// Totals over the whole signal (the levels of each channel, mid and
+    /// side, the mean of each second); gives the mid sample.
+    fn totals(&mut self, l: f32, r: f32) -> f64 {
+        self.levels[0].add(l);
+        self.levels[1].add(r);
+        let (lf, rf) = (l as f64, r as f64);
         let (m, s) = ((lf + rf) * 0.5, (lf - rf) * 0.5);
         self.mid += m * m;
         self.side += s * s;
@@ -543,16 +543,8 @@ impl Analyzer {
         m
     }
 
-    /// Clipped and over samples, and the runs of clipped samples.
-    fn clipping(&mut self, l: f32, r: f32, peak: f32, frame: usize) {
-        for x in [l.abs(), r.abs()] {
-            if x >= FULL_SCALE {
-                self.clipped += 1;
-            }
-            if x > 1.0 {
-                self.overs += 1;
-            }
-        }
+    /// The runs of clipped samples. The levels count each clipped sample.
+    fn clipping(&mut self, peak: f32, frame: usize) {
         if peak >= FULL_SCALE {
             self.streak += 1;
             match &mut self.open {
@@ -677,13 +669,9 @@ impl Analyzer {
             ..Default::default()
         };
         for end in 0..hops.len() {
-            series.momentary.push(lufs(window(
-                hops,
-                hop_frames,
-                end,
-                MOMENTARY_HOPS,
-                &stereo,
-            )));
+            series
+                .momentary
+                .push(lufs(window(hops, hop_frames, end, MOMENTARY_HOPS, &stereo)));
             series.short_term.push(lufs(window(
                 hops,
                 hop_frames,
@@ -728,12 +716,7 @@ impl Analyzer {
 
     /// DC offset per channel: the median of the 1 s means, and the plain mean.
     fn dc(&self) -> ([f64; 2], [f64; 2]) {
-        let frames = self.frames;
-        let dc_mean = if frames > 0 {
-            [self.sum[0] / frames as f64, self.sum[1] / frames as f64]
-        } else {
-            [0.0; 2]
-        };
+        let dc_mean = [self.levels[0].dc(), self.levels[1].dc()];
         let dc = if self.second_means[0].is_empty() {
             dc_mean
         } else {
@@ -748,20 +731,19 @@ impl Analyzer {
         let series = self.series();
         let frames = self.frames;
         let total: f64 = self.hops.iter().map(|h| h.lr).sum();
-        let (ll, rr): (f64, f64) = (self.energy[0], self.energy[1]);
+        let [left, right] = self.levels;
+        let (ll, rr) = (left.energy(), right.energy());
+        let both = left.merged(&right);
         let true_peak = self.tp_best.0.max(self.sample_peak);
         let true_peak_at = if self.tp_best.0 >= self.sample_peak {
             self.tp_best.1
         } else {
             self.sample_peak_at
         };
-        let rms = if frames > 0 {
-            ((ll + rr) / (2.0 * frames as f64)).sqrt()
-        } else {
-            0.0
-        };
+        let rms = both.rms();
         let (dc, dc_mean) = self.dc();
         let bands = self.bands();
+        let centroid = self.centroid();
         let true_peak_db = amp_db(true_peak as f64);
         let sample_peak_db = amp_db(self.sample_peak as f64);
         let integrated = loud.integrated;
@@ -782,8 +764,8 @@ impl Analyzer {
             plr: integrated.map(|i| true_peak_db - lufs(i)),
             crest: (rms > 0.0).then(|| sample_peak_db - amp_db(rms)),
             rms: amp_db(rms),
-            clipped_samples: self.clipped,
-            over_samples: self.overs,
+            clipped_samples: both.clipped(),
+            over_samples: both.overs(),
             clip_runs: self.run_count,
             runs: self.runs,
             dc,
@@ -813,6 +795,7 @@ impl Analyzer {
             sound_start: self.sound.map(|(first, _)| first as f64 / self.rate),
             sound_end: self.sound.map(|(_, last)| (last + 1) as f64 / self.rate),
             bands,
+            centroid,
             series,
         }
     }
@@ -855,6 +838,21 @@ impl Analyzer {
                 },
             })
             .collect()
+    }
+
+    /// The power-weighted mean frequency of the mid signal's spectrum. The
+    /// DC bin is left out, as in the bands.
+    fn centroid(&self) -> f64 {
+        let bin_hz = self.rate / self.fft_size as f64;
+        let (weighted, total) = self
+            .spectrum
+            .iter()
+            .enumerate()
+            .skip(1)
+            .fold((0.0, 0.0), |(w, t), (k, p)| {
+                (w + k as f64 * bin_hz * p, t + p)
+            });
+        if total > 0.0 { weighted / total } else { 0.0 }
     }
 }
 
@@ -909,7 +907,7 @@ fn gate(blocks: &[f64]) -> Vec<bool> {
 
 /// The gated mean power of a list of block powers: integrated loudness
 /// before taking the logarithm.
-pub fn gated(blocks: &[f64]) -> Option<f64> {
+pub(crate) fn gated(blocks: &[f64]) -> Option<f64> {
     mean_of(blocks, &gate(blocks))
 }
 

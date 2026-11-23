@@ -37,6 +37,8 @@ local type MarkersModule = require("paw.markers")
 local type TempoModule = require("paw.tempo")
 local type CommandsModule = require("paw.commands")
 local type SnippetModule = require("paw.snippet")
+local type RollClipsModule = require("paw.roll_clips")
+local type Roll = require("paw.views.pianoroll")
 
 --- The edge of the note being drawn that the cursor is on.
 local enum Edge
@@ -131,53 +133,12 @@ local record Session
   step: boolean
 end
 
---- An edited clip of the roll (paw/roll_clips.lua): its id, the clip, and
---- where it starts in the roll's beats (`offset`) and the project's.
-local record Part
-  id: integer
-  clip: objects.Clip
-  offset: number
-  start: number
-  length: number
-  track: integer
-end
-
-local record Clips
-  parts: function(): {Part}
-  target: function(beat: number, parts?: {Part}): Part
-  span: function(): number, number
-end
-
---- What a layer of the piano roll gets (paw/views/pianoroll.lua).
-local record Layer
-  data: types.Clip
-  plane: contracts.Plane
-  width: integer
-  hue: DrawModule.Hue
-  row: function(pitch: integer): integer
-  x: function(beat: number): integer
-end
-
---- The props of a note mark (paw/roles/notes.lua).
-local record NoteMark is contracts.MarkProps
-  label: string
-  style: string
-  color: string
-  velocity: integer
-  pending: boolean
-  bend: number
-  bend_at: number
-end
-
---- The piano roll, as far as this module reads it.
-local record Roll
-  beat: number
-  pitch: integer
-  clip: function(self: Roll): objects.Clip
-  step_length: function(self: Roll): number
-  set_step: function(self: Roll, length: number)
-  layer: function(name: string, order: integer, paint: function(Layer))
-end
+-- The piano roll (paw/views/pianoroll.tl) and the clips it edits
+-- (paw/roll_clips.tl).
+local type PianoRoll = Roll.PianoRoll
+local type Layer = Roll.Layer
+local type NoteMark = Roll.NoteMark
+local type Part = RollClipsModule.Part
 
 local record Frontend
   refresh: function()
@@ -199,7 +160,7 @@ local record Paw is partial.Paw
   pick: function(spec: contracts.PickSource<ChordsModule.Voiced>)
   time: objects.Time
   clip: function(id: integer): objects.Clip
-  roll_clips: Clips
+  roll_clips: RollClipsModule
   frontend: Frontend
 end
 local paw = (_G as {string: Paw}).paw
@@ -257,10 +218,10 @@ seats.keep(
   function(): Seat return {} end
 )
 
-local function roll(): Roll
-  return paw.ui.views.pianoroll as Roll
+local function roll(): PianoRoll
+  return paw.ui.views.pianoroll as PianoRoll
 end
-local function clips(): Clips
+local function clips(): RollClipsModule
   return paw.roll_clips
 end
 
@@ -1815,9 +1776,10 @@ local function write(): string
         e.set[#e.set + 1] = change
         changed_n = changed_n + 1
       else
-        local note = (paw.ui.views.pianoroll as {string: function(objects.Clip, types.Note): types.Note}).new_note(
+        -- The roll's modules change the note (`entering`); the kernel takes it.
+        local note = roll().new_note(
           part.clip, {pitch = n.pitch, start = math.max(0, start), length = n.length, velocity = n.velocity}
-        )
+        ) as types.Note
         if n.fields then
           if n.fields.attr then
             note.attr = n.fields.attr

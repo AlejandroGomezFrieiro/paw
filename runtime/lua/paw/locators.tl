@@ -7,18 +7,12 @@ local api = require("paw.api")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type objects = require("paw.objects")
+local type Roll = require("paw.views.pianoroll")
 
 local type Location = contracts.Location
 
---- The piano roll (paw/views/pianoroll.lua), as far as this module reads
---- it: its clip, and the pitch and beat of its cursor.
-local record PianoRoll
-  clip_id: integer
-  pitch: integer
-  beat: number
-  edit: function(self: PianoRoll, clip: objects.Clip)
-  set: function(self: PianoRoll, pitch: integer, beat: number)
-end
+--- The piano roll (paw/views/pianoroll.tl).
+local type PianoRoll = Roll.PianoRoll
 
 --- A row of the device panel: a device, a parameter of it, or its picture.
 local record DeviceRow

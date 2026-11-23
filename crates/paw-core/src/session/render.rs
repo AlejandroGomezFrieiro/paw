@@ -25,13 +25,13 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, anyhow, bail};
 use paw_engine::backend;
 use paw_engine::{Engine, Msg, wav};
+use paw_measure::Analyzer;
 use serde_json::{Value, json};
 
 use super::encode::{self, Lossy, Quality};
 use super::tags::{self, Cover, Tags};
 use super::statelanes::{self, Settle, Stop};
 use super::{Dither, RenderOpts, Session, block_json, check_sample_rate, settle_plugins};
-use crate::measure::analysis::Analyzer;
 use crate::model::{Id, MASTER_ID, Project};
 use crate::sync::{LiveDevices, Mapper, SyncCtx, sync};
 

@@ -8,6 +8,7 @@
 --   unsubscribe                               -- all of them, or the ones named
 --   frontend.watch                            -- `frontend.state` events from now on
 --   frontend.unwatch
+--   frontend.sync                             -- push what is due now, answer the number of the last state
 --
 -- An extension can add methods of its own:
 --   paw.remote.methods["mything.status"] = function(client, ...) return ... end
@@ -95,6 +96,10 @@ M.methods = {}
 
 local subs: {integer: {string}} = {} -- connection -> list of event patterns
 local watchers: {integer: Watcher} = {} -- connection -> { revision, tick, sent = { section -> its JSON } }
+-- connection -> the number of the last `frontend.state` sent to it. The
+-- numbers start at 1 and go up by one for each state. They go on after
+-- `frontend.unwatch` and stop when the connection closes.
+local sequence: {integer: integer} = {}
 local timer: integer
 
 local function matches(pattern: string, name: string): boolean
@@ -221,6 +226,11 @@ function M.push(client: integer)
   end
   w.tick = text
   fields.sections = changed as Value
+  -- The number goes in after the comparison with the last state, which
+  -- it would make different each time.
+  local seq = (sequence[client] or 0) + 1
+  sequence[client] = seq
+  fields.seq = seq as Value
   if not api.rpc_push(client, "frontend.state", state) then
     M.closed(client)
   end
@@ -330,6 +340,23 @@ M.methods["frontend.pace"] = function(client: integer, given: number): boolean
   return true
 end as Method
 
+--- The barrier of a frontend. The kernel first ends the turn of the
+--- terminal keys (`ui.input`) before this request: each other request ends
+--- its own turn (crates/paw-core/src/kernel.rs, `request`).
+--- Then this method pushes to the connection all that is due: the state of
+--- the frontend, and the windows and live values of `scene.watch`. It
+--- answers the number of the last `frontend.state` sent to the connection,
+--- 0 for none. A reply comes after the events before it, so the frontend
+--- has all of them when it reads the answer. When nothing changed, nothing
+--- comes between two syncs.
+M.methods["frontend.sync"] = function(client: integer): integer
+  if paw.scene then
+    paw.scene.sync(client)
+  end
+  M.push(client)
+  return sequence[client] or 0
+end as Method
+
 M.methods["frontend.unwatch"] = function(client: integer): boolean
   watchers[client] = nil
   retime()
@@ -340,6 +367,7 @@ end as Method
 --- A connection closed: nothing more is sent to it.
 function M.closed(client: integer)
   subs[client] = nil
+  sequence[client] = nil
   if watchers[client] then
     watchers[client] = nil
     retime()

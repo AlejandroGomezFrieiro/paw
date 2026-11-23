@@ -46,6 +46,39 @@ impl Source for Terminal {
     }
 }
 
+/// Events and pauses, as a slow tty delivers them: a `None` is a gap in
+/// which nothing arrives, so a wait for the rest of a sequence ends there.
+/// No time passes. The tests and the fuzz target `terminal_keys` use it.
+pub struct Scripted(VecDeque<Option<Event>>);
+
+impl Scripted {
+    pub fn new(steps: impl IntoIterator<Item = Option<Event>>) -> Self {
+        Self(steps.into_iter().collect())
+    }
+}
+
+impl Source for Scripted {
+    fn poll(&mut self, _: Duration) -> bool {
+        match self.0.front() {
+            Some(Some(_)) => true,
+            Some(None) => {
+                self.0.pop_front();
+                false
+            }
+            None => false,
+        }
+    }
+
+    fn read(&mut self) -> Option<Event> {
+        while let Some(step) = self.0.pop_front() {
+            if step.is_some() {
+                return step;
+            }
+        }
+        None
+    }
+}
+
 /// Events with split sequences joined.
 pub struct Joiner<S> {
     source: S,
@@ -295,32 +328,6 @@ fn mouse(params: &str, down: bool) -> Option<Event> {
 mod tests {
     use super::*;
 
-    /// Events and pauses, as a slow tty delivers them: a `None` is a gap in
-    /// which nothing arrives.
-    struct Fake(VecDeque<Option<Event>>);
-
-    impl Source for Fake {
-        fn poll(&mut self, _: Duration) -> bool {
-            match self.0.front() {
-                Some(Some(_)) => true,
-                Some(None) => {
-                    self.0.pop_front();
-                    false
-                }
-                None => false,
-            }
-        }
-
-        fn read(&mut self) -> Option<Event> {
-            while let Some(step) = self.0.pop_front() {
-                if step.is_some() {
-                    return step;
-                }
-            }
-            None
-        }
-    }
-
     fn key(c: char) -> Option<Event> {
         Some(Event::Key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)))
     }
@@ -331,7 +338,7 @@ mod tests {
 
     /// What the program sees from the pieces crossterm reports.
     fn join(steps: Vec<Option<Event>>) -> Vec<Event> {
-        let mut joiner = Joiner::new(Fake(steps.into()), Duration::from_millis(10));
+        let mut joiner = Joiner::new(Scripted::new(steps), Duration::from_millis(10));
         std::iter::from_fn(|| joiner.next_event()).collect()
     }
 

@@ -15,7 +15,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 clap-sys = "0.5"
-# Safe wrappers over clap-sys for the CLAP host (clap.rs): the entry, the
+# Safe wrappers over clap-sys for the CLAP host (clap/): the entry, the
 # plugin factory, the instance, the host's callbacks, processing and the
 # plugin's extensions. paw opens the file itself (libs.rs), so not Clack's own loader.
 clack-host = { version = "0.2", default-features = false }
@@ -35,6 +35,7 @@ x11rb = "0.13"
 
 [dev-dependencies]
 hound = "3.5"
+tempfile = "3"
 
 # A CLAP plugin of the tests' own (tests/stub.rs).
 [[example]]

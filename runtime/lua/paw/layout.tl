@@ -2745,7 +2745,8 @@ local function export(node: Node, scopes?: boolean): SpecNode
     -- What a view opens in the window (its clip), as `roll://7` names it.
     local view = not buf and ui().views[node.view]
     if view and view.window_target then
-      local ok, target = pcall(M.within, node, function(): string return view:window_target() end) as (boolean, string)
+      local ok, target = pcall(M.within, node, function(): string | integer return view:window_target() end)
+        as (boolean, string)
       if ok then
         out.target = target
       end

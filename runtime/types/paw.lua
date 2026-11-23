@@ -2903,6 +2903,11 @@ function paw.ex.substitution(r, pattern, replacement, flags) end
 ---@param spec any
 function paw.ex.view(name, spec) end
 
+--- True if this build of paw has `feature`, one of the names of
+--- `paw.api.build().features` such as `"processes"`. An extension that
+--- works without a feature, but has one part that uses it, checks it here.
+function paw.ext.build_has(feature) end
+
 --- The names of the bundled extensions, loaded or not, sorted.
 function paw.ext.bundled() end
 
@@ -7189,7 +7194,8 @@ function paw.roll_clips.step_track(n, wrap) end
 function paw.roll_clips.target(beat, parts) end
 
 --- Add a clip to the editable set, or remove it. If you remove the active
---- clip, the next clip becomes active. The last clip stays.
+--- clip, the next clip becomes active. The last clip stays. Returns whether
+--- the clip is editable now, nil for a clip that is not MIDI.
 ---@param id any
 function paw.roll_clips.toggle(id) end
 
@@ -7606,6 +7612,13 @@ function paw.scene.live() end
 ---@param ms any
 function paw.scene.set_pace(ms) end
 
+--- Send connection `client` now what it would get after the turn: the
+--- windows whose drawing changed, and the live values when they changed.
+--- A window that moves only with time waits for its next tick.
+--- `frontend.sync` calls it.
+---@param client any
+function paw.scene.sync(client) end
+
 --- Call it after a turn of the kernel. paw pushes now, not at the next
 --- tick, the windows whose drawing can be different.
 function paw.scene.turn() end
@@ -8012,7 +8025,7 @@ function paw.snippet.marks(clip_id) end
 function paw.snippet.offered(view) end
 
 --- Paint the snippet layer of the piano roll (order 40, see
---- `views/pianoroll.lua`). It marks the notes of the active snippet, and
+--- `views/pianoroll.tl`). It marks the notes of the active snippet, and
 --- shows its range along the bottom with the items of Tab and `<C-n>`. It
 --- shows the notes that the picker would write as ghosts.
 ---@param p any
@@ -8695,12 +8708,38 @@ function paw.tempolane.range() end
 ---@param beat any
 function paw.tempolane.remove(beat) end
 
+--- Replace every tempo point of the window's time with `points`, beats of
+--- the window, as the curve editor of paw://tempo writes them. The map
+--- starts with a change at its start: when no point is there, one with the
+--- first point's tempo holds until it.
+---@param points any
+function paw.tempolane.set_points(points) end
+
 --- Show the row, or hide it (`on` false).
 ---@param on any
 function paw.tempolane.show(on) end
 
 --- True if the row shows.
 function paw.tempolane.shown() end
+
+--- Move the signature change at `beat` to beat `to`, both of the window's
+--- time; a change there goes. The one at the start does not move, and
+--- none moves onto it.
+---@param beat any
+---@param to any
+function paw.tempolane.signature_move(beat, to) end
+
+--- Remove the signature change at a beat of the window's time. You cannot
+--- remove the one at the start.
+---@param beat any
+function paw.tempolane.signature_remove(beat) end
+
+--- Start a bar of `num`/`den` at a beat of the window's time, or change
+--- the signature that starts there.
+---@param beat any
+---@param num any
+---@param den any
+function paw.tempolane.signature_set(beat, num, den) end
 
 --- Show the tempo lane, or hide it. Returns true if it shows.
 function paw.tempolane.toggle() end
@@ -9531,6 +9570,13 @@ function paw.util.merge(base, extra) end
 ---@param step any
 function paw.util.round(v, step) end
 
+--- Break text into lines of at most `width` columns, at spaces. A word
+--- wider than `width` gets a line of its own. Empty text gives one empty
+--- line.
+---@param text any
+---@param width any
+function paw.util.wrap(text, width) end
+
 --- Put a track under a VCA.
 ---@param track any
 ---@param vca any
@@ -9712,6 +9758,14 @@ function paw.api.base64_encode(data, opts) end
 --- not have.
 ---@param device integer?
 function paw.api.blocks(device) end
+
+--- What this build of paw has: `{ vm, features }`. `vm` is the Lua
+--- that runs the code, `"luajit"` or `"lua52"`. `features` lists
+--- what an extension can name in the `needs` of its manifest:
+--- `"ffi"` (LuaJIT's `ffi`), `"processes"` (helper programs,
+--- `io.popen`), `"network"` (sockets and requests over the network)
+--- and `"native"` (parts that Nix builds, such as plugins).
+function paw.api.build() end
 
 --- Write drawings (the operations of `paw.canvas.paint`) to a file:
 --- `format` "pdf" (one page for each drawing), "svg" or "png" (the first).
@@ -10748,6 +10802,12 @@ function paw.api.plugins_add_dir(dir) end
 ---@param path string
 function paw.api.plugins_attach(path) end
 
+--- The folders where paw looks for plugins, for each format, in the order
+--- that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`.
+--- They include the folders that `plugins_add_dir` added. Returns nil where
+--- paw cannot find plugins.
+function paw.api.plugins_dirs() end
+
 --- Stop to find plugins in a directory added with `plugins_add_dir`, and
 --- make no more devices of `kinds`, the kinds found there. Devices that
 --- exist continue to work.
@@ -11182,9 +11242,13 @@ function paw.api.tempo_signature(beat) end
 --- them to see what a bad device does to the other devices.
 function paw.api.test_devices() end
 
---- Panic, as a bug in the program does. Tests use it to see what paw keeps.
+--- Panic, as a bug in the program does. Tests use it to see what paw
+--- keeps. The panic ends the program, as a bug outside `paw.api`
+--- does, and paw writes a safety copy. With `inside`, it is a bug in
+--- this function: the call gives an error, and the program goes on.
 ---@param why string
-function paw.api.test_panic(why) end
+---@param inside boolean?
+function paw.api.test_panic(why, inside) end
 
 --- --- timers ---
 ---@param ms number
