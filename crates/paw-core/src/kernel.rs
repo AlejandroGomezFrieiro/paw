@@ -107,6 +107,10 @@ pub struct KernelOpts {
     pub registry: Registry,
     pub config_dir: PathBuf,
     pub runtime_dir: Option<PathBuf>,
+    /// The user's home folder, which `~/` names in a project's files: the
+    /// program reads it once at its start (`HOME`). `None` keeps every path
+    /// outside a project absolute.
+    pub home: Option<PathBuf>,
     pub clean: bool,
     /// Running a script (`-l`), not a session somebody works in.
     pub scripted: bool,
@@ -153,6 +157,7 @@ impl Kernel {
         crate::audio::apply(&mut backend, &crate::audio::load(&device_file));
         let mut session = Session::new(&backend, opts.registry)?;
         session.device_file = Some(device_file);
+        session.home = crate::session::folder::Home::new(opts.home);
         session.set_bakes(Some(crate::bake::Store::user()));
         let (tx, rx) = channel();
         // MIDI input goes straight to the engine; scripts hear of it here.

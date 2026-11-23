@@ -19,6 +19,12 @@ use paw_core::{Kernel, KernelOpts, rpc, startuptime};
 use paw_engine::backend::{BackendChoice, BackendOptions};
 use serde_json::Value;
 
+/// The user's home folder (`HOME`). The program reads it here only, and
+/// gives it to the parts that name files from it (`~/`).
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
 fn config_dir() -> PathBuf {
     let base = paw_proto::dirs::config().unwrap_or_else(|| PathBuf::from("."));
     base.join("paw")
@@ -178,7 +184,7 @@ fn attach(options: &Attach) -> Result<()> {
     let mut connection = connect(&options.connect)?;
     // `~/` in a file that the instance asks for is the home folder of this
     // machine, resolved once here.
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = home_dir();
     // What was typed and what the instance sends come in on one channel,
     // so that the loop sleeps until there is one or the other.
     let (incoming, arrived) = std::sync::mpsc::channel();
@@ -609,6 +615,7 @@ fn run() -> Result<i32> {
             .runtime
             .clone()
             .or_else(|| std::env::var_os("PAW_RUNTIME").map(PathBuf::from)),
+        home: home_dir(),
         clean: args.clean,
         scripted,
         argv: script_args.clone(),

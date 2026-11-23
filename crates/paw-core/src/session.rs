@@ -575,6 +575,9 @@ pub struct Session {
     /// Where the devices chosen with [`audio_use`](Self::audio_use) are
     /// remembered, or `None` not to remember them.
     pub device_file: Option<PathBuf>,
+    /// The home folder that `~/` names in the project's files. The kernel
+    /// sets it once from `KernelOpts::home`; none until then.
+    pub(crate) home: folder::Home,
     /// The render running on a thread of its own: session/render.rs.
     render_job: Option<render::Job>,
     /// The state each state lane last gave its device from the main
@@ -688,6 +691,7 @@ impl Session {
             midi: Default::default(),
             writing: write::Writing::default(),
             device_file: None,
+            home: folder::Home::default(),
             render_job: None,
             state_given: Default::default(),
             loads: Default::default(),

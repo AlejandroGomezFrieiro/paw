@@ -84,7 +84,7 @@ pub fn registry(_args: &args::Run, display_note: Option<String>) -> (Registry, V
 pub unsafe fn repair_display_env() -> Option<String> {
     #[cfg(not(target_vendor = "browserpod"))]
     {
-        let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+        let home = crate::home_dir();
         // SAFETY: The caller promises that no other thread runs.
         unsafe { paw_plugins::repair_display_env(home.as_deref()) }
     }
