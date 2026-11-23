@@ -332,6 +332,9 @@ paw.vca = {}
 ---@class paw.vzoom
 paw.vzoom = {}
 
+---@class paw.workspace
+paw.workspace = {}
+
 ---@class paw.xml
 paw.xml = {}
 
@@ -5093,12 +5096,18 @@ function paw.layout.instances(name, def, keys, fresh) end
 --- The names of the layouts there are: the configuration's and those saved.
 function paw.layout.layout_names() end
 
+--- Layout `name` as `M.restore` takes it: the one saved with `:layout
+--- save`, else the configuration's (`paw.layouts`). Nil and the reason
+--- when there is none.
+---@param name any
+function paw.layout.layout_spec(name) end
+
 --- A new window that shows `view`, with fields such as `size` or `hidden`.
 ---@param view any
 ---@param fields any
 function paw.layout.leaf(view, fields) end
 
---- Put back layout `name`: the configuration's, else one saved.
+--- Put back layout `name`: the one saved, else the configuration's.
 ---@param name any
 function paw.layout.load(name) end
 
@@ -6315,10 +6324,11 @@ function paw.nest.list() end
 
 --- Make a subproject with a row of its own, as `:nest.new` does (see the
 --- top): the subproject over the time given, a return row below the
---- track `below` (in its group, as `o` puts a track) with one block, the meter in the song's map when one is
---- given; then the window enters it, with one empty track
---- (`paw.opt.nest_track`), or with the tracks that the `create` of its
---- kind (`o.kind`) makes. Call it in one undo step (a command is one).
+--- track `below` (in its group, as `o` puts a track) with one block, the
+--- meter in the song's map when one is given; then the window enters it,
+--- with one empty track (`paw.opt.nest_track`), or with the tracks that
+--- the `create` of its kind (`o.kind`) makes. Call it in one undo step (a
+--- command is one).
 ---@param o any
 function paw.nest.new(o) end
 
@@ -6366,14 +6376,19 @@ function paw.nest.promote(clip, deep) end
 --- Save the window's view as a subproject, as `:scope.write` does: per
 --- track, or with a row of its own (`own_row`, `:scope.write!`). The
 --- view's clips move into the subproject (`paw.api.nest_save`); the rows
---- get its blocks; its markers and regions inside move in, and a region
---- over its time stays. The meter of the time is the subproject's own.
---- Per track, the window stays in the view; with a row of its own, it is
---- inside the subproject at the same place. Call it in one undo step.
---- Returns the message.
+--- get its blocks. In a view with time, its markers and regions inside
+--- move in, and a region over its time stays; a view with no time takes
+--- none of them. The meter of the time is the subproject's own. With a
+--- row of its own, no route of the song changes: the row plays where the
+--- tracks played, in their group; when they played into several buses, it
+--- plays into the master, and `stems` gives a stem row for each track,
+--- into its bus. Per track, the window stays in the view; with a row of
+--- its own, it is inside the subproject at the same place. Call it in one
+--- undo step. Returns the message.
 ---@param name any
 ---@param own_row any
-function paw.nest.save(name, own_row) end
+---@param stems any
+function paw.nest.save(name, own_row, stems) end
 
 --- Store the data of subproject `nest`'s kind, as one undo step.
 ---@param nest any
@@ -7911,9 +7926,18 @@ function paw.scope.contains(track, s) end
 ---@param win any
 function paw.scope.current(win) end
 
+--- The cursor's beat in the time of window `win` (the one being drawn,
+--- else the current one). The cursor counts in the time of the current
+--- window, so another window that shows another timeline (a split with
+--- one window inside a subproject) has it at the same place of the song,
+--- in its own beats. Nil when that place is outside the time the window
+--- shows: such a window keeps its place.
+---@param win any
+function paw.scope.cursor_beat(win) end
+
 --- What a scope (the current one by default) shows, in words: its path,
 --- its bars (its own, and the song's), its meter, its tracks, and whether
---- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song 17-24) ·
+--- it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) ·
 --- 6/8 · 12 tracks · named`.
 ---@param s any
 ---@param extra any
@@ -9369,8 +9393,9 @@ function paw.ui.hover(title, lines) end
 --- Close the hover, if one is open.
 function paw.ui.hover_close() end
 
---- Put the keys in the hover: it becomes a page in the same place, as
---- high as its lines while the screen has room, where `j` and `k` scroll and `q` or `Esc` close.
+--- Put the keys in the hover. It becomes a page in the same place, as
+--- high as its lines while the screen has room, where `j` and `k` scroll
+--- and `q` or `Esc` close it.
 function paw.ui.hover_enter() end
 
 --- Ask for a line of text on the command line.
@@ -9914,6 +9939,28 @@ function paw.vzoom.track_rows() end
 --- focused one, else the one whose state the view has now.
 ---@param view any
 function paw.vzoom.window(view) end
+
+--- The name of the workspace on the screen, or nil.
+function paw.workspace.current() end
+
+--- Go to workspace `name`. The tabs and windows of the workspace that you
+--- leave stay in memory. Then `on_enter` of the workspace runs. Returns
+--- true and the text of `on_enter`, or false and the reason when `name`
+--- names no workspace or none of its windows can show.
+---@param name any
+function paw.workspace.go(name) end
+
+--- The names of the workspaces there are: the defaults, the
+--- configuration's, those saved, the project's and those kept in memory.
+function paw.workspace.names() end
+
+--- Keep the tabs and windows as workspace `name` in the layouts folder.
+--- When `project` is true, keep them in the project's screen instead, so
+--- that the project opens in that workspace. The screen is now that
+--- workspace.
+---@param name any
+---@param project any
+function paw.workspace.save(name, project) end
 
 --- The first child of an element with a name, or nil.
 ---@param el any
@@ -11031,7 +11078,9 @@ function paw.api.nest_promote(clip) end
 --- `own_row`, the tracks go in (whole, or as copies with copies of
 --- their devices and lanes) and one return row plays the mix; add
 --- its block. `paw.nest.save` does the rest: blocks, regions, the
---- window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
+--- window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with
+--- a row of its own the song's `group` it is in or the `buses` that no
+--- longer get the time.
 ---@param opts any
 function paw.api.nest_save(opts) end
 
@@ -11241,6 +11290,11 @@ function paw.api.project_keep_changes() end
 ---@param opts any
 function paw.api.project_load(path, opts) end
 
+--- Count the project as changed, so that it asks to be saved, with
+--- no undo step: for data that the next save writes and undo does
+--- not keep (`:workspace.save!` in the project's screen).
+function paw.api.project_mark_changed() end
+
 --- Count the project as it is now as saved, for a script that wrote
 --- what it holds somewhere itself (a clip opened alone, written
 --- back to its file).
@@ -11267,6 +11321,13 @@ function paw.api.project_recover(path, opts) end
 
 --- Read a project kept in a folder again, as one undo step.
 function paw.api.project_reload() end
+
+--- Put a whole project, in the form that `undo_project` gives, in
+--- place of the open one, as one edit. Its path and its undo
+--- history stay, and the parts that did not change keep running.
+--- See extensions/projdiff.
+---@param project any
+function paw.api.project_replace(project) end
 
 ---@param path string?
 function paw.api.project_save(path) end

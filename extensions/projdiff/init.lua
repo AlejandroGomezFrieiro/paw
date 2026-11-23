@@ -62,30 +62,23 @@ command("Psnapshot", function(ctx)
 end, { desc = "Keep the project as it is, to compare with later: `Psnapshot before the bridge`", raw = true })
 
 command("Pmerge", function(ctx)
-  local path = ctx.args[1] or paw.api.project_get("path")
-  if not path then return paw.notify("the project has no file: `:Pmerge file.json`", "warn") end
-  mergeview.open(path)
+  local folder = ctx.args[1]
+  -- Conflicts that the open project holds already: settle them.
+  if not folder and #projdiff.merge.conflicts(projdiff.state(nil)) > 0 then return mergeview.open() end
+  folder = folder or paw.api.project_get("path")
+  if not folder then
+    return paw.notify("the project has no folder: `:Pmerge song` merges the project folder song", "warn")
+  end
+  local n, err = projdiff.merge_git(folder)
+  if not n then return paw.notify(err, "warn") end
+  if n == 0 then
+    return paw.notify("the merge has no conflict left: `:w` saves the project, then `git add` it to finish the merge")
+  end
+  mergeview.open()
 end, {
-  desc = "Settle the conflicts a git merge left in a project (the open one, or `Pmerge file.json`)",
+  desc = "Merge a project folder that a git merge stopped on, and settle its conflicts (the open project, or `Pmerge song`)",
   complete = { "files" },
 })
-
-command("Pgit", function()
-  local root = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "extensions/projdiff"
-  paw.ui.page("Git for projects", {
-    { text = "Add this to .gitattributes", style = "HelpSection" },
-    "*.json diff=paw merge=paw   (or the names of your project files)",
-    "",
-    { text = "And this to the repository (git config) or ~/.gitconfig", style = "HelpSection" },
-    '[diff "paw"]',
-    "  textconv = paw --clean --no-plugins --no-listen --audio null -l " .. root .. "/git.lua textconv",
-    '[merge "paw"]',
-    "  name = paw project merge",
-    "  driver = paw --clean --no-plugins --no-listen --audio null -l " .. root .. "/git.lua merge %O %A %B %L %P",
-    "",
-    "Conflicts are written into the merged project (meta.merge_conflicts); `:Pmerge` settles them.",
-  })
-end, { desc = "How to make git diff and merge projects with paw" })
 
 map("<leader>gd", "Pdiff", { desc = "What changed since the project was saved", repeatable = false })
 map("<leader>gm", "Pmerge", { desc = "Settle merge conflicts", repeatable = false })

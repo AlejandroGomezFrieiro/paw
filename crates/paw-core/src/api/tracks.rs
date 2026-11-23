@@ -175,7 +175,9 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // `own_row`, the tracks go in (whole, or as copies with copies of
         // their devices and lanes) and one return row plays the mix; add
         // its block. `paw.nest.save` does the rest: blocks, regions, the
-        // window. Returns `nest`, `rows`, `row`, `tracks` and `changes`.
+        // window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with
+        // a row of its own the song's `group` it is in or the `buses` that no
+        // longer get the time.
         // @param opts types.NestSaveOptions
         // @return types.NestSaved
         fn nest_save(lua, sh, opts => LuaValue) {

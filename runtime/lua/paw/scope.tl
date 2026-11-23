@@ -774,6 +774,44 @@ function M.own_time(): types.NestTime
   return M.nest_time(nest.clip)
 end
 
+--- A function of the window's time (`paw.time`), called as if `win` were
+--- the window being drawn.
+local function in_window(win: Window, fn: function(number): number, beat: number): number
+  local u = paw.ui
+  local was = u.drawing_win
+  u.drawing_win = win as Node
+  local ok, out = pcall(fn, beat) as (boolean, number)
+  u.drawing_win = was
+  if not ok then
+    error(out, 0)
+  end
+  return out
+end
+
+--- The cursor's beat in the time of window `win` (the one being drawn,
+--- else the current one). The cursor counts in the time of the current
+--- window, so another window that shows another timeline (a split with
+--- one window inside a subproject) has it at the same place of the song,
+--- in its own beats. Nil when that place is outside the time the window
+--- shows: such a window keeps its place.
+function M.cursor_beat(win?: Window): number
+  local beat = paw.cursor.beat
+  local here, there = holder(), window_of(win)
+  if not (here and there) or here == there then
+    return beat
+  end
+  local song = in_window(here, paw.time.song_beat, beat)
+  local at = in_window(there, paw.time.local_beat, song)
+  local from, to: number, number
+  if there.scope then
+    from, to = M.span(there.scope)
+  end
+  if from and (at < from - 1e-9 or at > to + 1e-9) then
+    return nil
+  end
+  return at
+end
+
 -- Bars --------------------------------------------------------------------------------
 
 --- How many bars of the song come before the first bar of a scope (the

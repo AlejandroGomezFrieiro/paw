@@ -20,6 +20,19 @@ impl Session {
         self.doc.project_set(key, value, self.path.as_deref())
     }
 
+    /// Put `project` (in the form that `undo_project` gives) in place of
+    /// the open project's tracks, clips and settings, as one edit. The path
+    /// and the undo history stay. For a tool that changes the whole project
+    /// at once, such as a merge (extensions/projdiff).
+    pub fn project_replace(&mut self, project: Value) -> Result<()> {
+        let project: Project = serde_json::from_value(project).context("not a project")?;
+        let project = self.in_place(project).context("the project cannot be opened")?;
+        self.doc.edit(|p| {
+            *p = project;
+            Ok(())
+        })
+    }
+
 
 
 
@@ -155,6 +168,14 @@ impl Session {
     pub fn mark_saved(&mut self) {
         self.checkpoint();
         self.doc.undo.history.mark_saved(false);
+    }
+
+    /// Count the project as changed, so that it asks to be saved, with no
+    /// undo step: for data that a save writes and undo does not keep, such
+    /// as the workspaces of the project's screen.
+    pub fn mark_changed(&mut self) {
+        self.doc.undo.touched = true;
+        self.doc.undo.edits += 1;
     }
 
     pub fn project_load(&mut self, path: &Path) -> Result<()> {

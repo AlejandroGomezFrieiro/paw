@@ -97,6 +97,7 @@ local record Groups
 end
 local record Stretch
   carry: function(c: types.Clip, snap: ClipSnapshot, by: number): Moved
+  sounding: function(c: types.Clip, notes: {types.Note}, limit?: integer): {types.Note}
 end
 local record Takes
   piece: function(c: types.Clip, from: number, to: number, shift?: number): Value
@@ -496,19 +497,88 @@ function A.mute(region: Region)
   end
 end
 
---- Move the notes of the MIDI clips reaching into a region up or down.
+--- The places in `notes` of the notes of a clip that a region covers: each
+--- note for whole tracks or clips chosen one by one, else the notes that
+--- start in its stretch of time. A note of a looped clip is in it when one
+--- of its repeats starts there.
+local function notes_covered(c: types.Clip, notes: {types.Note}, region: Region): {integer: boolean}
+  local places: {integer: boolean} = {}
+  if region.clips or region.kind == "line" then
+    for i = 1, #notes do
+      places[i] = true
+    end
+    return places
+  end
+  -- Each note with its place as its id (a note can have no id), so that
+  -- each repeat of a looped clip names the note that it plays.
+  local placed: {types.Note} = {}
+  for i, n in ipairs(notes) do
+    placed[i] = with(n, {id = i as Value})
+  end
+  for _, n in ipairs(paw.stretch.sounding(c, placed)) do
+    local start = c.start + n.start
+    if start >= region.c0 - EPS and start < region.c1 - EPS then
+      places[n.id] = true
+    end
+  end
+  return places
+end
+
+--- The names of the clips that changed in words: "Bass", "Bass and Keys",
+--- "Bass, Keys and Lead"; more than three names as the count of clips.
+local function clips_in_words(names: {string}, count: integer): string
+  if #names > 3 then
+    return count .. " clips"
+  elseif #names == 1 then
+    return names[1]
+  end
+  return table.concat(names, ", ", 1, #names - 1) .. " and " .. names[#names]
+end
+
+--- Move the notes that a region covers in the MIDI clips reaching into it
+--- up or down, and say how many moved, how far and in which clips.
 function A.transpose(region: Region, semitones: integer)
+  local moved, changed: integer, integer = 0, 0
+  -- The names of the clips that changed, each once.
+  local names, named: {string}, {string: boolean} = {}, {}
   for _, id in ipairs(A.tracks(region)) do
     for _, c in ipairs(touching(id, region)) do
       if c.kind == "midi" then
         local notes = api.clip_notes(c.id)
-        for _, n in ipairs(notes) do
-          n.pitch = util.clamp(n.pitch + semitones, 0, 127) as integer
+        local covered = notes_covered(c, notes, region)
+        local here = 0
+        for i, n in ipairs(notes) do
+          local pitch = util.clamp(n.pitch + semitones, 0, 127) as integer
+          -- A note at the end of the MIDI range stays there and is not counted.
+          if covered[i] and pitch ~= n.pitch then
+            n.pitch, here = pitch, here + 1
+          end
         end
-        api.clip_set_notes(c.id, notes)
+        if here > 0 then
+          api.clip_set_notes(c.id, notes)
+          moved, changed = moved + here, changed + 1
+          if not named[c.name] then
+            named[c.name], names[#names + 1] = true, c.name
+          end
+        end
       end
     end
   end
+  if moved == 0 then
+    return paw.notify("no notes to move there", "warn")
+  end
+  local steps = math.abs(semitones)
+  paw.notify(
+    string.format(
+      "moved %d note%s %s %d semitone%s in %s",
+      moved,
+      moved == 1 and "" or "s",
+      semitones > 0 and "up" or "down",
+      steps,
+      steps == 1 and "" or "s",
+      clips_in_words(names, changed)
+    )
+  )
 end
 
 --- Make one clip of the MIDI clips a track has between two beats (of those
