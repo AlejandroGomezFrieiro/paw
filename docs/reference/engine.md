@@ -119,6 +119,7 @@ the subproject, and bar 33 to a delay on a track of the song.
 - paw guards each device on the audio thread. A device that panics is marked failed, and the chain ignores it after that, so an instrument is silent and an effect lets its input through.
 - The event `device.stopped` reports the failure, in the same way as for a plugin whose helper crashed. The device panel shows the device as stopped, and `:device.restart` makes a new device.
 - paw replaces samples that come out of a device as NaN or infinity with silence at its output, so they never reach a fader, a meter or the master. The event `device.invalid` and a message report this one time.
+- A panic in a function of `paw.api` doesn't stop paw. The call gives an error that names the function, for example `paw.api.clip_get stopped on a bug in paw: index out of bounds`, and paw shows it as a message. Save your work and report the bug.
 - A panic in any other part of paw writes a safety copy of the work that is not saved, before paw stops. paw then restores the terminal and says where the copy is, and `:recover` offers it at the next start (see [Project files](project-files.md#safety-copies)).
 
 ## Memory

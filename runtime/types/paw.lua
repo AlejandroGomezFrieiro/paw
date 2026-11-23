@@ -11208,9 +11208,13 @@ function paw.api.tempo_signature(beat) end
 --- them to see what a bad device does to the other devices.
 function paw.api.test_devices() end
 
---- Panic, as a bug in the program does. Tests use it to see what paw keeps.
+--- Panic, as a bug in the program does. Tests use it to see what paw
+--- keeps. The panic ends the program, as a bug outside `paw.api`
+--- does, and paw writes a safety copy. With `inside`, it is a bug in
+--- this function: the call gives an error, and the program goes on.
 ---@param why string
-function paw.api.test_panic(why) end
+---@param inside boolean?
+function paw.api.test_panic(why, inside) end
 
 --- --- timers ---
 ---@param ms number

@@ -11,6 +11,8 @@ use mlua::{Lua, Table};
 use paw_proto::dirs::Dirs;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
+use crate::api::guarded;
+
 fn fail(what: String) -> mlua::Error {
     mlua::Error::runtime(what)
 }
@@ -166,7 +168,7 @@ pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
     // @return types.FileStat
     api.set(
         "fs_stat",
-        lua.create_function(|lua, path: String| {
+        lua.create_function(guarded!("fs_stat", |lua, path: String| {
             let Ok(meta) = fs::symlink_metadata(&path) else {
                 return Ok(None);
             };
@@ -179,7 +181,7 @@ pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
             t.set("size", target.as_ref().map_or(meta.len(), |m| m.len()) as f64)?;
             t.set("mtime", seconds(meta.modified()))?;
             Ok(Some(t))
-        })?,
+        }))?,
     )?;
     // The format a sound file's header says: `{ rate, channels, seconds }`
     // (`seconds` nil when the header does not say); an error for a file
@@ -187,7 +189,7 @@ pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
     // @return types.SoundFormat
     api.set(
         "fs_sound",
-        lua.create_function(|lua, path: String| {
+        lua.create_function(guarded!("fs_sound", |lua, path: String| {
             let probe =
                 paw_engine::probe::probe(Path::new(&path)).map_err(|e| fail(e.to_string()))?;
             let t = lua.create_table()?;
@@ -195,57 +197,57 @@ pub fn install(lua: &Lua, api: &Table, dirs: &Dirs) -> mlua::Result<()> {
             t.set("channels", probe.channels)?;
             t.set("seconds", probe.seconds)?;
             Ok(t)
-        })?,
+        }))?,
     )?;
     // Make a directory and the ones above it that are missing.
     // @return nil
     api.set(
         "fs_mkdir",
-        lua.create_function(|_, path: String| {
+        lua.create_function(guarded!("fs_mkdir", |_, path: String| {
             fs::create_dir_all(&path).map_err(|e| fail(format!("{path}: {e}")))
-        })?,
+        }))?,
     )?;
     // Make an empty file where there is none.
     // @return nil
     api.set(
         "fs_create",
-        lua.create_function(|_, path: String| {
+        lua.create_function(guarded!("fs_create", |_, path: String| {
             fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(&path)
                 .map(|_| ())
                 .map_err(|e| fail(format!("{path}: {e}")))
-        })?,
+        }))?,
     )?;
     // Move a file or directory; it is refused where `to` is there already.
     // @return nil
     api.set(
         "fs_move",
-        lua.create_function(|_, (from, to): (String, String)| {
+        lua.create_function(guarded!("fs_move", |_, (from, to): (String, String)| {
             relocate(Path::new(&from), Path::new(&to)).map_err(fail)
-        })?,
+        }))?,
     )?;
     // Copy a file, or a directory with all it holds, to where there is nothing.
     // @return nil
     api.set(
         "fs_copy",
-        lua.create_function(|_, (from, to): (String, String)| {
+        lua.create_function(guarded!("fs_copy", |_, (from, to): (String, String)| {
             if Path::new(&to).symlink_metadata().is_ok() {
                 return Err(fail(format!("{to} is there already")));
             }
             copy_tree(Path::new(&from), Path::new(&to)).map_err(|e| fail(format!("{from}: {e}")))
-        })?,
+        }))?,
     )?;
     // Put a file or directory in the freedesktop trash; returns where it is.
     // @return string
     api.set(
         "fs_trash",
-        lua.create_function(move |_, path: String| {
+        lua.create_function(guarded!("fs_trash", move |_, path: String| {
             trash(Path::new(&path), trash_root.as_deref())
                 .map(|p| p.to_string_lossy().into_owned())
                 .map_err(fail)
-        })?,
+        }))?,
     )?;
     Ok(())
 }

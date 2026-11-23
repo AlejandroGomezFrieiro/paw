@@ -2755,7 +2755,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.tempo_set_points(tempos, sigs)`: Replace the whole map: `tempo_set_points({ { beat, bpm, ramp } }, { { beat, num, den } })`.
 - `paw.api.tempo_signature(beat)`
 - `paw.api.test_devices()`: Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use them to see what a bad device does to the other devices.
-- `paw.api.test_panic(why)`: Panic, as a bug in the program does. Tests use it to see what paw keeps.
+- `paw.api.test_panic(why, inside)`: Panic, as a bug in the program does. Tests use it to see what paw keeps. The panic ends the program, as a bug outside `paw.api` does, and paw writes a safety copy. With `inside`, it is a bug in this function: the call gives an error, and the program goes on.
 - `paw.api.timer_start(ms, repeat, func)`: --- timers ---
 - `paw.api.timer_stop(id)`
 - `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.

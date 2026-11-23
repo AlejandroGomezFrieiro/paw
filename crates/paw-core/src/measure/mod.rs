@@ -32,7 +32,7 @@ use paw_measure::{Analysis, Analyzer, FLOOR_DB};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::api::{LuaResult, Shared, from_lua, to_lua};
+use crate::api::{LuaResult, Shared, from_lua, guarded, to_lua};
 use crate::model::{Id, MASTER_ID};
 use crate::session::RenderOpts;
 use crate::sync::LiveDevices;
@@ -280,7 +280,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return integer
     api.set(
         "measure_start",
-        lua.create_function(move |lua, opts: LuaValue| {
+        lua.create_function(guarded!("measure_start", move |lua, opts: LuaValue| {
             let opts: MeasureOpts = if opts.is_nil() {
                 MeasureOpts::default()
             } else {
@@ -291,14 +291,14 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             next.set(id);
             js.borrow_mut().insert(id, job);
             Ok(id)
-        })?,
+        }))?,
     )?;
 
     let js = jobs.clone();
     // @return types.MeasureStatus
     api.set(
         "measure_poll",
-        lua.create_function(move |lua, id: u64| {
+        lua.create_function(guarded!("measure_poll", move |lua, id: u64| {
             let finished = match js.borrow().get(&id) {
                 None => return Err(mlua::Error::runtime(format!("no measurement {id}"))),
                 Some(job) => job.thread.as_ref().is_none_or(|t| t.is_finished()),
@@ -320,18 +320,18 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
                 Err(err) => json!({ "done": true, "error": format!("{err:#}") }),
             };
             to_lua(lua, &status)
-        })?,
+        }))?,
     )?;
 
     let js = jobs.clone();
     // @return nil
     api.set(
         "measure_cancel",
-        lua.create_function(move |_, id: u64| {
+        lua.create_function(guarded!("measure_cancel", move |_, id: u64| {
             // Dropping the job stops the thread and waits for it.
             js.borrow_mut().remove(&id);
             Ok(())
-        })?,
+        }))?,
     )?;
 
     let sh = shared.clone();
@@ -339,7 +339,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
     // @return types.Measurement
     api.set(
         "measure",
-        lua.create_function(move |lua, opts: LuaValue| {
+        lua.create_function(guarded!("measure", move |lua, opts: LuaValue| {
             let opts: MeasureOpts = if opts.is_nil() {
                 MeasureOpts::default()
             } else {
@@ -347,7 +347,7 @@ pub fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> 
             };
             let result = start(&sh, opts).and_then(Job::join).lua()?;
             to_lua(lua, &result)
-        })?,
+        }))?,
     )?;
     Ok(())
 }

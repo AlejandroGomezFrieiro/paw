@@ -6,6 +6,8 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
+use std::marker::PhantomData;
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -13,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use paw_engine::EventKind;
 use mlua::serde::SerializeOptions;
-use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
+use mlua::{FromLuaMulti, Lua, LuaSerdeExt, MultiValue, Table, Value as LuaValue};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -256,16 +258,169 @@ fn options<T: DeserializeOwned + Default>(lua: &Lua, value: LuaValue) -> mlua::R
     }
 }
 
+/// A cell coordinate or size from Lua. NaN is 0, and the value is at most a
+/// quarter of `i32::MAX` either way, so that a sum of two never overflows.
+/// A cell that far away is off every screen anyway.
 fn cell(v: f64) -> i32 {
-    v.floor() as i32
+    const FAR: f64 = (i32::MAX / 4) as f64;
+    v.floor().clamp(-FAR, FAR) as i32
 }
 
-/// Defines `api.<name>` for each entry. Inside a body, `$sh` is the shared state.
+/// A time in milliseconds from Lua as a `Duration`. A negative time or NaN
+/// is none, and a time is at most a century, so that `Instant::now()` plus
+/// it does not overflow.
+pub(crate) fn millis(ms: f64) -> Duration {
+    const CENTURY: f64 = 100.0 * 365.25 * 24.0 * 3600.0;
+    let seconds = ms / 1000.0;
+    if seconds.is_nan() || seconds <= 0.0 {
+        return Duration::ZERO;
+    }
+    Duration::from_secs_f64(seconds.min(CENTURY))
+}
+
+// --- The guard of each function -----------------------------------------------
+//
+// Each function of `paw.api` is made with `guarded!`. Then a wrong argument
+// gives an error that names the function ("bad argument #1 to
+// `paw.api.clip_get`"), and a panic in the function gives a Lua error and
+// not the end of the program. tests/api_boundary.lua checks both for each
+// function.
+
+/// The name of a function of `paw.api`, as its errors give it. `guarded!`
+/// makes one type for each function, so that the conversion of the
+/// arguments knows the name and stays on the fast path of mlua.
+pub trait Named {
+    const NAME: &'static str;
+}
+
+/// The arguments of the function `N`: a conversion that fails names it.
+pub struct Args<N, A>(A, PhantomData<N>);
+
+impl<N: Named, A: FromLuaMulti> FromLuaMulti for Args<N, A> {
+    fn from_lua_multi(values: MultiValue, lua: &Lua) -> mlua::Result<Self> {
+        A::from_lua_args(values, 1, Some(N::NAME), lua).map(|args| Self(args, PhantomData))
+    }
+
+    fn from_lua_args(values: MultiValue, i: usize, _to: Option<&str>, lua: &Lua) -> mlua::Result<Self> {
+        A::from_lua_args(values, i, Some(N::NAME), lua).map(|args| Self(args, PhantomData))
+    }
+
+    unsafe fn from_stack_args(
+        nargs: std::ffi::c_int,
+        i: usize,
+        _to: Option<&str>,
+        lua: &mlua::state::RawLua,
+    ) -> mlua::Result<Self> {
+        // SAFETY: the caller keeps the contract of `from_stack_args` (the
+        // `nargs` values are on the stack of `lua`), and this passes it on
+        // unchanged.
+        unsafe { A::from_stack_args(nargs, i, Some(N::NAME), lua) }.map(|args| Self(args, PhantomData))
+    }
+}
+
+thread_local! {
+    /// How many functions of `paw.api` run now on this thread, one inside
+    /// another. The panic hooks of the program read it (`in_call`).
+    static CALLS: Cell<u32> = const { Cell::new(0) };
+    /// Set by `end_program`: the guards let its panic go on.
+    static ENDING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// True while a function of `paw.api` runs on this thread. A panic there
+/// becomes a Lua error and the program goes on, so a panic hook must not
+/// restore the terminal or write a safety copy.
+pub fn in_call() -> bool {
+    CALLS.get() > 0
+}
+
+/// One count of `CALLS`, for as long as a function of `paw.api` runs, also
+/// when it panics.
+struct Call;
+
+impl Call {
+    fn enter() -> Self {
+        CALLS.set(CALLS.get() + 1);
+        Self
+    }
+}
+
+impl Drop for Call {
+    fn drop(&mut self) {
+        CALLS.set(CALLS.get().saturating_sub(1));
+    }
+}
+
+/// Panic as a bug outside `paw.api` does: the guards do not catch it, and
+/// the program ends with a safety copy (`paw.api.test_panic`).
+fn end_program(why: &str) -> ! {
+    ENDING.set(true);
+    CALLS.set(0);
+    panic!("{why}");
+}
+
+/// The error of a function of `paw.api` that panicked.
+fn bug(name: &str, panic: &(dyn std::any::Any + Send)) -> mlua::Error {
+    let why = panic
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+        .unwrap_or("no message");
+    mlua::Error::runtime(format!("{name} stopped on a bug in paw: {why}"))
+}
+
+/// The body of the function `N` of `paw.api`, with its guard. Use it through
+/// `guarded!`, which makes `N`.
+pub fn guard<N, A, R, F>(f: F) -> impl Fn(&Lua, Args<N, A>) -> mlua::Result<R> + 'static
+where
+    N: Named + 'static,
+    A: FromLuaMulti + 'static,
+    F: Fn(&Lua, A) -> mlua::Result<R> + 'static,
+{
+    move |lua, Args(args, _)| {
+        let call = Call::enter();
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| f(lua, args)));
+        drop(call);
+        result.unwrap_or_else(|panic| {
+            if ENDING.get() {
+                std::panic::resume_unwind(panic);
+            }
+            Err(bug(N::NAME, &*panic))
+        })
+    }
+}
+
+/// `named!(Name, "clip_get")`: the type `Name`, [`Named`] as
+/// `paw.api.clip_get`.
+macro_rules! named {
+    ($type:ident, $name:expr) => {
+        struct $type;
+        impl $crate::api::Named for $type {
+            const NAME: &'static str = concat!("paw.api.", $name);
+        }
+    };
+}
+pub(crate) use named;
+
+/// `guarded!("clip_get", |lua, id: Id| ...)`: the function `paw.api.clip_get`
+/// with its guard, for `lua.create_function`.
+macro_rules! guarded {
+    ($name:expr, $f:expr) => {{
+        $crate::api::named!(Name, $name);
+        $crate::api::guard::<Name, _, _, _>($f)
+    }};
+}
+pub(crate) use guarded;
+
+/// Defines `api.<name>` for each entry, with its guard. Inside a body, `$sh`
+/// is the shared state.
 macro_rules! define {
     ($lua:ident, $api:ident, $shared:ident; $(fn $name:ident($l:pat_param, $sh:ident, $args:pat_param => $ty:ty) $body:block)*) => {
         $({
             let $sh = $shared.clone();
-            $api.set(stringify!($name), $lua.create_function(move |$l, $args: $ty| $body)?)?;
+            $api.set(
+                stringify!($name),
+                $lua.create_function(guarded!(stringify!($name), move |$l, $args: $ty| $body))?,
+            )?;
         })*
     };
 }
@@ -327,4 +482,21 @@ pub fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
 
     let loaded: Table = lua.globals().get::<Table>("package")?.get("loaded")?;
     loaded.set("paw.api", api)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_huge_time_or_cell_is_kept_in_range() {
+        assert_eq!(millis(1e300), Duration::from_secs(3_155_760_000), "a century");
+        assert_eq!(millis(f64::NAN), Duration::ZERO);
+        assert_eq!(millis(-5.0), Duration::ZERO);
+        assert_eq!(millis(1500.0), Duration::from_millis(1500));
+        assert_eq!(cell(1e300), i32::MAX / 4);
+        assert_eq!(cell(-1e300), -(i32::MAX / 4));
+        assert_eq!(cell(f64::NAN), 0);
+        assert_eq!(cell(2.7), 2);
+    }
 }
