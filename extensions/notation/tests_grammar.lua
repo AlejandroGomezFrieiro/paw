@@ -217,6 +217,24 @@ test("grammar: ! filters through a named filter or a shell command", function()
   eq(written(view), "h C4 e G4 s E4 s F4 qr | R", "sed changes a note")
 end)
 
+test("grammar: ! in a build without processes says so, and its named filters still work", function()
+  local view = song("6c4d3e3f")
+  view:set(C4, 0)
+  -- A build of the web, as the pod has it: no processes.
+  local real = paw.api.build
+  paw.api.build = function() return { vm = "lua52", features = {} } end
+  T.after(function() paw.api.build = real end)
+  keys("!ib<C-u>tac<CR>")
+  eq(written(view), "h C4 e D4 s E4 s F4 qr | R", "nothing changes")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text:find("! with a shell command needs processes", 1, true) ~= nil,
+    true,
+    "and the message names ! and processes"
+  )
+  keys("!ib<C-u>reverse<CR>")
+  eq(written(view), "qr s F4 s E4 e D4 h C4 | R", "a named filter still works")
+end)
+
 test("grammar: . repeats an operator with its object, and each is one undo step", function()
   local view = song("cdef")
   view:set(C4, 0)

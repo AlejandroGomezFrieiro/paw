@@ -664,6 +664,12 @@ end
 
 --- Run a shell command over events as text; the events it writes back, or nil and why not.
 local function shell(cmd, events)
+  -- A build without processes (the web) keeps the named filters and the rest of notation.
+  if not paw.ext.build_has("processes") then
+    return nil,
+      "! with a shell command needs processes, which this build of paw does not have: use a named filter, "
+        .. P.filter_names()
+  end
   local lines = {}
   for i, e in ipairs(events) do
     lines[i] = event_text(e)

@@ -385,7 +385,7 @@ is also the clip.
 | `g(` | a slur over the notes (`g(ip`, `g(3w`; on a slur's start again, taken away; on a selection too). `s` is solo wherever there is a track |
 | `g?` | retrograde: backwards, rhythm and pitches, grace notes with their chord; with a count (`2g?ib`) an inversion about the first note, in the key |
 | `gq` | tidy: spelled as the key has it, beams as the meter has them, values and ties written again as the meter divides the bars |
-| `!` | filter: asks for a filter, `reverse`, `transpose 12`, `rhythm 1/8`, or any shell command, which reads the music a line an event (`1/4 C4 E4`, `1/8 r`, lengths as parts of a whole note) and writes it back so: `!ib tac`, `!ip sed s/D4/G4/` |
+| `!` | filter: asks for a filter, `reverse`, `transpose 12`, `rhythm 1/8`, or any shell command, which reads the music a line an event (`1/4 C4 E4`, `1/8 r`, lengths as parts of a whole note) and writes it back so: `!ib tac`, `!ip sed s/D4/G4/`. A shell command needs a build of paw with `processes` (`paw.ext.build_has`), and the named filters work in every build |
 | `=` `g=` `gl` | play as written, write again from the playing, loop |
 
 | Motion | |

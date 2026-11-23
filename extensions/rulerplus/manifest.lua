@@ -4,4 +4,5 @@ return {
   version = "0.1.0",
   description = "An example that personalizes the bar labels of the ruler: phrase marks, the key and the chords, signed relative bars",
   requires = { paw = "^1.0" },
+  needs = {},
 }
