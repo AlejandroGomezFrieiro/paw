@@ -35,7 +35,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return {integer}
         fn track_list(lua, sh, opts => LuaValue) {
             let opts: crate::session::TrackListOpts = options(lua, opts)?;
-            Ok(sh.session.borrow().track_ids(&opts))
+            Ok(sh.session.borrow().doc.track_ids(&opts))
         }
         // A track as a table. With `key`, only that entry of the table: this
         // is quicker, because the table lists each clip of the track.
@@ -43,18 +43,18 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn track_get(lua, sh, (id, key) => (Id, Option<String>)) {
             let session = sh.session.borrow();
             match key {
-                Some(key) => to_lua(lua, &session.track_field(id, &key).lua()?),
-                None => to_lua(lua, &session.track_view(id).lua()?),
+                Some(key) => to_lua(lua, &session.doc.track_field(id, &key).lua()?),
+                None => to_lua(lua, &session.doc.track_view(id).lua()?),
             }
         }
         // @return integer
         // @param opts? types.TrackOptions
-        fn track_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().track_add(options(lua, opts)?).lua() }
+        fn track_add(lua, sh, opts => LuaValue) { sh.session.borrow_mut().doc.track_add(options(lua, opts)?).lua() }
         // @return nil
-        fn track_remove(_, sh, id => Id) { sh.session.borrow_mut().track_remove(id).lua() }
+        fn track_remove(_, sh, id => Id) { sh.session.borrow_mut().doc.track_remove(id).lua() }
         // @return nil
         fn track_move(_, sh, (id, index) => (Id, usize)) {
-            sh.session.borrow_mut().track_move(id, index.saturating_sub(1)).lua()
+            sh.session.borrow_mut().doc.track_move(id, index.saturating_sub(1)).lua()
         }
         // Change a track: a table of the entries to change, as `track_get`
         // gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
@@ -82,14 +82,14 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return number
         fn track_attr_delay(lua, sh, (id, attr) => (Id, LuaValue)) {
             let attr = attr_from_lua(lua, attr)?.map_or(paw_engine::Attr::NONE, Into::into);
-            sh.session.borrow().attr_delay(id, attr).lua()
+            sh.session.borrow().doc.attr_delay(id, attr).lua()
         }
 
         // --- nests (subprojects): tracks with a timeline of their own ---
         // The ids of the subprojects, in the order they were made.
         // @return {integer}
         fn nest_list(_, sh, () => ()) {
-            Ok(sh.session.borrow().nest_list().into_iter().map(|n| n.0).collect::<Vec<u64>>())
+            Ok(sh.session.borrow().doc.nest_list().into_iter().map(|n| n.0).collect::<Vec<u64>>())
         }
         // A subproject as a table: its fields, `tracks` (its tracks in order,
         // without its master) and `used` (whether the song plays it). With
@@ -99,8 +99,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn nest_get(lua, sh, (id, key) => (u64, Option<String>)) {
             let session = sh.session.borrow();
             match key {
-                Some(key) => to_lua(lua, &session.nest_field(NestId(id), &key).lua()?),
-                None => to_lua(lua, &session.nest_view(NestId(id)).lua()?),
+                Some(key) => to_lua(lua, &session.doc.nest_field(NestId(id), &key).lua()?),
+                None => to_lua(lua, &session.doc.nest_view(NestId(id)).lua()?),
             }
         }
         // Make a subproject with its master track and no other track, as one
@@ -110,7 +110,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @param opts? types.NestOptions
         // @return integer
         fn nest_add(lua, sh, opts => LuaValue) {
-            sh.session.borrow_mut().nest_add(options(lua, opts)?).map(|n| n.0).lua()
+            sh.session.borrow_mut().doc.nest_add(options(lua, opts)?).map(|n| n.0).lua()
         }
         // Promote the subproject of a block (`clip`) to song data, as one
         // undo step: its tracks come back in a group named after it at the
@@ -135,7 +135,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // play. The other blocks keep the subproject. Returns the copy's id.
         // @return integer
         fn nest_unique(_, sh, clip => Id) {
-            sh.session.borrow_mut().nest_unique(clip).map(|n| n.0).lua()
+            sh.session.borrow_mut().doc.nest_unique(clip).map(|n| n.0).lua()
         }
         // Save a view as a subproject, as one undo step: the clips of
         // `tracks` from `from` to `to` (beats of their place) move into a
@@ -161,7 +161,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let mut session = sh.session.borrow_mut();
             for (key, value) in changes(lua, key, value)? {
                 let value: Value = from_lua(lua, value)?;
-                session.nest_set(NestId(id), &key, value).lua()?;
+                session.doc.nest_set(NestId(id), &key, value).lua()?;
             }
             Ok(())
         }

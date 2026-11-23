@@ -127,7 +127,7 @@ impl Session {
         // The row's devices and lanes move to the group, or are copied when
         // the row stays.
         let (row_devices, row_lanes) = if b.keep_row {
-            self.copy_devices_and_lanes(&row, &Default::default())
+            self.doc.copy_devices_and_lanes(&row, &Default::default())
         } else {
             (row.devices.clone(), row.lanes.clone())
         };
@@ -172,7 +172,7 @@ impl Session {
         }
         let tracks: Vec<Id> = members.iter().map(|t| t.id).collect();
         let at = p.tracks.iter().position(|t| t.id == b.row).context("no row")? + usize::from(b.keep_row);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let gone: HashSet<Id> = p
                 .nest_tracks(b.nest)
                 .map(|t| t.id)
@@ -300,7 +300,7 @@ impl Session {
         p.tracks.retain(|t| t.nest != Some(b.nest));
         p.nests.remove(&b.nest);
         p.validate()?;
-        self.edit(|project| {
+        self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;

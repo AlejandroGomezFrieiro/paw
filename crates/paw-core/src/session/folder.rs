@@ -1702,7 +1702,7 @@ impl super::Session {
             clip.source = Some(path.clone());
         }
         let id = track.id;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let at = index.map_or(usize::MAX, |i| i.saturating_sub(1)).min(p.tracks.len());
             p.tracks.insert(at, Arc::new(track));
             Ok(())
@@ -1730,7 +1730,7 @@ impl super::Session {
         let devices: Vec<Arc<crate::model::DeviceInst>> =
             serde_json::from_value(value["devices"].take()).with_context(|| format!("reading {}", file.display()))?;
         let count = devices.len();
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let t = p.track_mut(track).with_context(|| format!("no track {track}"))?;
             t.devices = devices;
             // Lanes of the devices that went go with them.

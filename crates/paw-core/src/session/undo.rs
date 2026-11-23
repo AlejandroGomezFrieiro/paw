@@ -93,8 +93,8 @@ pub(super) struct Undo {
 
 /// A step that a command is being run again for.
 pub(super) struct Adjusting {
-    project: Project,
-    label: Option<String>,
+    pub project: Project,
+    pub label: Option<String>,
 }
 
 /// Whether the last step can be made again with other parameters.
@@ -170,51 +170,8 @@ impl Session {
         Some(id)
     }
 
-    /// The whole tree, as plain data.
-    pub fn undo_tree(&self) -> Value {
-        let h = &self.doc.undo.history;
-        let states: Vec<Value> = h
-            .states()
-            .map(|s| {
-                json!({
-                    "id": s.id, "parent": s.parent, "children": s.children, "redo": s.redo,
-                    "time": s.time, "label": s.label, "keys": s.keys, "name": s.name,
-                    "keep": s.keep, "current": s.id == h.current(),
-                    "saved": h.saved() == Some(s.id),
-                })
-            })
-            .collect();
-        json!({
-            "current": h.current(), "root": h.root(), "saved": h.saved(),
-            "limit": h.limit(), "pending": self.doc.undo.touched, "states": states,
-            "bytes": h.bytes(), "byte_limit": h.byte_limit(),
-        })
-    }
 
-    /// Keep at most `steps` states and about `bytes` bytes of what they
-    /// changed, letting the oldest go at once if there are more. Either
-    /// left out stays as it is; out of the ranges `paw.opt.undo_steps` and
-    /// `undo_memory` take, neither changes.
-    pub fn undo_limits(&mut self, steps: Option<usize>, bytes: Option<usize>) -> Result<()> {
-        if let Some(steps) = steps
-            && !(10..=1_000_000).contains(&steps)
-        {
-            bail!("the undo history keeps 10 to 1000000 steps, not {steps}");
-        }
-        if let Some(bytes) = bytes
-            && !(16 << 20..=1u64 << 40).contains(&(bytes as u64))
-        {
-            bail!("the undo history keeps 16 MB to 1 TB, not {bytes} bytes");
-        }
-        let h = &mut self.doc.undo.history;
-        h.set_limits(steps.unwrap_or(h.limit()), bytes.unwrap_or(h.byte_limit()));
-        Ok(())
-    }
 
-    /// The current state's id.
-    pub fn undo_current(&self) -> StateId {
-        self.doc.undo.history.current()
-    }
 
     /// Go to any state in the tree. False when there is no such state.
     pub fn undo_goto(&mut self, id: StateId) -> bool {
@@ -247,27 +204,8 @@ impl Session {
         Ok(id)
     }
 
-    /// Keep a state from being pruned, or let it be again.
-    pub fn undo_keep(&mut self, id: StateId, keep: bool) -> Result<()> {
-        if !self.doc.undo.history.set_keep(id, keep) {
-            bail!("no state {id} in the undo tree");
-        }
-        Ok(())
-    }
 
-    /// The command making the open step: see [`History::label`].
-    pub fn undo_label(&mut self, text: Option<String>) {
-        self.doc.undo.history.label(text);
-    }
 
-    /// Make the edits of the open step part of state `id` instead of a step
-    /// of their own, if `id` is still the current state and nothing hangs on
-    /// it. Returns whether they will be.
-    pub fn undo_join(&mut self, id: StateId) -> bool {
-        let joins = id == self.doc.undo.history.current() && self.doc.undo.history.can_extend();
-        self.doc.undo.join = joins.then_some(id);
-        joins
-    }
 
     /// Whether the open step holds edits that the end of this turn will
     /// close as a step of their own: not during a trial, whose edits are
@@ -283,15 +221,7 @@ impl Session {
         if !self.undo_pending() {
             return false;
         }
-        self.doc.project = self.doc.undo.checkpoint.clone();
-        self.files_there.forget();
-        self.doc.undo.touched = false;
-        self.doc.dirty = true;
-        self.doc.undo.restoring = true;
-        self.doc.undo.edits += 1;
-        self.doc.undo.sweep = Default::default();
-        self.doc.undo.join = None;
-        self.doc.undo.history.clear_labels();
+        self.doc.undo_discard();
         true
     }
 
@@ -300,7 +230,7 @@ impl Session {
     /// (`paw.commands.adjust`). `before` is the state (None: no command to adjust) the command started
     /// from: the step is the current one only if that is its parent and
     /// nothing hangs on it. `label` is the step's new name. The caller runs
-    /// the command at once, and calls [`Session::undo_adjust_cancel`] if it
+    /// the command at once, and calls [`Document::undo_adjust_cancel`] if it
     /// fails.
     pub fn undo_adjust(&mut self, before: Option<StateId>, label: Option<String>) -> AdjustStart {
         self.checkpoint();
@@ -340,27 +270,7 @@ impl Session {
         AdjustStart { status, label: old_label }
     }
 
-    /// The command that [`Session::undo_adjust`] ran again failed: put the
-    /// step back as it was.
-    pub fn undo_adjust_cancel(&mut self) {
-        let Some(step) = self.doc.undo.adjusting.take() else { return };
-        self.doc.project = step.project.clone();
-        self.doc.undo.checkpoint = step.project;
-        let current = self.doc.undo.history.current();
-        self.doc.undo.history.set_label(current, step.label);
-        self.doc.undo.touched = false;
-        self.doc.undo.join = None;
-        self.doc.undo.sweep = Default::default();
-        self.doc.undo.history.clear_labels();
-        self.doc.dirty = true;
-        self.doc.undo.restoring = true;
-        self.doc.undo.edits += 1;
-    }
 
-    /// The keys typed for the open step.
-    pub fn undo_keys(&mut self, text: String) {
-        self.doc.undo.history.keys(text);
-    }
 
     /// What differs from state `a` to state `b`. `b` defaults to the current
     /// state and `a` to `b`'s parent, which is what `b`'s step changed.
@@ -510,7 +420,7 @@ impl Session {
         self.doc.undo.history
             .label(Some(format!("checkpoint.restore {}", file.name)));
         self.doc.next_id = self.doc.next_id.max(project.max_id() + 1);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             *p = project;
             Ok(())
         })?;

@@ -16,7 +16,8 @@ use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use super::{Session, check_notes};
+use super::Document;
+use crate::model::check_notes;
 use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, de_attr};
 
 /// What to change about a note. Fields left out stay as they are.
@@ -253,14 +254,14 @@ fn insert(notes: &mut Notes, note: Note) -> usize {
     at
 }
 
-impl Session {
+impl Document {
     /// Add one note, and say where in the clip's notes it went.
     pub fn clip_note_add(&mut self, id: Id, mut note: Note) -> Result<usize> {
         check_notes(std::slice::from_ref(&note))?;
         // Named here, as `name_notes` would name it (the next free id), with
         // one look at the ids and nothing made: adding notes one by one to a
         // clip of many thousands stays quick.
-        let notes = notes_of(&self.doc.project, id)?;
+        let notes = notes_of(&self.project, id)?;
         let (mut last, mut taken) = (0, false);
         for other in notes {
             last = last.max(other.id);
@@ -275,7 +276,7 @@ impl Session {
     /// Change one note, and say where it is afterwards: a note that starts
     /// at another time, or moves to another pitch, changes place.
     pub fn clip_note_set(&mut self, id: Id, index: usize, change: &NoteChange) -> Result<usize> {
-        let notes = notes_of(&self.doc.project, id)?;
+        let notes = notes_of(&self.project, id)?;
         let before = notes
             .get(index)
             .ok_or_else(|| no_note(id, index, notes.len()))?;
@@ -296,7 +297,7 @@ impl Session {
     }
 
     pub fn clip_note_remove(&mut self, id: Id, index: usize) -> Result<()> {
-        let count = notes_of(&self.doc.project, id)?.len();
+        let count = notes_of(&self.project, id)?.len();
         if index >= count {
             return Err(no_note(id, index, count));
         }
@@ -308,7 +309,7 @@ impl Session {
 
     /// Change, remove and add several notes as one edit.
     pub fn clip_notes_edit(&mut self, id: Id, edit: NotesEdit) -> Result<()> {
-        let notes = notes_of(&self.doc.project, id)?;
+        let notes = notes_of(&self.project, id)?;
         let count = notes.len();
         let mut changed = Vec::with_capacity(edit.set.len());
         for change in &edit.set {
@@ -353,7 +354,7 @@ impl Session {
     /// Change many notes of many clips as one edit (`paw.api.notes_set`).
     /// A wrong entry changes nothing.
     pub fn notes_set(&mut self, columns: &NoteColumns) -> Result<()> {
-        let changes = columns.changes(&self.doc.project)?;
+        let changes = columns.changes(&self.project)?;
         let moves = columns.moves();
         // No note is added, and each changed note keeps its id.
         self.edit_named(|p| write_changes(p, changes, moves))
@@ -361,7 +362,7 @@ impl Session {
 
     /// The first note on `pitch` sounding at `beat`, and its place.
     pub fn clip_note_at(&self, id: Id, pitch: u8, beat: f64) -> Result<Option<(usize, &Note)>> {
-        Ok(notes_of(&self.doc.project, id)?
+        Ok(notes_of(&self.project, id)?
             .iter()
             .enumerate()
             // Notes are in the order they start: nothing later can be under the beat.
@@ -374,7 +375,7 @@ impl Session {
         let (low, high) = (range.low.unwrap_or(0), range.high.unwrap_or(u8::MAX));
         let from = range.from.unwrap_or(f64::NEG_INFINITY);
         let to = range.to.unwrap_or(f64::INFINITY);
-        Ok(notes_of(&self.doc.project, id)?
+        Ok(notes_of(&self.project, id)?
             .iter()
             .enumerate()
             .take_while(|(_, n)| n.start < to)
@@ -419,7 +420,7 @@ mod tests {
             .collect()
     }
 
-    /// What `Session::notes_set` does to the project, with no session.
+    /// What `Document::notes_set` does to the project.
     fn set(project: &mut Project, columns: &NoteColumns) -> Result<()> {
         let changes = columns.changes(project)?;
         write_changes(project, changes, columns.moves())

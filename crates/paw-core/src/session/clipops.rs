@@ -110,7 +110,7 @@ impl Session {
         let length = self.audio.load(&file)?.seconds();
         let played = self.played_seconds(&clip, offset);
         let back = (length - offset - played).max(0.0);
-        let edits = self.edit(|p| {
+        let edits = self.doc.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { offset, edits, .. } = &mut c.content else {
                 return Err(not_audio(c, id));
@@ -142,7 +142,7 @@ impl Session {
             AudioEdit::Pencil { at, .. } => *at += offset,
         }
         crate::edits::check(std::slice::from_ref(&edit))?;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { edits, .. } = &mut c.content else {
                 return Err(not_audio(c, id));
@@ -170,7 +170,7 @@ impl Session {
         } else {
             offset
         };
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { offset, edits, .. } = &mut c.content else {
                 return Err(not_audio(c, id));
@@ -201,7 +201,7 @@ impl Session {
             bail!("clip {id} is silent: there is nothing to bring to a level");
         }
         let gain = (level - paw_engine::gain_to_db(peak)).clamp(-120.0, 24.0);
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let c = p.clip_mut(id).context("the clip went away")?;
             let ClipContent::Audio { gain: g, .. } = &mut c.content else {
                 return Err(not_audio(c, id));
@@ -289,7 +289,7 @@ impl Session {
             overrides: Default::default(),
         });
         let id = glued.id;
-        self.edit(|p| {
+        self.doc.edit(|p| {
             let t = p.track_mut(track).context("the track went away")?;
             let at = t
                 .clips
