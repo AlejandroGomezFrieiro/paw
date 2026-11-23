@@ -5,11 +5,7 @@ use paw_engine::{
     Schedule, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
-
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok());
-}
+use crate::common::{SR, send};
 
 /// Two tracks with a synth each. Track 1 holds one long note; track 2 holds
 /// `second` (a note, or nothing).

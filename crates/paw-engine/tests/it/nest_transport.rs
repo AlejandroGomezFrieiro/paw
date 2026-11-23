@@ -5,11 +5,11 @@
 use std::sync::{Arc, Mutex};
 
 use paw_engine::{
-    Device, DeviceSlot, Engine, EngineHandle, Io, LocalTime, Msg, Place, ProcessCtx, SchedEntry,
-    Schedule, SigPoint, TempoMap, TempoPoint, TrackRt, TrackSlot,
+    Device, DeviceSlot, Engine, Io, LocalTime, Msg, Place, ProcessCtx, SchedEntry, Schedule,
+    SigPoint, TempoMap, TempoPoint, TrackRt, TrackSlot,
 };
 
-const SR: f64 = 48000.0;
+use crate::common::{SR, send};
 
 /// A device that keeps the transport of the first block it is given.
 struct Recorder(Arc<Mutex<Option<ProcessCtx>>>);
@@ -22,10 +22,6 @@ impl Device for Recorder {
         }
     }
     fn set_param(&mut self, _index: u32, _value: f32) {}
-}
-
-fn send(handle: &mut EngineHandle, msg: Msg) {
-    assert!(handle.try_send(msg).is_ok());
 }
 
 /// What a recorder on track 1 (with `local`) and one on track 2 (the

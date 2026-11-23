@@ -15,8 +15,8 @@ crates/paw-engine/src/pool.rs thread::sleep 2
 crates/paw-engine/src/record.rs Instant::now 1
 crates/paw-engine/src/record.rs thread::sleep 2
 crates/paw-engine/src/samples.rs thread::sleep 1
-crates/paw-engine/tests/midi_ports.rs Instant::now 10
-crates/paw-engine/tests/midi_ports.rs thread::sleep 4
+crates/paw-engine/tests/it/midi_ports.rs Instant::now 10
+crates/paw-engine/tests/it/midi_ports.rs thread::sleep 4
 crates/paw-engine/tests/no_alloc.rs thread::sleep 1
 crates/paw-listen/src/lib.rs thread::sleep 1
 crates/paw-luadev/tests/device.rs Instant::now 1
