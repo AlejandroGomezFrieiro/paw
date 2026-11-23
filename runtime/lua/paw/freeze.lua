@@ -315,16 +315,4 @@ end, {
   complete = track_names,
 })
 
--- The status line: the subprojects with a frozen block that is stale. It
--- looks again only after a change to the project.
-paw.statusline.component("frozen", {
-  rank = 5,
-  key = function() return api.project_get("edits") end,
-  fn = function()
-    local stale = freeze_block.stale()
-    if #stale == 0 then return nil end
-    return { { "stale: " .. table.concat(stale, ", "), "StatusWarn" } }
-  end,
-})
-
 return M
