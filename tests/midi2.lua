@@ -6,9 +6,12 @@ local T = ...
 local test, eq, near, fails, fresh = T.test, T.eq, T.near, T.fails, T.fresh
 local api = paw.api
 
--- Our port's name, told apart from those of other instances running the
--- suite at the same time, which a route by name could otherwise reach.
-local LOOP = "Loop" .. math.floor(api.now()) % 1000000
+-- Our port's name, told apart by the process id from those of other
+-- instances running the suite at the same time, which a route by name
+-- could otherwise reach.
+local ffi = require("ffi")
+pcall(ffi.cdef, "int getpid(void);")
+local LOOP = "Loop" .. ffi.C.getpid()
 local A = paw.frontend.act
 
 local function wait_for(ready, ms)
@@ -29,6 +32,9 @@ end
 --- tracks send to; `heard` fills with what arrives there. Nil and the
 --- reason when the sequencer cannot be opened here.
 local function with_loop(fn)
+  -- The sequencer is shared by every process of the machine: open no port
+  -- of others, so that only what our tracks send to our port arrives.
+  api.midi_select({})
   api.engine_restart({ backend = "null", midi = true })
   paw.midi.open_port(LOOP)
   local heard = {}
@@ -44,6 +50,7 @@ local function with_loop(fn)
   paw.off(handler)
   paw.midi.close_port(LOOP)
   api.engine_restart({ backend = "null" })
+  api.midi_select(nil)
   if not ok then error(err, 0) end
   return err
 end

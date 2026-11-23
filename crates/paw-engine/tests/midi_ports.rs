@@ -1,6 +1,11 @@
 //! MIDI input through the sequencer, from a client of our own on the same
 //! machine: MIDI 2.0 packets arrive whole, and MIDI 1.0 events arrive as
 //! the same events with less detail.
+//!
+//! The sequencer is shared by every process of the machine, and other
+//! tests send to it at the same time. So the inputs here open no port but
+//! the test's own: they start with none selected, and then select the
+//! sender of the test by its address, which is that client's alone.
 #![cfg(feature = "midi")]
 
 use std::ffi::c_int;
@@ -109,7 +114,7 @@ impl Drop for Sender {
     }
 }
 
-/// The inputs, and what they hear.
+/// The inputs, open to no port yet, and what they hear.
 fn listen() -> Option<(MidiInputs, Receiver<EventKind>)> {
     let (tx, rx) = channel();
     let sink = Arc::new(Mutex::new(MidiTarget {
@@ -118,11 +123,14 @@ fn listen() -> Option<(MidiInputs, Receiver<EventKind>)> {
             let _ = tx.send(kind);
         })),
     }));
-    MidiInputs::start(sink).ok().map(|inputs| (inputs, rx))
+    MidiInputs::start(sink, Some(Vec::new()))
+        .ok()
+        .map(|inputs| (inputs, rx))
 }
 
-/// Wait until the inputs have opened a port.
+/// Open the inputs to this port alone, and wait until they have.
 fn opened(inputs: &MidiInputs, address: &str) -> bool {
+    inputs.select(Some(vec![address.to_string()]));
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
         if inputs.ports().iter().any(|p| p.id == address && p.open) {
@@ -133,7 +141,7 @@ fn opened(inputs: &MidiInputs, address: &str) -> bool {
     false
 }
 
-/// The next message from a port of ours; other devices may be talking too.
+/// The next message that `wanted` takes; the sender sends others too.
 fn next(rx: &Receiver<EventKind>, wanted: impl Fn(&EventKind) -> bool) -> EventKind {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
@@ -327,7 +335,8 @@ fn what_arrives_at_a_port_of_our_own_goes_by_that_ports_name() {
         engine: Some(tx),
         tap: None,
     }));
-    let Ok(inputs) = MidiInputs::start(sink) else {
+    // No port but our own: the note comes from our sender alone.
+    let Ok(inputs) = MidiInputs::start(sink, Some(Vec::new())) else {
         eprintln!("skipped: no ALSA sequencer here");
         return;
     };

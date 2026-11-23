@@ -23,6 +23,7 @@
 //! ([`MidiOutputs::open_port`]): what a track sends there goes to whoever
 //! is subscribed, a synth in another program for one.
 
+use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
@@ -32,8 +33,8 @@ use anyhow::Result;
 use rtrb::Consumer;
 
 use crate::event::EventKind;
-use crate::midi::PortInfo;
-use crate::midi_form::Form;
+use crate::midi::{PortInfo, port_key};
+use crate::midi_form::{Converter, Form, Wire};
 
 /// The name of the sequencer client that sends: its ports are not read
 /// back as MIDI input.
@@ -163,9 +164,144 @@ impl Drop for MidiOutputs {
     }
 }
 
+/// A port of some client of the sequencer: its client and port numbers.
+type Addr = (i32, i32);
+
+/// Where a port's messages go to.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Dest {
+    /// Every subscriber of the source port: a port of our own.
+    Subscribers,
+    /// One port of another program.
+    Port(Addr),
+}
+
+/// Where a port's messages go: from which of our ports, to where, and
+/// whether as packets.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Route {
+    source: i32,
+    dest: Dest,
+    ump: bool,
+}
+
+/// What puts the messages out: the sequencer, or a spy in the tests.
+trait Output {
+    /// Put one message out on `route`, scheduled at `at` on [`clock_ns`],
+    /// or at once with `None`.
+    fn output(&mut self, route: Route, wire: Wire, at: Option<u64>);
+}
+
+/// paw's part of the output, apart from the sequencer: which port a
+/// message goes to, in which form, and which notes each route has left
+/// sounding.
+// Without the `midi` feature only the tests make one.
+#[cfg_attr(not(feature = "midi"), allow(dead_code))]
+struct Router {
+    /// Whether our client speaks MIDI 2.0, and so can send packets.
+    ump: bool,
+    /// The port that messages to other programs' ports are sent from.
+    port: i32,
+    /// Ports of our own that others read from: number and name.
+    own: Vec<(i32, String)>,
+    /// Other programs' ports, by key, and whether each takes packets.
+    dests: HashMap<u32, (Addr, bool)>,
+    /// What each route to a port sends, by port key and form, and the
+    /// notes it has left sounding there.
+    converters: HashMap<(u32, Form), Converter>,
+}
+
+#[cfg_attr(not(feature = "midi"), allow(dead_code))]
+impl Router {
+    fn new(ump: bool, port: i32) -> Self {
+        Self {
+            ump,
+            port,
+            own: Vec::new(),
+            dests: HashMap::new(),
+            converters: HashMap::new(),
+        }
+    }
+
+    /// Where a port's messages go from, and to: one of ours sends to its
+    /// subscribers, another program's is sent to from our output port.
+    /// And whether packets can go there: to our own ports when we speak
+    /// MIDI 2.0 (the sequencer turns them into MIDI 1.0 for a subscriber
+    /// that does not), to another program's when it does too.
+    fn route(&self, key: u32) -> Option<Route> {
+        if let Some((port, _)) = self.own.iter().find(|(_, name)| port_key(name) == key) {
+            return Some(Route {
+                source: *port,
+                dest: Dest::Subscribers,
+                ump: self.ump,
+            });
+        }
+        let (addr, ump) = *self.dests.get(&key)?;
+        Some(Route {
+            source: self.port,
+            dest: Dest::Port(addr),
+            ump: self.ump && ump,
+        })
+    }
+
+    /// Put a message out in its route's form. A message to a port that
+    /// is not there is dropped.
+    fn send(&mut self, message: MidiOut, out: &mut impl Output) {
+        let Some(route) = self.route(message.port) else {
+            return;
+        };
+        if message.kind == EventKind::AllNotesOff {
+            return self.release(message.port, Some(message.at), out);
+        }
+        let converter = self
+            .converters
+            .entry((message.port, message.form))
+            .or_insert_with(|| Converter::new(message.form, route.ump));
+        // The port's program changed its mind about packets: what the
+        // old way left sounding is ended that way first.
+        if converter.ump() != route.ump {
+            converter.release(&mut |wire| out.output(route, wire, None));
+            *converter = Converter::new(message.form, route.ump);
+        }
+        converter.convert(message.kind, &mut |wire| {
+            out.output(route, wire, Some(message.at))
+        });
+    }
+
+    /// End every note held on a port, at a time or now, with an All
+    /// Notes Off on each channel that had one. Where the port is gone,
+    /// the notes are forgotten.
+    fn release(&mut self, key: u32, at: Option<u64>, out: &mut impl Output) {
+        let route = self.route(key);
+        for ((port, _), converter) in self.converters.iter_mut() {
+            if *port != key {
+                continue;
+            }
+            match route {
+                Some(route) => converter.release(&mut |wire| out.output(route, wire, at)),
+                None => converter.release(&mut |_| {}),
+            }
+        }
+    }
+
+    /// End every note on every port, now.
+    fn release_all(&mut self, out: &mut impl Output) {
+        let mut keys: Vec<u32> = self.converters.keys().map(|(key, _)| *key).collect();
+        keys.sort_unstable();
+        keys.dedup();
+        for key in keys {
+            self.release(key, None, out);
+        }
+    }
+
+    /// Forget the routes to a port that is taken away.
+    fn forget(&mut self, key: u32) {
+        self.converters.retain(|(port, _), _| *port != key);
+    }
+}
+
 #[cfg(feature = "midi")]
 mod imp {
-    use std::collections::HashMap;
     use std::ffi::{CStr, CString, c_int};
     use std::time::Duration;
 
@@ -173,8 +309,6 @@ mod imp {
 
     use super::*;
     use crate::alsa::*;
-    use crate::midi::port_key;
-    use crate::midi_form::{Converter, Wire};
 
     /// Sent at once rather than through a queue.
     const QUEUE_DIRECT: u8 = 253;
@@ -188,8 +322,6 @@ mod imp {
     /// The catch-all input of this program's MIDI input, which would send
     /// what it is sent straight back to the tracks that send it.
     const OWN_INPUT: &str = "paw: input";
-
-    type Addr = (i32, i32);
 
     struct Seq(*mut snd_seq_t);
 
@@ -270,12 +402,8 @@ mod imp {
                 queue,
                 started: clock_ns(),
             },
-            ump,
-            port,
+            router: Router::new(ump, port),
             rx: None,
-            own: Vec::new(),
-            dests: HashMap::new(),
-            converters: HashMap::new(),
             ports,
             refreshed: None,
         };
@@ -288,19 +416,9 @@ mod imp {
 
     struct Client {
         sink: Sink,
-        /// Whether the client speaks MIDI 2.0, and so can send packets.
-        ump: bool,
         me: i32,
-        /// The port messages to other programs' ports are sent from.
-        port: i32,
+        router: Router,
         rx: Option<Consumer<MidiOut>>,
-        /// Ports of our own that others read from: number and name.
-        own: Vec<(i32, String)>,
-        /// Other programs' ports, by key, and whether each takes packets.
-        dests: HashMap<u32, (Addr, bool)>,
-        /// What each route to a port sends, by port key and form, and the
-        /// notes it has left sounding there.
-        converters: HashMap<(u32, Form), Converter>,
         ports: Arc<Mutex<Vec<PortInfo>>>,
         refreshed: Option<Instant>,
     }
@@ -314,12 +432,7 @@ mod imp {
                         Command::Open(name) => self.open_own(name),
                         Command::Close(name) => self.close_own(&name),
                         Command::Stop => {
-                            let mut keys: Vec<u32> =
-                                self.converters.keys().map(|(key, _)| *key).collect();
-                            keys.dedup();
-                            for key in keys {
-                                self.release(key, None);
-                            }
+                            self.router.release_all(&mut self.sink);
                             self.sink.drain();
                             return;
                         }
@@ -330,7 +443,7 @@ mod imp {
                 }
                 let mut sent = false;
                 while let Some(message) = self.rx.as_mut().and_then(|rx| rx.pop().ok()) {
-                    self.send(message);
+                    self.router.send(message, &mut self.sink);
                     sent = true;
                 }
                 if sent {
@@ -339,76 +452,6 @@ mod imp {
                 std::thread::sleep(Duration::from_millis(1));
             }
         }
-
-        /// Where a port's messages go from, and to: one of ours sends to its
-        /// subscribers, another program's is sent to from our output port.
-        /// And whether packets can go there: to our own ports when we speak
-        /// MIDI 2.0 (the sequencer turns them into MIDI 1.0 for a subscriber
-        /// that does not), to another program's when it does too.
-        fn route(&self, key: u32) -> Option<Route> {
-            if let Some((port, _)) = self.own.iter().find(|(_, name)| port_key(name) == key) {
-                return Some(Route {
-                    source: *port,
-                    dest: (SUBSCRIBERS, UNKNOWN),
-                    ump: self.ump,
-                });
-            }
-            let ((client, port), ump) = *self.dests.get(&key)?;
-            Some(Route {
-                source: self.port,
-                dest: (client as u8, port as u8),
-                ump: self.ump && ump,
-            })
-        }
-
-        fn send(&mut self, message: MidiOut) {
-            let Some(route) = self.route(message.port) else {
-                return;
-            };
-            if message.kind == EventKind::AllNotesOff {
-                return self.release(message.port, Some(message.at));
-            }
-            let converter = self
-                .converters
-                .entry((message.port, message.form))
-                .or_insert_with(|| Converter::new(message.form, route.ump));
-            // The port's program changed its mind about packets: what the
-            // old way left sounding is ended that way first.
-            if converter.ump() != route.ump {
-                let sink = &self.sink;
-                converter.release(&mut |wire| sink.output(route, wire, None));
-                *converter = Converter::new(message.form, route.ump);
-            }
-            let sink = &self.sink;
-            converter.convert(message.kind, &mut |wire| {
-                sink.output(route, wire, Some(message.at))
-            });
-        }
-
-        /// End every note held on a port, at a time or now, with an All
-        /// Notes Off on each channel that had one.
-        fn release(&mut self, key: u32, at: Option<u64>) {
-            let route = self.route(key);
-            let sink = &self.sink;
-            for ((port, _), converter) in self.converters.iter_mut() {
-                if *port != key {
-                    continue;
-                }
-                match route {
-                    Some(route) => converter.release(&mut |wire| sink.output(route, wire, at)),
-                    None => converter.release(&mut |_| {}),
-                }
-            }
-        }
-    }
-
-    /// Where a port's messages go: from which of our ports, to which
-    /// address, and whether as packets.
-    #[derive(Clone, Copy)]
-    struct Route {
-        source: i32,
-        dest: (u8, u8),
-        ump: bool,
     }
 
     /// The client's handle and queue, through which everything leaves.
@@ -419,10 +462,10 @@ mod imp {
         started: u64,
     }
 
-    impl Sink {
+    impl Output for Sink {
         /// Put one message out, scheduled at `at` on [`clock_ns`] when that
         /// is still to come, else at once.
-        fn output(&self, route: Route, wire: Wire, at: Option<u64>) {
+        fn output(&mut self, route: Route, wire: Wire, at: Option<u64>) {
             // The two kinds of event start with the same fields.
             // SAFETY: both are plain C structs and unions of integers (and a
             // pointer, null here): all zeros is a valid value, the empty event.
@@ -457,6 +500,11 @@ mod imp {
                     ev.data = data;
                 }
             }
+            // A port of ours sends to its subscribers, whoever they are.
+            let (client, port) = match route.dest {
+                Dest::Subscribers => (SUBSCRIBERS, UNKNOWN),
+                Dest::Port((client, port)) => (client as u8, port as u8),
+            };
             let (flags, queue, time) = match queue_time(at, clock_ns(), self.started) {
                 Some(from_start) => {
                     let time = snd_seq_timestamp_t {
@@ -483,8 +531,8 @@ mod imp {
                 ump.queue = queue;
                 ump.time = time;
                 ump.source.port = route.source as u8;
-                ump.dest.client = route.dest.0;
-                ump.dest.port = route.dest.1;
+                ump.dest.client = client;
+                ump.dest.port = port;
                 // SAFETY: the handle is open, and `ump` a whole event that
                 // the call only reads.
                 unsafe { snd_seq_ump_event_output(self.seq.0, &mut ump) };
@@ -493,13 +541,15 @@ mod imp {
                 ev.queue = queue;
                 ev.time = time;
                 ev.source.port = route.source as u8;
-                ev.dest.client = route.dest.0;
-                ev.dest.port = route.dest.1;
+                ev.dest.client = client;
+                ev.dest.port = port;
                 // SAFETY: as above, for `ev`.
                 unsafe { snd_seq_event_output(self.seq.0, &mut ev) };
             }
         }
+    }
 
+    impl Sink {
         fn drain(&self) {
             // SAFETY: the handle is open.
             unsafe {
@@ -510,7 +560,7 @@ mod imp {
 
     impl Client {
         fn open_own(&mut self, name: String) {
-            if self.own.iter().any(|(_, known)| *known == name) {
+            if self.router.own.iter().any(|(_, known)| *known == name) {
                 return;
             }
             let Ok(text) = CString::new(name.as_str()) else {
@@ -527,20 +577,20 @@ mod imp {
                 )
             };
             if port >= 0 {
-                self.own.push((port, name));
+                self.router.own.push((port, name));
                 self.refresh();
             }
         }
 
         fn close_own(&mut self, name: &str) {
-            let Some(at) = self.own.iter().position(|(_, known)| known == name) else {
+            let Some(at) = self.router.own.iter().position(|(_, known)| known == name) else {
                 return;
             };
-            self.release(port_key(name), None);
+            let key = port_key(name);
+            self.router.release(key, None, &mut self.sink);
             self.sink.drain();
-            self.converters
-                .retain(|(port, _), _| *port != port_key(name));
-            let (port, _) = self.own.remove(at);
+            self.router.forget(key);
+            let (port, _) = self.router.own.remove(at);
             // SAFETY: the handle is open; a port number that is not ours
             // any more is an error code, not UB.
             unsafe {
@@ -606,7 +656,7 @@ mod imp {
                 snd_seq_port_info_free(port);
                 snd_seq_client_info_free(client);
             }
-            self.dests = found
+            self.router.dests = found
                 .iter()
                 .map(|(addr, name, ump)| (port_key(name), (*addr, *ump)))
                 .collect();
@@ -619,7 +669,7 @@ mod imp {
                         open: true,
                         own: false,
                     })
-                    .chain(self.own.iter().map(|(port, name)| PortInfo {
+                    .chain(self.router.own.iter().map(|(port, name)| PortInfo {
                         id: format!("{}:{port}", self.me),
                         name: name.clone(),
                         open: true,
@@ -687,5 +737,112 @@ mod tests {
         check(Some(4_000), 4_000, None);
         check(Some(2_000), 4_000, None);
         check(None, 4_000, None);
+    }
+
+    /// A spy in place of the sequencer: each message put out, in order.
+    #[derive(Default)]
+    struct Sent(Vec<(Route, Wire, Option<u64>)>);
+
+    impl Output for Sent {
+        fn output(&mut self, route: Route, wire: Wire, at: Option<u64>) {
+            self.0.push((route, wire, at));
+        }
+    }
+
+    /// Another program's port, "Synth: in", at 130:0, and one of ours,
+    /// "Loop", our port 5. Our client sends from port 0 and speaks MIDI
+    /// 1.0, so each message is plain bytes.
+    const SYNTH: Addr = (130, 0);
+    fn router() -> Router {
+        let mut router = Router::new(false, 0);
+        router.own.push((5, "Loop".to_string()));
+        router.dests.insert(port_key("Synth: in"), (SYNTH, false));
+        router
+    }
+
+    fn message(port: &str, form: Form, at: u64, kind: EventKind) -> MidiOut {
+        MidiOut { at, port: port_key(port), form, kind }
+    }
+
+    fn on(key: u8) -> EventKind {
+        EventKind::NoteOn { key, vel: 0.8, ch: 0, attr: crate::event::Attr::NONE }
+    }
+
+    /// Where each note-on went, on which channel, and its key.
+    fn note_ons(sent: &Sent) -> Vec<(Dest, u8, u8)> {
+        sent.0
+            .iter()
+            .filter_map(|(route, wire, _)| match *wire {
+                Wire::Midi1([status, key, velocity], 3) if status & 0xF0 == 0x90 && velocity > 0 => {
+                    Some((route.dest, status & 15, key))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_message_goes_to_the_port_it_names_in_the_form_of_its_route() {
+        let (mut router, mut sent) = (router(), Sent::default());
+        for key in [60, 64, 67] {
+            router.send(message("Synth: in", Form::Mpe(3), 1_000, on(key)), &mut sent);
+        }
+        router.send(message("Loop", Form::Auto, 2_000, on(72)), &mut sent);
+        let before = sent.0.len();
+        router.send(message("Gone: in", Form::Auto, 3_000, on(48)), &mut sent);
+
+        assert_eq!(sent.0.len(), before, "a port that is not there is sent nothing");
+        assert_eq!(
+            note_ons(&sent),
+            [
+                (Dest::Port(SYNTH), 1, 60),
+                (Dest::Port(SYNTH), 2, 64),
+                (Dest::Port(SYNTH), 3, 67),
+                (Dest::Subscribers, 0, 72),
+            ],
+            "the chord across the zone's channels at the synth, the note as it was to our port"
+        );
+        let froms: Vec<(Dest, i32, Option<u64>)> =
+            sent.0.iter().map(|(route, _, at)| (route.dest, route.source, *at)).collect();
+        assert!(
+            froms.iter().all(|from| matches!(
+                from,
+                (Dest::Port(SYNTH), 0, Some(1_000)) | (Dest::Subscribers, 5, Some(2_000))
+            )),
+            "from our output port to the synth, from our own port to its subscribers, each at its stamp: {froms:?}"
+        );
+    }
+
+    #[test]
+    fn all_notes_off_ends_the_notes_of_its_port_and_a_stop_ends_the_rest() {
+        let (mut router, mut sent) = (router(), Sent::default());
+        router.send(message("Synth: in", Form::Auto, 1_000, on(60)), &mut sent);
+        router.send(message("Loop", Form::Auto, 1_000, on(62)), &mut sent);
+
+        sent.0.clear();
+        router.send(message("Synth: in", Form::Auto, 9_000, EventKind::AllNotesOff), &mut sent);
+        let ended: Vec<(Dest, Wire, Option<u64>)> =
+            sent.0.iter().map(|(route, wire, at)| (route.dest, *wire, *at)).collect();
+        assert_eq!(
+            ended,
+            [
+                (Dest::Port(SYNTH), Wire::Midi1([0x80, 60, 0], 3), Some(9_000)),
+                (Dest::Port(SYNTH), Wire::Midi1([0xB0, 123, 0], 3), Some(9_000)),
+            ],
+            "the synth's note ends at the stamp, and our port's note still sounds"
+        );
+
+        sent.0.clear();
+        router.release_all(&mut sent);
+        let ended: Vec<(Dest, Wire, Option<u64>)> =
+            sent.0.iter().map(|(route, wire, at)| (route.dest, *wire, *at)).collect();
+        assert_eq!(
+            ended,
+            [
+                (Dest::Subscribers, Wire::Midi1([0x80, 62, 0], 3), None),
+                (Dest::Subscribers, Wire::Midi1([0xB0, 123, 0], 3), None),
+            ],
+            "a stop ends what still sounds, at once"
+        );
     }
 }

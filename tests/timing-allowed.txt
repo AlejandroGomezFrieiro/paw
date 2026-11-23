@@ -15,8 +15,6 @@ crates/paw-engine/src/pool.rs thread::sleep 2
 crates/paw-engine/src/record.rs Instant::now 1
 crates/paw-engine/src/record.rs thread::sleep 2
 crates/paw-engine/src/samples.rs thread::sleep 1
-crates/paw-engine/tests/midi_out.rs Instant::now 4
-crates/paw-engine/tests/midi_out.rs thread::sleep 1
 crates/paw-engine/tests/midi_ports.rs Instant::now 10
 crates/paw-engine/tests/midi_ports.rs thread::sleep 4
 crates/paw-engine/tests/no_alloc.rs thread::sleep 1
@@ -132,9 +130,9 @@ tests/lsp.lua paw.wait( 1
 tests/luadev.lua :meter( 2
 tests/media.lua api.sleep( 2
 tests/media.lua paw.wait( 2
-tests/midi2.lua api.now() 3
+tests/midi2.lua api.now() 2
 tests/midi2.lua paw.wait( 1
-tests/midi_out.lua api.now() 3
+tests/midi_out.lua api.now() 2
 tests/midi_out.lua paw.wait( 1
 tests/model.lua :meter( 1
 tests/offline.lua :meter( 1
