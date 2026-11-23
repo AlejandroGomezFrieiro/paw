@@ -446,8 +446,9 @@ function paw.every(ms, fn) end
 ---@param err any
 function paw.failure(err) end
 
---- Send the change events for the edits made until now. The kernel does
---- this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
+--- Push the edits made until now to the engine, and send their change
+--- events. The kernel does this at the end of each turn. Call `paw.flush()`
+--- to make handlers run sooner.
 function paw.flush() end
 
 --- Bring a sound file into the project: on a new track named after the
@@ -4739,7 +4740,7 @@ function paw.hooks.note(name, payload) end
 function paw.hooks.selection() end
 
 --- The end of a turn, after its events are delivered: the kernel's
---- `settle`.
+--- `close_turn`.
 function paw.hooks.turn() end
 
 --- The names of the views on screen.
@@ -10915,6 +10916,9 @@ function paw.api.engine_midi_filter(name, rules) end
 --- Forget the process times that `engine_get().blocks` recorded until now.
 function paw.api.engine_reset_stats() end
 
+--- Start the engine again with these options. With no `backend`, it
+--- keeps the one that runs: `null`, `step`, `test` or the sound system
+--- that opened.
 ---@param opts any
 function paw.api.engine_restart(opts) end
 
@@ -10942,7 +10946,14 @@ function paw.api.engine_set_threads(threads) end
 
 function paw.api.env() end
 
+--- The change events of the edits pushed until now (`flush`), taken
+--- out of the queue.
 function paw.api.events_take() end
+
+--- Push the edits made until now to the engine: automation that is
+--- held is written, and files are read ahead of the playhead. The kernel
+--- does this at the end of each turn; `paw.flush` does it at once.
+function paw.api.flush() end
 
 --- Copy a file, or a directory with all it holds, to where there is nothing.
 ---@param from string
@@ -12518,8 +12529,8 @@ function paw.api.wait(ms) end
 --- the tests), let the time of `blocks` audio blocks pass: the clock
 --- moves to the end of the last of them, the timers due on the way
 --- fire, and the engine plays exactly that many blocks. Gives the
---- number of blocks, or 0 when the engine plays on its own and
---- nothing was done. More than 60 seconds of blocks is an error.
+--- number of blocks. On another backend or clock, and for more than
+--- 60 seconds of blocks, it is an error.
 ---@param blocks integer
 function paw.api.wait_blocks(blocks) end
 

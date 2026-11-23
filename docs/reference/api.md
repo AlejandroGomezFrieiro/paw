@@ -33,7 +33,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.emit(event, payload)`: Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
 - `paw.every(ms, fn)`: Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 - `paw.failure(err)`: What a user sees of an error: one line, without the list of calls. The place in the code (`paw/x.lua:12:`) moves to the end, where it does not hide what went wrong. The whole error goes to the log.
-- `paw.flush()`: Send the change events for the edits made until now. The kernel does this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
+- `paw.flush()`: Push the edits made until now to the engine, and send their change events. The kernel does this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
 - `paw.import_audio(path, opts)`: Bring a sound file into the project: on a new track named after the file (or on `opts.track`), at the cursor (or `opts.start`). Returns the clip.
 - `paw.inspect(value, indent, seen)`: Render any value as readable Lua-like text.
 - `paw.is_audio_file(path)`: True if a path names a sound file, from its file ending.
@@ -1104,7 +1104,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.hooks.key(key)`: Before a key is dispatched: `key.pre` sees it first. False when a handler took it, and the keymap is not to have it.
 - `paw.hooks.note(name, payload)`: Count an event of this turn as a part of the edit of the turn. Undo, redo and the open of a project are not edits (`restored`).
 - `paw.hooks.selection()`: The current selection: the visual selection of the focused view and the clips selected with the pointer. Also the selected notes of the clips that the piano roll edits.
-- `paw.hooks.turn()`: The end of a turn, after its events are delivered: the kernel's `settle`.
+- `paw.hooks.turn()`: The end of a turn, after its events are delivered: the kernel's `close_turn`.
 - `paw.hooks.views_shown()`: The names of the views on screen.
 
 ## Module paw.insert
@@ -2712,12 +2712,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_load()`: What changes of the engine by itself, as `engine_get` gives it but without a table, for what is read on each frame: `cpu`, `xruns` and `block`.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
-- `paw.api.engine_restart(opts)`
+- `paw.api.engine_restart(opts)`: Start the engine again with these options. With no `backend`, it keeps the one that runs: `null`, `step`, `test` or the sound system that opened.
 - `paw.api.engine_set_quality(quality)`: The quality that the built-in devices play at live: `"full"`, or `"edit"` to lower their costly settings while you edit, such as the oversampling of `saturation`. A render, an export, stems, a freeze and a bounce always play at full quality. `paw.opt.quality` calls it.
 - `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. When the song is stopped and nothing sounds, the whole engine rests. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through, and `engine_get().engine_rests` the blocks that the engine rested.
 - `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`
-- `paw.api.events_take()`
+- `paw.api.events_take()`: The change events of the edits pushed until now (`flush`), taken out of the queue.
+- `paw.api.flush()`: Push the edits made until now to the engine: automation that is held is written, and files are read ahead of the playhead. The kernel does this at the end of each turn; `paw.flush` does it at once.
 - `paw.api.fs_copy(from, to)`: Copy a file, or a directory with all it holds, to where there is nothing.
 - `paw.api.fs_create(path)`: Make an empty file where there is none.
 - `paw.api.fs_exists(path)`: True when a file or directory is there (a link that leads nowhere is not).
@@ -3023,7 +3024,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.view_ranges()`: The ranges that `view_ranges_set` gave last.
 - `paw.api.view_ranges_set(ranges)`: Tell paw which part of the song each window shows: a list of ranges of beats, each with the tracks shown (all tracks when `tracks` is nil). The stretched clips there bake before the others. paw.derived sends this after each frame.
 - `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`. With `paw --clock manual`, the time passes at once: each timer fires in its order, at its own time.
-- `paw.api.wait_blocks(blocks)`: On the stepped audio backend (`paw --audio step --clock manual`, the tests), let the time of `blocks` audio blocks pass: the clock moves to the end of the last of them, the timers due on the way fire, and the engine plays exactly that many blocks. Gives the number of blocks, or 0 when the engine plays on its own and nothing was done. More than 60 seconds of blocks is an error.
+- `paw.api.wait_blocks(blocks)`: On the stepped audio backend (`paw --audio step --clock manual`, the tests), let the time of `blocks` audio blocks pass: the clock moves to the end of the last of them, the timers due on the way fire, and the engine plays exactly that many blocks. Gives the number of blocks. On another backend or clock, and for more than 60 seconds of blocks, it is an error.
 - `paw.api.warnings()`
 - `paw.api.which(program)`: Where a program is on `PATH`, as `command -v` says; nil when it is not there. A name with a `/` is checked as it is.
 - `paw.api.xml_decode(text, opts)`: The root element of an XML text, or nil and what is wrong (with the byte). An element is `{ name, attr, order, children, text }`: `attr` maps each attribute to its text, `order` lists them as written, `children` holds the child elements, `text` the text and CDATA directly in it (nil when there is none). References are read; an entity a DTD defines is kept as it is written. UTF-16 with a byte order mark is read too. `opts.spans` gives each element `span = { from, open, close, to, lead, tail }`, the bytes it takes in the text, so that `xml_encode` can write what is not changed byte for byte. `opts.meta` is set as the metatable of each element.

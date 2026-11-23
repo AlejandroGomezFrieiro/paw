@@ -108,6 +108,7 @@ local record api
    engine_set_threads: function(threads: integer)
    env: function(): types.Env
    events_take: function(): {kernel_events.KernelEvent}
+   flush: function()
    fs_copy: function(from: string, to: string)
    fs_create: function(path: string)
    fs_exists: function(path: string): boolean
