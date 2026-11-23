@@ -80,7 +80,7 @@ export function pawArgs(state = {}) {
   const args = ["--no-plugins", "--clean"];
   const lua = [];
   if (state.project) args.push(`projects/${state.project}`);
-  else if (state.lesson === undefined) args.push("projects/demo-song");
+  else if (state.lesson === undefined && !state.empty) args.push("projects/demo-song");
   if (state.lesson !== undefined) {
     lua.push(`paw.ext.load_bundled("tutor")`, `paw.ex.exec("tutor! ${String(state.lesson).replace(/"/g, "")}")`);
   }
@@ -210,6 +210,7 @@ export class PawPod {
    * Start paw at a state. paw that runs already quits first, without
    * saving. The states:
    * - `{ project: "demo-song" }`: a project of the image (the default).
+   * - `{ empty: true }`: a new project with no tracks.
    * - `{ lesson: 3 }`, `{ lesson: "visual" }`: a lesson of the course, from its start.
    * - `{ scope: "Chords" }`: with a project, narrowed to a region or a group (`:narrow`).
    * - `{ keys: "jj" }`: keys typed after startup; `{ lua: "..." }`: Lua run after startup.
