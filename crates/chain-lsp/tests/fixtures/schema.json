@@ -1,6 +1,17 @@
 {
-  "chain_schema": 1,
+  "chain_schema": 2,
   "host": "example",
+  "streams": [{ "stream": "audio", "name": "Audio" }, { "stream": "midi", "name": "MIDI" }],
+  "nodes": [
+    {
+      "kind": "strip",
+      "ports": [
+        { "port": "in", "stream": "audio", "main": true },
+        { "port": "notes", "stream": "midi", "main": true },
+        { "port": "out", "stream": "audio", "main": true, "out": true }
+      ]
+    }
+  ],
   "devices": [
     {
       "kind": "compressor",

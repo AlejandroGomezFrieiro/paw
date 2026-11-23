@@ -1,0 +1,17 @@
+chain 2 "Stores"
+strip #1 "Lead"
+producer render #2
+producer render #3
+bus #4 "Loop"
+bus #5 "Out"
+"Room" -> #1
+#1 -> #2
+#2 => "Print"
+-- E216: a second wire stores in "Print"
+#3 => "Print"
+-- E217: the two buses feed each other
+#1 -> #4
+#4 -> #1
+-- fine: a path that does not come back
+#1 -> #5
+#5 -> @"Strings/Bus"

@@ -4,4 +4,4 @@ expression: "annotate(&text, &parsed.diagnostics)"
 ---
   1 | -- the header is missing, so the first line is a device
   2 | eq #1 hp=90Hz
-    | ^ 2:1: error E101: a chain starts with the line `chain 1`
+    | ^ 2:1: error E101: a chain starts with the line `chain 2`

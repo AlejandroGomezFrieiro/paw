@@ -19,7 +19,7 @@ language, which needs nothing else of paw.
 | `paw attach` | Shows the terminal interface of an instance that runs, in this terminal. |
 | `paw doctor [options]` | Checks the audio, MIDI, plugins and environment, and prints a report. |
 | `paw clip cat <file.midi2>` | Prints a MIDI 2.0 clip file as text, one note to a line. Git uses it to show the changes of project folders. |
-| `paw chain schema [options]` | Prints paw's schema of the [chain language](chain-language.md) as JSON: each kind of device that paw has after it starts, with your plugins and the Lua devices of your extensions, and each kind of split and modulator. `--clean` leaves out your extensions, and `--no-plugins` leaves out your plugins. The [schema format](chain-schema.md) gives each field. |
+| `paw chain schema [options]` | Prints paw's schema of the [chain language](chain-language.md) as JSON: the kinds of stream and the nodes of a part, each kind of device that paw has after it starts, with your plugins and the Lua devices of your extensions, and each kind of split and modulator. `--clean` leaves out your extensions, and `--no-plugins` leaves out your plugins. The [schema format](chain-schema.md) gives each field. |
 
 | Option | Effect |
 | --- | --- |

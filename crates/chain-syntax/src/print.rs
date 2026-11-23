@@ -5,7 +5,10 @@
 //! empty line where the text had one or more, and each comment kept.
 
 use crate::lex;
-use crate::tree::{Body, Check, Content, Document, Field, Link, Mods, Modulator, Node, Trivia};
+use crate::tree::{
+    Body, Check, Content, Document, End, Field, GraphNode, Item, Link, Mods, Modulator, Node,
+    Trivia, Wire,
+};
 use crate::value::{Number, Reference, Value};
 
 /// The text of a document.
@@ -18,6 +21,12 @@ pub fn print(document: &Document) -> String {
     printer.fields(&header.fields);
     printer.close(&header.trivia);
     printer.body(&document.root, 0);
+    for item in &document.graph {
+        match item {
+            Item::Node(node) => printer.graph_node(node),
+            Item::Wire(wire) => printer.wire(wire),
+        }
+    }
     if let Some(checks) = &document.checks {
         printer.open(&checks.trivia, 0);
         printer.out.push_str("checks");
@@ -81,7 +90,10 @@ impl Printer {
                     self.id(branch.id.as_deref());
                     self.fields(&branch.fields);
                     self.close(&branch.trivia);
-                    branch.nodes.iter().for_each(|node| self.node(node, level + 1));
+                    branch
+                        .nodes
+                        .iter()
+                        .for_each(|node| self.node(node, level + 1));
                 }
             }
         }
@@ -98,6 +110,48 @@ impl Printer {
         self.fields(&node.fields);
         self.close(&node.trivia);
         self.body(&node.body, level + 1);
+    }
+
+    fn graph_node(&mut self, node: &GraphNode) {
+        self.open(&node.trivia, 0);
+        self.out.push_str(node.role.as_str());
+        if let Some(kind) = &node.kind {
+            self.out.push(' ');
+            self.kind(kind);
+        }
+        self.id(node.id.as_deref());
+        self.name(node.name.as_deref());
+        self.fields(&node.fields);
+        self.close(&node.trivia);
+        self.body(&node.inserts, 1);
+    }
+
+    fn wire(&mut self, wire: &Wire) {
+        self.open(&wire.trivia, 0);
+        self.end(&wire.from);
+        self.out.push(' ');
+        self.out.push_str(wire.arrow.as_str());
+        self.out.push(' ');
+        self.end(&wire.to);
+        self.close(&wire.trivia);
+    }
+
+    fn end(&mut self, end: &End) {
+        match end {
+            End::Node { id, port } => {
+                self.out.push('#');
+                self.out.push_str(id);
+                if let Some(port) = port {
+                    self.out.push('.');
+                    self.key(port);
+                }
+            }
+            End::Lane(lane) => quote(&mut self.out, lane),
+            End::Outside(path) => {
+                self.out.push('@');
+                quote(&mut self.out, path);
+            }
+        }
     }
 
     fn mods(&mut self, mods: &Mods, level: usize) {
@@ -213,6 +267,10 @@ impl Printer {
             Value::Reference(Reference::Node(id)) => {
                 self.out.push('@');
                 self.out.push_str(id);
+            }
+            Value::Reference(Reference::Outside(path)) => {
+                self.out.push('@');
+                quote(&mut self.out, path);
             }
             Value::List(values) => {
                 for (index, value) in values.iter().enumerate() {

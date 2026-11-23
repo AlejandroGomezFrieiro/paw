@@ -1,0 +1,14 @@
+---
+source: crates/chain-syntax/tests/it/bad.rs
+expression: "annotate(&text, &parsed.diagnostics)"
+---
+  1 | chain 2 "No context"
+  2 | strip #1
+  3 |   compressor #2 key=@"Drums/Kick"
+    |                 ^ 3:17: warning W302: no context of the host: the type of @"Drums/Kick" is not checked
+  4 | producer render #3
+  5 | "Room" -> #1
+    | ^ 5:1: warning W302: no context of the host: the type of the lane "Room" is not checked
+  6 | #1 -> #3
+  7 | #3 => @"Strings/Print"
+    | ^ 7:1: warning W302: no context of the host: the type of @"Strings/Print" is not checked

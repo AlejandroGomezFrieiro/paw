@@ -13,7 +13,7 @@ fuzz_target!(|bytes: &[u8]| {
     let schema = Schema::from_json(include_str!("../../crates/chain-syntax/tests/fixtures/schema.json"))
         .expect("the example schema loads");
     let parsed = parse(text);
-    check(&parsed.document, &schema);
+    check(&parsed.document, &schema, None);
     if parsed.has_errors() {
         return;
     }

@@ -23,7 +23,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use crate::host::Host;
+use crate::host::{Host, read_context};
 use crate::position::{offset, range};
 
 /// The notification of a client that changes [`Host::context`].
@@ -110,8 +110,16 @@ impl Server {
                 vec![publish(uri, Vec::new(), None)]
             }
             CONTEXT => {
-                self.host.context = params;
-                Vec::new()
+                // A context that does not read counts as none: its W302
+                // warnings tell the person.
+                self.host.context = read_context(params).ok().flatten();
+                // The context changes the diagnostics of each open text.
+                let mut uris: Vec<&String> = self.texts.keys().collect();
+                uris.sort();
+                uris.into_iter()
+                    .filter_map(|uri| uri.parse::<Uri>().ok())
+                    .map(|uri| self.diagnostics(uri, None))
+                    .collect()
             }
             _ => Vec::new(),
         }
@@ -134,7 +142,7 @@ impl Server {
     fn diagnostics(&self, uri: Uri, version: Option<i32>) -> Notification {
         let text = self.texts.get(uri.as_str()).map_or("", String::as_str);
         let parsed = match &self.host.schema {
-            Some(schema) => check_text(text, schema),
+            Some(schema) => check_text(text, schema, self.host.context.as_ref()),
             None => parse(text),
         };
         let list = parsed
@@ -182,15 +190,18 @@ impl Server {
         let Some(schema) = &self.host.schema else {
             return Ok(None);
         };
-        let items = complete(text, offset(text, at.position), schema)
+        let context = self.host.context.as_ref();
+        let items = complete(text, offset(text, at.position), schema, context)
             .into_iter()
             .map(|completion| CompletionItem {
                 kind: Some(match completion.kind {
                     CompletionKind::Device => CompletionItemKind::CLASS,
                     CompletionKind::Split => CompletionItemKind::MODULE,
                     CompletionKind::Modulator => CompletionItemKind::EVENT,
+                    CompletionKind::Node => CompletionItemKind::STRUCT,
                     CompletionKind::Parameter => CompletionItemKind::PROPERTY,
                     CompletionKind::Value => CompletionItemKind::ENUM_MEMBER,
+                    CompletionKind::Lane | CompletionKind::Outside => CompletionItemKind::REFERENCE,
                 }),
                 detail: Some(completion.detail),
                 text_edit: Some(CompletionTextEdit::Edit(TextEdit {
