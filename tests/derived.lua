@@ -212,6 +212,7 @@ test("derived: after :quantize of one bar, the job reads only that bar's windows
   paw.flush()
   song.update()
   local before = song.stats("harmony.track_window")
+  local bars_before = song.stats("harmony.track_bar").made
 
   T.keys(":3quantize 1/4<CR>")
   paw.flush()
@@ -223,9 +224,10 @@ test("derived: after :quantize of one bar, the job reads only that bar's windows
   end
   widest = math.max(widest, made() - count)
   local windows = song.stats("harmony.track_window")
-  -- A place's edges count: the window that ends where a moved note starts too.
-  eq(windows.made - before.made, 4 * 9, "4 tracks by the 8 windows of bar 3 and the one before are made again")
+  -- The window that ends where a moved note now starts is not read again.
+  eq(windows.made - before.made, 4 * 8, "only the 8 windows of bar 3 on each of the 4 tracks are made again")
   eq(windows.hits - before.hits, 0, "no window of the other bars is looked at")
+  eq(song.stats("harmony.track_bar").made - bars_before, 4, "and of the bars for the key, only bar 3 of each track")
   eq(widest <= 8, true, "a slice makes a few entries, not the windows of the song: " .. widest)
   local got, want = both()
   eq(got, want, "and the reading is the one of all the notes")
