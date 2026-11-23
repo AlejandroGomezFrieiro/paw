@@ -393,9 +393,21 @@ seats.keep("ui",
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
 --- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
+---
+--- With `window_instances`, each window has its own table of the
+--- `window_state` fields, which takes the rest from the view
+--- (`paw.ui.instance_of`), and the view draws with that table as `self`.
+--- The view that `paw.ui.view` returns then reads and writes those fields
+--- in the window that drew or acted last.
 function M.view<V is contracts.View>(name: string, def: V): V
   def.name = name
-  if def.window_state then L.window_fields(name, def as {string:L.Kept}, def.window_state, def.window_fresh) end
+  -- With `window_instances`, `paw.ui.views` holds a proxy of the view
+  -- (paw/layout.tl: `instances`), and each window an instance.
+  if def.window_state and def.window_instances then
+    def = L.instances(name, def, def.window_state, def.window_fresh)
+  elseif def.window_state then
+    L.window_fields(name, def as {string:L.Kept}, def.window_state, def.window_fresh)
+  end
   M.views[name] = def
   api.ui_redraw()
   return def
@@ -787,7 +799,9 @@ local function draw(view: View, buf: Buf, ctx: RenderContext)
   if ctx and ctx.win then L.bind(ctx.win as Node) end
   -- The hit regions it marks on the screen are where the pointer finds them.
   if M.screen then paw.roles.begin(view.name, ctx and ctx.win and ctx.win.id) end
-  draw_view(view, buf, ctx)
+  -- A view with instances draws with the instance of its window as `self`.
+  local own = ctx and ctx.win and L.instance_of(ctx.win as Node)
+  draw_view(own and own as View or view, buf, ctx)
   paw.roles.finish()
   M.drawing_win = nil
   if M.rects.surfaces then api.grid_surfaces_seal() end
@@ -1111,7 +1125,9 @@ end
 local function window_stamp(view: View, area: Buf, ctx: RenderContext, background: string, frame: string): string
   if not (view.stamp and recording) or ctx.focused then return nil end
   if ctx.win then L.bind(ctx.win as Node) end
-  local ok, own = pcall(view.stamp, view, ctx) as (boolean, string)
+  -- A view with instances gives the stamp of the window's instance.
+  local mine = ctx.win and L.instance_of(ctx.win as Node)
+  local ok, own = pcall(view.stamp, mine and mine as View or view, ctx) as (boolean, string)
   if not ok or own == nil then return nil end
   local winbar = paw.statusline and paw.statusline.winbar(view.name, false)
   return table.concat({own, frame, area.x, area.y, area.width, area.height, background or "", winbar or ""}, "\n")
@@ -1899,6 +1915,23 @@ M.locators = {}
 ---   place(location) where a location is in it, the same way, or nil when it does not show it
 ---   go(location)    put its cursor there
 function M.locator(view: string, spec: contracts.Locator) M.locators[view] = spec end
+
+--- The state of a view for one window (a view with `window_instances`):
+--- a table with the fields of `window_state` that takes the rest from the
+--- view. Nil for another view.
+function M.instance_of(win: contracts.Window): View
+  return L.instance_of(win as Node) as View
+end
+
+--- The state of a view in its window with the keyboard, else in the
+--- window that had it last, else in any window of the view. With no window,
+--- the view itself (its proxy). Nil for a view without `window_instances`.
+function M.instance(name: string): View
+  local view = M.views[name]
+  if not (view and view.window_instances) then return nil end
+  local win = L.find(M.layout, name)
+  return win and M.instance_of(win) or view
+end
 
 --- The location under the cursor of the focused view (or `view`). With
 --- `win`, the cursor of that window: each window of a view has its own.

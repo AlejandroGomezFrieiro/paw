@@ -29,28 +29,34 @@ paw.option.define("roll_context", "all", { type = { "string", "table" }, values 
 -- At most this many context notes, so that a dense song stays quick to draw.
 paw.option.define("roll_context_max", 4000)
 
-local others = {} -- ids of the clips edited with the active one, in order
-local shown = {} -- track id -> true or false: a toggle over `roll_context`
--- Each window and terminal edits clips of its own.
-paw.seats.keep("roll_clips", function() return others, shown end, function(o, s)
-  others, shown = o, s
-end, function() return {}, {} end)
--- And each window of the roll: a new one edits the same clips. The notes
--- around them are `paw.roll_context`'s, for all windows.
-paw.layout.window_keep("pianoroll", function() return { others, shown } end, function(v)
-  others, shown = v[1], v[2]
-end, function(v)
-  local o, s = {}, {}
-  for i, id in ipairs(v[1]) do
-    o[i] = id
-  end
-  for k, x in pairs(v[2]) do
-    s[k] = x
-  end
-  return { o, s }
-end, "roll_clips")
-
 local function roll() return paw.ui.views.pianoroll end
+
+-- Each window of the roll edits clips of its own: the state is in the
+-- roll's instance of the window (`window_state` in paw/views/pianoroll.lua),
+-- and each terminal has its own windows. A new window edits the same clips.
+-- The notes around them are `paw.roll_context`'s, for all windows.
+
+--- The ids of the clips edited with the active one, in order.
+local function others()
+  local view = roll()
+  local list = view.edited
+  if not list then
+    list = {}
+    view.edited = list
+  end
+  return list
+end
+
+--- Track id -> true or false: a toggle over `roll_context`.
+local function shown()
+  local view = roll()
+  local set = view.context_shown
+  if not set then
+    set = {}
+    view.context_shown = set
+  end
+  return set
+end
 
 local function midi(id)
   if not id then return nil end
@@ -88,7 +94,7 @@ function M.ids()
   local active = M.active()
   if not midi(active) then return {} end
   local out = { active }
-  for _, id in ipairs(others) do
+  for _, id in ipairs(others()) do
     local c = id ~= active and midi(id)
     if c and in_scope(c) then out[#out + 1] = id end
   end
@@ -181,17 +187,18 @@ function M.open(ids, active)
   active = midi(active) and active or list[1]
   if not active then return paw.notify("no MIDI clip to open in the piano roll", "warn") end
   roll():edit(paw.clip(active))
-  others = {}
+  local edited = {}
   for _, id in ipairs(list) do
-    if id ~= active then others[#others + 1] = id end
+    if id ~= active then edited[#edited + 1] = id end
   end
+  roll().edited = edited
   changed()
 end
 
 --- Edit the active clip alone. This is what paw does when you open a clip.
 function M.only()
-  if #others == 0 then return end
-  others = {}
+  if #others() == 0 then return end
+  roll().edited = {}
   changed()
 end
 
@@ -206,7 +213,7 @@ function M.activate(id)
   for _, other in ipairs(M.ids()) do
     if other ~= id and (kept or other ~= view.clip_id) then list[#list + 1] = other end
   end
-  others = list
+  view.edited = list
   view.clip_id = id
   if old then
     local by = old.start - new.start
@@ -240,17 +247,18 @@ function M.toggle(id)
   if not midi(id) then return end
   local ids = M.ids()
   if not M.editable(id) then
-    others[#others + 1] = id
+    local list = others()
+    list[#list + 1] = id
     changed()
     return true
   end
   if #ids == 1 then return paw.notify("the piano roll edits at least one clip", "warn") end
   if id == M.active() then M.activate(ids[2]) end
   local list = {}
-  for _, other in ipairs(others) do
+  for _, other in ipairs(others()) do
     if other ~= id then list[#list + 1] = other end
   end
-  others = list
+  roll().edited = list
   changed()
   return false
 end
@@ -310,7 +318,7 @@ local function request()
   local a = midi(M.active())
   if not a then return nil end
   local lo, hi = M.span()
-  return context.request(a, M.ids(), a.start + lo, a.start + hi, shown)
+  return context.request(a, M.ids(), a.start + lo, a.start + hi, shown())
 end
 
 --- The tracks whose notes can show behind the notes of the roll. These are
@@ -325,7 +333,7 @@ end
 --- Show the notes of a track behind the notes of the roll, or not. nil
 --- returns to the value of `paw.opt.roll_context`.
 function M.show_track(id, on)
-  shown[id] = on
+  shown()[id] = on
   changed()
 end
 
@@ -508,7 +516,8 @@ end
 
 -- The set goes when the clip does, or when the project changes under it.
 paw.on("project.loaded", function()
-  others, shown = {}, {}
+  local view = roll()
+  view.edited, view.context_shown = {}, {}
 end)
 
 return M

@@ -103,9 +103,30 @@ test("window state: two piano rolls on two clips, each with its own cursor", fun
     true,
     "and the other window's its own"
   )
+  -- Each window has an instance of the roll, read without binding it.
+  eq(paw.ui.instance("pianoroll").clip_id, clip.id, "paw.ui.instance: the window with the keyboard")
+  eq(paw.ui.instance_of(right).clip_id, other.id, "paw.ui.instance_of: the other window's own")
+  eq(roll.clip_id, clip.id, "reading an instance binds no window")
+  eq(paw.ui.instance("mixer"), nil, "a view without instances has none")
   keys("<C-w>c")
   eq(windows(), "pianoroll", "closing one leaves the other")
   eq(roll.clip_id, other.id, "on its clip")
+end)
+
+test("window state: each piano roll edits its own set of clips", function()
+  start()
+  riff()
+  local bass = paw.add_track({ name = "Bass" })
+  bass:add_clip({ start = 0, length = 8, name = "line", notes = { { pitch = 40, start = 0, length = 1 } } })
+  sized(function()
+    keys(":e roll://riff<CR>")
+    keys(":vs roll://riff<CR>")
+  end)
+  screen()
+  paw.ui.views.pianoroll:set(40, 0)
+  keys("gE")
+  local counts = each("pianoroll", function() return #paw.roll_clips.ids() end)
+  eq(table.concat(counts, " "), "1 2", "gE edits the bass clip too, in this window only")
 end)
 
 test("window state: one score twice, and the notation beside the piano roll of the same clip", function()

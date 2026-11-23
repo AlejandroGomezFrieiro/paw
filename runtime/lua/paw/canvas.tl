@@ -90,11 +90,6 @@ local record Tab
   prev: integer
 end
 
---- How a view keeps a state of its own for each window (paw/layout.tl),
---- which this module only looks for.
-local record Keeper
-end
-
 --- A buffer type: its window of its own, if it has one.
 local record BufferType
   window: function(): Window
@@ -106,7 +101,7 @@ local record SplitOptions
 end
 
 local record Layout
-  keepers: {string: {Keeper}}
+  per_window: function(name: string): boolean
   types: {string: BufferType}
   homes: {string: {string: string | number}}
   current: function(): Window
@@ -873,7 +868,7 @@ local function own_window(name: string): Window, Window
   end
   local L = (paw.layout as Layout)
   -- A view with one state, or a buffer type, needs none.
-  if not L.keepers[name] or L.types[name] then
+  if not L.per_window(name) or L.types[name] then
     return nil
   end
   local here = L.current()

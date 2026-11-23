@@ -58,6 +58,11 @@ end
 local record Kept
 end
 
+--- The state of one window of a view with instances (`window_instances`):
+--- the fields of the view's `window_state`. The rest comes from the view's
+--- table through `__index`.
+local type Instance = {string: Kept}
+
 --- What a window showed before (`Ctrl-^`).
 local record Alt
   view: string
@@ -76,6 +81,7 @@ local record Node is {Node}, contracts.Window
   min: integer
   float_below: integer
   kept: {Kept}
+  instances: {string: Instance}
   alt: Alt
   pending: string
 end
@@ -678,10 +684,168 @@ function M.window_fields(name: string, tbl: {string: Kept}, keys: {string}, fres
   )
 end
 
+-- Views with an instance for each window -----------------------------------------
+--
+-- The spike of TASK-130: a view that says `window_instances` gets one table
+-- for each window, an instance. The instance holds the fields of
+-- `window_state`, and takes the rest (the methods, the shared fields) from
+-- the view's table through `__index`. `bind` sets a pointer and copies no
+-- field. The name of the view in `paw.ui.views` is a proxy: it reads and
+-- writes the fields of `window_state` in the instance of the bound window,
+-- so that a reader outside the view reads as before.
+
+--- A view with instances. `base` is the view's table: it never holds a
+--- field of `keys`. `order` lists the keys, `fresh` the keys that a split
+--- starts without, `start` what a new seat starts with, and `home` the
+--- state when no window has the view (the seat keeps it).
+local record Instanced
+  base: {string: Kept}
+  keys: {string: boolean}
+  order: {string}
+  fresh: {string: boolean}
+  start: Instance
+  home: Instance
+  meta: metatable<Instance>
+end
+local instanced: {string: Instanced} = {}
+
+--- True if a window is in use and shows the view `name`.
+local function shows(win: Node, name: string): boolean
+  return win.view == name and (loose[win] or M.get(win.id) ~= nil)
+end
+
+--- A copy of a state. A split (`split`) starts without the fresh keys and
+--- with its own copy of each list or set, as `window_fields` does.
+local function copy_state(entry: Instanced, from: Instance, split: boolean, meta?: metatable<Instance>): Instance
+  local out: Instance = setmetatable({}, meta)
+  for _, k in ipairs(entry.order) do
+    local v = rawget(from, k)
+    if split and entry.fresh[k] then
+      v = nil
+    elseif split and type(v) == "table" then
+      local copied: {Kept: Kept} = {}
+      for kk, x in pairs(v as {Kept: Kept}) do
+        copied[kk] = x
+      end
+      v = copied as Kept
+    end
+    rawset(out, k, v)
+  end
+  return out
+end
+
+--- The instance of the view that a window shows, made the first time:
+--- a split takes a fresh copy of the bound window's state, a window after
+--- one that went takes all of its state, and the first window takes the
+--- home state. Nil for a view without instances.
+function M.instance_of(win: Node): Instance
+  local name = win and win.view
+  local entry = name and instanced[name]
+  if not entry then
+    return nil
+  end
+  win.instances = win.instances or {}
+  local own = win.instances[name]
+  if own then
+    return own
+  end
+  local was = bound[name]
+  local from = was and was ~= win and was.instances and was.instances[name]
+  own = copy_state(entry, from or entry.home, from ~= nil and shows(was, name), entry.meta)
+  win.instances[name] = own
+  return own
+end
+
+--- The state that the view's proxy reads and writes: the instance of the
+--- bound window, else the home state.
+local function current_state(name: string, entry: Instanced): Instance
+  local win = bound[name]
+  return win and win.instances and win.instances[name] or entry.home
+end
+
+--- When a window stops showing a view with instances: the home state
+--- takes its state if it is the bound window, as the view's table kept the
+--- state of the last window with the swap of fields.
+local function drop_instances(win: Node)
+  for name, own in pairs(win.instances or {}) do
+    local entry = instanced[name]
+    if entry and bound[name] == win then
+      entry.home = copy_state(entry, own, false)
+    end
+  end
+  win.instances = nil
+end
+
+--- Give a view an instance for each window. `def` is the view's table and
+--- `keys` the fields of each window (`fresh`: the ones a split starts
+--- without). The fields leave `def` for the home state. Returns the proxy
+--- that `paw.ui.views` holds.
+function M.instances<V>(name: string, def: V, keys: {string}, fresh?: {string}): V
+  local base = def as {string: Kept}
+  local had = instanced[name]
+  local entry: Instanced = {base = base, keys = {}, order = keys, fresh = {}, home = {}}
+  for _, k in ipairs(fresh or {}) do
+    entry.fresh[k] = true
+  end
+  for _, k in ipairs(keys) do
+    entry.keys[k] = true
+    entry.home[k] = base[k]
+    base[k] = nil
+  end
+  -- A deep copy: a new seat shares no list with this one.
+  entry.start = copy(entry.home)
+  -- An instance: its own fields of `keys`, the rest from the view.
+  entry.meta = {
+    __index = base,
+    __newindex = function(own: Instance, k: string, v: Kept)
+      if entry.keys[k] then
+        rawset(own, k, v)
+      else
+        base[k] = v
+      end
+    end,
+  }
+  instanced[name] = entry
+  -- Each seat has its own home state. A view loaded again keeps the keeper.
+  if not had then
+    seats.keep(
+      "layout.instances." .. name,
+      function(): Instance return instanced[name].home end,
+      function(home: Instance) instanced[name].home = home end,
+      function(): Instance return copy(instanced[name].start) end
+    )
+  end
+  local proxy: {string: Kept} = setmetatable(
+    {},
+    {
+      __index = function(_: {string: Kept}, k: string): Kept
+        if entry.keys[k] then
+          return current_state(name, entry)[k]
+        end
+        return base[k]
+      end,
+      __newindex = function(_: {string: Kept}, k: string, v: Kept)
+        if entry.keys[k] then
+          current_state(name, entry)[k] = v
+        else
+          base[k] = v
+        end
+      end,
+    } as metatable<{string: Kept}>
+  )
+  return proxy as V
+end
+
+--- True if a view keeps a state for each window: by fields that `bind`
+--- swaps (`window_keep`), or by instances (`instances`).
+function M.per_window(name: string): boolean
+  return M.keepers[name] ~= nil or instanced[name] ~= nil
+end
+
 --- True if a view is shown in one window at a time: a view without a
 --- state for each window. A buffer type is not.
 function M.one_window(name: string): boolean
-  return not M.types[name] and not M.keepers[name]
+  return not M.types[name] and not M.per_window(name)
 end
 
 --- Put the state of `win` in the table of its view, and keep the state of
@@ -689,6 +853,23 @@ end
 --- (`fresh`). Nothing happens for a view with one state.
 function M.bind(win: Node)
   local name = win and win.view
+  -- A view with instances: the window's instance, and a pointer to it.
+  local entry = name and instanced[name]
+  if entry then
+    local was = bound[name]
+    if was == win then
+      return
+    end
+    -- The window before went or shows another view: its state is the
+    -- view's latest, and this window takes it in place of its own.
+    local latest = was and was.instances and was.instances[name]
+    if latest and win.instances and win.instances[name] and not shows(was, name) then
+      win.instances[name] = copy_state(entry, latest, false, entry.meta)
+    end
+    M.instance_of(win)
+    bound[name] = win
+    return
+  end
   local keep = name and M.keepers[name]
   if not keep or bound[name] == win then
     return
@@ -761,11 +942,14 @@ end
 --- view, in place of its own: a view in a window of its own that returns
 --- into its pane takes what it showed there.
 function M.hand_over(from: Node, to: Node)
-  if not (from and to and from.view == to.view and M.keepers[from.view]) then
+  if not (from and to and from.view == to.view and M.per_window(from.view)) then
     return
   end
   M.bind(from)
   to.kept = nil
+  if instanced[from.view] then
+    to.instances = {[from.view] = M.instance_of(from)}
+  end
   bound[from.view] = to
 end
 
@@ -784,7 +968,7 @@ end
 function M.within<A, R>(win: Node, fn: function(...: A): (R...), ...: A): R...
   local name = win and win.view
   local before = name and bound[name]
-  if not (name and M.keepers[name]) or before == win then
+  if not (name and M.per_window(name)) or before == win then
     return fn(...)
   end
   M.bind(win)
@@ -808,7 +992,14 @@ function M.settle()
     return
   end
   local canvas = paw.canvas
+  local names: {string: boolean} = {}
   for name in pairs(M.keepers) do
+    names[name] = true
+  end
+  for name in pairs(instanced) do
+    names[name] = true
+  end
+  for name in pairs(names) do
     -- A view in a window of its own of a graphical frontend, which has
     -- the keyboard there.
     local window = canvas and canvas.open_views[name]
@@ -838,7 +1029,7 @@ function M.copy_tabs(tabs: {Tab}): {Tab}
     end
     local out: {Kept: Kept} = {}
     for k, v in pairs(value as {Kept: Kept}) do
-      if k ~= "kept" as Kept then
+      if k ~= "kept" as Kept and k ~= "instances" as Kept then
         out[k] = walk(v)
       end
     end
@@ -1782,7 +1973,7 @@ function M.close(win?: Node): boolean
   local current = M.current() == win
   -- A second window of a view with a state for each goes, as a buffer's
   -- does: the view keeps one place in the tab.
-  local again = M.keepers[win.view] and not win.buf
+  local again = M.per_window(win.view) and not win.buf
   if again then
     again = false
     for _, w in ipairs(M.windows(t.layout, true)) do
@@ -1798,6 +1989,7 @@ function M.close(win?: Node): boolean
     end
     M.tidy(t.layout)
     reap(win.buf)
+    drop_instances(win)
     if bound[win.view] == win then
       bound[win.view] = nil
     end
@@ -1983,6 +2175,7 @@ function M.show_in(win: Node, name: string, buf?: integer, target?: string): Nod
   elseif not single_view and not buf then
     buf = M.buf_create(name).id
   end
+  drop_instances(win)
   win.view, win.buf, win.state, win.kept = name, not single_view and buf or nil, {}, nil
   M.buf_of(win).listed = M.buf_of(win).listed or single_view
   if old_view ~= name and not old_buf and not M.find(t.layout, old_view, true) then

@@ -4973,6 +4973,23 @@ function paw.layout.hand_over(from, to) end
 ---@param spec any
 function paw.layout.import(spec) end
 
+--- The instance of the view that a window shows, made the first time:
+--- a split takes a fresh copy of the bound window's state, a window after
+--- one that went takes all of its state, and the first window takes the
+--- home state. Nil for a view without instances.
+---@param win any
+function paw.layout.instance_of(win) end
+
+--- Give a view an instance for each window. `def` is the view's table and
+--- `keys` the fields of each window (`fresh`: the ones a split starts
+--- without). The fields leave `def` for the home state. Returns the proxy
+--- that `paw.ui.views` holds.
+---@param name any
+---@param def any
+---@param keys any
+---@param fresh any
+function paw.layout.instances(name, def, keys, fresh) end
+
 --- The names of the layouts there are: the configuration's and those saved.
 function paw.layout.layout_names() end
 
@@ -5020,6 +5037,11 @@ function paw.layout.only(win) end
 ---@param node any
 ---@param target any
 function paw.layout.parent_of(node, target) end
+
+--- True if a view keeps a state for each window: by fields that `bind`
+--- swaps (`window_keep`), or by instances (`instances`).
+---@param name any
+function paw.layout.per_window(name) end
 
 --- Map the items that `def` declares in key scope `scope` (the name of a
 --- view, or a part of a view: see `paw.keymap.scopes`). So a buffer type
@@ -9041,6 +9063,18 @@ function paw.ui.hl(name, def) end
 ---@param on_submit any
 function paw.ui.input(opts, on_submit) end
 
+--- The state of a view in its window with the keyboard, else in the
+--- window that had it last, else in any window of the view. With no window,
+--- the view itself (its proxy). Nil for a view without `window_instances`.
+---@param name any
+function paw.ui.instance(name) end
+
+--- The state of a view for one window (a view with `window_instances`):
+--- a table with the fields of `window_state` that takes the rest from the
+--- view. Nil for another view.
+---@param win any
+function paw.ui.instance_of(win) end
+
 --- Draw `paint(ctx)` as a layer of a part of a view (`"arrange", "header"`).
 --- It replaces a layer with the same name (nil removes it). The view tells
 --- what `ctx` contains where it calls `paw.ui.paint`.
@@ -9264,6 +9298,12 @@ function paw.ui.transport() end
 --- a thing by name in the window (`:e roll://7`), and `window_target(self)`
 --- gives that name back for a saved layout. `share` says what part of the
 --- room the view keeps where windows share it: `{ column, least, most }`.
+--- 
+--- With `window_instances`, each window has its own table of the
+--- `window_state` fields, which takes the rest from the view
+--- (`paw.ui.instance_of`), and the view draws with that table as `self`.
+--- The view that `paw.ui.view` returns then reads and writes those fields
+--- in the window that drew or acted last.
 ---@param name any
 ---@param def any
 function paw.ui.view(name, def) end
