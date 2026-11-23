@@ -14,6 +14,10 @@ pub(super) struct EngineLink {
     pub threads: usize,
     /// Devices at rest sleep through silent blocks (`paw.opt.device_sleep`).
     pub sleep: bool,
+    /// The quality the built-in devices play at live
+    /// (`paw.opt.quality`). Renders do not read it: they play at full
+    /// quality.
+    pub quality: Quality,
     /// What the engine was last started with, to start it again with a
     /// device changed.
     pub backend: BackendOptions,
@@ -134,7 +138,7 @@ impl Session {
             );
         }
         self.engine.threads = threads;
-        self.send_pool();
+        self.send_settings();
         Ok(())
     }
 
@@ -148,10 +152,14 @@ impl Session {
         (threads > 1).then(|| Box::new(Pool::new(threads)))
     }
 
-    pub(super) fn send_pool(&mut self) {
+    /// Give the live engine the settings that the user chose: its worker
+    /// threads, the sleep of devices at rest and the quality. A new engine
+    /// starts without them.
+    pub(super) fn send_settings(&mut self) {
         let pool = self.pool(None);
         self.engine.handle.send(Msg::SetPool(pool));
         self.engine.handle.send(Msg::SetSleep(self.engine.sleep));
+        self.engine.handle.send(Msg::SetQuality(self.engine.quality));
     }
 
     /// Whether devices at rest (a reverb whose tail has died away, a synth
@@ -160,6 +168,14 @@ impl Session {
     pub fn set_sleep(&mut self, sleep: bool) {
         self.engine.sleep = sleep;
         self.engine.handle.send(Msg::SetSleep(sleep));
+    }
+
+    /// The quality the built-in devices play at live. Edit quality lowers
+    /// their costly settings, such as the oversampling of a saturation.
+    /// A render makes an engine of its own, which plays at full quality.
+    pub fn set_quality(&mut self, quality: Quality) {
+        self.engine.quality = quality;
+        self.engine.handle.send(Msg::SetQuality(quality));
     }
 
     /// Whether devices at rest sleep, for a render that does not say.
@@ -373,7 +389,7 @@ impl Session {
         self.engine.stream = stream;
         self.engine.handle = handle;
         self.takes_let_go(position);
-        self.send_pool();
+        self.send_settings();
         self.live.clear();
         self.play.seeks = 0;
         let held = std::mem::take(&mut self.engine.map.held_files);

@@ -259,6 +259,10 @@ regions with no region inside.
 
 - Stems and bounces go through `paw.render`, so the hook `render.before`
   runs for them.
+- A render, an export, stems, a bounce and a freeze always play the
+  built-in devices at full quality, whatever `paw.opt.quality` says (see
+  [Edit quality](engine.md#edit-quality)). A file rendered while paw plays
+  in edit quality is the same to the bit as one rendered at full quality.
 - paw tells plugins when a render is offline, and gives them time to
   prepare before it starts, because many plugins load the data of a setting in the
   background and would still be silent at the end of a fast render.

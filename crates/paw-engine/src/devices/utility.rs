@@ -2,7 +2,7 @@
 
 use super::dsp::{self, DelayLine, Downsampler, OnePole, Shape, Smooth, Svf, SvfCoefs, Upsampler};
 use super::panel::{Face, Pair, choice, param};
-use crate::device::{Device, Io, ParamInfo, ProcessCtx};
+use crate::device::{Device, Io, ParamInfo, ProcessCtx, Quality};
 
 struct NoFace;
 impl Face for NoFace {}
@@ -290,9 +290,13 @@ impl Saturation {
 }
 
 impl Device for Saturation {
-    fn process(&mut self, _ctx: &ProcessCtx, io: &mut Io) {
+    fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
         self.started = true;
         let curve = (self.p[CURVE].round().max(0.0) as usize).min(CURVES.len() - 1);
+        // In edit quality there is no oversampling: the curve shapes the
+        // dry line's sample, which is as late as the round trip through the
+        // filters, so the latency stays the same.
+        let oversample = ctx.quality == Quality::Full;
         let four = self.p[OVERSAMPLE] >= 0.5;
         let factor = if four { 4 } else { 2 };
         let stage = four as usize;
@@ -304,11 +308,15 @@ impl Device for Saturation {
             for (ch, x) in self.channels.iter_mut().zip([&mut *l, &mut *r]) {
                 ch.dry.push(*x);
                 let dry = ch.dry.get(TAPS - 1);
-                ch.up[stage].process(*x, &mut buf[..factor]);
-                for v in &mut buf[..factor] {
-                    *v = shape(curve, *v * drive) / drive;
-                }
-                let mut wet = ch.down[stage].process(&buf[..factor]);
+                let mut wet = if oversample {
+                    ch.up[stage].process(*x, &mut buf[..factor]);
+                    for v in &mut buf[..factor] {
+                        *v = shape(curve, *v * drive) / drive;
+                    }
+                    ch.down[stage].process(&buf[..factor])
+                } else {
+                    shape(curve, dry * drive) / drive
+                };
                 wet = ch.tone.tick(&self.tone, wet);
                 if curve == 1 {
                     wet = ch.dc.high(wet);
@@ -469,6 +477,23 @@ mod tests {
             second(1.0),
             second(0.0)
         );
+    }
+
+    #[test]
+    fn saturation_in_edit_quality_shapes_at_the_input_rate_as_late_as_at_full() {
+        let mut fx = Fx::new("saturation", 48000.0);
+        fx.set("drive", 24.0);
+        fx.set("oversample", 1.0);
+        fx.ctx.quality = Quality::Edit;
+        let x = sine(9000.0, 48000.0, 4000, 0.8);
+        let out = fx.run(&x, 256);
+        // The tape curve on each input sample, 31 samples late, with no
+        // filters of an oversampler around it.
+        let drive = 10f32.powf(24.0 / 20.0);
+        for (i, got) in out.iter().enumerate().skip(31) {
+            let want = (x[i - 31] * drive).tanh() / drive;
+            assert!((got - want).abs() < 1e-5, "sample {i}: {got}, not {want}");
+        }
     }
 
     #[test]

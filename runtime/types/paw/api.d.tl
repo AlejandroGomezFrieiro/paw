@@ -102,6 +102,7 @@ local record api
    engine_midi_filter: function(name: string, rules?: {types.MidiFilterRule})
    engine_reset_stats: function()
    engine_restart: function(opts?: types.EngineOptions)
+   engine_set_quality: function(quality: string)
    engine_set_sleep: function(sleep: boolean)
    engine_set_threads: function(threads: integer)
    env: function(): types.Env

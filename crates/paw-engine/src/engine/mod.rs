@@ -135,6 +135,10 @@ pub struct Engine {
     /// Devices at rest sleep through silent blocks (see [`Msg::SetSleep`]),
     /// and the engine rests when nothing sounds.
     sleep: bool,
+    /// What each block's devices read as `ProcessCtx::quality`. Only
+    /// [`Msg::SetQuality`] changes it, so an engine made for a render keeps
+    /// [`Quality::Full`](crate::Quality::Full).
+    quality: crate::Quality,
     /// How near the engine is to rest, or whether it rests.
     rest: Rest,
     /// Some track hears an audio input: the engine does not rest.
@@ -201,6 +205,7 @@ impl Engine {
             preview: None,
             preview_leaving: None,
             sleep: true,
+            quality: crate::Quality::Full,
             rest: Rest::default(),
             listening: false,
             waker: waker.clone(),
@@ -573,5 +578,78 @@ mod tests {
         engine.midi_in(5, on(62));
         engine.midi_in(6, on(60));
         assert_eq!(live(&mut engine, slot), [on(62), on(60)]);
+    }
+
+    /// A synth that plays notes into a saturation at 4x with 24 dB of
+    /// drive, on one track.
+    fn saturated() -> (Engine, EngineHandle) {
+        let (mut engine, mut handle) = Engine::new(48000.0);
+        let registry = crate::Registry::with_builtins();
+        let slot = TrackSlot(1);
+        handle.send_while(Msg::InsertTrack { slot, track: TrackRt::new() }, &mut engine);
+        let mut chain = Vec::new();
+        for (n, kind) in ["synth", "saturation"].into_iter().enumerate() {
+            let device = registry.get(kind).unwrap().create(48000.0, MAX_BLOCK).unwrap().device;
+            let dev = DeviceSlot(n as u32);
+            handle.send_while(Msg::InsertDevice { slot: dev, device }, &mut engine);
+            chain.push(dev);
+        }
+        let mut clips = crate::ClipSet::default();
+        for step in 0..16u8 {
+            let at = f64::from(step) * 0.25;
+            clips.push_note(at, at + 0.2, 48 + step * 3, 0.9);
+        }
+        clips.finish();
+        // The saturation's parameters 0 and 2: the drive in dB and the
+        // oversampling (1 is 4x).
+        for msg in [
+            Msg::SetChain { track: slot, chain: chain.into() },
+            Msg::SetParam { device: DeviceSlot(1), param: 0, value: 24.0 },
+            Msg::SetParam { device: DeviceSlot(1), param: 2, value: 1.0 },
+            Msg::SetClips { track: slot, clips: Box::new(clips) },
+            Msg::SetSchedule(Box::new(Schedule::new(
+                vec![
+                    SchedEntry::new(slot, TrackSlot::MASTER),
+                    SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                ],
+                0,
+            ))),
+            Msg::Play,
+        ] {
+            handle.send_while(msg, &mut engine);
+        }
+        (engine, handle)
+    }
+
+    /// Twelve blocks of the left channel, bit for bit, with the quality
+    /// set before the block `at`.
+    fn play_with_quality(at: usize, quality: crate::Quality) -> Vec<Vec<u32>> {
+        let (mut engine, mut handle) = saturated();
+        let (mut left, mut right) = (vec![0.0f32; 512], vec![0.0f32; 512]);
+        (0..12)
+            .map(|block| {
+                if block == at {
+                    handle.send_while(Msg::SetQuality(quality), &mut engine);
+                }
+                engine.process(&mut left, &mut right);
+                left.iter().map(|v| v.to_bits()).collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_change_of_quality_takes_effect_from_the_next_block() {
+        use crate::Quality::{Edit, Full};
+        let full = play_with_quality(0, Full);
+        let edit = play_with_quality(0, Edit);
+        let switched = play_with_quality(4, Edit);
+        // Edit quality sounds different: the saturation does not oversample.
+        assert_ne!(edit[4..], full[4..], "edit quality sounds as full quality");
+        // Until the block of the change, full quality; from it on, edit
+        // quality. Without oversampling, the saturation's sound depends only
+        // on its input, so it is the same as an engine in edit quality from
+        // the start.
+        assert_eq!(switched[..4], full[..4], "the blocks before the change");
+        assert_eq!(switched[4..], edit[4..], "the blocks from the change on");
     }
 }

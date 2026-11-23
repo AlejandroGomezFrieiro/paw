@@ -557,6 +557,10 @@ spec(
       if t.write then
         on[#on + 1] = {"write", "StatusRec"}
       end
+      -- What plays live is not the sound of a render.
+      if opt.quality == "edit" then
+        on[#on + 1] = {"edit q", "StatusOn"}
+      end
       if #on == 0 then
         return nil
       end

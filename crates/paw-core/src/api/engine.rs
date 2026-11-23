@@ -168,6 +168,17 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().set_sleep(sleep);
             Ok(())
         }
+        // The quality that the built-in devices play at live: `"full"`, or
+        // `"edit"` to lower their costly settings while you edit, such as the
+        // oversampling of `saturation`. A render, an export, stems, a
+        // freeze and a bounce always play at full quality. `paw.opt.quality`
+        // calls it.
+        // @return nil
+        fn engine_set_quality(_, sh, quality => String) {
+            let quality = quality.parse().lua()?;
+            sh.session.borrow_mut().set_quality(quality);
+            Ok(())
+        }
         // @param opts? types.EngineOptions
         // @return nil
         fn engine_restart(lua, sh, opts => LuaValue) {

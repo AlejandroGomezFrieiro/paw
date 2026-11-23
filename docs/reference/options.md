@@ -78,6 +78,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.midi_record` | `"new"` | What a MIDI take over a clip does. `"new"` makes a clip of its own, and `"merge"` joins its notes into the clip under it (overdub). |
 | `paw.opt.threads` | `0` | The threads that process tracks. `0` gives one for each core. |
 | `paw.opt.device_sleep` | `true` | A device at rest sleeps through silence, e.g., a reverb after its tail or a synth with no note that sounds, which saves processor time. When the song is stopped and nothing sounds, the whole engine rests (see [The engine at rest](engine.md#the-engine-at-rest)). The sound is the same with `false`. |
+| `paw.opt.quality` | `"full"` | `"edit"` lowers the costly settings of the built-in devices while paw plays live, for example the oversampling of a `saturation`, and the status line shows `edit q`. A render, an export, stems, a bounce and a freeze always play at `"full"`. See [Edit quality](engine.md#edit-quality). |
 | `paw.opt.audio_reconnect` | `true` | paw opens an audio device again when it returns. |
 | `paw.opt.scope_rest` | `"play"` | What the tracks outside the scope do while a narrowed window is in front: `"play"`, `"mute"` or `"frozen"`. |
 | `paw.opt.scopebars` | `"local"` | The bar numbers in a scope with time: `"local"` (from 1 at its start) or `"song"`. |

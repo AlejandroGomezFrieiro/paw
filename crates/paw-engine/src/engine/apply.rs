@@ -115,6 +115,7 @@ impl Engine {
             Msg::SetPreview(preview) => self.set_preview(preview),
             Msg::SetPreviewGain(gain) => self.set_preview_gain(gain),
             Msg::SetSleep(sleep) => self.sleep = sleep,
+            Msg::SetQuality(quality) => self.quality = quality,
             Msg::SetPool(pool) => {
                 if let Some(old) = self.set_pool(pool) {
                     self.discard(Garbage::Pool(old));

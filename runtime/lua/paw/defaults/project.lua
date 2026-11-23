@@ -454,6 +454,7 @@ end, {
 paw.on("option.changed", function(e)
   if e.name == "threads" then api.engine_set_threads(e.value) end
   if e.name == "device_sleep" then api.engine_set_sleep(e.value) end
+  if e.name == "quality" then api.engine_set_quality(e.value) end
 end)
 command("quit", function()
   if paw.project.unsaved() then

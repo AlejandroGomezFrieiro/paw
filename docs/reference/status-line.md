@@ -30,7 +30,7 @@ name of the project before it removes a component.
 | `transport` | The transport state and the position of the playhead. In a scope with time, the position is in the bars of the scope, and outside the time of the scope it is the place in the song with `@` before it: `@1.1.00`. |
 | `clock` | The time. |
 | `tempo` | The tempo, and the time signature at the playhead. |
-| `flags` | What is on: `loop 3–5` (the bars of the playback loop, while looping is on), `click`, punch, count-in, `rec`, `write`. |
+| `flags` | What is on: `loop 3–5` (the bars of the playback loop, while looping is on), `click`, punch, count-in, `rec`, `write`, and `edit q` while `paw.opt.quality` is `"edit"` (see [Edit quality](engine.md#edit-quality)). |
 | `take` | The take that records. |
 | `render` | The progress of a render. |
 | `derived` | When paw takes more than a second to read the chords of the song again after an edit, what it reads and how far it is: `chords 40%`. |

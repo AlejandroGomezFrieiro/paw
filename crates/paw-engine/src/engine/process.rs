@@ -334,6 +334,7 @@ impl Engine {
                 seconds: map.seconds(start),
                 bar,
                 bar_start: map.bar_start(bar),
+                quality: self.quality,
             },
             n,
             start,

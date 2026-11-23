@@ -2599,6 +2599,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`
+- `paw.api.engine_set_quality(quality)`: The quality that the built-in devices play at live: `"full"`, or `"edit"` to lower their costly settings while you edit, such as the oversampling of `saturation`. A render, an export, stems, a freeze and a bounce always play at full quality. `paw.opt.quality` calls it.
 - `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. When the song is stopped and nothing sounds, the whole engine rests. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through, and `engine_get().engine_rests` the blocks that the engine rested.
 - `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`

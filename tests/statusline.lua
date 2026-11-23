@@ -231,6 +231,18 @@ test("statusline: a winbar adds to the title bar of the window with the keys, an
   eq(all:find("focused:true", 1, true), nil, "gone when switched off")
 end)
 
+test("statusline: :set quality=edit shows edit q, so the sound is known not to be the final one", function()
+  start()
+  paw.project.new()
+  local function shown() return text_of(line().left):find("edit q", 1, true) ~= nil end
+  eq(shown(), false, "not at full quality")
+  T.keys(":set quality=edit<CR>")
+  eq(shown(), true, "shown in edit quality")
+  eq(table.concat(screen(), "\n"):find("edit q", 1, true) ~= nil, true, "and drawn")
+  T.keys(":set quality=full<CR>")
+  eq(shown(), false, "gone at full quality")
+end)
+
 test("statusline: `:help statusline` is the page that says how to set it up", function()
   start()
   paw.cmd("help", { "statusline" })

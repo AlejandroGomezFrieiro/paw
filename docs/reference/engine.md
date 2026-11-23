@@ -48,6 +48,21 @@ A device at rest sleeps through silence, which means that the engine does not ru
 - The sound is the same to the bit when devices sleep and when they do not.
 - `paw.opt.device_sleep = false` makes each device run on each block, and the `sleep` option of a render does the same for one render.
 
+## Edit quality
+
+`paw.opt.quality = "edit"` (`:set quality=edit`) lowers the costly settings of the built-in devices while paw plays live, so that a large project costs less processor time while you edit it. The change takes effect at the next block, with no click of yours and no restart. `:set quality=full` gives back the full sound, and `"full"` is the default.
+
+| Device | In edit quality |
+| --- | --- |
+| `saturation` | No oversampling, whatever `oversample` says. The curve shapes each sample at the rate of the project, so loud high notes add some aliasing. The latency stays the same. |
+| Other built-in devices | No change. |
+
+- A render, an export, stems, a bounce and a freeze always play at full quality, whatever the option says (see [Render and export](render.md#behavior)).
+- The status line shows `edit q` while the option is `"edit"` (see [Status line](status-line.md)).
+- Plugins and Lua devices play as they always do.
+- The `reverb`, `chorus` and `compressor` keep their sound in edit quality. Each costs less than a `saturation` at 4x, and they have no setting that paw can lower without a change that you would hear in the mix.
+- If you switch back to full quality while the song plays, the first 31 samples of each `saturation` can have a short click.
+
 ## The engine at rest
 
 When the song is stopped and nothing sounds, the whole engine rests. It then writes silence for each block and does no other work: it does not clear the buffers of the tracks, add them up or measure them.
