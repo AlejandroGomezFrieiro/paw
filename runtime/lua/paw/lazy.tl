@@ -6,7 +6,8 @@
 --   cmd    commands       { "undotree", { "checkpoint", desc = "..." }, "notation.*" }
 --   keys   keys           { { "<leader>pu", desc = "Undo tree", mode = "n", view = "arrange" } }
 --   event  events         { "transport.play" }
---   kind   kinds          { "drums" }  a kind of track or clip that the project uses
+--   kind   keys of        { "drums", { registry = "pickers", key = "film" } }
+--          registries     (a name alone: a kind of track or of clip)
 --   view   views          { "undotree" }
 --   lazy   false loads it now, true waits even with no trigger
 --
@@ -21,10 +22,11 @@
 -- An extension that fails to load gets its stubs back, and the message of
 -- the failure is the only one.
 --
--- Kinds load when the project has a track or a clip of the kind: when it
--- opens, and when a track or a clip of the kind comes in. Before that, the
--- project plays as it is saved: a track keeps its kind in `meta.kind`, and
--- a clip of a kind keeps what the kind compiled.
+-- A kind loads its extension when a part of paw asks its registry for the
+-- key (`registry.missing`): the clips of a project that opens ask for
+-- their kinds, and a track header asks for the kind of its track. Before
+-- that, the project plays as it is saved: a track keeps its kind in
+-- `meta.kind`, and a clip of a kind keeps what the kind compiled.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -444,7 +446,9 @@ registry.missing = function(reg: registry.Owned, key: string): boolean
   if not name or M.waiting[name].failed then
     return false
   end
-  load(name, "kind " .. key)
+  -- The words of `describe`: a kind of track or of clip by its name alone.
+  local plain = reg.kind == "track_kinds" or reg.kind == "clip_kinds"
+  load(name, "kind " .. (plain and "" or reg.kind .. " ") .. key)
   return true
 end
 

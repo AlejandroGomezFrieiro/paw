@@ -16,8 +16,14 @@
 -- unload. The unload of an extension whose entry is below another removes
 -- only its own entry, so the entry on top stays.
 --
+-- An extension that waits for its first use can wait for a key of any
+-- registry (its `kind` trigger). A `get` of a key with no entry calls
+-- `registry.missing`, which loads that extension, and then gives the entry
+-- that the extension put.
+--
 -- This module is in a low layer (tools/layers.txt). It does not read
--- paw.ext: paw.ext sets `registry.owner` and `registry.replaced`.
+-- paw.ext: paw.ext sets `registry.owner` and `registry.replaced`, and
+-- paw/lazy.tl sets `registry.missing` and `registry.waiting`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 
