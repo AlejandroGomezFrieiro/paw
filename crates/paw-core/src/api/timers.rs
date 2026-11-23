@@ -60,6 +60,9 @@ pub struct Pending {
     pub bakes_running: usize,
     /// Bakes that wait for their settle on the schedule clock.
     pub bakes_waiting: usize,
+    /// Files of stretched clips being hashed: their bakes are asked for
+    /// after.
+    pub hashing: usize,
     /// Plugins being made apart from the main loop.
     pub plugin_loads: usize,
     /// Renders running on a thread of their own.
@@ -109,6 +112,7 @@ impl Shared {
             next_ms: self.next_due_after(now).map(|due| (due - now).as_secs_f64() * 1000.0),
             bakes_running: work.bakes_running,
             bakes_waiting: work.bakes_waiting,
+            hashing: work.hashing,
             plugin_loads: work.plugin_loads,
             renders: work.renders,
             files: work.files,
@@ -233,8 +237,9 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn step(lua, sh, () => ()) { sh.turn(lua, true) }
         // The work that is not done yet, by kind: timers due now and all the
         // timers, the time until the next timer or delay is due (`next_ms`),
-        // bakes, plugins being loaded, renders, changed files, MIDI that came
-        // in, and helper processes. A test waits until nothing is in flight.
+        // bakes, files of stretched clips being hashed, plugins being loaded,
+        // renders, changed files, MIDI that came in, and helper processes. A
+        // test waits until nothing is in flight.
         // @return types.Pending
         fn pending(lua, sh, () => ()) { super::to_lua(lua, &sh.pending()) }
 

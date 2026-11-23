@@ -555,7 +555,6 @@ local levels = { info = "Info", warn = "Warn", error = "Error" }
 -- An error stays mentioned on the key line until the messages are looked
 -- at, or for a minute.
 local ERROR_SHOWN = 60000
-local seen_at = 0
 
 --- The last error, if it has not been read in the messages since.
 function M.unread_error()
@@ -563,7 +562,7 @@ function M.unread_error()
   for i = #list, math.max(1, #list - 50), -1 do
     local m = list[i]
     if m.level == "error" then
-      if not m.read and m.time > seen_at and api.now() - m.time < ERROR_SHOWN then return m end
+      if not m.read and api.now() - m.time < ERROR_SHOWN then return m end
       return nil
     end
   end
@@ -583,8 +582,10 @@ function M.messages_hint()
   return ":messages"
 end
 
+-- The messages looked at, the errors in them are read. A flag, not a time:
+-- an error that comes in the same millisecond after it is still unread.
 paw.on("command.pre", function(e)
-  if e.command == "messages" or e.command == "pick.messages" then seen_at = api.now() end
+  if e.command == "messages" or e.command == "pick.messages" then M.read_errors() end
 end)
 
 --- The prompt on its line.

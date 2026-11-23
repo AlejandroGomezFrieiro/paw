@@ -11280,8 +11280,9 @@ function paw.api.now() end
 
 --- The work that is not done yet, by kind: timers due now and all the
 --- timers, the time until the next timer or delay is due (`next_ms`),
---- bakes, plugins being loaded, renders, changed files, MIDI that came
---- in, and helper processes. A test waits until nothing is in flight.
+--- bakes, files of stretched clips being hashed, plugins being loaded,
+--- renders, changed files, MIDI that came in, and helper processes. A
+--- test waits until nothing is in flight.
 function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the

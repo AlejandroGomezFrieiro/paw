@@ -172,7 +172,7 @@ local STALL_MS = 30000
 -- again: its timer is not work left.
 local function working(p)
   local idle = paw.slices.job("collector") and 1 or 0
-  return math.max(0, p.timers_due - idle) + p.bakes_running + p.plugin_loads + p.renders + p.midi > 0
+  return math.max(0, p.timers_due - idle) + p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi > 0
 end
 
 -- The audio engine plays, records, closes a take or plays a sound file on
@@ -225,6 +225,15 @@ local function next_block(n, device)
   end
 end
 
+--- The peak level of `track`, as its meter shows it, once the engine ran
+--- one more block (`next_block`): the left side, or the right with `side`
+--- 2. A test reads a level only after a block, never after a time: in a
+--- wait, `T.until_(function() return T.level(t) > 0.01 end, what)`.
+local function level(track, side)
+  next_block(1)
+  return (select(side or 1, track:meter()))
+end
+
 -- The turns in a row with only timers due, after which they are a poll: a
 -- job that looks again and again, at no delay, for a state that a timer
 -- later on makes. A poll is not work left.
@@ -240,7 +249,7 @@ local function settle()
     api.step()
     local p = api.pending()
     if not working(p) then return p end
-    if p.bakes_running + p.plugin_loads + p.renders + p.midi == 0 then
+    if p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.midi == 0 then
       only_timers = only_timers + 1
       if only_timers >= POLL_TURNS then return p end
     else
@@ -704,6 +713,7 @@ local T = {
   advance_until = advance_until,
   manual = MANUAL,
   next_block = next_block,
+  level = level,
   until_beat = until_beat,
   until_recorded = until_recorded,
   stop = stop,

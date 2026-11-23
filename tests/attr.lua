@@ -388,15 +388,13 @@ test("a delayed note plays as early live as it renders", function()
   paw.transport.seek(0)
   paw.transport.play()
   -- The staccato's beat is 2; it should be heard from 1.8 on.
-  local heard
-  local deadline = api.now() + 10000
-  while not heard and api.now() < deadline do
+  -- The playhead is read after the level, so it is at the onset or past it.
+  local heard = T.until_(function()
+    local on = T.level(t) > 0.2
     local pos = paw.transport.position
-    if pos > 1.2 and t:meter() > 0.2 then heard = pos end
-    paw.wait(2)
-  end
+    return pos > 1.2 and on and pos
+  end, "the staccato to be heard")
   T.stop()
-  eq(heard ~= nil, true, "heard")
   eq(heard >= 1.75 and heard < 1.97, true, "heard before its beat, from about 1.8: " .. tostring(heard))
   -- Going round a loop, every time.
   paw.transport.loop_start, paw.transport.loop_end = 1, 3
@@ -405,28 +403,27 @@ test("a delayed note plays as early live as it renders", function()
   paw.transport.seek(1)
   paw.transport.play()
   local onsets, was = {}, false
-  deadline = api.now() + 15000
-  while #onsets < 3 and api.now() < deadline do
-    local pos, on = paw.transport.position, t:meter() > 0.2
+  T.until_(function()
+    local on = T.level(t) > 0.2
+    local pos = paw.transport.position
     -- (What the meter still shows from before is passed over.)
     if on and not was and pos > 1.5 then onsets[#onsets + 1] = pos end
     was = on
-    paw.wait(2)
-  end
+    return #onsets >= 3
+  end, "the staccato to be heard three times round")
   T.stop()
-  eq(#onsets, 3, "heard three times round")
   for i, pos in ipairs(onsets) do
     eq(pos >= 1.75 and pos < 1.97, true, "round " .. i .. " before its beat: " .. tostring(pos))
   end
-end, { live = "it reads the meter while the song plays in real time" })
+end)
 
 test("a note played live with an attribute is preceded by what the map sends", function()
   local t = keyswitched(MAP)
   paw.flush()
   t:note_on("C5", 100, PIZZ)
-  T.until_(function() return t:meter() >= 0.26 end, "the note to sound")
+  T.until_(function() return T.level(t) >= 0.26 end, "the note to sound")
   T.next_block(5)
-  local l = t:meter()
+  local l = T.level(t)
   t:note_off("C5")
   near(l, 28 / 100, 0.02, "the pizzicato keyswitch, then the note")
 end)
@@ -557,10 +554,7 @@ test("sampler: a note's attribute chooses the articulation, with no keyswitch an
   local track = paw.add_track({ name = "Strings" })
   paw.track_kinds.set(track, "sampler", { path = dir .. "/ks.sfz", ask = false })
   local device = s.device_of(track.id)
-  for _ = 1, 400 do
-    if api.device_get(device).status == "running" then break end
-    paw.wait(50)
-  end
+  T.until_(function() return api.device_get(device).status == "running" end, "the sampler to run")
   eq(track.attr_map, nil, "no keyswitches are sent for it")
   track:add_clip({
     start = 0,

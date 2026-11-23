@@ -49,6 +49,11 @@ impl Sources {
         self.table.get(path).map(|r| &**r)
     }
 
+    /// Whether the worker has `path` and has not answered for it yet.
+    pub fn is_hashing(&self, path: &Path) -> bool {
+        self.pending.contains(path)
+    }
+
     /// Whether it is time to look for new files again (twice a second).
     pub fn due(&mut self) -> bool {
         let now = Instant::now();

@@ -1028,6 +1028,7 @@ local record types
     next_ms: number
     bakes_running: integer
     bakes_waiting: integer
+    hashing: integer
     plugin_loads: integer
     renders: integer
     files: integer

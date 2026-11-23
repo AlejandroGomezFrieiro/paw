@@ -48,10 +48,11 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
 | `T.until_(cond, what)` | Settle, then check a state. Fails with "nothing is left to do, and <what> is false" when no work is left, after the engine ran about 2 s of blocks. It moves the clock only while the song plays, one block at a time, in step with the sound. |
-| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended. The clock does not move. A job that polls at no delay is not work. |
+| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads and renders ended, and the files of stretched clips have a hash. The clock does not move. A job that polls at no delay is not work. |
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, then the kernel settles. The engine first runs one block, or the blocks of `ms` while it plays. |
 | `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine is active, a step is one audio block. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Wait until the engine ran `n` blocks, so that a change is in effect. |
+| `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
 | `T.until_beat(beat, rounds)` | Wait for the playhead. |
 | `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
@@ -154,8 +155,12 @@ the owner's computer or folders. Mock what it needs.
 - Prefer a null test (two renders that must be the same) to a level with
   a tolerance.
 - Do not read a live meter (`:meter()`) after a wait. The level depends
-  on how many blocks ran in real time. With a stepped audio backend, play on the
-  stepped backend and read the meter after `T.next_block(n)`.
+  on how many blocks ran in real time. Read it with `T.level(track)`,
+  after a block, and wait for a level with `T.until_`. With a stepped audio
+  backend, play on the stepped backend and read the level after
+  `T.next_block(n)`.
+- A live test that must read the clock goes in a file of live tests
+  (`tests/live_<area>.lua`, for example `tests/live_limits.lua`).
 - An extension's project must open and play without the extension.
   Test that too.
 

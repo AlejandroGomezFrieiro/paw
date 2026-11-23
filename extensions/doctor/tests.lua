@@ -360,16 +360,10 @@ test("cancelling a doctor run mid-question ends it, cleans up and writes the rep
   })
   table.insert(doctor.checks, { id = "never", name = "Never", run = function() return "ok", "ran" end })
   local started = doctor.start({ only = { "asks", "never" } })
-  local limit = api.now() + 5000
-  while not started.prompt and api.now() < limit do
-    paw.wait(20)
-  end
-  eq(started.prompt ~= nil, true, "the question is shown")
+  T.advance_until(function() return started.prompt end, "the question to be shown", 5000)
   eq(doctor.answer("x"), false, "a key that is not an answer is not one")
   eq(doctor.cancel(), true, "cancelled")
-  while started.running and api.now() < limit + 5000 do
-    paw.wait(20)
-  end
+  T.advance_until(function() return not started.running end, "the run to end", 5000)
   table.remove(doctor.checks)
   table.remove(doctor.checks)
   eq(started.running, false, "ended")
@@ -508,19 +502,14 @@ test("the doctor's window paints the checks and its buttons answer the question"
     { id = "asks", name = "Asks", run = function(ctx) return ctx:ask("Heard it?") == "y" and "ok" or "fail", "" end }
   )
   local started = doctor.start({ only = { "asks" } })
-  local limit = api.now() + 5000
-  while not started.prompt and api.now() < limit do
-    paw.wait(20)
-  end
+  T.advance_until(function() return started.prompt end, "the question to be shown", 5000)
   local at
   for _, op in ipairs(canvas.paint("doctor", 900, 560).ops) do
     if op[1] == "t" and op[4]:find("yes  (y)", 1, true) then at = op end
   end
   eq(at ~= nil, true, "a button for yes")
   canvas.pointer("doctor", { kind = "down", button = "left", x = at[2] + 2, y = at[3] + 2 })
-  while started.running and api.now() < limit + 5000 do
-    paw.wait(20)
-  end
+  T.advance_until(function() return not started.running end, "the run to end", 5000)
   table.remove(doctor.checks)
   eq(result(started, "asks").status, "ok", "a click on the button answered")
   paw.cmd("doctor.close")

@@ -206,7 +206,9 @@ tests. Follow these rules when you write a test:
   for example after `T.next_block`. A check that nothing happened in some
   milliseconds passes on a slow machine for the wrong reason.
 - Check sound in an offline render with `T.render`, not in a live meter
-  after a wait.
+  after a wait. To check what the song plays live, read the level with
+  `T.level(track)`, which reads the meter after the engine plays one more
+  block, for example in `T.until_`.
 - Make a plugin or a helper process that the test controls wait for the
   test, for example with a file that the test removes, and don't compare a
   delay with a deadline.
@@ -223,7 +225,7 @@ plugin or a render. The audio engine also still plays in real time.
 
 | Helper | What it does |
 | --- | --- |
-| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads and renders have ended. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
+| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads and renders have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
 | `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, and then the kernel settles. First the audio engine plays one block. While the song plays or records, it plays the blocks of all of `ms`, so the clock doesn't get ahead of the sound. |
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock doesn't move, but while the song plays it keeps step with the sound. |
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. It fails when `ms` milliseconds have passed on the clock. |
@@ -240,7 +242,9 @@ A test that needs real time is a live test. Mark it with a third argument,
 for example `T.test(name, fn, { live = "it plays in real time" })`. After
 the other tests, `tests/tools/suite.sh` runs the live tests in a second
 paw on the real clock (`PAW_TEST_LIVE=1`). Keep the live tests few, and
-say in `live` what needs real time.
+say in `live` what needs real time. A file can hold only live tests, for
+example `tests/live_limits.lua`, so that the reads of the clock stay out of
+the other test files.
 
 `tools/testlint.lua` checks the test files for a sleep, a read of the clock
 or a speed check, and the suite and `nix flake check` run it. The file
