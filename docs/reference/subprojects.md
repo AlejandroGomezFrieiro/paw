@@ -62,7 +62,8 @@ Two more words change what `:nest.new` does with the time of the song:
   subproject its meter and leaves the tempo map of the song as it is. The
   song keeps its bars over the block, so the two meters run side by side,
   and nothing after the section moves. The message ends with `(the song's
-  meter stays)`.
+  meter stays)`. Inside the subproject, the ruler, the grid and the
+  status line count its meter.
 - `tempo=own` gives the subproject a tempo of its own from the start, at
   the tempo of the song where the block starts. The message ends with
   `its own tempo, 120 bpm`, with the tempo it took.
@@ -119,9 +120,18 @@ subproject and not the song's, and the message says so, for example
 `90 bpm: the subproject's own tempo`. `:tempo.ramp`, `:tempo.remove`,
 `:tempo.tap`, `:timesig` with a meter and `:timesig.remove` change the
 song's map, so inside a subproject with its own tempo they refuse and say
-why. The status line shows `own tempo`,
+why. The tempo lane (`zT`) shows the tempo of the subproject, and a
+change that you make on the lane with the mouse, with `grt` or with
+`:tempo.move` goes into the tempo of the subproject. The song's tempo
+stays as it was. The status line shows `own tempo`,
 and `K` on a block says `own tempo` where it otherwise says `follows the
 tempo`.
+
+Inside a subproject that follows the song's tempo, the tempo lane shows
+the song's tempo from the start of the block. A change that you make on
+the lane goes into the song's tempo at the same place in the song. For
+example, in 4/4 with the block at bar 5, a change at bar 3 of the
+subproject is a change at bar 7 of the song.
 
 A subproject with its own meter and no tempo of its own counts its own
 bars from the start of its block, in its meter, while the song keeps its
@@ -190,7 +200,9 @@ that you type, else the name of the view or of its region. A name has no
 is a path to a folder.
 
 The subproject keeps the meter of the song over that time as its own,
-so the song's bars stay where they are. The markers and regions inside
+so the song's bars stay where they are. Inside a subproject with a meter
+of its own, a view saves that meter instead: a view of a 6/8 subproject
+gives a subproject in 6/8. The markers and regions inside
 the time move into the subproject. A region over the whole time stays in
 the song. A view with no time takes the song from its start to the end
 of the last clip of its tracks, and the subproject then follows the

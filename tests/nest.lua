@@ -876,6 +876,59 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
   eq(table.concat(said, "\n"):find("nest Ballad · 6/8 · 8 bars", 1, true) ~= nil, true, table.concat(said, "\n"))
 end)
 
+test(
+  "inside a meter=own 6/8 subproject, the ruler, the grid and the status line count 6/8; the song's stay 4/4",
+  function()
+    metal()
+    paw.opt.zoom = 2
+    -- The columns between the bar numbers of the ruler, and between the grid's
+    -- bar lines on the track's row, and the meter in the status line.
+    local function counted()
+      local rows = api.ui_snapshot(W, H)
+      local ruler = rows[1]:match("│(.*)$"):gsub("▏", "'")
+      local lane = rows[3]:match("│(.*)$"):gsub("▏", "|")
+      local function gaps(row, pattern)
+        local at, out = {}, {}
+        for x in row:gmatch("()" .. pattern) do
+          at[#at + 1] = x
+        end
+        for i = 2, math.min(#at, 4) do
+          out[#out + 1] = at[i] - at[i - 1]
+        end
+        return table.concat(out, " ")
+      end
+      local meter = table.concat(rows, "\n"):match("bpm (%d+/%d+)")
+      return gaps(ruler, "%f[%d]%d+") .. " | " .. gaps(lane, "|") .. " | " .. meter
+    end
+    keys("33|")
+    keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+    eq(counted(), "6 6 6 | 6 6 6 | 6/8", "inside: a bar every 3 beats (6 eighths)")
+    keys("zw")
+    eq(counted(), "8 8 8 | 8 8 8 | 4/4", "the song outside: a bar every 4 beats")
+  end
+)
+
+test("<Space>zw on a view inside a meter=own 6/8 subproject saves it in 6/8", function()
+  metal()
+  keys("33|")
+  keys(":nest.new Ballad 8 6/8 meter=own<CR>")
+  local inside = paw.scope.tracks()
+  api.clip_add(inside[1], { start = 3, length = 6, notes = { { pitch = 60, start = 0, length = 1 } } })
+  paw.flush()
+  api.undo_checkpoint()
+  -- Bars 2-3 of Ballad: three beats each.
+  paw.scope.enter({ kind = "range", tracks = inside, from = 3, to = 9, name = "Verse" })
+  keys("<Space>zw")
+  local verse = api.nest_get(api.nest_list()[2])
+  local changes = {}
+  for _, c in ipairs(verse.meter.changes) do
+    changes[#changes + 1] = string.format("%g:%d/%d", c.beat, c.num, c.den)
+  end
+  eq(verse.name .. " " .. verse.meter.mode .. " " .. table.concat(changes, " "), "Verse own 0:6/8", "Ballad's meter")
+  eq(paw.ui.message.text:find("as Verse (6/8)", 1, true) ~= nil, true, paw.ui.message.text)
+  eq(signatures(), "0:4/4", "the song's map as it was")
+end)
+
 test("inside a subproject with its own tempo, :tempo sets its tempo and the status line says own tempo", function()
   local b = cue()
   paw.cursor.set_track(b.row)
@@ -886,6 +939,40 @@ test("inside a subproject with its own tempo, :tempo sets its tempo and the stat
   eq(paw.ui.message.text, "90 bpm: the subproject's own tempo", "the message")
   eq(api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo, "90 120", "its tempo, not the song's")
   eq(screen():find("own tempo", 1, true) ~= nil, true, "the status line")
+end)
+
+test("inside a subproject with its own tempo, the tempo lane shows its tempo, not the song's", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  keys(":tempo 90<CR>")
+  keys("zT")
+  T.after(function() paw.tempolane.show(false) end)
+  local rows = api.ui_snapshot(120, 24)
+  local header
+  for i, row in ipairs(rows) do
+    if row:find("^%s*tempo%s") and rows[i + 1] then header = rows[i + 1]:match("^%s*(%d+ bpm)") end
+  end
+  eq(header, "90 bpm", "the lane's header: its tempo at the cursor\n" .. table.concat(rows, "\n"))
+  local lo, hi = paw.tempolane.range()
+  eq(lo .. " " .. hi, "50 130", "the lane's range round 90")
+end)
+
+test("inside a subproject with its own tempo, grt types its tempo, not the song's, and u takes it back", function()
+  local b = cue()
+  paw.cursor.set_track(b.row)
+  paw.cursor.set_beat(17)
+  keys(":nest.time own<CR>")
+  keys("znn")
+  api.undo_checkpoint()
+  keys("grt96<CR>")
+  local function tempos() return api.nest_get(b.nest).tempo.points[1].bpm .. " " .. paw.project.tempo end
+  eq(tempos(), "96 120", "its tempo, not the song's")
+  api.undo_checkpoint()
+  keys("u")
+  eq(tempos(), "120 120", "one step back")
 end)
 
 test(

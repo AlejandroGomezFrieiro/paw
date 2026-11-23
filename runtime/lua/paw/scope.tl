@@ -552,6 +552,37 @@ end
 
 -- The own time of a subproject: a table for each block, whose methods
 -- ask the kernel (`paw.api.nest_tempo_*`). The kernel keeps the map.
+--- The bar and beat lines of an own map from beat `from` up to `to`, at
+--- most `limit` of them: `paw.api.tempo_lines` in that map. The kernel has
+--- no `nest_tempo_lines`, so the lines come from its bars and signatures:
+--- a line on each unit of the signature (an eighth in 6/8), `index` 0 on
+--- the bar line, bars from 1.
+local function own_lines(t: types.NestTime, from: number, to: number, limit: integer): {types.TempoLine}
+  local eps = 1e-9
+  local out: {types.TempoLine} = {}
+  local bar = t:bar_of(math.max(0, from))
+  while #out < limit do
+    local start, finish = t:bar_start(bar), t:bar_start(bar + 1)
+    -- Past `to`, or past the last bar the map can count.
+    if start >= to or finish <= start then
+      break
+    end
+    local _, den = t:signature(start)
+    local unit = 4 / den
+    local index = 0
+    local beat = start
+    while beat < finish - eps and beat < to and #out < limit do
+      if beat >= from - eps then
+        out[#out + 1] = {beat = beat, bar = bar + 1, index = index}
+      end
+      index = index + 1
+      beat = start + index * unit
+    end
+    bar = bar + 1
+  end
+  return out
+end
+
 local own_methods: types.NestTime = {
   song_beat = function(self: types.NestTime, beat: number): number return api.nest_song_beat(self.clip, beat) end,
   nest_beat = function(self: types.NestTime, beat: number): number return api.nest_beat(self.clip, beat) end,
@@ -575,6 +606,9 @@ local own_methods: types.NestTime = {
     return api.nest_tempo_from_bbt(self.clip, bar, beat, fraction)
   end,
   points = function(self: types.NestTime): types.TempoPoints return api.nest_tempo_points(self.clip) end,
+  lines = function(self: types.NestTime, from: number, to: number, limit?: integer): {types.TempoLine}
+    return own_lines(self, from, to, limit or 10000)
+  end,
 }
 local own_meta: metatable<types.NestTime> = {__index = own_methods}
 -- By block. Weak: a table no window holds goes, and is made again.

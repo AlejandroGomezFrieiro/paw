@@ -596,7 +596,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.draw
 
-- `paw.draw.bar_lines(from, span)`: The bars and beats from `from` for `span` beats, as the project counts them. `{ beat = b, bar = n }` is a bar line (n from 1), and `{ beat = b }` is a beat inside a bar. Bar lines come from `paw.time.bar_start`, so a change of time signature moves them.
+- `paw.draw.bar_lines(from, span)`: The bars and beats from `from` for `span` beats of the window's time, as the window counts them (`paw.time.lines`): in a subproject with its own meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 - `paw.draw.beats(ruler, scroll, span, zoom, origin)`: Write the numbers of a ruler above a roll that shows `span` beats from `scroll`, at `zoom` columns for each beat. Bars have the numbers of the project (`origin` is the project beat of the beat 0 of the roll). Beats between them are ticks. Returns the positions of the lines, as `{ x, bar }`, for the rows below.
 - `paw.draw.braille(bits)`: A braille character from its eight dots: bit k is dot k + 1.
 - `paw.draw.chips(buf, x, y, list, gap)`: Small on/off marks side by side, each a letter on a cell of its own: `chips(buf, x, y, { { "M", on, "Mute" }, ... }, gap)`. Returns the columns used.
@@ -2169,8 +2169,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.tempolane.draw(points, step)`: A stroke of the pencil: `points` are `{ beat, bpm }` as they were drawn. They replace the changes over the stretch drawn across (the start's stays, with its tempo taken from the stroke if it reaches it), each a slope to the next, at most one to `step` beats.
 - `paw.tempolane.fraction(bpm)`: Where a tempo is in the row, 0 at the bottom, 1 at the top.
 - `paw.tempolane.move(beat, to, bpm)`: The change at `beat` to another beat and tempo. The start's change keeps its beat and changes its tempo.
+- `paw.tempolane.point_at(beat)`: The point of the lane in effect at a beat of the window's time (the last one at or before it, else the first), and its index.
+- `paw.tempolane.points()`: The tempo points the lane shows and edits, the start's first, in beats of the window's time: `paw.time.tempo_points`.
 - `paw.tempolane.ramp(beat, on)`: Make the change at `beat` ramp to the next, or hold again.
-- `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall.
+- `paw.tempolane.range()`: The tempo at the bottom and at the top of the row. The range keeps a small space around the slowest and the fastest tempo of the map, in tens of beats a minute. The range is at least 80 and centered. So a steady song does not show as a wall. The map is the window's: inside a subproject with its own tempo, its own.
 - `paw.tempolane.remove(beat)`: Remove the change at `beat`. You cannot remove the change at the start.
 - `paw.tempolane.show(on)`: Show the row, or hide it (`on` false).
 - `paw.tempolane.shown()`: True if the row shows.

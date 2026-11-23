@@ -2439,10 +2439,10 @@ function paw.diagnostic.where(d) end
 ---@param filter any
 function paw.diagnostic.worst(uri, filter) end
 
---- The bars and beats from `from` for `span` beats, as the project counts
---- them. `{ beat = b, bar = n }` is a bar line (n from 1), and
---- `{ beat = b }` is a beat inside a bar. Bar lines come from
---- `paw.time.bar_start`, so a change of time signature moves them.
+--- The bars and beats from `from` for `span` beats of the window's time, as
+--- the window counts them (`paw.time.lines`): in a subproject with its own
+--- meter, its bars. `{ beat = b, bar = n }` is a bar line (n from 1), and
+--- `{ beat = b }` is a beat inside a bar. A change of time signature moves them.
 ---@param from any
 ---@param span any
 function paw.draw.bar_lines(from, span) end
@@ -8670,6 +8670,15 @@ function paw.tempolane.fraction(bpm) end
 ---@param bpm any
 function paw.tempolane.move(beat, to, bpm) end
 
+--- The point of the lane in effect at a beat of the window's time (the
+--- last one at or before it, else the first), and its index.
+---@param beat any
+function paw.tempolane.point_at(beat) end
+
+--- The tempo points the lane shows and edits, the start's first, in beats
+--- of the window's time: `paw.time.tempo_points`.
+function paw.tempolane.points() end
+
 --- Make the change at `beat` ramp to the next, or hold again.
 ---@param beat any
 ---@param on any
@@ -8678,7 +8687,8 @@ function paw.tempolane.ramp(beat, on) end
 --- The tempo at the bottom and at the top of the row. The range keeps a
 --- small space around the slowest and the fastest tempo of the map, in tens
 --- of beats a minute. The range is at least 80 and centered. So a steady
---- song does not show as a wall.
+--- song does not show as a wall. The map is the window's: inside a
+--- subproject with its own tempo, its own.
 function paw.tempolane.range() end
 
 --- Remove the change at `beat`. You cannot remove the change at the start.

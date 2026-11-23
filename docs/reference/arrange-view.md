@@ -183,7 +183,7 @@ In a selection (`v`) on a lane row, `x` and `d` remove the points in it.
 
 ## The tempo lane
 
-`zT` (or `:tempo.lane`) puts two rows under the ruler, and they show the tempo map as a curve. The curve is level where a tempo holds and slopes where it ramps (`↗`), and `◆` marks a change that holds. The header gives the tempo at the cursor.
+`zT` (or `:tempo.lane`) puts two rows under the ruler, and they show the tempo map as a curve. The curve is level where a tempo holds and slopes where it ramps (`↗`), and `◆` marks a change that holds. The header gives the tempo at the cursor. Inside a subproject with a tempo of its own, the lane shows that tempo, and a change that you make on the lane goes into that tempo. Inside a subproject that follows the song's tempo, a change goes into the song's tempo at the same place in the song.
 
 | Command | Effect |
 | --- | --- |
