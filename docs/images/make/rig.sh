@@ -9,16 +9,16 @@
 #                      CONFIG, that configuration directory instead of
 #                      --clean, with EDIT, Neovim on that file in a pane
 #                      above it, with PAW_HOME that as the program's home
-#                      (`~`; never yours), and with PLUGINS the plugins on
-#                      CLAP_PATH and the rest scanned (set the paths, so
-#                      that none of yours are)
+#                      (`~`; never yours, a scratch folder when unset), and
+#                      with PLUGINS the plugins on CLAP_PATH and the rest
+#                      scanned (set the paths, so that none of yours are)
 #   rec_start name     record the screen into $WORK/name.mkv
 #   cap "text"         the caption from now on
 #   rec_stop           stop recording
 #   shot name.png      a screenshot, into $WORK
 #   still name.png     a still for the set: a screenshot that make.sh copies
 #   key, typ           keys, by xdotool; while recording they are written down
-#                      for the key-cast in the GIF's corner (gif.sh)
+#                      for the key-cast in the GIF's corner (gif.py)
 #   glide, drag, stroke, rclick: the pointer
 #   ctl '<lua>'        run Lua in the kernel
 #
@@ -29,13 +29,15 @@ HERE=${MAKE:?run the scenes through make.sh}
 ROOT=$(cd "$HERE/../../.." && pwd)
 WORK=${WORK:-$ROOT/target/test-scratch/media}
 D=$WORK/home
-rm -rf "$D"; mkdir -p "$D" "$WORK"
+rm -rf "$D"; mkdir -p "$D/home" "$WORK"
 export XDG_CACHE_HOME=$D XDG_STATE_HOME=$D XDG_DATA_HOME=$D XDG_RUNTIME_DIR=$D XDG_CONFIG_HOME=$D/config
 export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/bus
 unset WAYLAND_DISPLAY XAUTHORITY
 export DISPLAY=:${RIG_DISPLAY:-177}
 [ -n "$CURSORS" ] && export XCURSOR_PATH=$CURSORS XCURSOR_THEME=Vanilla-DMZ XCURSOR_SIZE=24
-BIN=$ROOT/target/release
+# The program: PAW_BIN when it is set (a folder with paw in it), else the
+# release build of this checkout.
+BIN=${PAW_BIN:-$ROOT/target/release}
 SOCK=$D/k.sock
 TERM_SIZE=1120x700
 GUI_SIZE=1280x800
@@ -95,7 +97,7 @@ term_start() {
   # Nothing of the session this is run from: not its agent, not its mux.
   unset SSH_AUTH_SOCK WEZTERM_UNIX_SOCKET WEZTERM_PANE
   wezterm --config-file "$HERE/wezterm.lua" start --always-new-process --cwd "$ROOT" -- \
-    env ${PAW_HOME:+HOME="$PAW_HOME"} "$BIN/paw" ${CONFIG:+--config "$CONFIG"} $([ -z "$CONFIG" ] && echo --clean) $([ -z "$PLUGINS" ] && echo --no-plugins) \
+    env HOME="${PAW_HOME:-$D/home}" "$BIN/paw" ${CONFIG:+--config "$CONFIG"} $([ -z "$CONFIG" ] && echo --clean) $([ -z "$PLUGINS" ] && echo --no-plugins) \
     --audio null --listen "$SOCK" \
     -e "${SETUP:-$DEMO}" >"$D/term.out" 2>&1 &
   APP=$!

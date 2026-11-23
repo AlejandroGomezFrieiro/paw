@@ -13,6 +13,11 @@ WORK = os.environ["WORK"]
 NAME = sys.argv[1]
 FPS = 10
 BAR = 40
+# The size budget of the skill in .claude/skills/paw-gifs: the colors of
+# the palette (ffmpeg makes it, so gifsicle needs no --colors), gifsicle's
+# lossy pass, and the largest GIF that the README takes.
+LOSSY, COLORS = 30, 128
+BUDGET = 8 * 1024 * 1024
 BG, INK, KEYBG, KEYINK = "0x11111b", "0xcdd6f4", "0x313244", "0xf9e2af"
 KEYSIZE = 18
 # The key-cast is FiraCode, whose every glyph is 0.6 of the size wide.
@@ -107,7 +112,7 @@ for i, (t, t2, k) in enumerate(segments):
         f"fontsize={KEYSIZE}:box=1:boxcolor={KEYBG}:boxw={w}:boxh=28:text_align=C+M:"
         f"x=w-{w}-10:y=h-{BAR}+6:enable='between(t,{t:.2f},{t2:.2f})'")
 graph = (",".join(filters)
-         + ",split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];"
+         + f",split[a][b];[a]palettegen=max_colors={COLORS}:stats_mode=diff[p];"
          + "[b][p]paletteuse=dither=none:diff_mode=rectangle")
 script = f"{WORK}/caps/{NAME}.filter"
 with open(script, "w") as f:
@@ -116,4 +121,8 @@ cut = ["-ss", f"{lead:.2f}"] + (["-t", f"{end:.2f}"] if end else [])
 out = f"{WORK}/{NAME}.gif"
 subprocess.run(["ffmpeg", "-loglevel", "error", "-y"] + cut + ["-i", f"{WORK}/{NAME}.mkv",
                "-filter_complex_script", script, out], check=True)
-subprocess.run(["gifsicle", "-O3", "--lossy=20", out, "-o", out], check=True)
+subprocess.run(["gifsicle", "-O3", f"--lossy={LOSSY}", out, "-o", out], check=True)
+size = os.path.getsize(out)
+print(f"{NAME}.gif: {size / 1024 / 1024:.1f} MB, {end or 0:.0f} s")
+if size > BUDGET:
+    sys.exit(f"{NAME}.gif is larger than {BUDGET // 1024 // 1024} MB: make the scene shorter or split it")

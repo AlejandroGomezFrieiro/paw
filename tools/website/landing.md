@@ -10,7 +10,7 @@
 
 </div>
 
-![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
+![A tour of paw in the terminal. The cursor moves over tracks, clips and regions. The melody is copied, two tracks are turned down, and the view narrows to the verse. A clip is found by name, a track and a synth are added, and a note is drawn and transposed in the piano roll. Two tracks become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
 
 ## Who paw is for
 
