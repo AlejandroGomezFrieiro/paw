@@ -7,6 +7,40 @@ How to run everything: [README.md](README.md). Raw numbers:
 matrix before it). The processor time of the whole program while it plays,
 against REAPER, Ardour and LMMS, is in [DAWS.md](DAWS.md).
 
+## 2026-11-23: :%quantize writes its notes with paw.api.notes_set (TASK-198)
+
+The key `:%quantize 1/4` (grid 1 beat) in the region Verse B of the
+scenario `scope`: 6 300 notes move, on 63 tracks, with `u` after each key.
+One binary (2b340c1f, dev profile) ran with the Lua of 3acafc09 ("before",
+TASK-192) and of 2b340c1f ("after", TASK-198), as dev runtimes, in turns:
+5 pairs, each run under the measure lock on cores 16 to 23. All values were
+measured under external load (load average 12 to 26).
+
+| Series | Before | After |
+| --- | --- | --- |
+| `drive.py scope-keys --keys ':%quantize 1/4\r,u' --times 8`: the median of each run, processor time of the kernel thread | 291, 136, 112, 129, 143 ms (88 to 438) | 115, 106, 90, 90, 99 ms (53 to 221) |
+| the same, `u` | 171, 80, 69, 84, 98 ms (48 to 214) | 77, 58, 60, 84, 51 ms (39 to 136) |
+| the write of the notes, 8 keys a run: `paw.ex.apply` before, `paw.api.notes_set` after (wall time of the call) | 40, 16, 13, 13, 14 ms (12 to 91) | 1.8, 1.8, 1.7, 1.7, 1.8 ms (1.6 to 2.2) |
+| allocation of the Lua heap in one key, the collector stopped (8 keys a run) | 6.05 MB (6.03 to 6.18) | 4.08 MB (4.06 to 4.17) |
+
+The whole key: the median of each "after" run is lower than that of the
+"before" run next to it, but the spread of the two series overlaps, so
+the size of the change is not known from these runs. The values that do
+not depend on the load changed:
+
+- The write of the notes takes about 1.7 ms in place of 12 to 16 ms
+  (the lowest runs). Before, `paw.ex.apply` made a table of each change,
+  `Clip:edit_notes` made a second one, and the kernel read each with serde,
+  in one edit for each of the 63 clips. Now the kernel reads three lists
+  of numbers and makes one edit. The "after" value has no Lua part: the
+  loop of `:quantize` now fills the lists itself, and its cost is in the
+  whole key.
+- 2 MB less allocation a key: no change table and no item of a change for
+  each moved note.
+
+What is left of the key is mostly the read of the notes (`paw.ex.items`,
+a table for each note from `paw.api.clip_notes`) and the redraw.
+
 ## 2026-11-23: what :%quantize costs after TASK-183 and TASK-184 (TASK-192)
 
 The key `:%quantize 1/4` in the region Verse B of the scenario `scope`
