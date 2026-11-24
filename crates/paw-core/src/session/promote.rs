@@ -166,8 +166,8 @@ impl Session {
             if moved.output.is_none_or(|o| o == nest.master) {
                 moved.output = Some(group_id);
             }
-            if !moved.meta.contains_key("group") {
-                moved.meta.insert("group".into(), json!(group_id));
+            if moved.parent.is_none() {
+                moved.parent = Some(group_id);
             }
             moved.clips = t
                 .clips

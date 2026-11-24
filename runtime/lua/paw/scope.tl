@@ -506,7 +506,8 @@ end
 
 -- The parts of a scope of the song are a value of `paw.derived`, one for
 -- each scope (`scope_text`). They read the part list, and for a scope
--- with a group, the `meta` of each part: the marks of the groups.
+-- with a group, the `meta` (the marks of the groups) and the `parent` of
+-- each part.
 -- An edit of a note or a clip does not make them stale. A region gives no
 -- source: it limits the time, never the parts. A scope in a subproject is
 -- not kept: the kernel tells no event when the parts of a subproject
@@ -520,6 +521,7 @@ local parts_spec: derived.Spec<Scope, {integer}, boolean> = {
     if has_level(scope, "group") then
       for _, id in ipairs(api.part_list()) do
         ctx:source("part:" .. id .. ":meta")
+        ctx:source("part:" .. id .. ":parent")
       end
     end
     return parts_of(scope)

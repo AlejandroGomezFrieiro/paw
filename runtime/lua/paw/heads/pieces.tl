@@ -133,6 +133,17 @@ local function name_text(t: Part): string
   return name
 end
 
+--- The kind of a part as defined, or nil.
+local function kind_of(ctx: Ctx): contracts.PartKind
+  return not ctx.part.master and paw.part_kinds.spec(ctx.part.id) as contracts.PartKind or nil
+end
+
+--- The name of a part's kind that no loaded extension defines, or nil.
+local function absent_kind(ctx: Ctx): string
+  local kind = not ctx.part.master and ctx.part.kind or nil
+  return kind and not kind_of(ctx) and kind or nil
+end
+
 heads.piece(
   "name",
   {
@@ -143,6 +154,14 @@ heads.piece(
       local name = name_text(t)
       if api.str_width(name) > w then
         name = util.fit(name, w)
+      end
+      -- The name of a kind that no loaded extension defines, dim after the
+      -- name: the part plays as an ordinary one and keeps its kind.
+      local kind, full = absent_kind(ctx), w
+      local rest = w - api.str_width(name) - 1
+      if kind and rest >= 4 then
+        ctx.buf:text(x + w - rest, y, util.fit(kind, rest), "Dim")
+        w = w - rest - 1
       end
       -- In words, in a window.
       local label: contracts.LabelMark = {
@@ -158,15 +177,10 @@ heads.piece(
       if paw.groups.is_group(t.id) and not paw.partcolumn.shows("fold") then
         ctx:hit(x, y, 1, 1, function(s: contracts.HeadSubject, e: contracts.MouseEvent) gestures.fold(s, e) end, "fold")
       end
-      return w
+      return full
     end,
   }
 )
-
---- The kind of a part as defined, or nil.
-local function kind_of(ctx: Ctx): contracts.PartKind
-  return not ctx.part.master and paw.part_kinds.spec(ctx.part.id) as contracts.PartKind or nil
-end
 
 -- The letter of the part's kind. On a narrow head it stands in the first
 -- column, and else a column in from the stripe, clear of the name.

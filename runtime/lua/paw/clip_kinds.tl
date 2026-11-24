@@ -1,4 +1,5 @@
--- `paw.clip_kinds`: kinds of clip that extensions define.
+-- `paw.clip_kinds`: kinds of clip that extensions define, the `clip`
+-- family of `paw.kinds`.
 --
 -- A clip of a kind (a film, lyrics, light cues) keeps the kind's own data,
 -- and what the kind compiled from it: the sound it plays (MIDI or audio),
@@ -9,8 +10,9 @@
 -- `.lrc`), and `deserialize` turns that back. Bytes (pictures, sound) go
 -- in media files, never in the data. An extension defines a kind:
 --
---   paw.clip_kinds.define("film", {
+--   paw.kinds.define("clip", "film", {
 --     title = "Film clip", letter = "F",
+--     gives = "video",                          -- the stream kind it plays (midi if not given)
 --     version = 2,                              -- the version of its data
 --     serialize = function(data) return { file = data.file, scenes = data.scenes } end,
 --     deserialize = function(stored, version)  -- version 1 called the file `path`
@@ -45,6 +47,7 @@ local type partial = require("paw.partial")
 local objects = require("paw.objects")
 local options = require("paw.options")
 local registry = require("paw.registry")
+local kinds = require("paw.kinds")
 local limit = require("paw.limit")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
@@ -78,6 +81,9 @@ M.order = {}
 --- Keep `M.order` and the kernel's kinds as the kinds are: a kind that
 --- goes is no longer made, and the kind below it (if any) comes back.
 local function keep_order(name: string, spec: contracts.ClipKind<M.Data>)
+  kinds.mirror(
+    "clip", name, spec and {title = spec.title, gives = spec.gives, schema = spec.schema}, M.kinds:owner(name)
+  )
   local at: integer
   for i, other in ipairs(M.order) do
     if other == name then
@@ -85,7 +91,6 @@ local function keep_order(name: string, spec: contracts.ClipKind<M.Data>)
     end
   end
   if spec then
-    api.clip_kind_define(name)
     if not at then
       M.order[#M.order + 1] = name
     end
@@ -93,7 +98,6 @@ local function keep_order(name: string, spec: contracts.ClipKind<M.Data>)
     if at then
       table.remove(M.order, at)
     end
-    pcall(api.clip_kind_remove, name)
   end
 end
 M.kinds = registry.new("clip_kinds", "kinds of clip", {changed = keep_order})
@@ -346,34 +350,31 @@ function M.migrate(name?: string): integer
   return total
 end
 
---- Define a kind of clip (see above). `name` is a lowercase word that is
---- not a built-in kind (`midi`, `audio`): what a clip of the kind keeps.
---- Defining a kind again replaces it. Clips of an older version of its
---- data are migrated.
-function M.define<D>(name: string, spec: contracts.ClipKind<D>): contracts.ClipKind<D>
-  if type(name) ~= "string" then
-    error("a kind of clip is named by a word", 2)
-  end
-  if type(spec) ~= "table" then
-    error("clip_kinds.define takes a name and a table", 2)
-  end
+-- Define a kind of clip (see above), through `paw.kinds.define("clip",
+-- name, spec)`. `name` is not a built-in kind (`midi`, `audio`, `nest`,
+-- `curve`): what a clip of the kind keeps. Defining a kind again
+-- replaces it. Clips of an older version of its data are migrated.
+local function define(name: string, spec: contracts.ClipKind<M.Data>): contracts.ClipKind<M.Data>
   local version = spec.version or 1
   if type(spec.serialize) ~= "function" or type(spec.deserialize) ~= "function" then
-    error("kind `" .. name .. "`: give serialize and deserialize: the kind says how its data is saved", 2)
+    error("kind `" .. name .. "`: give serialize and deserialize: the kind says how its data is saved", 3)
   end
   if math.type(version) ~= "integer" or version < 1 then
-    error(name .. ": the version of a kind's data is a whole number from 1", 2)
+    error(name .. ": the version of a kind's data is a whole number from 1", 3)
   end
   if spec.timeline and spec.timeline ~= "beats" and spec.timeline ~= "seconds" then
-    error(name .. ": a kind's timeline is `beats` or `seconds`", 2)
+    error(name .. ": a kind's timeline is `beats` or `seconds`", 3)
   end
-  api.clip_kind_define(name)
+  spec.gives = spec.gives or "midi"
+  if not kinds.streams:get(spec.gives) then
+    error(string.format("kind `%s` gives `%s`, which is no stream kind", name, spec.gives), 3)
+  end
   spec.name = name
   spec.title = spec.title or (name:sub(1, 1):upper() .. name:sub(2) .. " clip")
   spec.letter = spec.letter or name:sub(1, 1):upper()
   spec.version = version
   spec.timeline = spec.timeline or "beats"
-  M.kinds:put(name, spec as contracts.ClipKind<M.Data>)
+  kinds.put(M.kinds, name, spec)
   if spec.insert and runtime.insert then
     local editor = spec.editor
     runtime.insert.add(
@@ -394,15 +395,27 @@ function M.define<D>(name: string, spec: contracts.ClipKind<D>): contracts.ClipK
   return spec
 end
 
---- Forget a kind: no new clips of it. The clips of it that the project
---- has stay as they are, data and all, until something defines it again.
-function M.remove(name: string)
+-- Forget a kind: no new clips of it. The clips of it that the project
+-- has stay as they are, data and all, until something defines it again.
+local function remove(name: string)
   local spec = M.kinds:remove(name)
   local key = spec and spec.insert
   if key and runtime.insert and runtime.insert.get(key) and runtime.insert.get(key).kind == name then
     runtime.insert.remove(key)
   end
 end
+
+kinds.family(
+  "clip",
+  {
+    define = function(name: string, spec: contracts.Kind): contracts.Kind
+      return define(name, spec as contracts.ClipKind<M.Data>)
+    end,
+    remove = remove,
+    get = function(name: string): contracts.Kind return M.kinds:get(name) end,
+    owner = function(name: string): string return M.kinds:owner(name) end,
+  }
+)
 
 --- The names of the defined kinds, in the order they were defined.
 function M.list(): {string}

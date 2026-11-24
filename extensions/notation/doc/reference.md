@@ -50,7 +50,7 @@ only the bars that changed.
 
 | Kept | Where | What |
 | --- | --- | --- |
-| on each note | `note.meta.notation` | its spelling (`letter`, `alter`, and the `pitch` it was spelled for: a note given another pitch in the roll gets its spelling from the key again), `voice`, `staff` of a grand staff, `grace` (`acciaccatura`, `appoggiatura`), `strum`, `chord`, `beam`, the articulations of its chord (`art`), `orn`ament and `stem`, `lyrics` of verses after the first (the first is `note.meta.lyric`, where the `utau` extension keeps its own), and `len` with `sounding`: how long it is written while it is as long as notation made it (a staccato) |
+| on each note | `note.meta.notation` | its spelling (`letter`, `alter`, and the `pitch` it was spelled for: a note given another pitch in the roll gets its spelling from the key again), `voice`, `staff` of a grand staff, `grace` (`acciaccatura`, `appoggiatura`), `strum`, `chord`, `beam`, the articulations of its chord (`art`), `orn`ament and `stem`, `lyrics` of verses after the first (the first is the note's `lyric` field, which the `utau` extension sings too), and `len` with `sounding`: how long it is written while it is as long as notation made it (a staccato) |
 | with the clip | `clip.meta.notation`, in beats of the clip | `version`, how all this is laid out (1; a clip without one keeps it as before versions were written); the transcription's `settings`; `tuplets` written (or a stretch said to be plain); `marks` (dynamics, hairpins, slurs, text, tempo marks, chord symbols, playing techniques); `bars` (barlines, repeats, endings, rehearsal marks, key and clef changes, the beats' grouping); `layout` (system breaks, bars to a system); `staves`, the clefs it was written on where its notes would now choose others |
 | with the part | `part.meta.notation` | its clef, its tablature |
 | with the song | the tempo map, the signatures | what tempo marks and time signatures say |
@@ -253,7 +253,7 @@ The page has the following other parts:
   of each chord go on different strings within the reach of a hand, and the
   hand moves as little as possible. `meta.notation.string` on a note sets
   its string.
-- Lyrics: the page writes the `meta.lyric` of a note under it. The vocal
+- Lyrics: the page writes the `lyric` of a note under it. The vocal
   clips of the `utau` extension keep their lyrics there.
 - Several parts: `:notation.parts` (`zS`) shows a score of every part
   with MIDI over the stretch of the open clip, a staff for each. You edit

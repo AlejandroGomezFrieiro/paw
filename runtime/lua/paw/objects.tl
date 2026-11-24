@@ -29,6 +29,7 @@ local record NoteInput is {number | string}
   length: number
   velocity: integer
   id: integer
+  lyric: string
   meta: types.Meta
   attr: types.NoteAttr
 end
@@ -41,6 +42,7 @@ local record NoteChangeInput
   length: number
   pitch: Pitch
   velocity: integer
+  lyric: string
   meta: types.Meta
   attr: types.NoteAttr | boolean
 end
@@ -485,6 +487,9 @@ local record M
     midi_output: types.MidiOutput
     height: number
     attr_map: types.AttrMap
+    --- Its kind (`paw.kinds.define("part", ...)`) and the group that holds it.
+    kind: string
+    parent: integer
     meta: types.Meta
     devices: {DeviceSnapshot}
     clips: {ClipSnapshot}
@@ -867,7 +872,9 @@ function Part:snapshot(): PartSnapshot
     midi_output = t.midi_output,
     -- How its notes' articulations reach its instrument.
     attr_map = t.attr_map,
-    -- What extensions keep with the part: a drum map, the group it is in.
+    kind = t.kind,
+    parent = t.parent,
+    -- What extensions keep with the part: a drum map, the mark of a group.
     meta = next(t.meta or {}) and t.meta or nil,
     devices = {},
     clips = {},
@@ -943,6 +950,18 @@ function M.restore_part(snap: PartSnapshot, index?: integer): Part
   end
   if snap.meta then
     api.part_set(part.id, {meta = snap.meta})
+  end
+  if snap.kind then
+    api.part_set(part.id, {kind = snap.kind})
+  end
+  -- In its group again, when the project still has the group.
+  if snap.parent then
+    for _, id in ipairs(api.part_list({all = true})) do
+      if id == snap.parent then
+        api.part_set(part.id, {parent = snap.parent})
+        break
+      end
+    end
   end
   local devices: {Device} = {}
   for i, d in ipairs(snap.devices or {}) do
@@ -1645,6 +1664,7 @@ function M.notes(notes: {NoteInput}): {types.Note}
       start = note.start or note[2] as number or 0,
       length = note.length or note[3] as number or 1,
       velocity = note.velocity or note[4] as integer or options.opt.velocity,
+      lyric = note.lyric,
       meta = note.meta,
       attr = note.attr,
       -- A note given back keeps its name (`paw.address`); a new one gets one.

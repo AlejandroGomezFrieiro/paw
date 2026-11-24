@@ -15,7 +15,8 @@
 -- channel, is split by channel), one clip on each, spanning its bars, with
 -- the controller moves, pitch bend, pressure and program changes as the
 -- clip's controls; the tempo map, time signatures and markers are the
--- project's, lyrics go on the notes they start (`note.meta.lyric`), a
+-- project's, each lyric goes on the note at its tick, or on the next note
+-- (`note.lyric`; the opening message names each lyric moved or dropped), a
 -- note's MIDI 2.0 attribute (an articulation) comes back from the
 -- sequencer-specific event this program writes it as (below), and a
 -- part that plays on channel 10 alone gets the built-in drum kit. The
@@ -133,7 +134,6 @@ local record M
   --- channel (from 1; nil for channel 1) and its lyric.
   record NoteMeta
     channel: integer
-    lyric: string
   end
 
   --- The clip file open alone: its path and its clip, and `opening` while
@@ -416,27 +416,32 @@ local function pair(events: {Event}, end_tick: integer, ppq: number, count: func
   return notes
 end
 
---- Put each lyric on the note it starts: the first at or after it, within
---- a sixteenth, that has none yet and is not a drum's (channel 10).
+--- Put each lyric on the note at its tick: the first there that has none
+--- yet and is not a drum's (channel 10), or else the next such note. The
+--- report names each lyric that went on a later note, and each that found
+--- no note.
 local function attach_lyrics(track: Track, ppq: number, count: function(string))
-  local reach = ppq / 4
   local i = 1
   for _, lyric in ipairs(track.lyrics) do
     local text = lyric.text:gsub("^%s+", ""):gsub("%s+$", "")
     while track.notes[i] and track.notes[i].tick < lyric.tick do
       i = i + 1
     end
-    local k, placed = i, false
-    while text ~= "" and track.notes[k] and track.notes[k].tick - lyric.tick <= reach do
-      if not track.notes[k].lyric and track.notes[k].channel ~= 9 then
-        track.notes[k].lyric = text
-        placed = true
-        break
-      end
+    local k = i
+    while text ~= "" and track.notes[k] and (track.notes[k].lyric or track.notes[k].channel == 9) do
       k = k + 1
     end
-    if text ~= "" and not placed then
-      count("lyrics with no note to go on")
+    local note = text ~= "" and track.notes[k]
+    local beat = string.format("%g", lyric.tick / ppq + 1)
+    if note then
+      note.lyric = text
+      if note.tick ~= lyric.tick then
+        count(
+          string.format("lyric \"%s\" of beat %s moved to the next note, at beat %g", text, beat, note.tick / ppq + 1)
+        )
+      end
+    elseif text ~= "" then
+      count(string.format("lyric \"%s\" of beat %s dropped: no note at or after it", text, beat))
     end
   end
 end
@@ -997,8 +1002,8 @@ local function clip_of(file: File, part: Part, at: number): types.ClipOptions
   local controls: {types.Control} = {}
   for i, n in ipairs(part.notes) do
     local note_meta: types.Meta
-    if n.channel ~= 0 or n.lyric then
-      note_meta = {channel = n.channel ~= 0 and n.channel + 1 or nil, lyric = n.lyric}
+    if n.channel ~= 0 then
+      note_meta = {channel = n.channel + 1}
     end
     notes[i] = {
       start = n.tick / ppq - from,
@@ -1006,6 +1011,7 @@ local function clip_of(file: File, part: Part, at: number): types.ClipOptions
       pitch = n.pitch,
       velocity = math.max(1, math.min(127, math.floor(n.velocity))),
       meta = note_meta,
+      lyric = n.lyric,
       attr = n.attr,
     }
   end
@@ -1192,11 +1198,26 @@ end
 
 local EXPORT_PPQ = 960
 
+--- The kinds of device that say they are a drum machine (the feature
+--- `drum-machine` of CLAP): a part that plays one sends on channel 10.
+local function drum_machines(): {string: boolean}
+  local out: {string: boolean} = {}
+  for _, info in ipairs(api.device_types()) do
+    for _, feature in ipairs(info.features or {}) do
+      if feature == "drum-machine" then
+        out[info.kind] = true
+      end
+    end
+  end
+  return out
+end
+
 --- The channel a part's notes go out on when they do not say: 10 for a
---- part whose instrument is the drum kit, else 1 (counting from 0 here).
+--- part whose instrument is a drum machine, else 1 (counting from 0 here).
 local function default_channel(part: Untyped): integer
+  local drums = drum_machines()
   for _, device in ipairs(part:devices() as {Device}) do
-    if device.kind == "drums" or device.kind == "sampler" then
+    if drums[device.kind] then
       return 9
     end
   end
@@ -1255,7 +1276,7 @@ local function export_part(part: Untyped, opts: M.ExportOptions, only: {integer:
             pitch = n.pitch,
             velocity = modifiers.velocity(c.modifiers, n.velocity),
             channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
-            lyric = type(note_meta.lyric) == "string" and note_meta.lyric or nil,
+            lyric = n.lyric,
             attr = n.attr,
           }
           last = math.max(last, c.start + n.start + length)

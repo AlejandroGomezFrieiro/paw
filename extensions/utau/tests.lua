@@ -51,7 +51,7 @@ local function vocal(name, pitches, at)
   part:add_device(load().DEVICE)
   local list = {}
   for i, p in ipairs(pitches or { 60, 62, 64, 65 }) do
-    list[i] = { pitch = p, start = i - 1, length = 1, meta = { lyric = SYLLABLES[(i - 1) % #SYLLABLES + 1] } }
+    list[i] = { pitch = p, start = i - 1, length = 1, lyric = SYLLABLES[(i - 1) % #SYLLABLES + 1] }
   end
   local clip = part:add_clip({ start = at or 0, length = #list, notes = list, name = "verse" })
   return part, clip
@@ -271,7 +271,7 @@ test("utau: a vocal part is a kind of part: made, shown, described and opened as
   paw.cursor.set_part(plain)
   paw.cmd("utau.voice")
   eq(
-    plain.meta.kind .. " " .. tostring(utau.device_of(plain.id) ~= nil),
+    plain:get().kind .. " " .. tostring(utau.device_of(plain.id) ~= nil),
     "vocal true",
     "utau.voice makes it a vocal part"
   )
@@ -676,7 +676,7 @@ local function describe(clip)
   local out = {}
   for _, n in ipairs(clip:notes()) do
     local p = n.meta and n.meta.utau or {}
-    local pieces = { n.pitch, n.start, n.length, n.meta and n.meta.lyric or "" }
+    local pieces = { n.pitch, n.start, n.length, n.lyric or "" }
     if p.tu then pieces[#pieces + 1] = "tu" .. p.tu end
     if p.vb then pieces[#pieces + 1] = "vb" .. table.concat(p.vb, ",") end
     if p.ex then pieces[#pieces + 1] = "ex" .. p.ex[1][1] .. p.ex[1][2] end
@@ -735,7 +735,7 @@ test("utau: a clip exports to UTAU's .ust and to MIDI with lyrics", function()
     -- MIDI has no parts: the notes come back where they were in the song.
     local out, first = {}, c:notes()[1].start
     for _, n in ipairs(c:notes()) do
-      out[#out + 1] = n.pitch .. "/" .. (n.start - first) .. "/" .. n.length .. "/" .. (n.meta and n.meta.lyric or "")
+      out[#out + 1] = n.pitch .. "/" .. (n.start - first) .. "/" .. n.length .. "/" .. (n.lyric or "")
     end
     return table.concat(out, " ")
   end
@@ -1026,7 +1026,7 @@ test("utau: a harmony part sings the melody a diatonic interval away in the key"
     pitches[#pitches + 1] = n.pitch
   end
   eq(table.concat(pitches, " "), "64 65 67 69 71", "the notes a third up in C major")
-  eq(made:clips()[1]:notes()[3].meta.lyric, "ら", "with the lyrics")
+  eq(made:clips()[1]:notes()[3].lyric, "ら", "with the lyrics")
   eq(utau.config(made.id).singer, "Someone", "the voice")
   near(curve(made, "dyn", 2), curve(part, "dyn", 2), 1e-6, "and the curves")
   near(made.volume, part.volume - 3, 1e-6, "a little quieter")
@@ -1053,7 +1053,7 @@ test("utau: a double sings the same notes, a little apart in timing and tuning",
   for i, n in ipairs(made:clips()[1]:notes()) do
     local src = clip:notes()[i]
     same = same and n.pitch == src.pitch and n.start == src.start
-    local p = n.meta.utau or {}
+    local p = (n.meta or {}).utau or {}
     if p.tu then
       tuned = tuned + 1
       eq(math.abs(p.tu) <= 8, true, "tuning within 8 cents")
@@ -1215,7 +1215,7 @@ test("utau: a timing take moves note onsets, and take 0 puts them back", functio
   eq(table.concat(same, " "), table.concat(offsets, " "), "the same take is the same")
   r.timing(clip.id, 0)
   for _, note in ipairs(clip:notes()) do
-    eq(note.meta.utau and note.meta.utau.ph, nil, "take 0 takes the offsets away")
+    eq(((note.meta or {}).utau or {}).ph, nil, "take 0 takes the offsets away")
   end
   eq(part ~= nil, true, "")
 end)
@@ -1270,7 +1270,7 @@ stepping_test(
     eq(#list, 2, "two notes")
     eq(list[1].pitch .. "@" .. list[1].start .. "+" .. list[1].length, "60@0+0.5", "a step long: two steps of the grid")
     eq(list[2].pitch .. "@" .. list[2].start, "64@0.5", "the second after the first")
-    eq(list[1].meta == nil or list[1].meta.lyric == nil, true, "with the default lyric")
+    eq(list[1].lyric, nil, "with the default lyric")
     eq(editor.beat, 1, "the cursor is at the end of the second")
     T.keys("<Esc>")
     T.keys("u")

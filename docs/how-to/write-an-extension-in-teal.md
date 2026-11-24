@@ -138,12 +138,12 @@ The data that an extension keeps in `meta` is its own. Write a record for
 it, and read it with that type:
 
 ```lua
-local record Lyric
-  text: string
-  syllable: integer
+local record Fingering
+  string: integer
+  fret: integer
 end
 
-local lyric = note.meta.lyric as Lyric
+local fingering = note.meta.fingering as Fingering
 ```
 
 ### Options

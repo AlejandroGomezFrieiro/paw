@@ -806,14 +806,14 @@ function M.tie_piece(ev, c, k, count)
   if not c then return end
   ev.notes = {}
   for j, n in ipairs(c.notes) do
-    ev.notes[j] = { pitch = n.pitch, index = n.index, meta = n.meta, tie = k < count, tied = k > 1 }
+    ev.notes[j] = { pitch = n.pitch, index = n.index, meta = n.meta, lyric = n.lyric, tie = k < count, tied = k > 1 }
   end
   if k == 1 then
     ev.arpeggio, ev.staccato = c.arpeggio, c.staccato
     if c.grace then
       ev.grace = {}
       for j, n in ipairs(c.grace) do
-        ev.grace[j] = { pitch = n.pitch, index = n.index, meta = n.meta }
+        ev.grace[j] = { pitch = n.pitch, index = n.index, meta = n.meta, lyric = n.lyric }
       end
     end
   end

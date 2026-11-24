@@ -1,7 +1,7 @@
 -- Per-note singing data: where it lives in the project, and the payload the
 -- engine reads (`NotePayload` in engine/PawUtau.Protocol).
 --
--- A note's lyric is `note.meta.lyric`. Everything else the engine reads per note
+-- A note's lyric is `note.lyric`. Everything else the engine reads per note
 -- is in `note.meta.utau`, in the shape `paw-utau-engine --convert` writes, so
 -- an imported project is stored as it comes:
 --
@@ -17,7 +17,7 @@ local M = {}
 
 --- The lyric a note sings, falling back to `default`.
 function M.lyric(note, default)
-  local lyric = note.meta and note.meta.lyric
+  local lyric = note.lyric
   if type(lyric) ~= "string" or lyric == "" then return default end
   return lyric
 end

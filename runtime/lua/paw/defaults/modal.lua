@@ -206,6 +206,15 @@ local function under_cursor()
   if t.chain_origin then lines[#lines + 1] = "  devices copied from " .. t.chain_origin end
   local kind = paw.part_kinds.describe(part.id)
   if kind then lines[#lines + 1] = "  kind    " .. kind end
+  -- The keys of its meta, each with the module that keeps it.
+  local keys = {}
+  for key in pairs(type(t.meta) == "table" and t.meta or {}) do
+    keys[#keys + 1] = key
+  end
+  table.sort(keys)
+  for _, key in ipairs(keys) do
+    lines[#lines + 1] = string.format("  meta    %s (%s)", key, paw.meta.owner(key) or "no loaded module declares it")
+  end
   -- What the head of the part's row says of it (paw/heads.tl).
   for _, line in ipairs(paw.heads.describe(part.id)) do
     lines[#lines + 1] = "  " .. line

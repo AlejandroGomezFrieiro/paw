@@ -56,9 +56,7 @@ fn shift_ids(p: &mut Project, by: Id) {
         t.output = t.output.map(shift);
         t.nest = t.nest.map(|n| NestId(shift(n.0)));
         t.sends.iter_mut().for_each(|s| s.target = shift(s.target));
-        if let Some(group) = t.meta.get("group").and_then(Value::as_u64) {
-            t.meta.insert("group".into(), json!(shift(group)));
-        }
+        t.parent = t.parent.map(shift);
         if let Some(vcas) = t.meta.get_mut("vcas") {
             shift_list(vcas);
         }

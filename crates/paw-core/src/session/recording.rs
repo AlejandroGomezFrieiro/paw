@@ -163,6 +163,7 @@ impl Take {
                 pitch: key,
                 velocity: held.velocity,
                 meta: Default::default(),
+                lyric: None,
                 id: 0,
                 attr: held.attr,
             });

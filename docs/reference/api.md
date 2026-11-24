@@ -424,12 +424,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.clip_kinds.add(part, name, args, data)`: A new clip of the kind `name` on `part`: `data`, or what the kind's `create` makes of `args` (the words, and `name`, `start` and `length` of the clip). Its length is `args.length`, or the length the kind compiled, or a bar of 4 beats. One undo step.
 - `paw.clip_kinds.compile(clip)`: Compile a clip of a kind again from its data (after something that it links to changed). One undo step.
 - `paw.clip_kinds.data(clip)`: The data of a clip of a kind, by its kind's `deserialize`: nil for a MIDI or audio clip, and nil and why when the kind cannot read it. Without its kind, the plain data as it is stored.
-- `paw.clip_kinds.define(name, spec)`: Define a kind of clip (see above). `name` is a lowercase word that is not a built-in kind (`midi`, `audio`): what a clip of the kind keeps. Defining a kind again replaces it. Clips of an older version of its data are migrated.
 - `paw.clip_kinds.describe(clip)`: A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or "film (no extension here defines it)". Nil for a MIDI or audio clip.
 - `paw.clip_kinds.list()`: The names of the defined kinds, in the order they were defined.
 - `paw.clip_kinds.look(clip, ctx)`: How a clip of a kind looks in the arrange view, by its kind's `look`: nil without the kind, or when `look` fails (said once per kind).
 - `paw.clip_kinds.migrate(name)`: Move the clips of the kind `name` (of each kind when nil) whose data is of an older version to their kind's version, by its `deserialize`, and compile them again. Says how many moved; a clip whose migration fails stays as it was, with a message. Gives how many moved.
-- `paw.clip_kinds.remove(name)`: Forget a kind: no new clips of it. The clips of it that the project has stay as they are, data and all, until something defines it again.
 - `paw.clip_kinds.set(clip, data)`: Give a clip of a kind new data: the kind checks it and compiles it again, and the data, sound, signals and files change together, as one undo step. Refused without the kind, and for a clip that a newer version of the kind made.
 - `paw.clip_kinds.slip(clip, by)`: What a clip of a kind holds when what it plays moves `by` beats later under it: by the kind's `slip` (given the new offset), or the same data with its offset moved.
 - `paw.clip_kinds.spec(name)`: The kind `name` as defined, or nil. `D` is the record of its data.
@@ -981,7 +979,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.groups
 
-- `paw.groups.add(part, group)`: Put a part into a group: it then sounds through the group, unless it was sent somewhere of its own.
+- `paw.groups.add(part, group)`: Put a part into a group: it then sounds through the group, unless it was sent somewhere of its own. A group cannot go inside itself, nor inside a group that it holds: the error says so.
 - `paw.groups.depth(part)`: How many groups a part is inside.
 - `paw.groups.dissolve(group)`: Undo a group: its members go up a level and the group, if it holds nothing of its own (no clips, no devices), goes away.
 - `paw.groups.fold(group, on)`: Fold a group away, or open it, in the current window: `on` nil flips it. View state: no undo step (paw/folds.tl).
@@ -1248,6 +1246,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.keyrule.broken()`: Every mapping that breaks the rule, as "scope mode keys: why", sorted. Insert mode is left out (its keys enter material), and so are keys made with `prompt = true`, which answer a question on the screen.
 - `paw.keyrule.lost_groups()`: Named groups of keys that lead to no key, as "scope keys (name)".
+
+## Module paw.kinds
+
+- `paw.kinds.builtin(family, name)`: True when `name` is a kind of `family` that the core defines.
+- `paw.kinds.core(family, name)`: Mark the kind `name` of `family` as the core's, before the core defines it: the kernel then names the core as its owner (`paw.meta`).
+- `paw.kinds.define(family, name, spec)`: Define the kind `name` of `family` (`stream`, `clip`, `part` or `meta`) with `spec`. `name` is a lowercase word, or words joined by dots. Defining a kind again replaces it, and an extension's kind goes when the extension unloads. Gives the spec as the family completed it.
+- `paw.kinds.family(name, family)`: Give `family` to `paw.kinds`: `define` then reaches it.
+- `paw.kinds.get(family, name)`: The kind `name` of `family` as defined, or nil.
+- `paw.kinds.list(family)`: The kinds of `family` (of every family when nil) as the kernel keeps them, sorted by family and name, each with its owner and the schema of its data.
+- `paw.kinds.mirror(family, name, fields, owner)`: Give the kind `name` of `family` to the kernel: the fields that it keeps, and its owner. A nil `fields` takes the kind away.
+- `paw.kinds.put(reg, name, spec)`: Put `spec` at `name` in `reg`, the registry of a family. When the kernel refuses the kind, the registry is as it was, and the error says why.
+- `paw.kinds.remove(family, name)`: Take away the kind `name` of `family`: things of the kind that the project holds keep it, and the kind below comes back if there is one.
 
 ## Module paw.lanes
 
@@ -1562,6 +1572,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.media.reverse(clip)`: Play an audio clip backwards: a `reverse` in its edit list, which leaves its file as it is (a second reverse takes it away). Returns `{ edits }`.
 - `paw.media.search(dir)`: Find in a directory tree each file that paw cannot find. One undo step. Returns `{ found, missing }`.
 
+## Module paw.meta
+
+- `paw.meta.define(key, spec)`: Declare the key `key` of `meta` (`paw.kinds.define("meta", key, spec)`). `spec.title` says what it holds, and `spec.version` (1 if not given) is the version of its data.
+- `paw.meta.owner(key)`: Who keeps the key `key`: the extension that declared it, `paw` for a key of the core, `the user's config` for a key that the config declared, or nil for a key that no loaded module declares.
+- `paw.meta.undeclared()`: Each key of `meta` in the project that no loaded module declares, sorted by key, with the things and the files that hold it.
+
 ## Module paw.midifile
 
 - `paw.midifile.encode(file)`: The bytes of a Standard MIDI File from the shape that `parse` returns (`format` 0 or 1, `ppq`, `tracks`, and `tempos`, `signatures` and `markers`, which go in the first track). Ticks can be fractions. paw rounds them.
@@ -1750,14 +1766,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.part_kinds.add(name, opts)`: A new part of the kind `name`. `opts.name` is its name (if not given, the title of the kind without "part"), and `opts.index` its place. The other options go to `create`.
 - `paw.part_kinds.clear(which)`: Make a part an ordinary one again, as far as its kind goes: what the kind made (its devices) stays, for the extension to take away.
-- `paw.part_kinds.define(name, spec)`: Define a kind of part (see above). `name` is a word: what is typed after `:part.add` and kept in the part's `meta.kind`.
 - `paw.part_kinds.describe(which)`: A few words on a part's kind, for `K` and the part header: `Vocal part · Kitane`, "vocal (no extension here defines it)", or nil.
 - `paw.part_kinds.known_words()`: ": there are vocal, drums", for messages.
 - `paw.part_kinds.list()`: The defined kinds, in the order they were defined.
 - `paw.part_kinds.of(which)`: The name of the kind of a part: the kind that it keeps. If not, a kind whose `is` claims it. Nil for a usual part.
 - `paw.part_kinds.open(clip)`: Open a clip in its part's kind's editor. True when it did.
-- `paw.part_kinds.remove(name)`: Forget a kind: no longer offered, nor in the menus. Parts that keep it are ordinary parts again until something defines it.
-- `paw.part_kinds.set(which, name, args)`: Make a part of `name`'s kind: keep the kind on it, then let the kind make it what it is. `args` go to `create`.
+- `paw.part_kinds.set(which, name, args)`: Make a part of `name`'s kind: keep the kind on it, then let the kind make it what it is. `args` go to `create`. The lanes, clips and devices that the part has stay.
 - `paw.part_kinds.spec(which)`: A part's kind as defined, or nil (an ordinary part, or a kind that no loaded extension defines).
 
 ## Module paw.partcolumn
@@ -2770,9 +2784,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_edits_clear(id)`: Take away an audio clip's edit list. Returns how many edits it had.
 - `paw.api.clip_get(id)`
 - `paw.api.clip_glue(ids)`
-- `paw.api.clip_kind_define(name)`: Let `clip_add` make clips of the kind `name`: a lowercase word that is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
-- `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
-- `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
 - `paw.api.clip_link(id)`: Put a linked copy of a MIDI clip right after it, and return the id of the copy. The clips of a link share their notes and controller moves: an edit of one changes all of them. A clip that has no link yet starts one, named after the clip. `clip_get` gives a linked clip's `link` and `link_count`.
 - `paw.api.clip_list(part, from, to)`: --- clips --- The clips of a part, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
 - `paw.api.clip_normalize(id, level)`
@@ -2869,6 +2880,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.json_array(t)`: Mark a table (a new one without `t`) as a JSON array, so that `json_encode` writes it as `[]` when it is empty. Returns it.
 - `paw.api.json_decode(text)`: Nil and the reason, when the text is not JSON.
 - `paw.api.json_encode(value, pretty)`: JSON text of a value; `pretty` lays it out on lines, indented.
+- `paw.api.kinds_list(family)`: The kinds of `family` (of every family when nil), each with its owner and the schema of its data.
+- `paw.api.kinds_put(family, name, spec, owner)`: --- kinds --- The kind `name` of `family` is now `spec`, put by the extension `owner` (nil for the core). A nil `spec` takes the kind away. `paw.kinds` calls it each time the entry on top of a kind changes.
 - `paw.api.lane_add(part, opts)`
 - `paw.api.lane_add_point(id, beat, value)`
 - `paw.api.lane_add_state(id, state)`: Add a state to a state lane, or replace the one of its name, as one undo step. Returns its index, from 0.
@@ -3059,6 +3072,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.state_set(key, value)`
 - `paw.api.step()`: Do one turn of the loop and return at once: fire the timers that are due, look after the plugins, take in MIDI and the output of helper processes, and close the undo step. No time passes.
 - `paw.api.str_width(text)`
+- `paw.api.stream_check(ty)`: Check a stream type `{ base, props }` against its stream kind. The error names a property that the kind does not take.
 - `paw.api.tempo_at(beat)`
 - `paw.api.tempo_bar_length(beat)`
 - `paw.api.tempo_bar_of(beat)`: Bars count from 0 here; `paw.tempo` and `paw.time` count from 1.

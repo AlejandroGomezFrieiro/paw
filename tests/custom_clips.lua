@@ -7,7 +7,20 @@ local api = paw.api
 
 --- Take away the kind `film` that a test defined: a new project keeps the
 --- kinds, and a test that counts them must find only its own.
-local function forget_film() pcall(api.clip_kind_remove, "film") end
+local function forget_film() api.kinds_put("clip", "film", nil) end
+
+--- Give the kernel a clip kind `film` of the extension `film`, as
+--- `paw.kinds.define` does, without the Lua side of a kind.
+local function kernel_film() api.kinds_put("clip", "film", { title = "Film clip", gives = "midi" }, "film") end
+
+--- The clip kinds that the kernel keeps, with their owners.
+local function clip_kinds()
+  local out = {}
+  for _, kind in ipairs(api.kinds_list("clip")) do
+    out[#out + 1] = kind.name .. "=" .. kind.owner
+  end
+  return table.concat(out, " ")
+end
 
 test("a custom clip is added, set in one step, and undone", function()
   fresh()
@@ -17,10 +30,18 @@ test("a custom clip is added, set in one step, and undone", function()
     "no clip kind `film` is defined",
     "an unknown kind"
   )
-  fails(function() api.clip_kind_define("midi") end, "built%-in kind", "a built-in word")
-  api.clip_kind_define("film")
+  fails(
+    function() paw.kinds.define("clip", "midi", { serialize = tostring, deserialize = tostring }) end,
+    "`midi` is a built%-in clip kind",
+    "a built-in kind"
+  )
+  kernel_film()
   T.after(forget_film)
-  eq(table.concat(api.clip_kinds(), " "), "film", "the kinds that are defined")
+  eq(
+    clip_kinds(),
+    "audio=paw.clips curve=paw.clips film=film midi=paw.clips nest=paw.clips",
+    "the kinds that are defined, the built-in ones of the core"
+  )
 
   local data = { scenes = { 1, 2.5, { title = "Intro", dark = true } }, cut = "x" }
   local id = api.clip_add(t.id, { kind = "film", data = { json = data }, length = 4 })
@@ -75,8 +96,8 @@ end
 
 test("clip_kinds: a kind's clip is made, set as one undo step and described; a slow kind is stopped", function()
   fresh()
-  T.after(function() paw.clip_kinds.remove("film") end)
-  paw.clip_kinds.define("film", film())
+  T.after(function() paw.kinds.remove("clip", "film") end)
+  paw.kinds.define("clip", "film", film())
   local t = paw.add_part({ name = "Film" })
   local clip = paw.clip_kinds.add(t, "film", { "intro.mp4" })
   api.undo_checkpoint()
@@ -104,7 +125,7 @@ test("clip_kinds: a kind's clip is made, set as one undo step and described; a s
     while true do
     end
   end
-  paw.clip_kinds.define("film", slow)
+  paw.kinds.define("clip", "film", slow)
   fails(
     function() clip:set_data({ file = "x", scenes = 1 }) end,
     "ran for more than 0.05 s",
@@ -116,13 +137,13 @@ test(
   "clip_kinds: older data is migrated when the kind is defined and when the project opens; newer data is refused",
   function()
     fresh()
-    T.after(function() paw.clip_kinds.remove("film") end)
-    paw.clip_kinds.define("film", film())
+    T.after(function() paw.kinds.remove("clip", "film") end)
+    paw.kinds.define("clip", "film", film())
     local clip = paw.clip_kinds.add(paw.add_part({ name = "Film" }), "film", { "a.mp4" })
     api.undo_checkpoint()
     local path = T.scratch .. "/film.paw"
     api.project_save(path)
-    paw.clip_kinds.define("film", film(2))
+    paw.kinds.define("clip", "film", film(2))
     local c = api.clip_custom(clip.id)
     eq(
       (c.version or 1) .. " " .. clip:data().scenes .. " " .. #c.sound.notes,
@@ -136,7 +157,7 @@ test(
     eq((api.clip_custom(clip.id).version or 1) .. " " .. clip:data().scenes, "2 2", "migrated when it opens")
     eq(api.undo_pending(), false, "opening is not an undo step")
 
-    paw.clip_kinds.define("film", film(1))
+    paw.kinds.define("clip", "film", film(1))
     local data, why = clip:data()
     eq(data, nil, "a newer clip's data is not read")
     eq(why, "this clip was made by a newer film extension (data 2, this one knows 1)", "and why")
@@ -150,7 +171,7 @@ test("clip_kinds: unloading the extension removes its kind; its clips keep their
   os.execute("mkdir -p '" .. root .. "'")
   local f = assert(io.open(root .. "/init.lua", "w"))
   f:write(
-    'paw.clip_kinds.define("lyrics", { serialize = function(d) return d end, deserialize = function(s) return s end,'
+    'paw.kinds.define("clip", "lyrics", { serialize = function(d) return d end, deserialize = function(s) return s end,'
       .. ' create = function() return { words = "la" } end })'
   )
   f:close()
@@ -158,7 +179,11 @@ test("clip_kinds: unloading the extension removes its kind; its clips keep their
   local clip = paw.clip_kinds.add(paw.add_part({ name = "Words" }), "lyrics", { length = 4 })
   api.undo_checkpoint()
   paw.ext.unload("ext-lyrics")
-  eq(table.concat(paw.clip_kinds.list(), " ") .. "|" .. table.concat(api.clip_kinds(), " "), "|", "the kind is gone")
+  eq(
+    table.concat(paw.clip_kinds.list(), " ") .. "|" .. clip_kinds(),
+    "|audio=paw.clips curve=paw.clips midi=paw.clips nest=paw.clips",
+    "the kind is gone"
+  )
   eq(paw.clip_kinds.describe(clip), "lyrics (no extension here defines it)", "described without it")
   eq(clip:data().words, "la", "its data stays")
   fails(function() clip:set_data({ words = "da" }) end, "load the extension that defines `lyrics`", "not changed")
@@ -169,7 +194,7 @@ end)
 test("a custom clip's data is plain data, never binary", function()
   fresh()
   local t = paw.add_part({ name = "Film" })
-  api.clip_kind_define("film")
+  kernel_film()
   T.after(forget_film)
   local id = api.clip_add(t.id, { kind = "film", data = { json = { n = 1 } }, length = 4 })
   local function set(json) api.clip_set_custom(id, { data = { json = json } }) end

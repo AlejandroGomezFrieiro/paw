@@ -1874,6 +1874,36 @@ local record contracts
     desc: string
   end
 
+  -- Kinds (paw.kinds) -----------------------------------------------------------
+
+  --- What a kind of each family of `paw.kinds` has: its name (which
+  --- `paw.kinds.define` sets), its title, and the schema of its data in
+  --- the words of JSON Schema. A tool (the MCP server) writes the data of
+  --- a kind only when the kind gives a schema.
+  interface Kind
+    name: string
+    title: string
+    schema: {string: types.ParamSchema}
+  end
+
+  --- A stream kind (`paw.kinds.define("stream", ...)`): what a lane
+  --- carries. `time` is what its positions count, `records` is true for a
+  --- stream of events and false for a signal, `control` is true for a
+  --- stream that changes parameters, and `props` gives the properties of
+  --- a stream type of the kind (`midi` with `lyrics`).
+  record StreamKind is Kind
+    time: types.StreamTime
+    records: boolean
+    control: boolean
+    props: {string: types.ParamSchema}
+  end
+
+  --- A declared key of `meta` (`paw.meta.define`): the version of its
+  --- data, so that its owner can move data of an older version.
+  record MetaKey is Kind
+    version: integer
+  end
+
   -- Kinds of part ---------------------------------------------------------------
 
   --- What `create` gets besides the part: the words after
@@ -1889,14 +1919,12 @@ local record contracts
   --- A device as `paw.device(id)` gives it (`paw.Device`).
   type DeviceHandle = objects.Device
 
-  --- A kind of part (`paw.part_kinds.define`). `title` and `letter`
+  --- A kind of part (`paw.kinds.define("part", ...)`). `title` and `letter`
   --- say how it is offered and shown. `create` makes an ordinary part
   --- this kind. `editor` opens a clip, `describe` gives a few words for
   --- `K`, and `is` claims a part that does not say its kind. `head` names
   --- the head of its rows in the arrange view (`paw.heads`).
-  record PartKind
-    name: string
-    title: string
+  record PartKind is Kind
     letter: string
     head: string
     create: function(part: PartHandle, args: PartKindArgs)
@@ -1991,7 +2019,7 @@ local record contracts
     "part"
   end
 
-  --- A kind of clip (`paw.clip_kinds.define`). `D` is the record of its
+  --- A kind of clip (`paw.kinds.define("clip", ...)`). `D` is the record of its
   --- data. The core keeps the data and never looks inside it: saving it
   --- is the kind's own job. `serialize` (required) turns `D` into plain
   --- data (`KindJson`): text, numbers, booleans, lists and maps. It is
@@ -2017,10 +2045,11 @@ local record contracts
   --- run at play. `insert` is a key of the arrange view's insert mode
   --- that inserts a clip of the kind (`paw.insert`), and `editor` is what
   --- `<CR>` does after it.
-  record ClipKind<D>
-    name: string
-    title: string
+  record ClipKind<D> is Kind
     letter: string
+    --- The stream kind that the clip plays into its lane (`midi` if not
+    --- given): what `compile` gives.
+    gives: string
     insert: string
     version: integer
     timeline: types.Timeline
@@ -2257,6 +2286,7 @@ local record contracts
     length: number
     pitch: integer
     velocity: integer
+    lyric: string
     meta: types.Meta
     attr: types.NoteAttr | boolean
     name: string

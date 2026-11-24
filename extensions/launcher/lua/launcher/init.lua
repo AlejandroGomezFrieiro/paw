@@ -387,8 +387,14 @@ local function piece(c, from, to)
     for _, n in ipairs(api.clip_notes(c.id)) do
       local at = c.start + n.start
       if at >= from - 1e-9 and at < to - 1e-9 then
-        opts.notes[#opts.notes + 1] =
-          { pitch = n.pitch, velocity = n.velocity, start = at - from, length = math.min(n.length, to - at) }
+        opts.notes[#opts.notes + 1] = {
+          pitch = n.pitch,
+          velocity = n.velocity,
+          start = at - from,
+          length = math.min(n.length, to - at),
+          lyric = n.lyric,
+          meta = n.meta,
+        }
       end
     end
     for _, m in ipairs(c.control_count > 0 and api.clip_controls(c.id) or {}) do

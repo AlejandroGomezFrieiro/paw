@@ -1,5 +1,5 @@
 //! paw's schema for the chain language (`paw chain schema`): the kinds of
-//! stream, the roles of a node of the part's graph, each kind of device
+//! stream that `paw.kinds` defined, the roles of a node of the part's graph, each kind of device
 //! that the registry has (built-in, CLAP, VST3, LV2 and Lua), the kinds of
 //! split of the model's registry (`model/chain/kinds.rs`), and the kinds of
 //! modulator, as the generic crate `chain-syntax` reads them.
@@ -7,7 +7,7 @@
 #![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 #![expect(clippy::float_cmp, reason = "debt: pay down")]
 
-use chain_syntax::{Count, Kind, Param, ParamValue, Port, Schema, SplitKind, Stream, TimeBase, Unit};
+use chain_syntax::{Count, Kind, Param, ParamValue, Port, Schema, SplitKind, Stream, Unit};
 use paw_engine::{Category, DeviceFormat, DeviceInfo, ParamInfo};
 
 use crate::model::chain::{BuiltinSplit, KindSpec, SplitImpl, SplitKinds};
@@ -24,15 +24,20 @@ const OPEN_PREFIXES: [&str; 4] = ["clap:", "vst3:", "lv2:", "lua:"];
 /// The schema of the kinds of device that `session` has now, as JSON: what
 /// `paw chain schema` prints and `paw.api.chain_schema` gives.
 pub(crate) fn json(session: &crate::session::Session) -> String {
-    schema(session.registry.iter().map(|factory| factory.info()), session.doc.split_kinds()).to_json()
+    let devices = session.registry.iter().map(|factory| factory.info());
+    schema(devices, session.doc.split_kinds(), session.doc.kinds.streams()).to_json()
 }
 
-/// The schema of the kinds of device in `devices`, with paw's streams and
-/// roles of a node, the kinds of split of `kinds`, and paw's kinds of
-/// modulator.
-pub(crate) fn schema<'a>(devices: impl IntoIterator<Item = &'a DeviceInfo>, kinds: &SplitKinds) -> Schema {
+/// The schema of the kinds of device in `devices`, with the kinds of
+/// stream `streams`, paw's roles of a node, the kinds of split of `kinds`,
+/// and paw's kinds of modulator.
+pub(crate) fn schema<'a>(
+    devices: impl IntoIterator<Item = &'a DeviceInfo>,
+    kinds: &SplitKinds,
+    streams: impl IntoIterator<Item = &'a Stream>,
+) -> Schema {
     let mut schema = Schema::new("paw");
-    schema.streams = streams();
+    schema.streams = streams.into_iter().cloned().collect();
     schema.default_ports = vec![port("in", "audio", false), port("out", "audio", true)];
     schema.nodes = nodes();
     schema.devices = devices.into_iter().map(device).collect();
@@ -61,23 +66,6 @@ fn device(info: &DeviceInfo) -> Kind {
 /// A main port of `stream`: an output when `out`.
 fn port(name: &str, stream: &str, out: bool) -> Port {
     Port { port: name.into(), stream: stream.into(), props: Default::default(), main: true, out }
-}
-
-/// The kinds of stream that a lane of paw keeps and a wire carries.
-fn streams() -> Vec<Stream> {
-    let stream = |stream: &str, name: &str, time: TimeBase, control: bool| Stream {
-        stream: stream.into(),
-        name: name.into(),
-        time: Some(time),
-        records: true,
-        control,
-        props: Vec::new(),
-    };
-    vec![
-        stream("audio", "Audio", TimeBase::Samples, false),
-        stream("midi", "MIDI", TimeBase::Beats, false),
-        stream("curve", "Curve", TimeBase::Beats, true),
-    ]
 }
 
 /// The roles of a node line, with the parameters and ports of each. A
@@ -203,6 +191,27 @@ fn modulators() -> Vec<Kind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chain_syntax::TimeBase;
+
+    use crate::model::chain::SplitRegistry as _;
+
+    /// The kinds of stream that the runtime defines when paw starts
+    /// (`runtime/lua/paw/kinds/streams.tl`).
+    fn streams() -> Vec<Stream> {
+        let stream = |stream: &str, name: &str, time: TimeBase, control: bool| Stream {
+            stream: stream.into(),
+            name: name.into(),
+            time: Some(time),
+            records: true,
+            control,
+            props: Vec::new(),
+        };
+        vec![
+            stream("audio", "Audio", TimeBase::Samples, false),
+            stream("midi", "MIDI", TimeBase::Beats, false),
+            stream("curve", "Curve", TimeBase::Beats, true),
+        ]
+    }
 
     fn kind_of<'a>(schema: &'a Schema, kind: &str) -> &'a Kind {
         schema.device(kind).unwrap_or_else(|| panic!("the schema has `{kind}`"))
@@ -211,7 +220,7 @@ mod tests {
     #[test]
     fn the_schema_has_each_built_in_device_and_a_part_of_them_checks() {
         let registry = paw_engine::Registry::with_builtins();
-        let schema = schema(registry.iter().map(|factory| factory.info()), &SplitKinds::builtin());
+        let schema = schema(registry.iter().map(|factory| factory.info()), &SplitKinds::builtin(), &streams());
         assert_eq!(schema.devices.len(), registry.iter().count(), "one kind for each device");
         // The JSON that `paw chain schema` writes loads again as the same schema.
         let loaded = Schema::from_json(&schema.to_json()).expect("paw's schema loads");
@@ -238,7 +247,7 @@ mod tests {
             ParamInfo { read_only: true, ..ParamInfo::new("Meter").range(0.0, 1.0).default_value(0.0) },
         ];
         let info = DeviceInfo { kind: "clap:org.example.amp".into(), format: DeviceFormat::Clap, params, ..DeviceInfo::default() };
-        let schema = schema([&info], &SplitKinds::builtin());
+        let schema = schema([&info], &SplitKinds::builtin(), &[]);
         let amp = kind_of(&schema, "clap:org.example.amp");
         let values: Vec<(&str, &str, &ParamValue)> =
             amp.params.iter().map(|param| (param.key.as_str(), param.label.as_str(), &param.value)).collect();
@@ -268,7 +277,7 @@ mod tests {
         let mut kinds = SplitKinds::builtin();
         let spec = KindSpec { min: 2, max: 3, first: 2 };
         kinds.define("drums.transient".parse().unwrap(), spec, Owner::Extension("drums".into())).unwrap();
-        let schema = schema([], &kinds);
+        let schema = schema([], &kinds, &[]);
         let counts: Vec<(&str, usize, usize)> =
             schema.splits.iter().map(|s| (s.kind.as_str(), s.branches.min, s.branches.max)).collect();
         assert_eq!(

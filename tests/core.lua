@@ -772,7 +772,7 @@ test("one note is added, changed and removed without the others crossing over", 
     length = 8,
     notes = {
       { pitch = "C4", start = 0, length = 1 },
-      { pitch = "E4", start = 1, length = 1, meta = { lyric = "la" } },
+      { pitch = "E4", start = 1, length = 1, lyric = "la" },
       { pitch = "G4", start = 2, length = 2 },
     },
   })
@@ -787,11 +787,11 @@ test("one note is added, changed and removed without the others crossing over", 
   local notes = clip:notes()
   eq(#notes, 5, "the others are still there")
   eq(notes[2].pitch, 62, "the new one in its place")
-  eq(notes[3].meta.lyric, "la", "and what a note carries stays with it")
+  eq(notes[3].lyric, "la", "and what a note carries stays with it")
 
   eq(clip:set_note(3, { velocity = 50 }), 3, "a change that does not move a note leaves its place")
   eq(clip:notes()[3].velocity, 50, "and is made")
-  eq(clip:notes()[3].meta.lyric, "la", "fields left out stay as they were")
+  eq(clip:notes()[3].lyric, "la", "fields left out stay as they were")
   eq(clip:set_note(1, { start = 5, pitch = "C5" }), 4, "a note that starts later moves back in the list")
   notes = clip:notes()
   eq(notes[4].start, 5, "to where it starts now")
@@ -1354,7 +1354,11 @@ test("parts are grouped: members sound through the group, stand under it, and fo
   -- A group inside a group, and no loops.
   local section = groups.make({ strings, t[5] }, "Orchestra")
   eq(order(), "Drums Orchestra >Strings >>Violins >>Cellos >>Violas >Bass", "a group holds groups")
-  T.fails(function() groups.add(section, strings) end, "inside itself", "a group put into one of its own")
+  T.fails(
+    function() groups.add(section, strings) end,
+    "`Orchestra` cannot go into `Strings`: it holds that group",
+    "a group put into one of its own"
+  )
 
   -- Out again.
   groups.remove(t[3])

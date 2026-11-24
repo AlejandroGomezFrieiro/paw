@@ -147,7 +147,7 @@ case("search", function()
   for i = 1, 100 do
     local notes = {}
     for k = 1, 100 do
-      notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, meta = k % 10 == 0 and { lyric = "la" .. k } or nil }
+      notes[k] = { 48 + (k % 24), (k - 1) * 0.25, 0.25, 90, lyric = k % 10 == 0 and "la" .. k or nil }
     end
     paw.add_part({ name = "Part " .. i }):add_clip({ name = "clip " .. i, start = 0, length = 32, notes = notes })
   end

@@ -826,6 +826,15 @@ impl DeviceInfo {
             ..Self::default()
         }
     }
+
+    /// The same device, with the features (in CLAP's words) that it says
+    /// it has, so that a script finds a device by its job and not by its
+    /// name (a MIDI file puts its drum channel on a `drum-machine`).
+    #[must_use]
+    pub fn with_features(mut self, features: &[&str]) -> Self {
+        self.features = features.iter().map(|&f| f.to_owned()).collect();
+        self
+    }
 }
 
 /// Creates device instances. Lives on the main thread.

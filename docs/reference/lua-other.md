@@ -94,8 +94,8 @@ The event `proc.output` (`{ id }`) tells when there is output to read, so nothin
 | `paw.api.device_call(device, method, bytes)` | sends data to one device. A device in Lua answers with its `dev.call` (see "Writing a device in Lua" in [How to write a device in Lua](../how-to/write-a-device-in-lua.md)) |
 | `paw.api.device_post(kind, topic, bytes)` | sends data to every device of a kind, both the devices that exist now and each device made later. The devices of an offline render get the data before their first block |
 | `paw.api.device_alias(old, new)` | makes devices of a renamed kind as the new kind |
-| `paw.part_kinds` | defines kinds of part |
-| `paw.clip_kinds` | defines kinds of clip |
+| `paw.kinds.define(family, name, spec)` | defines a kind of stream, clip, part or key of meta |
+| `paw.part_kinds`, `paw.clip_kinds` | make and describe parts and clips of a kind |
 
 [Extensions](extensions.md#what-the-core-gives-an-extension) describes the functions in the last two rows.
 

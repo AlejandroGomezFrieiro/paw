@@ -13,8 +13,7 @@ require("utau").configure(
 local lyrics = { "さ", "く", "ら", "さ", "く", "ら", "や", "よ", "い", "の", "そ", "ら" }
 local notes = {}
 for i, n in ipairs(paw.api.clip_notes(lead:clips()[1].id)) do
-  notes[i] =
-    { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity, meta = { lyric = lyrics[i] } }
+  notes[i] = { pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity, lyric = lyrics[i] }
 end
 vocal:add_clip({ start = 16, length = 16, name = "sakura", notes = notes })
 lead.mute = true

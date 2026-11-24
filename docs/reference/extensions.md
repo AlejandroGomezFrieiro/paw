@@ -140,11 +140,13 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.ui.views` | views |
 | `paw.layout.types` | buffer types |
 | `paw.textbuf.kinds` | kinds of text buffer |
+| `paw.kinds.streams` | kinds of stream |
 | `paw.part_kinds.kinds` | kinds of part |
 | `paw.heads.heads` | heads of parts |
 | `paw.heads.pieces` | pieces that heads draw with |
 | `paw.clip_kinds.kinds` | kinds of clip |
 | `paw.nest.kinds` | kinds of subproject |
+| `paw.meta.keys` | the keys of `meta` that a module declares |
 | `paw.ui.roles` | roles |
 | `paw.pick.sources` | picker sources |
 | `paw.statusline.components` | status line components |
@@ -348,7 +350,7 @@ The core has parts that let an extension own a full feature, and the utau extens
 
 ### Kinds of part
 
-`paw.part_kinds.define(name, spec)` defines a kind of part.
+`paw.kinds.define("part", name, spec)` defines a kind of part.
 
 | Field | Value |
 | --- | --- |
@@ -362,7 +364,7 @@ The core has parts that let an extension own a full feature, and the utau extens
 
 After that, `:part.add <name> [words]`, `:part.new` (a list of every kind), the buttons and menus of the graphical window that make a part, the header, `K` and `:clip.edit` know the kind.
 
-The kind is in `meta.kind` of the part, and the project saves it. Without the extension, the part is an ordinary part, and `K` gives the kind that it was. Vocal parts (utau) and drum parts (drums) are kinds. `paw.part_kinds.add(name, opts)`, `set(part, name, args)`, `clear(part)`, `of(part)` and `describe(part)` are for scripts.
+The kind is in the field `kind` of the part, and the project saves it. `:part.kind <name>` sets it and `:part.kind` alone clears it, and each is one undo step. Without the extension, the part is an ordinary part that keeps its kind, its clips, its lanes and its devices, and `K` gives the kind that it was. Vocal parts (utau) and drum parts (drums) are kinds. `paw.part_kinds.add(name, opts)`, `set(part, name, args)`, `clear(part)`, `of(part)` and `describe(part)` are for scripts.
 
 ### Heads of parts
 
@@ -411,7 +413,7 @@ The rules for a head:
 
 ### Kinds of clip
 
-`paw.clip_kinds.define(name, spec)` defines a kind of clip, for example a film, lyrics or light cues. A clip of the kind keeps the data of the kind, and the core does not read the data. The kind compiles the data into what the clip plays, which is a MIDI or audio sound, signals and media files. The project saves these too, so the project plays without the extension. In Teal, the spec is `paw.contracts.ClipKind<D>`, and `D` is the record of the data.
+`paw.kinds.define("clip", name, spec)` defines a kind of clip, for example a film, lyrics or light cues. A clip of the kind keeps the data of the kind, and the core does not read the data. The kind compiles the data into what the clip plays, which is a MIDI or audio sound, signals and media files. The project saves these too, so the project plays without the extension. In Teal, the spec is `paw.contracts.ClipKind<D>`, and `D` is the record of the data.
 
 The kind tells how its data is saved, and this is the job of the extension.
 
@@ -422,6 +424,8 @@ The kind tells how its data is saved, and this is the job of the extension.
 | Field | Value |
 | --- | --- |
 | `title`, `letter` | the name of the kind, and its letter |
+| `gives` | the stream kind of what the clip plays: `midi` (default), `audio` or a stream kind of an extension |
+| `schema` | optional: the fields of the data, as the schema of a parameter gives them, by name. `paw.api.kinds_list` gives it, so a tool outside paw can read and change the data. A kind without a schema is read only for such a tool |
 | `version` | the version of the data, 1 if not given |
 | `timeline` | `beats` (default) or `seconds`: what the positions in the data count |
 | `serialize(data)`, `deserialize(stored, version)` | required: how the data is saved (see above) |
@@ -445,7 +449,7 @@ The functions of a kind must be fast, and each one stops after `paw.opt.clip_kin
 | `clip:set_data(data)`, `paw.clip_kinds.set(clip, data)` | changes the data and compiles it again. One undo step |
 | `paw.clip_kinds.compile(clip)` | compiles the data again. One undo step |
 | `paw.clip_kinds.describe(clip)` | `Film clip · intro.mp4`, or `film (no extension here defines it)` |
-| `paw.clip_kinds.list()`, `spec(name)`, `remove(name)` | the kinds |
+| `paw.clip_kinds.list()`, `spec(name)` | the kinds. `paw.kinds.remove("clip", name)` takes one away |
 
 Each clip keeps the version of its data. When the project opens, and when the kind is defined, paw migrates a clip with an older version, and a message tells how many clips changed. A clip with a newer version does not change, and paw shows a message such as `this clip was made by a newer film extension (data 2, this one knows 1)`. Without the extension, the clip keeps its data and its sound, and you can move, copy and delete it. When paw unloads the extension, its kinds go too.
 

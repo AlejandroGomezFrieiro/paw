@@ -140,7 +140,7 @@ local function melody(part_id)
   for _, c in ipairs(api.clip_list(part_id)) do
     if c.kind == "midi" then
       for _, n in ipairs(api.clip_notes(c.id)) do
-        local lyric = n.meta and n.meta.lyric
+        local lyric = n.lyric
         if lyric ~= "R" and lyric ~= "r" then list[#list + 1] = { n.pitch, n.length } end
       end
     end

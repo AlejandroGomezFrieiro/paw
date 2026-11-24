@@ -33,7 +33,8 @@ pub fn register(registry: &mut Registry) {
         |sr| Box::new(synth::Synth::new(sr)),
     );
     registry.register(Rc::new(FnFactory {
-        info: DeviceInfo::builtin("drums", "Drums", Category::Instrument, drums::params()),
+        info: DeviceInfo::builtin("drums", "Drums", Category::Instrument, drums::params())
+            .with_features(&["instrument", "drum-machine"]),
         make: |sr| Box::new(drums::Drums::new(sr)),
         latency: 0.0,
         outputs: &drums::OUTPUTS,
@@ -44,7 +45,8 @@ pub fn register(registry: &mut Registry) {
             "Sampler kit",
             Category::Instrument,
             sampler::params(),
-        ),
+        )
+        .with_features(&["instrument", "sampler", "drum-machine"]),
     }));
     add(
         registry,

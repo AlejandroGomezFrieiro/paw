@@ -3,7 +3,7 @@
 
 use proptest::collection::{btree_map, vec};
 use proptest::prelude::*;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 
 use super::{Clip, TPQ, decode, encode};
 use crate::model::{Control, ControlKind, Note, NoteAttr};
@@ -12,10 +12,15 @@ use crate::props::config;
 /// The ticks of a beat, as the files hold them.
 const BEAT: i64 = TPQ as i64;
 
-/// A note's `meta`: a lyric or a tag, in any script.
+/// A note's `meta`: a tag in any script.
 fn meta() -> impl Strategy<Value = Map<String, Value>> {
     btree_map("[a-z]{1,6}", "\\PC{0,8}", 0..3)
         .prop_map(|map| map.into_iter().map(|(key, text)| (key, Value::String(text))).collect())
+}
+
+/// No lyric, or a lyric in any script.
+fn lyric() -> impl Strategy<Value = Option<String>> {
+    prop::option::of("\\PC{0,8}")
 }
 
 /// No attribute, or one of any type and data.
@@ -26,9 +31,12 @@ fn attr() -> impl Strategy<Value = Option<NoteAttr>> {
 /// A note that starts and ends on a tick, as `(start, end, note)` in ticks:
 /// a file holds it exactly.
 fn note_on_ticks() -> impl Strategy<Value = (i64, i64, Note)> {
-    (-2 * BEAT..64 * BEAT, 1..8 * BEAT, 0u8..=127, 1u8..=127, meta(), attr()).prop_map(
-        |(start, length, pitch, velocity, meta, attr)| {
+    // Most notes start on one of a few beats, so chords are common.
+    let start = prop_oneof![3 => (-2i64..8).prop_map(|beat| beat * BEAT), 1 => -2 * BEAT..64 * BEAT];
+    (start, 1..8 * BEAT, 0u8..=127, 1u8..=127, meta(), lyric(), attr()).prop_map(
+        |(start, length, pitch, velocity, meta, lyric, attr)| {
             let note = Note {
+                lyric,
                 start: start as f64 / BEAT as f64,
                 length: length as f64 / BEAT as f64,
                 pitch,
@@ -47,7 +55,7 @@ fn note_on_ticks() -> impl Strategy<Value = (i64, i64, Note)> {
 fn note() -> impl Strategy<Value = Note> {
     let id = prop_oneof![0u64..4, any::<u64>()];
     (-8.0..64.0f64, 0.0..8.0f64, 0u8..=127, any::<u8>(), meta(), id, attr()).prop_map(
-        |(start, length, pitch, velocity, meta, id, attr)| Note { start, length, pitch, velocity: crate::model::Velocity(velocity), meta, id, attr },
+        |(start, length, pitch, velocity, meta, id, attr)| Note { lyric: None, start, length, pitch, velocity: crate::model::Velocity(velocity), meta, id, attr },
     )
 }
 
@@ -119,11 +127,10 @@ proptest! {
 /// lyric in UTF-8 that is not ASCII came back as other characters.
 #[test]
 fn a_lyric_that_is_not_ascii_comes_back() {
-    let mut meta = Map::new();
-    meta.insert("lyric".into(), json!("さくら ñ"));
-    let note = Note { start: 0.0, length: 1.0, pitch: 60, velocity: crate::model::Velocity(100), meta, id: 1, attr: None };
+    let lyric = Some("さくら ñ".to_owned());
+    let note = Note { lyric, start: 0.0, length: 1.0, pitch: 60, velocity: crate::model::Velocity(100), meta: Map::new(), id: 1, attr: None };
 
     let clip = decode(&encode([&note], &[], 1.0).expect("paw writes the clip")).expect("paw reads the clip that it wrote");
 
-    assert_eq!(clip.notes[0].meta["lyric"], "さくら ñ");
+    assert_eq!(clip.notes[0].lyric.as_deref(), Some("さくら ñ"));
 }

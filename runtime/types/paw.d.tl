@@ -45,6 +45,7 @@ local type HooksModule = require("paw.hooks")
 local type InsertModule = require("paw.insert")
 local type KeymapModule = require("paw.keymap")
 local type KeyruleModule = require("paw.keyrule")
+local type KindsModule = require("paw.kinds")
 local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
@@ -56,6 +57,7 @@ local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
 local type MarksModule = require("paw.marks")
 local type MediaModule = require("paw.media")
+local type MetaModule = require("paw.meta")
 local type MidifileModule = require("paw.midifile")
 local type ModifiersModule = require("paw.modifiers")
 local type MotionModule = require("paw.motion")
@@ -173,6 +175,7 @@ global record paw
    json: Untyped
    keymap: KeymapModule
    keyrule: KeyruleModule
+   kinds: KindsModule
    lane: function(id: integer): ObjectsModule.Lane
    lanes: LanesModule
    lang: LangModule
@@ -188,6 +191,7 @@ global record paw
    marks: MarksModule
    master: ObjectsModule.Part
    media: MediaModule
+   meta: MetaModule
    midi: ObjectsModule.Midi
    midifile: MidifileModule
    mixer_rows: Untyped

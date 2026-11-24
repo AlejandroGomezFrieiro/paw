@@ -530,8 +530,41 @@ local record types
 
   -- Clips (session/document/clips.rs, session.rs clip_json) ------------------
 
-  --- `midi`, `audio`, or the name of a kind that an extension defines.
+  --- `midi`, `audio`, `nest`, or the name of a clip kind that an
+  --- extension defines (`paw.kinds.define("clip", ...)`).
   type ClipKind = string
+
+  -- Kinds (paw-types/src/stream.rs) -------------------------------------------
+
+  --- A stream type as `paw.api.stream_check` takes it: a stream kind and
+  --- its properties, each a flag, a count, a word, or a ratio `{n, d}`.
+  record StreamType
+    base: string
+    props: {string: boolean | integer | string | {integer}}
+  end
+
+  --- The time a stream counts in: `samples`, `beats` or `seconds`.
+  enum StreamTime
+    "samples"
+    "beats"
+    "seconds"
+  end
+
+  --- A kind as `paw.api.kinds_put` takes it: the fields that the kernel
+  --- keeps of each family. `title` and `schema` (the words of each field
+  --- of the kind's data) are of each family. `time`, `records`, `control`
+  --- and `props` (its properties, in the words of `schema`) are of a
+  --- stream kind, `gives` of a clip kind and `version` of a `meta` key.
+  record KindSpec
+    title: string
+    schema: {string: ParamSchema}
+    time: StreamTime
+    records: boolean
+    control: boolean
+    props: {string: ParamSchema}
+    gives: string
+    version: integer
+  end
 
   -- The records below come from paw.api.api_schema (tools/apidoc.lua): change the Rust types.
 
@@ -828,6 +861,25 @@ local record types
     sidechain: boolean
   end
 
+  --- One kind as `paw.api.kinds_list` gives it.
+  record KindInfo
+    --- The family: `stream`, `clip`, `part` or `meta`.
+    family: string
+    --- The stream that the clips of a clip kind give to their lane.
+    gives: string
+    name: string
+    --- The extension that defined the kind, or `paw.<feature>` for the core.
+    owner: string
+    --- The words of each field of the data of the kind (of a stream kind:
+    --- of each property). Nil when the kind gave none.
+    schema: {string: ParamSchema}
+    title: string
+    --- The version of the data of a `meta` key.
+    version: integer
+    --- A tool may write the data of the kind: the kind gave a schema.
+    writable: boolean
+  end
+
   --- A lane as `paw.api.lane_get` gives it, without its points.
   record Lane
     --- The device of a parameter or state lane.
@@ -910,8 +962,12 @@ local record types
     --- one with a note before it, before the edit is played or kept.
     id: integer
     length: number
-    --- Free-form data for extensions, such as a lyric. It travels with the
-    --- note through edits, unlike data kept beside the clip's note list.
+    --- The words sung on the note, as plain text: a syllable, a word, or a
+    --- phrase. A MIDI file keeps it as a lyric event at the note's start.
+    lyric: string
+    --- Free-form data for extensions, such as the phonemes of a voice. It
+    --- travels with the note through edits, unlike data kept beside the
+    --- clip's note list.
     meta: Meta
     --- MIDI note number, 60 is middle C.
     pitch: integer
@@ -1004,6 +1060,9 @@ local record types
     id: integer
     index: integer
     input: string
+    --- The kind of the part (`paw.kinds.define("part", ...)`); nil for
+    --- an ordinary part.
+    kind: string
     --- The parts that devices on this one listen to as side-chains.
     listens: {integer}
     master: boolean
@@ -1021,6 +1080,8 @@ local record types
     --- The parts that further output pairs of its devices play into.
     pairs_into: {integer}
     pan: number
+    --- The group that the part is in; nil at the top level.
+    parent: integer
     sends: {Send}
     solo: boolean
     --- A part read from a part folder outside the project's folder.
@@ -1047,6 +1108,9 @@ local record types
     --- An audio input: a channel such as "1", a pair such as "1/2", or
     --- nil or "none" for none.
     input: string | integer
+    --- The kind of the part: the name of a part kind, or nil for an
+    --- ordinary part. A kind that no extension defines is kept.
+    kind: string
     meta: Meta
     --- The MIDI the part plays when armed: a port's name, a table of
     --- `port` and `channel`, or nil or "all" for every port.
@@ -1062,6 +1126,9 @@ local record types
     output: integer
     --- From -1 (left) to 1 (right).
     pan: number
+    --- The group that the part is in, or nil for the top level. A group
+    --- cannot be put inside itself.
+    parent: integer
     --- Its sends, each with a `level` in dB.
     sends: {Send}
     solo: boolean

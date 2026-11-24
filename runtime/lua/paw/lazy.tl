@@ -25,8 +25,8 @@
 -- A kind loads its extension when a part of paw asks its registry for the
 -- key (`registry.missing`): the clips of a project that opens ask for
 -- their kinds, and a part header asks for the kind of its part. Before
--- that, the project plays as it is saved: a part keeps its kind in
--- `meta.kind`, and a clip of a kind keeps what the kind compiled.
+-- that, the project plays as it is saved: a part keeps its kind in its
+-- field `kind`, and a clip of a kind keeps what the kind compiled.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")

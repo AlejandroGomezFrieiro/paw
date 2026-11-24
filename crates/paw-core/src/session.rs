@@ -34,7 +34,7 @@ use crate::model::{
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub(crate) use document::{Change, ClipKind, ClipOpts, ClipPatch, CustomSet, DevicePatch, Document, LanePatch, LaneView, PartListOpts, PartPatch, PartView, ProjectPatch, ProjectView, Settable, notes};
+pub(crate) use document::{Change, ClipKind, ClipOpts, ClipPatch, CustomSet, DevicePatch, Document, KindInfo, LanePatch, LaneView, PartListOpts, PartPatch, PartView, ProjectPatch, ProjectView, Settable, notes};
 use document::{finite, new_history, sorted};
 mod editing;
 mod project;

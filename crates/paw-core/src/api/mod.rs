@@ -587,6 +587,7 @@ mod timers;
 mod processes;
 mod formats;
 mod chain;
+mod kinds;
 mod system;
 
 pub(crate) use screen::{render, render_live};
@@ -613,6 +614,7 @@ pub(crate) fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
     timers::install(lua, &api, shared)?;
     processes::install(lua, &api, shared)?;
     formats::install(lua, &api, shared)?;
+    kinds::install(lua, &api, shared)?;
     system::install(lua, &api, shared)?;
 
     crate::measure::install(lua, &api, shared)?;

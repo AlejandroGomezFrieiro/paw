@@ -13,18 +13,18 @@ use serde_json::{Map, Value};
 
 use super::Document;
 use super::values::{Change as _, check_controls, check_fade, finite, patch, sorted};
-use crate::model::kinds::Version;
+use crate::model::kinds::{ClipFamily, KindId, Version};
 use crate::model::{
-    Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
+    Clip, ClipContent, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
     Project, Signal, Stack, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
 };
 
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 
-/// What a new clip holds: `midi`, `audio` or the name of a kind that an
-/// extension defines, in Lua. A word that is no name fails with the text of
-/// [`FromStr`](std::str::FromStr); whether an extension defined it is known
-/// where the clip is added (`Document::clip_kinds`).
+/// What a new clip holds: `midi`, `audio`, `nest` or the name of a kind
+/// that an extension defines, in Lua. A word that is no name fails with the
+/// text of [`FromStr`](std::str::FromStr); whether an extension defined it
+/// is known where the clip is added (`KindBook::data_clip`).
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "String")]
 pub(crate) enum ClipKind {
@@ -32,7 +32,7 @@ pub(crate) enum ClipKind {
     Audio,
     /// A subproject placed here (`nest`, `play`, `offset` of [`ClipOpts`]).
     Nest,
-    Custom(ClipKindId),
+    Custom(KindId<ClipFamily>),
 }
 
 impl ClipKind {
@@ -55,7 +55,7 @@ impl std::str::FromStr for ClipKind {
             "midi" => Self::Midi,
             "audio" => Self::Audio,
             "nest" => Self::Nest,
-            other => Self::Custom(other.parse::<ClipKindId>()?),
+            other => Self::Custom(other.parse::<KindId<ClipFamily>>()?),
         })
     }
 }
@@ -240,11 +240,7 @@ impl Document {
             }
             ClipKind::Nest => self.nest_clip_content(part, opts),
             ClipKind::Custom(id) => {
-                if !self.clip_kinds.contains(id) {
-                    bail!(
-                        "no clip kind `{id}` is defined: an extension defines it with `paw.clip_kinds.define`"
-                    );
-                }
+                self.kinds.data_clip(id)?;
                 if !opts.notes.is_empty() || !opts.controls.is_empty() {
                     bail!("a clip of the kind `{id}` has `data`, `sound` and `signals`, not notes");
                 }
@@ -323,22 +319,6 @@ impl Document {
             p.part_in(part)?.clips.remove(index);
             Ok(())
         })
-    }
-    /// The kinds of clip that extensions defined, by name.
-    pub(crate) fn clip_kinds(&self) -> Vec<String> {
-        self.clip_kinds.iter().map(ToString::to_string).collect()
-    }
-    /// Let clips of the kind `name` be added (`paw.clip_kinds.define`). The
-    /// project keeps no list of kinds: its clips name theirs.
-    pub(crate) fn clip_kind_define(&mut self, name: &str) -> Result<()> {
-        self.clip_kinds.insert(name.parse()?);
-        Ok(())
-    }
-    /// Stop adding clips of the kind `name`. Clips of it that the project
-    /// has stay as they are, data and all.
-    pub(crate) fn clip_kind_remove(&mut self, name: &str) -> Result<()> {
-        self.clip_kinds.remove(&name.parse()?);
-        Ok(())
     }
     /// The content of a custom clip, as it is saved.
     pub(crate) fn clip_custom(&self, id: Id) -> Result<Value> {

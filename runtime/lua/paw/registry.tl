@@ -87,6 +87,9 @@ local record M
     remove: function(self: Registry<T>, key: string): T
     --- The entry at `key`, or nil.
     get: function(self: Registry<T>, key: string): T
+    --- The extension that put the entry on top at `key`: nil for an entry
+    --- of the core or the user, and for a key with no entry.
+    owner: function(self: Registry<T>, key: string): string
     --- The entries by key, in a new table.
     entries: function(self: Registry<T>): {string: T}
     --- The keys of the entries that `owner` put, sorted.
@@ -218,6 +221,11 @@ function M.new<T>(kind: string, title: string, options?: M.Options<T>): M.Regist
       top = slots[key]
     end
     return top and top.value
+  end
+
+  function registry.owner(_: M.Registry<T>, key: string): string
+    local top = slots[key]
+    return top and top.owner
   end
 
   function registry.entries(_: M.Registry<T>): {string: T}

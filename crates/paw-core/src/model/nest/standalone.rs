@@ -330,8 +330,8 @@ fn cut_routes(t: &mut Part, ids: &HashSet<Id>, master: Id, name_of: &dyn Fn(Id) 
             }
         }
     }
-    if t.meta.get("group").and_then(Value::as_u64).is_some_and(outside) {
-        t.meta.remove("group");
+    if t.parent.is_some_and(outside) {
+        t.parent = None;
     }
     changes
 }
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn a_view_cuts_its_clips_at_its_time_and_tells_each_route_out_of_it_that_it_cuts() {
-        let note = |start: f64, id: u64| Note { start, length: 0.5, pitch: 60, velocity: crate::model::Velocity(90), meta: Map::new(), id, attr: None };
+        let note = |start: f64, id: u64| Note { start, length: 0.5, pitch: 60, velocity: crate::model::Velocity(90), meta: Map::new(), lyric: None, id, attr: None };
         let mut riff: Clip = serde_json::from_value(json!({
             "id": 10, "name": "riff", "start": 0.0, "length": 8.0, "muted": false,
             "content": { "kind": "midi", "notes": [] },

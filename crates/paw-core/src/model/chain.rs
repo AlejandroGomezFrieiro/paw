@@ -37,7 +37,7 @@ use super::serde_util::{Factor, is_default};
 
 pub mod edit;
 mod kinds;
-pub use kinds::{BuiltinSplit, KindSpec, SplitImpl, SplitKind, SplitKinds, default_crossovers};
+pub use kinds::{BuiltinSplit, KindSpec, SplitImpl, SplitKind, SplitKinds, SplitRegistry, default_crossovers};
 
 #[cfg(test)]
 pub(crate) mod props;

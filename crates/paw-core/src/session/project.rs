@@ -198,6 +198,7 @@ impl Session {
         if file.version > FILE_VERSION {
             bail!("{} was saved by a newer version", path.display());
         }
+        folder::old_meta::convert(&mut file.project);
         file.project
             .validate()
             .with_context(|| format!("{} cannot be loaded", path.display()))?;
@@ -254,6 +255,7 @@ impl Session {
         if file.version > FILE_VERSION {
             bail!("{} was saved by a newer version", path.display());
         }
+        folder::old_meta::convert(&mut file.project);
         file.project
             .validate()
             .with_context(|| format!("{} cannot be recovered", path.display()))?;
@@ -367,5 +369,49 @@ impl Session {
         let saved = Saved { path: path.clone(), written: None, unused: None, moved: None };
         self.doc.emit(E::ProjectSaved(saved));
         Ok(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use paw_engine::Registry;
+    use paw_engine::backend::{BackendChoice, BackendOptions};
+    use serde_json::json;
+
+    use super::*;
+    use crate::session::document::PartOpts;
+
+    /// A project in one JSON file, or a safety copy, that an older paw
+    /// wrote with the kind and the group of a part in `meta`: each open
+    /// moves them into their fields.
+    #[test]
+    fn an_old_project_in_one_file_and_its_safety_copy_open_with_the_fields() {
+        let backend = BackendOptions { backend: BackendChoice::Null, ..Default::default() };
+        let new = || Session::new(&backend, Registry::with_builtins()).unwrap();
+        let mut session = new();
+        let group = session.doc.part_add(PartOpts::default()).unwrap();
+        let part = session.doc.part_add(PartOpts::default()).unwrap();
+        let meta = json!({ "meta": { "kind": "vocal", "group": group } });
+        session.part_patch(part, serde_json::from_value(meta).unwrap()).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        let copy = dir.join("song.recovery.json");
+        session.project_backup(&copy, json!({})).unwrap();
+        let mut text: Value = serde_json::from_str(&std::fs::read_to_string(&copy).unwrap()).unwrap();
+        let object = text.as_object_mut().unwrap();
+        object.remove("take");
+        object.remove("recovery");
+        let file = dir.join("song.json");
+        std::fs::write(&file, text.to_string()).unwrap();
+        let fields = |session: &Session| {
+            let read = session.doc.project.parts.iter().find(|p| p.id == part).unwrap();
+            (read.kind.as_ref().map(ToString::to_string), read.parent, read.meta.len())
+        };
+        let mut opened = new();
+        opened.project_load(&file).unwrap();
+        assert_eq!(fields(&opened), (Some("vocal".into()), Some(group), 0), "a project in one file");
+        let mut recovered = new();
+        recovered.project_recover(&copy, None).unwrap();
+        assert_eq!(fields(&recovered), (Some("vocal".into()), Some(group), 0), "a safety copy");
     }
 }

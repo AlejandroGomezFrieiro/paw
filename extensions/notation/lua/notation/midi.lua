@@ -11,7 +11,7 @@
 --     grace                  "acciaccatura" or "appoggiatura": a grace note
 --     strum, chord, beam     an arpeggio sign, notes made one chord, a beam broken before it
 --     art, orn, stem         its chord's articulations, ornament, stem
---     lyrics                 verses after the first (the first is `meta.lyric`)
+--     lyrics                 verses after the first (the first is the note's `lyric`)
 --     len, sounding          written `len` beats long while it is `sounding` beats long
 --     wrote                  what marks wrote: { velocity = { { v, from }, ... }, length = { v, from } },
 --                            each velocity a mark wrote over the one before
@@ -622,7 +622,7 @@ local function put_note_part(ev, by_id)
       ev.orn = ev.orn or own.orn
       ev.stem = ev.stem or own.stem
       if own.grace == "appoggiatura" and ev.grace then ev.grace = "appoggiatura" end
-      local lyric = note.meta and note.meta.lyric
+      local lyric = note.lyric
       if not ev.lyric and type(lyric) == "string" and lyric ~= "" then ev.lyric = lyric end
       if not ev.lyrics and type(own.lyrics) == "table" then ev.lyrics = own.lyrics end
     end
@@ -713,7 +713,7 @@ local function num(x) return string.format("%.17g", x) end
 local function note_key(n, keep)
   local meta = n.meta
   local own = type(meta) == "table" and type(meta.notation) == "table" and meta.notation or nil
-  local lyric = type(meta) == "table" and meta.lyric or nil
+  local lyric = n.lyric
   if not own then return (keep[n.index] or "?") .. "," .. n.pitch .. "," .. (lyric and serial(lyric) or "") end
   return table.concat({
     keep[n.index] or "?",
@@ -1129,7 +1129,7 @@ function M.sync(clip_id, before, after, own, fixed)
       if not same(notation, own_n) or lyric_changed then
         local meta = util.merge(n.meta or {}, {})
         meta.notation = next(notation) and notation or nil
-        if lyric_changed then meta.lyric = d.lyric end
+        if lyric_changed then change.lyric = d.lyric end
         change.meta, any = meta, true
       end
       if any then set[#set + 1] = change end
@@ -1152,7 +1152,6 @@ function M.sync(clip_id, before, after, own, fixed)
       meta_n.len, meta_n.sounding = w.len / Q, length
     end
     local meta = { notation = meta_n }
-    if d.lyric then meta.lyric = d.lyric end
     -- A grace note before the clip's first beat starts before the clip.
     local start = (oa + w.s) / Q
     if not w.grace then start = math.max(0, start) end
@@ -1163,6 +1162,7 @@ function M.sync(clip_id, before, after, own, fixed)
       length = length,
       velocity = M.velocity(ra, w.s, art, default) or default,
       meta = meta,
+      lyric = d.lyric,
     }
   end
   if #set > 0 or #remove > 0 or #add > 0 then
@@ -1295,8 +1295,7 @@ function M.legacy_notes(c, notes)
         own.len, own.sounding = w.len / Q, n.length
       end
       meta.notation = own
-      if d.lyric then meta.lyric = d.lyric end
-      out[i] = util.merge(n, { meta = meta })
+      out[i] = util.merge(n, { meta = meta, lyric = d.lyric or n.lyric })
     else
       out[i] = n
     end

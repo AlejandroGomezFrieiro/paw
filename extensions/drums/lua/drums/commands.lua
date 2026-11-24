@@ -228,7 +228,11 @@ map("<localleader>km", "drums.map", { view = "arrange", desc = "Choose the part'
 -- `:part.new` and the window's menus that make a part offer it, the
 -- header shows its `D`, and Enter (`clip.edit`) and a double click open its
 -- clips in the drum grid; other clips go to the piano roll as before.
-paw.part_kinds.define("drums", {
+-- The keys of meta that the extension keeps on a drum part.
+paw.meta.define("drums", { title = "The drum map of a part" })
+paw.meta.define("drums_was", { title = "A part that was a drum part" })
+
+paw.kinds.define("part", "drums", {
   title = "Drum part",
   letter = "D",
   desc = "a kit, and a grid of its pieces by name",

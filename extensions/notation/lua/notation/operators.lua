@@ -293,6 +293,7 @@ function P.value(sc, frag)
         length = n.length,
         velocity = n.velocity,
         meta = n.meta,
+        lyric = n.lyric,
         attr = n.attr,
       }
       top = math.max(top, n.pitch)

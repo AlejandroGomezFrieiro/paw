@@ -23,12 +23,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use super::ClipContent;
-use super::kinds::Version;
-
-/// Words that a kind of clip cannot have: the built-in contents, and words
-/// kept for those to come, so that a new built-in content never meets an
-/// extension's kind of the same name in a project.
-pub(crate) const RESERVED: &[&str] = &["midi", "audio", "empty", "folder", "custom", "nest"];
+use super::kinds::{ClipFamily, KindId, Version};
 
 /// A bad name or a bad content in a custom clip.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -37,8 +32,6 @@ pub enum CustomError {
         "`{0}` is not a name: use a lowercase word of 1 to 32 letters, digits, `_` and `-` that starts with a letter"
     )]
     BadWord(String),
-    #[error("`{0}` is a built-in kind of clip: an extension cannot define it")]
-    Reserved(String),
     #[error("`{0}` is not an OSC address: it starts with `/` and has no spaces")]
     BadAddress(String),
     #[error("the sound of a clip is MIDI or audio, not a clip of the kind `{0}`")]
@@ -108,51 +101,6 @@ pub(crate) type MediaRole = Word;
 /// The name of an OSC port: the project names it, and the machine's
 /// setting says where it goes.
 pub(crate) type PortName = Word;
-
-/// The name of a kind of clip that an extension defines: a lowercase word
-/// (`video`, `lyrics`), never one of [`RESERVED`]. Clips of one kind share
-/// the name, so a clone is a count.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct ClipKindId(Word);
-
-impl ClipKindId {
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl FromStr for ClipKindId {
-    type Err = CustomError;
-
-    fn from_str(text: &str) -> Result<Self, CustomError> {
-        let word: Word = text.parse()?;
-        if RESERVED.contains(&text) {
-            return Err(CustomError::Reserved(text.to_string()));
-        }
-        Ok(ClipKindId(word))
-    }
-}
-
-impl TryFrom<String> for ClipKindId {
-    type Error = CustomError;
-
-    fn try_from(text: String) -> Result<Self, CustomError> {
-        text.parse()
-    }
-}
-
-impl From<ClipKindId> for String {
-    fn from(kind: ClipKindId) -> String {
-        kind.0.into()
-    }
-}
-
-impl fmt::Display for ClipKindId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
 /// A plain JSON value that the core keeps and never reads: what a kind
 /// serialized its data or a signal's body to. Clips that share it share
@@ -345,7 +293,7 @@ pub enum OscArg {
 pub struct CustomContent {
     /// The kind, saved as `type` (`kind` says that the content is custom).
     #[serde(rename = "type")]
-    pub kind: ClipKindId,
+    pub kind: KindId<ClipFamily>,
     /// The version of the kind's data, for the kind's migrations.
     #[serde(default, skip_serializing_if = "Version::is_one")]
     pub version: Version,
@@ -432,15 +380,5 @@ mod tests {
         );
         let err = serde_json::from_str::<ClipContent>(&nested).unwrap_err();
         assert!(err.to_string().contains("not a clip of the kind `inner`"), "{err}");
-    }
-
-    #[test]
-    fn a_kind_is_a_word_that_is_not_built_in() {
-        assert_eq!(
-            "midi".parse::<ClipKindId>().unwrap_err().to_string(),
-            "`midi` is a built-in kind of clip: an extension cannot define it"
-        );
-        assert!("Video".parse::<ClipKindId>().is_err());
-        assert_eq!("video".parse::<ClipKindId>().unwrap().as_str(), "video");
     }
 }

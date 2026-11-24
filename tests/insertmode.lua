@@ -85,7 +85,7 @@ T.test("insert mode: an extension's key and kind of clip come and go with it", f
   T.write_file(
     dir .. "/init.lua",
     [[
-    paw.clip_kinds.define("cue", {
+    paw.kinds.define("clip", "cue", {
       title = "Cue clip", insert = "c",
       serialize = function(d) return { text = d.text } end,
       deserialize = function(s) return { text = s.text } end,

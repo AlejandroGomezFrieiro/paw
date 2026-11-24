@@ -1384,7 +1384,7 @@ local function clips_to_edit(changes: {Changed}, remove: {Item}): {integer: bool
     end
   end
   for _, c in ipairs(changes) do
-    if c.item.kind == "note" and (c.change.meta ~= nil or c.change.attr ~= nil) then
+    if c.item.kind == "note" and (c.change.meta ~= nil or c.change.attr ~= nil or c.change.lyric ~= nil) then
       edited[c.item.clip.id] = true
     end
   end
@@ -1469,6 +1469,7 @@ function M.apply(changes?: {Changed}, remove?: {Item})
           length = ch.length,
           pitch = ch.pitch,
           velocity = ch.velocity,
+          lyric = ch.lyric,
           meta = ch.meta,
           attr = ch.attr,
         }
@@ -1516,7 +1517,13 @@ local function notes_value(items: {Item}): Yanked
   for i, item in ipairs(items) do
     local n = item.note
     notes[i] = {
-      start = item.at - first, length = n.length, pitch = n.pitch, velocity = n.velocity, meta = n.meta, attr = n.attr
+      start = item.at - first,
+      length = n.length,
+      pitch = n.pitch,
+      velocity = n.velocity,
+      lyric = n.lyric,
+      meta = n.meta,
+      attr = n.attr,
     }
     finish = math.max(finish, item.at - first + n.length)
     top = math.max(top, n.pitch)
@@ -1806,7 +1813,13 @@ local function copy_or_move(ctx: Context, move: boolean)
         e.set[#e.set + 1] = {index = item.place, start = start}
       else
         e.add[#e.add + 1] = {
-          start = start, length = n.length, pitch = n.pitch, velocity = n.velocity, meta = n.meta, attr = n.attr
+          start = start,
+          length = n.length,
+          pitch = n.pitch,
+          velocity = n.velocity,
+          lyric = n.lyric,
+          meta = n.meta,
+          attr = n.attr,
         }
       end
       e.finish = math.max(e.finish, start + n.length)

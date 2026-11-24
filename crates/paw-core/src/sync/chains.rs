@@ -157,6 +157,8 @@ fn crossovers(split: &chain::Split) -> Vec<f32> {
 mod tests {
     use std::sync::Arc;
 
+    use crate::model::chain::SplitRegistry as _;
+
     use serde_json::json;
 
     use super::*;

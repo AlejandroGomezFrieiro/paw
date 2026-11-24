@@ -1,12 +1,11 @@
 ---
 source: crates/paw-core/src/clipfile.rs
-assertion_line: 743
 expression: "format!(\"{}{}\", text(&clip), packets(&bytes))"
 ---
 # 3 notes, 3 controller moves, 4 beats
          0  cc 1 = 0.25
          0  note C4    60  len 0.5  vel 1
-  0.333333  note G4    67  len 1  vel 100  {"lyric":"la"}
+  0.333333  note G4    67  len 1  vel 100  lyric "la"
        0.5  bend = -0.5  key E4 64
        0.5  note E4    64  len 0.25  vel 100  attr 17:40960
          1  program 5 bank 300
@@ -21,9 +20,9 @@ d0100100 7061773a 7b226964 223a317d
 00400000
 40903c00 02000000
 00405000
-d0500100 7061773a 7b226964 223a332c
-d0900100 226d6574 61223a7b 226c7972
-d0d00100 6963223a 226c6122 7d7d0000
+d0000201 6c610000 00000000 00000000
+00400000
+d0100100 7061773a 7b226964 223a337d
 00400000
 40904300 c9240000
 00402800

@@ -38,10 +38,12 @@ note marked `f` a different velocity, and the mark stays as a label.
 ## Data that MIDI cannot hold
 
 An extension keeps its data about a note in `note.meta`, under a key of its
-own, and its data about a clip in `clip.meta`. For example, `meta.lyric`
-holds a sung syllable, and `meta.notation` holds a letter name and a voice.
-The core keeps the data with the note through moves, copies, undo and
-project files, but the core never reads it.
+own, and its data about a clip in `clip.meta`. For example, `meta.notation`
+holds a letter name and a voice, and `meta.utau` holds the phonemes of a
+sung note. The core keeps the data with the note through moves, copies,
+undo and project files, but the core never reads it. The sung syllable
+itself is not in `meta`: a note has a field `lyric`, because a MIDI file
+keeps lyrics too.
 
 The data goes where the note goes, because it is on the note. A note that
 you move, copy or paste in the piano roll keeps its letter name and its

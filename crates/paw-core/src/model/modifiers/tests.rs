@@ -47,7 +47,7 @@ fn an_old_overrides_field_reads_as_two_entries_and_a_stack_writes_a_list() {
 
 #[test]
 fn transpose_and_velocity_change_what_plays_in_the_midi_range() {
-    let kinds = ModKinds::builtin();
+    let kinds = crate::model::modifiers::builtin_kinds();
     let bend = |key: u8| Control { start: 0.0, what: ControlKind::Bend, value: 0.5, key: Some(key) };
     let wheel = Control { start: 0.0, what: ControlKind::Cc { number: 1 }, value: 0.5, key: None };
     let input = midi(vec![note(60, 0.0), note(125, 1.0)], vec![bend(60), bend(125), wheel.clone()]);
@@ -65,7 +65,7 @@ fn transpose_and_velocity_change_what_plays_in_the_midi_range() {
 
 #[test]
 fn a_scope_changes_only_the_notes_that_start_in_it() {
-    let kinds = ModKinds::builtin();
+    let kinds = crate::model::modifiers::builtin_kinds();
     let stack = [entry(json!({ "kind": "transpose", "params": { "semitones": 12 }, "scope": { "from": 1.0, "to": 2.0 } }))];
     let input = midi(vec![note(60, 0.0), note(60, 1.0), note(60, 2.0)], vec![]);
     assert_eq!(played(&run(&kinds, &stack, input).0), [(60, 100), (72, 100), (60, 100)]);
@@ -73,7 +73,7 @@ fn a_scope_changes_only_the_notes_that_start_in_it() {
 
 #[test]
 fn an_entry_that_cannot_run_passes_its_input_through() {
-    let kinds = ModKinds::builtin();
+    let kinds = crate::model::modifiers::builtin_kinds();
     let stack = [
         entry(json!({ "kind": "arp.up", "params": {} })),
         entry(json!({ "kind": "transpose", "params": { "semitones": 2 }, "version": 2 })),
@@ -95,7 +95,7 @@ fn an_entry_that_cannot_run_passes_its_input_through() {
 
 #[test]
 fn evaluation_stops_at_an_extension_kind_with_the_entries_after_it() {
-    let mut kinds = ModKinds::builtin();
+    let mut kinds = crate::model::modifiers::builtin_kinds();
     kinds.put("arp.up".parse().unwrap(), ModImpl::Extern { version: Version::ONE, local: false }, Owner::User);
     let stack = [
         entry(json!({ "kind": "transpose", "params": { "semitones": 1 } })),
@@ -123,7 +123,7 @@ fn a_key_names_the_entries_that_are_on_and_their_values() {
     assert_ne!(source.then(&a), source.then(&scoped));
     // An entry that is off is not in the chain: the result after it is
     // the result before it.
-    let kinds = ModKinds::builtin();
+    let kinds = crate::model::modifiers::builtin_kinds();
     let off = Modifier { off: true, ..changed };
     let input = midi(vec![note(60, 0.0)], vec![]);
     let done = |stack: &[Modifier]| match evaluate(&kinds, stack, 0..stack.len(), source, input.clone(), &mut Vec::new()) {
@@ -135,7 +135,7 @@ fn a_key_names_the_entries_that_are_on_and_their_values() {
 
 #[test]
 fn check_refuses_the_bad_values_of_a_built_in_kind_and_lets_an_unknown_kind_wait() {
-    let kinds = ModKinds::builtin();
+    let kinds = crate::model::modifiers::builtin_kinds();
     let refused = |value: Value| check(&kinds, Stack(vec![entry(value)])).unwrap_err().to_string();
     assert_eq!(
         refused(json!({ "kind": "transpose", "params": { "semitones": 200 } })),

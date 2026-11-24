@@ -278,6 +278,7 @@ groups below link the main ones.
 - [About the architecture](explanation/about-the-architecture.md): the crates, the threads, the kernel and its frontends
 - [About the core and extensions](explanation/about-core-and-extensions.md): where the line is, why, and how far an extension goes
 - [About MIDI as the truth](explanation/about-midi-as-the-truth.md): why the notes are the truth, and where extensions keep their data
+- [About kinds](explanation/about-kinds.md): the kinds of streams, clips, parts and keys of meta, and a project without the extension that defined a kind
 - [About the key rule](explanation/about-the-key-rule.md): why a key means the same in every view
 - [About scenes: one view, two frontends](explanation/about-scenes.md): why the graphical window has no views of its own
 - [About seats](explanation/about-seats.md): many frontends and people on one instance, the state of each, and a safe network connection

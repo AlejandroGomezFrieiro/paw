@@ -33,6 +33,8 @@ pub(crate) struct NoteChange {
     pub velocity: Patch<Velocity>,
     /// Nil gives the note no meta.
     pub meta: Patch<Map<String, Value>>,
+    /// The words sung on the note; nil gives it none.
+    pub lyric: Patch<String>,
     /// A new attribute, or none (`false`, or nil in the key form) to take
     /// it away. `false` is not a `NoteAttr`, so serde reads the field with
     /// `de_attr`, and a value left out keeps the attribute.
@@ -65,6 +67,11 @@ impl NoteChange {
         match &self.meta {
             Patch::Clear => note.meta = Map::new(),
             meta => put(meta, "meta", &mut note.meta)?,
+        }
+        match &self.lyric {
+            Patch::Keep => {}
+            Patch::Clear => note.lyric = None,
+            Patch::Set(lyric) => note.lyric = Some(lyric.clone()),
         }
         if let Some(attr) = self.attr {
             note.attr = attr;

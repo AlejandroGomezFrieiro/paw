@@ -481,11 +481,11 @@ test("ex: an extension adds a pattern field and a command that takes a range", f
   ex.field("lyric", {
     level = "note",
     type = "text",
-    get = function(item) return item.note.meta and item.note.meta.lyric end,
-    set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end,
+    get = function(item) return item.note.lyric end,
+    set = function(_, value, change) change.lyric = value end,
   })
   run("1s/c4/lyric=la/")
-  eq(t:clips()[1]:notes()[1].meta.lyric, "la", "a field of its own, set")
+  eq(t:clips()[1]:notes()[1].lyric, "la", "a field of its own, set")
   run("g/lyric:la/transpose 1")
   eq(t:clips()[1]:notes()[1].pitch, 61, "and matched")
   local counted

@@ -12,8 +12,8 @@ local function three_parts()
   fresh()
   paw.cmd("view.only")
   paw.ui.views:get("arrange").scroll = 0
-  paw.part_kinds.define("testvocal", { title = "Test vocal part", letter = "V" })
-  T.after(function() paw.part_kinds.remove("testvocal") end)
+  paw.kinds.define("part", "testvocal", { title = "Test vocal part", letter = "V" })
+  T.after(function() paw.kinds.remove("part", "testvocal") end)
   local guitar = paw.add_part({ name = "Guitar" })
   local piano = paw.add_part({ name = "Piano" })
   local vocal = paw.add_part({ name = "Vocal" })
@@ -77,7 +77,7 @@ paw.heads.define("testhead", {
   },
   describe = function() return { "a test head" } end,
 })
-paw.part_kinds.define("testkind", { title = "Test part", letter = "T", head = "testhead" })
+paw.kinds.define("part", "testkind", { title = "Test part", letter = "T", head = "testhead" })
 ]]
 
 --- The state of the extension of KIND_HEAD, given to it.
@@ -126,7 +126,7 @@ test("a head that fails gives one message, and the row shows the default head", 
     "headbroken",
     [[
 paw.heads.define("broken", { render = function() error("boom") end })
-paw.part_kinds.define("brokenkind", { title = "Broken part", head = "broken" })
+paw.kinds.define("part", "brokenkind", { title = "Broken part", head = "broken" })
 ]]
   )
   local first = paw.add_part({ name = "First" })
@@ -159,7 +159,7 @@ test("a switch that is on and that the head does not show is lit by paw, and K s
     "headplain",
     [[
 paw.heads.define("plain", { render = function(ctx) ctx:line(0, { "name" }, {}) end })
-paw.part_kinds.define("plainkind", { title = "Plain part", head = "plain" })
+paw.kinds.define("part", "plainkind", { title = "Plain part", head = "plain" })
 ]]
   )
   local part = paw.part_kinds.add("plainkind", { name = "Quiet" })
@@ -265,7 +265,7 @@ paw.heads.define("picture", {
     body:line(0, { "name" }, {})
   end,
 })
-paw.part_kinds.define("picturekind", { title = "Picture part", head = "picture" })
+paw.kinds.define("part", "picturekind", { title = "Picture part", head = "picture" })
 ]]
   )
   paw.part_kinds.add("picturekind", { name = "Face" })

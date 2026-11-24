@@ -25,7 +25,7 @@
 --
 --   paw.insert.add("C", { view = "devices", device = "chorus", desc = "A chorus" })
 -- A kind of clip
--- (`paw.clip_kinds.define`) with an `insert` key gets one too. The
+-- (`paw.kinds.define("clip", ...)`) with an `insert` key gets one too. The
 -- contract is `paw.contracts.InsertKind`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.

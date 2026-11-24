@@ -210,6 +210,40 @@ test("a MIDI file written and read again keeps its notes, controls, tempo map an
   eq(again.markers[1].text, "Verse", "the marker")
 end)
 
+test("a lyric goes on the note at its tick or the next one, and the report names each moved or dropped", function()
+  local f = assert(smf.parse(header(0, 1, 96) .. track(
+    meta(0, 0x05, "a"),
+    ev(0, 0x90, 60, 100),
+    meta(48, 0x05, "b"), -- half a beat in: no note starts there
+    ev(48, 0x80, 60, 0),
+    ev(0, 0x90, 62, 100),
+    ev(96, 0x80, 62, 0),
+    meta(96, 0x05, "c") -- after the last note
+  )))
+  local notes = f.tracks[1].notes
+  eq(notes[1].lyric .. " " .. notes[2].lyric, "a b", "on the note at its tick, and on the next one")
+  eq(f.skipped, {
+    ['lyric "b" of beat 1.5 moved to the next note, at beat 2'] = 1,
+    ['lyric "c" of beat 4 dropped: no note at or after it'] = 1,
+  }, "the report")
+end)
+
+test(":export writes the lyric of each note, and the file opens with it on the note", function()
+  start()
+  paw.add_part({ name = "Voice" }):add_clip({
+    start = 0,
+    length = 2,
+    notes = { { pitch = 60, start = 0, length = 1, lyric = "la" }, { pitch = 62, start = 1, length = 1, lyric = "li" } },
+  })
+  local path = T.scratch .. "/lyrics.mid"
+  T.keys(":export " .. path .. "<CR>")
+  local f = assert(smf.read(path))
+  eq(f.tracks[2].notes[1].lyric .. " " .. f.tracks[2].notes[2].lyric, "la li", "a lyric event at each note")
+  smf.open(path)
+  local notes = paw.parts()[1]:clips()[1]:notes()
+  eq(notes[1].lyric .. " " .. notes[2].lyric, "la li", "and back on the notes")
+end)
+
 -- Opening ----------------------------------------------------------------------
 
 test(
@@ -236,7 +270,7 @@ test(
     eq(#notes, 3, "the melody's notes")
     near(notes[3].start, 2, 1e-9, "G4 at beat 2")
     near(notes[3].length, 2, 1e-9, "for two beats")
-    eq(notes[1].meta.lyric, "la", "the lyric stays with its note")
+    eq(notes[1].lyric, "la", "the lyric stays with its note")
     local controls = clip:controls()
     near(control(controls, "cc", 7).value, 100 / 127, 1e-9, "the volume controller as a clip control")
     near(control(controls, "bend").value, 0.5, 1e-9, "the pitch bend, -1 to 1")

@@ -86,9 +86,9 @@ end, { range = true, desc = "Halve the velocity of the notes in a range" })
 | `desc` | a description |
 
 ```lua
-paw.ex.field("lyric", { level = "note", type = "text", desc = "the sung syllable",
-  get = function(item) return item.note.meta and item.note.meta.lyric end,
-  set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { lyric = value }) end })
+paw.ex.field("fret", { level = "note", type = "number", desc = "the fret of a guitar note",
+  get = function(item) return item.note.meta and item.note.meta.fret end,
+  set = function(item, value, change) change.meta = paw.util.merge(item.note.meta or {}, { fret = value }) end })
 ```
 
 In an extension in Teal, the `ctx` of a command is a `paw.contracts.CommandContext` and its range is a `paw.contracts.CommandRange`. An item is a `paw.contracts.ExItem`, the spec of a field is a `paw.contracts.ExField`, and its `change` is a `paw.contracts.ExChange`.

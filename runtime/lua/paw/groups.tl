@@ -8,10 +8,13 @@
 --   paw.groups.add(basses, strings)
 --   paw.groups.remove(violas)
 --
--- A group is an ordinary part marked in its `meta`, and each member names
--- its group in its own, so groups are saved, undone and copied with the
--- parts. Groups may hold groups. Whether a group is folded is view state
--- of each window (paw/folds.tl), not of the project.
+-- A group is a full part (clips, lanes, devices) marked in its `meta`
+-- (`group_head`, a key that this module declares with `paw.meta.define`),
+-- and each member names its group in its field `parent`, so groups are
+-- saved, undone and copied with the parts. Groups hold groups to any
+-- depth, and the kernel refuses a move that puts a group inside itself.
+-- Whether a group is folded is view state of each window
+-- (paw/folds.tl), not of the project.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -31,11 +34,10 @@ local type CursorModule = require("paw.cursor")
 local type PartRef = integer | contracts.PartHandle
 
 --- What this module keeps in a part's `meta`: on a group `group_head`
---- and `group_link`; on a member its group's id.
+--- and `group_link`.
 local record Marks
   group_head: boolean
   group_link: boolean
-  group: integer
 end
 
 --- What `rows` takes in Lua: `{ lanes = true }` gives the rows of
@@ -149,9 +151,9 @@ function M.of(part: PartRef): integer
   keep_current()
   local kept = kept_group[id]
   if kept == nil then
-    local group = meta(id).group
-    -- A member keeps the id of a group that is gone, or no longer a group.
-    if group and pcall(part_id_of, group, "id") and M.is_group(group) then
+    local ok, group = pcall(part_integer, id, "parent") as (boolean, integer)
+    -- A member keeps the id of a group that is no longer a group.
+    if ok and group and pcall(part_id_of, group, "id") and M.is_group(group) then
       kept = group
     else
       kept = NO_GROUP
@@ -175,13 +177,23 @@ function M.members(group: PartRef): {integer}
   return out
 end
 
+--- The groups that a part is inside, the nearest first. The kernel keeps
+--- the groups from a cycle, and the walk stops at one that a file brought.
+local function around(part: PartRef): {integer}
+  local out: {integer} = {}
+  local seen: {integer: boolean} = {}
+  local at = M.of(part)
+  while at and not seen[at] do
+    seen[at] = true
+    out[#out + 1] = at
+    at = M.of(at)
+  end
+  return out
+end
+
 --- How many groups a part is inside.
 function M.depth(part: PartRef): integer
-  local depth, at = 0, M.of(part)
-  while at and depth < 16 do
-    depth, at = depth + 1, M.of(at)
-  end
-  return depth
+  return #around(part)
 end
 
 --- True if the parts of a group are folded and hidden, in the window a
@@ -219,12 +231,13 @@ function M.hidden(part: PartRef, top?: integer): boolean
   if top and id_of(part) == top then
     return false
   end
-  local at, steps = M.of(part), 0
-  while at and at ~= top and steps < 16 do
+  for _, at in ipairs(around(part)) do
+    if at == top then
+      return false
+    end
     if M.folded(at) then
       return true
     end
-    at, steps = M.of(at), steps + 1
   end
   return false
 end
@@ -295,29 +308,32 @@ local function gather(group: integer)
 end
 M.gather = gather
 
+--- Put a part into its group `group`, or at the top level (nil).
+local function set_parent(id: integer, group: integer)
+  if group == nil then
+    api.part_set(id, "parent", nil)
+  else
+    api.part_set(id, {parent = group})
+  end
+end
+
 --- Put a part into a group: it then sounds through the group, unless it
---- was sent somewhere of its own.
+--- was sent somewhere of its own. A group cannot go inside itself, nor
+--- inside a group that it holds: the error says so.
 function M.add(part: PartRef, group: PartRef)
   local tid, gid = id_of(part), id_of(group)
-  if tid == gid or not M.is_group(gid) then
+  if tid ~= gid and not M.is_group(gid) then
     error("not a group", 2)
   end
-  -- A group cannot go inside itself.
-  local at = gid
-  while at do
-    if at == tid then
-      error("a group cannot be put inside itself", 2)
-    end
-    at = M.of(at)
+  local old = M.of(tid)
+  local ok, err = pcall(set_parent, tid, gid) as (boolean, string)
+  if not ok then
+    error((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), 2)
   end
   local t = api.part_get(tid)
-  local old = M.of(tid)
   if t.output == nil or t.output == old then
     set_output(tid, gid)
   end
-  local m = read_marks(tid)
-  m.group = gid
-  set_meta(tid, m)
   gather(gid)
 end
 
@@ -333,9 +349,7 @@ function M.remove(part: PartRef, stay?: boolean): boolean
   if part_integer(tid, "output") == group then
     set_output(tid, part_integer(group, "output"))
   end
-  local m = read_marks(tid)
-  m.group = M.of(group)
-  set_meta(tid, m)
+  set_parent(tid, M.of(group))
   -- Out of the group's block of rows: after its last member.
   local members = M.members(group)
   local last = position(members[#members] or group)
@@ -390,9 +404,7 @@ function M.dissolve(group: PartRef): boolean
     if part_integer(id, "output") == gid then
       set_output(id, part_integer(gid, "output"))
     end
-    local m = read_marks(id)
-    m.group = outer
-    set_meta(id, m)
+    set_parent(id, outer)
   end
   local t = api.part_get(gid)
   if #t.clips == 0 and #t.devices == 0 then
@@ -476,22 +488,7 @@ events.on(
   end
 )
 
--- A group that is removed lets its members go: they keep sounding, on the
--- master, and stand at the top level.
-events.on(
-  kernel.part_removed,
-  function(event: kernel.PartId)
-    if event.restored then
-      return
-    end
-    for _, id in ipairs(api.part_list({all = true})) do
-      if meta(id).group == event.id then
-        local m = read_marks(id)
-        m.group = nil
-        set_meta(id, m)
-      end
-    end
-  end
-)
+-- A group that is removed lets its members go: the kernel puts them at the
+-- top level, and they sound on the master.
 
 return M

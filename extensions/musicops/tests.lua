@@ -216,8 +216,8 @@ test("musicops: pitch and velocity functions on known notes", function()
     "accents on the beat"
   )
 
-  local kept = mo.staccato({ N(60, 0, 1, 100, { lyric = "la" }) })
-  eq(kept[1].meta.lyric, "la", "meta stays with the note")
+  local kept = mo.staccato({ N(60, 0, 1, 100, { fret = 3 }) })
+  eq(kept[1].meta.fret, 3, "meta stays with the note")
 end)
 
 test("musicops: keys and scales", function()
@@ -492,10 +492,10 @@ test("musicops: operators and text objects in the vocal editor", function()
     start = 0,
     length = 8,
     notes = {
-      N(60, 0, 1, 100, { lyric = "ka" }),
-      N(62, 1, 1, 100, { lyric = "ki" }),
-      N(64, 2, 1, 100, { lyric = "ku" }),
-      N(65, 4, 1, 100, { lyric = "ke" }),
+      { pitch = 60, start = 0, length = 1, velocity = 100, lyric = "ka" },
+      { pitch = 62, start = 1, length = 1, velocity = 100, lyric = "ki" },
+      { pitch = 64, start = 2, length = 1, velocity = 100, lyric = "ku" },
+      { pitch = 65, start = 4, length = 1, velocity = 100, lyric = "ke" },
     },
   })
   paw.cursor.set_part(part)
@@ -506,7 +506,7 @@ test("musicops: operators and text objects in the vocal editor", function()
   local function lyrics()
     local out = {}
     for _, n in ipairs(clip:notes()) do
-      out[#out + 1] = n.meta.lyric .. n.pitch
+      out[#out + 1] = n.lyric .. n.pitch
     end
     return table.concat(out, " ")
   end

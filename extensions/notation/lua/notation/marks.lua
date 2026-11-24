@@ -317,7 +317,7 @@ function M.decorate(layout, clip)
               for k, v in pairs(M.art_of(n)) do
                 art[k] = v
               end
-              if not ev.lyric and n.meta and n.meta.lyric and n.meta.lyric ~= "" then ev.lyric = n.meta.lyric end
+              if not ev.lyric and n.lyric and n.lyric ~= "" then ev.lyric = n.lyric end
             end
             ev.art = next(art) and art or nil
           end

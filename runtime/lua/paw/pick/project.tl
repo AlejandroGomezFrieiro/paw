@@ -269,18 +269,12 @@ end
 
 -- Notes ------------------------------------------------------------------------
 
---- The fields of a note's `meta` that its line shows.
-local record NoteMeta
-  lyric: string
-end
-
 -- A note's line: pitch, velocity, lyric and articulations, where it is.
 local function note_line(node: QueryModule.Node): string
   local n = node.data as types.Note
-  local m: NoteMeta = type(n.meta) == "table" and n.meta as NoteMeta or {}
   local words: {string} = {}
-  if type(m.lyric) == "string" and m.lyric ~= "" then
-    words[#words + 1] = "“" .. m.lyric .. "”"
+  if n.lyric and n.lyric ~= "" then
+    words[#words + 1] = "“" .. n.lyric .. "”"
   end
   for _, art in ipairs(paw.query.articulations(node)) do
     words[#words + 1] = art

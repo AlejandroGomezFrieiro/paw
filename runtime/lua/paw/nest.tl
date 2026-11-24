@@ -1274,12 +1274,19 @@ local function set_meta(id: integer, m: types.Meta)
   api.part_set(id, {meta = m})
 end
 
+--- The group that a part is in (its field `parent`), or nil.
+local part_parent = api.part_get as function(id: integer, key: string): integer
+local function parent_of(id: integer): integer
+  local ok, parent = pcall(part_parent, id, "parent")
+  return ok and parent or nil
+end
+
 --- The stem rows of a subproject under a row: parts marked `nest_stem`.
 local function stem_rows(row: integer, nest: integer): {integer}
   local out: {integer} = {}
   for _, id in ipairs(api.part_list({all = true})) do
     local m = meta_of(id)
-    if m.group == row and m.nest_stem == nest then
+    if m.nest_stem == nest and parent_of(id) == row then
       out[#out + 1] = id
     end
   end
@@ -1295,7 +1302,7 @@ local function at_cursor(): integer, integer
   end
   local m = meta_of(id)
   if m.nest_stem then
-    return m.nest_stem as integer, m.group as integer
+    return m.nest_stem as integer, parent_of(id)
   end
   local n = returned(id)
   if n then
@@ -1303,7 +1310,7 @@ local function at_cursor(): integer, integer
   end
   for _, other in ipairs(api.part_list({all = true})) do
     local om = meta_of(other)
-    if om.group == id and om.nest_stem then
+    if om.nest_stem and parent_of(other) == id then
       return om.nest_stem as integer, id
     end
   end

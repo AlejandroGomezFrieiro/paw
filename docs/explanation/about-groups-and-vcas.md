@@ -13,7 +13,10 @@ parts](../reference/freezing.md).
 A group is a part that other parts play into, with a mark in its
 `meta`. A group therefore has a fader, a mute and devices like any part,
 and save, copy, undo and the views need nothing new for groups. The views
-only fold the members into the group and indent them below it.
+only fold the members into the group and indent them below it. Each
+member names its group in its field `parent`. A group can be in another
+group, to any depth, and paw refuses a move that would put a group
+inside itself.
 
 Whether a group is folded is part of the window, not of the project, as
 folds are in Vim. Two windows can show the same group folded and open,

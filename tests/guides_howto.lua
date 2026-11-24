@@ -968,7 +968,7 @@ test("guide: search the project and go through the results", function()
     name = "line",
     start = 0,
     length = 4,
-    notes = { { pitch = 64, start = 0, length = 1, meta = { lyric = "la" } } },
+    notes = { { pitch = 64, start = 0, length = 1, lyric = "la" } },
   })
   paw.cursor.set_part(voice)
   paw.cursor.set_beat(12)

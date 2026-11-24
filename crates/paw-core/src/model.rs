@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use paw_types::kinds::{KindId, PartFamily};
 use paw_types::{Ctl, EventKind, NoteCtl, SigPoint, TempoMap, TempoPoint};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -25,7 +26,9 @@ mod clips;
 pub mod chain;
 mod custom;
 pub mod ids;
-pub mod kinds;
+/// The kinds core lives in `paw-types`, so that the model and other
+/// crates that build for wasm32 share it.
+pub use paw_types::kinds;
 pub mod linked;
 mod links;
 pub mod modifiers;
@@ -41,7 +44,7 @@ pub(crate) use clips::Clips;
 pub(crate) use serde_util::is_default;
 pub use serde_util::{Factor, Velocity};
 pub(crate) use custom::{
-    ClipKindId, CustomContent, KindData, MediaRef, Signal, Sound, Timeline,
+    CustomContent, KindData, MediaRef, Signal, Sound, Timeline,
 };
 pub(crate) use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, Route, Standalone, check_nest};
 pub(crate) use chain::Chain;
@@ -226,6 +229,17 @@ pub struct Part {
     /// The nest (subproject) the part belongs to; `None` for the song's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nest: Option<NestId>,
+    /// What the part is for: a kind of the part family, which an extension
+    /// defines (`paw.kinds.define("part", ...)`). `None` for an ordinary
+    /// part. A part keeps a kind that no loaded extension defines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<KindId<PartFamily>>,
+    /// The group that the part is in: a part that holds it in the tree and
+    /// that it plays into unless it was sent elsewhere. `None` at the top
+    /// level. The groups of the tree never make a cycle
+    /// (`Project::check_parent`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<Id>,
 }
 
 /// The boundaries a cue waits for.
@@ -383,6 +397,8 @@ impl Part {
             chain_source: None,
             chain_origin: None,
             nest: None,
+            kind: None,
+            parent: None,
         }
     }
 
@@ -393,7 +409,7 @@ impl Part {
         fn same_arcs<T>(a: &[Arc<T>], b: &[Arc<T>]) -> bool {
             a.len() == b.len() && a.iter().zip(b).all(|(x, y)| Arc::ptr_eq(x, y))
         }
-        let checks: [(&'static str, bool); 27] = [
+        let checks: [(&'static str, bool); 29] = [
             ("name", self.name == before.name),
             ("volume", self.volume == before.volume),
             ("pan", self.pan == before.pan),
@@ -421,6 +437,8 @@ impl Part {
             ("chain_source", self.chain_source == before.chain_source),
             ("chain_origin", self.chain_origin == before.chain_origin),
             ("nest", self.nest == before.nest),
+            ("kind", self.kind == before.kind),
+            ("parent", self.parent == before.parent),
         ];
         checks.into_iter().filter(|(_, same)| !same).map(|(name, _)| name).collect()
     }
@@ -917,11 +935,16 @@ pub struct Note {
     /// 1 to 127.
     #[serde(default)]
     pub velocity: Velocity,
-    /// Free-form data for extensions, such as a lyric. It travels with the
-    /// note through edits, unlike data kept beside the clip's note list.
+    /// Free-form data for extensions, such as the phonemes of a voice. It
+    /// travels with the note through edits, unlike data kept beside the
+    /// clip's note list.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     #[schemars(extend("x-teal" = "Meta"))]
     pub meta: Map<String, Value>,
+    /// The words sung on the note, as plain text: a syllable, a word, or a
+    /// phrase. A MIDI file keeps it as a lyric event at the note's start.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lyric: Option<String>,
     /// What names the note within its clip for as long as it lives, however
     /// it is moved or changed (`paw://clip/7/note/41`). 0 until the session
     /// gives it one, which it does to every note that has none, or shares
@@ -2156,7 +2179,7 @@ mod note_ids {
     use super::*;
 
     fn note(pitch: u8, id: u64) -> Note {
-        Note { start: 0.0, length: 1.0, pitch, velocity: Velocity(100), meta: Map::new(), id, attr: None }
+        Note { start: 0.0, length: 1.0, pitch, velocity: Velocity(100), meta: Map::new(), lyric: None, id, attr: None }
     }
 
     #[test]

@@ -308,9 +308,7 @@ impl Document {
         copy.chain = t.chain.as_ref().map(|g| Arc::new(self.copy_chain(g, &t.devices, &copy.devices)));
         copy.clips = t.clips.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
         copy.cues = t.cues.iter().map(|c| Arc::new(Clip { id: self.new_id(), ..(**c).clone() })).collect();
-        if let Some(group) = t.meta.get("group").and_then(Value::as_u64) {
-            copy.meta.insert("group".into(), json!(map(group)));
-        }
+        copy.parent = t.parent.map(map);
         copy.source = None;
         copy.origin = t.source.clone().or_else(|| t.origin.clone());
         copy

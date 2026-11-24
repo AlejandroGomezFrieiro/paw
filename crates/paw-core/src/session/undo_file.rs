@@ -386,6 +386,7 @@ mod tests {
                 pitch: 48 + ((i * 7 + seed) % 24) as u8,
                 velocity: crate::model::Velocity(90),
                 meta: Default::default(),
+                lyric: None,
                 id: i + 1,
                 attr: None,
             })

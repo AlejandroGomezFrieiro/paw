@@ -35,7 +35,8 @@ local record partial
       metamethod __index: function(Health, string): Untyped
    end
    record PartKinds
-      define: function(name: string, spec: contracts.PartKind): contracts.PartKind
+      of: function(which: integer): string
+      spec: function(which: integer): contracts.PartKind
       metamethod __index: function(PartKinds, string): Untyped
    end
    --- The global `paw`, as far as the modules in Lua type it.
