@@ -21,6 +21,10 @@ names what a review looks for first.
 - The audio thread takes no lock, makes no allocation and does not wait.
   Look at each new call that a `process` function makes.
 - A crate that `paw-crates.md` names does the job of hand-written code.
+- A fix removes the class of the defect, not only the case that the
+  report names. A range check after a cast that saturates keeps the
+  cast: the fix is a checked conversion (`try_from`, `checked_*`) at the
+  place where the value enters.
 
 ## Teal and Lua (skill `teal`)
 
