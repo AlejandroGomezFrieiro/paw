@@ -10,11 +10,11 @@ paw.opt.scope_rest = 'frozen' paw.cursor.set_part(paw.parts()[1]) paw.flush()"
 rig_start
 term_start
 rec_start tui-narrow
-cap "znn on a group: its parts alone in this window, the rest of the song played from files"
+cap "znn on a group shows its parts alone; the rest plays from files"
 pause 0.5; key space space; pause 0.8; key z n n; pause 2.4
 cap "Motions, ranges and the mixer see only the group: :t* is its parts"
 keys 0.4 j j; key colon; TYPE_DELAY=110 typ "t* solo"; pause 1.0; key Escape; pause 0.4
-cap "zw widens again; :narrow Chorus narrows to a region: its bars count from 1"
+cap "zw widens; :narrow Chorus narrows to a region, counted from bar 1"
 key z w; pause 1.0; key colon; TYPE_DELAY=110 typ "narrow Chorus"; key Return; pause 2.2
 cap "zw again; :freeze renders a group and plays the file (F)"
 # :freeze is refused while the render of the rest of the song runs: the pause lets it end.

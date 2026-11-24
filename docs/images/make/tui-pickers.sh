@@ -8,7 +8,7 @@ term_start
 rec_start tui-pickers
 cap "Space fc lists every clip; the pane on the right draws the one selected"
 pause 0.4; key space f c; pause 1.0; TYPE_DELAY=150 typ "mel"; pause 1.2; key Escape; pause 0.3
-cap "Space fn lists every note, and plays it with its chord as the selection rests"
+cap "Space fn lists every note and plays it with its chord"
 key space f n; pause 0.6; TYPE_DELAY=120 typ "G5 mel"; pause 0.5; keys 0.5 ctrl+n ctrl+n; key Escape; pause 0.3
 cap ":vimgrep finds text anywhere in the project and fills the quickfix list"
 key colon; TYPE_DELAY=70 typ "vimgrep /^[CE]$/ clip"; key Return; pause 0.6

@@ -23,7 +23,7 @@ term_start
 # Edits to files are real: go on only if ~ is the scene's directory.
 [ "$(ctl "return os.getenv('HOME')")" = "$PAW_HOME" ] || { echo "tui-files: ~ is not $PAW_HOME"; rm -rf "$PAW_HOME"; exit 1; }
 rec_start tui-files
-cap ":e ~/music shows the folder as text: a line a file, its length and format"
+cap ":e ~/music shows the folder as text, a line for each file"
 pause 0.5; key colon; TYPE_DELAY=110 typ "e ~/music"; key Return; pause 1.3
 cap "cw renames a file; a path in its name moves it"
 keys 0.3 G k; TYPE_DELAY=140 typ "cw"; TYPE_DELAY=100 typ "lead-take"; key Escape; pause 0.6

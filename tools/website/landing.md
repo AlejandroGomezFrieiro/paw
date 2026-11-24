@@ -39,7 +39,7 @@ it at any step, and copy the keys of a step from the list under it.
 
 <paw-cast src="docs/images/cast-basics.cast">
 
-![Notes drawn with i, a note kept with Enter and the next one drawn after it, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
+![Notes drawn with i, a note kept with Enter and the next one drawn after it, a note taken up an octave, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
 
 </paw-cast>
 

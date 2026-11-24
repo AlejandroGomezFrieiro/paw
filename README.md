@@ -102,7 +102,7 @@ view, `h` `j` `k` `l` only move and `+` and `-` change the value under the
 cursor, and `Esc` cancels in each view too.
 [All the keys](docs/reference/keys.md) are on one page.
 
-![Notes drawn with i, a note kept with Enter and the next one drawn after it, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
+![Notes drawn with i, a note kept with Enter and the next one drawn after it, a note taken up an octave, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
 
 On the command line, a line is a bar, and a range can be a range of parts
 (`:5,8d`, `:t2,t4 mute`, `:%s/c4/d4/gc`). paw shows a preview while you
