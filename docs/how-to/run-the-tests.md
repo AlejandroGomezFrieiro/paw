@@ -371,6 +371,31 @@ uses `T.home()`, which gives the test a home folder of its own.
    a `snapshots/` folder. Accept the change only when the new output is
    correct, and commit the changed file with the code.
 
+## Check the MCP server with mcpscore
+
+`tools/mcpscore.sh` checks `paw-mcp` against the MCP specification and
+its good practices with mcpscore, and fails when the score is lower than
+the score that the script expects. It fetches mcpscore from PyPI with
+`uvx`, so it needs the network, and `nix flake check` doesn't run it.
+Run it before you push a change to `crates/paw-mcp`, to a crate that
+`paw-mcp` builds from, to `crates/paw-core/src/api`, to `runtime/lua` or
+to `Cargo.lock`.
+
+1. Build the server and the kernel with `cargo build -p paw-mcp -p paw-tui`.
+   The script uses `target/debug`, or the binaries that `PAW_MCP_BIN` and
+   `PAW_BIN` give.
+2. Run `tools/mcpscore.sh`. It prints each rule, and the last line says
+   whether the score passes. A rule that fails has a line that starts
+   with ❌ and says why.
+3. To check only when your branch changed the server or what it builds
+   from, run `tools/mcpscore.sh --changed-since main`.
+4. If your change raises the score, write the new score in `MIN_SCORE` at
+   the top of the script, so that a later change can't lower it.
+
+The run is sealed like the other tests. It has a scratch home and a scratch
+cache for `uvx`, and the server starts a kernel of its own with `--audio null
+--clean --no-plugins`.
+
 ## Run the fuzz targets
 
 The fuzz targets in `fuzz/` feed random input to the code that reads files

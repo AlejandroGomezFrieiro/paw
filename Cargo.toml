@@ -27,6 +27,7 @@ default-members = [
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/AlejandroGomezFrieiro/custom_daw"
 # The toolchain of the flake. No check builds with an older one, so this is
 # the oldest version that paw is known to build with.
 rust-version = "1.95"
