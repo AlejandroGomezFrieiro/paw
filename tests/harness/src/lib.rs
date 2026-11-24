@@ -61,7 +61,10 @@ impl Suite {
     /// the run, as for tests/tools/env.sh, and `PAW_TEST_WORDS` the words.
     #[must_use]
     pub fn from_env() -> Self {
+        // Canonical, so that the scratch path has no `..`: paw gives the
+        // canonical path of a folder, and a test compares against it.
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let root = root.canonicalize().unwrap_or(root);
         let scratch = env::var_os("PAW_TEST_SCRATCH")
             .map_or_else(|| root.join("target/test-scratch"), PathBuf::from);
         let words = env::var(WORDS)

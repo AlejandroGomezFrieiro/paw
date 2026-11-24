@@ -267,6 +267,14 @@ end)
 test("files: a plan that fails partway takes back what it did", function()
   start()
   sh("mkdir -p '" .. root .. "/locked' && chmod 555 '" .. root .. "/locked'")
+  -- An account that ignores folder modes (root, some mounts) can write here, so
+  -- the plan cannot fail partway.
+  local probe = root .. "/locked/probe"
+  sh("touch '" .. probe .. "' 2>/dev/null")
+  if exists(probe) then
+    sh("rm -f '" .. probe .. "'; chmod 755 '" .. root .. "/locked'")
+    return "this account can write into a folder with mode 555"
+  end
   open(root)
   edit(row_of("kick.wav"), "kick-new.wav")
   local t = tb.buf().state.text
