@@ -23,7 +23,7 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use super::dsp::{self, DelayLine, Readings, Smooth, Upsampler};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 /// How late the output is, in seconds.
@@ -46,10 +46,22 @@ const TRUE_PEAK: usize = 3;
 
 pub fn params() -> Vec<ParamInfo> {
     vec![
-        param("ceiling", "Ceiling", -24.0, 0.0, -1.0, "dB"),
-        param("gain", "Gain", 0.0, 24.0, 0.0, "dB"),
-        param("release", "Release", 1.0, 1000.0, 100.0, "ms"),
-        choice("true_peak", "True peak", &["Off", "On"], 1),
+        ParamInfo::new("ceiling")
+            .name("Ceiling")
+            .range(-24.0, 0.0)
+            .default_value(-1.0)
+            .unit("dB"),
+        ParamInfo::new("gain")
+            .name("Gain")
+            .range(0.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+        ParamInfo::new("release")
+            .name("Release")
+            .range(1.0, 1000.0)
+            .default_value(100.0)
+            .unit("ms"),
+        ParamInfo::choice("true_peak", &["Off", "On"], 1).name("True peak"),
     ]
 }
 

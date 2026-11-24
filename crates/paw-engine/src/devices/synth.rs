@@ -22,13 +22,30 @@ const GAIN: usize = 7;
 pub(super) fn params() -> Vec<ParamInfo> {
     vec![
         ParamInfo::choice("wave", &["sine", "saw", "square", "triangle"], 1),
-        ParamInfo::new("attack", 0.001, 2.0, 0.005, "s"),
-        ParamInfo::new("decay", 0.001, 2.0, 0.15, "s"),
-        ParamInfo::new("sustain", 0.0, 1.0, 0.6, ""),
-        ParamInfo::new("release", 0.001, 5.0, 0.2, "s"),
-        ParamInfo::new("cutoff", 20.0, 20000.0, 4000.0, "Hz"),
-        ParamInfo::new("resonance", 0.0, 1.0, 0.2, ""),
-        ParamInfo::new("gain", -60.0, 12.0, -12.0, "dB"),
+        ParamInfo::new("attack")
+            .range(0.001, 2.0)
+            .default_value(0.005)
+            .unit("s"),
+        ParamInfo::new("decay")
+            .range(0.001, 2.0)
+            .default_value(0.15)
+            .unit("s"),
+        ParamInfo::new("sustain").range(0.0, 1.0).default_value(0.6),
+        ParamInfo::new("release")
+            .range(0.001, 5.0)
+            .default_value(0.2)
+            .unit("s"),
+        ParamInfo::new("cutoff")
+            .range(20.0, 20000.0)
+            .default_value(4000.0)
+            .unit("Hz"),
+        ParamInfo::new("resonance")
+            .range(0.0, 1.0)
+            .default_value(0.2),
+        ParamInfo::new("gain")
+            .range(-60.0, 12.0)
+            .default_value(-12.0)
+            .unit("dB"),
     ]
 }
 

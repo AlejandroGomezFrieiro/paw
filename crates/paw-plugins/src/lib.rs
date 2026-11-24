@@ -715,20 +715,37 @@ pub(crate) fn write_pairs(
     }
 }
 
+/// How a plugin's output goes onto the part's two channels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Mix {
+    /// Added to what is on the part: an instrument, which has no audio input.
+    Add,
+    /// In place of what is on the part: an effect.
+    Replace,
+}
+
+impl Mix {
+    /// The mix of a plugin with audio inputs or none.
+    pub(crate) fn for_inputs(has_inputs: bool) -> Self {
+        if has_inputs { Self::Replace } else { Self::Add }
+    }
+}
+
 /// Copy a plugin's stereo, mono or wider output into the part's two channels.
-/// Instruments add to what is on the part; effects replace it.
-pub(crate) fn write_output(left: &mut [f32], right: &mut [f32], out: &[&[f32]], add: bool) {
-    let (Some(l), r) = (out.first(), out.get(1).or(out.first())) else {
+pub(crate) fn write_output(left: &mut [f32], right: &mut [f32], out: &[&[f32]], mix: Mix) {
+    let (Some(l), Some(r)) = (out.first(), out.get(1).or(out.first())) else {
         return;
     };
-    let r = r.unwrap();
     for (i, (dl, dr)) in left.iter_mut().zip(right.iter_mut()).enumerate() {
-        if add {
-            *dl += l[i];
-            *dr += r[i];
-        } else {
-            *dl = l[i];
-            *dr = r[i];
+        match mix {
+            Mix::Add => {
+                *dl += l[i];
+                *dr += r[i];
+            }
+            Mix::Replace => {
+                *dl = l[i];
+                *dr = r[i];
+            }
         }
     }
 }

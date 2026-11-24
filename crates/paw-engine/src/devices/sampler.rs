@@ -45,7 +45,12 @@ const CHOKE_SECONDS: f32 = 0.004;
 const NONE: u16 = u16::MAX;
 
 pub fn params() -> Vec<ParamInfo> {
-    vec![ParamInfo::new("gain", -60.0, 12.0, 0.0, "dB")]
+    vec![
+        ParamInfo::new("gain")
+            .range(-60.0, 12.0)
+            .default_value(0.0)
+            .unit("dB"),
+    ]
 }
 
 /// One pad of a kit as the state describes it.

@@ -15,7 +15,7 @@ use vst3::{ComPtr, ComWrapper};
 use super::events::{Discard, EventList, ParamChanges, context};
 use super::shared::Shared;
 use super::{AUDIO, AUX, INPUT, OFFLINE, OK, OUTPUT, REALTIME, SAMPLE_32, wide};
-use crate::{HeldNotes, write_output};
+use crate::{HeldNotes, Mix, write_output};
 
 /// Buffers for every bus in one direction, laid out as VST3 wants them.
 pub(super) struct Buses {
@@ -108,13 +108,13 @@ impl Buses {
     /// Give the block's sound from the output buses: the main bus on the
     /// part's pair, added for an instrument, and the other pairs where they
     /// go.
-    fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], add: bool, n: usize) {
+    fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], mix: Mix, n: usize) {
         if let Some(bus) = self.channels.first() {
             match bus.as_slice() {
                 [] => {}
-                [mono] => write_output(io.left, io.right, &[&mono[..n]], add),
+                [mono] => write_output(io.left, io.right, &[&mono[..n]], mix),
                 [left, right, ..] => {
-                    write_output(io.left, io.right, &[&left[..n], &right[..n]], add)
+                    write_output(io.left, io.right, &[&left[..n], &right[..n]], mix)
                 }
             }
         }
@@ -250,8 +250,8 @@ impl Device for Vst3Device {
             (self.tail != u32::MAX).then_some(self.tail as u64),
             self.outputs.channels.iter().flatten().all(|c| silent(&c[..n])),
         );
-        let add = self.inputs.buses.is_empty();
-        self.outputs.write_output(io, &self.out_pairs, add, n);
+        let mix = Mix::for_inputs(!self.inputs.buses.is_empty());
+        self.outputs.write_output(io, &self.out_pairs, mix, n);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {

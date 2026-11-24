@@ -135,7 +135,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("click.wav");
         // Stereo, 1000 Hz: silence, then 0.5 on the right only at frame 300.
-        let mut w = crate::wav::Writer::create(&path, 1000, 16, false).unwrap();
+        let mut w = crate::wav::Writer::create(&path, 1000, crate::wav::WavFormat::Int16).unwrap();
         for f in 0..1000 {
             let r = if f == 300 { 0.5 } else { 0.0 };
             w.write(0.0).unwrap();

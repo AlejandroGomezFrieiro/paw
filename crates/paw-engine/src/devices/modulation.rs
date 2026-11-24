@@ -7,7 +7,7 @@
 //! position, so it lands the same way on every pass.
 
 use super::dsp::{self, DelayLine, Lfo, NOTE_BEATS, Rest, Shape, Smooth, Svf, SvfCoefs};
-use super::panel::{Face, Pair, choice, param};
+use super::panel::{Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 struct NoFace;
@@ -32,11 +32,11 @@ fn locked_phase(sync: f32, ctx: &ProcessCtx) -> Option<f64> {
 }
 
 fn rate(default: f32) -> ParamInfo {
-    param("rate", "Rate", 0.02, 20.0, default, "Hz")
+    ParamInfo::new("rate").name("Rate").range(0.02, 20.0).default_value(default).unit("Hz")
 }
 
 fn sync() -> ParamInfo {
-    choice("sync", "Sync", &dsp::sync_choices(), 0)
+    ParamInfo::choice("sync", &dsp::sync_choices(), 0).name("Sync")
 }
 
 // ---------------------------------------------------------------------------
@@ -55,12 +55,12 @@ pub fn chorus_params() -> Vec<ParamInfo> {
     vec![
         rate(0.6),
         sync(),
-        param("depth", "Depth", 0.0, 100.0, 40.0, "%"),
-        param("delay", "Delay", 2.0, 40.0, 12.0, "ms"),
-        param("feedback", "Feedback", -90.0, 90.0, 0.0, "%"),
-        param("spread", "Stereo", 0.0, 180.0, 90.0, "°"),
-        param("mix", "Mix", 0.0, 100.0, 50.0, "%"),
-        choice("voices", "Voices", &["1", "2", "3"], 1),
+        ParamInfo::new("depth").name("Depth").range(0.0, 100.0).default_value(40.0).unit("%"),
+        ParamInfo::new("delay").name("Delay").range(2.0, 40.0).default_value(12.0).unit("ms"),
+        ParamInfo::new("feedback").name("Feedback").range(-90.0, 90.0).default_value(0.0).unit("%"),
+        ParamInfo::new("spread").name("Stereo").range(0.0, 180.0).default_value(90.0).unit("°"),
+        ParamInfo::new("mix").name("Mix").range(0.0, 100.0).default_value(50.0).unit("%"),
+        ParamInfo::choice("voices", &["1", "2", "3"], 1).name("Voices"),
     ]
 }
 
@@ -68,11 +68,15 @@ pub fn flanger_params() -> Vec<ParamInfo> {
     vec![
         rate(0.2),
         sync(),
-        param("depth", "Depth", 0.0, 100.0, 70.0, "%"),
-        param("delay", "Delay", 0.1, 10.0, 1.0, "ms"),
-        param("feedback", "Feedback", -95.0, 95.0, 50.0, "%"),
-        param("spread", "Stereo", 0.0, 180.0, 90.0, "°"),
-        param("mix", "Mix", 0.0, 100.0, 50.0, "%"),
+        ParamInfo::new("depth").name("Depth").range(0.0, 100.0).default_value(70.0).unit("%"),
+        ParamInfo::new("delay").name("Delay").range(0.1, 10.0).default_value(1.0).unit("ms"),
+        ParamInfo::new("feedback")
+            .name("Feedback")
+            .range(-95.0, 95.0)
+            .default_value(50.0)
+            .unit("%"),
+        ParamInfo::new("spread").name("Stereo").range(0.0, 180.0).default_value(90.0).unit("°"),
+        ParamInfo::new("mix").name("Mix").range(0.0, 100.0).default_value(50.0).unit("%"),
     ]
 }
 
@@ -231,12 +235,20 @@ pub fn phaser_params() -> Vec<ParamInfo> {
     vec![
         rate(0.3),
         sync(),
-        param("depth", "Depth", 0.0, 100.0, 60.0, "%"),
-        param("center", "Centre", 100.0, 4000.0, 800.0, "Hz"),
-        choice("stages", "Stages", STAGES, 1),
-        param("feedback", "Feedback", -95.0, 95.0, 40.0, "%"),
-        param("spread", "Stereo", 0.0, 180.0, 90.0, "°"),
-        param("mix", "Mix", 0.0, 100.0, 50.0, "%"),
+        ParamInfo::new("depth").name("Depth").range(0.0, 100.0).default_value(60.0).unit("%"),
+        ParamInfo::new("center")
+            .name("Centre")
+            .range(100.0, 4000.0)
+            .default_value(800.0)
+            .unit("Hz"),
+        ParamInfo::choice("stages", STAGES, 1).name("Stages"),
+        ParamInfo::new("feedback")
+            .name("Feedback")
+            .range(-95.0, 95.0)
+            .default_value(40.0)
+            .unit("%"),
+        ParamInfo::new("spread").name("Stereo").range(0.0, 180.0).default_value(90.0).unit("°"),
+        ParamInfo::new("mix").name("Mix").range(0.0, 100.0).default_value(50.0).unit("%"),
     ]
 }
 
@@ -362,11 +374,11 @@ const T_SHAPE: usize = 4;
 
 pub fn tremolo_params() -> Vec<ParamInfo> {
     vec![
-        choice("mode", "Mode", &["Tremolo", "Auto-pan"], 0),
+        ParamInfo::choice("mode", &["Tremolo", "Auto-pan"], 0).name("Mode"),
         rate(5.0),
         sync(),
-        param("depth", "Depth", 0.0, 100.0, 50.0, "%"),
-        choice("shape", "Shape", &["Sine", "Triangle", "Square"], 0),
+        ParamInfo::new("depth").name("Depth").range(0.0, 100.0).default_value(50.0).unit("%"),
+        ParamInfo::choice("shape", &["Sine", "Triangle", "Square"], 0).name("Shape"),
     ]
 }
 
@@ -480,14 +492,26 @@ const D_WIDTH: usize = 7;
 
 pub fn delay_params() -> Vec<ParamInfo> {
     vec![
-        param("time", "Time", 1.0, MAX_DELAY_SECONDS * 1000.0, 375.0, "ms"),
-        param("feedback", "Feedback", 0.0, 0.95, 0.35, ""),
-        param("mix", "Mix", 0.0, 1.0, 0.25, ""),
+        ParamInfo::new("time")
+            .name("Time")
+            .range(1.0, MAX_DELAY_SECONDS * 1000.0)
+            .default_value(375.0)
+            .unit("ms"),
+        ParamInfo::new("feedback").name("Feedback").range(0.0, 0.95).default_value(0.35),
+        ParamInfo::new("mix").name("Mix").range(0.0, 1.0).default_value(0.25),
         sync(),
-        choice("mode", "Mode", &["Stereo", "Ping-pong"], 0),
-        param("low_cut", "Low cut", 20.0, 2000.0, 20.0, "Hz"),
-        param("high_cut", "High cut", 1000.0, 20000.0, 20000.0, "Hz"),
-        param("width", "Width", 0.0, 100.0, 100.0, "%"),
+        ParamInfo::choice("mode", &["Stereo", "Ping-pong"], 0).name("Mode"),
+        ParamInfo::new("low_cut")
+            .name("Low cut")
+            .range(20.0, 2000.0)
+            .default_value(20.0)
+            .unit("Hz"),
+        ParamInfo::new("high_cut")
+            .name("High cut")
+            .range(1000.0, 20000.0)
+            .default_value(20000.0)
+            .unit("Hz"),
+        ParamInfo::new("width").name("Width").range(0.0, 100.0).default_value(100.0).unit("%"),
     ]
 }
 

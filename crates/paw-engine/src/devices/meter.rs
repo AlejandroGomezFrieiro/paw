@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use anyhow::Result;
 
 use super::dsp::{self, Readings, Tap, Upsampler};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 /// A biquad in transposed direct form II, in double precision.
@@ -115,7 +115,7 @@ struct Piece {
 
 pub fn meter_params() -> Vec<ParamInfo> {
     // Nothing to set: what it reads is asked for with `meters`.
-    vec![choice("hold", "Peak hold", &["Always", "3 s"], 0)]
+    vec![ParamInfo::choice("hold", &["Always", "3 s"], 0).name("Peak hold")]
 }
 
 pub fn meter(sr: f32) -> Pair {
@@ -428,8 +428,8 @@ pub const NOTE_NAMES: [&str; 12] = [
 
 pub fn tuner_params() -> Vec<ParamInfo> {
     vec![
-        param("reference", "A4", 400.0, 480.0, 440.0, "Hz"),
-        choice("mute", "Mute", &["Off", "On"], 0),
+        ParamInfo::new("reference").name("A4").range(400.0, 480.0).default_value(440.0).unit("Hz"),
+        ParamInfo::choice("mute", &["Off", "On"], 0).name("Mute"),
     ]
 }
 

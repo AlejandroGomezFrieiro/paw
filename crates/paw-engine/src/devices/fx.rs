@@ -4,7 +4,12 @@ use crate::db_to_gain;
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 pub(super) fn gain_params() -> Vec<ParamInfo> {
-    vec![ParamInfo::new("gain", -60.0, 24.0, 0.0, "dB")]
+    vec![
+        ParamInfo::new("gain")
+            .range(-60.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+    ]
 }
 
 pub(super) struct Gain {

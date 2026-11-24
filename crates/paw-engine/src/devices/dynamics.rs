@@ -11,7 +11,7 @@
 use anyhow::Result;
 
 use super::dsp::{self, DelayLine, Readings, Shape, Smooth, Svf, SvfCoefs, time_coef};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 /// The longest look-ahead, in milliseconds.
@@ -152,20 +152,60 @@ fn key_at(key: Option<[&[f32]; 2]>, i: usize, l: f32, r: f32) -> (f32, f32) {
 
 pub fn compressor_params() -> Vec<ParamInfo> {
     vec![
-        param("threshold", "Threshold", -60.0, 0.0, -18.0, "dB"),
-        param("ratio", "Ratio", 1.0, 50.0, 2.0, ":1"),
-        param("knee", "Knee", 0.0, 24.0, 6.0, "dB"),
-        param("attack", "Attack", 0.05, 200.0, 10.0, "ms"),
-        param("release", "Release", 5.0, 2000.0, 150.0, "ms"),
-        choice("auto_release", "Auto release", &["Off", "On"], 0),
-        param("makeup", "Make-up", -12.0, 24.0, 0.0, "dB"),
-        choice("auto_makeup", "Auto make-up", &["Off", "On"], 0),
-        param("lookahead", "Look-ahead", 0.0, MAX_LOOKAHEAD_MS, 0.0, "ms"),
-        param("detector_hp", "Detector HP", 20.0, 500.0, 20.0, "Hz"),
-        choice("detect", "Detect", &["Peak", "RMS"], 0),
-        param("mix", "Mix", 0.0, 100.0, 100.0, "%"),
-        param("link", "Stereo link", 0.0, 100.0, 100.0, "%"),
-        choice("listen", "Listen to key", &["Off", "On"], 0),
+        ParamInfo::new("threshold")
+            .name("Threshold")
+            .range(-60.0, 0.0)
+            .default_value(-18.0)
+            .unit("dB"),
+        ParamInfo::new("ratio")
+            .name("Ratio")
+            .range(1.0, 50.0)
+            .default_value(2.0)
+            .unit(":1"),
+        ParamInfo::new("knee")
+            .name("Knee")
+            .range(0.0, 24.0)
+            .default_value(6.0)
+            .unit("dB"),
+        ParamInfo::new("attack")
+            .name("Attack")
+            .range(0.05, 200.0)
+            .default_value(10.0)
+            .unit("ms"),
+        ParamInfo::new("release")
+            .name("Release")
+            .range(5.0, 2000.0)
+            .default_value(150.0)
+            .unit("ms"),
+        ParamInfo::choice("auto_release", &["Off", "On"], 0).name("Auto release"),
+        ParamInfo::new("makeup")
+            .name("Make-up")
+            .range(-12.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+        ParamInfo::choice("auto_makeup", &["Off", "On"], 0).name("Auto make-up"),
+        ParamInfo::new("lookahead")
+            .name("Look-ahead")
+            .range(0.0, MAX_LOOKAHEAD_MS)
+            .default_value(0.0)
+            .unit("ms"),
+        ParamInfo::new("detector_hp")
+            .name("Detector HP")
+            .range(20.0, 500.0)
+            .default_value(20.0)
+            .unit("Hz"),
+        ParamInfo::choice("detect", &["Peak", "RMS"], 0).name("Detect"),
+        ParamInfo::new("mix")
+            .name("Mix")
+            .range(0.0, 100.0)
+            .default_value(100.0)
+            .unit("%"),
+        ParamInfo::new("link")
+            .name("Stereo link")
+            .range(0.0, 100.0)
+            .default_value(100.0)
+            .unit("%"),
+        ParamInfo::choice("listen", &["Off", "On"], 0).name("Listen to key"),
     ]
 }
 
@@ -380,19 +420,59 @@ const G_LISTEN: usize = 12;
 
 pub fn gate_params() -> Vec<ParamInfo> {
     vec![
-        choice("mode", "Mode", &["Gate", "Expander"], 0),
-        param("threshold", "Threshold", -80.0, 0.0, -50.0, "dB"),
-        param("range", "Range", -80.0, 0.0, -60.0, "dB"),
-        param("ratio", "Ratio", 1.0, 20.0, 4.0, ":1"),
-        param("attack", "Attack", 0.05, 100.0, 0.5, "ms"),
-        param("hold", "Hold", 0.0, 1000.0, 30.0, "ms"),
-        param("release", "Release", 5.0, 2000.0, 120.0, "ms"),
-        param("hysteresis", "Hysteresis", 0.0, 12.0, 3.0, "dB"),
-        param("lookahead", "Look-ahead", 0.0, MAX_LOOKAHEAD_MS, 0.0, "ms"),
-        param("detector_hp", "Detector HP", 20.0, 2000.0, 20.0, "Hz"),
-        choice("detect", "Detect", &["Peak", "RMS"], 0),
-        param("link", "Stereo link", 0.0, 100.0, 100.0, "%"),
-        choice("listen", "Listen to key", &["Off", "On"], 0),
+        ParamInfo::choice("mode", &["Gate", "Expander"], 0).name("Mode"),
+        ParamInfo::new("threshold")
+            .name("Threshold")
+            .range(-80.0, 0.0)
+            .default_value(-50.0)
+            .unit("dB"),
+        ParamInfo::new("range")
+            .name("Range")
+            .range(-80.0, 0.0)
+            .default_value(-60.0)
+            .unit("dB"),
+        ParamInfo::new("ratio")
+            .name("Ratio")
+            .range(1.0, 20.0)
+            .default_value(4.0)
+            .unit(":1"),
+        ParamInfo::new("attack")
+            .name("Attack")
+            .range(0.05, 100.0)
+            .default_value(0.5)
+            .unit("ms"),
+        ParamInfo::new("hold")
+            .name("Hold")
+            .range(0.0, 1000.0)
+            .default_value(30.0)
+            .unit("ms"),
+        ParamInfo::new("release")
+            .name("Release")
+            .range(5.0, 2000.0)
+            .default_value(120.0)
+            .unit("ms"),
+        ParamInfo::new("hysteresis")
+            .name("Hysteresis")
+            .range(0.0, 12.0)
+            .default_value(3.0)
+            .unit("dB"),
+        ParamInfo::new("lookahead")
+            .name("Look-ahead")
+            .range(0.0, MAX_LOOKAHEAD_MS)
+            .default_value(0.0)
+            .unit("ms"),
+        ParamInfo::new("detector_hp")
+            .name("Detector HP")
+            .range(20.0, 2000.0)
+            .default_value(20.0)
+            .unit("Hz"),
+        ParamInfo::choice("detect", &["Peak", "RMS"], 0).name("Detect"),
+        ParamInfo::new("link")
+            .name("Stereo link")
+            .range(0.0, 100.0)
+            .default_value(100.0)
+            .unit("%"),
+        ParamInfo::choice("listen", &["Off", "On"], 0).name("Listen to key"),
     ]
 }
 

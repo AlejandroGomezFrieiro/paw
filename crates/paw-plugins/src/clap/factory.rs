@@ -186,13 +186,9 @@ fn read_params(
             continue;
         }
         ids.push((info.id, info.cookie));
-        let mut param = ParamInfo::new(
-            &buffer_text(info.name),
-            info.min_value as f32,
-            info.max_value as f32,
-            info.default_value as f32,
-            "",
-        );
+        let mut param = ParamInfo::new(&buffer_text(info.name))
+            .range(info.min_value as f32, info.max_value as f32)
+            .default_value(info.default_value as f32);
         param.id = info.id.get().to_string();
         param.group = buffer_text(info.module).trim_matches('/').to_string();
         param.automatable = flags.contains(ParamInfoFlags::IS_AUTOMATABLE);

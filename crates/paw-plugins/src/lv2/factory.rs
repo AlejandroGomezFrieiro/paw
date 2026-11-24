@@ -132,13 +132,9 @@ unsafe fn plan_ports(plugin: *const LilvPlugin, w: &World, max_block: usize) -> 
                     CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)))
                         .to_owned();
                 if input {
-                    let mut info = ParamInfo::new(
-                        &take_text(lilv_port_get_name(plugin, port)),
-                        min,
-                        max,
-                        default,
-                        "",
-                    );
+                    let mut info = ParamInfo::new(&take_text(lilv_port_get_name(plugin, port)))
+                        .range(min, max)
+                        .default_value(default);
                     info.key = symbol.to_string_lossy().into_owned();
                     info.id = info.key.clone();
                     if lilv_port_has_property(plugin, port, w.toggled) {

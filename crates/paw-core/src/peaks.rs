@@ -213,7 +213,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let wav = dir.path().join("tone.wav");
         let write = |wav: &Path, level: f32| {
-            let mut w = paw_engine::wav::Writer::create(wav, 48_000, 16, false).unwrap();
+            let mut w = paw_engine::wav::Writer::create(wav, 48_000, paw_engine::wav::WavFormat::Int16).unwrap();
             for i in 0..48_000 * 4 {
                 let s = level * (i as f32 * 0.05).sin();
                 w.write(s).unwrap();

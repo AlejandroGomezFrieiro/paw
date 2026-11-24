@@ -359,7 +359,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.wav");
         // Mono, 24 bits, 3 frames: an odd number of data bytes.
-        let mut w = paw_engine::wav::Writer::with_channels(&path, 44100, 24, false, 1).unwrap();
+        let mut w = paw_engine::wav::Writer::with_channels(&path, 44100, paw_engine::wav::WavFormat::Int24, 1).unwrap();
         for _ in 0..3 {
             w.write(0.5).unwrap();
         }

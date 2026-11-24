@@ -14,7 +14,7 @@
 //! narrowed (mid/side) and mixed with the dry.
 
 use super::dsp::{self, DelayLine, Lfo, OnePole, Rest, Smooth};
-use super::panel::{Face, Pair, param};
+use super::panel::{Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 const LINES: usize = 8;
@@ -59,15 +59,31 @@ const MIX: usize = 8;
 
 pub fn params() -> Vec<ParamInfo> {
     vec![
-        param("size", "Size", 0.0, 100.0, 50.0, "%"),
-        param("decay", "Decay", 0.1, 20.0, 1.8, "s"),
-        param("predelay", "Pre-delay", 0.0, MAX_PREDELAY_MS, 10.0, "ms"),
-        param("damp_high", "High damping", 1000.0, 20000.0, 7000.0, "Hz"),
-        param("damp_low", "Low damping", 20.0, 1000.0, 80.0, "Hz"),
-        param("diffusion", "Diffusion", 0.0, 100.0, 75.0, "%"),
-        param("early", "Early/late", 0.0, 100.0, 25.0, "%"),
-        param("width", "Width", 0.0, 150.0, 100.0, "%"),
-        param("mix", "Mix", 0.0, 100.0, 25.0, "%"),
+        ParamInfo::new("size").name("Size").range(0.0, 100.0).default_value(50.0).unit("%"),
+        ParamInfo::new("decay").name("Decay").range(0.1, 20.0).default_value(1.8).unit("s"),
+        ParamInfo::new("predelay")
+            .name("Pre-delay")
+            .range(0.0, MAX_PREDELAY_MS)
+            .default_value(10.0)
+            .unit("ms"),
+        ParamInfo::new("damp_high")
+            .name("High damping")
+            .range(1000.0, 20000.0)
+            .default_value(7000.0)
+            .unit("Hz"),
+        ParamInfo::new("damp_low")
+            .name("Low damping")
+            .range(20.0, 1000.0)
+            .default_value(80.0)
+            .unit("Hz"),
+        ParamInfo::new("diffusion")
+            .name("Diffusion")
+            .range(0.0, 100.0)
+            .default_value(75.0)
+            .unit("%"),
+        ParamInfo::new("early").name("Early/late").range(0.0, 100.0).default_value(25.0).unit("%"),
+        ParamInfo::new("width").name("Width").range(0.0, 150.0).default_value(100.0).unit("%"),
+        ParamInfo::new("mix").name("Mix").range(0.0, 100.0).default_value(25.0).unit("%"),
     ]
 }
 

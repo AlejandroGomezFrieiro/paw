@@ -32,9 +32,9 @@ const DECAY: usize = 2;
 
 pub(super) fn params() -> Vec<ParamInfo> {
     vec![
-        ParamInfo::new("gain", -60.0, 12.0, -6.0, "dB"),
-        ParamInfo::new("kick_tune", 30.0, 90.0, 48.0, "Hz"),
-        ParamInfo::new("decay", 0.25, 4.0, 1.0, "x"),
+        ParamInfo::new("gain").range(-60.0, 12.0).default_value(-6.0).unit("dB"),
+        ParamInfo::new("kick_tune").range(30.0, 90.0).default_value(48.0).unit("Hz"),
+        ParamInfo::new("decay").range(0.25, 4.0).default_value(1.0).unit("x"),
     ]
 }
 

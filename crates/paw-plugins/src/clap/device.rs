@@ -19,7 +19,7 @@ use paw_engine::{Device, Io, ProcessCtx};
 use super::events::{ClapEvents, NoteRoute, Out, transport};
 use super::host::PawHost;
 use super::shared::Shared;
-use crate::{HeldNotes, write_output};
+use crate::{HeldNotes, Mix, write_output};
 
 /// Audio buffers for every port in one direction, laid out as CLAP wants them.
 pub(super) struct Buffers {
@@ -86,12 +86,12 @@ impl Buffers {
     /// Give the block's sound from the output ports: the main port on the
     /// part's pair, added for an instrument, and the other pairs where
     /// they go.
-    fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], instrument: bool, n: usize) {
+    fn write_output(&self, io: &mut Io, pairs: &[crate::OutPair], mix: Mix, n: usize) {
         if let Some(port) = self.channels.first() {
             let channels = [port.first().map(|c| &c[..n]), port.get(1).map(|c| &c[..n])];
             match channels {
-                [Some(l), Some(r)] => write_output(io.left, io.right, &[l, r], instrument),
-                [Some(m), None] => write_output(io.left, io.right, &[m], instrument),
+                [Some(l), Some(r)] => write_output(io.left, io.right, &[l, r], mix),
+                [Some(m), None] => write_output(io.left, io.right, &[m], mix),
                 _ => {}
             }
         }
@@ -214,8 +214,8 @@ impl Device for ClapDevice {
         // 3. Its rest and the audio out.
         let tail = self.shared.ext.tail;
         end_rest(&mut self.rest, status, tail, processor, &self.outputs, n);
-        let instrument = self.inputs.ports.is_empty();
-        self.outputs.write_output(io, &self.out_pairs, instrument, n);
+        let mix = Mix::for_inputs(!self.inputs.ports.is_empty());
+        self.outputs.write_output(io, &self.out_pairs, mix, n);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {

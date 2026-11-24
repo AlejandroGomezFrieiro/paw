@@ -381,10 +381,18 @@ impl Instance {
 /// device: built-in, CLAP, VST3, LV2 or a Lua device.
 ///
 /// It goes between processes as JSON, by the names of its fields (see the
-/// plugin sandbox); a field left out takes its default, and `automatable`
-/// is then true.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// plugin sandbox); a field left out takes its value from
+/// [`ParamInfo::default`], where `automatable` is true.
+///
+/// Build one with [`ParamInfo::new`] or [`ParamInfo::choice`] and the
+/// methods that set one field each:
+/// `ParamInfo::new("gain").range(-60.0, 12.0).default_value(-6.0).unit("dB")`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the fields are the JSON of the sandbox wire and of the scan cache"
+)]
 pub struct ParamInfo {
     /// The identifier used in projects and scripts. Unique within a device.
     pub key: String,
@@ -415,7 +423,6 @@ pub struct ParamInfo {
     /// the device writes them (see [`Controller::value_text`]).
     pub enumeration: bool,
     /// The host may automate it (most parameters).
-    #[serde(default = "yes")]
     pub automatable: bool,
     /// The device shows it, but does not take values for it.
     pub read_only: bool,
@@ -424,32 +431,78 @@ pub struct ParamInfo {
     pub per_note: bool,
 }
 
-fn yes() -> bool {
-    true
+/// An automatable parameter from 0 to 0, with no name and no unit.
+impl Default for ParamInfo {
+    fn default() -> Self {
+        Self {
+            key: String::new(),
+            id: String::new(),
+            name: String::new(),
+            group: String::new(),
+            min: 0.0,
+            max: 0.0,
+            default: 0.0,
+            unit: String::new(),
+            choices: Vec::new(),
+            steps: 0,
+            boolean: false,
+            enumeration: false,
+            automatable: true,
+            read_only: false,
+            per_note: false,
+        }
+    }
 }
 
 impl ParamInfo {
-    pub fn new(name: &str, min: f32, max: f32, default: f32, unit: &str) -> Self {
+    /// A parameter whose key and shown name are `key`.
+    pub fn new(key: &str) -> Self {
         Self {
-            key: name.into(),
-            name: name.into(),
-            min,
-            max,
-            default,
-            unit: unit.into(),
-            automatable: true,
+            key: key.into(),
+            name: key.into(),
             ..Self::default()
         }
     }
 
-    pub fn choice(name: &str, choices: &[&str], default: usize) -> Self {
+    /// A parameter that chooses between named options, the option at
+    /// `default` first.
+    pub fn choice(key: &str, choices: &[&str], default: usize) -> Self {
+        let last = choices.len() - 1;
         Self {
-            max: (choices.len() - 1) as f32,
             choices: choices.iter().map(|s| s.to_string()).collect(),
-            steps: (choices.len() - 1) as u32,
+            steps: last as u32,
             enumeration: true,
-            ..Self::new(name, 0.0, 0.0, default as f32, "")
+            ..Self::new(key).range(0.0, last as f32).default_value(default as f32)
         }
+    }
+
+    /// The name to show, where it differs from the key.
+    #[must_use]
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = name.into();
+        self
+    }
+
+    /// The lowest and the highest value.
+    #[must_use]
+    pub fn range(mut self, min: f32, max: f32) -> Self {
+        self.min = min;
+        self.max = max;
+        self
+    }
+
+    /// The value of a new device.
+    #[must_use]
+    pub fn default_value(mut self, default: f32) -> Self {
+        self.default = default;
+        self
+    }
+
+    /// The unit to show after a value (`dB`, `Hz`).
+    #[must_use]
+    pub fn unit(mut self, unit: &str) -> Self {
+        self.unit = unit.into();
+        self
     }
 
     /// The device's own id for the parameter: [`id`](Self::id), or the key
@@ -1114,12 +1167,13 @@ mod tests {
         assert_eq!(json["read_only"], true, "the fields keep their names");
         assert_eq!(serde_json::from_value::<ParamInfo>(json).unwrap(), param);
         let bare: ParamInfo = serde_json::from_str("{}").unwrap();
+        assert_eq!(bare, ParamInfo::default(), "a field left out takes its default");
         assert!(bare.automatable, "a parameter that does not say is automatable");
     }
 
     #[test]
     fn a_parameter_says_what_kind_of_value_it_takes() {
-        let gain = ParamInfo::new("Gain", -24.0, 24.0, 0.0, "dB");
+        let gain = ParamInfo::new("Gain").range(-24.0, 24.0).default_value(0.0).unit("dB");
         assert_eq!(gain.kind(), "continuous");
         assert_eq!(gain.stable_id(), "Gain", "a built-in parameter's id is its key");
         assert!(gain.automatable);
@@ -1128,23 +1182,23 @@ mod tests {
         let switch = ParamInfo {
             boolean: true,
             steps: 1,
-            ..ParamInfo::new("On", 0.0, 1.0, 0.0, "")
+            ..ParamInfo::new("On").range(0.0, 1.0).default_value(0.0)
         };
         assert_eq!(switch.kind(), "boolean");
         let voices = ParamInfo {
             steps: 15,
-            ..ParamInfo::new("Voices", 1.0, 16.0, 8.0, "")
+            ..ParamInfo::new("Voices").range(1.0, 16.0).default_value(8.0)
         };
         assert_eq!(voices.kind(), "stepped");
     }
 
     #[test]
     fn values_read_as_text_and_back() {
-        let freq = ParamInfo::new("Freq", 20.0, 20000.0, 1000.0, "Hz");
+        let freq = ParamInfo::new("Freq").range(20.0, 20000.0).default_value(1000.0).unit("Hz");
         assert_eq!(freq.format(2500.0), "2.5 kHz");
         assert_eq!(freq.format(80.0), "80 Hz");
         assert_eq!(freq.parse("2.5 kHz"), Some(2500.0));
-        let gain = ParamInfo::new("Gain", -24.0, 24.0, 0.0, "dB");
+        let gain = ParamInfo::new("Gain").range(-24.0, 24.0).default_value(0.0).unit("dB");
         assert_eq!(gain.format(-18.0), "-18.0 dB");
         assert_eq!(gain.parse("-6 dB"), Some(-6.0));
         assert_eq!(gain.parse("loud"), None);
@@ -1156,14 +1210,14 @@ mod tests {
             choices: vec!["A".into(), "B".into(), "C".into()],
             steps: 2,
             enumeration: true,
-            ..ParamInfo::new("List", 0.0, 1.0, 0.0, "")
+            ..ParamInfo::new("List").range(0.0, 1.0).default_value(0.0)
         };
         assert_eq!(list.format(0.5), "B");
         assert_eq!(list.parse("C"), Some(1.0));
         let switch = ParamInfo {
             boolean: true,
             steps: 1,
-            ..ParamInfo::new("On", 0.0, 1.0, 0.0, "")
+            ..ParamInfo::new("On").range(0.0, 1.0).default_value(0.0)
         };
         assert_eq!(switch.format(1.0), "on");
         assert_eq!(switch.parse("off"), Some(0.0));

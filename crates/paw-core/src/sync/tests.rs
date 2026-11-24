@@ -185,7 +185,7 @@ fn edits_sent_as_parts_play_as_the_project_sent_whole() {
 fn param(key: &str, id: &str) -> ParamInfo {
     ParamInfo {
         id: id.into(),
-        ..ParamInfo::new(key, 0.0, 1.0, 0.0, "")
+        ..ParamInfo::new(key).range(0.0, 1.0).default_value(0.0)
     }
 }
 

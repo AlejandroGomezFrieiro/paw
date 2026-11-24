@@ -10,7 +10,7 @@ use lilv_sys::*;
 use paw_types::{EventKind, ump};
 
 use crate::lv2_patch;
-use crate::{HeldNotes, write_output};
+use crate::{HeldNotes, Mix, write_output};
 use super::urid::*;
 use super::atom::*;
 use super::worker::*;
@@ -227,11 +227,11 @@ impl Lv2Device {
             self.audio_out.iter().all(|c| paw_engine::device::silent(&c[..n])),
         );
 
-        let add = self.audio_in.is_empty();
+        let mix = Mix::for_inputs(!self.audio_in.is_empty());
         match self.audio_out.as_slice() {
             [] => {}
-            [mono] => write_output(io.left, io.right, &[&mono[..n]], add),
-            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], add),
+            [mono] => write_output(io.left, io.right, &[&mono[..n]], mix),
+            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], mix),
         }
         crate::write_pairs(
             &self.out_pairs,

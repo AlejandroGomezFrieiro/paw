@@ -443,7 +443,7 @@ mod tests {
                 default: 0.1,
                 ..ParamInfo::choice("Wave", &["Sine", "Saw"], 1)
             },
-            ParamInfo::new("Gain", -24.0, 24.0, f32::NEG_INFINITY, "dB"),
+            ParamInfo::new("Gain").range(-24.0, 24.0).default_value(f32::NEG_INFINITY).unit("dB"),
         ];
         let hello = Hello {
             params: params.clone(),

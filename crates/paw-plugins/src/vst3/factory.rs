@@ -73,7 +73,9 @@ unsafe fn read_params(controller: &ComPtr<IEditController>) -> (Vec<ParamID>, Ve
             }
             ids.push(info.id);
             let mut param =
-                ParamInfo::new(&title, 0.0, 1.0, info.defaultNormalizedValue as f32, "");
+                ParamInfo::new(&title)
+                    .range(0.0, 1.0)
+                    .default_value(info.defaultNormalizedValue as f32);
             param.unit = wide(&info.units);
             param.id = info.id.to_string();
             param.group = units.get(&info.unitId).cloned().unwrap_or_default();

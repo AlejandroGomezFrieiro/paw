@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use mlua::{Lua, LuaString, Table, Value as LuaValue};
+use paw_engine::wav::WavFormat;
 
 fn fail(what: impl std::fmt::Display) -> mlua::Error {
     mlua::Error::runtime(what.to_string())
@@ -51,10 +52,10 @@ pub(crate) fn sound_write(path: &str, opts: &Table, source: LuaValue) -> mlua::R
     let rate: u32 = opts.get::<Option<u32>>("rate")?.ok_or_else(|| fail("a sound needs a `rate`"))?;
     let channels: u16 = opts.get::<Option<u16>>("channels")?.unwrap_or(2);
     let bits: u16 = opts.get::<Option<u16>>("bits")?.unwrap_or(16);
-    if !matches!(bits, 16 | 24 | 32) || channels == 0 {
-        return Err(fail("a sound is written with 16, 24 or 32 (float) bits, and one channel or more"));
-    }
-    let mut w = paw_engine::wav::Writer::with_channels(Path::new(path), rate, bits, bits == 32, channels)
+    let format = WavFormat::from_bits(bits)
+        .filter(|_| channels > 0)
+        .ok_or_else(|| fail("a sound is written with 16, 24 or 32 (float) bits, and one channel or more"))?;
+    let mut w = paw_engine::wav::Writer::with_channels(Path::new(path), rate, format, channels)
         .map_err(|e| fail(format!("{path}: {e:#}")))?;
     let mut samples = 0usize;
     let mut put = |bytes: &[u8]| -> mlua::Result<usize> {
