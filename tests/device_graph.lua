@@ -140,6 +140,8 @@ local function open(t)
   keys(":e devices<CR>")
   paw.ui.focus("devices")
   paw.ui.message = nil
+  -- A draw at 120 columns: the keys read the layout of the last draw.
+  api.ui_snapshot(120, H)
 end
 
 for _, chain in ipairs({ { "guitar", guitar_bus }, { "drums", drum_bus }, { "vocal", vocal } }) do
