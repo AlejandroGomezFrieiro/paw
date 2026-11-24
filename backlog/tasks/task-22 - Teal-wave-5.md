@@ -1,10 +1,10 @@
 ---
 id: TASK-22
 title: Teal wave 5
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-21T18:33:00Z'
-updated_date: '2026-11-24T16:11:00Z'
+updated_date: '2026-11-24T16:53:00Z'
 labels:
   - teal
   - agent:worker
@@ -30,7 +30,7 @@ Pick the wave at the start and write the list in the notes.
 <!-- AC:BEGIN -->
 - [x] #1 Each module of the wave is a .tl file with no any; tools/tlcheck.sh passes
 - [x] #2 paw.frontend reads the views of paw.ui with their types (the wave 4 item)
-- [ ] #3 The full Lua suite passes; docs/explanation/about-teal.md lists the modules of the wave; Vale reports 0 alerts
+- [x] #3 The full Lua suite passes; docs/explanation/about-teal.md lists the modules of the wave; Vale reports 0 alerts
 <!-- AC:END -->
 
 ## Definition of Done
@@ -59,4 +59,6 @@ Started 2026-11-24: branch teal-wave-5, base 3535c7d2.
 Worker report 2026-11-24 (branch teal-wave-5, 5ee612c7): ported annotation, reconnect, external, recent, luadev, loading, plugins (1,477 lines of Teal, no any; any-allowed.txt lost 7 entries). AC 2: paw.frontend reads paw.ui's types (host.tl lost Ui, Float, Rect, InputOptions, MouseEvent). Kept Lua on purpose: dsp, ext, part_kinds, device_rows, mixer_rows, routes, params, device_presets, init, untyped; portable must stay Lua (LuaJIT globals before any module). Next wave suggested: health, learn, stretch, autosave, audio, controls, fx (freeze waits for FZ and RD). host.DevicePanel and host.RecentModule stay stand-ins until MX.
 
 Wave 5 on main in 982068d6 (with the one-field project reads of 4959542e). AC 3 waits for the full suite before the next push.
+
+2026-11-24: full suite on main 1e19cb1c (merge tree, debug build, new ARA bridge): 182 of 183 parts pass. The one failure is tests/files.lua (TASK-378), which no module of the wave touches.
 <!-- SECTION:NOTES:END -->
