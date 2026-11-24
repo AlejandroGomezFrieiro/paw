@@ -92,6 +92,28 @@ fn demo() {
 | Binary size matters, many monomorphisations | `dyn Trait` |
 | Plug-in / callback registered at runtime | `dyn Trait` |
 
+## Choose at run time without a `Box`
+
+When one of two types is chosen at run time and the code after the choice is large or cold, borrow a temporary as `&mut dyn Trait`. Since Rust 1.79 the compiler extends the life of a temporary inside `&`/`&mut` in a `let` initializer, so no allocation and no second binding is needed. The code after the choice compiles once and not once for each type.
+
+```rust
+use std::io::{self, Read};
+
+fn open(path: Option<&str>) -> io::Result<()> {
+    let input: &mut dyn Read = match path {
+        Some(p) => &mut std::fs::File::open(p)?,
+        None => &mut io::stdin(),
+    };
+    // Read from `input` here.
+    let _ = input;
+    Ok(())
+}
+```
+
+Use it off the audio thread, for a choice that happens once. On the audio thread, choose with a generic or an enum, so that no virtual call sits in the inner loop. A `Box<dyn Trait>` that is made on the audio thread allocates, and that is forbidden there.
+
+Source: <https://rust-unofficial.github.io/patterns/idioms/on-stack-dyn-dispatch.html>
+
 ## See Also
 
 - [anti-type-erasure](anti-type-erasure.md) - don't use `Box<dyn Trait>` when `impl Trait` works

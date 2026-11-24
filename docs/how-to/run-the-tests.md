@@ -506,7 +506,8 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - The pattern rules of the Rust code (`tools/rustlint.sh`), which run
   `ast-grep scan` and `ast-grep test` on the rules in `tools/ast-grep`. The
   rules refuse a function that only gives a constant, a
-  `#[serde(default = "...")]`, a helper such as `is_zero`, and a module of
+  `#[serde(default = "...")]`, a helper such as `is_zero`, `deny(warnings)` in
+  the source, and a module of
   the model that names a higher layer.
 - `cargo machete`, which fails on a dependency that no code uses, and
   `cargo deny check bans licenses sources`, which fails on a license that

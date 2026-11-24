@@ -9,6 +9,8 @@
 # - serde-default-fn: no `#[serde(default = "name")]`.
 # - one-value-helper: no free `is_zero`, `is_one`, `is_false` or `is_true`
 #   helper. paw-core's `model::serde_util::is_default` does the job.
+# - deny-warnings: no `#![deny(warnings)]` in the source. A new compiler adds
+#   lints and the build breaks. `cargo clippy -- -D warnings` does the job.
 # - model-names-higher-layer: no module of paw-core's model names the
 #   session, the sync, the API or the kernel.
 #

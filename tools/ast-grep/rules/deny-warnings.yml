@@ -1,0 +1,15 @@
+id: deny-warnings
+language: Rust
+severity: error
+message: '`deny(warnings)` in the source breaks the build when a new compiler adds a lint. Deny warnings on the command line (`cargo clippy -- -D warnings`), and give a lint its own level in `[workspace.lints]`.'
+files:
+  - crates/**/*.rs
+  - extensions/**/*.rs
+  - tests/harness/**/*.rs
+ignores:
+  - crates/paw-gui/**
+rule:
+  any:
+    - kind: attribute_item
+    - kind: inner_attribute_item
+  regex: \b(deny|forbid)\s*\(\s*warnings\s*\)
