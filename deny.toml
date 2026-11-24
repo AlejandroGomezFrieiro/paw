@@ -1,0 +1,39 @@
+# cargo-deny: `cargo deny check bans licenses sources` (flake check `deny`).
+# The window is paused and does not count.
+[graph]
+exclude = ["paw-gui"]
+
+[licenses]
+# The licenses that paw's dependencies have today. Each one is permissive.
+# A dependency with another license fails the check: look at the license
+# before you add its name here.
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  # The licence of symphonia, the decoder of sound files. It asks that a
+  # change to one of its files is published, and paw changes none.
+  "MPL-2.0",
+  "NCSA",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+confidence-threshold = 0.8
+
+[bans]
+# More than one version of a crate is a cost, but the tree has many today.
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

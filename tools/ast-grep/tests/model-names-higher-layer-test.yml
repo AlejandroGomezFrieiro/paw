@@ -1,0 +1,17 @@
+id: model-names-higher-layer
+valid:
+  - |
+    use crate::model::Id;
+  - |
+    use crate::{model::Id, ids::Kind};
+  - |
+    fn f() { let x = crate::model::Id::new(); }
+invalid:
+  - |
+    use crate::session::Save;
+  - |
+    use crate::{model::Id, sync::Sync};
+  - |
+    fn f() { let x = crate::kernel::run(); }
+  - |
+    use crate::api::Api;

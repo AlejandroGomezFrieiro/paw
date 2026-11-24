@@ -1,0 +1,17 @@
+id: model-names-higher-layer
+language: Rust
+severity: error
+message: The model is the lowest layer of paw-core. It does not name sync, session, api or kernel.
+files:
+  - crates/paw-core/src/model.rs
+  - crates/paw-core/src/model/**/*.rs
+rule:
+  any:
+    - kind: use_declaration
+      regex: \bcrate::(\{[^}]*\b)?(sync|session|api|kernel)\b
+    - kind: scoped_identifier
+      regex: ^crate::(sync|session|api|kernel)\b
+      not:
+        inside:
+          kind: use_declaration
+          stopBy: end

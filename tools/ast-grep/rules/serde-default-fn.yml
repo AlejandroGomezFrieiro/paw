@@ -1,0 +1,12 @@
+id: serde-default-fn
+language: Rust
+severity: error
+message: '`serde(default = "name")` needs a function for each default. Put `#[serde(default)]` on the type and give it `Default`.'
+files:
+  - crates/**/*.rs
+  - extensions/**/*.rs
+ignores:
+  - crates/paw-gui/**
+rule:
+  kind: attribute_item
+  regex: (?s)serde\(.*?\bdefault\s*=\s*"

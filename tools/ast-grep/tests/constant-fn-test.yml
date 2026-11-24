@@ -1,0 +1,23 @@
+id: constant-fn
+valid:
+  - |
+    fn new() -> Self { Self { a: 1 } }
+  - |
+    fn double(x: u32) -> u32 { 2 }
+  - |
+    fn sum() -> u32 { 1 + 2 }
+  - |
+    impl Id {
+        fn kind() -> u32 { 3 }
+    }
+invalid:
+  - |
+    fn yes() -> bool { true }
+  - |
+    fn one() -> f64 { 1.0 }
+  - |
+    pub fn velocity() -> u8 {
+        100
+    }
+  - |
+    fn minus() -> i32 { -1 }

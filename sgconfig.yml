@@ -1,0 +1,7 @@
+# ast-grep: the pattern rules of the Rust code that clippy does not do.
+# `ast-grep scan` checks them, `ast-grep test` runs their examples
+# (tools/rustlint.sh runs both).
+ruleDirs:
+  - tools/ast-grep/rules
+testConfigs:
+  - testDir: tools/ast-grep/tests

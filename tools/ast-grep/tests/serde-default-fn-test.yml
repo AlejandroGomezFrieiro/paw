@@ -1,0 +1,19 @@
+id: serde-default-fn
+valid:
+  - |
+    #[serde(default)]
+    struct A { flag: bool }
+  - |
+    #[serde(rename = "a", skip_serializing_if = "Option::is_none")]
+    struct A { flag: bool }
+invalid:
+  - |
+    struct A {
+        #[serde(default = "yes")]
+        flag: bool,
+    }
+  - |
+    struct A {
+        #[serde(rename = "a", default = "one")]
+        value: f64,
+    }

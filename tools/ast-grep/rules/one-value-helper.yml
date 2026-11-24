@@ -1,0 +1,18 @@
+id: one-value-helper
+language: Rust
+severity: error
+message: A helper tests one value. Use serde_util::is_default.
+files:
+  - crates/**/*.rs
+  - extensions/**/*.rs
+ignores:
+  - crates/paw-gui/**
+rule:
+  kind: function_item
+  has:
+    field: name
+    regex: ^is_(zero|one|false|true)[a-z_0-9]*$
+  not:
+    inside:
+      kind: impl_item
+      stopBy: end

@@ -1,0 +1,24 @@
+id: constant-fn
+language: Rust
+severity: error
+message: A function gives a constant. Give its type a Default, or write a const.
+note: A serde default such as `fn one() -> f64 { 1.0 }` is a constant in disguise.
+files:
+  - crates/**/*.rs
+  - extensions/**/*.rs
+ignores:
+  - crates/paw-gui/**
+rule:
+  kind: function_item
+  all:
+    - has:
+        field: parameters
+        regex: ^\(\s*\)$
+    # The body is one literal: true, false or a number, with its sign and suffix.
+    - has:
+        field: body
+        regex: ^\{\s*(true|false|-?[0-9][0-9_]*(\.[0-9_]+)?([eE][-+]?[0-9]+)?([a-z][a-z0-9]*)?)\s*\}$
+  not:
+    inside:
+      kind: impl_item
+      stopBy: end

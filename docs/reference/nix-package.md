@@ -43,7 +43,10 @@ The package loads each extension of `withExtensions` at the start, before the co
 
 | Check | Effect |
 | --- | --- |
-| `clippy` | Runs clippy on all targets of the workspace but the graphical window, the fuzz targets in `fuzz/` included. It reports the warnings and does not fail, but a target that doesn't compile fails it. |
+| `clippy` | Runs clippy on all targets of the workspace but the graphical window, the fuzz targets in `fuzz/` included, with `--deny warnings`. It fails on a finding of a lint of `[workspace.lints]` in `Cargo.toml`, and on an `#![expect(...)]` that no finding fulfils. |
+| `rustlint` | Runs the pattern rules of `tools/ast-grep/rules` with `ast-grep scan` and their examples with `ast-grep test`. It fails on a function that only gives a constant, on a `#[serde(default = "...")]`, on a helper such as `is_zero` that tests one value, and on a module of the model of paw-core that names the session, the sync, the API or the kernel. |
+| `machete` | Runs cargo-machete. It fails when a crate lists a dependency that its code does not use. |
+| `deny` | Runs `cargo deny check bans licenses sources` with `deny.toml`. It fails on a license that is not on the permissive list of the file, and on a source that is not crates.io. |
 | `fmt` | Runs `cargo fmt --check`. It reports how many places would change and does not fail. |
 | `tests` | Runs the Rust tests that need no display, audio device or Lua suite, with cargo-nextest. These must pass. A test fails when its output is not the same as the saved file in a `snapshots/` folder, and the check writes no new file. |
 | `docs` | Runs Vale on `README.md`, `AGENTS.md`, `docs/`, the READMEs of the crates and extensions, the `doc/` pages of the extensions, `bench/README.md` and `bench/DAWS.md`. It fails on an error. |

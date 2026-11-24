@@ -49,7 +49,7 @@
           # runtime's Lua is compiled into the binary (`include_dir!`).
           # The fuzz crate is a workspace member: its manifest and targets,
           # not its seeds.
-          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
+          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./clippy.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
           src = lib.fileset.toSource { root = ./.; fileset = cargoFiles; };
           # The crates as cargo downloads them, each a store path, so every
           # file in them is read-only. LuaJIT's build copies its source tree
@@ -131,8 +131,20 @@
                 root = ./.;
                 fileset = lib.fileset.unions [ cargoFiles ./docs/how-to/check-chain-files-in-another-editor.md ];
               };
-              cargoClippyExtraArgs = "--workspace --exclude paw-gui --all-targets";
+              # `--deny warnings` is the ratchet of the lints of Cargo.toml: a
+              # new finding fails, and so does an `expect` that nothing
+              # fulfils (a paid debt: delete the line).
+              cargoClippyExtraArgs = "--workspace --exclude paw-gui --all-targets -- --deny warnings";
               doInstallCargoArtifacts = false;
+            });
+            # Licenses, banned crates and sources (deny.toml). Not the
+            # advisories: they need the network and change with the day.
+            deny = craneLib.cargoDeny (common // {
+              src = lib.fileset.toSource {
+                root = ./.;
+                fileset = lib.fileset.unions [ cargoFiles ./deny.toml ];
+              };
+              cargoDenyChecks = "bans licenses sources";
             });
             # The tree has never been run through rustfmt as a whole, and
             # doing it would collide with every branch in flight, so this
@@ -442,13 +454,31 @@
         touch $out
       '';
 
-      # tools/rustlint.sh: the checks of the Rust code that clippy does not
-      # do (constant functions, one-value helpers, the layers of the model).
+      # tools/rustlint.sh: the pattern rules of the Rust code that clippy does
+      # not check (constant functions, one-value helpers, the layers of the
+      # model), as ast-grep rules (sgconfig.yml, tools/ast-grep): `ast-grep
+      # scan` and `ast-grep test`.
       rustlint = pkgs: pkgs.runCommand "paw-rustlint" {
-        src = ./.;
-        nativeBuildInputs = [ pkgs.findutils pkgs.gnugrep pkgs.gawk ];
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [ ./sgconfig.yml ./tools/ast-grep ./tools/rustlint.sh ./crates ./extensions ];
+        };
+        nativeBuildInputs = [ pkgs.ast-grep ];
       } ''
         cd $src && sh tools/rustlint.sh
+        touch $out
+      '';
+
+      # cargo-machete: no crate lists a dependency that its code does not use.
+      # It reads the manifests and the sources, so it needs no build.
+      machete = pkgs: pkgs.runCommand "paw-machete" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./crates ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
+        };
+        nativeBuildInputs = [ pkgs.cargo-machete ];
+      } ''
+        cd $src && cargo-machete
         touch $out
       '';
 
@@ -531,7 +561,7 @@
       # luacheck on the Lua, how much the formatters would change, and the
       # check against tests that depend on time, the order of layers in
       # the runtime, and the chain crates that depend on no paw crate.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; hygiene = hygiene pkgs; rustlint = rustlint pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; hygiene = hygiene pkgs; rustlint = rustlint pkgs; machete = machete pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
@@ -574,7 +604,7 @@
           # xmllint checks the DAWproject files of extensions/interop against the
           # format's XML schema. cargo-insta reviews and accepts the Rust
           # snapshots (the version of insta in Cargo.lock).
-          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta (lib.getBin libxml2) ]
+          nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta cargo-machete cargo-deny ast-grep (lib.getBin libxml2) ]
             ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
           # Every git worktree has a `target/` of its own, and cargo shares
           # nothing between them: each one compiles the same four hundred

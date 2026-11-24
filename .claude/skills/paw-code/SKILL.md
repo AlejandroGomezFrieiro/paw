@@ -75,8 +75,14 @@ them to paw.
   make clear ownership hard to read. On the audio thread: no lock, no allocation, no wait.
 - In Rust: each crate uses the lints of the workspace (`[workspace.lints]`
   in the top `Cargo.toml`). `cargo clippy --workspace --exclude paw-gui
-  --all-targets` reports 0 warnings. Keep it at 0. Write a `// SAFETY:`
-  comment above each `unsafe` block, in tests and examples too.
+  --all-targets -- -D warnings` reports 0 warnings. Keep it at 0. Write a
+  `// SAFETY:` comment above each `unsafe` block, in tests and examples too.
+- Today's debt is `#![expect(clippy::<lint>, reason = "debt: pay down")]`
+  at the top of a module. Do not add one for new code: fix the cause.
+  When a module is clean, `unfulfilled_lint_expectations` fails the build
+  until you delete the line, so the debt only goes down. Do not write
+  `#[allow]`: `allow_attributes` refuses it. Count the debt of a crate
+  with `grep -rc 'expect(clippy::' crates/<crate>`.
 
 ## 3. Tests
 
@@ -196,7 +202,14 @@ The command `git config core.hooksPath .githooks` turns it on once. It
 runs `tools/hygiene.sh`: no `*.orig` or `*.rej` file, and no id of the
 local task board. It also runs `tools/partlint.lua`,
 `tools/testlint.lua`, `tools/layers.lua` and `tools/zoomlint.lua`, and
-`tools/rustlint.sh` when that file exists. The project hook
+`tools/rustlint.sh` when that file exists.
+
+`tools/rustlint.sh` runs the ast-grep rules of `tools/ast-grep/rules` (`ast-grep scan` and
+`ast-grep test`). `nix flake check` also runs `cargo machete` (unused
+dependencies) and `cargo deny check bans licenses sources`
+(`deny.toml`).
+
+The project hook
 `tools/guard-hook.py` refuses `cargo test --workspace`, a build of
 paw-gui, `tests/tools/loaded.sh` and `tests/tools/e2e.sh` before they
 run. `tests/tools/suite.sh` waits for a slot of the machine: one full

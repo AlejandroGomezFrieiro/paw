@@ -456,7 +456,20 @@ Run `nix flake check`, which builds paw and runs the following checks:
 - The Rust tests that need no display, audio device or Lua suite, with
   cargo-nextest. They must pass, and a test fails when its output is not
   the same as the saved file in a `snapshots/` folder.
-- Clippy and rustfmt, which report what they find and do not fail.
+- Clippy with `--deny warnings`, which fails on a finding of the lints in
+  `Cargo.toml`. A module that still has findings says so with
+  `#![expect(clippy::<lint>, reason = "debt: pay down")]`. When you fix the
+  last finding of a lint in a module, clippy fails until you delete that
+  line, so the list of debts only gets shorter.
+- rustfmt, which reports what it finds and does not fail.
+- The pattern rules of the Rust code (`tools/rustlint.sh`), which run
+  `ast-grep scan` and `ast-grep test` on the rules in `tools/ast-grep`. The
+  rules refuse a function that only gives a constant, a
+  `#[serde(default = "...")]`, a helper such as `is_zero`, and a module of
+  the model that names a higher layer.
+- `cargo machete`, which fails on a dependency that no code uses, and
+  `cargo deny check bans licenses sources`, which fails on a license that
+  `deny.toml` does not allow.
 - Vale on the documentation, which fails on an error.
 - The checks of the Lua and Teal code, which fail on a problem: the types
   of the Teal files (`tools/tlcheck.sh`), `luacheck` on the Lua files, and
