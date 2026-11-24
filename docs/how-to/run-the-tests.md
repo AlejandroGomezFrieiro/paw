@@ -77,6 +77,12 @@ time, whatever the command asks. A part that runs for ten minutes is
 stopped and fails with `TIMEOUT`. A part that leaves a process behind
 fails with `LEAK-FAIL`.
 
+Each part also takes one of four slots of the machine before it starts
+paw, so two runs at the same time share the four slots, and a part waits
+for a free one. The slots are lock files in `/tmp/paw-suite-locks`. Set
+`PAW_SUITE_LOCKS` to use another folder, and `PAW_SUITE_SLOTS` to change
+the number. If a part can't take a slot, it fails and says why.
+
 You can also run the suite with cargo-nextest itself, for example to run
 the parts whose name holds a word:
 `cargo nextest run -p paw-lua-suite --profile lua -E 'test(/modal/)'`.

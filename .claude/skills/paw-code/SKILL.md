@@ -226,6 +226,12 @@ group `lua` never more than four. A part that runs ten minutes fails
 the suite has `PAW_TEST_IN_SUITE`, and the suite does not start when it
 is set: a test cannot start the suite again.
 
+The slots of the machine cap all the runs of the suite together. Before
+it starts paw, each part takes one slot: a lock file in
+`$PAW_SUITE_LOCKS` (else `/tmp/paw-suite-locks`). `$PAW_SUITE_SLOTS`
+gives the number of slots (else 4). A part waits for a free slot. A part
+that cannot take a slot fails with "suite: cannot take a slot".
+
 | Tier | When | Commands |
 | --- | --- | --- |
 | Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |

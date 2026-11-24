@@ -14,6 +14,9 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod slot;
+use slot::Slots;
+
 /// Set in the environment of each paw of a run. A command that runs the
 /// suite refuses to start when it is set: a test that starts the suite
 /// again would start processes without end.
@@ -40,13 +43,14 @@ enum Pass {
     Live,
 }
 
-/// One run of the suite: the checkout, the folder of its files, and the
-/// words that select the tests.
+/// One run of the suite: the checkout, the folder of its files, the slots
+/// of the machine, and the words that select the tests.
 #[derive(Clone)]
 pub struct Suite {
     root: PathBuf,
     scratch: PathBuf,
     words: Option<String>,
+    slots: Slots,
 }
 
 impl Suite {
@@ -64,6 +68,7 @@ impl Suite {
             root,
             scratch,
             words,
+            slots: Slots::from_env(),
         }
     }
 
@@ -85,6 +90,7 @@ impl Suite {
     /// The parts that hold a test of the words: a paw prints one line
     /// `part<tab><part>` for each of them.
     fn parts_with(&self, words: &str) -> Result<Vec<String>, String> {
+        let _slot = self.slots.take()?;
         let scratch = self.fresh_folder("list")?;
         let out = scratch.join("list.out");
         let status = self
@@ -114,6 +120,8 @@ impl Suite {
     /// The tests that failed, with their reasons, and the path of the
     /// whole output.
     pub fn run(&self, part: &str) -> Result<(), String> {
+        // The slot holds for both passes: a part runs one paw at a time.
+        let _slot = self.slots.take()?;
         let scratch = self.fresh_folder(&format!("parts/{}", folder_name(part)))?;
         let out = scratch.join("suite.out");
         let manual = self.pass(part, &scratch, &out, Pass::Manual)?;

@@ -23,7 +23,10 @@
 # A part is a test file of tests/, or the test files of one extension. The
 # Lua suite is the test binary of tests/harness: cargo nextest runs each
 # part in a paw of its own, with the limits of .config/nextest.toml (the
-# profiles lua and lua-one). The plugins run does not use it: it needs the
+# profiles lua and lua-one). Each part also takes one of the slots of the
+# machine ($PAW_SUITE_SLOTS lock files in $PAW_SUITE_LOCKS, else 4 in
+# /tmp/paw-suite-locks), so all runs together start at most 4 paw
+# processes. The plugins run does not use it: it needs the
 # plugin folders of the dev shell in place of the empty ones of env.sh.
 #
 # Prints what nextest reports (the parts that fail, run long or leak), the

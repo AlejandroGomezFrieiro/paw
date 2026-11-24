@@ -152,8 +152,9 @@ contract. A contract is a trait, a saved type, a file format, a
   commit with a leftover of a merge, an id of the local task board, or a
   lint that fails. `tools/guard-hook.py` refuses the commands that put a
   load on the machine that it cannot carry. `tests/tools/suite.sh` runs
-  the Lua suite under cargo-nextest, and `.config/nextest.toml` limits it
-  to four paw processes.
+  the Lua suite under cargo-nextest. Each part of the suite takes one of
+  four slots of the machine (lock files in `/tmp/paw-suite-locks`) before
+  it starts paw, so all the runs on the machine share four paw processes.
 - A review of a change reads `CODING_STANDARDS.md`: the rules that need
   judgment.
 
