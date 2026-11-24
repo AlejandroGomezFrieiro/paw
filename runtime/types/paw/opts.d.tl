@@ -41,6 +41,7 @@ local record Opts
    follow: boolean
    fps: number
    gdefault: boolean
+   graph_insertkeys: {string | number}
    graphics: boolean
    grid: number | string
    harmony_step: number

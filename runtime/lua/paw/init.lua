@@ -274,6 +274,9 @@ function K.startup()
   paw.workspace = require("paw.workspace")
   -- Insert mode in the arrange view, and what its keys insert (paw/insert.tl).
   paw.insert = require("paw.insert")
+  -- The keys of the devices view, with its insert mode, which reads the
+  -- insert keys of paw.insert.
+  require("paw.views.devices_keys")
   -- Listings edited as text (`:e paw://parts`), and the kinds built in.
   paw.textbuf = require("paw.textbuf")
   -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).

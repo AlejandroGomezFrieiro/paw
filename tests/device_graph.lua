@@ -219,19 +219,17 @@ test("Enter goes to the inspector, which shows the node under the cursor", funct
   eq(place.chain_split.name, "Tame", "on a split, the inspector shows it")
 end)
 
-test("x on a split says that it removes a device, and the chain stays", function()
+test("x on a split cuts the split with its devices, and u brings it back", function()
   T.start()
   local t = guitar_bus()
   open(t)
   keys("2l")
   local before = #api.part_get(t.id).devices
   keys("x")
-  eq(#api.part_get(t.id).devices, before, "no device goes")
-  eq(
-    tostring(paw.ui.message and paw.ui.message.text),
-    "no device here: x removes a device; the cursor is on Tame",
-    "the message says why"
-  )
+  eq(#api.part_get(t.id).devices, before - 3, "the three devices of the band split go")
+  eq(tostring(paw.ui.message and paw.ui.message.text), "cut Tame", "the message says what went")
+  keys("u")
+  eq(#api.part_get(t.id).devices, before, "one undo brings them back")
 end)
 
 test("K on a split of a kind that no loaded extension defines says that it plays its first branch, and why", function()

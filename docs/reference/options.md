@@ -113,6 +113,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
 | `paw.opt.regionlevels` | `3` | The rows of the lane of regions under the ruler: a row for each level of regions. Deeper regions are on the last row. |
 | `paw.opt.insertkeys` | `m,a,r,',f` | The keys of insert mode in the arrange view, in the order of its box of keys. See [Insert mode](insert-mode.md). |
+| `paw.opt.graph_insertkeys` | `c,e,s,g,l,d,r,u,m,R,L,B,M,S` | The keys of insert mode in the devices view, in their order. See [The devices view](device-panel.md#insert-mode). |
 | `paw.opt.devices_width` | `36` | The columns of the device panel. |
 | `paw.opt.mixer_height` | `12` | The rows of the mixer. |
 | `paw.opt.pianoroll_height` | `0` | The rows of the piano roll. `0` shares the space. |

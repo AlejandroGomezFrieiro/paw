@@ -1,0 +1,42 @@
+{1:▌}{2: }{1:INSERT}{2:  before ▣ layer · Bus                                              4 dev · 1 cont · 5.6 ms }
+ {3:Bus › layer                                                                                       }
+ {4:in ━▶ }{5:EQ          ▁}{4: }{6:┃}{4:▶ }{5:┳ layer 2   ▁}{4: ━▶ }{5:Limiter     ▁}{4: ━▶ }{3:out}
+       {4:1 on Off}         {4:1 · 2}            {4:ceiling -1.0…}
+
+
+
+
+
+
+
+{7:▌}{8: }{9:Inspector}{8:  layer                                                                                  }
+ {5:▾ layer                                                                  }  {4:layer split · 2 devices}
+
+ {10:+ add a device  }
+ {3:→ Master ▾}                                                                                 {3:+ send }
+
+
+
+
+
+
+{11: INSERT·devices }{12: }{8:■}{13: 1.1.00}{7: │ }{8:0:00.0}{7: │ }{12:120 bpm 4/4}{7: │ }{8:grid 1/4}{12:                   }{14:● }{15:untitled}{7: │ }{8:cpu ▁ 0%}{12: }
+{16:                                                                                 }{8::help device-panel}{16: }
+--
+0: fg=#c9ced8 bg=#101216
+1: fg=#101216 bg=#f5a95c bold
+2: fg=#101216 bg=#f5a95c
+3: fg=#8a91a3 bg=#101216
+4: fg=#565d6d bg=#101216
+5: fg=#eef1f6 bg=#101216 bold
+6: fg=#101216 bg=#8fc96a
+7: fg=#363d4b bg=#16191f
+8: fg=#8a91a3 bg=#16191f
+9: fg=#8a91a3 bg=#16191f bold
+10: fg=#f5a95c bg=#101216 bold
+11: fg=#101216 bg=#8fc96a bold
+12: fg=#c9ced8 bg=#16191f
+13: fg=#eef1f6 bg=#16191f bold
+14: fg=#f5a95c bg=#16191f
+15: fg=#c9ced8 bg=#16191f bold
+16: fg=#565d6d bg=#16191f

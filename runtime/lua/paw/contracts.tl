@@ -397,6 +397,9 @@ local record contracts
     unstretched: boolean
     clips: {integer: boolean}
     notes: {integer: {integer: boolean}}
+    --- The nodes of the devices graph that a region names outright (`im`,
+    --- the devices that the macros of a container move), by id.
+    nodes: {integer: boolean}
     --- What a text object covers as a scope (`zn{motion}`): `ar` the
     --- region, `ag` the group, `it` the part. Nil for a block.
     scope: Scope
@@ -1537,7 +1540,16 @@ local record contracts
   --- item)` is what `<CR>` does after it: open the item in its editor.
   --- `order` places it in `paw.opt.insertkeys` when it is added;
   --- `hidden` keeps it out of `paw.opt.insertkeys`.
+  ---
+  --- With `view = "devices"` it is a key of the insert mode of the devices
+  --- view, listed in `paw.opt.graph_insertkeys`: it inserts the device
+  --- `device` (with the preset `preset`), or a split of the kind `split`
+  --- (`chain` is a rack, which asks for its name).
   record InsertKind is OwnedEntry
+    view: string
+    device: string
+    preset: string
+    split: string
     kind: string
     length: InsertLength
     name: string

@@ -58,6 +58,10 @@ paw.insert.add("M", {
 | `name` | The name of the item. `%d` becomes a number: the number of the clip on its part, of the marker, or of the region. |
 | `notes` | The notes that a MIDI clip starts with, as `part:add_clip` takes them. |
 | `args` | The words that a kind of clip gets in its `create`. |
+| `view` | The view whose insert mode gets the key. The default is the arrange view. With `"devices"`, the key goes into `paw.opt.graph_insertkeys`, and the key takes `device` or `split` in place of `kind`. |
+| `device` | In the devices view, the kind of device that the key inserts, as `paw.fx.add` takes it. |
+| `preset` | In the devices view, a preset that the device loads. |
+| `split` | In the devices view, the kind of split that the key inserts: `chain` (a rack), `layer`, `band`, `ms`, `lr` or a kind that an extension defines. |
 | `parts` | The kinds of part that the key works on. `part` is a part of no kind. The default is every part. |
 | `per_part` | Changes for a kind of part: `{ vocal = { name = "Vocal %d" } }`. |
 | `insert(ctx)` | Inserts the item itself, in place of what `kind` does. It returns the item, or nil and why not. |

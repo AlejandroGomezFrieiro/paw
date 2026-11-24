@@ -20,7 +20,11 @@
 --   paw.insert.remove("f")
 --
 -- The keys that work are those in `paw.opt.insertkeys`; `add` puts a new
--- key there, at the place of its `order`. A kind of clip
+-- key there, at the place of its `order`. A key with `view` belongs to
+-- the insert mode of another view, which reads it from `view_kinds`:
+--
+--   paw.insert.add("C", { view = "devices", device = "chorus", desc = "A chorus" })
+-- A kind of clip
 -- (`paw.clip_kinds.define`) with an `insert` key gets one too. The
 -- contract is `paw.contracts.InsertKind`.
 --
@@ -107,6 +111,35 @@ local record M
   --- The keys and what each inserts, by key, with the extension that
   --- added or changed each one (`add`, `set`).
   kinds: registry.Registry<Kind>
+  --- What a view whose insert mode reads `view_kinds` does when a key of
+  --- it changes, by the name of the view. The view sets it.
+  on_view: {string: function()}
+end
+
+M.on_view = {}
+
+-- The keys of the insert modes of other views, by the name of the view.
+local view_kinds: {string: registry.Registry<Kind>} = {}
+
+--- The insert keys of the view `name` (`paw.insert.add` with `view`), by
+--- key. The view maps them: only the arrange view's keys are mapped here.
+function M.view_kinds(name: string): registry.Registry<Kind>
+  if not view_kinds[name] then
+    view_kinds[name] = registry.new(
+      "insert." .. name,
+      "keys of insert mode in the " .. name .. " view",
+      {
+        label = function(key: string, _: Kind): string return key .. " (insert mode, " .. name .. ")" end,
+        changed = function()
+          local fn = M.on_view[name]
+          if fn then
+            fn()
+          end
+        end,
+      }
+    )
+  end
+  return view_kinds[name]
 end
 
 local session: Session = {items = {}, specs = {}}
@@ -223,6 +256,18 @@ function M.add(key: string, spec: Kind): Kind
     type(key) == "string" and key ~= "" and type(spec) == "table",
     "usage: paw.insert.add(key, { kind = \"midi\", desc = \"A MIDI clip\" })"
   )
+  if spec.view and spec.view ~= "arrange" then
+    assert(
+      spec.device ~= nil or spec.split ~= nil,
+      "an insert key of the " .. spec.view .. " view has a `device` or a `split`"
+    )
+    spec.key = key
+    spec.desc = spec.desc or ("A " .. tostring(spec.device or spec.split or key))
+    spec.order = spec.order or 50
+    spec.ext = spec.ext or paw.ext.caller()
+    M.view_kinds(spec.view):put(key, spec)
+    return spec
+  end
   assert(spec.kind ~= nil or spec.insert ~= nil, "an insert key has a `kind` or an `insert` function")
   spec.key = key
   spec.desc = spec.desc or ("A " .. tostring(spec.kind))
@@ -238,8 +283,13 @@ function M.add(key: string, spec: Kind): Kind
 end
 
 --- Take a key away, and out of `paw.opt.insertkeys`. The kind that it
---- replaced, if any, comes back.
-function M.remove(key: string)
+--- replaced, if any, comes back. With `view`, a key of that view's insert
+--- mode.
+function M.remove(key: string, view?: string)
+  if view and view ~= "arrange" then
+    M.view_kinds(view):remove(key)
+    return
+  end
   M.kinds:remove(key)
 end
 

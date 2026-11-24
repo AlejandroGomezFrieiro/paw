@@ -138,6 +138,10 @@ local defaults: {string: Value} = {
   -- The keys of the arrange view's insert mode, in the order the hints
   -- show them: what each inserts at the cursor (paw/insert.tl).
   insertkeys = {"m", "a", "r", "'", "f"},
+  -- The keys of the devices view's insert mode, in the order the hints
+  -- show them: the device or split that each inserts at the caret
+  -- (paw/views/devices_keys.tl).
+  graph_insertkeys = {"c", "e", "s", "g", "l", "d", "r", "u", "m", "R", "L", "B", "M", "S"},
   termcolors = "auto", -- "true" for 24-bit colour, "256", or "auto" to ask the environment
   ascii = false, -- draw with plain ASCII characters only
   braille = true, -- false draws curves with lines, whatever curve_glyphs says

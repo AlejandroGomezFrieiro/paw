@@ -128,7 +128,7 @@ In the **curve editor**:
 | `dd` `yy` `p` | parts |
 | `V` with `-` | several faders |
 
-| Keys | D |
+| Keys | I |
 | --- | --- |
 | `+` `-` | change the parameter (`10+`) |
 | `a` | add a device |
@@ -143,6 +143,19 @@ In the **curve editor**:
 | `gS` | the part that the device listens to (side-chain) |
 | `O` | where its further output pairs play |
 | `\p` | pin the panel to its part, or follow the cursor again |
+
+| Keys | D |
+| --- | --- |
+| `d` `y` `c` `p` `P` | cut, copy, change and paste nodes (`dd`, `dab` a branch, `cc` a preset) |
+| `>` `<` | move nodes later and earlier in the signal |
+| `gc` `~` | bypass devices, mute branches |
+| `gs{kind}` `ds` `cs{kind}` | wrap in a split, unwrap, change its kind |
+| `i` `a` `o` `O` | insert at a caret, add a device, add a branch |
+| `v` `V` `<C-v>` | select nodes, branches, a block |
+| `+` `-` `[` `]` | wet mix and output gain, branch gain and pan |
+| `\s` `\S` `\b` `\a` | solo a branch, solo follows, bypass the chain, flip variants |
+
+The [devices view](device-panel.md#the-devices-view) lists every key of **D**, with its text objects and Ex commands.
 
 ## Name a region (text objects)
 

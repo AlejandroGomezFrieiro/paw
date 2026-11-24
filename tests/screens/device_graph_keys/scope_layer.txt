@@ -1,0 +1,43 @@
+{1:▌}{2: }{1:Devices}{2:  Bus                                                              4 dev · 1 cont · 5.6 ms }
+ {3:Bus › layer                                                                                       }
+       {4:layer}{5:                                        }
+ {6:in ━▶ ┳━▶ }1 {6:━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ }{3:0.0}{6: ━┳ ━▶ }{3:out}
+       {6:┗━▶ }2 {7:Saturation  ▁}{6: ━▶ }{7:Compressor  ▁}{6: ━ }{3:0.0}{6: ━┛}
+             {6:drive 6.0 dB}     {6:threshold -1…}
+
+
+
+
+
+{8:▌}{9: }{10:Inspector}{9:  layer                                                                                  }
+ {7:▾ layer                                                                  }  {6:layer split · 2 devices}
+
+ {11:+ add a device  }
+ {3:→ Master ▾}                                                                                 {3:+ send }
+
+
+
+
+
+
+{12: NORMAL·devices }{13: }{9:■}{14: 1.1.00}{8: │ }{9:0:00.0}{8: │ }{13:120 bpm 4/4}{8: │ }{9:grid 1/4}{13:                   }{15:● }{16:untitled}{8: │ }{9:cpu ▁ 0%}{13: }
+{13:in layer · `zW` goes out}{17:                                                                            }
+--
+0: fg=#c9ced8 bg=#101216
+1: fg=#101216 bg=#f5a95c bold
+2: fg=#101216 bg=#f5a95c
+3: fg=#8a91a3 bg=#101216
+4: fg=#eef1f6 bg=#262c38 bold
+5: fg=#c9ced8 bg=#262c38
+6: fg=#565d6d bg=#101216
+7: fg=#eef1f6 bg=#101216 bold
+8: fg=#363d4b bg=#16191f
+9: fg=#8a91a3 bg=#16191f
+10: fg=#8a91a3 bg=#16191f bold
+11: fg=#f5a95c bg=#101216 bold
+12: fg=#101216 bg=#6aa9e9 bold
+13: fg=#c9ced8 bg=#16191f
+14: fg=#eef1f6 bg=#16191f bold
+15: fg=#f5a95c bg=#16191f
+16: fg=#c9ced8 bg=#16191f bold
+17: fg=#565d6d bg=#16191f
