@@ -3,10 +3,10 @@ id: TASK-283
 title: >-
   Devices graph: modes and keys (normal, insert at a caret, visual, operators,
   text objects, Ex commands, A/B) (G4, G10)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T11:58:00Z'
-updated_date: '2026-11-24T14:18:00Z'
+updated_date: '2026-11-24T14:40:00Z'
 labels:
   - agent:builder
 milestone: m-16
@@ -57,4 +57,6 @@ PO 2026-11-23 (plan V2 bundles): Bundle G4. The stack panel of TASK-75.4 (M4) re
 From G3 (2026-11-24): \p pins the graph, not the inspector, to a node; decide here. The design rule 'below 24 rows the inspector closes' is not done yet: take it here.
 
 From the G3 review (2026-11-24): map + - on a device node in the graph (key rule); the devices header CPU figure is sampled per draw (move to a timer or the kernel); inspector rows() and devices node() write state during render; the inspector reads the module graph, not a window seat (two pinned devices windows).
+
+Started 2026-11-24: branch graph-keys, base 0307828d.
 <!-- SECTION:NOTES:END -->
