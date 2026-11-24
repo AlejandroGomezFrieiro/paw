@@ -61,12 +61,6 @@ impl EventBuf {
         self.events.drain(..n.min(self.events.len()));
     }
 
-    /// Move the first `n` events behind the others, in order.
-    pub fn rotate_front_to_back(&mut self, n: usize) {
-        let n = n.min(self.events.len());
-        self.events.rotate_left(n);
-    }
-
     pub fn clear(&mut self) {
         self.events.clear();
     }

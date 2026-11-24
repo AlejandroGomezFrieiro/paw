@@ -56,7 +56,7 @@ LuaJIT compiles the loops over the arrays, and a gain costs less than one micros
 | --- | --- |
 | `frame` | The frame in the block. |
 | `type` | The type (see below). |
-| `channel` | 1 to 16. |
+| `channel` | 1 to 16. An all-notes-off has no channel, and its `channel` is 0. |
 | `key` | The note, or the controller number. |
 | `value` | The velocity or the value. |
 | `attr` | The MIDI 2.0 attribute of a note-on, as one number: type × 65536 + data. 0 for none. `dsp.attr(e)` gives `{ type, data }` or nil. |
@@ -77,7 +77,7 @@ LuaJIT compiles the loops over the arrays, and a gain costs less than one micros
 | `b:note_on(frame, key, velocity, channel, attr)` | Send a note-on to the next devices. |
 | `b:note_off(frame, key, channel)` | Send a note-off. |
 | `b:cc(frame, number, value, channel)` | Send a controller. |
-| `b:send(frame, type, key, value, channel)` | Send any event. A channel is a whole number from 1 to 16. Any other value is an error, and the device stops. |
+| `b:send(frame, type, key, value, channel)` | Send any event. A channel is a whole number from 1 to 16, or 0 for an all-notes-off. Any other value is an error, and the device stops. |
 | `b:pass(e)` | Send an event that came in, with no change. |
 
 The device can send events in any order. paw sends on the events that come in and adds the events that the device sends, except that a device with `midi_effect = true` replaces the events that come in.
@@ -102,7 +102,8 @@ Use one filter or smoother for each channel.
 ## Calls from scripts
 
 - `dev.call(method, data)` answers `paw.api.device_call(device, method, data)` from the Lua of the kernel.
-- The call runs in the state of the device, between two blocks. A block that comes during the call doesn't wait for it: an instrument is silent for that block, and an effect passes its input on unchanged, and a MIDI effect gives out nothing, because it gives out only what its script sends. The script gets the events of that block at frame 0 of its next block, so a note-off is not lost. The script sees each of these events once, and a MIDI effect sends each one once. Keep the call short.
+- The call runs in the state of the device, between two blocks. A block that comes during the call doesn't wait for it: an instrument is silent for that block, and an effect passes its input on unchanged. A MIDI effect gives out nothing, because it gives out only what its script sends. The script gets the events of that block at frame 0 of its next block, so a note-off is not lost. The script sees each of these events once, and a MIDI effect sends each one once. Keep the call short.
+- A block can carry up to 1024 events to the script. An effect passes on at once the events that do not fit, and the script gets them in its next block. A MIDI effect gives out only what its script sends.
 - `paw.api.device_call(device, "lua.misses")` gives the number of blocks that the script didn't get because a call was running.
 - `data` is a string, and the return value (a string, a number or nothing) is the answer. An error is an error of the caller, and the device continues to play.
 - `paw.api.device_post(kind, topic, data)` calls `dev.call(topic, data)` on each device of a kind. It calls the devices that exist immediately, and it calls each device made later before its first block (the private devices of an offline render too). paw keeps the latest data of each topic for these devices, so devices made at any time agree, and `nil` removes a topic.

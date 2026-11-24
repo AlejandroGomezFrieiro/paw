@@ -183,10 +183,16 @@ fn markers(warp: &[WarpMarker]) -> Warp {
 /// millisecond.
 const BEND_STEP: f64 = 0.125;
 
-/// The beats from `a` to `b`, [`BEND_STEP`] apart, and `b` last. The count
-/// follows from `b - a`: a caller keeps that within [`MAX_BEATS`].
+/// The most beats that [`bend_beats`] gives: [`MAX_BEATS`] in steps of
+/// [`BEND_STEP`], the first beat and the last.
+const MAX_BEND_BEATS: usize = 8_000_002;
+
+/// The beats from `a` to `b`, [`BEND_STEP`] apart, and `b` last. A span past
+/// [`MAX_BEATS`], or one that is not a number, gives at most
+/// [`MAX_BEND_BEATS`] beats, so no caller walks without an end.
 fn bend_beats(a: f64, b: f64) -> impl Iterator<Item = f64> {
     std::iter::successors(Some(0u32), move |&i| (a + f64::from(i) * BEND_STEP < b).then(|| i + 1))
+        .take(MAX_BEND_BEATS)
         .map(move |i| (a + f64::from(i) * BEND_STEP).min(b))
 }
 
@@ -448,5 +454,7 @@ mod tests {
         let beats: Vec<f64> = bend_beats(1.0, 1.3).collect();
         assert_eq!(beats, [1.0, 1.125, 1.25, 1.3]);
         assert_eq!(bend_beats(2.0, 2.0).collect::<Vec<_>>(), [2.0]);
+        // A span with no end still ends.
+        assert_eq!(bend_beats(0.0, f64::INFINITY).count(), MAX_BEND_BEATS);
     }
 }

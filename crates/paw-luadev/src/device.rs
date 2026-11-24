@@ -425,6 +425,40 @@ fn from_lua(event: &LuaEvent, originals: &[Event]) -> Option<EventKind> {
     })
 }
 
+/// Put in `io.events` the input `originals[kept]`, the events that did not
+/// fit (the last `spill` of the buffer) and the script's `out`, by frame. On
+/// a tie the input goes first, then the events that did not fit, then the
+/// script's.
+///
+/// The events that did not fit stand first in the buffer while the merged
+/// ones are pushed behind them, then they are removed. They use slots of the
+/// buffer, so a send of the script can drop when the buffer is full (counted
+/// in `dropped()`).
+fn merge(io: &mut Io, originals: &[Event], kept: std::ops::Range<usize>, out: &[LuaEvent], spill: usize) {
+    io.events.drain_front(io.events.as_slice().len() - spill);
+    let (mut i, end) = (kept.start, kept.end);
+    let (mut j, mut k) = (0, 0);
+    while i < end || j < out.len() || k < spill {
+        let frame_in = if i < end { originals[i].frame as i32 } else { i32::MAX };
+        let frame_spill = if k < spill { io.events.as_slice()[k].frame as i32 } else { i32::MAX };
+        let frame_out = out.get(j).map_or(i32::MAX, |e| e.frame);
+        if i < end && frame_in <= frame_spill && frame_in <= frame_out {
+            io.events.push(originals[i]);
+            i += 1;
+        } else if k < spill && frame_spill <= frame_out {
+            let event = io.events.as_slice()[k];
+            io.events.push(event);
+            k += 1;
+        } else {
+            if let Some(kind) = from_lua(&out[j], originals) {
+                io.events.push(Event { frame: out[j].frame as u32, kind });
+            }
+            j += 1;
+        }
+    }
+    io.events.drain_front(spill);
+}
+
 impl Device for LuaDevice {
     fn process(&mut self, ctx: &ProcessCtx, io: &mut Io) {
         if self.stopped {
@@ -524,26 +558,8 @@ impl Device for LuaDevice {
         }
         // The replayed events went out with their own block already, past a
         // device that does not replace its input.
-        let (mut i, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
-        io.events.drain_front(io.events.as_slice().len() - spill);
-        let mut j = 0;
-        while i < kept || j < sent {
-            let take_in = j == sent || (i < kept && b.originals[i].frame as i32 <= out[j].frame);
-            if take_in {
-                io.events.push(b.originals[i]);
-                i += 1;
-            } else {
-                if let Some(kind) = from_lua(&out[j], &b.originals[..count]) {
-                    io.events.push(Event {
-                        frame: out[j].frame as u32,
-                        kind,
-                    });
-                }
-                j += 1;
-            }
-        }
-        // The events that did not fit follow the merged ones.
-        io.events.rotate_front_to_back(spill);
+        let (from, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
+        merge(io, &b.originals[..count], from..kept, out, spill);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {
@@ -777,21 +793,62 @@ mod tests {
         assert!(why.contains("a channel is a whole number from 1 to 16, not 17"), "{why}");
     }
 
+    /// An effect whose script sends one controller at frame 9.
+    const SENDS_A_CC: &str = r#"
+        local dsp = require("paw.dsp")
+        local dev = dsp.device {}
+        function dev.process(b) b:cc(9, 7, 0.5, 1) end
+        return dev
+    "#;
+
     #[test]
-    fn an_effect_passes_on_the_events_that_do_not_fit_in_a_block() {
+    fn an_effect_passes_on_the_events_that_do_not_fit_in_a_block_in_frame_order() {
         let dir = tempfile::tempdir().unwrap();
-        let path = script(&dir, "quiet.lua", "local dev = require('paw.dsp').device {}\nfunction dev.process() end\nreturn dev");
-        let (mut device, _controller) = build(&path, 48000.0, 64).unwrap();
-        // The last one is a note-off past the limit of a block.
-        let mut events: Vec<Event> = (0..MAX_EVENTS).map(|i| Event { frame: 0, kind: EventKind::NoteOn { key: (i % 100) as u8, vel: 0.5, ch: 0, attr: Attr::NONE } }).collect();
-        events.push(note_off(61));
-        events.push(note_off(62));
+        let path = script(&dir, "cc.lua", SENDS_A_CC);
+        let (mut device, controller) = build(&path, 48000.0, 64).unwrap();
+        // A block that the script misses fills room for replayed events, so
+        // the next block of a full 1024 events does not fit.
+        let call = controller.running.lock().unwrap();
+        through(&mut device, &[note_off(60), note_off(61)]);
+        drop(call);
+        let events: Vec<Event> = (0..MAX_EVENTS)
+            .map(|i| Event { frame: 3, kind: EventKind::NoteOn { key: (i % 100) as u8, vel: 0.5, ch: 0, attr: Attr::NONE } })
+            .collect();
         let out = through(&mut device, &events);
-        assert_eq!(out, events, "all of them, in order");
-        // The script gets the extra ones in the next block, and the next
-        // block does not send them again.
+        // Each event of the block once, and the script's controller after
+        // them, as its frame (9) is later than theirs (3).
+        assert_eq!(out.len(), MAX_EVENTS + 1);
+        assert_eq!(&out[..MAX_EVENTS], &events[..], "in the order that they came");
+        assert!(matches!(out[MAX_EVENTS].kind, EventKind::Control { .. }));
+        assert!(out.windows(2).all(|w| w[0].frame <= w[1].frame), "in frame order");
+        // The ones that did not fit reach the script in the next block, which
+        // does not send them on again.
         let out = through(&mut device, &[]);
-        assert!(out.is_empty(), "{out:?}");
+        assert_eq!(out.len(), 1, "only the script's controller: {out:?}");
+    }
+
+    #[test]
+    fn a_script_may_send_back_an_all_notes_off_as_it_came_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "again.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b)
+              for i = 0, b.nevents - 1 do
+                local e = b.events[i]
+                b:send(e.frame, e.type, e.key, e.value, e.channel)
+              end
+            end
+            return dev
+            "#,
+        );
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        let events = [note_off(60), note_off(61), Event { frame: 4, kind: EventKind::AllNotesOff }];
+        assert_eq!(through(&mut device, &events), events);
+        assert_eq!(controller.health(), None);
     }
 
     #[test]

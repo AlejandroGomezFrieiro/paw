@@ -260,12 +260,14 @@ Block.__index = Block
 
 --- Send an event from this block, at `frame` (0 to b.frames - 1); out of
 --- order is fine. `b:note_on(frame, key, velocity, channel)` and the others
---- below are the common ones. `channel` is 1 to 16 (1 when left out); any
---- other value is an error, and the device stops with its message.
+--- below are the common ones. `channel` is 1 to 16 (1 when left out). An
+--- all-notes-off has no channel and comes in with 0, which it may send back.
+--- Any other value is an error, and the device stops with its message.
 function Block:send(frame, type, key, value, channel, attr)
   local n = self.nout
   if n >= self.max_events then return end
-  if channel ~= nil and not (channel >= 1 and channel <= 16 and channel % 1 == 0) then
+  local no_channel = type == M.ALL_NOTES_OFF and channel == 0
+  if channel ~= nil and not no_channel and not (channel >= 1 and channel <= 16 and channel % 1 == 0) then
     error("a channel is a whole number from 1 to 16, not " .. tostring(channel), 2)
   end
   local e = self.out[n]
