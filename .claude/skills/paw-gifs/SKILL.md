@@ -7,9 +7,12 @@ description: Make, make again or review a GIF of paw with the rig in docs/images
 
 The GIFs show paw to a new user. Each GIF is a script that drives the
 real program, so a person or an agent can make each GIF again after a
-change. The rig is in `docs/images/make`. It is better for paw than a
-terminal recorder such as VHS. It uses a real terminal and needs no
-browser. It also adds a caption and a bar of the keys.
+change. The rig is in `docs/images/make`.
+
+A scene writes a tape for VHS (github.com/charmbracelet/vhs). VHS runs paw
+in a terminal in a headless browser and records it. The rig needs no
+display, and it works in the sandbox of an agent. The rig also adds a
+caption and a bar of the keys.
 
 The rules adapt the demo-gif skill of Conor Bronsdon
 (github.com/conorbronsdon/demo-gif-skill, MIT license) to the rig of paw.
@@ -36,29 +39,66 @@ Do not make a GIF again only for a smaller file.
 
 | File | What it does |
 | --- | --- |
-| `make.sh` | Runs a set or one scene. It starts a Nix shell with WezTerm, ffmpeg, gifsicle and xdotool. |
-| `rig.sh` | The functions of a scene: a private X display, the terminal, the recorder, the keys, the captions. |
-| `gif.py` | Cuts the recorded file, adds the caption and the key bar, and makes the GIF. |
-| `wezterm.lua` | The font and the colors of the terminal. |
+| `make.sh` | Runs a set or one scene, then `gif.py`. The flake app `gifs` runs it with the tools that it needs. |
+| `rig.sh` | The functions of a scene. They write the tape, the times of the captions and of the keys, and the `ctl` calls. At `rec_stop` the rig runs the tape. |
+| `gif.py` | Cuts the recording of VHS, adds the caption and the key bar, and makes the GIF. |
 | `tui-*.sh` | One scene for each GIF. |
 
 ```sh
 # Into target/test-scratch/media, to examine:
-NOCOPY=1 docs/images/make/make.sh tui-tour
+NOCOPY=1 nix run .#gifs -- tui-tour
 # Into docs/images, to commit:
-docs/images/make/make.sh tui-tour
+nix run .#gifs -- tui-tour
+# Replay each tui-* scene with no recording (about 4 minutes for all):
+nix run .#gifs -- --check
 ```
 
-The rig uses a private display (`:177`), a scratch home and `--audio null`.
-Never use the display, the audio devices, the configuration or the home
-folder of the owner.
+The app pins VHS, ffmpeg, gifsicle, tmux, Neovim and the fonts (FiraCode
+Nerd Font, DejaVu Sans). Run it in the checkout. `docs/images/make/make.sh`
+starts the app.
+
+The rig uses a scratch home, scratch `XDG_*` folders in
+`target/test-scratch/media/home`, a folder in `$TMPDIR` for the sockets, and
+`--audio null`. Never use the display, the audio devices, the configuration
+or the home folder of the owner.
 
 `PAW_BIN` is the folder of the `paw` binary. Without it, the rig uses
 `target/release`. An agent does not build: it sets `PAW_BIN` to the
 shared binary of the session.
 
-The scenes `gui-*.sh` need `paw-gui`. The graphical window is paused, so do
-not make them.
+The scenes `gui-*.sh` and `stills.sh` need `paw-gui`. The graphical window
+is paused: a set skips them, and the rig refuses them.
+
+### The check mode and the failures
+
+`--check` runs the tape of each scene with no output. A pause is 0.3 s at
+most, and text is typed fast. One scene takes about 5 s. A scene fails, and
+the app stops with a status that is not 0, in these conditions:
+
+- A key has no VHS command (`VHS cannot send the key ...`).
+- `paw` is not in `PAW_BIN`.
+- VHS fails, for example when paw does not show its first screen in 30 s.
+  VHS then prints the last screen.
+- paw gives an error message. The rig writes each error message to
+  `<scene>.errors` and prints it.
+- VHS writes no recording, no GIF or no still, or a GIF is above the budget.
+
+The summary line gives the count of scenes, the time and the scenes that
+were skipped. A scene that needs a program that the computer does not have
+(the utau engine, the sampler plugin) is skipped. A scene that you name is
+a failure when it is skipped.
+
+### The limits of VHS
+
+- VHS draws the terminal with xterm.js. xterm.js has no kitty graphics, so
+  paw shows no pictures in a GIF. No scene shows a picture now.
+- VHS sends the keys of its tape commands only: the characters, `Enter`,
+  `Escape`, `Space`, `Tab`, `Backspace`, the arrows, `Ctrl+x`, `Alt+x` and
+  `Shift+Tab`. The rig refuses a key that VHS cannot send, with its name.
+- The scene script runs before VHS: `ctl` returns nothing. The rig runs the
+  `ctl` calls beside VHS at their times on the tape.
+- With `EDIT`, Neovim and paw are two panes of tmux. `pane up` and
+  `pane down` move the keyboard between them.
 
 ## Recorded sessions
 

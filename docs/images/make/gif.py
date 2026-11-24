@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""gif.py name: $WORK/name.mkv -> $WORK/name.gif.
+"""gif.py name: $WORK/name.mp4 -> $WORK/name.gif.
 
-The recording is cut to the scene (name.lead says where it starts in the
-recording, the last caption where it ends), and a bar is put under it: the
+The recording of VHS starts where the scene starts (rec_start in rig.sh).
+It is cut where the last caption ends, and a bar is put under it: the
 caption on the left (name.caps), and on the right a key-cast, the keys the
 scene typed as Vim writes them (name.keys, both written by rig.sh)."""
 import os
@@ -41,7 +41,7 @@ NAMES = {
 
 
 def vim(key):
-    """An xdotool key name as Vim writes it: ctrl+w is <C-w>."""
+    """The X name of a key (rig.sh's key) as Vim writes it: ctrl+w is <C-w>."""
     *mods, base = key.split("+")
     base = NAMES.get(base, base)
     if not mods:
@@ -57,7 +57,6 @@ def rows(path):
         return [line.rstrip("\n").split("\t") for line in f if line.strip()]
 
 
-lead = float(open(f"{WORK}/{NAME}.lead").read()) if os.path.exists(f"{WORK}/{NAME}.lead") else 0.0
 caps = [(float(t), c) for t, c in rows(f"{WORK}/{NAME}.caps")]
 end = caps[-1][0] if caps else None
 
@@ -117,9 +116,9 @@ graph = (",".join(filters)
 script = f"{WORK}/caps/{NAME}.filter"
 with open(script, "w") as f:
     f.write(graph)
-cut = ["-ss", f"{lead:.2f}"] + (["-t", f"{end:.2f}"] if end else [])
+cut = ["-t", f"{end:.2f}"] if end else []
 out = f"{WORK}/{NAME}.gif"
-subprocess.run(["ffmpeg", "-loglevel", "error", "-y"] + cut + ["-i", f"{WORK}/{NAME}.mkv",
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y"] + cut + ["-i", f"{WORK}/{NAME}.mp4",
                "-filter_complex_script", script, out], check=True)
 subprocess.run(["gifsicle", "-O3", f"--lossy={LOSSY}", out, "-o", out], check=True)
 size = os.path.getsize(out)

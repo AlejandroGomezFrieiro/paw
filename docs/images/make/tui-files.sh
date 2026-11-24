@@ -20,8 +20,6 @@ printf 'bass from bar 5\n' > "$MUSIC/notes.txt"
 SETUP=$TUI_DEMO
 rig_start
 term_start
-# Edits to files are real: go on only if ~ is the scene's directory.
-[ "$(ctl "return os.getenv('HOME')")" = "$PAW_HOME" ] || { echo "tui-files: ~ is not $PAW_HOME"; rm -rf "$PAW_HOME"; exit 1; }
 rec_start tui-files
 cap ":e ~/music shows the folder as text: a line a file, its length and format"
 pause 0.5; key colon; TYPE_DELAY=110 typ "e ~/music"; key Return; pause 1.3
