@@ -4,7 +4,7 @@
  │   folder                 ./extensions/continue                                                 │
  │   completion sources     continue                                                              │
  │ templates 0.1.0          waits for its first use                                               │
- │   A part, a group of parts or a chain of devices saved under a name, to make again in any    │
+ │   A part, a group of parts or a chain of devices saved under a name, to make again in any      │
  │   project                                                                                      │
  │   folder                 ./extensions/templates                                                │
  │   loads on               :templates  :template.load  :template.save                            │

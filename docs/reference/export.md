@@ -373,13 +373,13 @@ change, and its folder stays the same. The folder must be new or empty.
 
 ## Tags
 
-A rendered file has a title, artist, album, part number, year, genre,
+A rendered file has a title, artist, album, track number, year, genre,
 comment and cover picture, when they are set. The tags belong to the
 project, which keeps them for each render (`project.meta.tags`, saved with
 it).
 
 ```
-:export.tags artist=Ana album="First one" part=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
+:export.tags artist=Ana album="First one" track=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
 :export.tags                  " what is set
 :export.tags genre=           " an empty value takes one out
 ```

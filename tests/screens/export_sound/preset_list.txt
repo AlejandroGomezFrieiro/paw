@@ -1,11 +1,11 @@
 ╭─ Export presets ─────────────────────────────────────────────────────╮
 │ preset   from      words                                             │
-│ mine     project   parts                                            │
+│ mine     project   parts                                             │
 │ mix      built-in  the song, through the master                      │
+│ parts    built-in  one file for each part, for a mixing engineer     │
 │ project  built-in  what the window shows, as a project folder        │
 │ regions  built-in  one file for each region                          │
 │ review   built-in  an MP3 to listen to or send                       │
 │ stems    built-in  one file for each group, for a mastering engineer │
-│ parts   built-in  one file for each part, for a mixing engineer    │
 │ The first one found wins: the project, then init.lua, then paw.      │
 ╰──────────────────────────────────────────────────────────────────────╯

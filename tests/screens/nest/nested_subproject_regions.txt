@@ -1,9 +1,9 @@
  …› ⧉Roll     │1       ┃
  cur 1.1 @11.1│@11     ┃ end of ⧉Roll · zW: the song
- 1 █ Part 1  │▏   ▏   ┃
+ 1 █ Part 1   │▏   ▏   ┃
    █ ──── 0.0 │▏   ▏   ┃
    █          │▏   ▏   ┃
-     o new tra│
+     o new par│
               │
               │
               │

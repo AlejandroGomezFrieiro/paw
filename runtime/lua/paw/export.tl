@@ -2136,7 +2136,7 @@ commands.define(
     )
   end,
   {
-    desc = "Show or set the tags of the project's exported files: `export.tags artist=Me album=\"First one\" part=3 "
+    desc = "Show or set the tags of the project's exported files: `export.tags artist=Me album=\"First one\" track=3 "
       .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
   }
 )

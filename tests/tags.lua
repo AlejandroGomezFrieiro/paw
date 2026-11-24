@@ -1,4 +1,4 @@
--- Tests of the tags a rendered file carries: title, artist, album, part,
+-- Tests of the tags a rendered file carries: title, artist, album, track,
 -- year, genre, comment and a cover, in WAV, FLAC (read back by parsing the
 -- chunks and blocks) and in MP3, Ogg and Opus (read back with ffprobe, and
 -- skipped without ffmpeg). Loaded by tests/suite.lua with its helpers.
@@ -99,8 +99,8 @@ local cover = "tests/fixtures/cover.png"
 test("a WAV carries the project's tags in an INFO chunk and is still a WAV", function()
   local dir = setup("wav")
   eq(next(paw.render_tags()), nil, "a new project has no tags")
-  paw.render_tags({ artist = "Ana", album = "First", part = 3, year = 2026, genre = "Ambient", comment = "a note" })
-  eq(paw.render_tags().part, "3", "a number is kept as text")
+  paw.render_tags({ artist = "Ana", album = "First", track = 3, year = 2026, genre = "Ambient", comment = "a note" })
+  eq(paw.render_tags().track, "3", "a number is kept as text")
   paw.project.name = "Sunrise"
   local path = dir .. "/a.wav"
   paw.render(path, { tail = 0, bits = 16 })
@@ -125,13 +125,13 @@ test("a WAV carries the project's tags in an INFO chunk and is still a WAV", fun
     "artsit",
     "a tag that does not exist is refused"
   )
-  paw.render_tags({ artist = "", album = "", part = "", year = "", genre = "", comment = "" })
+  paw.render_tags({ artist = "", album = "", track = "", year = "", genre = "", comment = "" })
   eq(next(paw.render_tags()), nil, "empty values take tags out")
 end)
 
 test("a FLAC carries Vorbis comments and a cover picture", function()
   local dir = setup("flac")
-  paw.render_tags({ artist = "Ana", album = "First", part = "3/12", year = 2026, cover = cover })
+  paw.render_tags({ artist = "Ana", album = "First", track = "3/12", year = 2026, cover = cover })
   local path = dir .. "/a.flac"
   paw.render(path, { tail = 0, bits = 16, tags = { title = "Song", comment = "x=y" } })
   local blocks = flac_blocks(T.read_file(path))
@@ -196,7 +196,7 @@ test("MP3, Ogg and Opus carry the tags and the cover, read back with ffprobe", f
     title = "Song",
     artist = "Ana",
     album = "First",
-    part = "3",
+    track = "3",
     year = 2026,
     genre = "Ambient",
     comment = "a=b; c",
@@ -211,7 +211,7 @@ test("MP3, Ogg and Opus carry the tags and the cover, read back with ffprobe", f
       "Song|Ana|First|Ambient",
       ext .. ": the text tags are there"
     )
-    eq(tags.part, "3", ext .. ": the part")
+    eq(tags.track, "3", ext .. ": the track")
     eq((tags.date or tags.year or ""):sub(1, 4), "2026", ext .. ": the year")
     eq(tags.comment, "a=b; c", ext .. ": the comment, with what ffmpeg reads specially")
     eq(streams:find("video", 1, true) ~= nil, true, ext .. ": a picture is attached (" .. streams .. ")")

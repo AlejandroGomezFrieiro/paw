@@ -50,7 +50,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.redo`: the same as `paw.api.redo`.
 - `paw.render_cancel()`: Stop the render in the background, and the renders that wait after it. paw does not write its file. Returns true if a render ran.
 - `paw.render_status()`: The render in the background: `{ path, fraction, seconds, cancelling, stage, queued }`, or nil. `stage` is "rendering", or "encoding" when ffmpeg makes a lossy file from the render. Then `fraction` tells how far the encoding is.
-- `paw.render_tags(set)`: What the project's rendered files are tagged with (`project.meta.tags`): `paw.render_tags()` gives `{ title, artist, album, part, year, genre, comment, cover }` as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others, an empty string takes one out. A relative `cover` is from the project's directory.
+- `paw.render_tags(set)`: What the project's rendered files are tagged with (`project.meta.tags`): `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }` as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others, an empty string takes one out. A relative `cover` is from the project's directory.
 - `paw.restore_clip(snap, part)`: Add a clip from a snapshot to a part.
 - `paw.restore_device(snap, part, index)`: Add a device from a snapshot to a part, at the end of the chain or at the 1-based `index`.
 - `paw.restore_part(snap, index)`: Make a part from a snapshot, at a 1-based position in the part list.
@@ -1916,7 +1916,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   dither      true to add dither when writing 16 or 24 bits
   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
               default) or "best"; `bitrate` (kbit/s) instead of it for a number
-  tags        { title, artist, album, part, year, genre, comment, cover } written into
+  tags        { title, artist, album, track, year, genre, comment, cover } written into
               the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
               JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
   normalize   bring the loudest sample to this level in dB, such as -1

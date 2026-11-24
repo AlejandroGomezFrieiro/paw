@@ -230,7 +230,7 @@ end
 ---   dither      true to add dither when writing 16 or 24 bits
 ---   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
 ---               default) or "best"; `bitrate` (kbit/s) instead of it for a number
----   tags        { title, artist, album, part, year, genre, comment, cover } written into
+---   tags        { title, artist, album, track, year, genre, comment, cover } written into
 ---               the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
 ---               JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
 ---   normalize   bring the loudest sample to this level in dB, such as -1
@@ -301,10 +301,10 @@ function M.render(path: string, opts?: Options): types.RenderResult
   return info
 end
 
-M.tag_names = {"title", "artist", "album", "part", "year", "genre", "comment", "cover"}
+M.tag_names = {"title", "artist", "album", "track", "year", "genre", "comment", "cover"}
 
 --- What the project's rendered files are tagged with (`project.meta.tags`):
---- `paw.render_tags()` gives `{ title, artist, album, part, year, genre, comment, cover }`
+--- `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }`
 --- as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others,
 --- an empty string takes one out. A relative `cover` is from the project's directory.
 function M.tags(set?: types.RenderTags): types.RenderTags

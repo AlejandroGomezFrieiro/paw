@@ -11,7 +11,7 @@
 
 
 {3: NOR }{4: }{5:■}{6: 1.1.00}{4:                             }{7:untitled}{4: }
-{8: }{9:Space Space}{5: play}{10: · }{9:o}{5: part}{10: · }{9:a}{5: device}{10: · }{9:?}{5: keys}{8:     }
+{8: }{9:Space Space}{5: play}{10: · }{9:o}{5: part}{10: · }{9:a}{5: device}{10: · }{9:?}{5: keys}{8:      }
 --
 0: fg=#c9ced8 bg=#101216
 1: fg=#eef1f6 bg=#101216 bold

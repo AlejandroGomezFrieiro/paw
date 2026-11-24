@@ -39,7 +39,7 @@ If `:export song.mp3` fails because there is no `ffmpeg`, install
 1. Type the tags of the project one time:
 
    ```
-   :export.tags artist=Ana album="First one" part=3/12 year=2026 cover=cover.png
+   :export.tags artist=Ana album="First one" track=3/12 year=2026 cover=cover.png
    ```
 
 2. Export as above. paw writes the tags into each file, and FLAC, MP3, Ogg

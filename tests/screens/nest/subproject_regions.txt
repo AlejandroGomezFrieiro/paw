@@ -3,7 +3,7 @@
  1 █ Bass     │▏Bass                           ┃
    █ ──── 0.0 │                                ┃
    █          │                                ┃
-     o new tra│
+     o new par│
               │
               │
               │
