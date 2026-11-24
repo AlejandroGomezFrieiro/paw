@@ -1,4 +1,59 @@
 {
+  "env": {
+    "PAW_SUITE_LOCKS": "/tmp/paw-suite-locks"
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "nix build *",
+      "nix flake check",
+      "nix flake check *",
+      "git push",
+      "git push *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "~/.cargo",
+        "~/.cache/sccache",
+        "/tmp/paw-suite-locks"
+      ],
+      "denyRead": [
+        "~/.config/paw",
+        "~/.local/share/OpenUtau",
+        "~/.config/REAPER",
+        "~/.wine",
+        "~/.local/share/wineprefixes",
+        "~/.ssh",
+        "~/.gnupg"
+      ],
+      "denyWrite": [
+        "~/.config/paw",
+        "~/.local/share/OpenUtau",
+        "~/.config/REAPER",
+        "~/.wine",
+        "~/.local/share/wineprefixes",
+        "~/.ssh",
+        "~/.gnupg"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "crates.io",
+        "index.crates.io",
+        "static.crates.io",
+        "github.com",
+        "api.github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "cache.nixos.org",
+        "docs.rs",
+        "doc.rust-lang.org"
+      ],
+      "allowAllUnixSockets": true
+    }
+  },
   "hooks": {
     "PostToolUse": [
       {

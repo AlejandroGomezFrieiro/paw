@@ -127,6 +127,10 @@ contract. A contract is a trait, a saved type, a file format, a
 
 ## How to work
 
+- Start an agent with `nix run .#agent`: it starts Claude Code in a
+  scope with limits on processes and memory
+  and in the sandbox of `.claude/settings.json`
+  ([the guide](docs/how-to/run-a-coding-agent-with-limits.md)).
 - Work in the dev shell of the flake (`nix develop`, or `direnv` with
   `.envrc`). Inside it, do not add the prefix `nix develop -c`.
 - The commands of each tier of checks are in the skill `paw-code`, part

@@ -120,6 +120,7 @@ config
 yabridge
 wav
 sysex
+systemd
 (?i)timebase
 Petaluma
 (?i)namespaces?

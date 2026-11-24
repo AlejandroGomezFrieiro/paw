@@ -164,6 +164,7 @@ groups below link the main ones.
 
 - [How to build and run paw from the source](how-to/build-paw-from-source.md): the dev shell, the demo song, the example configuration
 - [How to run the tests](how-to/run-the-tests.md): the Lua suite, the Rust tests, the documentation checks
+- [How to run a coding agent with limits](how-to/run-a-coding-agent-with-limits.md): `nix run .#agent`, the limits of its scope, what the sandbox allows
 - [How to run the graphical window without a graphics card](how-to/run-the-window-without-a-graphics-card.md)
 - [How to run the graphical window against a kernel on another machine](how-to/run-the-window-against-a-remote-kernel.md)
 - [How to preview the manual as a website](how-to/preview-the-manual-as-a-website.md): build the site, read it, serve it

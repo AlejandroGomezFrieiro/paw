@@ -570,6 +570,17 @@
         }) // {
           default = { type = "app"; program = "${paw pkgs}/bin/paw"; };
           paw-utau = { type = "app"; program = "${pawUtau pkgs}/bin/paw"; };
+          # Claude Code in a systemd scope with limits (tools/agent.sh). It
+          # starts the `claude` and `systemd-run` of the machine, from PATH:
+          # neither is a dependency here.
+          agent = {
+            type = "app";
+            program = "${pkgs.writeShellApplication {
+              name = "agent";
+              runtimeInputs = with pkgs; [ coreutils gnugrep ];
+              text = builtins.readFile ./tools/agent.sh;
+            }}/bin/agent";
+          };
         });
 
       # For a home-manager configuration:
