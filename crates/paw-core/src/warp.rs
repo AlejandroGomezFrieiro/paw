@@ -185,7 +185,12 @@ const BEND_STEP: f64 = 0.125;
 
 /// The most beats that [`bend_beats`] gives: [`MAX_BEATS`] in steps of
 /// [`BEND_STEP`], the first beat and the last.
-const MAX_BEND_BEATS: usize = 8_000_002;
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a constant of about 8 million, known at compile time"
+)]
+const MAX_BEND_BEATS: usize = (MAX_BEATS / BEND_STEP) as usize + 2;
 
 /// The beats from `a` to `b`, [`BEND_STEP`] apart, and `b` last. A span past
 /// [`MAX_BEATS`], or one that is not a number, gives at most

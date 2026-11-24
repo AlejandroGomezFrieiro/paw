@@ -218,6 +218,9 @@ struct Buffers {
     events_out: Vec<LuaEvent>,
     /// The events that came in, as they were, to pass on.
     originals: Vec<Event>,
+    /// The events that did not fit in a block, to pass on after the others
+    /// have been merged. Filled and emptied in one block.
+    spilled: Vec<Event>,
     params: Vec<f64>,
     transport: Transport,
 }
@@ -285,6 +288,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
             };
             MAX_EVENTS
         ],
+        spilled: Vec::with_capacity(MAX_EVENTS),
         params: desc.params.iter().map(|p| p.default as f64).collect(),
         transport: Transport {
             sample_rate: sample_rate as f64,
@@ -426,28 +430,26 @@ fn from_lua(event: &LuaEvent, originals: &[Event]) -> Option<EventKind> {
 }
 
 /// Put in `io.events` the input `originals[kept]`, the events that did not
-/// fit (the last `spill` of the buffer) and the script's `out`, by frame. On
-/// a tie the input goes first, then the events that did not fit, then the
-/// script's.
+/// fit (`spilled`) and the script's `out`, by frame. On a tie the input goes
+/// first, then the events that did not fit, then the script's.
 ///
-/// The events that did not fit stand first in the buffer while the merged
-/// ones are pushed behind them, then they are removed. They use slots of the
-/// buffer, so a send of the script can drop when the buffer is full (counted
-/// in `dropped()`).
-fn merge(io: &mut Io, originals: &[Event], kept: std::ops::Range<usize>, out: &[LuaEvent], spill: usize) {
-    io.events.drain_front(io.events.as_slice().len() - spill);
+/// `io.events` is emptied first and each event is pushed once, so the
+/// buffer needs room for the input and the script's events only. A send of
+/// the script drops when the input already fills the buffer (counted in
+/// `dropped()`); an input event never drops.
+fn merge(io: &mut Io, originals: &[Event], kept: std::ops::Range<usize>, out: &[LuaEvent], spilled: &[Event]) {
+    io.events.clear();
     let (mut i, end) = (kept.start, kept.end);
     let (mut j, mut k) = (0, 0);
-    while i < end || j < out.len() || k < spill {
+    while i < end || j < out.len() || k < spilled.len() {
         let frame_in = if i < end { originals[i].frame as i32 } else { i32::MAX };
-        let frame_spill = if k < spill { io.events.as_slice()[k].frame as i32 } else { i32::MAX };
+        let frame_spill = spilled.get(k).map_or(i32::MAX, |e| e.frame as i32);
         let frame_out = out.get(j).map_or(i32::MAX, |e| e.frame);
         if i < end && frame_in <= frame_spill && frame_in <= frame_out {
             io.events.push(originals[i]);
             i += 1;
-        } else if k < spill && frame_spill <= frame_out {
-            let event = io.events.as_slice()[k];
-            io.events.push(event);
+        } else if k < spilled.len() && frame_spill <= frame_out {
+            io.events.push(spilled[k]);
             k += 1;
         } else {
             if let Some(kind) = from_lua(&out[j], originals) {
@@ -456,7 +458,6 @@ fn merge(io: &mut Io, originals: &[Event], kept: std::ops::Range<usize>, out: &[
             j += 1;
         }
     }
-    io.events.drain_front(spill);
 }
 
 impl Device for LuaDevice {
@@ -501,19 +502,20 @@ impl Device for LuaDevice {
             count += 1;
         }
         let replayed = count;
-        let mut fitted = 0;
+        // What does not fit goes on downstream at once from a device that
+        // passes its input on. A MIDI effect gives out only what it sends.
+        b.spilled.clear();
         for event in io.events.as_slice() {
             if count < MAX_EVENTS {
                 b.originals[count] = *event;
                 count += 1;
-                fitted += 1;
             } else {
                 self.missed.keep(*event);
+                if !self.midi_effect && b.spilled.len() < MAX_EVENTS {
+                    b.spilled.push(*event);
+                }
             }
         }
-        // What does not fit goes on downstream at once from a device that
-        // passes its input on. A MIDI effect gives out only what it sends.
-        let spill = if self.midi_effect { 0 } else { io.events.as_slice().len() - fitted };
         for (index, event) in b.originals[..count].iter().enumerate() {
             b.events_in[index] = to_lua(event, index);
         }
@@ -559,7 +561,7 @@ impl Device for LuaDevice {
         // The replayed events went out with their own block already, past a
         // device that does not replace its input.
         let (from, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
-        merge(io, &b.originals[..count], from..kept, out, spill);
+        merge(io, &b.originals[..count], from..kept, out, &b.spilled);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {
@@ -737,7 +739,7 @@ mod tests {
     /// Run one block of `events` through `device`; what it gives out.
     fn through(device: &mut LuaDevice, events: &[Event]) -> Vec<Event> {
         let (mut left, mut right) = (vec![0.0; 16], vec![0.0; 16]);
-        let mut buf = EventBuf::with_capacity(MAX_EVENTS + 8);
+        let mut buf = EventBuf::with_capacity(paw_engine::PART_EVENTS);
         for event in events {
             buf.push(*event);
         }
@@ -806,20 +808,24 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = script(&dir, "cc.lua", SENDS_A_CC);
         let (mut device, controller) = build(&path, 48000.0, 64).unwrap();
-        // A block that the script misses fills room for replayed events, so
-        // the next block of a full 1024 events does not fit.
+        // A block that the script misses gives 2 replayed events, so the next
+        // block of 1023 events does not all fit in the script's 1024. The
+        // buffer has the 1024 slots of a part.
         let call = controller.running.lock().unwrap();
         through(&mut device, &[note_off(60), note_off(61)]);
         drop(call);
-        let events: Vec<Event> = (0..MAX_EVENTS)
+        let events: Vec<Event> = (0..paw_engine::PART_EVENTS - 1)
             .map(|i| Event { frame: 3, kind: EventKind::NoteOn { key: (i % 100) as u8, vel: 0.5, ch: 0, attr: Attr::NONE } })
             .collect();
+        let dropped = paw_engine::event::dropped();
         let out = through(&mut device, &events);
         // Each event of the block once, and the script's controller after
-        // them, as its frame (9) is later than theirs (3).
-        assert_eq!(out.len(), MAX_EVENTS + 1);
-        assert_eq!(&out[..MAX_EVENTS], &events[..], "in the order that they came");
-        assert!(matches!(out[MAX_EVENTS].kind, EventKind::Control { .. }));
+        // them, as its frame (9) is later than theirs (3). All fit the 1024
+        // slots, so nothing drops.
+        assert_eq!(out.len(), events.len() + 1);
+        assert_eq!(&out[..events.len()], &events[..], "in the order that they came");
+        assert!(matches!(out[events.len()].kind, EventKind::Control { .. }));
+        assert_eq!(paw_engine::event::dropped(), dropped, "no event dropped");
         assert!(out.windows(2).all(|w| w[0].frame <= w[1].frame), "in frame order");
         // The ones that did not fit reach the script in the next block, which
         // does not send them on again.

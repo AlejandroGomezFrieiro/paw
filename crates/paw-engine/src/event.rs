@@ -56,11 +56,6 @@ impl EventBuf {
         }
     }
 
-    /// Remove the first `n` events (all of them when `n` is more).
-    pub fn drain_front(&mut self, n: usize) {
-        self.events.drain(..n.min(self.events.len()));
-    }
-
     pub fn clear(&mut self) {
         self.events.clear();
     }

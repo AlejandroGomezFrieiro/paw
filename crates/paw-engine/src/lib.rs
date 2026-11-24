@@ -52,7 +52,7 @@ pub use local_time::{LocalTime, Place};
 pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
-pub use plan::GraphPlan;
+pub use plan::{EVENTS as PART_EVENTS, GraphPlan};
 pub use slot::{DeviceSlot, ProcessorSlot, PartSlot};
 
 pub use paw_types::gain::{db_to_gain, gain_to_db};
