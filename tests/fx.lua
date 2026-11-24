@@ -15,7 +15,7 @@ end
 local function watching_editors(interactive, fn)
   local opened, real_editor, real_interactive = {}, api.device_editor, paw.fx.interactive
   api.device_editor = function(id, open)
-    if open then opened[#opened + 1] = id end
+    if open ~= false then opened[#opened + 1] = id end
     return true
   end
   paw.fx.interactive = function() return interactive end
@@ -55,6 +55,50 @@ test("a built-in device added by hand opens nothing", function()
   local opened = watching_editors(true, function() paw.commands.exec("device.add synth") end)
   eq(#opened, 0, "the synth has no window of its own")
   eq(#part:devices(), 1, "but it is added")
+end)
+
+--- Make the device `id` report a window, as a plugin with an editor does: the
+--- sealed suite holds no plugin with one. Returns the function that undoes it.
+local function giving_window(device)
+  local meta = getmetatable(device)
+  local real = meta.__index
+  meta.__index = function(self, key)
+    if key == "editor" and rawget(self, "id") == device.id then return "closed" end
+    return real(self, key)
+  end
+  return function() meta.__index = real end
+end
+
+test("Enter on a device with no window opens no other device's window", function()
+  fresh()
+  local part = paw.add_part({ name = "fx" })
+  part:add_device("synth")
+  local other = part:add_device("synth")
+  paw.cursor.set_part(part.id)
+  paw.ui.show("devices")
+  paw.ui.focus("inspector")
+  local first = paw.ui.views:get("inspector"):selected()
+  eq(first.editor, nil, "the cursor is on a device with no window")
+  local restore = giving_window(other)
+  local ok, opened = pcall(watching_editors, true, function() T.keys("<CR>") end)
+  restore()
+  assert(ok, opened)
+  eq(#opened, 0, "the other device's window stays closed")
+  eq(paw.ui.messages[#paw.ui.messages].text, first.name .. " has no window of its own: its parameters are in the panel", "and the message says why")
+end)
+
+test("with no device chosen, Enter opens the part's first window", function()
+  fresh()
+  local part = paw.add_part({ name = "fx" })
+  part:add_device("synth")
+  local other = part:add_device("synth")
+  paw.cursor.set_part(part.id)
+  paw.ui.focus("arrange")
+  local restore = giving_window(other)
+  local ok, opened = pcall(watching_editors, true, function() paw.commands.exec("device.editor") end)
+  restore()
+  assert(ok, opened)
+  eq(opened, { other.id }, "the first device with a window opens")
 end)
 
 test("a script run is not a person at the program", function()
