@@ -1977,7 +1977,7 @@ mod tests {
                 start: i as f64 / 3.0,
                 length: 0.25,
                 pitch: 48 + ((i * 7 + seed) % 24) as u8,
-                velocity: 64 + ((i * 13 + seed) % 63) as u8,
+                velocity: crate::model::Velocity(64 + ((i * 13 + seed) % 63) as u8),
                 meta: Map::new(),
                 id: i + 1,
                 attr: None,
@@ -2029,6 +2029,33 @@ mod tests {
             "content": content,
         });
         Arc::new(serde_json::from_value(value).unwrap())
+    }
+
+    #[test]
+    fn a_change_of_one_modifier_value_is_one_changed_line_of_part_json() {
+        let dir = scratch("modifiers");
+        let part_json = |velocity: i64| {
+            let mut p = project(1, 1);
+            let part = Arc::make_mut(&mut p.parts[0]);
+            let clip = Arc::make_mut(&mut part.clips[0]);
+            clip.stack = serde_json::from_value(json!([
+                { "kind": "transpose", "params": { "semitones": 3 } },
+                { "kind": "velocity", "params": { "add": velocity }, "off": true },
+            ]))
+            .unwrap();
+            let files = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap().files;
+            let text = files.into_iter().find(|(f, _)| f.ends_with("T0/part.json")).unwrap().1;
+            String::from_utf8(text).unwrap()
+        };
+        let (before, after) = (part_json(-10), part_json(-20));
+        assert!(
+            before.contains("\"modifiers\": [\n") && !before.contains("overrides"),
+            "{before}"
+        );
+        let changed: Vec<_> = before.lines().zip(after.lines()).filter(|(a, b)| a != b).collect();
+        assert_eq!(before.lines().count(), after.lines().count());
+        assert_eq!(changed, [("            \"add\": -10", "            \"add\": -20")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -2099,7 +2126,7 @@ mod tests {
         let ClipContent::Custom(c) = &read.project.parts[0].clips[2].content else {
             panic!("a custom clip");
         };
-        assert_eq!((c.version, c.timeline), (2, crate::model::Timeline::Seconds));
+        assert_eq!((c.version.get(), c.timeline), (2, crate::model::Timeline::Seconds));
         assert!(commit(&dir, &again, None).unwrap().written.is_empty());
         // A data file that is not JSON is said with its name and the place.
         std::fs::write(dir.join(clips).join("intro.video.json"), "{\n  \"a\": }").unwrap();

@@ -95,13 +95,13 @@ impl Session {
             }
         };
         self.doc.edit(|p| {
-            let c = p.clip_mut(id).expect("the clip was found");
+            let c = p.clip_in(id)?;
             match change {
                 ClipChange::Stretch(ratio) => {
-                    c.stretch = check_ratio(finite(ratio)?.unwrap_or(1.0))?;
+                    c.stretch = crate::model::Factor(check_ratio(finite(ratio)?.unwrap_or(1.0))?);
                     // Its sound's own tempo is as much faster as it is slowed.
                     if c.timebase == Some(Timebase::Stretch) {
-                        c.source_tempo = Some(tempo * c.stretch);
+                        c.source_tempo = Some(tempo * c.stretch.0);
                     }
                 }
                 ClipChange::Pitch(semitones) => c.pitch = check_pitch(finite(semitones)?.unwrap_or(0.0))?,
@@ -111,16 +111,16 @@ impl Session {
                     Some(bpm) => {
                         let bpm = check_tempo(bpm)?;
                         if c.timebase == Some(Timebase::Stretch) {
-                            c.stretch = check_ratio(bpm / tempo).context(
+                            c.stretch = crate::model::Factor(check_ratio(bpm / tempo).context(
                                 "the clip would be stretched too far to follow the tempo",
-                            )?;
+                            )?);
                         }
                         c.source_tempo = Some(bpm);
                     }
                 },
                 ClipChange::Timebase(timebase) => {
                     if timebase == Timebase::Stretch && c.source_tempo.is_none() {
-                        c.source_tempo = Some(tempo * c.stretch);
+                        c.source_tempo = Some(tempo * c.stretch.0);
                     }
                     c.timebase = Some(timebase);
                 }
@@ -216,7 +216,7 @@ impl Session {
         .forward(source);
         let index = clip.warp.partition_point(|m| m.source < source);
         self.doc.edit(|p| {
-            let c = p.clip_mut(id).expect("the clip was found");
+            let c = p.clip_in(id)?;
             c.warp.insert(index, WarpMarker { source, target });
             Ok(())
         })?;
@@ -268,11 +268,11 @@ impl Session {
             warp: markers.clone(),
             ..(*clip).clone()
         };
-        let (lo, hi) = warp::target_range(&markers, index, clip.stretch);
+        let (lo, hi) = warp::target_range(&markers, index, clip.stretch.0);
         let target = warp::target_for(&pinned, &map, beat).clamp(lo, hi);
         markers[index].target = target;
         self.doc.edit(|p| {
-            p.clip_mut(id).expect("the clip was found").warp = markers;
+            p.clip_in(id)?.warp = markers;
             Ok(())
         })?;
         Ok(index)
@@ -286,7 +286,7 @@ impl Session {
             bail!("clip {id} has no warp marker {}", index + 1);
         }
         self.doc.edit(|p| {
-            p.clip_mut(id).expect("the clip was found").warp.remove(index);
+            p.clip_in(id)?.warp.remove(index);
             Ok(())
         })
     }

@@ -31,7 +31,7 @@ fn note_on_ticks() -> impl Strategy<Value = (i64, i64, Note)> {
                 start: start as f64 / BEAT as f64,
                 length: length as f64 / BEAT as f64,
                 pitch,
-                velocity,
+                velocity: crate::model::Velocity(velocity),
                 meta,
                 id: 0,
                 attr,
@@ -46,7 +46,7 @@ fn note_on_ticks() -> impl Strategy<Value = (i64, i64, Note)> {
 fn note() -> impl Strategy<Value = Note> {
     let id = prop_oneof![0u64..4, any::<u64>()];
     (-8.0..64.0f64, 0.0..8.0f64, 0u8..=127, any::<u8>(), meta(), id, attr()).prop_map(
-        |(start, length, pitch, velocity, meta, id, attr)| Note { start, length, pitch, velocity, meta, id, attr },
+        |(start, length, pitch, velocity, meta, id, attr)| Note { start, length, pitch, velocity: crate::model::Velocity(velocity), meta, id, attr },
     )
 }
 
@@ -120,7 +120,7 @@ proptest! {
 fn a_lyric_that_is_not_ascii_comes_back() {
     let mut meta = Map::new();
     meta.insert("lyric".into(), json!("さくら ñ"));
-    let note = Note { start: 0.0, length: 1.0, pitch: 60, velocity: 100, meta, id: 1, attr: None };
+    let note = Note { start: 0.0, length: 1.0, pitch: 60, velocity: crate::model::Velocity(100), meta, id: 1, attr: None };
 
     let clip = decode(&encode([&note], &[], 1.0).expect("paw writes the clip")).expect("paw reads the clip that it wrote");
 

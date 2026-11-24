@@ -14,11 +14,15 @@ use paw_engine::{AudioData, AudioRegion, ClipSet, MidiEv, Piece, PieceEdit, db_t
 
 use super::SyncCtx;
 use super::mapper::{CueEvents, Mapper};
-use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Overrides, Part};
+use super::stacks::Results;
+use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Part, repeats};
 
 /// What a piece of a MIDI clip's events is compiled from, and all that
-/// they depend on: runs of its notes, its controllers, its length, its
-/// loop and its overrides. Not where the clip starts: events are compiled from the clip's
+/// they depend on: runs of the notes that it plays, its controllers, its
+/// length and its loop. A clip with a modifier stack plays the result of
+/// its stack (`stacks.rs`): copies with the same notes and stack share the
+/// result that the last `ChainKey` names, so they share its runs and its
+/// events. Not where the clip starts: events are compiled from the clip's
 /// start, and its pieces play them from there (see [`Piece::with_offset`]),
 /// so that copies of a clip at many places share one list.
 #[derive(Clone, Copy)]
@@ -27,22 +31,18 @@ pub(super) struct Source<'a> {
     controls: &'a [Control],
     length: f64,
     repeat: Option<(f64, f64)>,
-    /// The clip's transpose and velocity change: the notes stay as they
-    /// are, and their events play the change.
-    overrides: Overrides,
 }
 
 type Run = Arc<Vec<Note>>;
 
 impl<'a> Source<'a> {
-    /// All of a MIDI clip: its notes and controllers.
+    /// All of a MIDI clip: the notes and controllers that it plays.
     pub(super) fn whole(clip: &Clip, notes: &'a Notes, controls: &'a [Control]) -> Self {
         Self {
             runs: notes.runs(),
             controls,
             length: clip.length,
             repeat: clip.repeat(),
-            overrides: clip.overrides,
         }
     }
 
@@ -55,7 +55,6 @@ impl<'a> Source<'a> {
         }
         self.length.to_bits().hash(&mut hash);
         self.repeat.map(|(a, b)| (a.to_bits(), b.to_bits())).hash(&mut hash);
-        self.overrides.hash(&mut hash);
         self.controls.len().hash(&mut hash);
         for c in self.controls {
             (c.start.to_bits(), c.value.to_bits(), c.key).hash(&mut hash);
@@ -76,20 +75,15 @@ impl<'a> Source<'a> {
         COMPILES.with(|c| c.set(c.get() + 1));
         let mut set = ClipSet::default();
         let length = self.length;
-        let overrides = self.overrides;
-        // The controller moves and the notes as they play, the overrides
-        // applied: those that the transpose takes out of range are left out.
-        let played_controls = || self.controls.iter().filter_map(|c| overrides.control(c));
-        let played_notes = || self.notes().filter_map(|n| Some((n, overrides.note(n)?)));
         let Some((from, beats)) = self.repeat else {
-            for control in played_controls().filter(|c| c.start >= 0.0 && c.start < length) {
+            for control in self.controls.iter().filter(|c| c.start >= 0.0 && c.start < length) {
                 set.push_event(origin + control.start, control.event(0));
             }
-            for (note, (pitch, velocity)) in played_notes().filter(|(n, _)| n.start >= 0.0 && n.start < length) {
+            for note in self.notes().filter(|n| n.start >= 0.0 && n.start < length) {
                 let end = (note.start + note.length).min(length);
-                let vel = f32::from(velocity) / 127.0;
+                let vel = note.velocity.unit();
                 let (start, end) = (origin + note.start, origin + end);
-                set.push_note_attr(start, end, pitch, vel, attr_of(note));
+                set.push_note_attr(start, end, note.pitch, vel, attr_of(note));
             }
             set.finish();
             return set.midi.into();
@@ -97,18 +91,18 @@ impl<'a> Source<'a> {
         let inside = |at: f64| at >= from && at < from + beats;
         for (base, end) in repeats(from, beats, length) {
             let place = |at: f64| base + (at - from);
-            for control in played_controls().filter(|c| inside(c.start)) {
+            for control in self.controls.iter().filter(|c| inside(c.start)) {
                 let at = place(control.start);
                 if at >= 0.0 && at < length {
                     set.push_event(origin + at, control.event(0));
                 }
             }
-            for (note, (pitch, velocity)) in played_notes().filter(|(n, _)| inside(n.start)) {
+            for note in self.notes().filter(|n| inside(n.start)) {
                 let at = place(note.start);
                 if at >= 0.0 && at < length {
                     let stop = (at + note.length).min(end);
-                    let vel = f32::from(velocity) / 127.0;
-                    set.push_note_attr(origin + at, origin + stop, pitch, vel, attr_of(note));
+                    let vel = note.velocity.unit();
+                    set.push_note_attr(origin + at, origin + stop, note.pitch, vel, attr_of(note));
                 }
             }
         }
@@ -134,6 +128,9 @@ pub(super) struct Compiled {
     empty: Arc<[MidiEv]>,
     /// How many entries there were after the last sweep.
     swept: usize,
+    /// What the clips with a modifier stack play, which their events are
+    /// compiled from.
+    pub(super) stacks: Results,
 }
 
 /// One list of events and what it was compiled from. It holds the runs, so
@@ -143,7 +140,6 @@ struct Entry {
     controls: Vec<Control>,
     length: f64,
     repeat: Option<(f64, f64)>,
-    overrides: Overrides,
     events: Arc<[MidiEv]>,
 }
 
@@ -155,7 +151,6 @@ impl Entry {
             && self.runs.len() == s.runs.len()
             && self.runs.iter().zip(s.runs).all(|(a, b)| Arc::ptr_eq(a, b))
             && self.controls == s.controls
-            && self.overrides == s.overrides
     }
 }
 
@@ -177,7 +172,6 @@ impl Compiled {
                 controls: source.controls.to_vec(),
                 length: source.length,
                 repeat: source.repeat,
-                overrides: source.overrides,
                 events: events.clone(),
             },
         );
@@ -191,30 +185,13 @@ impl Compiled {
             self.entries.retain(|_, e| Arc::strong_count(&e.events) > 1);
             self.swept = self.entries.len();
         }
+        self.stacks.sweep();
     }
 }
 
 /// A note's attribute as the engine has it.
 fn attr_of(note: &Note) -> paw_types::Attr {
     note.attr.map_or(paw_types::Attr::NONE, Into::into)
-}
-
-/// Where each repeat of a looped clip begins and ends, from the clip's
-/// start, for a repeated stretch beginning at `from` and `period` long, in
-/// a clip `length` long: the first begins at or before 0, the last ends
-/// at `length` or later. In beats for MIDI, in seconds for sound.
-pub(crate) fn repeats(from: f64, period: f64, length: f64) -> impl Iterator<Item = (f64, f64)> {
-    // The repeat the clip's start falls in.
-    let first = from - period * (from / period).ceil();
-    let count = if period > 0.0 {
-        ((length - first) / period).ceil().max(0.0) as usize
-    } else {
-        0
-    };
-    (0..count).map(move |k| {
-        let a = first + k as f64 * period;
-        (a, first + (k + 1) as f64 * period)
-    })
 }
 
 /// Whether sound repeated from `from` for `seconds` runs on from its end
@@ -390,6 +367,7 @@ fn pieces_of(
     clip: &Clip,
     before: Option<&SentClip>,
     compiled: &mut Compiled,
+    ctx: &mut SyncCtx,
 ) -> Vec<Arc<[MidiEv]>> {
     let Some(ClipContent::Midi { notes, controls }) = clip.playable() else {
         return Vec::new();
@@ -398,6 +376,13 @@ fn pieces_of(
     if let Some(b) = before.filter(|b| std::ptr::eq(&*b.clip, clip)) {
         return b.pieces.clone();
     }
+    // The result of its stack has as many runs as its notes, or fewer: its
+    // pieces fit in the orders that the clip takes (`orders_taken`).
+    let played = compiled.stacks.played(clip, notes, controls, ctx.modifiers, ctx.warnings);
+    let (notes, controls) = match &played {
+        Some(result) => (&result.notes, &result.controls[..]),
+        None => (notes, &controls[..]),
+    };
     let whole = Source::whole(clip, notes, controls);
     if notes.len() <= PIECE || whole.repeat.is_some() {
         return vec![compiled.events(whole)];
@@ -437,7 +422,7 @@ fn send_pieces(
     if !clip.muted {
         // A custom clip plays its sound, if it has one, as its own.
         match clip.playable() {
-            Some(ClipContent::Midi { .. }) => pieces = pieces_of(clip, before, compiled),
+            Some(ClipContent::Midi { .. }) => pieces = pieces_of(clip, before, compiled, ctx),
             Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut audio)
             }
@@ -715,7 +700,14 @@ pub(super) fn build_cues(
             Some(ClipContent::Midi { notes, controls }) => {
                 let events = match cached.get(&clip.id) {
                     Some(was) if Arc::ptr_eq(&was.clip, clip) => was.events.clone(),
-                    _ => Source::whole(clip, notes, controls).compile(clip.start),
+                    _ => {
+                        let played = map.compiled.stacks.played(clip, notes, controls, ctx.modifiers, ctx.warnings);
+                        match &played {
+                            Some(result) => Source::whole(clip, &result.notes, &result.controls),
+                            None => Source::whole(clip, notes, controls),
+                        }
+                        .compile(clip.start)
+                    }
                 };
                 clips.midi = events.to_vec();
                 kept.insert(clip.id, CueEvents { clip: clip.clone(), events });

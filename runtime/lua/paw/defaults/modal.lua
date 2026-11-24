@@ -185,8 +185,8 @@ local function under_cursor()
     elseif c.kind == "midi" then
       lines[#lines + 1] = string.format("  %d notes", c.note_count)
       if c.link then lines[#lines + 1] = string.format("  linked: %s, %d clips", c.link, c.link_count) end
-      local overrides = common.overrides_text(c)
-      if overrides then lines[#lines + 1] = "  plays with " .. overrides end
+      local plays = paw.modifiers.text(c.modifiers)
+      if plays then lines[#lines + 1] = "  plays with " .. plays end
       -- A clip from a file outside the project, or a copy of one.
       if c.source then
         lines[#lines + 1] = string.format("  refers to %s%s", c.source, c.offline and " (missing)" or "")

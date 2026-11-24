@@ -18,7 +18,7 @@ use serde_json::{Map, Value};
 
 use super::Document;
 use crate::model::check_notes;
-use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, de_attr};
+use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, Velocity, de_attr};
 
 /// What to change about a note. Fields left out stay as they are.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -53,7 +53,7 @@ impl NoteChange {
             note.pitch = pitch;
         }
         if let Some(velocity) = self.velocity {
-            note.velocity = velocity;
+            note.velocity = Velocity(velocity);
         }
         if let Some(meta) = &self.meta {
             note.meta = meta.clone();
@@ -137,7 +137,7 @@ impl NoteColumns {
             note.pitch = pitch[entry];
         }
         if let Some(velocity) = &self.velocity {
-            note.velocity = velocity[entry];
+            note.velocity = Velocity(velocity[entry]);
         }
     }
 
@@ -416,7 +416,7 @@ mod tests {
         notes_of(project, 3)
             .unwrap()
             .iter()
-            .map(|n| (n.id, n.start, n.pitch, n.velocity))
+            .map(|n| (n.id, n.start, n.pitch, n.velocity.0))
             .collect()
     }
 

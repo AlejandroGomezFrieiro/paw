@@ -13,6 +13,7 @@
 //! - `audio.rs`: decoded files, shared between clips;
 //! - `devices.rs`: devices made, updated and given their files;
 //! - `clips.rs`: clips compiled and sent whole or in parts;
+//! - `stacks.rs`: what a clip with a modifier stack plays, kept by key;
 //! - `automation.rs`: lanes, VCA faders, and what a lane gives back;
 //! - `routing.rs`: outputs, sends, side-chains, solo and the schedule;
 //! - `items.rs`: the events of clips and lanes added, changed or removed.
@@ -27,6 +28,7 @@ mod mapper;
 mod nests;
 pub(crate) use nests::passes;
 mod routing;
+mod stacks;
 #[cfg(test)]
 mod tests;
 
@@ -42,7 +44,6 @@ pub(crate) use self::automation::is_active;
 pub(crate) use self::devices::{TakesClips, deliver_clips, install, is_host};
 pub use self::mapper::Mapper;
 pub(crate) use self::mapper::Follow;
-pub(crate) use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
 use self::automation::{build_automation, release_targets, vca_volume_lane, vcas_of};
@@ -130,6 +131,8 @@ pub struct SyncCtx<'a> {
     pub now: crate::clock::ScheduleTime,
     /// The kinds of split, which tell how each split of a chain plays.
     pub kinds: &'a crate::model::chain::SplitKinds,
+    /// The kinds of modifier, which run the stack of each clip.
+    pub modifiers: &'a crate::model::modifiers::ModKinds,
 }
 
 /// Bring the engine from `old` to `new`.

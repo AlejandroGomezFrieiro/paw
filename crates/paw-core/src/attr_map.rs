@@ -46,36 +46,46 @@ use serde::{Deserialize, Serialize};
 const STRIKE: f64 = 1.0 / 64.0;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub(crate) struct AttrMap {
-    #[serde(default)]
     pub send: SendWhen,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub chase: Vec<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<Art>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub arts: BTreeMap<String, Art>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub by_type: BTreeMap<TypeKey, Art>,
-    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    /// Whether the notes keep their attribute as they play, true by
+    /// default. A file writes it only when it is not its default: the
+    /// skip test is the value itself (`bool::clone`), true for the default.
+    #[serde(skip_serializing_if = "bool::clone")]
     pub attribute: bool,
     /// Milliseconds every note plays early (below 0) or late, unless its
     /// articulation says otherwise.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub delay: Option<f64>,
+}
+
+/// A map that has no articulations, and that keeps the attribute of each
+/// note: what a file reads for each field that it does not have.
+impl Default for AttrMap {
+    fn default() -> Self {
+        AttrMap {
+            send: SendWhen::default(),
+            chase: Vec::new(),
+            default: None,
+            arts: BTreeMap::new(),
+            by_type: BTreeMap::new(),
+            attribute: true,
+            delay: None,
+        }
+    }
 }
 
 /// How far a note may be moved by a delay, in milliseconds, each way.
 const MOST_DELAY: f64 = 2000.0;
-
-fn yes() -> bool {
-    true
-}
-
-fn is_true(b: &bool) -> bool {
-    *b
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -365,7 +375,7 @@ fn compile(line: &str, keep_attr: bool) -> Result<Compiled> {
             "ks" | "hold" => {
                 let (key, vel) = value.split_once(':').unwrap_or((value, "127"));
                 let key = pitch(key).with_context(|| format!("`{word}`: no such key"))?;
-                let vel = seven(vel)?.max(1) as f32 / 127.0;
+                let vel = crate::model::Velocity(seven(vel)?.max(1)).unit();
                 art.outs.push(if what == "ks" {
                     Out::Strike { key, vel }
                 } else {
@@ -668,6 +678,16 @@ mod tests {
 
     fn map(lua_like: serde_json::Value) -> Plan {
         parse(lua_like).unwrap().unwrap().plan().unwrap()
+    }
+
+    #[test]
+    fn a_map_keeps_the_attribute_unless_it_says_false_and_writes_only_false() {
+        let read = |value| parse(value).unwrap().unwrap();
+        let plain = read(serde_json::json!({ "chase": [1] }));
+        assert!(plain.attribute);
+        assert_eq!(serde_json::to_value(&plain).unwrap(), serde_json::json!({ "send": "change", "chase": [1] }));
+        let off = read(serde_json::json!({ "chase": [1], "attribute": false }));
+        assert_eq!(serde_json::to_value(&off).unwrap()["attribute"], false);
     }
 
     fn note(set: &mut ClipSet, beat: f64, key: u8, attr: Attr) {

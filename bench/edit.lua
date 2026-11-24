@@ -3,6 +3,7 @@
 --   paw --clean --no-plugins -l bench/edit.lua clips <n>     add, move, delete n clips; undo and redo all
 --   paw --clean --no-plugins -l bench/edit.lua notes <n>     add, move, delete n notes in one clip
 --   paw --clean --no-plugins -l bench/edit.lua scale <parts> one small edit, undo and redo in a big project
+--   paw --clean --no-plugins -l bench/edit.lua stacks <n>    a stack of modifiers on n linked copies; a change of one entry
 local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
@@ -214,7 +215,55 @@ elseif mode == "turn" then
     edited_ms = sd.p50,
     edited_max_ms = sd.max,
   })
+elseif mode == "stacks" then
+  -- One 16-bar MIDI clip and n-1 linked copies of it. Each copy gets the
+  -- same stack of four modifiers. Then a change of entry 3 of one copy,
+  -- and a change of entry 3 of each copy to the same new value. The sync
+  -- runs a stack one time for all the copies with the same stack, and runs
+  -- only the entries from the changed entry to the end.
+  local _, ids = B.time(B.build, { parts = 1, kind = "midi", bars = 16 })
+  local part = ids[1]
+  local first = api.clip_list(part)[1].id
+  local copies = { first }
+  for i = 2, n do
+    copies[i] = api.clip_link(copies[i - 1])
+  end
+  api.undo_checkpoint()
+  paw.flush()
+  local function stack(add)
+    return {
+      { kind = "transpose", params = { semitones = 2 } },
+      { kind = "velocity", params = { add = -5 } },
+      { kind = "velocity", params = { add = add } },
+      { kind = "transpose", params = { semitones = -1 } },
+    }
+  end
+  local each = turn(function()
+    for _, id in ipairs(copies) do
+      api.clip_set(id, { modifiers = stack(0) })
+    end
+  end)
+  local one, all = {}, {}
+  for i = 1, 50 do
+    one[i] = turn(api.clip_set, copies[(i * 7) % #copies + 1], { modifiers = stack(i % 20) })
+    all[i] = turn(function()
+      for _, id in ipairs(copies) do
+        api.clip_set(id, { modifiers = stack(-(i % 20)) })
+      end
+    end)
+  end
+  local so, sa = B.stats(one), B.stats(all)
+  B.emit({
+    workload = "stacks",
+    clips = n,
+    stack_each_ms = each,
+    entry_one_ms = so.p50,
+    entry_one_max_ms = so.max,
+    entry_all_ms = sa.p50,
+    entry_all_max_ms = sa.max,
+    rss_kb = B.rss(),
+  })
 else
-  error("usage: edit.lua clips|notes|scale|turn <n>")
+  error("usage: edit.lua clips|notes|scale|turn|stacks <n>")
 end
 api.quit(0)

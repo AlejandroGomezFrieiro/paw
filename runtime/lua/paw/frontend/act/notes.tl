@@ -3,6 +3,7 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
+local modifiers = require("paw.modifiers")
 local options = require("paw.options")
 local seats = require("paw.seats")
 local util = require("paw.util")
@@ -80,10 +81,11 @@ function M.chosen_notes(clip: integer): {integer}
 end
 
 --- A handle on a clip at the pitches that it plays: its notes shifted by
---- its transpose (`:clip.override`), as the roll shows them.
+--- the transpose at the top of its stack (`paw.modifiers`), as the roll
+--- shows them.
 local function played(clip: integer): objects.Clip
   local c = paw.clip(clip)
-  return c:shifted(c.transpose or 0)
+  return c:shifted(modifiers.shift(c.modifiers))
 end
 
 --- The notes of a clip by their places in it, and the places in order. A

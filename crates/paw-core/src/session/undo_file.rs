@@ -383,7 +383,7 @@ mod tests {
                 // Each clip its own: equal clips would share one file.
                 length: 0.25 + seed as f64 / 1024.0,
                 pitch: 48 + ((i * 7 + seed) % 24) as u8,
-                velocity: 90,
+                velocity: crate::model::Velocity(90),
                 meta: Default::default(),
                 id: i + 1,
                 attr: None,

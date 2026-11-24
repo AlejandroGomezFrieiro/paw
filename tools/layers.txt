@@ -63,6 +63,8 @@ paw.axis
 # The project and what the user edits in it: parts, clips, notes, time,
 # devices, files.
 paw.objects
+# The words and the reversible prefix of a clip's modifier stack.
+paw.modifiers
 # The grid of time: ticks and the lines that grid motions stop on.
 paw.timegrid
 paw.cursor

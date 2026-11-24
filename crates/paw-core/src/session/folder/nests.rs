@@ -304,7 +304,7 @@ mod tests {
     fn ballad() -> Project {
         let mut p = song(10);
         add_nest(&mut p, 10, "Bridge", Vec::new());
-        let notes = vec![Note { start: 0.0, length: 1.0, pitch: 60, velocity: 90, meta: Map::new(), id: 1, attr: None }];
+        let notes = vec![Note { start: 0.0, length: 1.0, pitch: 60, velocity: crate::model::Velocity(90), meta: Map::new(), id: 1, attr: None }];
         let mut riff: Clip = serde_json::from_value(json!({
             "id": 30, "name": "riff", "start": 0.0, "length": 4.0, "muted": false,
             "content": { "kind": "midi", "notes": [] },

@@ -722,6 +722,7 @@ impl Session {
             bell: paw_engine::Bell::none(),
             now: self.now,
             kinds: &self.doc.split_kinds,
+            modifiers: &self.doc.modifier_kinds,
         };
         let mut mapper = Mapper::new();
         sync(

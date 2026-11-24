@@ -71,6 +71,7 @@ local record api
    clip_notes_edit: function(id: integer, edit: types.NotesEdit)
    clip_peaks: function(id: integer, n: integer): {types.Peak}
    clip_remove: function(id: integer)
+   clip_render: function(id: integer, count?: integer): types.Rendered
    clip_reverse: function(id: integer): types.ClipEdits
    clip_set: function(id: integer, patch: types.ClipChanges)
    clip_set: function(id: integer, key: string, value: nil)

@@ -239,8 +239,7 @@ local function play_whole(list: {Sounding}): {integer}
         start = s.start,
         length = s.stop - s.start,
         notes = notes,
-        transpose = s.clip.transpose,
-        velocity = s.clip.velocity,
+        modifiers = s.clip.modifiers,
       }
     )
   end

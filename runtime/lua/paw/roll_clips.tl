@@ -14,14 +14,16 @@
 -- far its clip starts after the active one.
 --
 -- Pitches here are the roll's too: those that the notes play at. A clip
--- with a transpose (`:clip.override`) shows each note that much higher than
--- it is stored, and a pitch written in the roll is stored that much lower:
--- each part's `clip` is a handle that does this (`Clip:shifted`).
+-- with a transpose at the top of its modifier stack
+-- (`paw.modifiers`) shows each note that much higher than it is stored, and
+-- a pitch written in the roll is stored that much lower: each part's `clip`
+-- is a handle that does this (`Clip:shifted`).
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
 local kernel = require("paw.events.kernel")
+local modifiers = require("paw.modifiers")
 local options = require("paw.options")
 local context = require("paw.roll_context")
 local type types = require("paw.types")
@@ -262,7 +264,7 @@ function M.portions(): {Portion}
     local c = midi(id)
     out[#out + 1] = {
       id = id,
-      clip = paw.clip(id):shifted(c.transpose or 0),
+      clip = paw.clip(id):shifted(modifiers.shift(c.modifiers)),
       offset = c.start - a.start,
       start = c.start,
       length = c.length,

@@ -756,13 +756,9 @@ pub(crate) struct ClipView<'a> {
     link: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     link_count: Option<usize>,
-    /// A MIDI clip's overrides: semitones up (down below 0), and what is
-    /// added to the velocity of each note. They change what plays, not the
-    /// notes.
+    /// A MIDI clip's modifiers, top to bottom (`model/modifiers.rs`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    transpose: Option<i8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    velocity: Option<i8>,
+    modifiers: Option<&'a [crate::model::Modifier]>,
     // An audio clip's.
     #[serde(skip_serializing_if = "Option::is_none")]
     edits: Option<usize>,
@@ -842,8 +838,7 @@ fn clip_json<'a>(c: &'a Clip, part: Id, files: &file_check::FileCheck) -> ClipVi
         control_stamp: None,
         link: c.link.as_deref(),
         link_count: None,
-        transpose: None,
-        velocity: None,
+        modifiers: None,
         edits: None,
         file: None,
         offset: None,
@@ -877,8 +872,7 @@ fn clip_json<'a>(c: &'a Clip, part: Id, files: &file_check::FileCheck) -> ClipVi
             v.control_count = Some(controls.len());
             v.stamp = Some(notes.stamp());
             v.control_stamp = Some(control_stamp(controls));
-            v.transpose = Some(c.overrides.transpose);
-            v.velocity = Some(c.overrides.velocity);
+            v.modifiers = Some(&c.stack.0);
         }
         ClipContent::Audio { file, offset, gain, edits } => {
             if !edits.is_empty() {
@@ -894,7 +888,7 @@ fn clip_json<'a>(c: &'a Clip, part: Id, files: &file_check::FileCheck) -> ClipVi
             v.fade_in = Some(c.fade_in);
             v.fade_out = Some(c.fade_out);
             v.timebase = Some(c.timebase.unwrap_or_default());
-            v.stretch = Some(c.stretch);
+            v.stretch = Some(c.stretch.0);
             v.pitch = Some(c.pitch);
             v.stretch_mode = Some(c.stretch_mode);
             v.source_tempo = c.source_tempo;

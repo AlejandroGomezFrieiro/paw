@@ -28,6 +28,7 @@ use super::*;
 use crate::clock::Agenda;
 use crate::doorbell::Woken;
 use crate::events::{KernelEvent as E, Record, Recorded};
+use crate::model::Velocity;
 
 /// What records takes: the take under way, the takes that close, how many
 /// takes were begun, and how much earlier recordings are moved.
@@ -74,7 +75,7 @@ pub(super) struct Take {
 /// the loop it began in, and its attribute.
 struct Held {
     start: f64,
-    velocity: u8,
+    velocity: Velocity,
     pass: u32,
     attr: Option<NoteAttr>,
 }
@@ -123,7 +124,7 @@ impl Take {
                 EventKind::NoteOn { key, vel, attr, .. } => {
                     // A key struck again ends the note it held.
                     self.end_note(part, key, beat, pass);
-                    let velocity = (vel * 127.0).round().clamp(1.0, 127.0) as u8;
+                    let velocity = Velocity::from_unit(vel);
                     let held = Held { start: beat, velocity, pass, attr: NoteAttr::of(attr) };
                     self.held.insert((part, key), held);
                 }

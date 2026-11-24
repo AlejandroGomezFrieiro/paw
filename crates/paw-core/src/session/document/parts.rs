@@ -316,13 +316,13 @@ impl PartField {
             // Routing looks at the other parts before it changes this one.
             Self::Output => {
                 let output = checked_output(p, id, de(key, value)?)?;
-                part_in(p, id)?.output = output;
+                p.part_in(id)?.output = output;
             }
             Self::Sends => {
                 let sends = checked_sends(p, id, de(key, value)?)?;
-                part_in(p, id)?.sends = sends;
+                p.part_in(id)?.sends = sends;
             }
-            own => own.set_own(part_in(p, id)?, id, key, value)?,
+            own => own.set_own(p.part_in(id)?, id, key, value)?,
         }
         Ok(())
     }
@@ -401,10 +401,6 @@ impl std::str::FromStr for PartField {
             _ => bail!("parts have no settable field `{key}`"),
         })
     }
-}
-
-fn part_in(p: &mut Project, id: Id) -> Result<&mut Part> {
-    p.part_mut(id).with_context(|| format!("no part {id}"))
 }
 
 /// Where part `id` may output to: `None` is the master.

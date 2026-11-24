@@ -33,15 +33,6 @@ function M.need_clip()
   return clip
 end
 
---- A MIDI clip's overrides (`:clip.override`) in words, as `transpose +3,
---- velocity -10`; nil when it has none.
-function M.overrides_text(c)
-  local parts = {}
-  if (c.transpose or 0) ~= 0 then parts[#parts + 1] = string.format("transpose %+d", c.transpose) end
-  if (c.velocity or 0) ~= 0 then parts[#parts + 1] = string.format("velocity %+d", c.velocity) end
-  return #parts > 0 and table.concat(parts, ", ") or nil
-end
-
 --- Whether a path is a folder that is not a project: it opens as a list
 --- of its files to edit (`paw.files`), not as a project.
 function M.plain_folder(path)

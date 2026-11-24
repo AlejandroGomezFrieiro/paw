@@ -248,7 +248,7 @@ impl Slot<'_> {
 /// id of its node and the field.
 fn each_field(split: &mut Split, f: &mut impl FnMut(NodeId, Field, Slot)) {
     split.each_split_mut(&mut |s| {
-        f(s.id, Field::Mix, Slot::Number(&mut s.mix));
+        f(s.id, Field::Mix, Slot::Number(&mut s.mix.0));
         f(s.id, Field::Gain, Slot::Number(&mut s.gain));
         f(s.id, Field::Values, Slot::Values(&mut s.values));
         for m in &mut s.macros {

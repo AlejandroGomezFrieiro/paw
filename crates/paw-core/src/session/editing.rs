@@ -36,6 +36,7 @@ impl Session {
             bell: self.bell.bell(crate::doorbell::Woken::PLUGINS),
             now: self.now,
             kinds: &self.doc.split_kinds,
+            modifiers: &self.doc.modifier_kinds,
         };
         let handle = &mut self.engine.handle;
         let mut send = |msg| handle.send(msg);

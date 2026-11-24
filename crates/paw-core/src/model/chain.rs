@@ -33,6 +33,7 @@ use serde_json::{Map, Value};
 use super::ids::{DefId, DeviceId, NodeId, ParamKey};
 use super::linked::Linked;
 use super::racks::RackDef;
+use super::serde_util::{Factor, is_default};
 
 pub mod edit;
 mod kinds;
@@ -71,10 +72,10 @@ pub struct Split {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
     /// The dry and wet mix of the whole split, 0 (dry) to 1 (wet).
-    #[serde(default = "one", skip_serializing_if = "is_one")]
-    pub mix: f64,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mix: Factor,
     /// The gain after the merge, in dB.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub gain: f64,
     pub branches: Vec<Branch>,
     /// The macros of the container: values that links set parameters from.
@@ -95,14 +96,14 @@ pub struct Branch {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
     /// In dB.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub gain: f64,
     /// -1 (left) to 1 (right).
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pan: f64,
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub mute: bool,
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub solo: bool,
     /// The notes (a `key` split) or velocities (a `vel` split) that the
     /// branch hears; `None` for all.
@@ -157,22 +158,6 @@ pub struct Tap {
     /// The node whose output it hears; `None` for the input of the chain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<NodeId>,
-}
-
-fn one() -> f64 {
-    1.0
-}
-
-fn is_one(value: &f64) -> bool {
-    *value == 1.0
-}
-
-fn is_zero(value: &f64) -> bool {
-    *value == 0.0
-}
-
-fn is_false(value: &bool) -> bool {
-    !*value
 }
 
 /// Why a chain or an edit of it is refused. The text is what the user
@@ -291,7 +276,7 @@ impl Split {
             kind,
             values,
             name: String::new(),
-            mix: 1.0,
+            mix: Factor::default(),
             gain: 0.0,
             branches: (0..branches).map(|_| Branch::new(new_id())).collect(),
             macros: Vec::new(),
@@ -662,7 +647,7 @@ impl Chain {
 /// The checks of one split that do not depend on its kind, not of the
 /// splits in it.
 fn check_split(split: &Split, held: &HashSet<DeviceId>) -> Result<(), ChainError> {
-    in_range("the mix", split.mix, 0.0..=1.0)?;
+    in_range("the mix", split.mix.0, 0.0..=1.0)?;
     in_range("the gain", split.gain, -120.0..=24.0)?;
     for branch in &split.branches {
         in_range("the gain of a branch", branch.gain, -120.0..=24.0)?;

@@ -52,6 +52,7 @@ local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
 local type MediaModule = require("paw.media")
 local type MidifileModule = require("paw.midifile")
+local type ModifiersModule = require("paw.modifiers")
 local type MotionModule = require("paw.motion")
 local type MouseModule = require("paw.mouse")
 local type MusicModule = require("paw.music")
@@ -181,6 +182,7 @@ global record paw
    midi: ObjectsModule.Midi
    midifile: MidifileModule
    mixer_rows: Untyped
+   modifiers: ModifiersModule
    motion: MotionModule
    mouse: MouseModule
    music: MusicModule

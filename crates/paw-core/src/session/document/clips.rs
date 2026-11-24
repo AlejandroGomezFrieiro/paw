@@ -11,9 +11,10 @@ use serde_json::{Map, Value};
 
 use super::Document;
 use super::values::{Patch, check_controls, check_fade, finite, sorted};
+use crate::model::kinds::Version;
 use crate::model::{
     Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
-    Overrides, Project, Signal, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
+    Project, Signal, Stack, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
 };
 use schemars::JsonSchema;
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
@@ -96,10 +97,9 @@ pub(crate) struct ClipOpts {
     pub looped: bool,
     pub loop_length: Option<f64>,
     pub loop_start: f64,
-    /// A MIDI clip's overrides, as the clip's fields of these names have
-    /// them (`model/overrides.rs`).
-    pub transpose: i8,
-    pub velocity: i8,
+    /// A MIDI clip's modifiers (`model/modifiers.rs`), as `clip_get`
+    /// gives them.
+    pub modifiers: Stack,
     /// Keep it off the timeline, among the part's cues (`session/cues.rs`).
     pub cue: bool,
     /// A clip of a kind that an extension defines: its content (`data` is
@@ -160,6 +160,7 @@ impl Document {
         let (content, natural, default_name) = self.clip_content(part, &kind, &mut opts, sound_seconds)?;
         let length = opts.length.unwrap_or(natural);
         check_clip_opts(playing.clone(), &opts, length)?;
+        opts.modifiers = self.check_stack(std::mem::take(&mut opts.modifiers))?;
         let id = self.new_id();
         let cue = opts.cue;
         self.edit(|p| {
@@ -313,11 +314,11 @@ impl Document {
     pub(crate) fn clip_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             if let Some((part, index)) = p.find_cue_clip(id) {
-                p.part_mut(part).unwrap().cues.remove(index);
+                p.part_in(part)?.cues.remove(index);
                 return Ok(());
             }
             let (part, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-            p.part_mut(part).unwrap().clips.remove(index);
+            p.part_in(part)?.clips.remove(index);
             Ok(())
         })
     }
@@ -440,6 +441,11 @@ impl Document {
     /// `clip_set`. The session reads the sound file of a `File` change
     /// first, and sets the fields of how a clip plays itself.
     pub(crate) fn clip_set(&mut self, id: Id, change: ClipChange) -> Result<()> {
+        // A stack is checked before the edit: its kinds are the document's.
+        let change = match change {
+            ClipChange::Modifiers(stack) => ClipChange::Modifiers(self.check_stack(stack)?),
+            change => change,
+        };
         self.edit(|p| {
             // A clip off the timeline has no `start` there.
             let cue = p.find_cue_clip(id).is_some();
@@ -473,12 +479,7 @@ impl Document {
                 (ClipChange::Gain(new), ClipContent::Audio { gain, .. }) => *gain = new.clamp(-120.0, 24.0),
                 (ClipChange::FadeIn(beats), ClipContent::Audio { .. }) => c.fade_in = check_fade(beats)?,
                 (ClipChange::FadeOut(beats), ClipContent::Audio { .. }) => c.fade_out = check_fade(beats)?,
-                (ClipChange::Transpose(amount), ClipContent::Midi { .. }) => {
-                    c.overrides.transpose = override_value(key, amount)?;
-                }
-                (ClipChange::Velocity(amount), ClipContent::Midi { .. }) => {
-                    c.overrides.velocity = override_value(key, amount)?;
-                }
+                (ClipChange::Modifiers(stack), ClipContent::Midi { .. }) => c.stack = stack,
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
             Ok(())
@@ -550,8 +551,8 @@ fn check_clip_opts(kind: ClipKind, opts: &ClipOpts, length: f64) -> Result<()> {
     if kind == ClipKind::Midi && (opts.fade_in > 0.0 || opts.fade_out > 0.0) {
         bail!("only audio clips fade");
     }
-    if kind != ClipKind::Midi && (opts.transpose != 0 || opts.velocity != 0) {
-        bail!("only MIDI clips have a transpose and a velocity change");
+    if kind != ClipKind::Midi && !opts.modifiers.is_empty() {
+        bail!("only MIDI clips have modifiers");
     }
     let stretch = opts.stretch.unwrap_or(1.0);
     check_playing(kind.clone(), stretch, opts.pitch, opts.source_tempo)?;
@@ -576,7 +577,7 @@ fn build_clip(
 ) -> Clip {
     Clip {
         timebase: opts.timebase.filter(|_| kind == ClipKind::Audio),
-        stretch: opts.stretch.unwrap_or(1.0),
+        stretch: opts.stretch.map_or_else(crate::model::Factor::default, crate::model::Factor),
         pitch: opts.pitch,
         stretch_mode: opts.stretch_mode,
         source_tempo: opts.source_tempo.filter(|_| kind == ClipKind::Audio),
@@ -598,15 +599,15 @@ fn build_clip(
         source,
         origin: None,
         link: None,
-        overrides: Overrides { transpose: opts.transpose, velocity: opts.velocity },
+        stack: opts.modifiers,
     }
 }
 
 /// The version of a custom clip's data: 1 when not said.
-fn custom_version(version: Option<u32>) -> Result<u32> {
+fn custom_version(version: Option<u32>) -> Result<Version> {
     match version {
-        Some(0) => bail!("the version of a kind's data counts from 1"),
-        other => Ok(other.unwrap_or(1)),
+        None => Ok(Version::ONE),
+        Some(n) => Version::try_from(i64::from(n)).map_err(|_| anyhow::anyhow!("the version of a kind's data counts from 1")),
     }
 }
 
@@ -641,6 +642,9 @@ pub(crate) struct ClipPatch {
     loop_start: Patch<f64>,
     #[schemars(extend("x-teal" = "Meta"))]
     meta: Patch<Map<String, Value>>,
+    /// The modifiers of a MIDI clip, top to bottom. Nil or an empty list
+    /// takes all of them away.
+    modifiers: Patch<Stack>,
     muted: Patch<bool>,
     name: Patch<String>,
     offset: Patch<f64>,
@@ -652,10 +656,6 @@ pub(crate) struct ClipPatch {
     stretch: Patch<f64>,
     stretch_mode: Patch<StretchMode>,
     timebase: Patch<Timebase>,
-    /// Semitones up (down below 0), from -127 to 127.
-    transpose: Patch<f64>,
-    /// What is added to the velocity of each note, from -127 to 127.
-    velocity: Patch<f64>,
     /// The markers of an audio clip; the `beat` of each is not read.
     #[schemars(with = "Option<Vec<crate::session::WarpView>>")]
     warp: Patch<Vec<WarpMarker>>,
@@ -678,6 +678,7 @@ impl ClipPatch {
         set(self.loop_start.change().map(C::LoopStart));
         // An empty Lua table is an empty map: nil clears `meta` too.
         set(self.meta.change().map(|meta| C::Meta(meta.unwrap_or_default())));
+        set(self.modifiers.change().map(|stack| C::Modifiers(stack.unwrap_or_default())));
         set(self.muted.value("muted")?.map(C::Muted));
         set(self.name.value("name")?.map(C::Name));
         set(self.offset.value("offset")?.map(C::Offset));
@@ -688,8 +689,6 @@ impl ClipPatch {
         set(self.stretch.change().map(C::Stretch));
         set(self.stretch_mode.value("stretch_mode")?.map(C::StretchMode));
         set(self.timebase.value("timebase")?.map(C::Timebase));
-        set(self.transpose.change().map(C::Transpose));
-        set(self.velocity.change().map(C::Velocity));
         set(self.warp.change().map(|warp| C::Warp(warp.unwrap_or_default())));
         Ok(out)
     }
@@ -709,6 +708,7 @@ pub(crate) enum ClipChange {
     LoopLength(Option<f64>),
     LoopStart(Option<f64>),
     Meta(Map<String, Value>),
+    Modifiers(Stack),
     Muted(bool),
     Name(String),
     Offset(f64),
@@ -719,8 +719,6 @@ pub(crate) enum ClipChange {
     Stretch(Option<f64>),
     StretchMode(StretchMode),
     Timebase(Timebase),
-    Transpose(Option<f64>),
-    Velocity(Option<f64>),
     Warp(Vec<WarpMarker>),
 }
 
@@ -738,6 +736,7 @@ impl ClipChange {
             Self::LoopLength(_) => "loop_length",
             Self::LoopStart(_) => "loop_start",
             Self::Meta(_) => "meta",
+            Self::Modifiers(_) => "modifiers",
             Self::Muted(_) => "muted",
             Self::Name(_) => "name",
             Self::Offset(_) => "offset",
@@ -748,8 +747,6 @@ impl ClipChange {
             Self::Stretch(_) => "stretch",
             Self::StretchMode(_) => "stretch_mode",
             Self::Timebase(_) => "timebase",
-            Self::Transpose(_) => "transpose",
-            Self::Velocity(_) => "velocity",
             Self::Warp(_) => "warp",
         }
     }
@@ -782,7 +779,6 @@ impl ClipChange {
             _ => None,
         };
         let midi = matches!(clip.content, ClipContent::Midi { .. });
-        let whole = |amount: &Option<f64>, held: i8| midi && amount.unwrap_or(0.0) == f64::from(held);
         match self {
             Self::Name(name) => clip.name == *name,
             Self::Start(start) => clip.start == *start,
@@ -800,29 +796,16 @@ impl ClipChange {
             Self::LoopStart(beats) => clip.loop_start == beats.unwrap_or(0.0),
             Self::Formants(on) => audio.is_some() && clip.formants == *on,
             Self::Pitch(semitones) => audio.is_some() && clip.pitch == semitones.unwrap_or(0.0),
-            Self::Stretch(ratio) => audio.is_some() && clip.stretch == ratio.unwrap_or(1.0),
+            Self::Stretch(ratio) => audio.is_some() && clip.stretch.0 == ratio.unwrap_or(1.0),
             Self::StretchMode(mode) => audio.is_some() && clip.stretch_mode == *mode,
             Self::SourceTempo(bpm) => audio.is_some() && clip.source_tempo == *bpm,
             Self::Timebase(timebase) => audio.is_some() && clip.timebase.unwrap_or_default() == *timebase,
-            Self::Transpose(amount) => whole(amount, clip.overrides.transpose),
-            Self::Velocity(amount) => whole(amount, clip.overrides.velocity),
+            Self::Modifiers(stack) => midi && clip.stack == *stack,
             // A change keeps no beat of a marker, so it cannot compare a
             // list with the view: a list of markers is always set.
             Self::Warp(_) => false,
         }
     }
-}
-
-/// An override of a MIDI clip (`model/overrides.rs`): a whole number from
-/// -127 to 127, nil for 0.
-fn override_value(key: &str, amount: Option<f64>) -> Result<i8> {
-    let Some(amount) = amount else {
-        return Ok(0);
-    };
-    if amount.fract() != 0.0 || !(-127.0..=127.0).contains(&amount) {
-        bail!("`{key}` is a whole number from -127 to 127, not {amount}");
-    }
-    Ok(amount as i8)
 }
 
 /// Move clip `id`, on the timeline, to the end of part `to`.
@@ -853,8 +836,8 @@ fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
     if p.part(to).is_none() {
         bail!("no part {to}");
     }
-    let clip = p.part_mut(from).unwrap().cues.remove(index);
-    p.part_mut(to).unwrap().cues.push(clip);
+    let clip = p.part_in(from)?.cues.remove(index);
+    p.part_in(to)?.cues.push(clip);
     Ok(true)
 }
 

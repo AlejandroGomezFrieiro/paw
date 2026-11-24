@@ -260,7 +260,7 @@ impl Session {
 
         let glued = Arc::new(Clip {
             timebase: None,
-            stretch: 1.0,
+            stretch: crate::model::Factor::default(),
             pitch: 0.0,
             stretch_mode: Default::default(),
             source_tempo: None,
@@ -286,7 +286,7 @@ impl Session {
             source: None,
             origin: None,
             link: None,
-            overrides: Default::default(),
+            stack: Default::default(),
         });
         let id = glued.id;
         self.doc.edit(|p| {

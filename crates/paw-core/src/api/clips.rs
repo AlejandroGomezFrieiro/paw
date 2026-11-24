@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 
-use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
+use crate::model::{ClipContent, Control, Id, Note, NoteAttr, Velocity};
 use crate::session::notes::{NoteChange, NoteColumns, NoteRange, NotesEdit};
 
 use super::{LuaResult, Shared, from_lua, kind_data, options, patch, to_lua};
@@ -25,7 +25,7 @@ fn note_to_lua(lua: &Lua, n: &Note) -> mlua::Result<Table> {
     note.raw_set("start", n.start)?;
     note.raw_set("length", n.length)?;
     note.raw_set("pitch", n.pitch)?;
-    note.raw_set("velocity", n.velocity)?;
+    note.raw_set("velocity", n.velocity.0)?;
     if n.id != 0 {
         note.raw_set("id", n.id)?;
     }
@@ -123,7 +123,7 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
                 start: num(note.raw_get("start").ok()?)?,
                 length: num(note.raw_get("length").ok()?)?,
                 pitch: int(note.raw_get("pitch").ok()?)?,
-                velocity,
+                velocity: Velocity(velocity),
                 meta: Default::default(),
                 id: match note.raw_get::<LuaValue>("id").ok()? {
                     LuaValue::Nil => 0,
@@ -331,6 +331,17 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // longer change the other clips.
         // @return nil
         fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_unlink(id).lua() }
+        // Render the first `count` modifiers of a MIDI clip, or all of them
+        // when `count` is nil, as one undo step. Their result becomes the
+        // notes and controller moves of the clip, and they leave its
+        // `modifiers`. It fails on a linked clip, and on a modifier in those
+        // entries that can't run. Gives the number of modifiers that it
+        // rendered, the number of notes of the clip after it, and the number
+        // of notes that a modifier left out.
+        // @return types.Rendered
+        fn clip_render(lua, sh, (id, count) => (Id, Option<usize>)) {
+            to_lua(lua, &sh.session.borrow_mut().doc.clip_render(id, count).lua()?)
+        }
 
         // --- cues (session/cues.rs) ---
         // A clip goes off the timeline with `clip_add(part, { cue = true, ... })`:

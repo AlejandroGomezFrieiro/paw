@@ -37,6 +37,7 @@ mod links;
 mod nests;
 pub(crate) mod notes;
 mod project;
+mod stacks;
 mod tempo;
 mod parts;
 mod undo_tree;
@@ -70,6 +71,9 @@ pub(crate) struct Document {
     /// The kinds of split, with those that extensions defined
     /// (`paw.chain.define_kind`). Not part of the project.
     pub(super) split_kinds: crate::model::chain::SplitKinds,
+    /// The kinds of modifier of a stack (`model/modifiers.rs`). Not part
+    /// of the project.
+    pub(super) modifier_kinds: crate::model::modifiers::ModKinds,
     /// Change notifications waiting to be delivered to Lua.
     pub events: Vec<ModelEvent>,
     pub warnings: Vec<String>,
@@ -97,6 +101,7 @@ impl Document {
             next_id: MASTER_ID + 1,
             clip_kinds: BTreeSet::new(),
             split_kinds: crate::model::chain::SplitKinds::builtin(),
+            modifier_kinds: crate::model::modifiers::ModKinds::builtin(),
             events: Vec::new(),
             warnings: Vec::new(),
         }

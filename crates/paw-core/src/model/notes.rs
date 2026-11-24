@@ -410,6 +410,17 @@ impl Notes {
     }
 }
 
+impl Notes {
+    /// The notes that `change` makes of each run, in runs of their own.
+    /// `change` keeps the order of the notes in its run, and the runs stay
+    /// in order: a change that keeps each note's start (a transpose, a
+    /// velocity) gives notes in order. A run that `change` empties goes.
+    pub(crate) fn map_runs(&self, mut change: impl FnMut(&[Note]) -> Vec<Note>) -> Notes {
+        let runs = self.runs.iter().map(|run| change(run)).filter(|run| !run.is_empty()).map(Arc::new).collect();
+        Self::from_runs(runs)
+    }
+}
+
 impl From<Vec<Note>> for Notes {
     fn from(notes: Vec<Note>) -> Self {
         Self::from_runs(runs_of(notes))
@@ -554,7 +565,7 @@ mod tests {
             start,
             length: 0.25,
             pitch: 60,
-            velocity: 100,
+            velocity: crate::model::Velocity(100),
             meta: Default::default(),
             id: 0,
             attr: None,
@@ -634,7 +645,7 @@ mod tests {
         let runs = before.runs.len();
         let mut after = before.clone();
         assert_eq!(shared(&after, &before), runs, "a copy shares every run");
-        after[5000].velocity = 1;
+        after[5000].velocity = crate::model::Velocity(1);
         assert_eq!(shared(&after, &before), runs - 1);
         assert!(after.weight_over(Some(&before)) < 30_000, "{}", after.weight_over(Some(&before)));
         assert!(before.weight_over(None) > 10_000 * size_of::<Note>());

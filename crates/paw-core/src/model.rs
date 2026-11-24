@@ -20,15 +20,18 @@ pub mod ids;
 pub mod kinds;
 pub mod linked;
 mod links;
+pub mod modifiers;
 pub(crate) mod nest;
 mod notes;
-mod overrides;
 pub mod owner;
 pub mod racks;
+pub mod serde_util;
 
 #[cfg(test)]
 mod props;
 pub(crate) use clips::Clips;
+pub(crate) use serde_util::is_default;
+pub use serde_util::{Factor, Velocity};
 pub(crate) use custom::{
     ClipKindId, CustomContent, KindData, MediaRef, Signal, Sound, Timeline,
 };
@@ -36,7 +39,7 @@ pub(crate) use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, R
 pub(crate) use chain::Chain;
 pub(crate) use links::Links;
 pub(crate) use notes::Notes;
-pub(crate) use overrides::Overrides;
+pub(crate) use modifiers::{Modifier, Stack};
 pub(crate) use racks::RackDef;
 
 pub(crate) type Id = u64;
@@ -53,7 +56,7 @@ pub struct Project {
     pub sig_num: u32,
     pub sig_den: u32,
     /// The tempo ramps from the start to the first of `tempo_changes`.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub tempo_ramp: bool,
     /// Where the tempo changes after the start, in order. A song with one
     /// tempo and one signature has none of these, and its file is what it
@@ -186,7 +189,7 @@ pub struct Part {
     pub height: Option<f64>,
     /// What moving a fader, the pan or a parameter of the part does to
     /// its automation while the song plays, and whether its lanes play.
-    #[serde(default, skip_serializing_if = "AutoMode::is_read")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub(crate) automation: AutoMode,
     /// Clips kept off the timeline, which play only when cued (see
     /// `session/cues.rs`). Each starts at 0 and repeats every `length`
@@ -276,10 +279,6 @@ pub(crate) enum AutoMode {
 }
 
 impl AutoMode {
-    fn is_read(&self) -> bool {
-        *self == AutoMode::Read
-    }
-
     pub(crate) fn name(self) -> &'static str {
         match self {
             AutoMode::Read => "read",
@@ -317,7 +316,7 @@ pub(crate) struct MidiOutput {
     /// From 1 to 16, or `None` for the channel each message has.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel: Option<u8>,
-    #[serde(default, skip_serializing_if = "OutForm::is_auto")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub form: OutForm,
     /// The member channels of an MPE zone, 1 to 15; `None` for 15.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -338,12 +337,6 @@ pub(crate) enum OutForm {
     Mpe,
     /// Control changes 0 to 31 in fourteen bits.
     Cc14,
-}
-
-impl OutForm {
-    pub(crate) fn is_auto(&self) -> bool {
-        *self == OutForm::Auto
-    }
 }
 
 impl MidiOutput {
@@ -490,7 +483,7 @@ pub(crate) struct Send {
     pub level: f64,
     /// Taken after the part's devices but before its fader, pan and mute,
     /// so that the send does not follow the fader.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pre: bool,
 }
 
@@ -500,7 +493,7 @@ pub(crate) struct TempoChange {
     pub beat: f64,
     pub bpm: f64,
     /// Ramp to the next change's tempo instead of holding this one.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub ramp: bool,
 }
 
@@ -510,14 +503,6 @@ pub(crate) struct SigChange {
     pub beat: f64,
     pub num: u32,
     pub den: u32,
-}
-
-fn is_false(value: &bool) -> bool {
-    !*value
-}
-
-fn is_zero(value: &f64) -> bool {
-    *value == 0.0
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -535,7 +520,7 @@ pub(crate) struct DeviceInst {
     /// Counts the presets loaded into the device. When it differs between
     /// two versions of the project (a preset was loaded, or that was
     /// undone), `state` is loaded into the running plugin.
-    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub loaded: u32,
     /// A plugin's name, kept so that it can be named where it is not
     /// installed.
@@ -543,7 +528,7 @@ pub(crate) struct DeviceInst {
     pub name: Option<String>,
     /// Not made at all: no process, no sound, passed over; its state and
     /// parameters are kept as they are.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub offline: bool,
     /// The part whose sound the device listens to as its side-chain, such
     /// as a kick that a compressor on a bass ducks under.
@@ -551,7 +536,7 @@ pub(crate) struct DeviceInst {
     pub sidechain: Option<Id>,
     /// The side-chain is taken after that part's devices but before its
     /// fader, pan and mute, rather than after them.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub sidechain_pre: bool,
     /// Where the device's further output pairs play, by pair number (2 for
     /// its second) and part. Pairs not named here are not heard.
@@ -570,10 +555,6 @@ pub(crate) struct DeviceInst {
     pub files: BTreeMap<String, String>,
 }
 
-fn is_zero_u32(value: &u32) -> bool {
-    *value == 0
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Clip {
     pub id: Id,
@@ -586,9 +567,9 @@ pub struct Clip {
     /// Beats over which an audio clip fades in from its start and out to its
     /// end. Two clips fade across each other where one's fade out overlaps
     /// the other's fade in.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub fade_in: f64,
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub fade_out: f64,
     /// For an audio clip, what it keeps when the tempo before it changes;
     /// `None` is [`Timebase::Time`]. MIDI clips follow beats.
@@ -596,14 +577,14 @@ pub struct Clip {
     pub timebase: Option<Timebase>,
     /// How many times as long as its file an audio clip plays it, at the
     /// file's pitch: 2 is half speed. 1 plays the file as it is.
-    #[serde(default = "one", skip_serializing_if = "is_one")]
-    pub stretch: f64,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub stretch: Factor,
     /// Semitones an audio clip plays higher than its file (lower below
     /// 0), at the same length.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub pitch: f64,
     /// How an audio clip is stretched or shifted (see `stretch.rs`).
-    #[serde(default, skip_serializing_if = "is_auto")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub stretch_mode: StretchMode,
     /// The tempo an audio clip's sound is at as it is stretched now, which
     /// a clip in [`Timebase::Stretch`] follows: at this tempo it plays at
@@ -618,18 +599,18 @@ pub struct Clip {
     /// An audio clip shifted in pitch keeps its formants (the shape of its
     /// spectrum, which says what vowel is sung), so that a voice does not
     /// sound smaller or larger.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub formants: bool,
     /// The clip repeats what it plays from `loop_start` for `loop_length`
     /// beats, over its whole length.
-    #[serde(default, rename = "loop", skip_serializing_if = "is_false")]
+    #[serde(default, rename = "loop", skip_serializing_if = "is_default")]
     pub looped: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub loop_length: Option<f64>,
     /// Beats from the clip's start to where the repeated stretch begins: 0,
     /// or less once the start has been trimmed (more than a repeat back is
     /// a repeat less back).
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub loop_start: f64,
     #[serde(default)]
     pub meta: Map<String, Value>,
@@ -646,11 +627,14 @@ pub struct Clip {
     /// all of them (`model/links.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
-    /// What a MIDI clip changes in its notes as it plays them (a transpose,
-    /// a velocity change), without a change of the notes: each clip of a
-    /// link can play the shared notes in its own way.
-    #[serde(default, skip_serializing_if = "Overrides::is_none")]
-    pub overrides: Overrides,
+    /// The modifiers of a MIDI clip (`model/modifiers.rs`): what it
+    /// changes in its notes as it plays them (a transpose, a velocity
+    /// change), without a change of the notes. The stack is on the clip,
+    /// not on the notes, so each clip of a link can play the shared notes
+    /// in its own way. A file of before stacks has `overrides`, which reads
+    /// as two entries.
+    #[serde(default, rename = "modifiers", alias = "overrides", skip_serializing_if = "Stack::is_empty")]
+    pub stack: Stack,
 }
 
 /// What an audio clip keeps when the tempo changes. Either way it keeps its
@@ -679,18 +663,6 @@ pub(crate) use crate::stretch::Mode as StretchMode;
 pub struct WarpMarker {
     pub source: f64,
     pub target: f64,
-}
-
-fn one() -> f64 {
-    1.0
-}
-
-fn is_one(value: &f64) -> bool {
-    *value == 1.0
-}
-
-fn is_auto(mode: &StretchMode) -> bool {
-    *mode == StretchMode::Auto
 }
 
 impl Clip {
@@ -746,7 +718,7 @@ pub enum ClipContent {
         nest: NestId,
         /// Beats into the nest where the clip starts (trim and slip change
         /// it).
-        #[serde(default, skip_serializing_if = "is_zero")]
+        #[serde(default, skip_serializing_if = "is_default")]
         offset: f64,
         play: NestPlay,
     },
@@ -943,8 +915,8 @@ pub struct Note {
     /// MIDI note number, 60 is middle C.
     pub pitch: u8,
     /// 1 to 127.
-    #[serde(default = "default_velocity")]
-    pub velocity: u8,
+    #[serde(default)]
+    pub velocity: Velocity,
     /// Free-form data for extensions, such as a lyric. It travels with the
     /// note through edits, unlike data kept beside the clip's note list.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
@@ -953,7 +925,7 @@ pub struct Note {
     /// it is moved or changed (`paw://clip/7/note/41`). 0 until the session
     /// gives it one, which it does to every note that has none, or shares
     /// one with a note before it, before the edit is played or kept.
-    #[serde(default, skip_serializing_if = "unnamed")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub id: u64,
     /// The MIDI 2.0 attribute its note-on carries, such as an articulation
     /// of the orchestral articulation profile (M2-123); `None` for none.
@@ -1016,12 +988,22 @@ pub(crate) fn de_attr<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<N
     }
 }
 
-fn default_velocity() -> u8 {
-    100
-}
-
-fn unnamed(id: &u64) -> bool {
-    *id == 0
+/// Where each repeat of a looped clip begins and ends, from the clip's
+/// start, for a repeated stretch beginning at `from` and `period` long, in
+/// a clip `length` long: the first begins at or before 0, the last ends
+/// at `length` or later. In beats for MIDI, in seconds for sound.
+pub(crate) fn repeats(from: f64, period: f64, length: f64) -> impl Iterator<Item = (f64, f64)> {
+    // The repeat the clip's start falls in.
+    let first = from - period * (from / period).ceil();
+    let count = if period > 0.0 {
+        ((length - first) / period).ceil().max(0.0) as usize
+    } else {
+        0
+    };
+    (0..count).map(move |k| {
+        let a = first + k as f64 * period;
+        (a, first + (k + 1) as f64 * period)
+    })
 }
 
 /// The furthest from a clip's start, either way, that its notes and
@@ -1062,11 +1044,11 @@ pub(crate) fn check_notes<'a>(notes: impl IntoIterator<Item = &'a Note>) -> anyh
         }
         check_clip_beat("a note", n.start)?;
         check_clip_beat("the end of a note", n.start + n.length)?;
-        if n.pitch > 127 || n.velocity > 127 {
+        if n.pitch > 127 || n.velocity.0 > 127 {
             anyhow::bail!(
                 "a note's pitch and velocity go up to 127, not pitch {} velocity {}",
                 n.pitch,
-                n.velocity
+                n.velocity.0
             );
         }
     }
@@ -1554,6 +1536,24 @@ impl Project {
         Some(Arc::make_mut(&mut self.part_mut(part)?.cues[index]))
     }
 
+    // The lookups of an edit: each gives an error with the text that Lua
+    // sees when the thing is not there.
+
+    /// Part `id`, to change, or the error "no part `id`".
+    pub(crate) fn part_in(&mut self, id: Id) -> anyhow::Result<&mut Part> {
+        self.part_mut(id).ok_or_else(|| anyhow::anyhow!("no part {id}"))
+    }
+
+    /// Clip `id`, to change, or the error "no clip `id`".
+    pub(crate) fn clip_in(&mut self, id: Id) -> anyhow::Result<&mut Clip> {
+        self.clip_mut(id).ok_or_else(|| anyhow::anyhow!("no clip {id}"))
+    }
+
+    /// Device `id`, to change, or the error "no device `id`".
+    pub(crate) fn device_in(&mut self, id: Id) -> anyhow::Result<&mut DeviceInst> {
+        self.device_mut(id).ok_or_else(|| anyhow::anyhow!("no device {id}"))
+    }
+
     /// Whether routing `from` into `to` would make audio flow in a circle.
     /// Audio flows on from a part through its output and its sends alike.
     pub(crate) fn would_cycle(&self, from: Id, to: Id) -> bool {
@@ -1714,9 +1714,9 @@ impl Project {
                     // as much more as the clip now lasts longer.
                     let now = map.seconds_between(clip.start, clip.start + clip.length);
                     let (lo, hi) = crate::stretch::RATIO_RANGE;
-                    let stretch = (clip.stretch * now / (s1 - s0)).clamp(lo, hi);
-                    if (stretch - clip.stretch).abs() > 1e-12 {
-                        Arc::make_mut(clip).stretch = stretch;
+                    let stretch = (clip.stretch.0 * now / (s1 - s0)).clamp(lo, hi);
+                    if (stretch - clip.stretch.0).abs() > 1e-12 {
+                        Arc::make_mut(clip).stretch = Factor(stretch);
                     }
                     continue;
                 }
@@ -1968,7 +1968,7 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
             }
             check_range(&format!("the gain of clip {}", c.id), *gain, -120.0, 24.0)?;
             let (lo, hi) = crate::stretch::RATIO_RANGE;
-            check_range(&format!("the stretch of clip {}", c.id), c.stretch, lo, hi)?;
+            check_range(&format!("the stretch of clip {}", c.id), c.stretch.0, lo, hi)?;
             let most = crate::stretch::PITCH_RANGE;
             check_range(&format!("the pitch of clip {}", c.id), c.pitch, -most, most)?;
             if let Some(bpm) = c.source_tempo {
@@ -2155,7 +2155,7 @@ mod note_ids {
     use super::*;
 
     fn note(pitch: u8, id: u64) -> Note {
-        Note { start: 0.0, length: 1.0, pitch, velocity: 100, meta: Map::new(), id, attr: None }
+        Note { start: 0.0, length: 1.0, pitch, velocity: Velocity(100), meta: Map::new(), id, attr: None }
     }
 
     #[test]

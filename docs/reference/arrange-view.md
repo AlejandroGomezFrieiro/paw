@@ -208,18 +208,38 @@ The clips of a link share their notes and their controller moves, so an edit of 
 - `K` on a linked clip says the link and its number of clips, for example `linked: riff, 3 clips`.
 - The notes of a link are in one file of the project folder, `linked/riff.midi2`. See [Project files](project-files.md#the-project-folder).
 
-### Overrides of a clip
+### Modifiers of a clip
 
-A MIDI clip can play its notes higher or lower, or louder or softer, without a change of its notes. Each clip of a link has its own overrides, so one copy of a riff can play it a third higher while all the copies keep one set of notes.
+A MIDI clip has a list of modifiers that change what it plays without a change of its notes. The list is the stack of the clip, and paw runs its entries from the first to the last, each on what the entry before it gives. Each clip of a link has its own stack, so one copy of a riff can play it a third higher while all the copies keep one set of notes. paw has two kinds of modifier, `transpose` and `velocity`, and an extension can add more.
 
-- `:clip.override transpose=3 velocity=-10` sets the overrides of the clip under the cursor, as one undo step. `transpose` is in semitones, and `velocity` is added to the velocity of each note, which stays in 1 to 127. Each is a whole number from -127 to 127, and you can give one of them alone.
-- `:clip.override clear` removes both overrides, and `:clip.override` alone says them.
-- The overrides change what plays: the sound, `:export` to a sound file or a MIDI file, and the chord names. The notes of the clip stay the same.
-- A note that the transpose takes below 0 or above 127 does not play.
-- The label of the clip shows the overrides after its name, as in `riff ≡ +3 v-10`, and `K` says them, for example `plays with transpose +3, velocity -10`.
+- `transpose` moves each note by `semitones`, and a note that it takes below 0 or above 127 does not play.
+- `velocity` adds `add` to the velocity of each note, and the velocity stays in 1 to 127.
+- Each value is a whole number from -127 to 127.
+- An entry that is off changes nothing, and it stays in the stack.
+- An entry of a kind that no loaded extension defines lets the notes through as they are, and paw says so in a message. It plays again when you load the extension.
+
+The commands work on the clip under the cursor, and each one is one undo step that says what it did:
+
+| Command | Effect |
+| --- | --- |
+| `:clip.override transpose=3 velocity=-10` | Sets the first `transpose` and the first `velocity` entry of the stack. A kind that the stack doesn't have yet goes at the top, and a value of 0 removes its entry. You can give one of the two alone. |
+| `:clip.override clear` | Removes the `transpose` and `velocity` entries that `:clip.override` sets. |
+| `:clip.stack` | Says the stack, with the number of each entry, as `1 transpose +3, 2 velocity -10`. |
+| `:clip.stack add transpose 3` | Adds an entry at the end of the stack. A kind of an extension takes its values as `name=value`. |
+| `:clip.stack set 2 -20` | Changes the values of entry 2, as `add` does. |
+| `:clip.stack off 2`, `:clip.stack on 2` | Turns entry 2 off or on again. |
+| `:clip.stack move 2 1` | Moves entry 2 to place 1. |
+| `:clip.stack rm 2` | Removes entry 2. |
+| `:clip.render 2` | Puts the result of the first two entries into the notes of the clip, and removes the two entries. `:clip.render` alone does it for all of them. |
+| `:clip.render!` | Takes a linked clip out of its link first, then renders it. |
+
+`:clip.render` takes the entries from the top of the stack. It refuses a range that doesn't start at 1, and the message asks you to move the entry to the top with `:clip.stack move`. It also refuses a linked clip, because the notes of a link are shared, and an entry of a kind that can't run.
+
+- The modifiers change what plays: the sound and `:export` to a sound file. `:export` to a MIDI file, the chord names and the piano roll read the notes through the `transpose` and `velocity` entries at the top of the stack. An entry that is off doesn't end that top part.
+- The label of the clip shows the entries that are on after its name, as in `riff ≡ +3 v-10`. A kind of an extension shows as `?`, and more than three entries show as `ƒ4`. `K` says them, for example `plays with transpose +3, velocity -10`.
 - The piano roll shows the notes of the clip at the pitches they play. See [The piano roll](piano-roll.md#what-the-view-shows).
-- `&`, `y`, `p` and `S` keep the overrides in the copy and in each half. `J` keeps the sound of the joined clips, because it moves the notes of a clip with other overrides than the first clip by the difference.
-- The overrides are in the entry of the clip in `part.json`, as `"overrides": { "transpose": 3, "velocity": -10 }`.
+- `&`, `y`, `p` and `S` keep the stack in the copy and in each half. `J` keeps the sound of the joined clips, because it moves the notes of a clip with another stack than the first clip by the difference. It refuses a clip whose stack has a kind of an extension, and the message asks you to render that clip first.
+- The stack is in the entry of the clip in `part.json`, as `"modifiers": [{ "kind": "transpose", "params": { "semitones": 3 } }]`. See [Project files](project-files.md#the-project-folder).
 
 ## Take lanes
 

@@ -26,6 +26,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local derived = require("paw.derived")
+local modifiers = require("paw.modifiers")
 local read = require("paw.harmony.read")
 local type types = require("paw.types")
 
@@ -94,7 +95,7 @@ local record ClipKey
   id: integer -- a clip with this content
   stamp: integer
   length: number
-  transpose: integer -- the clip's override: its notes sound this much higher
+  transpose: integer -- the semitones of the top of its stack (paw.modifiers)
 end
 
 --- A clip that sounds, where it is: its content (the notes that sound,
@@ -246,7 +247,9 @@ local place_node_spec: derived.Spec<integer, Place, boolean> = {
     if not ok or c.kind ~= "midi" or c.muted then
       return SILENT
     end
-    local run = ctx:get(clip_node, {id = id, stamp = c.stamp, length = c.length, transpose = c.transpose or 0})
+    local run = ctx:get(
+      clip_node, {id = id, stamp = c.stamp, length = c.length, transpose = modifiers.shift(c.modifiers)}
+    )
     if run.n == 0 then
       return SILENT
     end

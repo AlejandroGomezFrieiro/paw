@@ -131,7 +131,7 @@ pub(crate) fn block_sound(clip: &Clip) -> Option<Clip> {
         fade_in: 0.0,
         fade_out: 0.0,
         timebase: Some(Timebase::Beats),
-        stretch: 1.0,
+        stretch: crate::model::Factor::default(),
         pitch: 0.0,
         stretch_mode: Default::default(),
         source_tempo: None,
@@ -144,7 +144,7 @@ pub(crate) fn block_sound(clip: &Clip) -> Option<Clip> {
         source: None,
         origin: None,
         link: None,
-        overrides: Default::default(),
+        stack: Default::default(),
     })
 }
 

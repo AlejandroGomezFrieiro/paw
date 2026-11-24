@@ -108,7 +108,7 @@ impl Walk<'_> {
             tag: split.id.get(),
             splitter,
             branches,
-            mix: split.mix as f32,
+            mix: split.mix.0 as f32,
             gain: db_to_gain(split.gain),
         }))
     }

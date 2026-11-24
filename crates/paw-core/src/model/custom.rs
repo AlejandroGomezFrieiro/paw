@@ -23,6 +23,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use super::ClipContent;
+use super::kinds::Version;
 
 /// Words that a kind of clip cannot have: the built-in contents, and words
 /// kept for those to come, so that a new built-in content never meets an
@@ -227,7 +228,7 @@ pub struct MediaRef {
     pub path: PathBuf,
     /// Made from other files by the kind, and named by the hash of what
     /// made it: it can be made again.
-    #[serde(default, skip_serializing_if = "super::is_false")]
+    #[serde(default, skip_serializing_if = "super::is_default")]
     pub derived: bool,
 }
 
@@ -267,17 +268,13 @@ pub struct Signal {
     pub at: f64,
     /// How many milliseconds early it goes, so that a slow receiver acts
     /// on time.
-    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    #[serde(default, skip_serializing_if = "super::is_default")]
     pub lead_ms: u16,
     /// Signals with the same latch are states: after a jump, the last one
     /// before the play position is given again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub latch: Option<Arc<str>>,
     pub to: SignalTo,
-}
-
-fn is_zero_u16(value: &u16) -> bool {
-    *value == 0
 }
 
 /// Where a signal goes.
@@ -350,13 +347,13 @@ pub struct CustomContent {
     #[serde(rename = "type")]
     pub kind: ClipKindId,
     /// The version of the kind's data, for the kind's migrations.
-    #[serde(default = "one_u32", skip_serializing_if = "is_one_u32")]
-    pub version: u32,
-    #[serde(default, skip_serializing_if = "is_beats")]
+    #[serde(default, skip_serializing_if = "Version::is_one")]
+    pub version: Version,
+    #[serde(default, skip_serializing_if = "super::is_default")]
     pub timeline: Timeline,
     /// Where the clip starts in its data, in its timeline: what trimming
     /// the start or slipping changes. The data does not change.
-    #[serde(default, skip_serializing_if = "super::is_zero")]
+    #[serde(default, skip_serializing_if = "super::is_default")]
     pub offset: f64,
     pub data: KindData,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -364,24 +361,8 @@ pub struct CustomContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<Sound>,
     /// In the clip's timeline, from the start of its data.
-    #[serde(default = "no_signals", skip_serializing_if = "<[Signal]>::is_empty")]
+    #[serde(default, skip_serializing_if = "<[Signal]>::is_empty")]
     pub signals: Arc<[Signal]>,
-}
-
-fn one_u32() -> u32 {
-    1
-}
-
-fn is_one_u32(value: &u32) -> bool {
-    *value == 1
-}
-
-fn is_beats(timeline: &Timeline) -> bool {
-    *timeline == Timeline::Beats
-}
-
-fn no_signals() -> Arc<[Signal]> {
-    Arc::new([])
 }
 
 #[cfg(test)]
