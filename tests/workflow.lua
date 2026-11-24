@@ -807,8 +807,7 @@ test("a part's automation mode says what moving a control writes", function()
   until_beat(0.2)
   local touched = paw.transport.position
   t.volume = -3
-  -- Real time is the point: a control in touch mode is let go 600 ms
-  -- after its last move.
+  -- A control in touch mode is let go 600 ms after its last move.
   advance(250)
   local during = paw.transport.position
   advance(1100) -- let go: no move for longer than the release time
@@ -869,7 +868,7 @@ test("a part's automation mode says what moving a control writes", function()
   paw.project.save(path)
   paw.project.load(path)
   eq(paw.parts()[1].automation, "touch", "the mode is saved with the project")
-end, { live = "a control in touch mode is let go 600 ms of real time after its last move" })
+end)
 
 -- Long files played from the disk ---------------------------------------------------
 

@@ -471,7 +471,7 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
     end
     last = pos
     if pass > 3 then return true end
-    local level = math.max(part:meter())
+    local level = math.max(T.meter(part))
     if pos >= 0.2 and pos < 0.9 then passes[pass][1] = math.max(passes[pass][1], level) end
     if pos >= 4.2 and pos < 4.9 then passes[pass][2] = math.max(passes[pass][2], level) end
     if pass == 2 and not changed and pos >= 1.5 and pos < 3 then
@@ -492,4 +492,4 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   eq(passes[3][1] < loud * 0.25, true, "after the change: nothing at beat 0 (" .. passes[3][1] .. ")")
   -- And what the engine was given is what the clip holds.
   eq(notes_of(clip), "57@4+1v100", "the clip's notes")
-end, { live = "the meter of the part is read while the engine plays the loop in real time" })
+end)

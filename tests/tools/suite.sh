@@ -1,7 +1,8 @@
 #!/bin/sh
 # Run the Lua end-to-end suite on the release build (or on $PAW_TEST_BIN).
 #
-#   tests/tools/suite.sh                  every test, without plugins
+#   tests/tools/suite.sh                  every test, without plugins, in 4 paw
+#                                         processes
 #   tests/tools/suite.sh plugins          with the dev shell's test plugins
 #   tests/tools/suite.sh plugins "words"  only some tests, with the plugins
 #                                         (PAW_PLUGIN_SANDBOX=0 loads them in-process)
@@ -11,8 +12,9 @@
 #
 # Options go before the words above:
 #
-#   -j 2           the same in 2 paw processes (4 at most), each with a
-#                  share of the test files
+#   -j 2           the same in 2 paw processes (1 to 4), each with a share
+#                  of the test files; if not given, 4 for a run of every
+#                  test, and 1 for only, plugins or repeat
 #   repeat 20      run the tests 20 times in each paw, and stop after the
 #                  first run that fails: it finds a flaky test
 #   --shuffle 7    run the test files, and the tests in each file, in the
@@ -31,11 +33,13 @@
 # reason of a skip, in the TAP format, for CI).
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
-jobs=1
+jobs=
+jobs_given=
 while :; do
   case "$1" in
     -j)
       jobs=$2
+      jobs_given=1
       shift 2
       ;;
     repeat)
@@ -64,6 +68,22 @@ while :; do
     *) break ;;
   esac
 done
+# A shard is this script again (below). A shard that starts shards of its
+# own starts processes without end and stops the machine. So a shard runs
+# with one process, and it refuses a -j of more than 1.
+if [ -n "$PAW_TEST_SHARD" ]; then
+  if [ -n "$jobs_given" ] && [ "$jobs" != 1 ]; then
+    echo "suite.sh: a shard does not start shards" >&2
+    exit 2
+  fi
+  jobs=1
+fi
+# Without -j, a full run uses 4 processes. A run of some tests (only,
+# plugins) or a repeat uses 1: the slots of the machine count on it.
+if [ -z "$jobs_given" ]; then
+  jobs=1
+  [ -z "$1" ] && [ -z "$PAW_TEST_REPEAT" ] && jobs=4
+fi
 case "$jobs" in
   1 | 2 | 3 | 4) ;;
   *)
@@ -143,7 +163,7 @@ if [ "$jobs" -gt 1 ]; then
   pids=""
   k=1
   while [ "$k" -le "$jobs" ]; do
-    PAW_TEST_SHARD=$k/$jobs PAW_TEST_SCRATCH=$SCRATCH/shard$k "$0" "$@" > /dev/null 2>&1 &
+    PAW_TEST_SHARD=$k/$jobs PAW_TEST_SCRATCH=$SCRATCH/shard$k "$0" -j 1 "$@" > /dev/null 2>&1 &
     pids="$pids $!"
     k=$((k + 1))
   done

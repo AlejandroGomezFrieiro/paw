@@ -1046,11 +1046,14 @@ end
 local kinds = { "hooks", "timers", "keys", "extensions", "engine", "midi", "step", "held", "plugins" }
 local watched = { hooks = true, timers = true, keys = true }
 
--- Whether a function's source is a test file.
+-- Whether a function's source is a test file: a file of tests/ or of an
+-- extension, or a file of the fixture folder (tests/runner.lua).
 local function of_tests(fn)
   if type(fn) ~= "function" then return false end
   local source = debug.getinfo(fn, "S").source
-  return source:match("^@tests/") ~= nil or source:match("^@extensions/[^/]+/tests[%w_]*%.lua$") ~= nil
+  return source:match("^@tests/") ~= nil
+    or source:match("^@extensions/[^/]+/tests[%w_]*%.lua$") ~= nil
+    or (fixture ~= nil and source:sub(2, #fixture + 2) == fixture .. "/")
 end
 
 -- Whether an entry of a registry is a test's: a function of a test file,
@@ -1065,8 +1068,14 @@ local function made_by_tests(value)
 end
 
 local registries = {}
-for _, reg in ipairs(paw.ext.registries) do
+for _, reg in ipairs(paw.registry.all()) do
   if watched[reg.kind] then registries[reg.kind] = reg end
+end
+
+-- Put `value` back at `key` of `reg` (nil removes the entry there).
+local function put_back(reg, key, value)
+  reg:remove(key)
+  if value ~= nil and reg:get(key) ~= value then reg:put(key, value) end
 end
 
 local plugin_formats = { clap = true, lv2 = true, vst3 = true }
@@ -1211,7 +1220,7 @@ local function fingerprint()
     out.extensions[name] = true
   end
   for kind, reg in pairs(registries) do
-    out[kind] = reg.snapshot()
+    out[kind] = reg:entries()
   end
   for _, state in ipairs(kernel) do
     local label, value = state.read()
@@ -1225,7 +1234,7 @@ local function differences(base, now)
   local out = {}
   for kind, reg in pairs(registries) do
     local words = {}
-    local function label(key, value) return reg.label and reg.label(key, value) or tostring(key) end
+    local function label(key, value) return reg:label(key, value) or tostring(key) end
     for key, value in pairs(now[kind]) do
       if value ~= base[kind][key] and made_by_tests(value) then
         words[#words + 1] = (base[kind][key] and "~" or "+") .. label(key, value)
@@ -1265,7 +1274,7 @@ local function reset(base, now)
   end
   for kind, reg in pairs(registries) do
     for key, value in pairs(now[kind]) do
-      if value ~= base[kind][key] and made_by_tests(value) then pcall(reg.put, key, base[kind][key]) end
+      if value ~= base[kind][key] and made_by_tests(value) then pcall(put_back, reg, key, base[kind][key]) end
     end
   end
   -- An extension that another requires goes after it.

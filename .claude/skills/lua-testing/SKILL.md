@@ -350,8 +350,8 @@ part 7, gives the tier of each command.
 tools/dev-runtime.sh                                   # target/dev-runtime
 PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
   tests/tools/suite.sh only "<words>" "<more>"         # the tests that hold any of the words
-tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
-tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
+tests/tools/suite.sh                                   # all tests in 4 processes (the orchestrator, before a push)
+tests/tools/suite.sh -j 1                              # the same in 1 process (1 to 4); only, plugins and repeat use 1 if no -j
 tests/tools/suite.sh repeat 20 only "<words>"          # find a flaky test
 tests/tools/suite.sh --shuffle 7                       # the order of the seed 7
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins

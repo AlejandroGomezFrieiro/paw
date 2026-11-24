@@ -175,26 +175,6 @@ function registry.replaced(reg, what, owner, previous)
   entry.overrides[#entry.overrides + 1] = { kind = reg.title, what = what, of = previous }
 end
 
--- The registries made before this module, each as a table that the leak
--- check of tests/suite.lua reads: `snapshot()` gives the entries by key,
--- `put(key, value)` puts one back (nil removes it), and `label(key,
--- value)` names it. Not one registry of its own: a view of paw.registry,
--- for that check only. The work on the runner of the tests reads
--- `paw.registry.all()` in place of it.
-M.registries = {}
-for _, reg in ipairs(registry.all()) do
-  M.registries[#M.registries + 1] = {
-    kind = reg.kind,
-    title = reg.title,
-    snapshot = function() return reg:entries() end,
-    put = function(key, value)
-      reg:remove(key)
-      if value ~= nil and reg:get(key) ~= value then reg:put(key, value) end
-    end,
-    label = function(key, value) return reg:label(key, value) end,
-  }
-end
-
 --- What a loaded extension registered: a list of `{ kind, title, items }`,
 --- each item a short label, in the order of the registries of
 --- `paw.registry`.

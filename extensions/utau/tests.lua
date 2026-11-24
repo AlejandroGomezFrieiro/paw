@@ -157,19 +157,19 @@ test("utau: the device plays the phrases it is given, in time", function()
   eq(#v.list(device), 1, "one kept")
   info = T.render({ bits = 16, ["end"] = 8, tail = 0 })
   eq(T.channel_peaks(info, 1.1, 1.9) < 0.001, true, "a phrase that is not kept is gone")
-  -- In real time, too.
+  -- And while the song plays.
   paw.transport.seek(5)
   paw.transport.play()
   local loudest = 0
   T.until_(function()
-    loudest = math.max(loudest, t:meter())
+    loudest = math.max(loudest, T.meter(t))
     return paw.transport.position >= 5.9
   end, "the playhead at beat 5.9")
   paw.transport.stop()
   eq(loudest > 0.2, true, "heard while playing")
   v.clear(device)
   eq(#v.list(device), 0, "cleared")
-end, { live = "the meter of the part is read while the engine plays in real time" })
+end)
 
 test("utau: a device made later, a render's own and the one playing live sound exactly the same", function()
   without_engine(function()

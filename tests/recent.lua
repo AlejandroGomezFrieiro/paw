@@ -14,6 +14,9 @@ local counter = 0
 local function keeping(fn)
   counter = counter + 1
   local file = string.format("%s/list-%d.json", dir, counter)
+  -- The scratch folder stays from one run to the next, and an earlier run
+  -- under another filter gave this number to another test: start empty.
+  os.remove(file)
   paw.recent.use(file)
   local ok, err = xpcall(fn, debug.traceback)
   paw.recent.use()

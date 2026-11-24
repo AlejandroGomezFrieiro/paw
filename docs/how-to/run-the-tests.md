@@ -57,12 +57,14 @@ loads each of the test files, in the order of their names.
 
 ## Run the suite in more than one process
 
-By default, one paw process runs all the tests, one after the other. To
-use more processor cores, give `-j` and a number from 1 to 4 before the
-other words: `tests/tools/suite.sh -j 2`, or
-`tests/tools/suite.sh -j 2 plugins`. With `-j 2`, each process gets every
-second test file of `tests/`, and every second extension with all of its
-test files. Each process has its own scratch home, plugin and XDG folders under
+A run of all the tests uses four paw processes by default. A run with
+`only`, `plugins` or `repeat` uses one process by default. To use another
+number of processes, give `-j` and a number from 1 to 4 before the other
+words:
+`tests/tools/suite.sh -j 1` runs all the tests in one process, one after
+the other, and `tests/tools/suite.sh -j 2 plugins` runs them in two. With
+`-j 2`, each process gets every second test file of `tests/`, and every
+second extension with all of its test files. Each process has its own scratch home, plugin and XDG folders under
 `target/test-scratch/shard<N>`. The script puts the outputs together in
 `target/test-scratch/suite.out`, and the last line is the same as with one
 process.
@@ -72,6 +74,12 @@ runs of `only` beside it. A run that finds no free slot says so and waits
 for one. Set `PAW_SUITE_SLOTS` to change the number of `only` runs. Too
 many paw processes at once can use up the threads of the machine.
 
+On a machine that other people or programs use, give a smaller `-j`, so
+that the suite leaves some processor cores free. The load doesn't change
+the result of a test, because the tests move the clock and the audio
+themselves. Only the few live tests run on the wall clock, and they check
+outcomes only.
+
 ## Find a flaky test
 
 A flaky test passes on one run and fails on another. It usually depends on
@@ -79,7 +87,7 @@ the order of the tests, on state that an earlier test left, or on time.
 The suite has two options that help you find one, and you give them
 before the other words.
 
-- To run some tests many times in one paw process, give `repeat` and a
+- To run some tests many times in each paw process, give `repeat` and a
   number: `tests/tools/suite.sh repeat 20 only "loop on"`. The suite stops
   after the first run that fails, and its output says which run it was, for
   example `repeat: run 2 of 20 failed`. Each run loads the test files

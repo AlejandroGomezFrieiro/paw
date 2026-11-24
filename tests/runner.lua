@@ -179,3 +179,34 @@ test("a shuffle prints its seed, and the same seed gives the same order", functi
   eq(order(first), order(again), "the order of the same seed")
   eq(order(first) ~= "1 2 3 4 5 6", true, "the order is shuffled: " .. order(first))
 end)
+
+test("the leak check names a key, a hook and a timer that a test file leaves", function()
+  local printed, passed = run_fixture({
+    ["leak.lua"] = [[
+local T = ...
+T.test("a test that leaves state", function()
+  paw.keymap.set("gZ", function() end, { desc = "zz leaked key" })
+  paw.on("zz.leaked", function() end)
+  paw.defer(function() end, 60000)
+end)
+]],
+  })
+  eq(passed, false, "the run fails")
+  local changed = printed:match("leak%.lua leaves no state behind\n%s*changed: ([^\n]*)") or ""
+  for _, kind in ipairs({ "keys", "hooks", "timers" }) do
+    eq(changed:find(kind .. " ", 1, true) ~= nil, true, kind .. " in: " .. printed)
+  end
+end)
+
+test("a shard of suite.sh refuses to start shards of its own", function()
+  -- The limit on processes stops the machine from a flood of shards if
+  -- the guard goes. Linux counts the threads of this user against it: the
+  -- threads of now and 200 more.
+  local pipe = io.popen(
+    '(ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )); '
+      .. 'PAW_TEST_SHARD=1/2 tests/tools/suite.sh -j 2 only x) 2>&1; echo "exit $?"'
+  )
+  local printed = pipe:read("*a")
+  pipe:close()
+  eq(printed, "suite.sh: a shard does not start shards\nexit 2\n", "what it printed")
+end)

@@ -52,11 +52,22 @@ struct Output {
     bytes: Vec<u8>,
     /// The process closed its output (it ended, most likely).
     closed: bool,
-    /// `arrived` has named it already; reading it lets it be named again.
+    /// `arrived` has named it already; reading it lets it be named again,
+    /// unless the read gave the end.
     told: bool,
     /// The kernel wrote to the process, and it has written nothing since:
     /// it has an answer to give.
     asked: bool,
+}
+
+impl Output {
+    /// Bytes or the end came, and `arrived` has not named them yet: the
+    /// next turn of the loop has news to give, so the helper still counts
+    /// as at work. Else a wait could see the end of the output before the
+    /// turn that makes its event, and let schedule time pass.
+    fn unnamed(&self) -> bool {
+        !self.told && (self.closed || !self.bytes.is_empty())
+    }
 }
 
 /// The kernel's ends of a piped process's input and output.
@@ -105,13 +116,18 @@ impl Io {
             command.current_dir(cwd);
         }
         let log = match &opts.log {
-            Some(path) => Some(
+            Some(path) => Some({
+                // The folder of the log can be new: a fresh state folder
+                // has no subfolders yet.
+                if let Some(folder) = path.parent() {
+                    std::fs::create_dir_all(folder).with_context(|| format!("making {}", folder.display()))?;
+                }
                 OpenOptions::new()
                     .create(true)
                     .append(true)
                     .open(path)
-                    .with_context(|| format!("opening {}", path.display()))?,
-            ),
+                    .with_context(|| format!("opening {}", path.display()))?
+            }),
             None => None,
         };
         if opts.pipe {
@@ -181,7 +197,7 @@ impl Io {
         let mut ids = Vec::new();
         for (id, pipe) in &self.pipes {
             let mut output = pipe.output.lock().unwrap();
-            if !output.told && (output.closed || !output.bytes.is_empty()) {
+            if output.unnamed() {
                 output.told = true;
                 ids.push(*id);
             }
@@ -193,15 +209,16 @@ impl Io {
     /// The helpers that paw waits for (`paw.api.pending`): a piped process
     /// that has not answered what the kernel wrote to it, one that the kernel
     /// never wrote to or whose input it closed (it works on its own until it
-    /// ends), and the other processes that still run. A piped process that
-    /// answered and waits for more input is not waited for.
+    /// ends), one whose output or end the loop has not named yet, and the
+    /// other processes that still run. A piped process that answered and
+    /// waits for more input is not waited for.
     pub(crate) fn awaited(&mut self) -> usize {
         let pipes = self
             .pipes
             .values()
             .filter(|pipe| {
                 let output = pipe.output.lock().unwrap();
-                !output.closed && (output.asked || !pipe.written || pipe.input.is_none())
+                output.unnamed() || (!output.closed && (output.asked || !pipe.written || pipe.input.is_none()))
             })
             .count();
         pipes + self.running_unpiped()
@@ -219,10 +236,18 @@ impl Io {
     }
 
     /// Work in flight in other processes (`paw.api.pending`): the piped
-    /// processes that have not closed their output, and the other
-    /// processes that still run (a download that writes to a file).
+    /// processes that have not closed their output or whose end the loop
+    /// has not named yet, and the other processes that still run (a
+    /// download that writes to a file).
     pub(crate) fn working(&mut self) -> usize {
-        let open_pipes = self.pipes.values().filter(|pipe| !pipe.output.lock().unwrap().closed).count();
+        let open_pipes = self
+            .pipes
+            .values()
+            .filter(|pipe| {
+                let output = pipe.output.lock().unwrap();
+                !output.closed || output.unnamed()
+            })
+            .count();
         open_pipes + self.running_unpiped()
     }
 
@@ -234,7 +259,9 @@ impl Io {
             .get(&id)
             .with_context(|| format!("no process {id} with pipes"))?;
         let mut output = pipe.output.lock().unwrap();
-        output.told = false;
+        // A read of the end leaves nothing to name again; any other read
+        // lets the next bytes be named.
+        output.told = output.closed && output.bytes.is_empty();
         if output.bytes.is_empty() {
             return Ok((!output.closed).then(Vec::new));
         }
@@ -578,6 +605,23 @@ mod tests {
     }
 
     #[test]
+    fn a_helper_that_ended_is_awaited_until_the_loop_names_its_end() {
+        let mut io = Io::default();
+        let (rang, ring) = std::sync::mpsc::channel();
+        io.on_output(Arc::new(move || {
+            let _ = rang.send(());
+        }));
+        let id = piped(&mut io, "exit 0");
+        io.close_input(id).unwrap();
+        // The process writes nothing: its one wake is the end of its output.
+        ring.recv().expect("a wake for the end of the output");
+        assert_eq!((io.awaited(), io.working()), (1, 1), "its end is news for the next turn");
+        assert_eq!(io.arrived(), vec![id]);
+        assert_eq!((io.awaited(), io.working()), (0, 0), "named: the event has it");
+        io.kill(id);
+    }
+
+    #[test]
     fn a_process_is_named_once_until_it_is_read() {
         let (mut io, _) = counted();
         let id = piped(&mut io, "printf one; read _; printf two");
@@ -593,7 +637,8 @@ mod tests {
     fn a_piped_process_writes_its_errors_to_the_log_and_not_the_pipe() {
         let (mut io, _) = counted();
         let dir = tempfile::tempdir().unwrap();
-        let log = dir.path().join("helper.log");
+        // The folder of the log does not exist yet.
+        let log = dir.path().join("logs").join("helper.log");
         let argv = ["sh", "-c", "echo out; echo err >&2"].map(String::from);
         let opts = SpawnOpts { pipe: true, log: Some(log.clone()), ..Default::default() };
         let id = io.spawn(&argv, opts).unwrap();

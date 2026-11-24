@@ -810,12 +810,12 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   -- The same project renders the same audio.
   local again = render({ bits = 16, tail = 0 })
   eq(read_file(again.path) == read_file(info.path), true, "offline renders are deterministic")
-  -- And it plays in real time.
+  -- And it sounds while the song plays.
   paw.transport.seek(0)
   paw.transport.play()
   local loudest = 0
   T.until_(function()
-    loudest = math.max(loudest, part:meter())
+    loudest = math.max(loudest, T.meter(part))
     return paw.transport.position >= 1.5
   end, "the playhead at beat 1.5")
   paw.transport.stop()
@@ -826,7 +826,7 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   eq(text:find("- あ", 1, true) ~= nil, true, "and shows phonemes from the voicebank")
   paw.ui.hide("utau")
   paw.ui.focus("arrange")
-end, { live = "the meter of the part is read while the engine plays in real time" })
+end)
 
 test("changing a lyric or a note sings it again", function()
   fresh()

@@ -737,7 +737,7 @@ test("a part is bounced to audio, and takes MIDI messages by hand", function()
   -- The meter falls slowly after the sound has gone.
   until_(function() return T.level(t) < 0.005 end, "the sound to stop when the pedal comes up")
   T.fails(function() t:midi({ type = "bend", value = 3 }) end, "range", "a bend out of range")
-end, { live = "the release of the synth and the fall of the meter take real time" })
+end)
 
 for _, format in ipairs({ "clap", "vst3", "lv2" }) do
   test(format .. " instruments follow the pitch wheel", function()

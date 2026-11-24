@@ -146,12 +146,15 @@ local function mark_double(event: MouseEvent)
   end
   local now, last = api.now(), state.last
   local x, y = math.floor(event.x), math.floor(event.y)
+  -- The time between the presses in whole milliseconds: two clock times
+  -- in fractions of a millisecond do not subtract exactly, so a press at
+  -- the end of the double click time could come out a little after it.
   local double = last
     and not last.double
     and last.button == event.button
     and last.x == x
     and last.y == y
-    and now - last.time <= M.double_ms
+    and math.floor(now - last.time + 0.5) <= M.double_ms
   event.double = double or nil
   state.last = {button = event.button, x = x, y = y, time = now, double = double}
 end

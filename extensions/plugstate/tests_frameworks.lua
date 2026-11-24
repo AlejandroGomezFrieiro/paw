@@ -315,20 +315,18 @@ end
 
 local keys = T.keys
 
---- Wait until the plugin's state holds `value` at `path` (two seconds at
---- most): a state that paw loads reaches the plugin a moment later.
-local function holds(fw, id, path, value)
-  local got
-  for _ = 1, 100 do
+--- Wait until the plugin's state holds `value` at `path`, and give what it
+--- holds: a state that paw loads reaches the plugin in a later block, so
+--- the engine plays blocks while it waits.
+local function holds(id, path, value)
+  return T.until_(function()
     paw.flush()
     local doc = require("plugstate.juceplugins").open(id)
-    got = doc and doc:get(path)
+    local got = doc and doc:get(path)
     if got == value or (tonumber(got) and tonumber(value) and math.abs(tonumber(got) - tonumber(value)) < 1e-3) then
       return got
     end
-    api.sleep(20)
-  end
-  return got
+  end, string.format("the plugin's state to hold %s = %s", path, tostring(value)))
 end
 
 local live = {
@@ -485,7 +483,7 @@ for _, c in ipairs(live) do
         return
       end
       keys(":plugstate.path " .. c.path .. " " .. c.value .. "<CR>")
-      local got = holds(fw, d.id, c.path, c.value)
+      local got = holds(d.id, c.path, c.value)
       eq(
         tonumber(got) and math.abs(tonumber(got) - tonumber(c.value)) < 1e-3 or got == c.value,
         true,
@@ -510,7 +508,6 @@ for _, c in ipairs(live) do
       )
       keys("u")
       local back = holds(
-        fw,
         d.id,
         c.path,
         (fw.open(state, c.format, { param_info = api.device_get(d.id).param_info, hint = c.hint }):get(c.path))
@@ -526,7 +523,7 @@ test(
     if (os.getenv("PAW_TEST_DRAGONFLY") or "") == "" then return "skipped: PAW_TEST_DRAGONFLY names no plugin" end
     local kind = kind_of("clap", "^Dragonfly Hall Reverb$")
     if not kind then return "skipped: the plugin is not in the plugin folders" end
-    local fw = load()
+    load()
     local plugstate = require("plugstate")
     local function said() return paw.ui.messages[#paw.ui.messages].text end
     T.fresh()
@@ -571,10 +568,10 @@ test(
         paw.ui.focus("inspector")
         paw.fx.select(d2.id)
         keys(":plugstate.load " .. file .. "<CR>")
-        eq(tonumber(holds(fw, d2.id, "/DPF/Parameters@dry_level", "0")), 0, format .. ": the preset sets dry_level")
+        eq(tonumber(holds(d2.id, "/DPF/Parameters@dry_level", "0")), 0, format .. ": the preset sets dry_level")
         T.near(level(1), dry, 0.003, format .. ": and it sounds as the plugin that made it")
         keys("u")
-        eq(tonumber(holds(fw, d2.id, "/DPF/Parameters@dry_level", "80")), 80, format .. ": u takes it back")
+        eq(tonumber(holds(d2.id, "/DPF/Parameters@dry_level", "80")), 80, format .. ": u takes it back")
       end
     end
 

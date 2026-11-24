@@ -2,7 +2,8 @@
 # tools/testlint.lua lets pass: one line `<file> <pattern> <count>`.
 # A count that goes up fails: a new test waits for a state, or measures in
 # bench/. A count that goes down fails until its line is made smaller, so
-# this list only gets shorter (the step-by-step waits empties it). Comments do not count.
+# this list only gets shorter. Comments do not count. The Lua lines are of
+# live tests, which run on the wall clock.
 crates/paw-core/src/bake/helper.rs Instant::now 2
 crates/paw-core/src/bake/helper.rs thread::sleep 1
 crates/paw-core/src/io.rs Instant::now 6
@@ -27,13 +28,6 @@ crates/paw-tui/tests/remote.rs Instant::now 13
 crates/paw-tui/tests/remote.rs thread::sleep 2
 crates/paw-tui/tests/safety.rs Instant::now 1
 crates/paw-tui/tests/safety.rs thread::sleep 3
-extensions/pattern/tests.lua :meter( 1
-extensions/plugstate/tests_frameworks.lua api.sleep( 1
-extensions/utau/tests.lua :meter( 1
-extensions/utau/tests_singing.lua :meter( 1
-# Live: the transport moves in real time, a one-sided check (not faster).
-tests/realtime.lua :meter( 1
-tests/realtime.lua api.now() 3
 # Live: the profiler samples a Lua loop of 50 ms on the wall clock.
 tests/startuptime.lua api.now() 2
 tests/live_limits.lua api.now() 8
