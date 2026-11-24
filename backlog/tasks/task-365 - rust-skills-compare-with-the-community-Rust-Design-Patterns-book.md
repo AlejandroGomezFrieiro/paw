@@ -1,10 +1,10 @@
 ---
 id: TASK-365
 title: 'rust-skills: compare with the community Rust Design Patterns book'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-24T13:35:00Z'
-updated_date: '2026-11-24T14:30:00Z'
+updated_date: '2026-11-24T14:33:00Z'
 labels:
   - tooling
   - skills

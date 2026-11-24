@@ -3,10 +3,10 @@ id: TASK-372
 title: >-
   Render-equality gate: the demo song and the end-to-end projects render
   bit-identical before and after a change
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-24T14:22:00Z'
-updated_date: '2026-11-24T14:30:00Z'
+updated_date: '2026-11-24T14:33:00Z'
 labels:
   - tests
   - engine

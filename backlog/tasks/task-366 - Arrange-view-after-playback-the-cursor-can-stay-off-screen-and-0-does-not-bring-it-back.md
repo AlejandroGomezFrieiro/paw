@@ -3,10 +3,10 @@ id: TASK-366
 title: >-
   Arrange view: after playback the cursor can stay off screen, and 0 does not
   bring it back
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-24T13:45:00Z'
-updated_date: '2026-11-24T14:30:00Z'
+updated_date: '2026-11-24T14:33:00Z'
 labels:
   - bug
   - ux
