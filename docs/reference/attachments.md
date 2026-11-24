@@ -44,10 +44,12 @@ All three run on the main thread of the process that hosts the plugin.
 | `paw.file.load` | The file that paw kept for the attachment. Empty the first time. | Nothing. |
 | `paw.clips` | The audio clips of the part, as JSON (below). | Nothing. |
 | `paw.file.save` | Nothing. | The file to keep, or nothing. |
+| `paw.busy` | Nothing. | `1` while the plugin works on something that it shows later, such as an analysis, else `0`. |
 
 - paw sends `paw.file.load` when it makes the device, after the state of the plugin. A device that does not know the method keeps no files and gets no clips.
 - paw sends `paw.clips` after `paw.file.load`, and again each time the clips of the part or the tempo change, for example after an edit, an undo, or a project that opens. A device that does not know the method is not asked again.
 - paw sends `paw.file.save` when it keeps the states of the plugins, which happens when it saves the project, renders, or starts the engine again.
+- paw sends `paw.busy` each time a script asks what work is left (`paw.api.pending`, which the tests call before each wait). The tests' stepped clock waits while the answer is `1`. A device that does not know the method is not asked again.
 - A render makes its own devices, which get the same calls.
 
 ### The clips

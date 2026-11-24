@@ -446,7 +446,12 @@ test("guide: find and change a setting inside a plugin", function()
   local file = T.scratch .. "/quiet"
   keys(":plugstate.mark<CR>")
   api.device_set_param(comp.id, "output_gain", -6)
-  paw.flush()
+  -- The preset holds what the plugin holds: wait until it took the value.
+  local quiet = T.until_(function()
+    paw.flush()
+    local v = require("plugstate.juceplugins").open(comp.id):get("/LSP/Parameters@g_out")
+    return v ~= 1 and v
+  end, "the plugin to take the value")
   keys(":plugstate.preset_write " .. file .. "<CR>")
   eq(io.open(file .. ".jucepreset") ~= nil, true, "the preset file: " .. said())
   local t2 = paw.add_part({ name = "Keys" })
@@ -455,7 +460,7 @@ test("guide: find and change a setting inside a plugin", function()
   paw.cursor.set_part(t2.id)
   paw.fx.select(comp2.id)
   keys(":plugstate.load " .. file .. ".jucepreset<CR>")
-  local loaded = value(comp2.id, value(comp.id))
+  local loaded = value(comp2.id, quiet)
   eq(loaded < 1, true, "the preset loads into the other plugin: " .. tostring(loaded))
   paw.cursor.beat = 2
   keys(":plugstate.at " .. file .. ".jucepreset<CR>")

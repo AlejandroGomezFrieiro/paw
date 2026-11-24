@@ -12130,8 +12130,9 @@ function paw.api.part_set(id, key, value) end
 --- until the next timer or delay is due (`next_ms`), the work in
 --- flight on other threads and processes by kind (`in_flight`), the
 --- timers, the bakes and changed files that wait for their settle,
---- MIDI that came in, helper processes, and the wakes that a worker
---- missed (`missed_wakes`).
+--- MIDI that came in, helper processes, the plugins that work on
+--- their own threads or owe their new state (`plugins_busy`,
+--- `plugins_owe`), and the wakes that a worker missed (`missed_wakes`).
 function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the

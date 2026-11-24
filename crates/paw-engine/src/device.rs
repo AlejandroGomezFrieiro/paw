@@ -359,6 +359,14 @@ pub trait Controller {
     fn busy_time(&mut self) -> Option<std::time::Duration> {
         None
     }
+    /// Whether a thread of the device's own works now: a thread that loads
+    /// a model, reads samples or analyzes audio, not the thread that runs
+    /// its blocks. A plugin delivers the result of that work in a later
+    /// block, so the stepped engine waits while it is true. None when the
+    /// host cannot see the threads (a plugin in this process).
+    fn threads_working(&self) -> Option<bool> {
+        None
+    }
     /// What it takes and gives besides its main stereo pair, as this
     /// instance has it.
     fn ports(&self) -> Ports {
@@ -1151,6 +1159,10 @@ pub const FILE_LOAD: &str = "paw.file.load";
 /// time they or the tempo change; a device that does not take clips does
 /// not know the method, and is not asked again.
 pub const CLIPS: &str = "paw.clips";
+/// The call that asks an attachment whether its plugin works on something
+/// that it shows later (an ARA analysis): `1` when it does. A device that
+/// does not know the method works on nothing that paw can see.
+pub const BUSY: &str = "paw.busy";
 
 #[cfg(test)]
 mod tests {

@@ -73,6 +73,9 @@ enum {
  *                   keeps it beside the device's state as `<n>-<kind>.<name>`.
  *   paw.file.load   The file that paw kept, when paw makes the device again.
  *                   It comes before the first `paw.clips`.
+ *   paw.busy        "1" while the plugin works on something that it shows
+ *                   later (an analysis), else "0". The stepped engine of the
+ *                   tests waits for it.
  */
 
 typedef struct paw_attachment {

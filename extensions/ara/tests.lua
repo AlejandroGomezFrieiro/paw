@@ -146,7 +146,10 @@ test("ara: \\an makes a MIDI clip of the notes the plugin heard, as one undo ste
   if not a then return why end
   fresh()
   local part = vocal_part()
-  assert(a.add(part.id, KIND))
+  local device = assert(a.add(part.id, KIND))
+  -- The analysis takes wall time, and the command asks again on the clock,
+  -- which a test moves at once: let the plugin finish its analysis first.
+  T.until_(function() return a.notes(device) end, "the plugin's analysis of the clip")
   paw.ui.focus("arrange")
   paw.cursor.set_part(part.id)
   local parts = #api.part_list()

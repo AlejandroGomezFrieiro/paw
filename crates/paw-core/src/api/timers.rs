@@ -53,7 +53,8 @@ pub(crate) struct Pending {
     /// The next turn has work: a timer is due, a message came, a delay
     /// ended. An idle timer is not work.
     pub ready: bool,
-    /// Nothing is in flight, no helper process is at work, and the engine
+    /// Nothing is in flight, no helper process is at work, no plugin works
+    /// or owes its new state (`plugins_busy`, `plugins_owe`), and the engine
     /// plays nothing that changes the state: only the timers are left, the
     /// ones due now (`ready`) and the ones that wait for the clock
     /// (`next_ms`). After `settle`, a timer due now is a job that looks
@@ -83,6 +84,13 @@ pub(crate) struct Pending {
     /// what paw wrote to it, or one that works on its own until it ends.
     /// A language server that answered and waits for more is not counted.
     pub helpers_busy: usize,
+    /// Plugins with a thread of their own at work now (a model that loads,
+    /// an analysis): what it makes comes in a later block, so the stepped
+    /// engine waits for it.
+    pub plugins_busy: usize,
+    /// Plugins that took a request (a model, a preset of their own) and
+    /// have not shown their new state yet: their next blocks show it.
+    pub plugins_owe: usize,
     /// How many times a turn found the result of a worker that did not
     /// ring the loop: it waited for the safety tick. A bug of that worker;
     /// the log names its kind.
@@ -98,9 +106,17 @@ impl Shared {
             (timers.iter().filter(|t| t.due <= now).count(), timers.len())
         };
         let agenda = Reactor::new(self, lua).agenda(now);
-        let (in_flight, waiting, plays) = {
+        // To ask an attachment whether its plugin works takes the session
+        // mutably. A caller that holds the session (a callback inside a
+        // session call) gets the count of the plugins' threads only, and
+        // none while the session is held mutably.
+        let plugins_busy = match self.session.try_borrow_mut() {
+            Ok(mut session) => session.plugins_busy(),
+            Err(_) => self.session.try_borrow().map_or(0, |session| session.plugin_threads_busy()),
+        };
+        let (in_flight, waiting, plays, plugins_owe) = {
             let session = self.session.borrow();
-            (session.in_flight(now), session.waiting(), session.plays())
+            (session.in_flight(now), session.waiting(), session.plays(), session.plugins_owe())
         };
         let mut in_flight: BTreeMap<&'static str, u32> = in_flight.into_iter().collect();
         let measures = u32::try_from(self.measures.count()).unwrap_or(u32::MAX);
@@ -116,7 +132,7 @@ impl Shared {
         };
         Pending {
             ready: agenda.ready,
-            quiet: agenda.in_flight == 0 && helpers == 0 && !plays,
+            quiet: agenda.in_flight == 0 && helpers == 0 && !plays && plugins_busy == 0 && plugins_owe == 0,
             next_ms: agenda.next_due.map(|due| super::as_ms(due - now)),
             in_flight,
             timers_due,
@@ -126,6 +142,8 @@ impl Shared {
             midi,
             helpers,
             helpers_busy,
+            plugins_busy,
+            plugins_owe,
             missed_wakes: self.missed_wakes.get(),
         }
     }
@@ -228,8 +246,9 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // until the next timer or delay is due (`next_ms`), the work in
         // flight on other threads and processes by kind (`in_flight`), the
         // timers, the bakes and changed files that wait for their settle,
-        // MIDI that came in, helper processes, and the wakes that a worker
-        // missed (`missed_wakes`).
+        // MIDI that came in, helper processes, the plugins that work on
+        // their own threads or owe their new state (`plugins_busy`,
+        // `plugins_owe`), and the wakes that a worker missed (`missed_wakes`).
         // @return types.Pending
         fn pending(lua, sh, () => ()) { super::to_lua(lua, &sh.pending(lua)) }
         // Turn the loop until nothing is ready and no work is in flight:

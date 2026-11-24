@@ -23,6 +23,10 @@ use super::wire::*;
 
 // --- the helper ------------------------------------------------------------------
 
+/// The name of the helper's thread that runs the plugin's blocks. The
+/// host reads the other threads to see whether the plugin's own work goes on.
+pub(super) const AUDIO_THREAD: &str = "plugin-audio";
+
 /// A controller for a plugin that has none: nothing to set, nothing to save.
 struct NoController;
 
@@ -318,7 +322,7 @@ unsafe fn run(args: &[String], make: impl FnOnce(&str, f32, usize) -> Result<Ins
         let shm = helper.shm.clone();
         let device = instance.device;
         std::thread::Builder::new()
-            .name("plugin-audio".into())
+            .name(AUDIO_THREAD.into())
             .spawn(move || audio_loop(shm, device))?
     };
     helper.serve()?;

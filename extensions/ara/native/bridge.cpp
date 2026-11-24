@@ -587,6 +587,16 @@ int onNotes(Bridge *b, void *out, paw_write_fn write) {
     return PAW_CALL_DONE;
 }
 
+// paw asks whether the plugin works on something that it shows later: "1"
+// while it analyzes a clip, so that the stepped engine of the tests waits.
+int onBusy(Bridge *b, void *out, paw_write_fn write) {
+    b->api()->notifyModelUpdates(b->ref());
+    bool busy = false;
+    for (auto &[id, clip] : b->clips) busy = busy || clip->source->analyzing;
+    reply(out, write, busy ? "1" : "0");
+    return PAW_CALL_DONE;
+}
+
 int onStatus(Bridge *b, void *out, paw_write_fn write) {
     b->api()->notifyModelUpdates(b->ref());
     json clips = json::array();
@@ -675,6 +685,7 @@ int call(void *handle, const char *method, const uint8_t *data, size_t size, voi
     if (m == "paw.clips") return onClips(b, data, size, out, write);
     if (m == "paw.file.save") return onSave(b, out, write);
     if (m == "paw.file.load") return size == 0 ? PAW_CALL_DONE : onLoad(b, data, size, out, write);
+    if (m == "paw.busy") return onBusy(b, out, write);
     if (m == "ara.notes") return onNotes(b, out, write);
     if (m == "ara.status") return onStatus(b, out, write);
     return PAW_CALL_UNKNOWN;

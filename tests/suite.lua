@@ -459,8 +459,10 @@ end
 --- Wait until `cond()` gives a value that is not false or nil, and give
 --- that value. The kernel settles, and the engine plays block by block
 --- while the condition waits for it (a meter, the playhead, a device that
---- sleeps): then the clock keeps step with the sound. When nothing is
---- left to do and `cond()` is still false, it fails: a timer that waits
+--- sleeps): then the clock keeps step with the sound. A plugin that owes
+--- its state after a request gets blocks until it shows it, and while a
+--- thread of a plugin's own works (`plugins_busy`), the engine waits for
+--- it. When nothing is left to do and `cond()` is still false, it fails: a timer that waits
 --- for the clock is not work left (`T.advance_until` moves the clock to
 --- it). While the song plays, it fails after 30 seconds of the song. A
 --- live test waits on the wall clock for at most `ms` milliseconds (30
@@ -485,9 +487,12 @@ local function until_(cond, what, ms)
     if value == false then error("nothing is left to do, and " .. what .. " is false", 2) end
     if api.real_ms() > guard then stalled(what, 2) end
     if api.now() > limit then error(string.format("%s is false after %d ms of the song", what, STALL_MS), 2) end
-    if engine_plays() then
+    local p = api.pending()
+    if p.plugins_busy == 0 and (engine_plays() or p.plugins_owe > 0) then
       one_block()
     else
+      -- A plugin's own thread works (a model that loads): its result
+      -- comes in a later block, so the engine waits for the thread.
       api.sleep(1)
     end
   end
@@ -497,8 +502,9 @@ end
 --- `cond()` gives a value that is not false or nil, and give that value.
 --- With no timer due, or while the engine plays, the clock moves by one
 --- audio block at most: so a state that a time or the meters make comes
---- too. While a helper process owes an answer (`helpers_busy`), the clock
---- does not move: the wait is for the helper, with the stall guard. Fails
+--- too. While a helper process owes an answer (`helpers_busy`), or a
+--- thread of a plugin's own works (`plugins_busy`), the clock does not
+--- move: the wait is for them, with the stall guard. Fails
 --- when `ms` milliseconds of schedule time passed.
 local function advance_until(cond, what, ms)
   what = what or "the condition"
@@ -512,12 +518,12 @@ local function advance_until(cond, what, ms)
     if value then return value end
     local left = limit - api.now()
     if left <= 0 then error(string.format("%s is false after %g ms", what, ms), 2) end
-    if p.helpers_busy > 0 and not engine_plays() then
-      -- A helper process that owes an answer, or works until it ends,
-      -- works on the wall clock: the clock waits for it, so that a time
-      -- limit on the clock does not run out before it answers.
+    if p.plugins_busy > 0 or (p.helpers_busy > 0 and not engine_plays()) then
+      -- A helper process that owes an answer, or works until it ends, and
+      -- a plugin's own thread work on the wall clock: the clock waits for
+      -- them, so that a time limit on the clock does not run out first.
       guard = guard or api.real_ms() + STALL_MS
-      if api.real_ms() > guard then stalled(what .. ": a helper process does not answer", 2) end
+      if api.real_ms() > guard then stalled(what .. ": a helper process or a plugin's thread does not finish", 2) end
       api.sleep(1)
     elseif not p.quiet or not p.next_ms then
       guard = nil
@@ -699,7 +705,14 @@ local function hover_text()
 end
 
 local renders = 0
+--- Render offline to a file under `T.scratch`. A plugin that took a
+--- request (a model, a preset of its own) shows its new state only after
+--- its next blocks, and a render plays the state the project keeps: wait
+--- for those blocks first.
 local function render(opts)
+  if MANUAL then
+    until_(function() return api.pending().plugins_owe == 0 end, "the plugins to show the state of their requests")
+  end
   renders = renders + 1
   return paw.render(scratch .. "/render" .. renders .. ".wav", opts)
 end

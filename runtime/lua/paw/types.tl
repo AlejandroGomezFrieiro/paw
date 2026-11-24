@@ -1257,8 +1257,12 @@ local record types
 
   --- `paw.api.pending()` and `paw.api.settle()` (`Pending`): the work not
   --- done yet. `ready`: the next turn has work. `quiet`: nothing is in
-  --- flight, no helper works and the engine plays nothing: only timers
-  --- are left. `next_ms` is nil when nothing waits for the schedule clock.
+  --- flight, no helper works, no plugin works or owes its state, and the
+  --- engine plays nothing: only timers are left. `plugins_busy`: plugins
+  --- with a thread of their own at work (a model that loads), whose result
+  --- comes in a later block. `plugins_owe`: plugins that took a request (a
+  --- model, a preset of their own) and show their new state only after
+  --- their next blocks. `next_ms` is nil when nothing waits for the schedule clock.
   --- `in_flight` has the work of other threads and processes by kind
   --- (`bakes`, `hashes`, `loads`, `renders`, `takes`, `preview`,
   --- `measures`); a kind with none is left out.
@@ -1274,6 +1278,8 @@ local record types
     midi: integer
     helpers: integer
     helpers_busy: integer
+    plugins_busy: integer
+    plugins_owe: integer
     missed_wakes: integer
   end
 

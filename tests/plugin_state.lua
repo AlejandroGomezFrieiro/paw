@@ -70,6 +70,13 @@ local function octave(d)
   return tonumber(require("plugstate").slot(d.id, "octave").value)
 end
 
+--- Wait until the plugin tells the octave `want`: `what` says what fails.
+--- Surge XT takes a state on in a block, and then tells its new values
+--- from a thread of its own, after `device.state_applied`.
+local function told(d, want, what)
+  T.until_(function() return octave(d) == want end, what)
+end
+
 --- The number of the last state that each device took on, by id
 --- (`device.state_applied`).
 local applied = {}
@@ -127,7 +134,7 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     api.undo_checkpoint()
     keys("\\s")
     took(d, function() keys(":plugstate.load slot=octave 1<CR>") end)
-    eq(octave(d), 1, kind .. ": an octave up")
+    told(d, 1, kind .. ": an octave up")
     -- A preset of plugstate sets the state alone: the parameter again.
     if has_param(d, "a_volume") then api.device_set_param(d.id, "a_volume", 0.75) end
     api.undo_checkpoint()
@@ -140,7 +147,7 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
     -- Back to A with the plugin at rest.
     rested(kind)
     took(d, function() keys("[v") end)
-    eq(octave(d), 0, kind .. ": A is back in the plugin")
+    told(d, 0, kind .. ": A is back in the plugin")
     T.near(pitch(), 220, 6, kind .. ": A plays A3")
     eq(api.undo_current(), step + 1, kind .. ": one step for the recall")
     T.advance(300)
@@ -148,12 +155,12 @@ test("a plugin takes a snapshot back at rest, and the echo of its values is no e
 
     rested(kind)
     took(d, function() keys("u") end)
-    eq(octave(d), 1, kind .. ": u gives B back to the plugin")
+    told(d, 1, kind .. ": u gives B back to the plugin")
     T.near(pitch(), 440, 10, kind .. ": and B plays")
     eq(api.undo_current(), step, kind .. ": u goes back one step")
 
     took(d, function() keys("<C-r>") end)
-    eq(octave(d), 0, kind .. ": <C-r> gives A again")
+    told(d, 0, kind .. ": <C-r> gives A again")
     T.near(pitch(), 220, 6, kind .. ": and A plays")
     eq(api.undo_current(), step + 1, kind .. ": <C-r> goes forward one step")
     T.advance(300)
