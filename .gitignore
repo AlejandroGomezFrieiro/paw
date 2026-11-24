@@ -13,3 +13,7 @@ third_party/
 
 # Python caches of the bench scripts.
 __pycache__/
+
+# Leftovers of patch and merge tools
+*.orig
+*.rej
