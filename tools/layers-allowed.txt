@@ -138,7 +138,6 @@ paw.views.arrange paw.frontend 3
 paw.views.arrange_mouse paw.frontend 3
 paw.views.arrange_part paw.frontend 1
 paw.views.curve paw.frontend 2
-paw.views.devices paw.frontend 2
 paw.views.inspector paw.frontend 3
 paw.views.effect_windows paw.frontend 1
 paw.views.files paw.defaults.clips 2

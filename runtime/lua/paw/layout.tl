@@ -1847,6 +1847,11 @@ function M.current(): Node
   return win
 end
 
+--- Make `win` the window that `Ctrl-w p` goes back to, in the current tab.
+function M.set_previous(win: Node)
+  tab().prev = win.id
+end
+
 --- The window of an id in the tree under `root`.
 function M.find_id(root: Node, id: integer): Node
   return find_id_in(root or ui().layout, id, nil)

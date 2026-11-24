@@ -139,7 +139,7 @@ local function device_panel()
   if not paw.ui.visible("devices") then return end
   paw.ui.focus("inspector")
   -- `Ctrl-w p` goes back to the window before the panel, not to the graph.
-  if from then paw.layout.tab().prev = from.id end
+  if from then paw.layout.set_previous(from) end
 end
 map("<leader>dd", device_panel, { desc = "Show or hide the device panel" })
 map("<leader>vm", "view.toggle mixer", { desc = "Show or hide the mixer" })

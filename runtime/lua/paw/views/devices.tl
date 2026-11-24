@@ -17,12 +17,18 @@
 local api = require("paw.api")
 local util = require("paw.util")
 local layout = require("paw.views.devices_layout")
+local events = require("paw.events")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 
 local type Node = layout.Node
 local type Branch = layout.Branch
 local type Laid = layout.Laid
+
+--- The part of `paw.params` (paw/params.lua, still Lua) that the view reads.
+local record Params
+  format: function(p: types.ParamInfo, value: number): string
+end
 
 --- The parts of `paw.routes` (paw/routes.lua, still Lua) that the view reads.
 local record Routes
@@ -186,7 +192,7 @@ end
 
 --- The text of a value of a parameter, as the panels write it.
 local function value_text(p: types.ParamInfo, value: number): string
-  return paw.frontend.format_value(p, value)
+  return (paw.params as Params).format(p, value)
 end
 
 --- The second row of a device's card: its preset, else its first own
@@ -382,8 +388,14 @@ local function tree_of(part: types.Part): Tree
 end
 
 --- The tree of the window's part, made again when the project changed.
+--- The view counts the changes itself: it does not read the revision of
+--- the frontends, which are a layer above the views.
 local kept: {string: Tree} = {}
 local kept_at: {string: string} = {}
+local changes = 0
+for _, name in ipairs({"changed", "project.loaded", "engine.started"}) do
+  events.on(events.event(name) as events.Event<events.Payload>, function() changes = changes + 1 end)
+end
 local function current_tree(self: Devices): Tree
   local part = self:part()
   if not part then
@@ -393,7 +405,7 @@ local function current_tree(self: Devices): Tree
     self.row_part, self.cursor, self.scroll, self.open = part.id, nil, 0, {}
   end
   local key = tostring(part.id)
-  local stamp = tostring(paw.frontend.revision) .. ":" .. tostring(api.project_get().edits)
+  local stamp = changes .. ":" .. tostring(api.project_get().edits)
   if kept_at[key] ~= stamp or not kept[key] then
     kept[key], kept_at[key] = tree_of(part), stamp
   end

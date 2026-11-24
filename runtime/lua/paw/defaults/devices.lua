@@ -67,8 +67,18 @@ command("devices", function()
   end
   paw.ui.page("Devices", lines)
 end, { desc = "List every device that can be added" })
-command("device.remove", function()
+--- The device under the cursor of the devices view, or nil with a message
+--- that says what the cursor is on and what the key `key` acts on.
+local function device_here(key, what)
   local device = paw.ui.views:get("inspector"):selected()
+  if device then return device end
+  local place = paw.ui.views:get("inspector"):node()
+  local on = place and ("; the cursor is on " .. place.node.name) or ""
+  paw.notify("no device here: " .. key .. " " .. what .. on, "warn")
+end
+
+command("device.remove", function()
+  local device = device_here("x", "removes a device")
   if device then device:remove() end
 end, { desc = "Remove the device under the cursor of the devices view" })
 command("device.restart", function()
@@ -98,7 +108,7 @@ command("device.restart", function()
   )
 end, { desc = "Start a plugin again that stopped working, with the state the project last had of it" })
 command("device.bypass", function()
-  local device = paw.ui.views:get("inspector"):selected()
+  local device = device_here("gcc", "bypasses a device")
   if device then device.bypass = not device.bypass end
 end, { desc = "Bypass the device under the cursor of the devices view" })
 command("device.editor", function()

@@ -1356,6 +1356,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.scope_chain(levels)`: A scope stack from its plain data: the innermost level, each naming its parent.
 - `paw.layout.scope_levels(s)`: A window's scope stack as plain data, outermost first.
 - `paw.layout.set_option(win, name, value)`: Set a window option (`timebind`) on a window (the current one).
+- `paw.layout.set_previous(win)`: Make `win` the window that `Ctrl-w p` goes back to, in the current tab.
 - `paw.layout.set_size(node, axis, size)`: Set the size a node takes along its parent: a panel whose size is an option (`devices_width`) has it set there.
 - `paw.layout.settle()`: After a window drew or took the pointer: each view's table holds the state of its window in the current tab that had the keyboard last, so that keys and commands act there.
 - `paw.layout.setup()`: Make the empty buffer type, the commands and the keys. Run once the default commands are there, as some of these take over their short names.

@@ -2,6 +2,7 @@
 
 use crate::events::{KernelEvent as E};
 use super::*;
+use crate::model::owner::OwnerRef;
 
 /// The running engine: the handle that talks to it, the ids it knows the
 /// project's things by, the audio stream it plays on, and what it was
@@ -88,7 +89,7 @@ pub(crate) struct ChainMeters {
 impl Session {
     /// The meters of the chain of `owner`, or `None` when the project has
     /// no such owner.
-    pub(crate) fn chain_meters(&self, owner: crate::model::owner::OwnerRef) -> Option<ChainMeters> {
+    pub(crate) fn chain_meters(&self, owner: OwnerRef) -> Option<ChainMeters> {
         let part = self.doc.project.owner(owner)?;
         let (map, shared) = (&self.engine.map, &self.engine.handle.shared);
         let mut peaks = HashMap::new();

@@ -264,7 +264,7 @@ the tests act in place of the person, and two steps are not checked:
   crash, the lesson continues at the step of the last save. To do: add
   `paw.project.write_copy(path)` or `save(path, { copy = true })`.
 - Nothing resets the remembered state of a view, so the tutor sets
-  `paw.ui.views:get("devices").row = 1` and `paw.ui.views:get("pianoroll"):set_step(nil)`
+  `paw.ui.views:get("inspector").row = 1` and `paw.ui.views:get("pianoroll"):set_step(nil)`
   directly at the start of a lesson.
 
 ### Problems found while the lessons were written

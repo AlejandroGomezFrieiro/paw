@@ -5706,6 +5706,10 @@ function paw.layout.scope_levels(s) end
 ---@param value any
 function paw.layout.set_option(win, name, value) end
 
+--- Make `win` the window that `Ctrl-w p` goes back to, in the current tab.
+---@param win any
+function paw.layout.set_previous(win) end
+
 --- Set the size a node takes along its parent: a panel whose size is an
 --- option (`devices_width`) has it set there.
 ---@param node any

@@ -684,7 +684,7 @@ function view:adjust(steps)
     paw.chain.set(h, row.macro.id, { value = util.clamp(row.macro.value + steps / 100, 0, 1) })
     return
   elseif row.field == "gain" then
-    paw.chain.set(h, row.branch.id, { gain = (row.branch.gain or 0) + steps })
+    paw.chain.set(h, row.branch.id, { gain = util.clamp((row.branch.gain or 0) + steps, -60, 12) })
     return
   elseif row.field == "pan" then
     paw.chain.set(h, row.branch.id, { pan = util.clamp((row.branch.pan or 0) + steps / 100, -1, 1) })
