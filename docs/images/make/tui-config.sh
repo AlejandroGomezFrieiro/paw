@@ -29,6 +29,6 @@ key space t S; pause 1.8
 # The loop: stop the song, undo the part, and undo the text in Neovim.
 # The colour from init.lua stays until the next start.
 key space space; key u; pause 0.4
-xdotool key ctrl+shift+Up; pause 0.4; key u; pause 0.5
-xdotool key ctrl+shift+Down; pause 0.8
+pane up; pause 0.4; key u; pause 0.5
+pane down; pause 0.8
 rec_stop
