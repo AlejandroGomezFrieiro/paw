@@ -154,7 +154,8 @@ contract. A contract is a trait, a saved type, a file format, a
   report.
 - Some rules run by themselves. The hook `.githooks/pre-commit` refuses a
   commit with a leftover of a merge, an id of the task board outside the
-  board, or a lint that fails. `tools/guard-hook.py` refuses the commands that put a
+  board, Rust files that change only in their format, or a lint that
+  fails. paw is not rustfmt-clean: keep the style of each file by hand. `tools/guard-hook.py` refuses the commands that put a
   load on the machine that it cannot carry. `tests/tools/suite.sh` runs
   the Lua suite under cargo-nextest. Each part of the suite takes one of
   four slots of the machine (lock files in `/tmp/paw-suite-locks`) before
