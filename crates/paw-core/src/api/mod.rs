@@ -334,10 +334,13 @@ fn patch<T: crate::session::Settable>(lua: &Lua, key: LuaValue, value: LuaValue)
             Some((LuaValue::String(key), error)) => {
                 let error = cause(&error);
                 // serde's "unknown field `x`, expected one of ..." names
-                // the key and the keys of the patch.
+                // the key and the keys of the patch, when `x` is the key
+                // itself. An unknown field of a table in the value is a
+                // bad value of the key.
+                let key = key.display().to_string();
                 match error.strip_prefix("unknown field ") {
-                    Some(known) => format!("{} {known}", T::NO_FIELD),
-                    None => format!("bad value for `{}`: {error}", key.display()),
+                    Some(known) if known.starts_with(&format!("`{key}`")) => format!("{} {known}", T::NO_FIELD),
+                    _ => format!("bad value for `{key}`: {error}"),
                 }
             }
             _ => cause(&error),

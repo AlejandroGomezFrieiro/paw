@@ -74,7 +74,7 @@ patch! {
     /// What `paw.api.project_set` changes in the project: each field as
     /// `project_get` gives it, and what is left out stays.
     #[schemars(rename = "ProjectChanges")]
-    pub(crate) struct ProjectPatch => ProjectChange, "project has no settable field" {
+    pub(crate) struct ProjectPatch => ProjectChange, "the project has no settable field" {
         /// The project's export presets by name.
         #[schemars(extend("x-teal" = "ProjectExport"))]
         "export" export: Map<String, Value> => Export default,
