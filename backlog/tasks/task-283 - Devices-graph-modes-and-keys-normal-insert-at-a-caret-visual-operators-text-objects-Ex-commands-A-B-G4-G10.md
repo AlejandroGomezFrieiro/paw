@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-23T11:58:00Z'
-updated_date: '2026-11-24T15:13:00Z'
+updated_date: '2026-11-24T15:34:00Z'
 labels:
   - agent:builder
 milestone: m-16
@@ -61,4 +61,6 @@ From the G3 review (2026-11-24): map + - on a device node in the graph (key rule
 Started 2026-11-24: branch graph-keys, base 0307828d.
 
 Builder report 2026-11-24 (branch graph-keys, 40a7c55b): AC 1-5 done (motions, text objects, operators, Ex commands, insert at a caret, a o O c cc, v V Ctrl-v, golden screens in tests/screens/device_graph_keys/). AC 6 part: \s \S \b \a work; = matches peak levels, not 3 s loudness; paw.opt.ab_match missing; A/B variants and \b states in memory only. Not done: the rack name prompt in insert mode, templates, :mod, :chain.copy, :chain.link, :keys, \i, Ctrl-o, cin that keeps the links, J, 'below 24 rows the inspector closes'. Changed behavior: x cuts the node (a whole split too) into a register. Known: \S makes one undo step per cursor move. Kernel follow-up: a function that inserts an empty split (gs wraps a utility device as a stand-in, then removes it). Owner questions: :ab.store shares the ab. prefix with undotree's ab.toggle/ab.clear; save A/B variants and \b states with the project?
+
+Orchestrator 2026-11-24: part merged in 279db2de (graph-keys: 40a7c55b, 282ed8ed, 7a554f5e). Review MERGE after two rounds. Checks: clippy clean, nextest 727, Lua parts 29/29 incl. the changed ones, golden screens, render gate 7 identical, mcpscore 163. Left for this ticket: the items listed above as not done, and AC 6 (loudness match, saved A/B). Follow-up: TASK-377.
 <!-- SECTION:NOTES:END -->
