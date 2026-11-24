@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T14:20:00Z'
+updated_date: '2026-11-24T15:28:00Z'
 labels:
   - agent:builder
   - architecture
@@ -69,4 +69,6 @@ Size: L. One family for each commit, each with a round trip test of the folder.
 
 <!-- SECTION:NOTES:BEGIN -->
 Lane heads (HD, TASK-323): move the field head from paw.track_kinds and paw.clip_kinds to the part and clip families of paw.kinds; the Head record does not change (design: backlog/docs/designs/lane-heads.md)
+
+Owner question for the A2 interview (2026-11-24): when an extension registers a clip, lane or part kind, it also gives the schema of its data, so paw-mcp can list kinds and add_clip/get_clip can take kind + data checked against that schema (today MCP sees only MIDI and audio clips).
 <!-- SECTION:NOTES:END -->
