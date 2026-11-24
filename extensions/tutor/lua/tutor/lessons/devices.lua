@@ -120,7 +120,7 @@ a comment.]],
     {
       say = "`ge` opens the window of a plugin. Built-in devices have no window, and the message line says so. Press `ge`.",
       keys = { "ge" },
-      check = function(ctx, look) return look.said(ctx, "no device with an editor window") end,
+      check = function(ctx, look) return look.said(ctx, "has no window of its own") end,
       done = "For a plugin, the window opens, and `ge` again closes it, in every view.",
     },
     {

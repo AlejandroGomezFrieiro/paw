@@ -84,7 +84,11 @@ test("Enter on a device with no window opens no other device's window", function
   restore()
   assert(ok, opened)
   eq(#opened, 0, "the other device's window stays closed")
-  eq(paw.ui.messages[#paw.ui.messages].text, first.name .. " has no window of its own: its parameters are in the panel", "and the message says why")
+  eq(
+    paw.ui.messages[#paw.ui.messages].text,
+    first.name .. " has no window of its own: its parameters are in the panel",
+    "and the message says why"
+  )
 end)
 
 test("with no device chosen, Enter opens the part's first window", function()
