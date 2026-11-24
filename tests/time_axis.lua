@@ -342,6 +342,7 @@ local function marks_scenario()
   api.tempo_set(20, 100)
   api.tempo_set(29.5, 105)
   api.tempo_set(30.5, 110)
+  api.tempo_set(37.25, 115)
   local piano = paw.add_part({ name = "Piano" })
   piano:add_clip({ name = "clipA", start = 16, length = 8, notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.markers.add(16, "Verse", { length = 9 })
@@ -361,11 +362,18 @@ local function glyph_columns(row, at, glyph)
   return out
 end
 
+--- The zooms at which the tempo mark at beat 37.25 and the number of bar 11 are in
+--- one cell (`marks_scenario`), so that the case cannot vanish from the test.
+local shared_cell = {}
+
 local function check_marks(what)
   T.settle()
   local view = paw.ui.views:get("arrange")
   local rows = frame()
   local ax = view.axis
+  if ax:x_of(37) == ax:x_of(37.25) and ax:x_of(37) < #rows[0] - rule_of(rows) then
+    shared_cell[#shared_cell + 1] = paw.opt.zoom
+  end
   local at = rule_of(rows)
   local tw = #rows[0] - at
   local where = what .. " (zoom " .. paw.opt.zoom .. ", scroll " .. view.scroll .. ")"
@@ -381,7 +389,7 @@ local function check_marks(what)
   -- A column with the marks of two kinds (zoomed far out, a cell holds many
   -- beats) shows the glyph of one: each glyph is in a column of its kind, and each
   -- column of a mark has a glyph.
-  local meter, tempo = shown({ 16, 25 }), shown({ 12, 20, 29.5, 30.5 })
+  local meter, tempo = shown({ 16, 25 }), shown({ 12, 20, 29.5, 30.5, 37.25 })
   local function kinds(columns)
     local set = {}
     for _, x in ipairs(columns) do
@@ -562,6 +570,14 @@ test(
     marks_scenario()
     local view = paw.ui.views:get("arrange")
     check_marks("zoom 1")
+    -- The tempo mark at beat 37.25 is in the cell of bar 11's number: the
+    -- value takes the cell, and the number follows it when it fits whole.
+    local ruler_text = text_of(frame()[0])
+    eq(
+      ruler_text:find("▾115 11", 1, true) ~= nil,
+      true,
+      "bar 11's number follows the value in its cell: " .. ruler_text
+    )
     T.keys("zi")
     check_marks("zoomed in")
     T.keys("zi")
@@ -575,5 +591,6 @@ test(
     check_marks("scrolled")
     paw.cursor.set_beat(20)
     check_marks("the cursor on a beat inside a 6/8 bar")
+    eq(#shared_cell > 0, true, "a tempo mark shares its cell with a bar's number at some zoom")
   end
 )
