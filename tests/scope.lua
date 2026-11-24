@@ -532,8 +532,15 @@ test("in Song › Bridge › Strings dar deletes only the strings' clips in the 
   paw.cursor.set_beat(from + 2)
   -- The part column: the scope's parts from 1.
   local text = screen()
-  local first = line_with(text, "Strings")
-  eq(first:find("1", 1, true) ~= nil, true, "row 1: " .. first)
+  -- The part's own row, not the window bar that names the scope.
+  local first
+  for line in text:gmatch("[^\n]+") do
+    if line:find("Strings", 1, true) and not line:find("›", 1, true) then
+      first = line
+      break
+    end
+  end
+  eq(first ~= nil and first:match("^%s*1%s") ~= nil, true, "row 1: " .. tostring(first))
   eq(line_with(text, "Cellos"):find("3", 1, true) ~= nil, true, "Cellos is row 3: " .. line_with(text, "Cellos"))
   keys("vie")
   local sel = paw.keymap.selection()
