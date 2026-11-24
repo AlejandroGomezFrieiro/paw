@@ -47,22 +47,27 @@ Claude Code for each command that the agent runs. The settings apply
 whether or not you start the agent with `nix run .#agent`.
 
 - A command can write in the checkout, in the temporary folder of Claude
-  Code, in `~/.cargo`, in `~/.cache/sccache` and in `/tmp/paw-suite-locks`,
-  where `tests/tools/suite.sh` keeps the slots of the machine.
+  Code (`/tmp/claude-` and your user id), in `~/.cargo`, in
+  `~/.cache/sccache`, in `~/.cache/nix` and in `/tmp/paw-suite-locks`,
+  where `tests/tools/suite.sh` keeps the slots of the machine. An agent in
+  a worktree can also write the shared `.git` folder of the checkout, so
+  that `git commit` works.
 - A command can't read or write `~/.config/paw`, `~/.local/share/OpenUtau`,
   `~/.config/REAPER`, `~/.wine`, `~/.local/share/wineprefixes`, `~/.ssh`
   and `~/.gnupg`. In the sandbox, each of these folders is empty, and a
   file written there is gone when the command ends.
-- A command can reach crates.io, GitHub, the Nix cache and the Rust
-  documentation sites, and no other host.
+- A command can reach crates.io, GitHub, the Nix cache and the Nix flake
+  registry, and the Rust documentation sites, and no other host.
 - A command can open Unix sockets, because the tests start paw with a
-  control socket.
+  control socket, and `nix` talks to the Nix daemon through one. The
+  daemon builds and downloads in a sandbox of its own, so `nix develop`,
+  `nix build` and `nix flake check` work in the sandbox.
+- The tests of `extensions/interop` that open a project in REAPER start
+  REAPER in a sandbox of their own, which can't start inside the sandbox of
+  Claude Code. The suite skips them there, and says why.
 
-Some commands run outside the sandbox:
-
-- `nix build` and `nix flake check`, because they talk to the Nix daemon,
-  and the daemon builds in a sandbox of its own.
-- `git push`, because it needs the keys in `~/.ssh`.
+Only `git push` runs outside the sandbox, because it needs the keys in
+`~/.ssh`.
 
 A command that the sandbox refuses fails with an error such as
 `Read-only file system`, and the agent can't run it outside the sandbox. If

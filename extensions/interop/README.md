@@ -390,7 +390,9 @@ PAW_REAPER=/path/to/reaper nix develop -c tests/tools/suite.sh only "REAPER"
 REAPER runs in a sandbox (`bwrap`) on a private X display, with no audio
 device and its own new configuration, so it does not touch the configuration
 of a REAPER that you have. The startup script `tools/reaper-dump.lua`
-writes what REAPER read, and then REAPER stops.
+writes what REAPER read, and then REAPER stops. Inside another sandbox,
+such as the sandbox of a coding agent, `bwrap` can't start, and the suite
+skips the REAPER tests with a message that says so.
 
 The second REAPER test gives a third argument, `tools/reaper-build.lua`.
 REAPER runs that script in a new project, and the script makes a song with

@@ -6,9 +6,6 @@
     "enabled": true,
     "allowUnsandboxedCommands": false,
     "excludedCommands": [
-      "nix build *",
-      "nix flake check",
-      "nix flake check *",
       "git push",
       "git push *"
     ],
@@ -16,6 +13,7 @@
       "allowWrite": [
         "~/.cargo",
         "~/.cache/sccache",
+        "~/.cache/nix",
         "/tmp/paw-suite-locks"
       ],
       "denyRead": [
@@ -48,6 +46,7 @@
         "objects.githubusercontent.com",
         "raw.githubusercontent.com",
         "cache.nixos.org",
+        "channels.nixos.org",
         "docs.rs",
         "doc.rust-lang.org"
       ],

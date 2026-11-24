@@ -15,6 +15,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 bin=${PAW_REAPER:-}
 [ -n "$bin" ] && [ -x "$bin" ] || { echo "reaper-open: set PAW_REAPER to the reaper program" >&2; exit 77; }
 command -v Xvfb >/dev/null && command -v bwrap >/dev/null || { echo "reaper-open: needs Xvfb and bwrap" >&2; exit 77; }
+# In a sandbox (the sandbox of Claude Code is bubblewrap too), bwrap cannot
+# make the namespaces that REAPER needs.
+bwrap --ro-bind / / true 2>/dev/null || { echo "reaper-open: bwrap cannot make a namespace here (a sandbox?)" >&2; exit 77; }
 sb=$(mktemp -d "${TMPDIR:-/tmp}/reaper-open.XXXXXX")
 [ -n "${REAPER_KEEP:-}" ] || trap 'rm -rf "$sb"' EXIT
 mkdir -p "$sb/home" "$sb/cfg/REAPER/Scripts" "$sb/run"

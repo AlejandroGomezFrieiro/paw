@@ -987,7 +987,7 @@ local function reaper_open(path, build)
     return nil, "skipped: set PAW_REAPER to the reaper program to open the file in REAPER"
   end
   local dump = path .. ".dump"
-  local code = os.execute(
+  local code, _, exit = os.execute(
     string.format(
       "'%s/tools/reaper-open.sh' '%s' '%s' %s 2>&1",
       HERE,
@@ -996,6 +996,11 @@ local function reaper_open(path, build)
       build and ("'" .. build .. "'") or ""
     )
   )
+  -- The script exits 77 when REAPER cannot start on this machine. LuaJIT
+  -- gives the wait status (77 * 256), and the 5.3 form gives the code third.
+  if code == 77 * 256 or exit == 77 then
+    return nil, "skipped: reaper-open.sh cannot start REAPER here (no Xvfb or bwrap, or bwrap in a sandbox)"
+  end
   if code ~= 0 and code ~= true then error("reaper-open.sh failed: " .. tostring(code)) end
   local out = {}
   for line in T.read_file(dump):gmatch("[^\n]+") do
