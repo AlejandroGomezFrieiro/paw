@@ -888,7 +888,7 @@ fn clip_json<'a>(c: &'a Clip, part: Id, files: &file_check::FileCheck) -> ClipVi
             v.fade_in = Some(c.fade_in);
             v.fade_out = Some(c.fade_out);
             v.timebase = Some(c.timebase.unwrap_or_default());
-            v.stretch = Some(c.stretch);
+            v.stretch = Some(c.stretch.0);
             v.pitch = Some(c.pitch);
             v.stretch_mode = Some(c.stretch_mode);
             v.source_tempo = c.source_tempo;

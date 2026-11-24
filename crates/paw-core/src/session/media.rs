@@ -1047,7 +1047,7 @@ mod tests {
     fn clip(id: u64, file: &str) -> crate::model::Clip {
         crate::model::Clip {
             timebase: None,
-            stretch: 1.0,
+            stretch: crate::model::Factor::default(),
             pitch: 0.0,
             stretch_mode: Default::default(),
             source_tempo: None,

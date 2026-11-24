@@ -15,7 +15,7 @@ use paw_engine::{AudioData, AudioRegion, ClipSet, MidiEv, Piece, PieceEdit, db_t
 use super::SyncCtx;
 use super::mapper::{CueEvents, Mapper};
 use super::stacks::Results;
-use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Part};
+use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Part, repeats};
 
 /// What a piece of a MIDI clip's events is compiled from, and all that
 /// they depend on: runs of the notes that it plays, its controllers, its
@@ -81,7 +81,7 @@ impl<'a> Source<'a> {
             }
             for note in self.notes().filter(|n| n.start >= 0.0 && n.start < length) {
                 let end = (note.start + note.length).min(length);
-                let vel = f32::from(note.velocity) / 127.0;
+                let vel = note.velocity.unit();
                 let (start, end) = (origin + note.start, origin + end);
                 set.push_note_attr(start, end, note.pitch, vel, attr_of(note));
             }
@@ -101,7 +101,7 @@ impl<'a> Source<'a> {
                 let at = place(note.start);
                 if at >= 0.0 && at < length {
                     let stop = (at + note.length).min(end);
-                    let vel = f32::from(note.velocity) / 127.0;
+                    let vel = note.velocity.unit();
                     set.push_note_attr(origin + at, origin + stop, note.pitch, vel, attr_of(note));
                 }
             }
@@ -192,24 +192,6 @@ impl Compiled {
 /// A note's attribute as the engine has it.
 fn attr_of(note: &Note) -> paw_types::Attr {
     note.attr.map_or(paw_types::Attr::NONE, Into::into)
-}
-
-/// Where each repeat of a looped clip begins and ends, from the clip's
-/// start, for a repeated stretch beginning at `from` and `period` long, in
-/// a clip `length` long: the first begins at or before 0, the last ends
-/// at `length` or later. In beats for MIDI, in seconds for sound.
-pub(crate) fn repeats(from: f64, period: f64, length: f64) -> impl Iterator<Item = (f64, f64)> {
-    // The repeat the clip's start falls in.
-    let first = from - period * (from / period).ceil();
-    let count = if period > 0.0 {
-        ((length - first) / period).ceil().max(0.0) as usize
-    } else {
-        0
-    };
-    (0..count).map(move |k| {
-        let a = first + k as f64 * period;
-        (a, first + (k + 1) as f64 * period)
-    })
 }
 
 /// Whether sound repeated from `from` for `seconds` runs on from its end

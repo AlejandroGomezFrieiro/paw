@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 
-use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
+use crate::model::{ClipContent, Control, Id, Note, NoteAttr, Velocity};
 use crate::session::notes::{NoteChange, NoteColumns, NoteRange, NotesEdit};
 
 use super::{LuaResult, Shared, from_lua, kind_data, options, patch, to_lua};
@@ -25,7 +25,7 @@ fn note_to_lua(lua: &Lua, n: &Note) -> mlua::Result<Table> {
     note.raw_set("start", n.start)?;
     note.raw_set("length", n.length)?;
     note.raw_set("pitch", n.pitch)?;
-    note.raw_set("velocity", n.velocity)?;
+    note.raw_set("velocity", n.velocity.0)?;
     if n.id != 0 {
         note.raw_set("id", n.id)?;
     }
@@ -123,7 +123,7 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
                 start: num(note.raw_get("start").ok()?)?,
                 length: num(note.raw_get("length").ok()?)?,
                 pitch: int(note.raw_get("pitch").ok()?)?,
-                velocity,
+                velocity: Velocity(velocity),
                 meta: Default::default(),
                 id: match note.raw_get::<LuaValue>("id").ok()? {
                     LuaValue::Nil => 0,

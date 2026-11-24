@@ -214,20 +214,21 @@ impl Timing {
 
 /// The notes a MIDI clip plays, from its start: a looped clip's repeats
 /// one after another, each a copy of the notes of its repeated stretch.
-fn played_notes<'a>(clip: &'a Clip, notes: &'a Notes) -> Box<dyn Iterator<Item = Note> + 'a> {
-    let Some((loop_start, period)) = clip.repeat() else {
-        return Box::new(notes.iter().cloned());
-    };
+fn played_notes<'a>(clip: &'a Clip, notes: &'a Notes) -> impl Iterator<Item = Note> + 'a {
+    let repeat = clip.repeat();
     let length = clip.length;
-    Box::new(
-        crate::sync::repeats(loop_start, period, length).flat_map(move |(a, _)| {
+    // One of the two is empty: the notes as they are, or the repeats.
+    let plain = repeat.is_none().then(|| notes.iter().cloned());
+    let looped = repeat.map(move |(loop_start, period)| {
+        crate::model::repeats(loop_start, period, length).flat_map(move |(a, _)| {
             notes
                 .iter()
                 .filter(move |n| n.start >= loop_start && n.start < loop_start + period)
                 .map(move |n| Note { start: a + n.start - loop_start, ..n.clone() })
                 .filter(move |n| n.start >= 0.0 && n.start < length)
-        }),
-    )
+        })
+    });
+    plain.into_iter().flatten().chain(looped.into_iter().flatten())
 }
 
 /// A lane of a nest's part as the song plays it: for each place of the

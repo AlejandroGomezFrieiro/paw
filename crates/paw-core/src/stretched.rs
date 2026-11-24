@@ -292,7 +292,7 @@ pub(crate) fn preview(
                 return;
             }
             let lead = from * period / beats;
-            crate::sync::repeats(lead, period, seconds)
+            crate::model::repeats(lead, period, seconds)
                 .filter_map(|(a, b)| {
                     let (ra, rb) = (a.max(0.0), b.min(seconds));
                     (rb - ra > 1e-9).then_some((ra, rb, offset + lead + (ra - a)))

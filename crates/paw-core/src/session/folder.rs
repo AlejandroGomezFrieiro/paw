@@ -1977,7 +1977,7 @@ mod tests {
                 start: i as f64 / 3.0,
                 length: 0.25,
                 pitch: 48 + ((i * 7 + seed) % 24) as u8,
-                velocity: 64 + ((i * 13 + seed) % 63) as u8,
+                velocity: crate::model::Velocity(64 + ((i * 13 + seed) % 63) as u8),
                 meta: Map::new(),
                 id: i + 1,
                 attr: None,
@@ -2126,7 +2126,7 @@ mod tests {
         let ClipContent::Custom(c) = &read.project.parts[0].clips[2].content else {
             panic!("a custom clip");
         };
-        assert_eq!((c.version, c.timeline), (2, crate::model::Timeline::Seconds));
+        assert_eq!((c.version.get(), c.timeline), (2, crate::model::Timeline::Seconds));
         assert!(commit(&dir, &again, None).unwrap().written.is_empty());
         // A data file that is not JSON is said with its name and the place.
         std::fs::write(dir.join(clips).join("intro.video.json"), "{\n  \"a\": }").unwrap();

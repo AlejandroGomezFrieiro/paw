@@ -268,7 +268,7 @@ impl Builtin {
         let mut out = note.clone();
         out.pitch = self.pitch(note.pitch)?;
         if let Self::Velocity { add } = self {
-            out.velocity = (i16::from(note.velocity) + i16::from(add)).clamp(1, 127) as u8;
+            out.velocity = crate::model::Velocity((i16::from(note.velocity.0) + i16::from(add)).clamp(1, 127) as u8);
         }
         Some(out)
     }

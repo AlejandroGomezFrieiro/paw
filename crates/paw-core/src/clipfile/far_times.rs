@@ -12,7 +12,7 @@ fn note(start: f64, length: f64) -> Note {
         start,
         length,
         pitch: 60,
-        velocity: 100,
+        velocity: Velocity(100),
         meta: Map::new(),
         id: 0,
         attr: None,

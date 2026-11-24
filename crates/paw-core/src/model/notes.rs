@@ -565,7 +565,7 @@ mod tests {
             start,
             length: 0.25,
             pitch: 60,
-            velocity: 100,
+            velocity: crate::model::Velocity(100),
             meta: Default::default(),
             id: 0,
             attr: None,
@@ -645,7 +645,7 @@ mod tests {
         let runs = before.runs.len();
         let mut after = before.clone();
         assert_eq!(shared(&after, &before), runs, "a copy shares every run");
-        after[5000].velocity = 1;
+        after[5000].velocity = crate::model::Velocity(1);
         assert_eq!(shared(&after, &before), runs - 1);
         assert!(after.weight_over(Some(&before)) < 30_000, "{}", after.weight_over(Some(&before)));
         assert!(before.weight_over(None) > 10_000 * size_of::<Note>());

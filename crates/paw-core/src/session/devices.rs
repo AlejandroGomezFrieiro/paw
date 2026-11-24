@@ -136,7 +136,7 @@ impl Session {
             .doc.project
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
-        let d = &self.doc.project.part(part).unwrap().devices[index];
+        let d = &self.doc.project.part(part).with_context(|| format!("no part {part}"))?.devices[index];
         let info = self.registry.get(&d.kind).map(|f| f.info());
         let live = self.live.get(&id);
         let (mut params, infos) = self.device_params(id, part, d, live);
@@ -351,7 +351,7 @@ impl Session {
         }
         let name = format!("param {id} {key}");
         self.doc.edit(|p| {
-            p.device_mut(id).unwrap().params.insert(key, value);
+            p.device_in(id)?.params.insert(key, value);
             Ok(())
         })?;
         self.doc.swept(name);
@@ -498,7 +498,7 @@ impl Session {
         // own presets or answered a call.
         let already = load.factory.is_some() || load.call.is_some();
         self.doc.edit(|p| {
-            let d = p.device_mut(id).unwrap();
+            let d = p.device_in(id)?;
             d.state = state;
             d.params = load.params;
             d.loaded = d.loaded.wrapping_add(1);

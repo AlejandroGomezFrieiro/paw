@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 
 use super::Document;
 use super::values::{Patch, check_controls, check_fade, finite, sorted};
+use crate::model::kinds::Version;
 use crate::model::{
     Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
     Project, Signal, Stack, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
@@ -313,11 +314,11 @@ impl Document {
     pub(crate) fn clip_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             if let Some((part, index)) = p.find_cue_clip(id) {
-                p.part_mut(part).unwrap().cues.remove(index);
+                p.part_in(part)?.cues.remove(index);
                 return Ok(());
             }
             let (part, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-            p.part_mut(part).unwrap().clips.remove(index);
+            p.part_in(part)?.clips.remove(index);
             Ok(())
         })
     }
@@ -576,7 +577,7 @@ fn build_clip(
 ) -> Clip {
     Clip {
         timebase: opts.timebase.filter(|_| kind == ClipKind::Audio),
-        stretch: opts.stretch.unwrap_or(1.0),
+        stretch: opts.stretch.map_or_else(crate::model::Factor::default, crate::model::Factor),
         pitch: opts.pitch,
         stretch_mode: opts.stretch_mode,
         source_tempo: opts.source_tempo.filter(|_| kind == ClipKind::Audio),
@@ -603,10 +604,10 @@ fn build_clip(
 }
 
 /// The version of a custom clip's data: 1 when not said.
-fn custom_version(version: Option<u32>) -> Result<u32> {
+fn custom_version(version: Option<u32>) -> Result<Version> {
     match version {
-        Some(0) => bail!("the version of a kind's data counts from 1"),
-        other => Ok(other.unwrap_or(1)),
+        None => Ok(Version::ONE),
+        Some(n) => Version::try_from(i64::from(n)).map_err(|_| anyhow::anyhow!("the version of a kind's data counts from 1")),
     }
 }
 
@@ -795,7 +796,7 @@ impl ClipChange {
             Self::LoopStart(beats) => clip.loop_start == beats.unwrap_or(0.0),
             Self::Formants(on) => audio.is_some() && clip.formants == *on,
             Self::Pitch(semitones) => audio.is_some() && clip.pitch == semitones.unwrap_or(0.0),
-            Self::Stretch(ratio) => audio.is_some() && clip.stretch == ratio.unwrap_or(1.0),
+            Self::Stretch(ratio) => audio.is_some() && clip.stretch.0 == ratio.unwrap_or(1.0),
             Self::StretchMode(mode) => audio.is_some() && clip.stretch_mode == *mode,
             Self::SourceTempo(bpm) => audio.is_some() && clip.source_tempo == *bpm,
             Self::Timebase(timebase) => audio.is_some() && clip.timebase.unwrap_or_default() == *timebase,
@@ -835,8 +836,8 @@ fn move_cue(p: &mut Project, id: Id, to: Id) -> Result<bool> {
     if p.part(to).is_none() {
         bail!("no part {to}");
     }
-    let clip = p.part_mut(from).unwrap().cues.remove(index);
-    p.part_mut(to).unwrap().cues.push(clip);
+    let clip = p.part_in(from)?.cues.remove(index);
+    p.part_in(to)?.cues.push(clip);
     Ok(true)
 }
 

@@ -246,7 +246,7 @@ pub(crate) fn of(clip: &Clip, map: &TempoMap) -> Option<Warp> {
     let unstretched = markers(&clip.warp);
     let warp = match bent(clip, map, &unstretched, *offset) {
         Some(warp) => warp,
-        None => unstretched.scaled(clip.stretch),
+        None => unstretched.scaled(clip.stretch.0),
     }
     .anchored();
     let plain = warp.ratio() == Some(1.0) && clip.pitch == 0.0;
@@ -283,7 +283,7 @@ pub(crate) fn target_for(clip: &Clip, map: &TempoMap, beat: f64) -> f64 {
     let bpm = clip.source_tempo.unwrap_or(0.0);
     match bent(clip, map, &unstretched, *offset) {
         Some(_) => u_offset + (beat - clip.start) * 60.0 / bpm,
-        None => u_offset + map.seconds_between(clip.start, beat) / clip.stretch,
+        None => u_offset + map.seconds_between(clip.start, beat) / clip.stretch.0,
     }
 }
 
@@ -340,7 +340,7 @@ mod tests {
     fn markers_stretch_each_part_on_its_own_and_land_where_they_are_put() {
         let map = TempoMap::constant(120.0, 4, 4);
         let mut c = clip(4.0, 8.0, 0.5);
-        c.stretch = 2.0;
+        c.stretch = crate::model::Factor(2.0);
         assert_eq!(of(&c, &map).unwrap().ratio(), Some(2.0));
         // Pinned where they are: nothing changes.
         c.warp = vec![
@@ -406,13 +406,13 @@ mod tests {
         assert!(w.slopes().all(|s| (1.0 - 1e-9..=1.2 + 1e-9).contains(&s)));
         // Evenly, its middle would be off its beat.
         c.timebase = None;
-        c.stretch = map.seconds_between(4.0, 12.0) / 4.0;
+        c.stretch = crate::model::Factor(map.seconds_between(4.0, 12.0) / 4.0);
         let even = beat_of(&c, &map, 2.0);
         assert!((even - 8.0).abs() > 0.05, "{even}");
         // Without the ramp inside it, it is stretched evenly.
         c.timebase = Some(Timebase::Stretch);
         c.start = 12.0;
-        c.stretch = 1.2;
+        c.stretch = crate::model::Factor(1.2);
         assert_eq!(of(&c, &map).unwrap().ratio(), Some(1.2));
     }
 }

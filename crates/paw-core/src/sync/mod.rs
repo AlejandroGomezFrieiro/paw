@@ -44,7 +44,6 @@ pub(crate) use self::automation::is_active;
 pub(crate) use self::devices::{TakesClips, deliver_clips, install, is_host};
 pub use self::mapper::Mapper;
 pub(crate) use self::mapper::Follow;
-pub(crate) use self::clips::repeats;
 pub use crate::events::ModelEvent;
 
 use self::automation::{build_automation, release_targets, vca_volume_lane, vcas_of};

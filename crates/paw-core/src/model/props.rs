@@ -18,7 +18,7 @@ fn note() -> impl Strategy<Value = Note> {
         start,
         length,
         pitch,
-        velocity,
+        velocity: crate::model::Velocity(velocity),
         meta: Map::new(),
         id: 0,
         attr: None,
@@ -29,7 +29,7 @@ fn note() -> impl Strategy<Value = Note> {
 fn notes() -> impl Strategy<Value = Vec<Note>> {
     let many = (250usize..700).prop_map(|count| {
         (0..count)
-            .map(|i| Note { start: i as f64 / 4.0, length: 0.25, pitch: (i % 128) as u8, velocity: 100, meta: Map::new(), id: 0, attr: None })
+            .map(|i| Note { start: i as f64 / 4.0, length: 0.25, pitch: (i % 128) as u8, velocity: crate::model::Velocity(100), meta: Map::new(), id: 0, attr: None })
             .collect()
     });
     prop_oneof![7 => vec(note(), 0..8), 1 => many]

@@ -937,14 +937,14 @@ mod tests {
             start,
             length: 1.0,
             pitch,
-            velocity: 100,
+            velocity: crate::model::Velocity(100),
             meta: Default::default(),
             id: 0,
             attr: None,
         };
         part.clips.push(Arc::new(Clip {
             timebase: None,
-            stretch: 1.0,
+            stretch: crate::model::Factor::default(),
             pitch: 0.0,
             stretch_mode: Default::default(),
             source_tempo: None,
@@ -1012,7 +1012,7 @@ mod tests {
             let ClipContent::Midi { notes, .. } = &mut clip.content else {
                 unreachable!()
             };
-            notes[1].velocity = 50; // changed
+            notes[1].velocity = crate::model::Velocity(50); // changed
             notes.remove(2); // removed
             notes.push(note(3.0, 67)); // added
             notes.push(note(3.5, 69)); // added

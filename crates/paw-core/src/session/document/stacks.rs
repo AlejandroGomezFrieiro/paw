@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(done, Rendered { modifiers: 1, notes: 1, dropped: 1 }, "123 + 5 is out of the MIDI range");
         let clip = doc.project.clip(id).unwrap();
         let ClipContent::Midi { notes, .. } = &clip.content else { unreachable!() };
-        assert_eq!(notes.iter().map(|n| (n.pitch, n.velocity)).collect::<Vec<_>>(), [(65, 100)]);
+        assert_eq!(notes.iter().map(|n| (n.pitch, n.velocity.0)).collect::<Vec<_>>(), [(65, 100)]);
         assert_eq!(serde_json::to_value(&clip.stack).unwrap(), json!([{ "kind": "velocity", "params": { "add": -10 } }]));
     }
 

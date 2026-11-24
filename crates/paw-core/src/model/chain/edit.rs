@@ -242,7 +242,7 @@ pub fn set(chain: &Chain, id: NodeId, change: Change) -> Result<Chain, ChainErro
         if let Some(s) = chain.root.split_mut(id) {
             match change {
                 Change::Name(name) => s.name = name,
-                Change::Mix(mix) => s.mix = mix,
+                Change::Mix(mix) => s.mix = super::Factor(mix),
                 Change::Gain(gain) => s.gain = gain,
                 Change::Kind(kind, values) => {
                     s.kind = kind;

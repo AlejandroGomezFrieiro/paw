@@ -23,7 +23,7 @@ use anyhow::{Result, bail};
 use paw_types::{EventKind, ump::{self, scale_down, scale_up}};
 use serde_json::{Map, Value, json};
 
-use crate::model::{Control, ControlKind, Note, NoteAttr, check_clip_beat};
+use crate::model::{Control, ControlKind, Note, NoteAttr, Velocity, check_clip_beat};
 
 /// The magic bytes a clip file starts with.
 pub(crate) const MAGIC: &[u8; 8] = b"SMF2CLIP";
@@ -233,7 +233,7 @@ fn note_messages(notes: &[&Note], out: &mut Vec<(i64, Order, Vec<u32>)>) {
             // Its own clockstamp follows, of 0 ticks.
             words.push(utility(0x4, 0));
         }
-        let vel = scale_up(n.velocity.clamp(1, 127) as u32, 7, 16);
+        let vel = scale_up(u32::from(n.velocity.0.clamp(1, 127)), 7, 16);
         let attr = n.attr.map(|a| (a.kind, a.data)).unwrap_or((0, 0));
         words.push(4 << 28 | 0x9 << 20 | (n.pitch as u32 & 127) << 8 | attr.0 as u32);
         words.push(vel << 16 | attr.1 as u32);
@@ -425,7 +425,7 @@ impl Reader {
             start: self.beat(self.tick),
             length: 0.0,
             pitch: key,
-            velocity: vel.clamp(1, 127),
+            velocity: Velocity(vel.clamp(1, 127)),
             meta: match extra.get("meta") {
                 Some(Value::Object(m)) => m.clone(),
                 _ => Map::new(),
@@ -594,7 +594,7 @@ pub fn text(clip: &Clip) -> String {
             key_name(n.pitch),
             n.pitch,
             fmt(n.length),
-            n.velocity
+            n.velocity.0
         );
         if let Some(a) = n.attr {
             line += &format!("  attr {}:{}", a.kind, a.data);
@@ -660,7 +660,7 @@ mod tests {
             start,
             length,
             pitch,
-            velocity: 100,
+            velocity: Velocity(100),
             meta: Map::new(),
             id: 0,
             attr: None,
@@ -689,7 +689,7 @@ mod tests {
             kind: 17,
             data: 40960,
         });
-        notes[0].velocity = 1;
+        notes[0].velocity = Velocity(1);
         let controls = vec![
             Control {
                 start: 0.0,
@@ -821,7 +821,7 @@ mod tests {
         }
         let clip = decode(&bytes).unwrap();
         assert_eq!(clip.notes.len(), 1);
-        assert_eq!(clip.notes[0].velocity, 100);
+        assert_eq!(clip.notes[0].velocity, Velocity(100));
         assert_eq!(clip.notes[0].length, 0.5);
         assert_eq!(clip.length, 1.0);
         assert!(text(&clip).contains("note C4    60  len 0.5  vel 100"));

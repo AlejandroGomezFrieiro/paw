@@ -26,7 +26,7 @@ fn run(kinds: &ModKinds, stack: &[Modifier], input: Midi) -> (Midi, Vec<(usize, 
 }
 
 fn played(result: &Midi) -> Vec<(u8, u8)> {
-    result.notes.iter().map(|n| (n.pitch, n.velocity)).collect()
+    result.notes.iter().map(|n| (n.pitch, n.velocity.0)).collect()
 }
 
 #[test]
