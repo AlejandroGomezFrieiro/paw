@@ -1,10 +1,10 @@
 ---
 id: TASK-380
 title: 'Order leaks: snippet.lua:212 and ex.lua:82 fail only in shuffle order 11'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T16:08:00Z'
-updated_date: '2026-11-24T16:23:00Z'
+updated_date: '2026-11-24T16:49:00Z'
 labels:
   - test
   - flaky
@@ -36,4 +36,6 @@ Both pass alone. Found in suite.sh plugins with PAW_TEST_SHUFFLE=11. Find the st
 
 <!-- SECTION:NOTES:BEGIN -->
 Started 2026-11-24: branch order-leaks, base 9f3f2f5c.
+
+On main in merge 95ff75c1 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
