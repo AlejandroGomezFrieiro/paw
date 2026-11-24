@@ -472,12 +472,15 @@ local record contracts
   --- `set` its row and column. `step` is a step of the columns, `label`
   --- the grid as the status line shows it (`1/8t`), `down` -1
   --- for rows that count upwards. `extent(row, col)` is the end of what
-  --- is at a place. `mark` and `jump` keep a place that moves with what is
+  --- is at a place. `cell(col)` is the end of the cell of the cursor at
+  --- `col`: the next line of the grid, which a selection that did not grow
+  --- ends at. `mark` and `jump` keep a place that moves with what is
   --- there (a mark), and `search(text)` gives the places that match.
   record Grid
     get: function(): number, number
     set: function(row: number, col: number)
     step: function(): number
+    cell: function(col: number): number
     label: function(): string
     down: integer
     extent: function(row: number, col: number): number

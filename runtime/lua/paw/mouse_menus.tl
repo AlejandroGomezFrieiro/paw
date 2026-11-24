@@ -421,7 +421,7 @@ function M.roll(clip: integer): {Entry}
     {label = "Delete the chosen notes", run = function() act().remove_chosen_notes(clip) end},
     {label = "Quantize the chosen notes (or all) to the grid", run = function() act().quantize_notes(clip) end},
     "-",
-    {label = "Snap to the grid", checked = opt.note_snap, run = function() act().toggle_note_snap() end},
+    {label = "Snap to the grid", checked = opt.snap, run = function() act().toggle_note_snap() end},
   }
 end
 

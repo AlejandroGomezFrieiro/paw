@@ -1219,8 +1219,11 @@ local function selected(v: Visual, g: Grid, row: number, col: number): Region
     local last_row = col >= v.col and row or v.row
     out.c1 = math.max(out.c1, g.extent(last_row, out.c1) or out.c1)
   end
+  -- A selection that did not grow is the cell of the cursor: up to the
+  -- next line of a view's grid (`grid.cell`), else one step.
   if out.c1 - out.c0 < 1e-9 then
-    out.c1 = out.c0 + g.step()
+    local finish = g.cell and g.cell(out.c0)
+    out.c1 = finish and finish > out.c0 and finish or out.c0 + g.step()
     out.unstretched = true
   end
   return out
@@ -1231,7 +1234,8 @@ local ranged: Region -- the region `:'<,'>` names while its command runs
 --- The region selected in the focused view, or nil outside visual mode. It
 --- goes from the cursor to the start of the selection. Both ends are
 --- included when the view tells the size of the item under the cursor
---- (`grid.extent`). A selection that did not grow covers one grid step.
+--- (`grid.extent`). A selection that did not grow covers the cell of the
+--- cursor (`grid.cell`), or one grid step.
 --- While a command runs with `:'<,'>`, it is the selection that the command names.
 function M.selection(): Region
   if ranged then
@@ -1561,6 +1565,21 @@ local record Escaped
   cancelled: boolean
 end
 
+--- Give an Escape to the listeners of the `escape` event, which end what
+--- goes on (a count-in, a take, a render, a snippet). True when one of
+--- them ended something: then the Escape is used. A view whose Escape
+--- leaves it (the classic keys) calls it first, so that it leaves on the
+--- next Escape.
+function M.escape_ends(): boolean
+  local escaped: Escaped = {}
+  events.emit("escape", escaped)
+  if escaped.cancelled then
+    escaped_at = -math.huge
+    return true
+  end
+  return false
+end
+
 --- After an Escape that had nothing to cancel in the view: the listeners
 --- of the `escape` event end what goes on (a count-in, a take, a render,
 --- a snippet). When none of them ended anything, a second one within two
@@ -1568,10 +1587,7 @@ end
 --- that leave any view. A view that maps `<Esc>` calls it when it has
 --- nothing of its own to cancel.
 function M.escape_hint(how?: string)
-  local escaped: Escaped = {}
-  events.emit("escape", escaped)
-  if escaped.cancelled then
-    escaped_at = -math.huge
+  if M.escape_ends() then
     return
   end
   local now = api.now()

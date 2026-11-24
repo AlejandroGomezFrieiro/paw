@@ -223,10 +223,10 @@ local function places_of(clip: integer, wanted: {Wanted}): {integer}
 end
 
 -- A gesture's beat on the grid, unless it is `free` (Shift held) or snap
--- is off in the piano roll (`paw.opt.note_snap`): then to the nearest of
+-- is off in the piano roll (`paw.opt.snap`): then to the nearest of
 -- 960 ticks a beat, as MIDI files count them.
 local function snap_note(beat: number, free: boolean): number
-  if free or not opt.note_snap then
+  if free or not opt.snap then
     return math.max(0, math.floor(beat * 960 + 0.5) / 960)
   end
   return note_snap(beat)
@@ -254,7 +254,7 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
     start = start + rc.offset(clip) - portion.offset
   end
   local c = portion.clip
-  free = free or not opt.note_snap
+  free = free or not opt.snap
   start = snap_note(start, free)
   if start >= c.length or c:note_at(pitch, start) then
     return
@@ -485,7 +485,7 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
     return
   end
   local portions = grabbed_portions(clip, grabbed(clip, index))
-  local least = (free or not opt.note_snap) and 1 / 64 or timegrid.step("note")
+  local least = (free or not opt.snap) and 1 / 64 or timegrid.step("note")
   -- The grabbed note's end lands on the grid; the others change by as much.
   if dstart and dstart ~= 0 then
     dstart = snap_note(held.start + dstart, free) - held.start
@@ -700,7 +700,7 @@ end
 
 --- The snap button: whether the pointer's notes land on the grid.
 function A.toggle_note_snap()
-  opt.note_snap = not opt.note_snap
+  opt.snap = not opt.snap
 end
 
 --- Quantize: the chosen notes of `clip` (and of the clips edited with it),

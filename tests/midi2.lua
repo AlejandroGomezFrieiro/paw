@@ -216,7 +216,7 @@ end
 local function moves_clip()
   fresh()
   paw.project.tempo = 120
-  paw.opt.note_grid, paw.opt.note_snap = 0.25, true
+  paw.opt.note_grid, paw.opt.snap = 0.25, true
   local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({ start = 0, length = 8, notes = { { pitch = "C4", start = 0, length = 1 } } })
   clip:set_controls({

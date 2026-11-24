@@ -26,8 +26,24 @@ local function cursor_lane()
   return id and paw.lane(id)
 end
 
---- How near the cursor a point must be to be the one under it.
-local function reach() return paw.timegrid.step() / 2 - 1e-9 end
+local timegrid, motions = paw.timegrid, paw.motion
+
+--- The ticks of a lane's points, in their order.
+local function point_ticks(lane_id)
+  local out = {}
+  for i, p in ipairs(api.lane_points(lane_id)) do
+    out[i] = timegrid.tick(p[1])
+  end
+  return out
+end
+
+--- The point under the cursor: the first one in the cursor's cell, from
+--- the cursor up to the next grid line (paw/motion.tl, rule 16). Its index
+--- and the point, or nil.
+local function point_under(lane_id)
+  local at = motions.under(point_ticks(lane_id))
+  if at then return at, api.lane_points(lane_id)[at] end
+end
 
 command("lane.pick", function()
   local part = need_part()
@@ -126,7 +142,7 @@ command(
     local lane = cursor_lane()
     if not lane then return end
     local l = lane:get()
-    local at = paw.lanes.point_at(l.id, cursor.beat, reach())
+    local at = point_under(l.id)
     if not at then return paw.notify("no point under the cursor: `A` adds one", "warn") end
     local by = (tonumber(ctx.args.by) or 1) * (ctx.count or 1) * paw.lanes.step(l)
     local v
@@ -142,7 +158,7 @@ command("lane.point.set", function()
   local lane = cursor_lane()
   if not lane then return end
   local l = lane:get()
-  local at, point = paw.lanes.point_at(l.id, cursor.beat, reach())
+  local at, point = point_under(l.id)
   local beat = point and point[1] or cursor.beat
   local now = point and point[2] or value_now(lane)
   if l.target == "state" then
@@ -199,37 +215,30 @@ end, { desc = "Type the value of the automation point under the cursor, or of a 
 command("lane.point.remove", function()
   local lane = cursor_lane()
   if not lane then return end
-  local at = paw.lanes.point_at(lane.id, cursor.beat, reach())
+  local at = point_under(lane.id)
   if not at then return paw.notify("no point under the cursor", "warn") end
   paw.lanes.edit(lane.id, function(points) table.remove(points, at) end)
 end, { desc = "Remove the automation point under the cursor", label = "Remove a point" })
 
---- The points of the cursor's lane within a selection, by index: from one
---- end to the other, both included, since a point is an instant.
+--- The points of the cursor's lane within a selection, by index: from its
+--- start up to its end, the end not included (paw/motion.tl, rule 5). A
+--- selection that did not grow is the cursor's cell.
 local function points_in(lane_id, region)
-  local c0, c1 = region.c0, region.c1
-  -- A selection not yet stretched is the cursor's own beat.
-  if region.unstretched then c1 = c0 end
+  local c0, c1 = timegrid.tick(region.c0), timegrid.tick(region.c1)
   local out = {}
-  for i, p in ipairs(api.lane_points(lane_id)) do
-    if p[1] >= c0 - 1e-9 and p[1] <= c1 + 1e-9 then out[#out + 1] = i end
+  for i, t in ipairs(point_ticks(lane_id)) do
+    if t >= c0 and t < c1 then out[#out + 1] = i end
   end
   return out
 end
 
---- Next (`dir` 1) or previous point of the cursor's lane.
+--- Next (`dir` 1) or previous point of the cursor's lane: an object
+--- motion, to the point's exact time.
 local function to_point(dir, n)
   local id = cursor.lane_id()
   if not id then return end
-  for _ = 1, n or 1 do
-    local to
-    for _, p in ipairs(api.lane_points(id)) do
-      if dir > 0 and p[1] > cursor.beat + 1e-9 and not to then to = p[1] end
-      if dir < 0 and p[1] < cursor.beat - 1e-9 then to = p[1] end
-    end
-    if not to then return end
-    cursor.set_beat(to)
-  end
+  local to = motions.object(point_ticks(id), dir, n or 1)
+  if to then cursor.set_tick(to) end
 end
 
 command("lane.state", function(ctx)
@@ -303,31 +312,30 @@ local function remove_points(id, region)
 end
 lx("x", remove_points, "Remove the points selected")
 lx("d", remove_points, "Remove the points selected")
+--- Move the points selected by grid steps, each by the same ticks: the
+--- first moves by whole lines and keeps its offset from the grid
+--- (paw/motion.tl, rule 6).
 local function move_points(steps)
   return function(id, region, ctx)
-    local by = steps * (ctx.count or 1) * paw.timegrid.step()
-    local chosen = {}
+    local chosen, anchor = {}, nil
+    local ticks = point_ticks(id)
     for _, i in ipairs(points_in(id, region)) do
       chosen[i] = true
+      anchor = anchor and math.min(anchor, ticks[i]) or ticks[i]
     end
+    if not anchor then return end
+    local by = motions.relative(anchor, steps * (ctx.count or 1)) - anchor
     paw.lanes.edit(id, function(points)
       local landed = {}
       for i, p in ipairs(points) do
         if chosen[i] then
-          p[1] = math.max(0, p[1] + by)
-          landed[#landed + 1] = p[1]
+          p[1] = timegrid.beat(ticks[i] + by)
+          landed[ticks[i] + by] = true
         end
       end
-      -- A point moved onto another's beat takes its place.
+      -- A point moved onto another's tick takes its place.
       for i = #points, 1, -1 do
-        if not chosen[i] then
-          for _, beat in ipairs(landed) do
-            if math.abs(points[i][1] - beat) < 1e-9 then
-              table.remove(points, i)
-              break
-            end
-          end
-        end
+        if not chosen[i] and landed[ticks[i]] then table.remove(points, i) end
       end
     end)
   end

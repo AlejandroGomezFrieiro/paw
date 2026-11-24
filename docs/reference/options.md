@@ -28,7 +28,7 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 | `paw.opt.note_grid` | `0.25` | The grid of the piano roll, with the same values as `grid`. |
 | `paw.opt.swing` | `50` | Swing in percent, from 50 to 75: every second line of the grid in a bar moves later. 50 is no swing, and 75 moves the line half a step. |
 | `paw.opt.phrase_rest` | `0.5` | A rest in the piano roll longer than this, in beats, ends a phrase, which sets the phrase that `ip`, `ap`, `(` and `)` use. |
-| `paw.opt.note_snap` | `true` | Notes drawn with the pointer go on the grid of the piano roll. |
+| `paw.opt.snap` | `true` | The pointer puts things on the grid: a click goes to the grid line of its cell, a dragged clip moves by grid steps, and a dragged edge goes to the nearest line. Notes drawn in the piano roll go on its grid. Shift during a drag is off the grid. |
 | `paw.opt.ripple` | `false` | When `true`, deleting time closes the gap, and pasting moves the music after it. |
 | `paw.opt.clip_length` | `4` | The length of a new MIDI clip, in beats. |
 | `paw.opt.velocity` | `100` | The velocity of notes entered by hand, 1 to 127. |

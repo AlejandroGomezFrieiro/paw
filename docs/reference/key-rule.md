@@ -91,7 +91,7 @@ Earlier versions of paw called a part a track. The keys kept their letters when 
 | Piano roll | `J` `K` an octave | `Ctrl-d` `Ctrl-u` |
 | Piano roll | `+` `-` length | `Alt-l` `Alt-h`. `+` `-` the pitch |
 | Piano roll | `gc` the curve of the strip, `gC` of the note | `gC`, `gX` |
-| Piano roll, drum grid, virtual inputs, vocal editor | `Esc` back to the window before | `Ctrl-w p`. `Esc` stays |
+| Piano roll, drum grid, virtual inputs, vocal editor | `Esc` back to the window before, after it ends a take | `Ctrl-w p`. `Esc` stays |
 | Doctor | `Esc` closes the page when nothing runs | `q`. `Esc` stops a run |
 | Curve editor | `J` `K` ten steps | `Ctrl-d` `Ctrl-u` |
 | Curve editor | `s` shape, `<` `>` bend | `~`, `[` `]`. `<` `>` move points in time |

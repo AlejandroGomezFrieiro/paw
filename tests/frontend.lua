@@ -1094,18 +1094,18 @@ test("the piano roll's other gestures: erase, keyboard ranges, velocity strokes,
   eq(paw.ui.views:get("pianoroll"):step_length(), paw.opt.note_grid, "0 means one grid step")
 
   -- Snap off: everything lands where the pointer let go.
-  paw.opt.note_snap = false
+  paw.opt.snap = false
   at = act.add_note(id, 53, 6.1, 0.3)
   eq(clip:notes()[at].start .. "+" .. clip:notes()[at].length, "6.1+0.3", "with snap off a note is drawn where it was")
   act.drag_notes(id, at, 0.07, 0, false, false)
   eq(select(2, clip:note_at(53, 6.17)) ~= nil, true, "and moved off the grid")
-  paw.opt.note_snap = true
-  eq(paw.opt.note_snap, true, "notes snap again")
+  paw.opt.snap = true
+  eq(paw.opt.snap, true, "notes snap again")
 
   act.toggle_note_snap()
-  eq(paw.opt.note_snap, false, "the snap button turns snap off")
+  eq(paw.opt.snap, false, "the snap button turns snap off")
   act.toggle_note_snap()
-  eq(paw.opt.note_snap, true, "and on")
+  eq(paw.opt.snap, true, "and on")
 
   -- Quantize: the chosen notes, or all.
   local q = part:add_clip({

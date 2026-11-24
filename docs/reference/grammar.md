@@ -12,7 +12,7 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 
 | Keys | Arrange view | Piano roll |
 | --- | --- | --- |
-| `h` `l` | a grid step | a grid step |
+| `h` `l` | the next line of the grid, the line before | a grid step |
 | `j` `k` | the next and the previous part | a semitone down and up |
 | `Ctrl-d` `Ctrl-u` | four parts down and up | an octave down and up |
 | `w` `b` `e` | the start of the next clip, the start of this clip, the end of this clip | the same for notes, at any pitch |
@@ -26,6 +26,23 @@ A motion moves the cursor. A count repeats it: `3W` moves three bars.
 | `]z` `[z` | the next scope beside this window's scope, the one before ([Scopes](narrowing.md)) | |
 | `/name`, `n` `N`, `*` | finds a clip or part by name, the next match, the previous match, the next clip with the name of this clip | finds a note by its pitch name (`/c4`) |
 | `gP` | the playhead | |
+
+### Motions and the grid
+
+In the arrange view and on its lanes, each key that moves in time follows one of a few rules, so that the cursor stays on the lines that the ruler draws.
+
+| Keys | Where they go |
+| --- | --- |
+| `h` `l`, the arrows | The next line of the grid, or the line before. From a place between two lines, the first press goes to the line next to the cursor in that direction. |
+| `w` `b` `e`, `0` `^` `$`, `gP`, markers, marks | The exact place of the thing, which can be between two lines. The end of a recorded take is often between two lines. |
+| `j` `k` | The same time on the next or the previous row. When a scope kept the cursor from the time that it was asked to go to, the next row gets that time back. |
+| `H` `L`, `>` `<` | A whole clip or point moves by grid steps, and it keeps its distance from the grid. |
+| `Alt-h` `Alt-l` | One edge goes to the next line of the grid, or the line before. |
+| `=` | The one key that puts clips on the grid: on the nearest lines. |
+
+A new clip, a split, a paste and a recording start at the exact place of the cursor, and paw doesn't move the end of a take onto the grid. An operator takes the time from the cursor up to where the motion goes, and the end isn't part of it, so `dl` deletes up to the next line. A selection that didn't grow takes the time up to the next line.
+
+When the cursor is between two lines, it's one column wide, in amber. The status line then gives how far it is after its line in hundredths of a beat (`grid 1/4 · +.31`), the window bar gives the position with its hundredths (`Song 2.2.31`), and `K` on an empty place gives the bar, the beat and the ticks of 1/960 of a beat. Press `h` or `l` to put the cursor back on a line.
 
 To see the counts, `:set relativenumber` shows how many `j` or `k` go to each part, and `:set relativebar` shows how many `W` or `B` go to each bar. [The part column](arrange-view.md#the-part-column) has the details.
 
@@ -50,8 +67,8 @@ An operator acts on what a motion moves over, on a text object, or on a selectio
 | `d` | deletes: `dw` up to the next clip, `d2W` two bars, `dd` the part | deletes notes: `dw`, `d4l`, `dd` every note of the pitch |
 | `y` | copies to a register, for `p` | the same |
 | `c` | empties the time, and opens a new clip there to enter notes | deletes, then enters notes |
-| `>` `<` | moves clips a grid step later or earlier (`>>` all clips of the part) | the same for notes |
-| `=` | snaps clips and their notes to the grid | snaps notes to the grid |
+| `>` `<` | moves clips a grid step later or earlier, and each keeps its distance from the grid (`>>` all clips of the part) | the same for notes |
+| `=` | snaps clips and their notes to the nearest lines of the grid | snaps notes to the grid |
 | `gc` | mutes or unmutes clips, `gcc` the part | |
 | `gl` | sets the playback loop to it and turns looping on: `glic` the clip, `gl4W` four bars, `glar` the region | the same |
 | `zn` | enters it as a scope, in this window: `znar` the region, `znag` the group, `znit` the part; `znn` the innermost scope at the cursor ([Scopes](narrowing.md)) | |

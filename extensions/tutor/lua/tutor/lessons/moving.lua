@@ -18,9 +18,9 @@ e.g., the arrange view, the piano roll or the mixer. The status line always
 shows the current mode, and the view that gets the keys has a brighter
 frame or highlight.]],
   idea = [[
-`h` and `l` move one grid step. `w`, `b` and `e` move by clips, to the
-start of the next clip, the start of the current clip and the end of the
-current clip. `W` and `B` move by bars.
+`h` and `l` move to the next grid line or the line before. `w`, `b` and
+`e` move by clips, to the start of the next clip, the start of the
+current clip and the end of the current clip. `W` and `B` move by bars.
 
 `0` goes to the start of the project, and `^` goes to the first clip. `$`
 goes to the end of the last clip. `j` and `k` move by parts, and `gg` and

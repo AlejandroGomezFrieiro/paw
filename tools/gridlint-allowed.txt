@@ -1,10 +1,10 @@
 # The grid arithmetic outside the grid of time (paw/timegrid.tl), the
 # options and the status line that stays, each with its reason
 # (tools/gridlint.lua). The list only gets shorter: `<file> <count> <reason>`.
-runtime/lua/paw/axis.tl 2 the cell of a press finds the step drawn there; the motion layer moves it to the grid of time
+runtime/lua/paw/axis.tl 2 the piano roll's press finds the step drawn in its cell until the note editors are on the song's grid
 runtime/lua/paw/curves.tl 1 a curve point snaps to the step of its own editor
 runtime/lua/paw/defaults/keys.lua 2 the piano roll quantizes on the step of its clip until the note editors are on the song's grid
-runtime/lua/paw/edit.tl 3 quantize of clips and the length of a recorded clip round to a step; the motion layer moves them
+runtime/lua/paw/edit.tl 1 the length of pasted notes rounds to the note grid until the note editors are on the song's grid
 runtime/lua/paw/frontend/host.tl 1 a note of the pointer snaps to the step of its clip until the note editors are on the song's grid
 runtime/lua/paw/notes.tl 2 quantize is a pure transform of notes with its own grid, swing and strength
 runtime/lua/paw/views/curve.lua 4 the curve editor has a grid of its own in each window

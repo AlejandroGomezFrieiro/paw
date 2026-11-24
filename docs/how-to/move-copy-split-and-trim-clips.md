@@ -15,7 +15,9 @@ start of the current clip. Press `j` and `k` to go to a different part.
 ## Move a clip
 
 - Press `L` to move the clip one grid step later, and `H` to move it
-  earlier. `4L` moves it four steps.
+  earlier. `4L` moves it four steps. A clip that starts between two grid
+  lines, for example a recorded take, keeps its distance from the grid.
+  To put it on the grid, press `=ic`.
 - To move a clip to a different part, press `x` to cut it, move the
   cursor to the new place, and press `P`.
 
@@ -37,7 +39,8 @@ the clip.
 ## Trim a clip
 
 - To make the clip shorter at its end, press `<A-h>`, and to make it
-  longer, press `<A-l>`. Each press is one grid step.
+  longer, press `<A-l>`. Each press moves the end to the next grid line,
+  or to the line before.
 - To remove the start of a clip, put the cursor at the new start and press
   `S`. Then press `h` to go onto the first part, and `x` to delete it.
 

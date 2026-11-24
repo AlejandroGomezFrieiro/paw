@@ -119,6 +119,8 @@ end
 
 paw.undo, paw.redo = api.undo, api.redo
 paw.cursor = require("paw.cursor")
+-- How each class of key moves a position: to grid lines, to things, by steps (paw/motion.tl).
+paw.motion = require("paw.motion")
 paw.edit = require("paw.edit")
 -- Files in languages that compile to Lua (Teal, ...): paw/lang.tl.
 paw.lang = require("paw.lang")

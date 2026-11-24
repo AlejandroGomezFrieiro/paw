@@ -29,6 +29,7 @@ local options = require("paw.options")
 local command = require("paw.command")
 local derived = require("paw.derived")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type KeymapModule = require("paw.keymap")
@@ -590,16 +591,32 @@ function M.remove(id: integer, with_inside?: boolean): boolean
   return gone
 end
 
---- The marker or region start nearest a beat within `reach` beats (half a
---- grid step by default), or the region the beat is inside.
+--- The first of `list` that starts in the cell of the cursor at `beat`:
+--- a marker has no length, so it is under the cursor in that cell
+--- (paw/motion.tl, rule 16).
+local function under(list: {Marker}, beat: number): Marker
+  local ticks: {integer} = {}
+  for i, m in ipairs(list) do
+    ticks[i] = timegrid.tick(m.beat)
+  end
+  local i = motion.under(ticks, timegrid.tick(beat))
+  return i and list[i] or nil
+end
+
+--- The first marker or region start from a beat up to the next grid line.
+--- When `reach` is given, it's the one nearest the beat within `reach`
+--- beats. With no marker there, it's the region the beat is inside.
 function M.at(beat: number, reach?: number): Marker
-  reach = reach or timegrid.step() / 2
   local best, far: Marker, number
-  for _, m in ipairs(M.list()) do
-    local d = math.abs(m.beat - beat)
-    if d <= reach and (not far or d < far) then
-      best, far = m, d
+  if reach then
+    for _, m in ipairs(M.list()) do
+      local d = math.abs(m.beat - beat)
+      if d <= reach and (not far or d < far) then
+        best, far = m, d
+      end
     end
+  else
+    best = under(M.list(), beat)
   end
   if best then
     return best
@@ -731,14 +748,13 @@ local function wanted(ctx: command.Context, kind?: string): Marker
     if kind == "region" then
       m = M.around(beat)
     elseif kind == "marker" then
-      local reach = timegrid.step() / 2
-      local far: number
+      local plain: {Marker} = {}
       for _, x in ipairs(M.list()) do
-        local d = math.abs(x.beat - beat)
-        if not x.length and d <= reach and (not far or d < far) then
-          m, far = x, d
+        if not x.length then
+          plain[#plain + 1] = x
         end
       end
+      m = under(plain, beat)
     else
       m = M.at(beat)
     end

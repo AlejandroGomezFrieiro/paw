@@ -943,7 +943,7 @@ local function tool_list(self: PianoRoll, titled: boolean): {ToolButton}
     {
       name = "snap",
       text = "Snap",
-      on = opt.note_snap,
+      on = opt.snap,
       tip = "snap to the grid: notes land on it (Shift while dragging leaves it)",
     },
     {

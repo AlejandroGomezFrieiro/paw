@@ -411,7 +411,10 @@ gmap("gh", function() grid:hear() end, "Hear the piece")
 gmap("gb", "drums.beat", "Fill the clip with a beat to start from")
 -- Escape stays, as in every view; `<C-w>p` goes back to the window before.
 gmap("<Esc>", function() keymap.escape_hint() end, "Stay in the grid (Ctrl-w p leaves)", { repeatable = false })
-keymap.classic("<Esc>", function() paw.layout.back() end, { view = "drums", desc = "Back to the window before" })
+-- Escape ends a take first, as in every view. The next one leaves.
+keymap.classic("<Esc>", function()
+  if not keymap.escape_ends() then paw.layout.back() end
+end, { view = "drums", desc = "End a take, else back to the window before" })
 
 -- On a selection.
 local function vx(lhs, fn, desc)

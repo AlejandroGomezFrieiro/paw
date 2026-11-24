@@ -126,6 +126,26 @@ end, {
 command("delmarks!", function() remove_marks("", true) end, { desc = "Remove every lowercase mark" })
 command.alias("delm", "delmarks")
 command.alias("delm!", "delmarks!")
+--- The exact place of the cursor on the empty time area of the arrange
+--- view, added to `lines`: its bar, beat and ticks of 1/960 of a beat,
+--- how far it is after its grid line when it is off the grid, and its
+--- time from the start.
+local function position(lines)
+  local beat = cursor.beat
+  local bar, unit, frac = api.tempo_bbt(paw.time.song_beat(beat))
+  lines[#lines + 1] = { text = "Position  " .. paw.scope.format(beat), style = "Title" }
+  lines[#lines + 1] =
+    string.format("  bar %d, beat %d, tick %d of 960", bar + 1, unit + 1, math.min(959, math.floor(frac * 960 + 0.5)))
+  local offset = paw.motion.offset()
+  if offset ~= 0 then
+    lines[#lines + 1] = "  off the grid: "
+      .. paw.statusline.offset_text(offset)
+      .. " beat after its line, and `h` or `l` go to a line"
+  end
+  lines[#lines + 1] = string.format("  %.1f ms from the start", paw.time.to_seconds(beat) * 1000)
+  lines[#lines + 1] = ""
+end
+
 --- What is under the cursor, in lines: what the view says first
 --- (`view:describe()`: a fold or the scope in the arrange view), then the
 --- clip and the part. With the view's `only`, its lines alone. Nil with
@@ -138,6 +158,7 @@ local function under_cursor()
   if not part then return end
   local t, lines = part:get(), first or {}
   local clip = cursor.clip()
+  if not clip and paw.ui.focused == "arrange" then position(lines) end
   if clip then
     local c = clip:get()
     -- A block of a subproject is titled with its mark, as the arrange view draws it.

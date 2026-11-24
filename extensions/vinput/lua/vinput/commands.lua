@@ -272,7 +272,10 @@ pmap("t", "vinput.part", "A part that takes the input")
 pmap("ga", "vinput.gain", "Take the gain the tracker asked for")
 -- Escape stays, as in every view; `<C-w>p` goes back to the window before.
 pmap("<Esc>", function() paw.keymap.escape_hint() end, "Stay in the panel (Ctrl-w p leaves)", { repeatable = false })
-paw.keymap.classic("<Esc>", function() paw.layout.back() end, { view = "vinput", desc = "Back to the window before" })
+-- Escape ends a take first, as in every view. The next one leaves.
+paw.keymap.classic("<Esc>", function()
+  if not paw.keymap.escape_ends() then paw.layout.back() end
+end, { view = "vinput", desc = "End a take, else back to the window before" })
 
 if paw.ui.keybar then
   paw.ui.keybar.set("vinput", "n", {

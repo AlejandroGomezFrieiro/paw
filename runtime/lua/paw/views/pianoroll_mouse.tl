@@ -263,7 +263,7 @@ end
 --- A press on empty grid: a note from the step pressed to the step the
 --- pointer is let go over; a click gives the roll's note length.
 local function press_draw(self: PianoRoll, e: MouseEvent, h: Hit, clip: objects.Clip)
-  local free = mouse.has(e, "S") or not opt.note_snap
+  local free = mouse.has(e, "S") or not opt.snap
   local start, pitch, tx0 = start_at(self, h.tx, free), h.pitch, h.tx
   self:set(pitch, start)
   local function stop(tx: number): number
