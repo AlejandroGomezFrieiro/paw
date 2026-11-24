@@ -72,6 +72,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let spec: KindSpec = from_lua(lua, spec)?;
             sh.session.borrow_mut().doc.chain_kind_define(&name, spec, by.as_deref()).lua()
         }
+        // Take away the kinds of split that the extension `by` defined, as
+        // it unloads: a split of such a kind stays, absent, with its values.
+        // Gives how many kinds went.
+        // @return integer
+        fn chain_kinds_unload(_, sh, by => String) { Ok(sh.session.borrow_mut().doc.chain_kinds_unload(&by)) }
         // Wrap nodes (devices or splits in a row of one branch) in a new split
         // of `kind`, as one undo step. They go into its first branch. Gives
         // the split's id.
@@ -233,6 +238,18 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             let owner = owner_of(lua, owner)?;
             let keys = sh.session.borrow().doc.project.rack_overrides(owner, node(split)).lua()?;
             Ok(keys.iter().map(ToString::to_string).collect::<Vec<_>>())
+        }
+        // The meters of the chain of an owner, as the engine measured them
+        // last: `latency`, the latency of the chain in ms; `peaks`, the peak
+        // of the output of each device, split and branch by its id, linear
+        // and falling as a part's meter falls; `time`, the nanoseconds each
+        // device has run since the engine was made.
+        // @param owner types.ChainOwner
+        // @return types.ChainMeters
+        fn chain_meters(lua, sh, owner => LuaValue) {
+            let owner = owner_of(lua, owner)?;
+            let meters = sh.session.borrow().chain_meters(owner).ok_or_else(|| mlua::Error::runtime(format!("no {owner}")))?;
+            to_lua(lua, &meters)
         }
         // The definitions of the linked racks of the project.
         // @return {types.RackDef}

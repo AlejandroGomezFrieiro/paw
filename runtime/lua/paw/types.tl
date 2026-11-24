@@ -672,6 +672,16 @@ local record types
     taps: {ChainTap}
   end
 
+  --- The meters of a chain (`ChainMeters` in session/engine.rs):
+  --- `latency` of the chain in ms; `peaks`, the linear peak of each
+  --- device, split and branch by its id; `time`, the nanoseconds each
+  --- device ran since the engine started.
+  record ChainMeters
+    latency: number
+    peaks: {integer: number}
+    time: {integer: integer}
+  end
+
   --- What a kind of split takes (`KindSpec`): the fewest and the most
   --- branches, and how many a new split gets.
   record SplitKindSpec

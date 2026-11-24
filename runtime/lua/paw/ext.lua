@@ -518,6 +518,9 @@ function M.unload(name, opts)
       pcall(reg.unload, reg, name)
     end
   end
+  -- The kinds of split that it defined (`paw.chain.define_kind`) live in
+  -- the kernel: they go too, and a split of one stays, absent.
+  api.chain_kinds_unload(name)
   if entry.lua_path then
     local prefix = entry.path .. "/lua/"
     for module, _ in pairs(package.loaded) do

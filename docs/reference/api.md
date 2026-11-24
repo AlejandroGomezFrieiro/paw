@@ -396,6 +396,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.chain.kinds()`: The names of the kinds of split: `chain`, `layer`, `band`, `ms`, `lr`, `key`, `vel`, `select`, `outs`, and the kinds that extensions defined.
 - `paw.chain.link(h, macro, device, param, depth)`: Link the macro `macro` to the parameter `param` of `device` in its split, with `depth` from -1 to 1; a nil depth removes the link. One undo step.
 - `paw.chain.link_rack(h, split, name)`: Make the split `split` the first instance of a new linked rack named `name`: a change of the rack in one instance reaches the others.
+- `paw.chain.meters(h)`: The meters of the chain of `h`, as the engine measured them last: `latency`, the latency of the chain in ms; `peaks`, the peak of each device, split and branch by its id (linear, falling as a meter of a part falls); `time`, the nanoseconds that each device ran since the engine started.
 - `paw.chain.move(h, id, place)`: Move the node `id` in its chain, as one undo step: `{ before = id }`, `{ after = id }` or `{ branch = id, index = n }` (from 1).
 - `paw.chain.of(owner)`: The handle of the chain of `owner`, which each other function of paw.chain takes: `{ part = id }` for the chain of a part. An error when the owner is not in the project.
 - `paw.chain.overrides(h, split)`: The keys of the values that the instance `split` overrides, as `paw.chain.set_rack` takes them.
@@ -2692,8 +2693,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.chain_get(owner)`: The chain of an owner's devices, or nil when it has none (its devices play in series, in the order of `part.devices`).
 - `paw.api.chain_kind_define(name, spec, by)`: Let a chain have a split of a new kind, of the extension `by` (the user's when nil): `spec` gives the fewest (`min`) and the most (`max`) branches, and how many a new split gets (`first`).
 - `paw.api.chain_kinds()`: The names of the kinds of split: the built-in kinds first, then the kinds that extensions defined.
+- `paw.api.chain_kinds_unload(by)`: Take away the kinds of split that the extension `by` defined, as it unloads: a split of such a kind stays, absent, with its values. Gives how many kinds went.
 - `paw.api.chain_link(owner, source, device, param, depth)`: Link a macro to a parameter of a device in its split, with a depth from -1 to 1; no depth removes the link. One undo step.
 - `paw.api.chain_macro_add(owner, split, name)`: Add a macro to a split, as one undo step. Gives its id.
+- `paw.api.chain_meters(owner)`: The meters of the chain of an owner, as the engine measured them last: `latency`, the latency of the chain in ms; `peaks`, the peak of the output of each device, split and branch by its id, linear and falling as a part's meter falls; `time`, the nanoseconds each device has run since the engine was made.
 - `paw.api.chain_move(owner, id, to)`: Move a node in its chain, as one undo step: `{ before = id }`, `{ after = id }` or `{ branch = id, index = n }` (from 1).
 - `paw.api.chain_remove(owner, id)`: Remove a split or a branch with its devices, a macro with its links, or a device, as one undo step.
 - `paw.api.chain_schema()`: paw's schema of the chain language, as JSON text: each kind of device that paw has now (with the plugins and the Lua devices of the extensions), and each kind of split and modulator. It is what `paw chain schema` prints, for a language server or another tool.

@@ -1693,6 +1693,14 @@ function paw.chain.link(h, macro, device, param, depth) end
 ---@param name any
 function paw.chain.link_rack(h, split, name) end
 
+--- The meters of the chain of `h`, as the engine measured them last:
+--- `latency`, the latency of the chain in ms; `peaks`, the peak of each
+--- device, split and branch by its id (linear, falling as a meter of a
+--- part falls); `time`, the nanoseconds that each device ran since the
+--- engine started.
+---@param h any
+function paw.chain.meters(h) end
+
 --- Move the node `id` in its chain, as one undo step: `{ before = id }`,
 --- `{ after = id }` or `{ branch = id, index = n }` (from 1).
 ---@param h any
@@ -10824,6 +10832,12 @@ function paw.api.chain_kind_define(name, spec, by) end
 --- kinds that extensions defined.
 function paw.api.chain_kinds() end
 
+--- Take away the kinds of split that the extension `by` defined, as
+--- it unloads: a split of such a kind stays, absent, with its values.
+--- Gives how many kinds went.
+---@param by string
+function paw.api.chain_kinds_unload(by) end
+
 --- Link a macro to a parameter of a device in its split, with a depth
 --- from -1 to 1; no depth removes the link. One undo step.
 ---@param owner any
@@ -10838,6 +10852,14 @@ function paw.api.chain_link(owner, source, device, param, depth) end
 ---@param split integer
 ---@param name string
 function paw.api.chain_macro_add(owner, split, name) end
+
+--- The meters of the chain of an owner, as the engine measured them
+--- last: `latency`, the latency of the chain in ms; `peaks`, the peak
+--- of the output of each device, split and branch by its id, linear
+--- and falling as a part's meter falls; `time`, the nanoseconds each
+--- device has run since the engine was made.
+---@param owner any
+function paw.api.chain_meters(owner) end
 
 --- Move a node in its chain, as one undo step: `{ before = id }`,
 --- `{ after = id }` or `{ branch = id, index = n }` (from 1).

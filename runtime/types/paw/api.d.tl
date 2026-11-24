@@ -29,8 +29,10 @@ local record api
    chain_get: function(owner: types.ChainOwner): types.Chain
    chain_kind_define: function(name: string, spec: types.SplitKindSpec, by?: string)
    chain_kinds: function(): {string}
+   chain_kinds_unload: function(by: string): integer
    chain_link: function(owner: types.ChainOwner, source: integer, device: integer, param: string, depth?: number)
    chain_macro_add: function(owner: types.ChainOwner, split: integer, name: string): integer
+   chain_meters: function(owner: types.ChainOwner): types.ChainMeters
    chain_move: function(owner: types.ChainOwner, id: integer, to: types.ChainPlace)
    chain_remove: function(owner: types.ChainOwner, id: integer)
    chain_schema: function(): string

@@ -195,7 +195,7 @@ impl Mapper {
     }
 
     /// The latency of the chain of `part`, in frames, as last compiled.
-    pub(super) fn chain_latency(&self, part: Id) -> Option<u32> {
+    pub(crate) fn chain_latency(&self, part: Id) -> Option<u32> {
         self.trees.get(&part).map(paw_engine::plan::Tree::latency)
     }
 

@@ -74,7 +74,45 @@ pub(crate) struct EngineView<'a> {
     pub lost: Option<Lost<'a>>,
 }
 
+/// The meters of a chain as Lua reads them (`paw.api.chain_meters`).
+#[derive(Debug, Serialize)]
+pub(crate) struct ChainMeters {
+    /// The latency of the chain in milliseconds.
+    pub latency: f64,
+    /// The linear peak of the output of each device, split and branch.
+    pub peaks: HashMap<Id, f32>,
+    /// The nanoseconds each device has run since the engine was made.
+    pub time: HashMap<Id, u64>,
+}
+
 impl Session {
+    /// The meters of the chain of `owner`, or `None` when the project has
+    /// no such owner.
+    pub(crate) fn chain_meters(&self, owner: crate::model::owner::OwnerRef) -> Option<ChainMeters> {
+        let part = self.doc.project.owner(owner)?;
+        let (map, shared) = (&self.engine.map, &self.engine.handle.shared);
+        let mut peaks = HashMap::new();
+        let mut time = HashMap::new();
+        for device in &part.devices {
+            if let Some(slot) = map.devices.get(&device.id) {
+                peaks.insert(device.id, shared.device_peak(*slot));
+                time.insert(device.id, shared.device_time(*slot));
+            }
+        }
+        if let Some(chain) = &part.chain {
+            chain.root.each_split(&mut |split| {
+                for id in std::iter::once(split.id).chain(split.branches.iter().map(|b| b.id)) {
+                    if let Some((l, r)) = map.chain_peak(part.id, id.get()) {
+                        peaks.insert(id.get(), l.max(r));
+                    }
+                }
+            });
+        }
+        let rate = f64::from(self.engine.stream.info.sample_rate.max(1));
+        let latency = map.chain_latency(part.id).map_or(0.0, |frames| f64::from(frames) * 1000.0 / rate);
+        Some(ChainMeters { latency, peaks, time })
+    }
+
     /// What changes of the engine by itself, without a table: the share
     /// of its time that it is busy, the dropouts since it started, and the
     /// frames of each callback (0 until it has run).

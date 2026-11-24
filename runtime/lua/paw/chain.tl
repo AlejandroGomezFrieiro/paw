@@ -58,6 +58,15 @@ function Chain.kinds(): {string}
   return api.chain_kinds()
 end
 
+--- The meters of the chain of `h`, as the engine measured them last:
+--- `latency`, the latency of the chain in ms; `peaks`, the peak of each
+--- device, split and branch by its id (linear, falling as a meter of a
+--- part falls); `time`, the nanoseconds that each device ran since the
+--- engine started.
+function Chain.meters(h: types.ChainOwner): types.ChainMeters
+  return api.chain_meters(h)
+end
+
 --- Let a chain have a split of a new kind, for an extension: `spec` gives
 --- the fewest (`min`) and the most (`max`) branches, and how many a new
 --- split of the kind gets (`first`). The name is words joined by dots,

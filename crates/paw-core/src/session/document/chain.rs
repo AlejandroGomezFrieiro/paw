@@ -290,6 +290,13 @@ impl Document {
         Ok(self.split_kinds.define(kind, spec, owner)?)
     }
 
+    /// Take away the kinds of split that the extension `owner` defined, as
+    /// it unloads. A split of such a kind stays, absent: it keeps its
+    /// values, and plays its first branch. Gives how many kinds went.
+    pub(crate) fn chain_kinds_unload(&mut self, owner: &str) -> usize {
+        self.split_kinds.unload(&Owner::Extension(owner.into()))
+    }
+
     /// The names of the kinds of split.
     pub(crate) fn chain_kinds(&self) -> Vec<String> {
         self.split_kinds.words()

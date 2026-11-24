@@ -68,3 +68,27 @@ test("a linked rack: a change reaches each instance, and an override stays", fun
   keys("u")
   eq(api.device_get(d[1]).params.gain, 0, "one u")
 end)
+
+test("a split kind of an extension goes when it unloads, and a split of it stays absent with its bytes", function()
+  local t, d, h = part()
+  local dir = T.scratch .. "/chain-kinds/splitkind"
+  os.execute("mkdir -p '" .. dir .. "'")
+  T.write_file(dir .. "/init.lua", 'paw.chain.define_kind("splitkind.transient", { min = 2, max = 2, first = 2 })')
+  T.after(function() paw.ext.unload("splitkind") end)
+  eq(paw.ext.load(dir).ok, true, "the extension loads")
+  local split = paw.chain.wrap(h, { d[2] }, "splitkind.transient").id
+  local song = T.scratch .. "/chain-kinds/song"
+  keys(":w " .. song .. "<CR>")
+  local file = song .. "/parts/" .. t.name .. "/part.json"
+  local before = T.read_file(file)
+  eq(before:find("splitkind.transient", 1, true) ~= nil, true, "the file holds the split")
+  keys(":ext.unload splitkind<CR>")
+  local kinds = " " .. table.concat(paw.chain.kinds(), " ") .. " "
+  eq(kinds:find(" splitkind.transient ", 1, true), nil, "the kind went with the extension")
+  api.project_load(song)
+  paw.flush()
+  local again = paw.chain.of({ part = api.part_list()[1] })
+  eq(paw.chain.find(paw.chain.get(again), split).split.kind, "splitkind.transient", "the split loads, absent")
+  keys(":w<CR>")
+  eq(T.read_file(file), before, "and saves the same bytes")
+end)
