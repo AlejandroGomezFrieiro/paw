@@ -3,10 +3,10 @@ id: TASK-306
 title: >-
   Kind families: one contract for clip, stream, part and meta kinds; StreamType
   with properties; Part.kind, Part.parent and Note.lyric in the model (A2)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T20:25:00Z'
+updated_date: '2026-11-24T20:49:00Z'
 labels:
   - agent:builder
   - architecture
@@ -94,4 +94,6 @@ Merge check of main+4e2ac17d: 755 of 756 Rust tests pass; paw-mcp reference::tes
 Builder done: head c0044a2a (2nd review fixed: lyric binds to the next note-on at its tick and address, fallbacks, per-address buffers, group lyrics, stray lyric reported on open, TempDir, kinds.put restore). 351 Rust and 22 Lua parts pass on its build. NEXT: fix paw-mcp every_file_of_the_api_is_read if still failing, merge c0044a2a on main in the merge tree, build, merge check, render gate, ff main.
 
 Merge check (main+A2+ruler+logging) found scope.lua:177 and nest.lua:406 failing: scope.parts did not watch part:<id>:parent, nest stems read meta.group. Fixed in d1cd8e7c (38 Lua parts, 21 nest Rust tests). NEXT: merge d1cd8e7c after the ruler and logging land.
+
+On main in merge b76cae7c (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
