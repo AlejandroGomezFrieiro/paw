@@ -426,6 +426,13 @@ seconds.
 The gate does not cover the end-to-end scenarios. They build their
 projects with keys and keep no project file.
 
+The hashes depend on the processor and on the build, because a sum of
+floating point numbers can come out a little different on another
+processor or with other compiler settings. Run the gate with the release
+binary, on the machine that made the hashes. If the gate fails on main
+with no change, the hashes don't fit your machine, so don't run
+`--update` there.
+
 ## Run the end-to-end scenarios
 
 The end-to-end scenarios act as a person who works on a song for many
