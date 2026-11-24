@@ -47,3 +47,4 @@ Sources:
 - [unsafe-small-module](unsafe-small-module.md)
 - [unsafe-extern-block](unsafe-extern-block.md)
 - [unsafe-safety-comment](unsafe-safety-comment.md)
+- [unsafe-no-mangle-unsafe](unsafe-no-mangle-unsafe.md)
