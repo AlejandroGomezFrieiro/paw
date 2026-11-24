@@ -21,7 +21,7 @@ SETUP=$TUI_DEMO
 rig_start
 term_start
 rec_start tui-files
-cap ":e ~/music shows the folder as text: a line a file, its length and format"
+cap ":e ~/music shows the folder as text, a line for each file"
 pause 0.5; key colon; TYPE_DELAY=110 typ "e ~/music"; key Return; pause 1.3
 cap "cw renames a file; a path in its name moves it"
 keys 0.3 G k; TYPE_DELAY=140 typ "cw"; TYPE_DELAY=100 typ "lead-take"; key Escape; pause 0.6
@@ -32,5 +32,7 @@ key colon w Return; pause 1.8
 key y; pause 1.2
 cap "Enter on a folder goes in, - goes back up"
 keys 0.25 g g j; key Return; pause 1.1; key minus; pause 1.1
+# The loop: back to the arrange view, where the scene started.
+key colon; TYPE_DELAY=90 typ "e arrange"; key Return; pause 1.0
 rec_stop
 rm -rf "$PAW_HOME"

@@ -26,4 +26,9 @@ cap ":reload runs it again without stopping the sound"
 key colon; TYPE_DELAY=90 typ "reload"; key Return; pause 1.4
 cap "Space tS, the new key, adds a part"
 key space t S; pause 1.8
+# The loop: stop the song, undo the part, and undo the text in Neovim.
+# The colour from init.lua stays until the next start.
+key space space; key u; pause 0.4
+xdotool key ctrl+shift+Up; pause 0.4; key u; pause 0.5
+xdotool key ctrl+shift+Down; pause 0.8
 rec_stop

@@ -14,4 +14,7 @@ keys 0.6 y n a; pause 0.8; key u; pause 1.0
 cap ":t2,t4 mute is a range of parts, previewed too; :t* unmute"
 key colon; TYPE_DELAY=110 typ "t2,t4 mute"; pause 1.2; key Return; pause 1.0
 key colon; TYPE_DELAY=110 typ "t* unmute"; pause 0.6; key Return; pause 1.0
+# The confirm opens the piano roll on the first match, and it stays open: close it
+# and put the cursor back, so that the GIF loops.
+key ctrl+w c; pause 0.4; key 0; pause 0.8
 rec_stop

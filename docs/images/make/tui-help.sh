@@ -15,4 +15,6 @@ cap "K says what is under the cursor"
 key K; pause 1.8; key Escape; pause 0.3
 cap ":help opens the manual where a topic is described"
 key colon; TYPE_DELAY=100 typ "help motions"; key Return; pause 2.4
+# The loop: close the help window, back to the start screen.
+key ctrl+w c; pause 0.8
 rec_stop

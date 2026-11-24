@@ -12,6 +12,8 @@ pause 0.5; key space space; pause 0.6
 keys 0.4 j w
 cap "3>ic moves the clip three steps later, . does it again, u undoes"
 TYPE_DELAY=200 typ "3>ic"; pause 0.8; key period; pause 0.8; key u; pause 0.5; key u; pause 0.6
-cap ":%s changes notes, previewed as it is typed"
+cap ":%s changes notes, previewed as it is typed; u undoes it"
 key colon; TYPE_DELAY=110 typ "%s/e5/g5/g"; pause 1.4; key Return; pause 1.4
+# The loop: undo the substitution, stop the song, and put the cursor and the playhead back.
+key u; pause 0.6; key space space; keys 0.3 g s k 0; pause 0.8
 rec_stop
