@@ -54,6 +54,9 @@ M.SKIP = {
   "bench/results/",
   "tools/partlint.lua",
   "tools/partlint-allowed.txt",
+  -- The checkouts of agents inside the owner's checkout: each is checked in
+  -- its own tree.
+  ".claude/worktrees/",
 }
 
 -- The kinds of file that hold text.

@@ -5,6 +5,10 @@ globals = { "paw" }
 max_line_length = false
 exclude_files = {
   "target/", ".claude/",
+  -- The orchestrator's local folder of briefs and scripts (not in git).
+  ".orchestrator/",
+  -- The cache of direnv: the sources of the flake's inputs.
+  ".direnv/",
   -- Copies of programs from outside paw, and generated files.
   "runtime/lua/tl.lua", "runtime/lua/compat53/", "runtime/types/paw.lua",
 }
