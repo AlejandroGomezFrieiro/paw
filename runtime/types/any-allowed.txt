@@ -6,7 +6,6 @@
 # data of the user's). docs/explanation/about-teal.md tells the rules.
 
 paw.Untyped 6 the boundary to the Lua that is not ported yet: goes when the last module is
-paw.annotation 1 written in Lua: typed when its module is ported to Teal
 paw.api.json_decode 1 truly any JSON value
 paw.api.json_encode 1 truly any Lua value that JSON can hold
 paw.api.project_backup 1 the script's own note, any JSON value
@@ -21,7 +20,6 @@ paw.autosave 1 written in Lua: typed when its module is ported to Teal
 paw.controls 1 written in Lua: typed when its module is ported to Teal
 paw.device_rows 1 written in Lua: typed when its module is ported to Teal
 paw.ext 1 written in Lua: typed when its module is ported to Teal
-paw.external 1 written in Lua: typed when its module is ported to Teal
 paw.files 1 written in Lua: typed when its module is ported to Teal
 paw.freeze 1 written in Lua: typed when its module is ported to Teal
 paw.fx 1 written in Lua: typed when its module is ported to Teal
@@ -31,15 +29,10 @@ paw.is_audio_file 1 written in Lua: typed when its module is ported to Teal
 paw.is_chain_file 1 written in Lua: typed when its module is ported to Teal
 paw.json 1 written in Lua: typed when its module is ported to Teal
 paw.learn 1 written in Lua: typed when its module is ported to Teal
-paw.loading 1 written in Lua: typed when its module is ported to Teal
-paw.luadev 1 written in Lua: typed when its module is ported to Teal
 paw.mixer_rows 1 written in Lua: typed when its module is ported to Teal
 paw.open 1 written in Lua: typed when its module is ported to Teal
 paw.open_chain 1 written in Lua: typed when its module is ported to Teal
 paw.params 1 written in Lua: typed when its module is ported to Teal
-paw.plugins 1 written in Lua: typed when its module is ported to Teal
-paw.recent 1 written in Lua: typed when its module is ported to Teal
-paw.reconnect 1 written in Lua: typed when its module is ported to Teal
 paw.routes 1 written in Lua: typed when its module is ported to Teal
 paw.state 1 written in Lua: typed when its module is ported to Teal
 paw.stretch 1 written in Lua: typed when its module is ported to Teal

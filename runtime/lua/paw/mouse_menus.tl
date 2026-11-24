@@ -30,7 +30,7 @@ local record Choice
 end
 
 --- A recent project of the File menu (`paw.frontend.recent_menu`, from
---- paw/recent.lua).
+--- paw/recent.tl).
 local record Recent
   label: string
   path: string

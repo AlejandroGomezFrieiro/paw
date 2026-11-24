@@ -106,7 +106,7 @@ paw.timegrid = require("paw.timegrid")
 paw.midifile = require("paw.midifile")
 paw.audio = require("paw.audio")
 
--- Plugins an extension ships, and what plugins call their keys (paw/plugins.lua).
+-- Plugins an extension ships, and what plugins call their keys (paw/plugins.tl).
 paw.plugins = require("paw.plugins")
 
 --- Descriptions of each kind of device that you can add to a part. A kind

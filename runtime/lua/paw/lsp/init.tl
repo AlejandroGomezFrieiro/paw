@@ -34,6 +34,7 @@ local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
+local type AnnotationModule = require("paw.annotation")
 local type DiagnosticModule = require("paw.diagnostic")
 local type HarmonyModule = require("paw.harmony")
 local type CompleteModule = require("paw.complete")
@@ -55,14 +56,6 @@ local type RpcError = rpc.RpcError
 local type Message = rpc.Message
 local type Published = DiagnosticModule.Published
 
---- The labels of servers on addresses (paw/annotation.lua, in Lua): what
---- this module calls of it.
-local record Annotations
-  set: function(namespace: string, doc: string, list: {standard.Annotation})
-  reset: function(namespace: string, doc?: string)
-  get: function(uri: string): {standard.Annotation}
-end
-
 --- What paw keeps over a reload (paw/state.lua, in Lua): the processes of
 --- the servers, to stop those a reload left running.
 local record State
@@ -76,7 +69,7 @@ end
 
 local record Paw is partial.Paw
   ui: UiModule
-  annotation: Annotations
+  annotation: AnnotationModule
   state: State
   diagnostic: DiagnosticModule
   harmony: HarmonyModule

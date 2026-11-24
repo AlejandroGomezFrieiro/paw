@@ -26,6 +26,7 @@ local render = require("paw.render")
 local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local plugins = require("paw.plugins")
 local A = require("paw.address")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -173,13 +174,6 @@ end
 local record RenderValue
 end
 local type RenderOptions = {string: RenderValue}
-
---- The payload of `plugins.scanned`: the notes of the scan, and the name
---- it was about (`:plugins.rescan name`).
-local record Scanned
-  notes: {string}
-  name: string
-end
 
 -- What this module reads of paw/layout.tl, as records of its own, and of
 -- the modules that are still in Lua.
@@ -1323,10 +1317,9 @@ events.on(
 -- Plugin files that could not be looked into: what a scan notes, at start
 -- and after `:plugins.rescan` (the `plugins.scanned` event, `{ notes, name }`).
 local scans: {Item} = {}
-local plugins_scanned: events.Event<Scanned> = events.event("plugins.scanned")
 events.on(
-  plugins_scanned,
-  function(e: Scanned)
+  plugins.scanned,
+  function(e: plugins.Scanned)
     local name = e.name and tostring(e.name):lower()
     local kept: {Item} = {}
     for _, entry in ipairs(name and scans or {}) do

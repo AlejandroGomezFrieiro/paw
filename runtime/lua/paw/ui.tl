@@ -250,10 +250,16 @@ end
 local record WinResized
   win: integer
 end
+--- The payload of `ui.focus`: whether the terminal or the window has the
+--- focus of the desktop.
+local record DesktopFocus
+  focused: boolean
+end
 local view_focused: events.Event<ViewFocused> = events.event("view.focused")
 local win_resized: events.Event<WinResized> = events.event("win.resized")
 
 local record M
+  type DesktopFocus = DesktopFocus
   type Bar = Bar
   type Message = Message
   type TitlebarOptions = TitlebarOptions
@@ -326,6 +332,8 @@ local record M
   locators: {string:contracts.Locator}
   --- Whether the terminal has the keyboard focus of the desktop.
   has_focus: boolean
+  --- The event `ui.focus`: the terminal (mode 1004) or the window got the focus of the desktop, or lost it.
+  desktop_focus: events.Event<DesktopFocus>
   --- The layout the configuration starts with (`paw.layout.start`).
   start_layout: L.Spec
 
@@ -362,6 +370,7 @@ M.views = registry.new("views", "views", {
   changed = function() api.ui_redraw() end,
 })
 M.stamp_misses = {}
+M.desktop_focus = events.event("ui.focus")
 M.messages = messages.list
 M.rects = {}
 rawset(M as {string:Buf}, "Buf", Buf)

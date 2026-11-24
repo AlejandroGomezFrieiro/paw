@@ -85,20 +85,14 @@ function A.float_pointer(kind: string, line: integer, col?: integer)
   end
 end
 
---- The payload of `ui.focus`.
-local record Focus
-  focused: boolean
-end
-local ui_focus: events.Event<Focus> = events.event("ui.focus")
-
---- Type keys as if at the keyboard: what a menu entry for an operator does
---- to a selection.
 --- The window got the focus of the desktop (true), or lost it.
 function A.focus(on: boolean)
   paw.ui.has_focus = on
-  events.emit(ui_focus, {focused = on})
+  events.emit(paw.ui.desktop_focus, {focused = on})
 end
 
+--- Type keys as if at the keyboard: what a menu entry for an operator does
+--- to a selection.
 function A.keys(keys: string)
   -- Keys typed in the main window are not for a view in a window of its
   -- own, which sends its own (`paw.canvas.key`): they go to the window

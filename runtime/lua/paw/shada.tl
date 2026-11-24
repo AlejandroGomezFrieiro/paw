@@ -64,13 +64,10 @@ local record ProjectFile is KeymapModule.ProjectPlaces
 end
 
 -- What this module reads of the modules in Lua (their functions are in
--- paw/views/cmdline.lua and paw/loading.lua).
+-- paw/views/cmdline.lua).
 local record Cmdline
   histories: function(): {string: {string}}
   set_history: function(name: string, lines: {string})
-end
-local record Loading
-  project_dir: function(path: string): string
 end
 local record Ui
   focused: string
@@ -157,7 +154,7 @@ local function read_user_file(): UserFile
 end
 
 local function project_file_of(path: string): string
-  return (require as function(string): Loading)("paw.loading").project_dir(path) .. "/shada.json"
+  return require("paw.loading").project_dir(path) .. "/shada.json"
 end
 
 local function read_project_file(path: string): ProjectFile
