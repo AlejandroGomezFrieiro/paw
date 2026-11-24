@@ -257,7 +257,12 @@ function M.add(key: string, spec: Kind): Kind
     "usage: paw.insert.add(key, { kind = \"midi\", desc = \"A MIDI clip\" })"
   )
   if spec.view and spec.view ~= "arrange" then
+    assert(
+      spec.device ~= nil or spec.split ~= nil,
+      "an insert key of the " .. spec.view .. " view has a `device` or a `split`"
+    )
     spec.key = key
+    spec.desc = spec.desc or ("A " .. tostring(spec.device or spec.split or key))
     spec.order = spec.order or 50
     spec.ext = spec.ext or paw.ext.caller()
     M.view_kinds(spec.view):put(key, spec)

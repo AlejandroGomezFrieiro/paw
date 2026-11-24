@@ -12,7 +12,13 @@
 -- The keys act through the seam of the view: its grid (rows are the
 -- places of the nodes in the order of the signal), `view:targets` (the
 -- nodes that a region names), its tree of places, and `paw.chain` for the
--- edits. They do not read the chain's model in the kernel.
+-- edits. Some keys also read the kernel's model, and the model rework of
+-- the mix (mix as nodes) must change these reads:
+--
+-- - `api.chain_get`: `put`, `split_now`, the value keys on a branch, the
+--   solo keys and `:zone`.
+-- - `api.part_get(part).devices` (the flat list of devices of a part):
+--   `put` on a part with no chain, `\b` and the variants of `\a`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -105,8 +111,15 @@ end
 --- around a device that then goes: a split is made around nodes only.
 local function add_split(kind: string, place: types.ChainPlace, opts: types.ChainWrapOptions): integer
   local stand_in = add_device("utility", place)
-  local id = api.chain_wrap(owner(), {stand_in}, kind, opts)
+  local id: integer
+  local ok, err = pcall(function() id = api.chain_wrap(owner(), {stand_in}, kind, opts) end) as (boolean, string)
+  -- The stand-in goes also when the kernel refuses the split (a kind
+  -- that no extension defines, a count of branches that the kind does
+  -- not take), so that no Utility stays in the chain or the undo step.
   api.device_remove(stand_in)
+  if not ok then
+    error(err, 0)
+  end
   return id
 end
 
@@ -672,7 +685,9 @@ map(
 
 --- Show only the container `id` in the window, with the path at the top.
 local function enter(id: integer)
+  -- The container opens: the window shows what is inside it.
   view.scope, view.cursor = id, id
+  view.open[id] = true
   paw.notify("in " .. name_of(id) .. " · `zW` goes out")
   api.ui_redraw()
 end
@@ -925,9 +940,23 @@ local function inserted(id: integer, split: boolean)
 end
 
 --- Open the device picker; the device chosen goes at `place`.
+--- The place goes when the picker closes with no choice, so that a later
+--- add in another view does not go there.
 local function pick_at(place: types.ChainPlace, insert: boolean)
   adding = {part = view:part_id(), place = place, insert = insert}
-  paw.pick("devices")
+  local source = paw.pick.sources:get("devices") as contracts.PickSource<contracts.PickInfo>
+  local spec: contracts.PickSource<contracts.PickInfo> = setmetatable(
+    {
+      on_cancel = function()
+        adding = nil
+        if source.on_cancel then
+          source.on_cancel()
+        end
+      end,
+    } as contracts.PickSource<contracts.PickInfo>,
+    {__index = source} as metatable<contracts.PickSource<contracts.PickInfo>>
+  )
+  paw.pick(spec)
 end
 
 -- The device that the picker added goes to the place chosen, in the same
@@ -1175,7 +1204,10 @@ local function ask_kind(fn: function(kind: string, branches: integer))
     paw.ui.grabber = nil
     local kind = SPLIT_LETTERS[key]
     if not kind then
-      return paw.notify(key == "<Esc>" and "" or "`" .. key .. "` names no kind of split", "warn")
+      if key ~= "<Esc>" then
+        paw.notify("`" .. key .. "` names no kind of split", "warn")
+      end
+      return
     end
     fn(kind, math.tointeger(tonumber(digits)))
   end
@@ -1668,9 +1700,10 @@ map(
   function()
     local part = view:part_id()
     follows[part] = not follows[part] or nil
+    -- On: the branch of the cursor plays alone. Off: the solo stays.
     local b = cursor_branch()
-    if b and view:places()[b.split].node.kind ~= "rack" then
-      solo(b, not follows[part])
+    if follows[part] and b and view:places()[b.split].node.kind ~= "rack" then
+      solo(b, false)
     end
     paw.notify(follows[part] and "the solo follows the cursor: `j` `k` compare the branches" or "the solo stays")
   end,
@@ -1699,6 +1732,15 @@ map(
       return
     end
     local list = api.part_get(part).devices
+    -- The held states count only while each device is still bypassed:
+    -- after `u` or a change by hand, `\b` bypasses the chain again.
+    local still = held[part] ~= nil
+    for _, id in ipairs(list) do
+      still = still and api.device_get(id).bypass == true
+    end
+    if not still then
+      held[part] = nil
+    end
     if held[part] then
       for _, id in ipairs(list) do
         if held[part][id] ~= nil then

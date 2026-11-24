@@ -805,9 +805,25 @@ local function selection_words(self: Devices, reg: contracts.Region, ids: {integ
     end
     return string.format("%d x %d block", n, columns)
   end
-  local word = reg.kind == "line" and "branch" or "node"
-  local plural = word == "branch" and "branches" or "nodes"
-  return #ids .. " " .. (#ids == 1 and word or plural)
+  -- A whole branch counts as a branch, any other node as a node, so that
+  -- `V` on a node at the top level says "1 node".
+  local branches, nodes = 0, 0
+  for _, id in ipairs(ids) do
+    local place = self:places()[id]
+    if place and place.branch == id then
+      branches = branches + 1
+    else
+      nodes = nodes + 1
+    end
+  end
+  local words: {string} = {}
+  if branches > 0 then
+    words[#words + 1] = branches .. (branches == 1 and " branch" or " branches")
+  end
+  if nodes > 0 or branches == 0 then
+    words[#words + 1] = nodes .. (nodes == 1 and " node" or " nodes")
+  end
+  return table.concat(words, ", ")
 end
 
 --- The name and the context of the title in each mode of the keys: the

@@ -101,6 +101,8 @@ The keys of the devices view work as the keys of Vim work on text. A node is a d
 | `:ab.store`, `\a` | `:ab.store` keeps the chain as a second variant, and `\a` flips between the two variants. The title says `B` while the second plays. |
 | `s` `M` | Solo and mute the part. |
 
+paw keeps the states of `\b` and the second variant of `\a` only until it quits, and the project does not save them. After `u` takes back a `\b`, the next `\b` bypasses the chain again.
+
 ### Other keys and commands
 
 | Keys | Effect |
