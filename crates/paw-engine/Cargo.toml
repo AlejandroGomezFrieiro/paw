@@ -12,6 +12,9 @@ midi = ["dep:alsa-sys"]
 
 [dependencies]
 paw-types.workspace = true
+# The K-weighting and loudness of BS.1770, which the meter device shares
+# with the analysis of a rendered file.
+paw-measure.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 serde.workspace = true

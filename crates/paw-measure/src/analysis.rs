@@ -21,7 +21,9 @@ use realfft::num_complex::Complex;
 use realfft::{RealFftPlanner, RealToComplex};
 use serde::Serialize;
 
+use crate::bs1770::{self, Biquad, k_weighting};
 use crate::levels::{FULL_SCALE, Levels};
+use paw_types::gain::power_to_db;
 
 /// Time between two points of every series, and the step of the gating blocks.
 pub(crate) const HOP_SECONDS: f64 = 0.1;
@@ -49,79 +51,20 @@ const OCTAVES: [&str; 10] = [
     "31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k",
 ];
 
+/// A ratio of powers in decibels, with the floor of the analysis.
 fn db(power_ratio: f64) -> f64 {
-    if power_ratio > 0.0 {
-        (10.0 * power_ratio.log10()).max(FLOOR_DB)
-    } else {
-        FLOOR_DB
-    }
+    power_to_db(power_ratio, FLOOR_DB)
 }
 
+/// An amplitude in decibels, as the square of it is a power.
 fn amp_db(amplitude: f64) -> f64 {
     db(amplitude * amplitude)
 }
 
-/// Loudness of a mean-square sum over channels, per BS.1770 (channel weights 1).
+/// Loudness of a mean-square sum over channels, with the floor of the
+/// analysis.
 fn lufs(power: f64) -> f64 {
-    if power > 0.0 {
-        (-0.691 + 10.0 * power.log10()).max(FLOOR_DB)
-    } else {
-        FLOOR_DB
-    }
-}
-
-/// A biquad in direct form I, in f64.
-#[derive(Clone, Copy, Default)]
-pub(crate) struct Biquad {
-    pub(crate) b: [f64; 3],
-    pub(crate) a: [f64; 2],
-    x: [f64; 2],
-    y: [f64; 2],
-}
-
-impl Biquad {
-    #[inline]
-    fn run(&mut self, x: f64) -> f64 {
-        let y = self.b[0] * x + self.b[1] * self.x[0] + self.b[2] * self.x[1]
-            - self.a[0] * self.y[0]
-            - self.a[1] * self.y[1];
-        self.x = [x, self.x[0]];
-        self.y = [y, self.y[0]];
-        y
-    }
-}
-
-/// The two stages of BS.1770's K-weighting at any sample rate, from the
-/// analogue prototypes behind the standard's 48 kHz coefficients (the same
-/// derivation as libebur128's). At 48 kHz they reproduce the table in
-/// BS.1770-4 to the printed precision.
-pub(crate) fn k_weighting(rate: f64) -> [Biquad; 2] {
-    use std::f64::consts::PI;
-    // Stage 1: a high shelf of about +4 dB above 1.5 kHz, for the head.
-    let (f0, gain, q) = (1681.974450955533, 3.999843853973347, 0.7071752369554196);
-    let k = (PI * f0 / rate).tan();
-    let vh = 10f64.powf(gain / 20.0);
-    let vb = vh.powf(0.4996667741545416);
-    let a0 = 1.0 + k / q + k * k;
-    let shelf = Biquad {
-        b: [
-            (vh + vb * k / q + k * k) / a0,
-            2.0 * (k * k - vh) / a0,
-            (vh - vb * k / q + k * k) / a0,
-        ],
-        a: [2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0],
-        ..Default::default()
-    };
-    // Stage 2: the RLB high pass at about 38 Hz.
-    let (f0, q) = (38.13547087602444, 0.5003270373238773);
-    let k = (PI * f0 / rate).tan();
-    let a0 = 1.0 + k / q + k * k;
-    let high_pass = Biquad {
-        b: [1.0, -2.0, 1.0],
-        a: [2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0],
-        ..Default::default()
-    };
-    [shelf, high_pass]
+    bs1770::lufs(power).max(FLOOR_DB)
 }
 
 /// Interpolates between samples to find peaks that fall between them:

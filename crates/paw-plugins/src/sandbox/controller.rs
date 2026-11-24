@@ -278,7 +278,7 @@ impl Controller for RemoteController {
             index: index as u32,
             text: text.into(),
         };
-        le_f64(&self.ask(&request, QUICK_LIMIT).ok()?)
+        crate::bytes::le_f64(&self.ask(&request, QUICK_LIMIT).ok()?, 0)
     }
 
     fn has_editor(&self) -> bool {

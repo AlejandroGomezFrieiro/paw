@@ -9,6 +9,7 @@
 //!   RMS, DC offset and full-scale samples.
 
 mod analysis;
+pub mod bs1770;
 mod levels;
 #[cfg(test)]
 mod tests;

@@ -74,7 +74,7 @@ fn near(got: f64, want: f64, tolerance: f64, what: &str) {
 
 #[test]
 fn k_weighting_matches_the_table_in_bs1770_at_48k() {
-    let [shelf, high_pass] = crate::analysis::k_weighting(48_000.0);
+    let [shelf, high_pass] = crate::bs1770::k_weighting(48_000.0);
     let table = [
         (shelf.b[0], 1.53512485958697),
         (shelf.b[1], -2.69169618940638),

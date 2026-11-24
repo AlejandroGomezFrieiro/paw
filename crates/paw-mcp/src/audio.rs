@@ -11,6 +11,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use paw_measure::{Analysis, Analyzer, FLOOR_DB, Levels};
+use paw_types::gain::amplitude_to_db;
 
 /// The bands of [`Analysis::bands`] below and above the octave bands, which
 /// the summary leaves out.
@@ -60,12 +61,12 @@ pub(crate) fn read_wav(path: &Path) -> Result<Audio> {
     })
 }
 
+/// The level that the tools print as `-inf`, and the floor of each level.
+const LEVEL_FLOOR_DB: f64 = -200.0;
+
+/// An amplitude in decibels, as the tools print it.
 pub(crate) fn db(linear: f64) -> f64 {
-    if linear <= 1e-10 {
-        -200.0
-    } else {
-        20.0 * linear.log10()
-    }
+    amplitude_to_db(linear, LEVEL_FLOOR_DB)
 }
 
 fn fmt_db(value: f64) -> String {

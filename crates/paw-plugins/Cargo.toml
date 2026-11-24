@@ -34,6 +34,8 @@ libc = "0.2"
 # Safe Unix calls for the plugin sandbox: memfd, mmap, futex, kill, prctl.
 rustix = { version = "1", features = ["fs", "mm", "param", "process", "thread"] }
 x11rb = "0.13"
+# The walk of the plugin folders for bundles.
+walkdir.workspace = true
 
 [dev-dependencies]
 hound = "3.5"

@@ -93,6 +93,9 @@ memmap2 = "0.9"
 # BLAKE3 content hashes of files (media/hash.rs): SIMD, and parallel with mmap
 # and rayon for big files. ring stays for SHA-256 where it is used.
 blake3 = { version = "1", default-features = false, features = ["std", "mmap", "rayon"] }
+# A walk of a folder tree (the plugin folders). Already in Cargo.lock
+# through other crates.
+walkdir = "2"
 # TLS for network connections, pure Rust with ring: no OpenSSL.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 # TLS on tokio's sockets (the network server, paw-core's rpc.rs), over the

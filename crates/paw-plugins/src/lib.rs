@@ -13,6 +13,7 @@
 //! loaded into this process, and one that crashes takes the program with it.
 
 pub mod attach;
+mod bytes;
 pub mod clap;
 mod dirs;
 mod echo;
@@ -551,24 +552,27 @@ pub(crate) fn mtime(path: &Path) -> u64 {
 /// which scans all folders at once, gives the kinds that the adds gave. An
 /// entry found two times comes once, at its first place.
 pub(crate) fn find_bundles(dirs: &[PathBuf], extension: &str) -> Vec<PathBuf> {
-    fn walk(dir: &Path, extension: &str, depth: u32, out: &mut Vec<PathBuf>) {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().is_some_and(|e| e == extension) {
-                out.push(path);
-            } else if depth < 4 && path.is_dir() {
-                walk(&path, extension, depth + 1, out);
-            }
-        }
-    }
     let mut out = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for dir in dirs {
         let mut found = Vec::new();
-        walk(dir, extension, 0, &mut found);
+        // Five levels under the folder, through links to folders.
+        let mut walk = walkdir::WalkDir::new(dir)
+            .min_depth(1)
+            .max_depth(5)
+            .follow_links(true)
+            .into_iter();
+        while let Some(entry) = walk.next() {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            if entry.path().extension().is_some_and(|e| e == extension) {
+                if entry.file_type().is_dir() {
+                    walk.skip_current_dir();
+                }
+                found.push(entry.into_path());
+            }
+        }
         found.sort();
         out.extend(found.into_iter().filter(|path| seen.insert(path.clone())));
     }
@@ -761,6 +765,19 @@ mod tests {
         let file = dir.join(name);
         std::fs::write(&file, b"not a shared library").unwrap();
         file
+    }
+
+    #[test]
+    fn bundles_are_found_five_levels_down_in_path_order_and_not_inside_a_bundle() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().to_path_buf();
+        let deep = broken_plugin(&folder.join("a/b/c/d"), "deep.vst3");
+        let too_deep = folder.join("a/b/c/d/e");
+        broken_plugin(&too_deep, "too_deep.vst3");
+        let bundle = folder.join("b.vst3");
+        broken_plugin(&bundle.join("Contents"), "inner.vst3");
+        let first = broken_plugin(&folder, "a.vst3");
+        assert_eq!(find_bundles(&[folder], "vst3"), [deep, first, bundle]);
     }
 
     #[test]

@@ -25,6 +25,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::thread::JoinHandle;
 
+use crate::priority::{self, Scheduling};
+
 /// Items of one job. More are run in pieces.
 const MAX_ITEMS: usize = 0xffff;
 /// How long a worker with nothing to do looks for more before it sleeps.
@@ -177,7 +179,7 @@ impl Pool {
     pub fn run<F: Fn(usize) + Sync>(&mut self, count: usize, f: &F) {
         if !self.matched {
             self.matched = true;
-            let (policy, priority) = current_priority();
+            let Scheduling { policy, priority } = priority::current();
             self.inner.priority.store(priority, Ordering::Relaxed);
             self.inner.policy.store(policy, Ordering::Release);
         }
@@ -275,7 +277,12 @@ fn worker(inner: &Inner) {
         let wanted = inner.policy.load(Ordering::Acquire);
         if wanted != policy {
             policy = wanted;
-            if !match_priority(wanted, inner.priority.load(Ordering::Relaxed)) {
+            let wanted = Scheduling {
+                policy: wanted,
+                priority: inner.priority.load(Ordering::Relaxed),
+            };
+            // An ordinary caller: the worker stays ordinary too.
+            if wanted.is_realtime() && !priority::set(wanted) {
                 inner.refused.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -292,56 +299,6 @@ fn worker(inner: &Inner) {
             std::thread::park();
         }
     }
-}
-
-/// The calling thread's scheduling policy and priority.
-#[cfg(unix)]
-fn current_priority() -> (i32, i32) {
-    let mut policy = 0;
-    // SAFETY: `sched_param` is a plain C struct of integers; all zeros is one.
-    let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
-    // SAFETY: the calling thread exists, and both out-pointers are to live
-    // locals of the right types.
-    let result =
-        unsafe { libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param) };
-    if result == 0 {
-        // A thread made real-time by the system's helper carries a flag in
-        // its policy that says its children do not inherit it.
-        #[cfg(target_os = "linux")]
-        let policy = policy & !libc::SCHED_RESET_ON_FORK;
-        (policy, param.sched_priority)
-    } else {
-        (libc::SCHED_OTHER, 0)
-    }
-}
-
-/// Give the calling thread a policy and priority. Says whether it has what a
-/// real-time caller needs it to have.
-// Not `audio_thread_priority`: it asks RtKit over D-Bus (a C library for the
-// Nix build) and does not copy the sound thread's own policy and priority.
-#[cfg(unix)]
-fn match_priority(policy: i32, priority: i32) -> bool {
-    if policy != libc::SCHED_FIFO && policy != libc::SCHED_RR {
-        // An ordinary caller: stay ordinary too.
-        return true;
-    }
-    // SAFETY: `sched_param` is a plain C struct of integers; all zeros is one.
-    let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
-    param.sched_priority = priority;
-    // SAFETY: the calling thread exists, and `param` is a live local; a
-    // policy or priority the system does not take is an error, not UB.
-    let result = unsafe { libc::pthread_setschedparam(libc::pthread_self(), policy, &param) };
-    result == 0
-}
-
-#[cfg(not(unix))]
-fn current_priority() -> (i32, i32) {
-    (0, 0)
-}
-
-#[cfg(not(unix))]
-fn match_priority(_policy: i32, _priority: i32) -> bool {
-    true
 }
 
 #[cfg(test)]
@@ -378,22 +335,19 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn workers_take_the_priority_of_the_thread_that_drives_them() {
-        let outcome = std::thread::spawn(|| {
-            // SAFETY: `sched_param` is a plain C struct of integers.
-            let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
-            param.sched_priority = 5;
-            // SAFETY: this thread exists, and `param` is a live local.
-            let allowed = unsafe {
-                libc::pthread_setschedparam(libc::pthread_self(), libc::SCHED_FIFO, &param)
-            } == 0;
-            if !allowed {
+        let fifo = Scheduling {
+            policy: libc::SCHED_FIFO,
+            priority: 5,
+        };
+        let outcome = std::thread::spawn(move || {
+            if !priority::set(fifo) {
                 return None;
             }
             let mut pool = Pool::new(3);
             let seen = std::sync::Mutex::new(Vec::new());
             for _ in 0..20 {
                 pool.run(6, &|_| {
-                    seen.lock().unwrap().push(current_priority());
+                    seen.lock().unwrap().push(priority::current());
                     std::thread::sleep(std::time::Duration::from_millis(1));
                 });
             }
@@ -407,7 +361,7 @@ mod tests {
         };
         assert_eq!(threads, 3, "the workers were not refused");
         assert!(
-            seen.iter().all(|p| *p == (libc::SCHED_FIFO, 5)),
+            seen.iter().all(|p| *p == fifo),
             "every item ran at the caller's priority: {seen:?}"
         );
     }

@@ -179,10 +179,11 @@ impl Lv2Controller {
                 }
                 // What the plugin sent from its atom outputs.
                 while read_message(&mut self.from_plugin, &mut self.message) {
-                    let Some((port, atom)) = self.message.split_at_checked(4) else {
+                    let (Some(port), Some(atom)) =
+                        (crate::bytes::le_u32(&self.message, 0), self.message.get(4..))
+                    else {
                         continue;
                     };
-                    let port = u32::from_le_bytes(port.try_into().unwrap());
                     note_property(&mut self.values, atom);
                     port_event(
                         ui.handle,

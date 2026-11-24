@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result, bail};
 use arrayvec::ArrayVec;
+use paw_types::pitch;
 use serde_json::{Value, json};
 
 /// Signature changes a [`Meter`] keeps after the first; later ones are
@@ -263,40 +264,19 @@ fn parse_length(text: &str, meter: &Meter) -> Option<f64> {
     lower.parse().ok()
 }
 
-const NAMES: [&str; 12] = [
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-];
-
 /// `C4` is 60, middle C. Sharps `#`, flats `b`, octaves from -1 to 9.
 pub(crate) fn pitch_name(text: &str) -> Result<u8> {
     let text = text.trim();
     if let Ok(n) = text.parse::<i64>() {
         return midi(n, text);
     }
-    let mut chars = text.chars();
-    let letter = chars.next().context("empty pitch")?;
-    let base = match letter.to_ascii_uppercase() {
-        'C' => 0,
-        'D' => 2,
-        'E' => 4,
-        'F' => 5,
-        'G' => 7,
-        'A' => 9,
-        'B' => 11,
-        _ => bail!("not a note name: `{text}` (use names like C4, F#3, Bb2, or MIDI numbers)"),
-    };
-    let rest: String = chars.collect();
-    let (shift, octave) = if let Some(o) = rest.strip_prefix('#') {
-        (1, o)
-    } else if let Some(o) = rest.strip_prefix('b') {
-        (-1, o)
-    } else {
-        (0, rest.as_str())
-    };
-    let octave: i64 = octave.parse().with_context(|| {
+    if text.is_empty() {
+        bail!("empty pitch");
+    }
+    let n = pitch::parse(text).with_context(|| {
         format!("not a note name: `{text}` (use names like C4, F#3, Bb2, or MIDI numbers)")
     })?;
-    midi((octave + 1) * 12 + base + shift, text)
+    midi(n, text)
 }
 
 fn midi(n: i64, text: &str) -> Result<u8> {
@@ -307,7 +287,7 @@ fn midi(n: i64, text: &str) -> Result<u8> {
 }
 
 pub(crate) fn name(pitch: u8) -> String {
-    format!("{}{}", NAMES[pitch as usize % 12], pitch as i32 / 12 - 1)
+    pitch::name(i32::from(pitch))
 }
 
 /// One pitch or a chord: `"C4"`, `60`, `"C4+E4+G4"`, `["C4", "E4"]`.

@@ -11,17 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 use atomic_float::AtomicF32;
 
-/// Decibels to linear gain, for any finite input (no floor).
-#[inline]
-pub fn db_to_lin(db: f32) -> f32 {
-    (db * (std::f32::consts::LN_10 / 20.0)).exp()
-}
-
-/// Linear gain to decibels, floored at -200 dB so silence stays finite.
-#[inline]
-pub fn lin_to_db(x: f32) -> f32 {
-    20.0 * x.max(1e-10).log10()
-}
+pub use paw_types::gain::{db_to_lin, lin_to_db};
 
 /// `exp(-1 / (seconds * rate))`: the coefficient of a one-pole smoother
 /// that covers 63 % of the way to its target in `seconds`.
