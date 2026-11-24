@@ -15,6 +15,8 @@ lists them.
   log is.
 - To read the logs of older runs, open `~/.local/state/paw/paw.log.2` to
   `paw.log.4` in any text editor.
+- If you ran two sessions of paw at the same time, the second one wrote
+  `paw.2.log`, and its runs before are in `paw.2.log.1` and on.
 
 Each line has the time in UTC, the level, the target and the message:
 

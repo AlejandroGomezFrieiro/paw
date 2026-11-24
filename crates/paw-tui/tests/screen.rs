@@ -277,6 +277,27 @@ fn paw_log_wins_over_loglevel() {
 }
 
 #[test]
+fn two_sessions_at_once_each_keep_their_own_log() {
+    let first = Screen::start("log-a");
+    let xdg = first.dir.join("xdg");
+    let second = Screen::start_with("log-b", |_, command| {
+        command.env("XDG_STATE_HOME", xdg.join("state")).env("XDG_CACHE_HOME", xdg.join("cache"));
+    });
+    first.connect().call("eval", json!(["paw.api.log('from-first')"])).unwrap();
+    let mut c = second.connect();
+    c.call("eval", json!(["paw.api.log('from-second')"])).unwrap();
+    let files = c.call("eval", json!(["local f = paw.api.log_files() return f.current .. ' ' .. f.stderr"])).unwrap();
+    let state = xdg.join("state/paw");
+    let read = |name: &str| std::fs::read_to_string(state.join(name)).unwrap_or_default();
+    // The second session did not rotate the log that the first writes.
+    assert!(!state.join("paw.log.1").exists(), "paw.log of the first session was renamed");
+    assert!(read("paw.log").contains("from-first") && !read("paw.log").contains("from-second"), "{}", read("paw.log"));
+    assert!(read("paw.2.log").contains("from-second") && !read("paw.2.log").contains("from-first"), "{}", read("paw.2.log"));
+    let files = files.to_string();
+    assert!(files.contains("paw/paw.2.log ") && files.contains("stderr.2.log"), ":log of the second session: {files}");
+}
+
+#[test]
 fn log_shows_this_run_and_log_bang_the_run_before() {
     let mut screen = Screen::start_with("log-cmd", |dir, _| {
         let state = dir.join("xdg/state/paw");

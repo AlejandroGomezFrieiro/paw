@@ -62,7 +62,7 @@ fn say(text: &str) {
 /// user when a part of it did not start.
 fn start_log(session: bool) -> Option<String> {
     let run = if session {
-        logging::Run::Session { state: dirs().paw_state(), stderr_log: cache_dir().join("stderr.log") }
+        logging::Run::Session { state: dirs().paw_state(), cache: cache_dir() }
     } else {
         logging::Run::Script
     };
@@ -103,7 +103,13 @@ enum LogStart {
 /// the terminal shows paw: what plugins, libraries and child processes
 /// print (see `stdio.rs`).
 fn output_log(start: LogStart) -> Result<std::fs::File> {
-    let path = cache_dir().join("stderr.log");
+    // A session writes the file of its slot of the log (paw-core's
+    // logging/file.rs), so that two sessions do not mix their output.
+    let path = match start {
+        LogStart::Empty => logging::files().stderr,
+        LogStart::Append => None,
+    }
+    .unwrap_or_else(|| cache_dir().join("stderr.log"));
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }

@@ -19,7 +19,7 @@ mod recorder;
 use std::cell::Cell;
 use std::fmt::Write as _;
 use std::io::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 
 use tracing::field::{Field, Visit};
@@ -34,10 +34,11 @@ use recorder::Recorder;
 /// What kind of process logs, which decides where the lines go.
 pub enum Run {
     /// A session (the terminal or `--headless`): `paw.log` in `state`, at
-    /// `info`. `stderr_log` is the file that takes descriptors 1 and 2
-    /// while the terminal shows paw (ADR 0042): its text goes into the log
-    /// of its run at the next start.
-    Session { state: PathBuf, stderr_log: PathBuf },
+    /// `info`, or `paw.k.log` when other sessions hold the slots before it
+    /// (`file::Slot`). Its `stderr.log` in `cache` takes descriptors 1 and
+    /// 2 while the terminal shows paw (ADR 0042): its text goes into the
+    /// log of its run at the next start of the slot.
+    Session { state: PathBuf, cache: PathBuf },
     /// A script (`-l`), `paw doctor`, `paw chain schema`, and the client
     /// processes (`paw attach`, `paw ctl`, the plugin host): no file, and
     /// `warn` and above to the standard error.
@@ -57,11 +58,11 @@ pub struct Options {
 /// The files of the log, for `:log`. Each is `None` in a run with no file.
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub struct Files {
-    /// `paw.log`: this run.
+    /// `paw.log` (or `paw.k.log` in slot `k`): this run.
     pub current: Option<PathBuf>,
-    /// `paw.log.1`: the run before.
+    /// `paw.log.1` (or `paw.k.log.1`): the run before of this slot.
     pub previous: Option<PathBuf>,
-    /// `stderr.log`: what other code prints in this run.
+    /// `stderr.log` (or `stderr.k.log`): what other code prints in this run.
     pub stderr: Option<PathBuf>,
 }
 
@@ -89,6 +90,8 @@ struct State {
     /// The home folder as text, without a slash at the end.
     home: Option<String>,
     files: Files,
+    /// The slot of a session: its lock holds while the program runs.
+    _slot: Option<file::Slot>,
 }
 
 /// The log that the layer writes and that the kernel asks.
@@ -145,26 +148,19 @@ impl Book {
                 Err(err) => notes.push(format!("PAW_LOG={given} is not a list of levels ({err}): the log keeps {default}")),
             }
         }
-        let mut files = Files::default();
-        let file = match &options.run {
-            Run::Session { state, stderr_log } => {
-                let opened = file::rotate(state, Some(stderr_log)).and_then(|()| LogFile::create(state));
-                match opened {
-                    Ok(log) => {
-                        files = Files {
-                            current: Some(file::run_path(state, 0)),
-                            previous: Some(file::run_path(state, 1)),
-                            stderr: Some(stderr_log.clone()),
-                        };
-                        Some(log)
-                    }
-                    Err(err) => {
-                        notes.push(format!("no log file in {}: {err}", state.display()));
-                        None
-                    }
+        let (file, files, slot) = match &options.run {
+            Run::Session { state, cache } => match open_session(state, cache) {
+                Ok(Some(Opened { log, files, slot })) => (Some(log), files, Some(slot)),
+                Ok(None) => {
+                    notes.push(format!("no log file: {} sessions run with {}", file::SLOTS, state.display()));
+                    (None, Files::default(), None)
                 }
-            }
-            Run::Script => None,
+                Err(err) => {
+                    notes.push(format!("no log file in {}: {err}", state.display()));
+                    (None, Files::default(), None)
+                }
+            },
+            Run::Script => (None, Files::default(), None),
         };
         let home = options
             .home
@@ -179,6 +175,7 @@ impl Book {
             recorder: Recorder::default(),
             home,
             files,
+            _slot: slot,
         };
         let note = (!notes.is_empty()).then(|| notes.join("; "));
         (Self { state: Mutex::new(state) }, note)
@@ -189,6 +186,24 @@ impl Book {
         // write is whole or absent.
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+/// The log of a session that started.
+struct Opened {
+    log: LogFile,
+    files: Files,
+    slot: file::Slot,
+}
+
+/// Take the slot of a session in `state`, rotate its runs, and open the
+/// log of this run. `None` when each slot is taken.
+fn open_session(state: &Path, cache: &Path) -> std::io::Result<Option<Opened>> {
+    let Some(slot) = file::Slot::take(state)? else { return Ok(None) };
+    let stderr = slot.stderr(cache);
+    slot.rotate(Some(&stderr))?;
+    let log = LogFile::create(&slot.run(0))?;
+    let files = Files { current: Some(slot.run(0)), previous: Some(slot.run(1)), stderr: Some(stderr) };
+    Ok(Some(Opened { log, files, slot }))
 }
 
 /// The book of the program, if [`init`] installed one.
@@ -407,12 +422,12 @@ impl Visit for Message {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+
 
     /// A session's book in `dir`, and a subscriber over it for `body`.
     fn session(dir: &Path, env_filter: Option<&str>, body: impl FnOnce(&Arc<Book>)) {
         let (book, note) = Book::new(Options {
-            run: Run::Session { state: dir.to_path_buf(), stderr_log: dir.join("stderr.log") },
+            run: Run::Session { state: dir.to_path_buf(), cache: dir.to_path_buf() },
             env_filter: env_filter.map(str::to_string),
             home: Some(PathBuf::from("/srv/someone")),
         });
@@ -423,7 +438,7 @@ mod tests {
     }
 
     fn log_text(dir: &Path) -> String {
-        std::fs::read_to_string(file::run_path(dir, 0)).unwrap()
+        std::fs::read_to_string(dir.join("paw.log")).unwrap()
     }
 
     #[test]
