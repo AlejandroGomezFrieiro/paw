@@ -73,7 +73,8 @@ comment next to the code:
 | Ring buffers between threads | `rtrb` | own atomics |
 | Channels | `std::sync::mpsc` or `crossbeam-channel` | own queues |
 | Network, sockets, child processes, timers that wait on I/O | `tokio` (with `tokio-rustls` for TLS) | a thread for each connection, sockets polled from a timer, read timeouts as a loop |
-| Dates and times | `jiff` | `libc::localtime_r` |
+| Dates and times | `jiff` (the time of each line of `paw.log`) | `libc::localtime_r` |
+| Logs and diagnostics | `tracing` in each crate. Only the program installs a subscriber: `tracing-subscriber` (the registry and `Targets`) under paw-core's `logging` layer, which writes `paw.log` and keeps the flight recorder. `paw-mcp` uses its `fmt` writer to stderr. Not `tracing-appender`: it rotates by time, and paw keeps one file for each run. The audio thread counts and never logs. | `eprintln!` (clippy's `print_stderr` refuses it outside tests), the `log` crate, a ring of strings by hand |
 | User folders (XDG) | `dirs` or `etcetera` | a read of `XDG_*` by hand (keep the XDG order paw documents) |
 | Percent codes (`%20`) | `percent-encoding` | a loop over bytes |
 | A terminal | `crossterm` (paw uses it) | escape codes by hand where `crossterm` has them |

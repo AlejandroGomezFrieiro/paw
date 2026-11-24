@@ -178,7 +178,8 @@ paw.statusline.component("euclid", { fn = function(ctx) return { { "E", "StatusO
 paw.partcolumn.add("euclid", { order = 25, width = 1, render = function(part, ctx) end })  -- a component of the part column
 paw.partcolumn.sign("euclid", { priority = 10, render = function(part, ctx) end })      -- a sign in its `signs` component
 paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-" }, styles = { fold = "Dim" } })  -- change a built-in component
-paw.ruler.add("euclid", { order = 20, render = function(bar, ctx) end })            -- a part of each bar's label
+paw.ruler.row("euclid", { after = "bars", marks = function(ctx) return {} end })   -- a row of the ruler
+paw.marks.set(paw.marks.namespace("euclid"), 32, { sign = "◆", label = "fill" })  -- a mark on the ruler
 paw.insert.add("E", { kind = "midi", desc = "A Euclid clip", length = "2 bars", open = function(ctx, item) end })  -- a key of the arrange view's insert mode (docs/reference/insert-mode.md); `insert = "e"` on a clip kind does it too
 paw.query.field("note", "onset", function(note) end)  -- :select / :query fields
 paw.grep.source("euclid", function(add) end)           -- :vimgrep text
@@ -232,7 +233,7 @@ follow `extensions/ara` (`paw.plugins.attach`, docs/reference/attachments.md).
 | a kind of part with its own editor | `extensions/drums`, `extensions/utau` |
 | per-note data, roll layers, popovers | `extensions/articulations` |
 | a native engine / CLAP plugin built by Nix | `extensions/sampler`, `extensions/utau` |
-| components and signs of the part column, bar labels, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
+| components and signs of the part column, rows and marks of the ruler, in Teal | `extensions/columnplus`, `extensions/rulerplus` |
 | an extension in Teal with many modules (`lua/<name>/*.tl`), formats of other programs | `extensions/interop` |
 | a buffer type (e.g. a tracker, time top→down) | docs/reference/lua-views.md `paw.buftype` example ("tally") |
 
