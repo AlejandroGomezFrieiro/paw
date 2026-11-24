@@ -16,18 +16,105 @@ The title of the view gives the number of devices and containers, the latency of
 
 A split whose kind no loaded extension defines says `⚠ absent` in its header, and a folded one says `⚠ plays branch 1`. The engine plays its first branch until the extension loads again, and `K` says why.
 
+The keys of the devices view work as the keys of Vim work on text. A node is a device, a split or a rack, and a motion goes from node to node. An operator such as `d` takes a motion, a text object or a selection, and each change is one undo step that says what it did.
+
+### Motions
+
 | Keys | Effect |
 | --- | --- |
 | `l` `h`, `w` `b` | Go to the next and the previous node, in the order of the signal. In an open split, the cursor stops on each branch before its devices. |
 | `j` `k` | Go to the same place in the branch below or above. In a narrow window, go to the next and the previous row. |
 | `gg` `G` | Go to the first and the last node. |
+| `^` `$` | Go to the first and the last node of the branch. |
+| `0` `e` | Go to the split at the start of the branch, and to the last device of the branch. |
+| `%` | Goes from a split to its last node, and back. |
+| `[(` `])` | Go to the split or rack around the cursor, and to its last node. |
 | `za` `zo` `zc` | Fold or open the split or the rack under the cursor, or around it. |
 | `zR` `zM` | Open or fold all the splits and racks. |
+| `zn{motion}` `znn` | Enters the split or the rack, so that the window shows only its inside. |
+| `zw` `zW` | Show the whole chain again. |
+
+### Operators
+
+| Keys | Effect |
+| --- | --- |
+| `d` `dd` `x` | Cut nodes into a register. `2dd` cuts two nodes in series. |
+| `y` `yy` | Copy nodes into a register. |
+| `p` `P` | Paste the register after or before the node. |
+| `gp` `gP` | Paste the register as a new branch below or above. |
+| `c` | Cuts the nodes, then opens the picker of devices at their place in insert mode. `cc` on a device chooses a preset, and on a split or a branch it asks for a name. |
+| `>` `<` | Move nodes later or earlier in the signal. `3>>` moves the node three places. At the end of a branch, the node goes out of the split. |
+| `gc` `gcc` `~` | Bypass devices and mute branches. Again, they play. |
+| `=` | Matches the output gain of each device to its input, from what played last. |
+| `gs{kind}` | Wraps nodes in a split. The letter after it names the kind: `r` rack, `l` layer, `b` band, `m` mid/side, `s` left/right, `k` key, `v` velocity, `x` select and `o` outputs. A count before the letter gives the branches, as in `gs3b`. A rack asks for its name. |
+| `ds` | Unwraps the split around the cursor. The branch of the cursor stays, and the other branches go into the register. |
+| `cs{kind}` | Changes the kind of the split, with the letters of `gs`. |
+| `gm` | Links a macro of the container to the main parameter of each device, at 25 % of its range. |
+| `gM` | Makes the main parameter of the devices a macro of their container. |
+| `zf{motion}` | Folds the containers that the motion covers. |
+| `Alt-j` `Alt-k` | Move the node to the branch below or above, at the same place. |
+| `+` `-`, `Ctrl-a` `Ctrl-x` | On a device, change its wet mix by 5 %. On a branch, change its gain by 1 dB. On a split, change its mix by 5 %. A count multiplies the step. |
+| `]` `[` | On a device, change its output gain by 1 dB. On a branch, change its pan by 0.1. On a split, change its gain by 1 dB. |
+
+### Text objects
+
+| Keys | Effect |
+| --- | --- |
+| `in` | The node: a device, or a container with its inside. |
+| `ab` `ib` | The branch, and the nodes of the branch. |
+| `as` `is` | The split around the cursor, and its branches. A count goes out that many splits. |
+| `ar` `ir` | The rack around the cursor, and its devices. |
+| `im` | The devices that the macros of the container move. |
+| `ie` | The entire chain. |
+
+### Visual mode
+
+`v` selects nodes along the signal, `V` selects whole branches, and `Ctrl-v` selects a block: the same places in several branches. An operator then acts on all the selected nodes, so `Ctrl-v` `jj` `gc` bypasses the device at one place in three branches. The title of the view says what is selected, for example `2 nodes`, `1 branch` or `2 x 3 block`, and the status line says `VISUAL`, `V-LINE` or `V-BLOCK`.
+
+### Insert mode
+
+`i` starts insert mode with a caret before the node, and the title says where the caret is, for example `INSERT before ▣ layer`. Each insert key adds one node at the caret, and the caret moves past it. A count before a device key adds that many devices. A count before a split key gives its branches, as in `3B`. `Escape` ends insert mode and says what was inserted, and one `u` takes back all of one insert.
+
+| Keys | Effect |
+| --- | --- |
+| `c` `e` `s` `g` `l` `d` `r` `u` `m` | Insert a compressor, an EQ, a saturation, a gate, a limiter, a delay, a reverb, a utility and a meter. |
+| `R` `L` `B` `M` `S` | Insert a rack, a layer split, a band split, a mid/side split and a left/right split. The caret goes into its first branch. |
+| `Tab` | Chooses a device at the caret from the picker. |
+| `\|` | Adds a branch to the split around the caret, and moves the caret into it. |
+| `Ctrl-r` | Inserts the nodes of a register at the caret. |
+| `Backspace` `Ctrl-u` | Take back the node inserted last, and all that the insert added. |
+| Arrows | Move the caret along the branch and across the branches. |
+| `Enter` | Goes to the inspector of the node inserted last. |
+| `K` | Says what each insert key adds. |
+
+`a` adds one device after the node from the picker. `o` and `O` add a branch below or above the node and start insert mode in it. Out of a split, they first put the node in a layer.
+
+`paw.opt.graph_insertkeys` gives the insert keys that work, in their order. `paw.insert.add(key, {view = "devices", device = "chorus"})` adds a key, and `split = "band"` in place of `device` adds a split. See [Insert mode](insert-mode.md).
+
+### What you hear
+
+| Keys | Effect |
+| --- | --- |
+| `\s` | Solos the branch under the cursor alone. Again: no solo. |
+| `\S` | The solo follows the cursor across the branches, and the title says `SOLO follows`. Again: the solo stays where it is. |
+| `\b` | Bypasses the whole chain and keeps the state of each device. Again: each device plays as it was. |
+| `:ab.store`, `\a` | `:ab.store` keeps the chain as a second variant, and `\a` flips between the two variants. The title says `B` while the second plays. |
+| `s` `M` | Solo and mute the part. |
+
+### Other keys and commands
+
+| Keys | Effect |
+| --- | --- |
 | `Enter` | Goes to the inspector. |
 | `K` | Describes the node. On a split: its kind, its branches with their gain, and what the engine plays. |
-| `a` `x` | Add a device, and remove the device under the cursor. |
-| `s` `M` | Solo and mute the part. |
 | `\p`, `:devices.pin` | Pins the view to the part that it shows, as in the inspector. |
+| `:wrap <kind> [branches]` | Wraps the node or the selection in a split. `:wrap band 120 2k` makes three bands with crossovers at 120 Hz and 2 kHz, and `:wrap layer 3` makes three branches. |
+| `:unwrap`, `:unwrap all` | Unwraps the split around the cursor and keeps the branch of the cursor. `all` puts all the branches in series. |
+| `:branch add [name]`, `:branch remove`, `:branch solo` | Add a branch to the split, remove the branch of the cursor, and solo it. |
+| `:xover <hz>...` | Sets the crossovers of the band split, as in `:xover 120 2k`. |
+| `:zone <range>` | Sets the notes or the velocities that the branch hears, as in `:zone C1-B2` or `:zone 64-127`. |
+| `:macro <name>` | Adds a macro to the split or the rack. |
+| `:macro.link <param> [depth]` | Links the first macro of the container to a parameter of the device, with a depth in percent. |
 
 A click on a card puts the cursor on it.
 

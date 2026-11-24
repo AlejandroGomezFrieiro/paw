@@ -4910,9 +4910,11 @@ function paw.insert.list() end
 function paw.insert.open() end
 
 --- Take a key away, and out of `paw.opt.insertkeys`. The kind that it
---- replaced, if any, comes back.
+--- replaced, if any, comes back. With `view`, a key of that view's insert
+--- mode.
 ---@param key any
-function paw.insert.remove(key) end
+---@param view any
+function paw.insert.remove(key, view) end
 
 --- Change what a key inserts, a built-in key too: only the fields of
 --- `patch` that are given. With `key`, the kind moves to that key (in the
@@ -4925,6 +4927,11 @@ function paw.insert.set(key, patch) end
 
 --- Start insert mode in the arrange view.
 function paw.insert.start() end
+
+--- The insert keys of the view `name` (`paw.insert.add` with `view`), by
+--- key. The view maps them: only the arrange view's keys are mapped here.
+---@param name any
+function paw.insert.view_kinds(name) end
 
 --- Run `fn` after paw gets and does the next whole command. Insert mode uses
 --- it for Ctrl-o, to return to insert mode after one command.

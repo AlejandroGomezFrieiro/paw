@@ -61,9 +61,26 @@ local record Tree
   bypass: boolean
 end
 
+--- Where insert mode adds the next node: in the branch `branch` (nil for
+--- the top level of the chain), after `at` of its nodes (0 for its start).
+local record Caret
+  branch: integer
+  at: integer
+end
+
 local record Devices is contracts.View
   --- The id of the node under the cursor, or nil for the first node.
   cursor: integer
+  --- The caret of insert mode, or nil outside it. The keys of the graph
+  --- (paw/views/devices_keys.tl) set it.
+  wire_caret: Caret
+  --- The container that the window shows alone (`zn`), or nil for the
+  --- whole chain.
+  scope: integer
+  --- The words of the chips that the keys add to the header of the part
+  --- `part`: `B` when its second variant plays, `SOLO follows` when the
+  --- solo follows the cursor. The keys of the graph set it.
+  chips_of: function(part: integer): {string}
   --- The folds that a key chose, by the id of a container: true open,
   --- false folded. A container with no entry is open only on the path to
   --- the cursor.
@@ -84,19 +101,24 @@ local record Devices is contracts.View
   part_named: function(target: string | integer): integer
   path: function(self: Devices): {Place}
   series: function(self: Devices, place: Place): {integer}
+  siblings: function(self: Devices, place: Place): {integer}
+  targets: function(self: Devices, reg: contracts.Region): {integer}
+  items_of: function(self: Devices, branch: integer): {Node}
+  places: function(self: Devices): {integer: Place}
 end
 
 local view: Devices = {
   cursor = nil,
   open = {},
   scroll = 0,
-  window_state = {"cursor", "open", "scroll", "pin", "row_part"},
+  chips_of = function(_: integer): {string} return {} end,
+  window_state = {"cursor", "open", "scroll", "pin", "row_part", "scope"},
   window_fresh = {},
 }
 paw.seats.fields(
   "devices",
   view as {string: util.Data},
-  {"cursor", "open", "scroll", "pin", "row_part"},
+  {"cursor", "open", "scroll", "pin", "row_part", "scope"},
   {open = {}, scroll = 0} as {string: util.Data}
 )
 
@@ -402,7 +424,7 @@ local function current_tree(self: Devices): Tree
     return {items = {}, places = {}, devices = 0, containers = 0, links = {}}
   end
   if self.row_part ~= part.id then
-    self.row_part, self.cursor, self.scroll, self.open = part.id, nil, 0, {}
+    self.row_part, self.cursor, self.scroll, self.open, self.scope = part.id, nil, 0, {}, nil
   end
   local key = tostring(part.id)
   local stamp = changes .. ":" .. tostring(api.project_get().edits)
@@ -431,9 +453,24 @@ function view:path(): {Place}
   return out
 end
 
---- The ids of the splits and branches around the cursor: these are open.
+--- The nodes at the top of the window: the container of the scope
+--- (`zn`), else the top level of the chain.
+local function shown(self: Devices, tree: Tree): {Node}
+  local place = self.scope and tree.places[self.scope]
+  if place then
+    return {place.node}
+  end
+  self.scope = nil
+  return tree.items
+end
+
+--- The ids of the splits and branches around the cursor, and the
+--- container of the scope: these are open.
 local function on_path(self: Devices): {integer: boolean}
   local out: {integer: boolean} = {}
+  if self.scope then
+    out[self.scope] = true
+  end
   for _, place in ipairs(self:path()) do
     if place.node.id ~= self.cursor then
       out[place.node.id] = true
@@ -471,7 +508,7 @@ function view:stops(): {integer}
       end
     end
   end
-  walk(tree.items)
+  walk(shown(self, tree))
   return out
 end
 
@@ -496,6 +533,119 @@ function view:series(place: Place): {integer}
   return out
 end
 
+--- The places of the nodes of the chain, by id: each device, split, rack
+--- and branch.
+function view:places(): {integer: Place}
+  return current_tree(self).places
+end
+
+--- The nodes of the branch `branch` in their order, or of the top level
+--- of the chain when `branch` is nil.
+function view:items_of(branch: integer): {Node}
+  local tree = current_tree(self)
+  local place = branch and tree.places[branch]
+  if not place then
+    return tree.items
+  end
+  for _, b in ipairs(tree.places[place.split].node.branches) do
+    if b.id == branch then
+      return b.items
+    end
+  end
+  return {}
+end
+
+--- The ids of the nodes in series in the branch of the node at `place`
+--- (devices and containers), in the order of the signal.
+function view:siblings(place: Place): {integer}
+  local out: {integer} = {}
+  for _, node in ipairs(self:items_of(place.branch)) do
+    out[#out + 1] = node.id
+  end
+  return out
+end
+
+--- The id of the container or branch that holds `id` at once, or nil at
+--- the top level. A branch is held by its split.
+local function holder(tree: Tree, id: integer): integer
+  local place = tree.places[id]
+  if not place then
+    return nil
+  end
+  if place.branch and place.branch ~= id then
+    return place.branch
+  end
+  return place.split
+end
+
+--- The nodes that a region of the keymap names, in the order of the
+--- signal, with no node inside another: a device, a container or a branch.
+--- The rows of a region are places in `stops`. A region of whole rows
+--- (`V`) names the branch of each row, a block (`Ctrl-v`) the nodes whose
+--- place in their branch is in its columns, and `nodes` names them outright.
+function view:targets(reg: contracts.Region): {integer}
+  local tree = current_tree(self)
+  local stops = self:stops()
+  local chosen: {integer: boolean} = {}
+  local order: {integer} = {}
+  local function take(id: integer)
+    if id and not chosen[id] then
+      chosen[id] = true
+      order[#order + 1] = id
+    end
+  end
+  local r0 = math.tointeger(math.max(1, reg.r0))
+  local r1 = math.tointeger(math.min(#stops, reg.r1))
+  if reg.nodes then
+    -- The nodes in the order of the signal, then those in folded
+    -- containers, which have no stop.
+    for _, id in ipairs(stops) do
+      if reg.nodes[id] then
+        take(id)
+      end
+    end
+    local rest: {integer} = {}
+    for id in pairs(reg.nodes) do
+      rest[#rest + 1] = id
+    end
+    table.sort(rest)
+    for _, id in ipairs(rest) do
+      take(id)
+    end
+  elseif reg.kind == "block" then
+    local first, last = reg.c0, reg.unstretched and reg.c0 or reg.c1
+    for r = r0, r1 do
+      local place = tree.places[stops[r]]
+      if place and place.index and place.index >= first and place.index <= last then
+        take(stops[r])
+      end
+    end
+  elseif reg.kind == "line" and reg.visual then
+    for r = r0, r1 do
+      local place = tree.places[stops[r]]
+      take(place and place.branch or stops[r])
+    end
+  else
+    for r = r0, r1 do
+      take(stops[r])
+    end
+  end
+  -- A node inside another chosen one goes with it.
+  local out: {integer} = {}
+  for _, id in ipairs(order) do
+    local up = holder(tree, id)
+    local inside = false
+    while up do
+      inside = inside or chosen[up]
+      up = holder(tree, up)
+    end
+    if not inside then
+      out[#out + 1] = id
+    end
+  end
+  return out
+end
+
 --- The place of the node under the cursor: the first node when the
 --- cursor is on none.
 function view:node(): Place
@@ -504,7 +654,7 @@ function view:node(): Place
   if place then
     return place
   end
-  local first = tree.items[1]
+  local first = shown(self, tree)[1]
   if first then
     self.cursor = first.id
     return tree.places[first.id]
@@ -541,6 +691,9 @@ local function chips(self: Devices, tree: Tree): {string}
   end
   if tree.bypass then
     out[#out + 1] = "BYPASS"
+  end
+  for _, word in ipairs(self.chips_of(self:part_id())) do
+    out[#out + 1] = word
   end
   if pinned(self) then
     out[#out + 1] = "pinned"
@@ -586,13 +739,14 @@ local function header(part: types.Part, tree: Tree): string
 end
 
 --- The roles of the runs of a layout, in `buf` from row `top`, with the
---- cursor's node lit.
-local function paint(buf: contracts.Buf, laid: Laid, top: integer, cursor: integer)
+--- cursor's node lit and the nodes of a selection (`chosen`) marked.
+local function paint(buf: contracts.Buf, laid: Laid, top: integer, cursor: integer, chosen: {integer: boolean})
   for _, run in ipairs(laid.runs) do
     local y = run.y - top
     local h = run.sub and 2 or 1
     if y + h > 0 and y < buf.height then
       local selected = run.id == cursor and run.role ~= "wire"
+      local marked = run.role ~= "wire" and run.id and chosen[run.id] and not selected
       buf:mark(
         run.role,
         run.x,
@@ -605,6 +759,7 @@ local function paint(buf: contracts.Buf, laid: Laid, top: integer, cursor: integ
           style = run.style,
           sub_style = run.sub_style,
           selected = selected or nil,
+          chosen = marked or nil,
           id = run.id,
           hit = run.id and run.role ~= "wire" and {kind = "node", id = run.id} or nil,
         } as contracts.MarkProps
@@ -613,14 +768,112 @@ local function paint(buf: contracts.Buf, laid: Laid, top: integer, cursor: integ
   end
 end
 
+--- The name of a node of the tree in a title, a card's mark first.
+local function node_name(tree: Tree, id: integer): string
+  local place = id and tree.places[id]
+  if not place then
+    return "the chain"
+  end
+  return (place.node.kind == "device" and "" or "▣ ") .. place.node.name
+end
+
+--- Where the caret of insert mode is, in words: `before ▣ Level`.
+local function caret_words(self: Devices, tree: Tree): string
+  local caret = self.wire_caret
+  local items = self:items_of(caret.branch)
+  if items[caret.at + 1] then
+    return "before " .. node_name(tree, items[caret.at + 1].id)
+  elseif items[caret.at] then
+    return "after " .. node_name(tree, items[caret.at].id)
+  elseif caret.branch then
+    return "in " .. node_name(tree, caret.branch)
+  end
+  return "at the end"
+end
+
+--- What a selection takes, in words: `3 nodes`, `2 branches`, `3 x 1 block`.
+local function selection_words(self: Devices, reg: contracts.Region, ids: {integer}): string
+  if reg.kind == "block" then
+    local columns = math.tointeger((reg.unstretched and reg.c0 or reg.c1) - reg.c0 + 1)
+    local rows: {integer: boolean} = {}
+    local n = 0
+    for _, id in ipairs(ids) do
+      local branch = self:places()[id].branch
+      if branch and not rows[branch] then
+        rows[branch], n = true, n + 1
+      end
+    end
+    return string.format("%d x %d block", n, columns)
+  end
+  local word = reg.kind == "line" and "branch" or "node"
+  local plural = word == "branch" and "branches" or "nodes"
+  return #ids .. " " .. (#ids == 1 and word or plural)
+end
+
+--- The name and the context of the title in each mode of the keys: the
+--- mode shows in the title too, as section "Modes" of the design asks.
+local function title(self: Devices, part: types.Part, tree: Tree, focused: boolean): string, string
+  local context = part and (part.name .. (pinned(self) and " · pinned" or "")) or nil
+  if not (focused and part) then
+    return "Devices", context
+  end
+  local mode = paw.keymap.mode
+  if mode == "i" and self.wire_caret then
+    return "INSERT", caret_words(self, tree) .. " · " .. part.name
+  elseif mode == "x" then
+    local reg = paw.keymap.selection()
+    if reg then
+      return "Devices", context .. " · " .. selection_words(self, reg, self:targets(reg))
+    end
+  elseif mode == "o" then
+    return "Devices", context .. " · " .. paw.keymap.pending() .. "…"
+  end
+  return "Devices", context
+end
+
+--- The nodes of the open selection, if the keyboard is in this view.
+local function chosen_ids(self: Devices, focused: boolean): {integer: boolean}
+  local out: {integer: boolean} = {}
+  local reg = focused and paw.keymap.mode == "x" and paw.keymap.selection()
+  if reg then
+    for _, id in ipairs(self:targets(reg)) do
+      out[id] = true
+    end
+  end
+  return out
+end
+
+--- The caret of insert mode, `┃` on the wire before the node after it, or
+--- after the node before it, or at the end of the lane of an empty branch.
+local function paint_caret(self: Devices, buf: contracts.Buf, laid: Laid, top: integer)
+  local items = self:items_of(self.wire_caret.branch)
+  local after, before = items[self.wire_caret.at + 1], items[self.wire_caret.at]
+  for _, run in ipairs(laid.runs) do
+    local x: integer
+    if after and run.id == after.id and run.role == "node" then
+      x = run.x - 3
+    elseif not after and before and run.id == before.id and run.role == "node" then
+      x = run.x + run.w + 1
+    elseif not after and not before and run.id == self.wire_caret.branch and run.role == "lane" then
+      x = run.x + run.w + 1
+    end
+    local y = run.y - top
+    if x and x >= 0 and x < buf.width and y >= 0 and y < buf.height then
+      buf:mark("wire", x, y, 1, 1, {text = "┃", style = "InsertCursor"} as contracts.MarkProps)
+      return
+    end
+  end
+end
+
 function view:render(buf: contracts.Buf, ctx: contracts.RenderContext)
   local part = self:part()
   local tree = current_tree(self)
+  local name, context = title(self, part, tree, ctx.focused)
   local inner = paw.ui.titlebar(
     buf,
     {
-      name = "Devices",
-      context = part and (part.name .. (pinned(self) and " · pinned" or "")) or nil,
+      name = name,
+      context = context,
       focused = ctx.focused,
       right = part and tree.devices > 0 and header(part, tree) or nil,
     }
@@ -650,9 +903,9 @@ function view:render(buf: contracts.Buf, ctx: contracts.RenderContext)
   if right ~= "" then
     inner:mark(
       "chip",
-      w - 1 - api.str_width(right),
+      w - 3 - api.str_width(right),
       0,
-      api.str_width(right),
+      api.str_width(right) + 2,
       1,
       {text = right, style = "Warn"} as contracts.MarkProps
     )
@@ -660,7 +913,8 @@ function view:render(buf: contracts.Buf, ctx: contracts.RenderContext)
   local opts: layout.Options = {
     width = w, path = on_path(self), cursor = self.cursor, open = opener(self, on_path(self))
   }
-  local laid = w >= layout.FLOW and layout.flow(tree.items, opts) or layout.outline(tree.items, opts)
+  local items = shown(self, tree)
+  local laid = w >= layout.FLOW and layout.flow(items, opts) or layout.outline(items, opts)
   local area = h - 1
   local row = laid.rows[self.cursor] or 0
   if row < self.scroll then
@@ -669,7 +923,12 @@ function view:render(buf: contracts.Buf, ctx: contracts.RenderContext)
     self.scroll = row + 2 - area
   end
   self.scroll = math.tointeger(util.clamp(self.scroll, 0, math.max(0, laid.height - area)))
-  paint(inner:sub(0, 1, w, area), laid, self.scroll, self.cursor)
+  local inserting = ctx.focused and paw.keymap.mode == "i" and self.wire_caret
+  local graph = inner:sub(0, 1, w, area)
+  paint(graph, laid, self.scroll, (not inserting) and self.cursor or nil, chosen_ids(self, ctx.focused))
+  if inserting then
+    paint_caret(self, graph, laid, self.scroll)
+  end
   self.geometry = {top = 1, height = laid.height, width = w}
 end
 
@@ -733,185 +992,46 @@ view.gestures = {
   end,
 }
 
+-- The grid of the keymap ------------------------------------------------------------
+
+--- The cursor as the keymap moves it, so that the operators, visual mode,
+--- counts and marks of `paw.keymap` work on the graph: the row is the place
+--- of the node in the order of the signal (`stops`), the column its place
+--- in its branch (0 on the head of a branch).
+view.grid = {
+  get = function(): number, number
+    local place = view:node()
+    if not place then
+      return 1, 0
+    end
+    for i, id in ipairs(view:stops()) do
+      if id == view.cursor then
+        return i, place.index or 0
+      end
+    end
+    return 1, 0
+  end,
+  set = function(row: number, _: number)
+    local stops = view:stops()
+    local id = stops[math.tointeger(util.clamp(math.floor(row), 1, math.max(1, #stops)))]
+    if id then
+      view:go(id)
+    end
+  end,
+  step = function(): number return 1 end,
+}
+
 paw.ui.view("devices", view)
 
--- Keys -------------------------------------------------------------------------------
-
-local function map(lhs: string, fn: function(ctx: contracts.KeyContext), desc: string, motion?: boolean)
-  paw.keymap.set(lhs, fn, {view = "devices", desc = desc, motion = motion})
+--- The module: the view, and the types of its tree for the keys of the
+--- graph (paw/views/devices_keys.tl).
+local record M
+  type Place = Place
+  type Tree = Tree
+  type Caret = Caret
+  type Devices = Devices
+  view: Devices
 end
+M.view = view
 
---- Move the cursor `n` stops along the signal (back when `n` is negative).
-local function step(n: integer): function(ctx: contracts.KeyContext)
-  return function(ctx: contracts.KeyContext)
-    local stops = view:stops()
-    view:node()
-    local at = 1
-    for i, id in ipairs(stops) do
-      if id == view.cursor then
-        at = i
-      end
-    end
-    local to = math.tointeger(util.clamp(at + n * (ctx.count or 1), 1, #stops))
-    if stops[to] then
-      view:go(stops[to])
-    end
-  end
-end
-
---- Move the cursor to the branch below (or above) in the split around it,
---- at the same place in that branch. In a narrow window, the next row.
-local function across(n: integer): function(ctx: contracts.KeyContext)
-  local along = step(n)
-  return function(ctx: contracts.KeyContext)
-    local tree = current_tree(view)
-    local place = view:node()
-    if not place or (view.geometry and view.geometry.width or layout.FLOW) < layout.FLOW then
-      return along(ctx)
-    end
-    -- Up from the cursor to the innermost split with more than one
-    -- branch, with the place of the cursor's line in its branch (0 for
-    -- the branch's head).
-    local index = place.node.id == place.branch and 0 or (place.index or 0)
-    local p = place
-    while p and p.branch do
-      local split = tree.places[p.split]
-      if split and split.node.kind == "split" and #split.node.branches > 1 then
-        local branches = split.node.branches
-        local at = 1
-        for i, b in ipairs(branches) do
-          if b.id == p.branch then
-            at = i
-          end
-        end
-        local to = branches[math.tointeger(util.clamp(at + n * (ctx.count or 1), 1, #branches))]
-        local item = index > 0 and to.items[math.min(index, #to.items)] or nil
-        return view:go(item and item.id or to.id)
-      end
-      index = split and split.index or 0
-      p = split
-    end
-    along(ctx)
-  end
-end
-
-map("l", step(1), "The next node along the signal", true)
-map("h", step(-1), "The node before along the signal", true)
-map("w", step(1), "The next node", true)
-map("b", step(-1), "The node before", true)
-map("<Right>", step(1), "The next node along the signal", true)
-map("<Left>", step(-1), "The node before along the signal", true)
-map("j", across(1), "The branch below, or the next row in a narrow window", true)
-map("k", across(-1), "The branch above, or the row before in a narrow window", true)
-map("<Down>", across(1), "The branch below", true)
-map("<Up>", across(-1), "The branch above", true)
-map(
-  "gg",
-  function()
-    local stops = view:stops()
-    if stops[1] then
-      view:go(stops[1])
-    end
-  end,
-  "The first node",
-  true
-)
-map(
-  "G",
-  function()
-    local stops = view:stops()
-    if #stops > 0 then
-      view:go(stops[#stops])
-    end
-  end,
-  "The last node",
-  true
-)
-
---- The container that a fold key acts on: the node under the cursor when
---- it is one, else the container around it.
-local function container(): Place
-  local tree = current_tree(view)
-  local place = view:node()
-  if place and place.chain_split then
-    return place
-  end
-  local up = place and (place.split and tree.places[place.split])
-  return up
-end
-
-local function fold(want: string): function()
-  return function()
-    local place = container()
-    if not place then
-      return paw.notify("no split or rack here")
-    end
-    local id = place.node.id
-    local now = opener(view, on_path(view))(id)
-    local open = want == "toggle" and not now or want == "open"
-    view.open[id] = open
-    -- A fold over the cursor moves the cursor to the container.
-    if not open then
-      view.cursor = id
-    end
-    paw.notify((open and "opened " or "folded ") .. place.node.name)
-    api.ui_redraw()
-  end
-end
-
-map("za", fold("toggle"), "Fold or open the split or rack")
-map("zo", fold("open"), "Open the split or rack")
-map("zc", fold("close"), "Fold the split or rack")
-map(
-  "zR",
-  function()
-    for id, place in pairs(current_tree(view).places) do
-      if place.chain_split then
-        view.open[id] = true
-      end
-    end
-    paw.notify("opened every split and rack")
-    api.ui_redraw()
-  end,
-  "Open every split and rack"
-)
-map(
-  "zM",
-  function()
-    view.open = {}
-    local stops = current_tree(view).items
-    for _, place in pairs(current_tree(view).places) do
-      if place.chain_split then
-        view.open[place.node.id] = false
-      end
-    end
-    -- The cursor goes to the top-level node that holds it.
-    local path = view:path()
-    if path[1] then
-      view.cursor = path[1].node.id
-    elseif stops[1] then
-      view.cursor = stops[1].id
-    end
-    paw.notify("folded every split and rack")
-    api.ui_redraw()
-  end,
-  "Fold every split and rack"
-)
-
---- Go to the inspector of the node under the cursor.
-local function inspect()
-  if not view:node() then
-    return paw.notify("no devices: `a` adds one")
-  end
-  paw.ui.focus("inspector")
-end
-map("<CR>", inspect, "Go to the inspector of the node")
--- The keys of a device that the inspector has too: on a device of the graph
--- they act on it.
-map("a", function() paw.cmd("device.add") end, "Add a device")
-map("x", function() paw.cmd("device.remove") end, "Remove the device")
-map("<localleader>p", function() paw.cmd("devices.pin") end, "Pin the view to its part, or follow the cursor again")
-map("s", function() paw.cmd("part.solo") end, "Solo the part")
-map("M", function() paw.cmd("part.mute") end, "Mute the part")
-
-return view
+return M

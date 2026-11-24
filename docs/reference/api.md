@@ -1140,7 +1140,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.insert.insert(key, count)`: Insert what `key` inserts at the cursor, as if typed in insert mode (`count` times).
 - `paw.insert.list()`: The keys that work, in the order of `paw.opt.insertkeys`, each with what it inserts.
 - `paw.insert.open()`: `<CR>`: open what was inserted last, and end insert mode; with nothing inserted, enter notes at the cursor, in a new clip if there is none.
-- `paw.insert.remove(key)`: Take a key away, and out of `paw.opt.insertkeys`. The kind that it replaced, if any, comes back.
+- `paw.insert.remove(key, view)`: Take a key away, and out of `paw.opt.insertkeys`. The kind that it replaced, if any, comes back. With `view`, a key of that view's insert mode.
 - `paw.insert.set(key, patch)`: Change what a key inserts, a built-in key too: only the fields of `patch` that are given. With `key`, the kind moves to that key (in the same place of `paw.opt.insertkeys`). The key gets a changed copy.
 
   ```lua
@@ -1148,6 +1148,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   paw.insert.set("m", { length = "1 bar", key = "n" })
   ```
 - `paw.insert.start()`: Start insert mode in the arrange view.
+- `paw.insert.view_kinds(name)`: The insert keys of the view `name` (`paw.insert.add` with `view`), by key. The view maps them: only the arrange view's keys are mapped here.
 
 ## Module paw.keymap
 
