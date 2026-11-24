@@ -8,6 +8,7 @@ mod common;
 mod bend;
 mod bus_clips;
 mod clips;
+mod graph;
 mod launch;
 mod midi_out;
 mod midi_ports;

@@ -120,6 +120,10 @@ pub struct Mapper {
     pub(super) expanded: super::nests::ExpandedTracks,
     /// The time each nest track's devices were last told (see `nests.rs`).
     pub(super) local: HashMap<Id, super::nests::Local>,
+    /// The tree of each track's chain as last compiled and sent.
+    pub(super) trees: HashMap<Id, paw_engine::plan::Tree>,
+    /// The meters of the splits and branches of each track's plan.
+    pub(super) meters: HashMap<Id, Arc<paw_engine::plan::PlanMeters>>,
 }
 
 /// The track that plays MIDI input as if it were monitored, without the
@@ -179,7 +183,20 @@ impl Mapper {
             state_main: HashMap::new(),
             expanded: HashMap::new(),
             local: HashMap::new(),
+            trees: HashMap::new(),
+            meters: HashMap::new(),
         }
+    }
+
+    /// The peak `(left, right)` of the split or branch `node` of the chain
+    /// of `track`, as the engine measured it last.
+    pub fn chain_peak(&self, track: Id, node: u64) -> Option<(f32, f32)> {
+        self.meters.get(&track)?.peak(node)
+    }
+
+    /// The latency of the chain of `track`, in frames, as last compiled.
+    pub(super) fn chain_latency(&self, track: Id) -> Option<u32> {
+        self.trees.get(&track).map(paw_engine::plan::Tree::latency)
     }
 
     /// The engine's row of a clip off the timeline, if the engine has it.

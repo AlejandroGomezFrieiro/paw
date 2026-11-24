@@ -1,5 +1,6 @@
 //! Replacing one track's clips while playing must not disturb the others.
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
     TrackRt, TrackSlot,
@@ -37,10 +38,7 @@ fn engine(second: bool) -> (Engine, EngineHandle) {
         );
         send(
             &mut handle,
-            Msg::SetChain {
-                track: slot,
-                chain: Box::new([device]),
-            },
+            Msg::SetGraph { slot: slot.into(), plan: GraphPlan::serial(&[device]) },
         );
         let mut clips = ClipSet::default();
         if n == 1 || second {
@@ -169,10 +167,7 @@ fn a_note_at_the_start_is_started_once() {
             slot: DeviceSlot(0),
             device: Box::new(Counter(count.clone())),
         },
-        Msg::SetChain {
-            track: TrackSlot(1),
-            chain: Box::new([DeviceSlot(0)]),
-        },
+        Msg::SetGraph { slot: TrackSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
         Msg::SetClips {
             track: TrackSlot(1),
             clips: Box::new(clips),
@@ -435,7 +430,7 @@ fn recording_engine(clips: ClipSet) -> (Engine, EngineHandle, Seen) {
         Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
         Msg::InsertDevice { slot: DeviceSlot(0), device: Box::new(Recorder(seen.clone())) },
         Msg::InsertDevice { slot: DeviceSlot(1), device: synth },
-        Msg::SetChain { track: TrackSlot(1), chain: Box::new([DeviceSlot(0), DeviceSlot(1)]) },
+        Msg::SetGraph { slot: TrackSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0), DeviceSlot(1)]) },
         Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![

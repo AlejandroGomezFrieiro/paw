@@ -197,6 +197,7 @@ impl Syncer {
             waker: Default::default(),
             bell: Default::default(),
             now: paw_core::clock::ScheduleTime::ZERO,
+            kinds: &paw_core::model::chain::SplitKinds::builtin(),
         };
         sync(old, new, &mut self.map, &mut ctx, &mut |m| sent.push(m), &mut Vec::new());
     }

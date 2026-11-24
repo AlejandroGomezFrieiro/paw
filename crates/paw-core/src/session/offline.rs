@@ -88,6 +88,7 @@ impl Session {
                 waker,
                 bell: paw_engine::Bell::none(),
                 now: self.now,
+                kinds: &self.doc.split_kinds,
             };
             sync(
                 &Project::default(),

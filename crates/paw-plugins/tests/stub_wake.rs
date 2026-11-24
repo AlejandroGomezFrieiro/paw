@@ -7,6 +7,7 @@
 //! A file of its own: the stub keeps the values it tells in statics, which
 //! the tests in stub.rs and stub_state.rs read and hold.
 
+use paw_engine::GraphPlan;
 use paw_engine::{
     Controller, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
     TrackRt, TrackSlot,
@@ -75,10 +76,7 @@ impl Rig {
                 slot: DEVICE,
                 device: instance.device,
             },
-            Msg::SetChain {
-                track,
-                chain: Box::new([DEVICE]),
-            },
+            Msg::SetGraph { slot: track.into(), plan: GraphPlan::serial(&[DEVICE]) },
             Msg::SetSchedule(Box::new(Schedule::new(
                 vec![
                     SchedEntry::new(track, TrackSlot::MASTER),

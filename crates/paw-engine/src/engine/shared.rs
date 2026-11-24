@@ -57,6 +57,12 @@ pub struct Shared {
     /// Blocks each device slot has run (not slept through) since the engine
     /// was made. Only the thread that runs the slot's track writes it.
     pub(super) device_ran: Vec<AtomicU64>,
+    /// The peak of each device slot's output, falling as a track's meter
+    /// does. Only the thread that runs the slot's track writes it.
+    pub(super) device_peaks: Vec<AtomicF32>,
+    /// Nanoseconds each device slot has run since the engine was made.
+    /// Only the thread that runs the slot's track writes it.
+    pub(super) device_ns: Vec<AtomicU64>,
 }
 
 impl Shared {
@@ -90,6 +96,8 @@ impl Shared {
             shared_groups: AtomicU64::new(0),
             processed: AtomicU64::new(0),
             device_ran: (0..MAX_DEVICES).map(|_| AtomicU64::new(0)).collect(),
+            device_peaks: (0..MAX_DEVICES).map(|_| AtomicF32::new(0.0)).collect(),
+            device_ns: (0..MAX_DEVICES).map(|_| AtomicU64::new(0)).collect(),
         }
     }
 
@@ -126,6 +134,19 @@ impl Shared {
         self.device_ran
             .get(slot.index())
             .map_or(0, |c| c.load(Relaxed))
+    }
+
+    /// The peak of the output of the device in `slot`, linear, the larger
+    /// of its two channels: falling as a track's meter falls.
+    pub fn device_peak(&self, slot: DeviceSlot) -> f32 {
+        self.device_peaks.get(slot.index()).map_or(0.0, |p| p.load(Relaxed))
+    }
+
+    /// Nanoseconds the device in `slot` has run since the engine was made:
+    /// the share of a stretch of time it took is the difference of two
+    /// readings over the length of the stretch.
+    pub fn device_time(&self, slot: DeviceSlot) -> u64 {
+        self.device_ns.get(slot.index()).map_or(0, |t| t.load(Relaxed))
     }
 
     /// Things the audio thread could not hand back to be freed and leaked

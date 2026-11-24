@@ -24,11 +24,7 @@ test("a wrap in a layer split says what it did, and u takes the chain away", fun
   local t, d, h = track()
   eq(paw.chain.get(h), nil, "a new track plays its devices in series, with no chain")
   local done = paw.chain.wrap(h, { d[2], d[3] }, "layer")
-  eq(
-    done.message,
-    "wrapped 2 nodes in a layer split; it plays its branches in series until the engine runs chains",
-    "the message"
-  )
+  eq(done.message, "wrapped 2 nodes in a layer split", "the message")
   eq(paw.ui.message.text, done.message, "on the message line")
   local split = paw.chain.find(paw.chain.get(h), done.id).split
   eq(#split.branches, 2, "a layer split starts with two branches")

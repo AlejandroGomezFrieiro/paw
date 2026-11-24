@@ -8,7 +8,6 @@ use paw_engine::{Delay, KeyRt, MAX_DELAY, OutRt, SchedEntry, Schedule, SendRt, T
 use super::LiveDevices;
 use super::automation::{is_vca, vcas_of};
 use super::mapper::Mapper;
-use crate::freeze::Played;
 use crate::model::{DeviceInst, Id, MASTER_ID, Project, Track};
 
 /// Where a track's signal goes, and how late it is when it leaves.
@@ -21,7 +20,7 @@ pub(super) struct Route {
     pub keys: Vec<Key>,
     /// Further output pairs of this track's devices: see [`Out`].
     pub outs: Vec<Out>,
-    /// Frames of latency of the track's own devices.
+    /// Frames of latency of the track's own chain.
     latency: u32,
 }
 
@@ -127,9 +126,10 @@ pub(super) fn solo_paths(project: &Project, soloed: &HashSet<Id>) -> HashSet<Id>
 pub(super) fn routing_of(
     project: &Project,
     live: &LiveDevices,
-    played: &HashMap<Id, Played>,
+    map: &Mapper,
     placed: &super::nests::Placed,
 ) -> Routing {
+    let played = &map.played;
     let ids: HashSet<Id> = project.all_tracks().map(|t| t.id).collect();
     let exists = |id: Id| ids.contains(&id);
     // A device that is bypassed is not run, so it holds nothing back.
@@ -140,12 +140,14 @@ pub(super) fn routing_of(
         live.get(&d.id)
             .map_or(0, |l| l.latency.min(MAX_DELAY as u32))
     };
-    // Nor are the devices of a frozen or held track.
+    // Nor are the devices of a frozen or held track. The branches of a
+    // split play side by side: the chain is as late as its slowest path.
     let latency = |t: &Track| -> u32 {
         if played.contains_key(&t.id) {
             return 0;
         }
-        t.devices.iter().map(|d| device_latency(d)).sum()
+        map.chain_latency(t.id)
+            .unwrap_or_else(|| t.devices.iter().map(|d| device_latency(d)).sum())
     };
     // Side-chains, by the track they are taken from. The master feeds
     // nothing, so it keys nothing.

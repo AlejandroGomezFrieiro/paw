@@ -12,7 +12,8 @@ use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::Take;
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::plan::GraphPlan;
+use crate::slot::{DeviceSlot, ProcessorSlot, TrackSlot};
 
 use super::device_rt::{KeyBuf, OutBufs};
 use super::schedule::Schedule;
@@ -54,9 +55,13 @@ pub enum Msg {
     RemoveDevice {
         slot: DeviceSlot,
     },
-    SetChain {
-        track: TrackSlot,
-        chain: Box<[DeviceSlot]>,
+    /// The plan of the chain a processor runs (see [`crate::plan`]). A
+    /// plan of another shape fades the old one out and itself in while the
+    /// song plays; a plan of the same shape (other values) goes on from
+    /// the state of the old one.
+    SetGraph {
+        slot: ProcessorSlot,
+        plan: Box<GraphPlan>,
     },
     /// The track's own time, which its devices see (a subproject's bars),
     /// or `None` for the song's.
@@ -219,7 +224,7 @@ pub(super) enum Garbage {
     Track(#[allow(dead_code)] Box<TrackRt>),
     Device(#[allow(dead_code)] Box<dyn Device>),
     Schedule(#[allow(dead_code)] Box<Schedule>),
-    Chain(#[allow(dead_code)] Box<[DeviceSlot]>),
+    Plan(#[allow(dead_code)] Box<GraphPlan>),
     Clips(#[allow(dead_code)] Box<ClipSet>),
     PartEdit(#[allow(dead_code)] Box<crate::clip::PartEdit>),
     Automation(#[allow(dead_code)] Box<Automation>),

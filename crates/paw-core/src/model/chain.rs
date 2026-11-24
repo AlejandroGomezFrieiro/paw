@@ -13,9 +13,9 @@
 //!
 //! What stays true after each edit (`Project::fit_chains`): each device of
 //! the owner is in the chain one time, the chain names no other device, and
-//! the owner's list is in the chain's signal order (depth first). The engine
-//! plays the list in series until it runs a plan of the chain, so a chain
-//! plays its devices in its signal order.
+//! the owner's list is in the chain's signal order (depth first). The sync
+//! turns the chain into a tree of engine slots (`sync/chains.rs`), and the
+//! engine runs its compiled plan (`paw_engine::plan`).
 //!
 //! Each edit is a pure function in `chain/edit.rs`: it takes a chain and
 //! gives a new one, or a [`ChainError`].
