@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-24T17:41:00Z'
-updated_date: '2026-11-24T19:21:00Z'
+updated_date: '2026-11-24T19:26:00Z'
 labels:
   - design
   - ux
@@ -59,4 +59,6 @@ Layers in their order: grid, bar numbers, clips (edges), sections, markers (mete
 2026-11-24, owner: the design is accepted as ADR 0041 (architecture/decisions/0041-ruler-rows-and-marks.md), the hybrid of rows (as statuscolumn items, computed for the time in sight, ordered by the user's paw.opt.rulerrows) and marks (as extmarks, in a namespace per owner, row = name or over = name as ghost text, ranges as background). It replaces the layers-only answers 1 to 4 above where they differ. One compositor: a sign is always at axis.x_of(time); one sign per column per row by priority; labels are ghost text after the sign, joined by priority, names shortened with an ellipsis, numbers whole or dropped; K lists every mark of a column; the cursor and the playhead last, through all rows.
 
 STATE 2026-11-24 (session paused): branch worktree-agent-adcf8552100a28494, head d312068b (931ac9c0 + UX fixes; screens in its target/report-evidence.md read well). OPEN: opus review running; the builder updates ADR 0044 draft (copied to architecture/decisions/0044-ruler-soft-signs-and-edges.md, status proposed: the OWNER must accept it). 2 ara tests fail on the branch (plugin archive, analysis): check with PAW_ARA_BRIDGE from nix build .#paw-ara. NEXT: review verdict, fixes, merge check (words ruler tempo meter zoom section time_axis describe guide), ff main. The skill line .claude/skills/paw-extension/SKILL.md:181 still shows paw.ruler.add: only the owner can edit .claude/skills (new text: paw.ruler.row("euclid", { after = "bars", marks = function(ctx) return {} end }) and paw.marks.set(paw.marks.namespace("euclid"), 32, { sign = "◆", label = "fill" }); models-table row 'bar labels' -> 'rows and marks of the ruler').
+
+Opus review of d312068b (2026-11-24): merge after soft fixes, no hard finding. Sent to the builder: ruler.tl:19-23 header comment, ruler.tl:474-478 leftover doc comment, how-to says K 'on the ruler' (it is between clips), tests for marks.del/clear/get and route kept after unload, ruler.tl:193 precedence, and performance (kept marks copied per frame with no window filter, ruler.tl:324-340; places() over -1e12..1e12). Open points (old, not new): subproject screen has no regions row; zoom 2 in 6/8 ticks in adjacent cells. ara failures: not this branch; confirm on the main binary with PAW_ARA_BRIDGE. If the builder's commit is not on the branch at the next start, apply these fixes there.
 <!-- SECTION:NOTES:END -->
