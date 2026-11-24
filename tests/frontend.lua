@@ -155,8 +155,17 @@ test("menus act on what was clicked, and dragging selects or loops", function()
   eq(paw.frontend.state(-1).modal.selection, nil, "a click lets go of it")
 end)
 
+--- A drawn length becomes the piano roll's note length, which a new project
+--- keeps: the length it had comes back after the test, for the next test.
+local function keep_note_length()
+  local roll = paw.ui.views:get("pianoroll")
+  local length = roll.length
+  T.after(function() roll:set_step(length) end)
+end
+
 test("the pointer edits notes, velocities, the mixer, automation and devices", function()
   local a, _, clip = song()
+  keep_note_length()
   eq(act.add_note(clip.id, 67, 2.1, 0.5), 3, "a click in the roll adds a note on the grid")
   eq(clip:notes()[3].start, 2, "where it was clicked")
   eq(act.add_note(clip.id, 67, 2.1), nil, "not on top of another")
@@ -513,11 +522,7 @@ end)
 
 test("notes are drawn, chosen with clicks and a box, and moved and stretched together", function()
   fresh()
-  -- A drawn length becomes the piano roll's note length, which a new
-  -- project keeps: the next test enters notes with the one it had.
-  local roll = paw.ui.views:get("pianoroll")
-  local length = roll.length
-  T.after(function() roll:set_step(length) end)
+  keep_note_length()
   local track = paw.add_track({ name = "Keys" })
   track:add_device("synth")
   local clip = track:add_clip({
