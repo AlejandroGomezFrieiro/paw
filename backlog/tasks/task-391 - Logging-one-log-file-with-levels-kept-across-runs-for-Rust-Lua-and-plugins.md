@@ -4,7 +4,7 @@ title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and p
 status: In Progress
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T18:17:00Z'
+updated_date: '2026-11-24T19:13:00Z'
 labels:
   - agent:builder
 dependencies:
@@ -66,4 +66,6 @@ Owner, 2026-11-24: the default log level must be enough to trace crashes and bug
 - The same line repeated: one line with a count.
 - Keep 5 runs, 10 MB each at most.
 - No secrets in the log: no environment dump, paths under the home folder written as ~.
+
+Owner, 2026-11-24: ADR 0043 accepted, with a lock so that a second session at the same time writes its own file (paw.2.log) and never rotates a live session's log. loglevel stays text in the RUST_LOG syntax, the same for the option and PAW_LOG. Work: 4e4462db on worktree-agent-a498b74dcaa5c1ddc. Follow-up: flake.nix sets PAW_COMMIT so the start header names the commit.
 <!-- SECTION:NOTES:END -->
