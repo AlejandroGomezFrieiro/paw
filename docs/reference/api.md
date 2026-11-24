@@ -1164,6 +1164,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.delmarks(spec, all)`: Remove marks from every view, as Vim's `:delmarks` does: `spec` lists letters and ranges (`"a b"`, `"a-d"`), and `all` removes every lowercase one. Returns how many were removed, or nil and what is wrong.
 - `paw.keymap.dispatch(key)`: Handle one key as if the user typed it. The kernel calls this. Scripts use `feed`.
 - `paw.keymap.each(fn)`: Call `fn(map, mode, scope, keys)` for each mapping, in no order, with `keys` joined as `put` takes them. It is `every` without the sort.
+- `paw.keymap.escape_ends()`: Give an Escape to the listeners of the `escape` event, which end what goes on (a count-in, a take, a render, a snippet). True when one of them ended something: then the Escape is used. A view whose Escape leaves it (the classic keys) calls it first, so that it leaves on the next Escape.
 - `paw.keymap.escape_hint(how)`: After an Escape that had nothing to cancel in the view: the listeners of the `escape` event end what goes on (a count-in, a take, a render, a snippet). When none of them ended anything, a second one within two seconds outside the arrange view says how to leave: `how`, or the keys that leave any view. A view that maps `<Esc>` calls it when it has nothing of its own to cancel.
 - `paw.keymap.every()`: Every mapping in every mode and scope, sorted by scope, mode and keys. What checks the key rules walks (`tests/keys_constitution.lua`).
 - `paw.keymap.expand(lhs)`: Write `<leader>` and `<localleader>` as the keys the options name.
@@ -1209,7 +1210,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.scopes()`: Where paw finds mappings, first to last. First comes the part of the focused view that has the cursor, if the view has such parts (`view:subscope()`). For example, "arrange.lane" on an automation lane row, or a list of parts, the first part first. Then comes the view, then all views.
 - `paw.keymap.search(text, dir)`: Search the focused view for `text`, forward (`dir` 1) or back (-1).
 - `paw.keymap.search_next(dir, n)`: Move to the next (`dir` 1) or previous (-1) thing in the focused view that matches the last search. Views say what matches through `grid.search`.
-- `paw.keymap.selection()`: The region selected in the focused view, or nil outside visual mode. It goes from the cursor to the start of the selection. Both ends are included when the view tells the size of the item under the cursor (`grid.extent`). A selection that did not grow covers one grid step. While a command runs with `:'<,'>`, it is the selection that the command names.
+- `paw.keymap.selection()`: The region selected in the focused view, or nil outside visual mode. It goes from the cursor to the start of the selection. Both ends are included when the view tells the size of the item under the cursor (`grid.extent`). A selection that did not grow covers the cell of the cursor (`grid.cell`), or one grid step. While a command runs with `:'<,'>`, it is the selection that the command names.
 - `paw.keymap.set(lhs, rhs, opts)`: Map keys.
 
   ```lua
@@ -1497,7 +1498,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.markers.add(beat, name, opts)`: Add a marker at a beat. With `opts.length`, add a region from there; its `opts.key` (such as "E minor") is the key of the harmony over its time. Returns it.
 - `paw.markers.around(beat, level)`: The region a beat is in: the innermost of those that hold it, or nil. With `level` 2, the region around that one, and so on out (the outermost when there are fewer).
-- `paw.markers.at(beat, reach)`: The marker or region start nearest a beat within `reach` beats (half a grid step by default), or the region the beat is inside.
+- `paw.markers.at(beat, reach)`: The first marker or region start from a beat up to the next grid line. When `reach` is given, it's the one nearest the beat within `reach` beats. With no marker there, it's the region the beat is inside.
 - `paw.markers.children(id)`: The regions one level inside a region, in order of time; with no id, the regions at the top.
 - `paw.markers.default_name()`: A name for a new marker that has none: "Marker 3" for the third.
 - `paw.markers.depth(id)`: The level of a region: 1 at the top, 2 inside one region, and so on. Nil for a marker.
@@ -1575,6 +1576,23 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.mixer_rows.to(i)`: Put the cursor on row `i` (1 for the top) of the cursor part's strip.
 - `paw.mixer_rows.to_kind(dir, n)`: Go to the first row of the next (`dir` 1) or previous kind.
 - `paw.mixer_rows.to_kind_end(n)`: Move the mixer's cursor to the last row of its kind (or `n` kinds on).
+
+## Module paw.motion
+
+- `paw.motion.by(t, dbeat)`: The ticks that a whole thing at tick `t` moves when the pointer drags it `dbeat` beats. The line of the thing goes to the line nearest to where the drag puts it, and the thing keeps its distance after its line.
+- `paw.motion.cell(t)`: The cell of the cursor, or of tick `t`, from it up to the next line. On a line, it's a whole cell, and between two lines it's the rest of one.
+- `paw.motion.edge(t, dir, count)`: Where one edge at tick `t` goes: `count` lines on, as a grid motion.
+- `paw.motion.grid(dir, count, from)`: The tick of a grid motion (`h`, `l`): `count` lines after the cursor (`dir` 1) or before it (`dir` -1), or after tick `from` when it's given.
+- `paw.motion.nearest(t)`: The line nearest to tick `t`, where `=` puts a thing.
+- `paw.motion.object(list, dir, count, from)`: The tick of an object motion (`w`, `b`): the `count`-th tick of `list` after the cursor (`dir` 1) or before it (`dir` -1), exactly, so it can be between two lines. It's nil when there is none. `list` holds ticks in any order. With `from`, the motion starts there in place of the cursor.
+- `paw.motion.off(t)`: True when tick `t` (the cursor when it's not given) is between two lines.
+- `paw.motion.offset(t)`: How many ticks tick `t` (the cursor when it's not given) is after the line before it. It's 0 on a line.
+- `paw.motion.pointer_by(beat, dbeat, free)`: The beats that a whole thing at `beat` moves when the pointer drags it `dbeat` beats. It moves by whole lines and keeps its distance from the grid, or by `dbeat` itself when the option `snap` is off or `free` is true.
+- `paw.motion.pointer_edge(beat, free)`: Where an edge that the pointer drags to `beat` goes. It's the nearest line, or `beat` itself when the option `snap` is off or `free` is true.
+- `paw.motion.pointer_press(beat, free)`: Where a press of the pointer at `beat` puts the cursor. It's the line of the cell under the pointer, or `beat` itself when the option `snap` is off or `free` is true.
+- `paw.motion.press(from, to)`: Where a press of the pointer goes in a cell that shows the beats from `from` up to `to`. It's the first line in the cell, or the line before the cell when no line starts in it, so a press goes to the line drawn in that cell.
+- `paw.motion.relative(t, n)`: Where a whole thing at tick `t` goes when it moves `n` lines (back when `n` is negative). It keeps the same distance after its line.
+- `paw.motion.under(list, t)`: The index of the first tick of `list` from tick `t` (the cursor when it's not given) up to the next line, or nil when there is none. It finds the thing under the cursor among things with no length, e.g., the points of a lane.
 
 ## Module paw.mouse
 
@@ -2231,6 +2249,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.statusline.frontend(width)`: What the window is told: the line as pieces, for the width it has.
 - `paw.statusline.grid_text(grid)`: A grid in beats as a note value: 1 is `1/4`, 0.25 is `1/16`.
 - `paw.statusline.line(width, which, extra)`: The line for `width` columns, fitted: `{ left, right }` as `segments` gives them. `text` is for each side, as `{ text, style }` pieces with the separators between them, ready to draw or to send to a window.
+- `paw.statusline.offset_text(ticks)`: An offset after a grid line, in ticks, as beats in hundredths, as the position shows them: `+.31`, `+2.50`.
 - `paw.statusline.reset()`: Back to the line as it comes.
 - `paw.statusline.segments(width, which, extra)`: The segments for a screen `width` wide, as `{ left = {...}, right = {...} }`. Each is a list of `{ text, style }` pieces with a `rank` (lower ranks go last) and the `section` that it came from. `pill` is for a colored label. `name` is for the segment that paw cuts before it removes segments.
 

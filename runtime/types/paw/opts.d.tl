@@ -72,7 +72,6 @@ local record Opts
    native_dialogs: boolean
    nest_part: string
    note_grid: number | string
-   snap: boolean
    note_zoom: number
    number: boolean
    on_external_change: string
@@ -100,6 +99,7 @@ local record Opts
    scopeloop: boolean
    send_level: number
    shada: boolean
+   snap: boolean
    splitbelow: boolean
    splitright: boolean
    step_velocity: integer | string

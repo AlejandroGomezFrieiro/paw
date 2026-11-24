@@ -212,6 +212,9 @@ paw.midifile = {}
 ---@class paw.mixer_rows
 paw.mixer_rows = {}
 
+---@class paw.motion
+paw.motion = {}
+
 ---@class paw.mouse
 paw.mouse = {}
 
@@ -4966,6 +4969,13 @@ function paw.keymap.dispatch(key) end
 ---@param fn any
 function paw.keymap.each(fn) end
 
+--- Give an Escape to the listeners of the `escape` event, which end what
+--- goes on (a count-in, a take, a render, a snippet). True when one of
+--- them ended something: then the Escape is used. A view whose Escape
+--- leaves it (the classic keys) calls it first, so that it leaves on the
+--- next Escape.
+function paw.keymap.escape_ends() end
+
 --- After an Escape that had nothing to cancel in the view: the listeners
 --- of the `escape` event end what goes on (a count-in, a take, a render,
 --- a snippet). When none of them ended anything, a second one within two
@@ -5141,7 +5151,8 @@ function paw.keymap.search_next(dir, n) end
 --- The region selected in the focused view, or nil outside visual mode. It
 --- goes from the cursor to the start of the selection. Both ends are
 --- included when the view tells the size of the item under the cursor
---- (`grid.extent`). A selection that did not grow covers one grid step.
+--- (`grid.extent`). A selection that did not grow covers the cell of the
+--- cursor (`grid.cell`), or one grid step.
 --- While a command runs with `:'<,'>`, it is the selection that the command names.
 function paw.keymap.selection() end
 
@@ -6269,8 +6280,9 @@ function paw.markers.add(beat, name, opts) end
 ---@param level any
 function paw.markers.around(beat, level) end
 
---- The marker or region start nearest a beat within `reach` beats (half a
---- grid step by default), or the region the beat is inside.
+--- The first marker or region start from a beat up to the next grid line.
+--- When `reach` is given, it's the one nearest the beat within `reach`
+--- beats. With no marker there, it's the region the beat is inside.
 ---@param beat any
 ---@param reach any
 function paw.markers.at(beat, reach) end
@@ -6582,6 +6594,98 @@ function paw.mixer_rows.to_kind(dir, n) end
 --- Move the mixer's cursor to the last row of its kind (or `n` kinds on).
 ---@param n any
 function paw.mixer_rows.to_kind_end(n) end
+
+--- The ticks that a whole thing at tick `t` moves when the pointer drags it
+--- `dbeat` beats. The line of the thing goes to the line nearest to where
+--- the drag puts it, and the thing keeps its distance after its line.
+---@param t any
+---@param dbeat any
+function paw.motion.by(t, dbeat) end
+
+--- The cell of the cursor, or of tick `t`, from it up to the next line.
+--- On a line, it's a whole cell, and between two lines it's the rest of one.
+---@param t any
+function paw.motion.cell(t) end
+
+--- Where one edge at tick `t` goes: `count` lines on, as a grid motion.
+---@param t any
+---@param dir any
+---@param count any
+function paw.motion.edge(t, dir, count) end
+
+--- The tick of a grid motion (`h`, `l`): `count` lines after the cursor
+--- (`dir` 1) or before it (`dir` -1), or after tick `from` when it's given.
+---@param dir any
+---@param count any
+---@param from any
+function paw.motion.grid(dir, count, from) end
+
+--- The line nearest to tick `t`, where `=` puts a thing.
+---@param t any
+function paw.motion.nearest(t) end
+
+--- The tick of an object motion (`w`, `b`): the `count`-th tick of `list`
+--- after the cursor (`dir` 1) or before it (`dir` -1), exactly, so it can be
+--- between two lines. It's nil when there is none. `list` holds ticks in
+--- any order. With `from`, the motion starts there in place of the cursor.
+---@param list any
+---@param dir any
+---@param count any
+---@param from any
+function paw.motion.object(list, dir, count, from) end
+
+--- True when tick `t` (the cursor when it's not given) is between two lines.
+---@param t any
+function paw.motion.off(t) end
+
+--- How many ticks tick `t` (the cursor when it's not given) is after the
+--- line before it. It's 0 on a line.
+---@param t any
+function paw.motion.offset(t) end
+
+--- The beats that a whole thing at `beat` moves when the pointer drags it
+--- `dbeat` beats. It moves by whole lines and keeps its distance from the
+--- grid, or by `dbeat` itself when the option `snap` is off or `free` is
+--- true.
+---@param beat any
+---@param dbeat any
+---@param free any
+function paw.motion.pointer_by(beat, dbeat, free) end
+
+--- Where an edge that the pointer drags to `beat` goes. It's the nearest
+--- line, or `beat` itself when the option `snap` is off or `free` is true.
+---@param beat any
+---@param free any
+function paw.motion.pointer_edge(beat, free) end
+
+--- Where a press of the pointer at `beat` puts the cursor. It's the line
+--- of the cell under the pointer, or `beat` itself when the option `snap`
+--- is off or `free` is true.
+---@param beat any
+---@param free any
+function paw.motion.pointer_press(beat, free) end
+
+--- Where a press of the pointer goes in a cell that shows the beats from
+--- `from` up to `to`. It's the first line in the cell, or the line before
+--- the cell when no line starts in it, so a press goes to the line drawn
+--- in that cell.
+---@param from any
+---@param to any
+function paw.motion.press(from, to) end
+
+--- Where a whole thing at tick `t` goes when it moves `n` lines (back when
+--- `n` is negative). It keeps the same distance after its line.
+---@param t any
+---@param n any
+function paw.motion.relative(t, n) end
+
+--- The index of the first tick of `list` from tick `t` (the cursor when
+--- it's not given) up to the next line, or nil when there is none. It finds
+--- the thing under the cursor among things with no length, e.g., the
+--- points of a lane.
+---@param list any
+---@param t any
+function paw.motion.under(list, t) end
 
 --- Called by `paw.ui.mouse` last: a move over nothing that says what it is
 --- under the pointer clears what the status line said.
@@ -8990,6 +9094,11 @@ function paw.statusline.grid_text(grid) end
 ---@param which any
 ---@param extra any
 function paw.statusline.line(width, which, extra) end
+
+--- An offset after a grid line, in ticks, as beats in hundredths, as the
+--- position shows them: `+.31`, `+2.50`.
+---@param ticks any
+function paw.statusline.offset_text(ticks) end
 
 --- Back to the line as it comes.
 function paw.statusline.reset() end
