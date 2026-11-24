@@ -149,7 +149,7 @@ In the **curve editor**:
 | `d` `y` `c` `p` `P` | cut, copy, change and paste nodes (`dd`, `dab` a branch, `cc` a preset) |
 | `>` `<` | move nodes later and earlier in the signal |
 | `gc` `~` | bypass devices, mute branches |
-| `gs{kind}` `ds` `cs{kind}` | wrap in a split, unwrap, change its kind |
+| `gs` `ds` `cs` | wrap in a split (then the key of its kind), unwrap, change the kind of a split (then the key of its kind) |
 | `i` `a` `o` `O` | insert at a caret, add a device, add a branch |
 | `v` `V` `<C-v>` | select nodes, branches, a block |
 | `+` `-` `[` `]` | wet mix and output gain, branch gain and pan |
