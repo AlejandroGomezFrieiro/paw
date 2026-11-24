@@ -1,10 +1,10 @@
 ---
 id: TASK-345
 title: paw-mcp clip schemas from schemars
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T08:00:00Z'
+updated_date: '2026-11-24T14:37:00Z'
 labels:
   - api
   - types

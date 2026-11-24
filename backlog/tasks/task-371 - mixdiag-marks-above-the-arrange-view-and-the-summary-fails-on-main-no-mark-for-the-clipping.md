@@ -3,9 +3,10 @@ id: TASK-371
 title: >-
   mixdiag: 'marks above the arrange view, and the summary' fails on main (no
   mark for the clipping)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T14:20:00Z'
+updated_date: '2026-11-24T14:37:00Z'
 labels:
   - bug
   - tests

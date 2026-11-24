@@ -3,10 +3,10 @@ id: TASK-340
 title: >-
   The plugins pass of the suite: plugstate, Surge XT snapshot and the plugin
   setting guide fail
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T03:00:00Z'
-updated_date: '2026-11-24T14:18:00Z'
+updated_date: '2026-11-24T14:37:00Z'
 labels:
   - agent:worker
 milestone: m-12

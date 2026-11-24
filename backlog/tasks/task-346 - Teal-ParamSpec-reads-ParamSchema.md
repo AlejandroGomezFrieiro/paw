@@ -1,10 +1,10 @@
 ---
 id: TASK-346
 title: Teal ParamSpec reads ParamSchema
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T08:00:00Z'
+updated_date: '2026-11-24T14:37:00Z'
 labels:
   - api
   - types

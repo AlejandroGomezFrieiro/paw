@@ -3,10 +3,10 @@ id: TASK-344
 title: >-
   Typed API 3: patches and view schemas for devices, lanes, transport, project
   and parts
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T08:00:00Z'
+updated_date: '2026-11-24T14:37:00Z'
 labels:
   - api
   - types
