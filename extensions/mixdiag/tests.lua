@@ -594,6 +594,10 @@ end)
 test("mixdiag: marks above the arrange view, and the summary", function()
   findings_at_known_places()
   paw.opt.zoom = 2
+  -- The strip places its marks by the arrange view's geometry, which the view
+  -- has only after its first paint. Paint once, so this test needs no earlier one.
+  paw.ui.focus("arrange")
+  api.ui_snapshot(120, 20)
   local screen = api.ui_snapshot(120, 20)
   eq(screen[1]:find("mix", 1, true) ~= nil, true, "the strip is docked on top: " .. screen[1])
   eq(screen[1]:find("E", 1, true) ~= nil, true, "with a mark for the clipping: " .. screen[1])
