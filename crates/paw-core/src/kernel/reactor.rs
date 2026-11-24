@@ -93,6 +93,13 @@ impl Desk {
             kept: HashMap::new(),
         }
     }
+
+    /// The next frame of the terminal of `client` writes each cell again.
+    pub(crate) fn repaint(&mut self, client: ClientId) {
+        if let Some((_, frontend)) = self.frontends.iter_mut().find(|(id, _)| *id == client) {
+            frontend.repaint();
+        }
+    }
 }
 
 /// A terminal's last frame and where its cursor was.

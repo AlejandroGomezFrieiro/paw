@@ -45,6 +45,33 @@ pub(super) fn silence(err: &std::io::Error) -> bool {
     )
 }
 
+/// The longest line of a helper's output that the log takes whole. A
+/// longer one goes in pieces of this size, so that a plugin that never
+/// ends a line cannot make the reader's buffer grow without limit.
+const OUTPUT_LINE: u64 = 4096;
+
+/// Write each line that the helper of `plugin` prints to `log` (the
+/// standard error of paw, which is a log file while the terminal shows
+/// paw), with the name of the plugin in front. A piece of a line that is
+/// too long ends with ` [cut]`. It returns when the helper and its
+/// children close the pipe.
+fn forward_output(plugin: &str, printed: impl std::io::Read, log: &mut impl std::io::Write) {
+    use std::io::{BufRead, Read};
+    let mut printed = std::io::BufReader::new(printed);
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        match printed.by_ref().take(OUTPUT_LINE).read_until(b'\n', &mut line) {
+            Ok(0) | Err(_) => return,
+            Ok(_) => {}
+        }
+        let full = u64::try_from(line.len()) == Ok(OUTPUT_LINE) && !line.ends_with(b"\n");
+        let cut = if full { " [cut]" } else { "" };
+        let text = String::from_utf8_lossy(&line);
+        let _ = writeln!(log, "plugin {plugin}: {}{cut}", text.trim_end_matches(['\r', '\n']));
+    }
+}
+
 impl RemoteFactory {
     /// Start the helper, which makes the plugin. Its first word, read with
     /// [`made`](Self::made), says whether that worked. With `hang` (for a
@@ -67,6 +94,10 @@ impl RemoteFactory {
             .arg(max_block.to_string())
             .envs(self.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null());
+        // What the plugin prints goes through a pipe to the log, never to
+        // the terminal that paw draws on.
+        let (output, printed) = std::io::pipe()?;
+        command.stdout(printed.try_clone()?).stderr(printed);
         if let Some(dirs) = &self.added_dirs {
             command.env(crate::dirs::ADDED_DIRS_ENV, dirs);
         }
@@ -103,10 +134,23 @@ impl RemoteFactory {
                 Ok(())
             });
         }
-        let child = command
+        let mut child = command
             .spawn()
             .with_context(|| format!("starting the helper for {}", self.info.name))?;
+        // The write ends are the helper's now: the reader sees the end of
+        // the pipe when the helper and its children end.
+        drop(command);
         drop(theirs);
+        let name = self.info.name.clone();
+        let reader = std::thread::Builder::new()
+            .name("paw-plugin-out".into())
+            .spawn(move || forward_output(&name, output, &mut std::io::stderr()));
+        if let Err(err) = reader {
+            // A helper with no reader would stop when the pipe is full.
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(err).context("starting the thread that reads what the helper prints");
+        }
 
         let link = Arc::new(Link {
             shm,
@@ -345,5 +389,28 @@ mod tests {
         wait_for_helper(ours, None, CREATE_LIMIT, tell, Bell::new(bits.clone(), 1, Arc::new(|| {})));
         assert!(answer.try_recv().unwrap().is_err(), "a helper that is gone is an answer");
         assert_eq!(bits.load(Ordering::Acquire), 1, "and the loop is rung for it");
+    }
+
+    #[test]
+    fn what_a_helper_prints_goes_to_the_log_a_line_at_a_time_with_the_plugin_name() {
+        let printed: &[u8] = b"using block size: 1024\r\nbuffersize changed to 128\n\xffend";
+        let mut log = Vec::new();
+        forward_output("Reverb", printed, &mut log);
+        assert_eq!(
+            String::from_utf8(log).unwrap(),
+            "plugin Reverb: using block size: 1024\nplugin Reverb: buffersize changed to 128\nplugin Reverb: \u{fffd}end\n"
+        );
+    }
+
+    #[test]
+    fn a_line_with_no_end_goes_to_the_log_in_pieces_marked_as_cut() {
+        let printed = vec![b'x'; 4096 + 10];
+        let mut log = Vec::new();
+        forward_output("Synth", printed.as_slice(), &mut log);
+        let log = String::from_utf8(log).unwrap();
+        let lines: Vec<&str> = log.lines().collect();
+        assert_eq!(lines.len(), 2, "two pieces");
+        assert_eq!(lines[0], format!("plugin Synth: {} [cut]", "x".repeat(4096)));
+        assert_eq!(lines[1], "plugin Synth: xxxxxxxxxx", "the rest, which the end of the output ends");
     }
 }

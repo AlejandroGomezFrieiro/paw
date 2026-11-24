@@ -396,6 +396,7 @@ local record api
    ui_redraw_line: function()
    ui_redraw_live: function()
    ui_redraws: function(): integer
+   ui_repaint: function()
    ui_seat: function(seat: integer)
    ui_size: function(): integer, integer
    ui_snapshot: function(width: integer, height: integer): {string}

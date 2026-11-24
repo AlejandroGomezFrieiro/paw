@@ -269,6 +269,12 @@ impl Frontend for RemoteFrontend {
         self.cursor = cursor;
         Ok(())
     }
+
+    /// The next screen goes whole (`"full": true`): the terminal on the
+    /// other side writes each cell again.
+    fn repaint(&mut self) {
+        self.shown = None;
+    }
 }
 
 /// What a remote terminal sends with `ui.input`, as the kernel takes input:

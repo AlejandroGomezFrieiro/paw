@@ -47,7 +47,7 @@ paw can delete the cache and make it again, so you don't need to keep it.
 | `plugins.json` | The result of the plugin scan. paw loads a plugin file again only when it changes, or when you use one of its plugins. |
 | `bakes/` | What paw makes from sound files and keeps for the next time: the waveform overviews, and the sound of stretched clips and of clips with an edit list. All projects use one cache. It stays within `paw.opt.media_cache` gigabytes, and paw removes what it used least recently. |
 | `media/` | The decoded sound of long files, up to `paw.opt.media_cache` gigabytes. |
-| `stderr.log` | The error output while the terminal interface runs. Plugins write there. |
+| `stderr.log` | The output and the errors that plugins, the sound system and the programs that paw starts print while the terminal interface runs. A line from a plugin starts with `plugin` and its name. paw empties it at each start, and `paw attach` adds to it. |
 
 ## Editing history
 

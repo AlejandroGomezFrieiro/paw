@@ -5,11 +5,11 @@
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
 
+mod pty;
 mod sealed;
 
 use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -46,25 +46,6 @@ fn paw(dir: &Path) -> Command {
     command.env("TERM", "xterm-256color");
     command.env_remove("PAW_TOKEN");
     command
-}
-
-/// A new pseudo-terminal of 100 by 30 cells: (its master side, the path
-/// of its other side).
-fn pty() -> (std::fs::File, PathBuf) {
-    // SAFETY: calls of libc on the descriptor that `posix_openpt` gives, checked before each
-    // next use.
-    unsafe {
-        let master = libc::posix_openpt(libc::O_RDWR | libc::O_NOCTTY);
-        assert!(master >= 0, "no pseudo-terminal");
-        assert_eq!(libc::grantpt(master), 0);
-        assert_eq!(libc::unlockpt(master), 0);
-        let mut name = [0 as libc::c_char; 128];
-        assert_eq!(libc::ptsname_r(master, name.as_mut_ptr(), name.len()), 0);
-        let path = std::ffi::CStr::from_ptr(name.as_ptr()).to_string_lossy().into_owned();
-        let size = libc::winsize { ws_row: 30, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0 };
-        libc::ioctl(master, libc::TIOCSWINSZ, &size);
-        (std::fs::File::from_raw_fd(master), PathBuf::from(path))
-    }
 }
 
 /// Ask the running paw until `check` holds of the answer to `code`.
@@ -111,23 +92,10 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
     let before = seats(&mut c).as_u64().unwrap();
 
     // `paw song` in a terminal of its own.
-    let (mut master, slave) = pty();
-    let tty = || std::fs::OpenOptions::new().read(true).write(true).open(&slave).unwrap();
+    let (mut master, slave) = pty::pty();
     let mut joiner = paw(&dir);
-    joiner
-        .args(["--clean", "--no-plugins"])
-        .arg(&song)
-        .stdin(Stdio::from(tty()))
-        .stdout(Stdio::from(tty()))
-        .stderr(Stdio::from(tty()));
-    // SAFETY: only async-signal-safe calls between fork and exec.
-    unsafe {
-        joiner.pre_exec(|| {
-            libc::setsid();
-            libc::ioctl(0, libc::TIOCSCTTY, 0);
-            Ok(())
-        });
-    }
+    joiner.args(["--clean", "--no-plugins"]).arg(&song);
+    pty::run_in(&mut joiner, &slave);
     running.0.push(joiner.spawn().expect("starting the second paw"));
     // What it writes is read, so that it never waits on a full pty.
     let shown = Arc::new(Mutex::new(Vec::new()));
@@ -190,23 +158,10 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
 fn the_first_frame_is_drawn_before_anything_else_arrives() {
     let dir = scratch("first");
     let socket = dir.join("paw.sock");
-    let (master, slave) = pty();
-    let tty = || std::fs::OpenOptions::new().read(true).write(true).open(&slave).unwrap();
+    let (master, slave) = pty::pty();
     let mut command = paw(&dir);
-    command
-        .args(["--clean", "--no-plugins", "--audio", "null", "--listen"])
-        .arg(&socket)
-        .stdin(Stdio::from(tty()))
-        .stdout(Stdio::from(tty()))
-        .stderr(Stdio::from(tty()));
-    // SAFETY: only async-signal-safe calls between fork and exec.
-    unsafe {
-        command.pre_exec(|| {
-            libc::setsid();
-            libc::ioctl(0, libc::TIOCSCTTY, 0);
-            Ok(())
-        });
-    }
+    command.args(["--clean", "--no-plugins", "--audio", "null", "--listen"]).arg(&socket);
+    pty::run_in(&mut command, &slave);
     let _running = Running(vec![command.spawn().expect("starting paw")], dir);
     // What it writes is read, so that it never waits on a full pty.
     let mut reader = master.try_clone().unwrap();

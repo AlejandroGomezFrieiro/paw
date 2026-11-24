@@ -465,7 +465,7 @@ paw if it has one. After each turn that changed the screen, paw sends:
 | Field | Value |
 | --- | --- |
 | `w`, `h` | The size of the screen in cells. |
-| `full` | `true`: clear the screen first. The first event and the event after a change of size have it. |
+| `full` | `true`: clear the screen first, and write each cell. The first event, the event after a change of size and the event after `<C-l>` (`paw.api.ui_repaint`) have it. |
 | `cursor` | The cursor. |
 | `runs` | Each run is `[x, y, text, fg, bg, attrs]`: cells of one style on one row. Only the changed runs come. |
 | `mouse` | `false`: stop the report of the pointer, and leave the pointer to the terminal's own selection (`paw.opt.mouse` off). Without it, or `true`, report the pointer. |

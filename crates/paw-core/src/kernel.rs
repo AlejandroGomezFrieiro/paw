@@ -121,6 +121,12 @@ impl KernelSender {
 /// Something that shows the grid to a person.
 pub trait Frontend {
     fn present(&mut self, grid: &Grid, cursor: Option<(u16, u16)>) -> Result<()>;
+
+    /// Forget what the screen shows: the next [`present`](Self::present)
+    /// writes every cell again, over text that another program wrote on
+    /// the terminal (`paw.api.ui_repaint`). A frontend that keeps no copy
+    /// of the screen has nothing to forget.
+    fn repaint(&mut self) {}
 }
 
 pub struct KernelOpts {

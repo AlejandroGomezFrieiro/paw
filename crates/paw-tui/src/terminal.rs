@@ -4,7 +4,7 @@
 #![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 #![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
-use std::io::{BufWriter, Read, Stdout, Write, stdout};
+use std::io::{BufWriter, Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -28,9 +28,10 @@ use signal_hook::consts::{SIGHUP, SIGTERM};
 
 use crate::graphics::{self, Graphics};
 use crate::keys;
+use crate::stdio::{self, Screen};
 
 pub(crate) struct Terminal {
-    out: BufWriter<Stdout>,
+    out: BufWriter<Screen>,
     /// What is on screen now, to send only the cells that changed.
     shown: Option<Grid>,
     /// Whether the terminal reports the pointer, or keeps it for its own
@@ -69,11 +70,10 @@ static COOKED: std::sync::OnceLock<Termios> = std::sync::OnceLock::new();
 /// only bytes made beforehand and makes plain system calls, with no
 /// allocation and no lock.
 fn on_signal(signal: i32) {
-    let out = rustix::stdio::stdout();
     if IMAGES.load(Ordering::Relaxed) {
-        let _ = rustix::io::write(out, kitty::DELETE_ALL);
+        stdio::write_from_signal(kitty::DELETE_ALL);
     }
-    let _ = rustix::io::write(out, RESTORE);
+    stdio::write_from_signal(RESTORE);
     if let Some(cooked) = COOKED.get() {
         let _ = termios::tcsetattr(rustix::stdio::stdin(), OptionalActions::Now, cooked);
     }
@@ -83,7 +83,8 @@ fn on_signal(signal: i32) {
 impl Terminal {
     /// Take over the terminal and start handing its events to `send`, which
     /// says whether anyone is still listening: the kernel in this program,
-    /// or a connection to one somewhere else.
+    /// or a connection to one somewhere else. Call [`stdio::capture`]
+    /// first, so that other output does not cover the frame.
     pub(crate) fn start(send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
         if let Ok(cooked) = termios::tcgetattr(rustix::stdio::stdin()) {
             let _ = COOKED.set(cooked);
@@ -113,7 +114,7 @@ impl Terminal {
         // (runtime/lua/paw/vzoom.tl). A terminal set to send them anyway
         // as CSI u gets `<C-=>`, `<C-->` and `<C-0>`.
         execute!(
-            stdout(),
+            Screen,
             terminal::EnterAlternateScreen,
             event::EnableMouseCapture,
             event::EnableBracketedPaste,
@@ -123,8 +124,7 @@ impl Terminal {
             cursor::Hide
         )?;
         if probe.pixel_mouse {
-            stdout().write_all(PIXEL_MOUSE)?;
-            stdout().flush()?;
+            Screen.write_all(PIXEL_MOUSE)?;
         }
         let (width, height) = terminal::size()?;
         let (cw, ch) = probe.cell.unwrap_or((0, 0));
@@ -167,7 +167,7 @@ impl Terminal {
         });
         Ok((
             Self {
-                out: BufWriter::with_capacity(1 << 16, stdout()),
+                out: BufWriter::with_capacity(1 << 16, Screen),
                 shown: None,
                 mouse: true,
                 probe,
@@ -231,7 +231,7 @@ fn ask() -> Probe {
     };
     let mut queries = Vec::new();
     probe::queries(&mut queries);
-    if stdout().write_all(&queries).and_then(|_| stdout().flush()).is_err() {
+    if Screen.write_all(&queries).is_err() {
         kitty::probe_done();
         return found;
     }
@@ -257,11 +257,11 @@ fn ask() -> Probe {
 /// Give the terminal back. Safe to call more than once.
 pub(crate) fn restore() {
     if IMAGES.swap(false, Ordering::Relaxed) {
-        let _ = stdout().write_all(kitty::DELETE_ALL);
-        let _ = stdout().write_all(b"\x1b[?1016l");
+        let _ = Screen.write_all(kitty::DELETE_ALL);
+        let _ = Screen.write_all(b"\x1b[?1016l");
     }
     let _ = execute!(
-        stdout(),
+        Screen,
         event::DisableBracketedPaste,
         event::DisableFocusChange,
         event::DisableMouseCapture,
@@ -343,6 +343,12 @@ impl Frontend for Terminal {
         self.out.flush()?;
         grid.copy_shown(&mut self.shown);
         Ok(())
+    }
+
+    /// The next frame clears the terminal and writes each cell, as after a
+    /// change of size.
+    fn repaint(&mut self) {
+        self.shown = None;
     }
 }
 

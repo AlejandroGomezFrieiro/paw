@@ -12839,6 +12839,11 @@ function paw.api.ui_redraw_live() end
 
 function paw.api.ui_redraws() end
 
+--- Draw the whole screen of the seat whose turn it is again, every
+--- cell, also those that did not change: text that another program
+--- wrote on the terminal goes away (`<C-l>`).
+function paw.api.ui_repaint() end
+
 ---@param seat integer
 function paw.api.ui_seat(seat) end
 

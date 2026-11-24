@@ -179,6 +179,16 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // @return integer
         fn ui_redraws(_, sh, () => ()) { Ok(sh.redraws.get()) }
+        // Draw the whole screen of the seat whose turn it is again, every
+        // cell, also those that did not change: text that another program
+        // wrote on the terminal goes away (`<C-l>`).
+        // @return nil
+        fn ui_repaint(_, sh, () => ()) {
+            sh.desk.borrow_mut().repaint(sh.seat.get());
+            sh.dirty.set(true);
+            sh.redraws.set(sh.redraws.get() + 1);
+            Ok(())
+        }
         // Tell paw which part of the song each window shows: a list of ranges of
         // beats, each with the parts shown (all parts when `parts` is nil). The
         // stretched clips there bake before the others. paw.derived sends this

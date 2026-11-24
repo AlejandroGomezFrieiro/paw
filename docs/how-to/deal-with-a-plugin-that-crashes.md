@@ -38,7 +38,11 @@ If paw itself stopped, see [How to recover lost work](recover-lost-work.md).
 
 ## Report the problem
 
-- Look in `~/.cache/paw/stderr.log`, where plugins write their errors.
+- Look in `~/.cache/paw/stderr.log`. While paw shows its screen, the
+  text that plugins and the sound system print goes into that file, so
+  it never covers the screen. Each line from a plugin starts with
+  `plugin` and the name of the plugin. paw empties the file when it
+  starts.
 - In a shell, type `paw doctor --only plugins`. It counts the plugins of
   each format, and it names the files that the scan could not use.
 
