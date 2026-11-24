@@ -59,8 +59,7 @@ pub(crate) struct Pending {
     pub next_ms: Option<f64>,
     /// The work in flight on other threads and in other processes, by
     /// kind: `bakes`, `hashes`, `loads` (plugins), `renders`, `takes`
-    /// (their writers), `preview`, `plugins` (a state not taken on yet),
-    /// `measures`. A kind with none is left out.
+    /// (their writers), `preview`, `measures`. A kind with none is left out.
     pub in_flight: BTreeMap<&'static str, u32>,
     /// Timers due now: the next turn fires them.
     pub timers_due: usize,

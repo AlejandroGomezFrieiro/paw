@@ -222,6 +222,28 @@ impl Upkeep for Plugins {
 pub(crate) const UPKEEPS: [&dyn Upkeep; 9] =
     [&Takes, &Render, &Playback, &Loads, &Hashes, &Bakes, &Devices, &Files, &Plugins];
 
+/// The agenda of the live plugins, from whether each wants to be looked
+/// at (`Controller::wants_idle`: an open window, a call it asked for, a
+/// state that it has not taken on yet) and whether a state lane gives
+/// states as the song plays. The loop looks each frame while one wants
+/// it, and now and then while any plugin is live.
+///
+/// A plugin is never work in flight. A state that it waits to take on, or
+/// a block that it asked for, comes with the plugin's next block: the
+/// engine's work, not the work of a thread that ends. On the stepped
+/// backend that block comes only as the clock moves, so a settle that
+/// waited for it would wait for ever.
+fn plugins_tick(wants_idle: impl Iterator<Item = bool>, lanes: bool) -> Agenda {
+    let mut live = false;
+    let mut wants = lanes;
+    for one in wants_idle {
+        live = true;
+        wants |= one;
+    }
+    let tick = if wants { Some(FRAME) } else { live.then_some(PLUGIN_LOOK) };
+    Agenda { tick, ..Agenda::default() }
+}
+
 fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
@@ -263,20 +285,11 @@ impl Session {
             .collect()
     }
 
-    /// What the plugins leave for the loop: those that have not told yet
-    /// that they took a state on are in flight. The loop looks each frame
-    /// while one asks for it (an open window) or a state lane gives states
-    /// as the song plays, and now and then while any plugin is live.
+    /// What the plugins leave for the loop: a tick, never work in flight.
     fn plugins_agenda(&self) -> Agenda {
-        let controllers = || self.live.values().filter_map(|live| live.controller.as_ref());
-        let pending = controllers().filter(|controller| controller.state_pending()).count();
+        let controllers = self.live.values().filter_map(|live| live.controller.as_ref());
         let lanes = self.play.playing && !self.engine.map.state_main.is_empty();
-        let tick = if lanes || controllers().any(|controller| controller.wants_idle()) {
-            Some(FRAME)
-        } else {
-            controllers().next().is_some().then_some(PLUGIN_LOOK)
-        };
-        Agenda { in_flight: count(pending), tick, ..Agenda::default() }
+        plugins_tick(controllers.map(|controller| controller.wants_idle()), lanes)
     }
 
     /// Whether the engine plays something that changes the state as it
@@ -303,6 +316,15 @@ mod tests {
         let mut session = Session::new(&backend, Registry::with_builtins()).unwrap();
         session.set_doorbell(waiter.doorbell().clone());
         session
+    }
+
+    #[test]
+    fn a_plugin_that_waits_for_its_next_block_is_looked_at_each_frame_and_is_not_in_flight() {
+        let waits = plugins_tick([false, true].into_iter(), false);
+        assert_eq!(waits, Agenda { tick: Some(FRAME), ..Agenda::default() }, "a settle does not wait for the engine");
+        let live = plugins_tick([false].into_iter(), false);
+        assert_eq!(live, Agenda { tick: Some(PLUGIN_LOOK), ..Agenda::default() });
+        assert_eq!(plugins_tick(std::iter::empty(), false), Agenda::default(), "no plugin: no tick");
     }
 
     #[test]

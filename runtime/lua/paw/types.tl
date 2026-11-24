@@ -1174,7 +1174,7 @@ local record types
   --- are left. `next_ms` is nil when nothing waits for the schedule clock.
   --- `in_flight` has the work of other threads and processes by kind
   --- (`bakes`, `hashes`, `loads`, `renders`, `takes`, `preview`,
-  --- `plugins`, `measures`); a kind with none is left out.
+  --- `measures`); a kind with none is left out.
   record Pending
     ready: boolean
     quiet: boolean
