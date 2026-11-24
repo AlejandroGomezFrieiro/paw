@@ -1,10 +1,10 @@
 ---
 id: TASK-341
 title: 'Rust: no constant helpers and no per-value serde defaults'
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-11-24T05:11:00Z'
-updated_date: '2026-11-24T06:01:00Z'
+updated_date: '2026-11-24T16:41:00Z'
 labels: []
 milestone: m-10
 dependencies: []
@@ -41,4 +41,6 @@ The owner found functions such as fn yes() -> bool { true } (paw-core attr_map.r
 
 <!-- SECTION:NOTES:BEGIN -->
 Done inside TASK-342 (the one sweep-fix bundle, owner 2026-11-24).
+
+2026-11-24: set back to To Do. It was In Progress with no agent and no branch.
 <!-- SECTION:NOTES:END -->
