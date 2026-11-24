@@ -117,8 +117,11 @@ command("device.editor", function()
       and paw.ui.views:get("inspector"):selected()
     or paw.ui.focused == "mixer" and paw.mixer_rows.device()
     or nil
-  if not (device and device.editor) then
-    device = nil
+  if device and not device.editor then
+    -- A chosen device keeps the key: another device's window is a surprise.
+    return paw.notify(device.name .. " has no window of its own: its parameters are in the panel", "warn")
+  end
+  if not device then
     local part = need_part()
     for _, candidate in ipairs(part and part:devices() or {}) do
       if candidate.editor then
