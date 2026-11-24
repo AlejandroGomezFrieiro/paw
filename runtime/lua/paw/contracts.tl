@@ -145,6 +145,17 @@ local record contracts
   -- paw/roles/widgets.lua and paw/roles/notes.lua define these roles in
   -- Lua; a view in Teal marks them with these records.
 
+  --- A `parthead`: the frame of a head in the arrange view, with its
+  --- ground in `style`, the `stripe` glyph in `stripe_style` and the
+  --- part's `color`.
+  record PartheadMark is MarkProps
+    style: Style
+    stripe: string
+    stripe_style: Style
+    color: string
+    selected: boolean
+  end
+
   --- A `label`: its `text` in `style`, placed by `align`; a window writes
   --- it in `font` ("sans", "title", else monospace) in the colour `tone`.
   record LabelMark is MarkProps
@@ -1206,6 +1217,148 @@ local record contracts
     ext: string
   end
 
+  -- Heads of the arrange view's rows (paw/heads.tl) ---------------------------------
+
+  --- The kind of row that a head shows: a part with zero or two or more
+  --- lanes (`part`), one lane under its part (`lane`), a part with one
+  --- lane, shown in one head (`merged`), or the master (`master`). Until
+  --- parts have lanes of their own, each part row is `merged`.
+  enum HeadRow
+    "part"
+    "lane"
+    "merged"
+    "master"
+  end
+
+  --- How wide a head is, the stripe not counted: under 15 columns
+  --- (`narrow`), 15 to 22 (`default`), or 23 and more (`wide`).
+  enum HeadWidth
+    "narrow"
+    "default"
+    "wide"
+  end
+
+  --- What a head shows: the row's kind, the part, the lane (nil on a part
+  --- row and on the master row), and `kind`, the name that chose the head
+  --- (a kind of part, or "default").
+  record HeadSubject
+    row: HeadRow
+    part: integer
+    lane: integer
+    kind: string
+  end
+
+  --- What a head's `rows` gets: the subject, the head's columns and its
+  --- width class.
+  record HeadSize
+    subject: HeadSubject
+    width: integer
+    class: HeadWidth
+  end
+
+  --- What a press on a hit of a head does: a command as `:` takes it, or
+  --- a function of the subject and the press.
+  type HeadAction = string | function(s: HeadSubject, e: MouseEvent)
+
+  --- What a head's `render` gets. `buf` holds the cells of the head only:
+  --- the part column, the stripe and the rule are not in it, and paw drew
+  --- the ground. `part` is the part as `paw.api.part_get` gives it.
+  --- `selected` is true when the cursor is on the row, `focused` when the
+  --- view has the keyboard. `g` holds the glyphs (`paw.draw.g`).
+  interface HeadContext
+    buf: Buf
+    width: integer
+    height: integer
+    class: HeadWidth
+    subject: HeadSubject
+    part: types.Part
+    lane: types.Lane
+    selected: boolean
+    focused: boolean
+    g: Glyphs
+    --- The column before the name: the layers of other modules
+    --- (`paw.ui.layer("arrange", "header", ...)`) mark there.
+    mark_at: integer
+    --- Draw the piece `name` at `x`, `y` in at most `w` columns. Gives the
+    --- columns that it used: 0 when it has nothing to show or does not fit.
+    piece: function(self: HeadContext, name: string, x: integer, y: integer, w: integer): integer
+    --- Draw one line of pieces: `left` from the left, `right` from the
+    --- right. The last piece of `left` gets the columns that are left.
+    --- When the room is short, the piece with the lowest `keep` goes first.
+    line: function(self: HeadContext, y: integer, left: {string}, right: {string})
+    --- Write `words` in `style` at `x`, `y`, cut with "…" to `w` columns.
+    text: function(self: HeadContext, x: integer, y: integer, w: integer, words: string, style: string)
+    --- Show the picture `key` (`paw.canvas.image`) over `x, y, w, h`: an
+    --- image where the terminal shows images, else half blocks. Shows
+    --- nothing when `paw.opt.head_pictures` is false. Gives true when it
+    --- showed the picture.
+    picture: function(self: HeadContext, x: integer, y: integer, w: integer, h: integer, key: string): boolean
+    --- A context for a part of the head, for example the columns beside a
+    --- picture.
+    sub: function(self: HeadContext, x: integer, y: integer, w: integer, h: integer): HeadContext
+    --- A press of the pointer on the cells `x, y, w, h` does `action`.
+    --- `name` is a word for the hit, for the tests and the hints.
+    hit: function(self: HeadContext, x: integer, y: integer, w: integer, h: integer, action: HeadAction, name?: string)
+  end
+
+  --- A key of a head: `<localleader>` and `lhs`, only while the cursor is
+  --- on a row of the head. `run` is a command as `:` takes it, or a
+  --- function of the subject of the row.
+  record HeadKey
+    lhs: string
+    run: string | function(s: HeadSubject)
+    desc: string
+  end
+
+  --- A head (`paw.heads.define`): what the left part of a row in the
+  --- arrange view shows.
+  record Head
+    name: string
+    title: string
+    --- The rows that the head wishes for, 1 to 6. Nil: the height of the
+    --- view. It depends only on the subject's settings and the width
+    --- class, never on data that comes late (a picture that loads).
+    rows: function(size: HeadSize): integer
+    render: function(ctx: HeadContext)
+    keys: {HeadKey}
+    --- Lines that `K` adds after the lines of paw.
+    describe: function(s: HeadSubject): {string}
+    --- What the head reads outside the project, as text: the singer, a
+    --- file. A change of it draws the head again.
+    stamp: function(s: HeadSubject): string
+    --- The extension that defined it (paw/ext.lua), nil for the user's.
+    ext: string
+  end
+
+  --- A piece of a head (`paw.heads.piece`): a small drawing that heads
+  --- share. `keep` is higher for a piece that stays longer when the room
+  --- is short. `min` is the fewest columns that it draws in. `width` gives
+  --- the columns that it takes on the right of a line (nil: `min`). `line`
+  --- is true for a piece that takes a whole line. `edge` is true for a
+  --- piece that starts in the first column when it comes first on a line
+  --- (else that column stays empty). `flags` are the switches that it
+  --- shows: "mute", "solo", "armed", "monitor". `has` tells whether it has
+  --- something to show (nil: always).
+  record HeadPiece
+    name: string
+    keep: integer
+    min: integer
+    width: function(ctx: HeadContext): integer
+    line: boolean
+    edge: boolean
+    flags: {string}
+    has: function(ctx: HeadContext): boolean
+    draw: function(ctx: HeadContext, x: integer, y: integer, w: integer): integer
+    ext: string
+  end
+
+  --- A line of a head that `paw.heads.compose` makes: the pieces from the
+  --- left and the pieces from the right.
+  record HeadLine
+    left: {string}
+    right: {string}
+  end
+
   --- What a bar label of the ruler draws one bar from. `bar` is the
   --- bar's number as shown (counted from 1 at the start of a scope with
   --- time, see `paw.scope`), `song_bar` its number in the song; `beat`
@@ -1693,11 +1846,13 @@ local record contracts
   --- A kind of part (`paw.part_kinds.define`). `title` and `letter`
   --- say how it is offered and shown. `create` makes an ordinary part
   --- this kind. `editor` opens a clip, `describe` gives a few words for
-  --- `K`, and `is` claims a part that does not say its kind.
+  --- `K`, and `is` claims a part that does not say its kind. `head` names
+  --- the head of its rows in the arrange view (`paw.heads`).
   record PartKind
     name: string
     title: string
     letter: string
+    head: string
     create: function(part: PartHandle, args: PartKindArgs)
     editor: function(clip: integer): boolean
     describe: function(part: integer): string

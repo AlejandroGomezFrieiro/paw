@@ -149,6 +149,9 @@ paw.harmony.read = {}
 ---@class paw.harmony.voice
 paw.harmony.voice = {}
 
+---@class paw.heads
+paw.heads = {}
+
 ---@class paw.health
 paw.health = {}
 
@@ -4563,6 +4566,80 @@ function paw.harmony.voice.distance(a, b) end
 ---@param tones any
 ---@param opts any
 function paw.harmony.voice.voice(tones, opts) end
+
+--- Start a layout of heads that are `width` columns wide. paw asks the
+--- heads for their rows again when the width class or the stamp of a head
+--- changes.
+---@param width any
+function paw.heads.begin_layout(width) end
+
+--- Define a head of the core, the same way as `define`. paw doesn't time
+--- the heads of the core.
+---@param name any
+---@param spec any
+function paw.heads.builtin(name, spec) end
+
+--- The width class of a head that's `width` columns wide, without the
+--- stripe.
+---@param width any
+function paw.heads.class_of(width) end
+
+--- A render made of lines. The first line always shows, and each later line
+--- shows when its pieces have something to show and there are rows left. A
+--- line is a `HeadLine`, or the name of a piece that takes a whole line and
+--- starts under the name.
+---@param lines any
+function paw.heads.compose(lines) end
+
+--- Define a head. `name` is a word, the one that a kind of part names in
+--- its `head` field, and `spec` is a `Head` (paw/contracts.tl). A new head
+--- with the name of a head that's already defined hides the old one until
+--- the new one is removed. Returns the head.
+---@param name any
+---@param spec any
+function paw.heads.define(name, spec) end
+
+--- The lines that `K` shows about the head of a part's row. When no
+--- extension here defines the head that the row asks for, or the head is
+--- out, the first line says so, and the head's own lines come after it.
+---@param part any
+function paw.heads.describe(part) end
+
+--- Draw the head of a row with its frame, its kept cells or a new render,
+--- the lit switches, and what other modules mark there. Returns the places
+--- that a click reaches, in the columns and lines of the view.
+---@param row any
+function paw.heads.draw(row) end
+
+--- The head that a row uses, which is the first head that the row asks for
+--- that's defined and isn't out, or the default head when there's none.
+---@param s any
+function paw.heads.of(s) end
+
+--- Define a piece that heads draw with, such as the name or the meter
+--- (paw/heads/pieces.tl). Returns the piece.
+---@param name any
+---@param spec any
+function paw.heads.piece(name, spec) end
+
+--- Remove a head, so that the head it hid, if there's one, comes back.
+---@param name any
+function paw.heads.remove(name) end
+
+--- The scope of the keys of the head of a part, or nil when the head has
+--- no keys.
+---@param part any
+function paw.heads.scope(part) end
+
+--- What the row of a part shows. Until parts have lanes of their own, the
+--- row of a part shows the part and its lane in one head.
+---@param part any
+function paw.heads.subject(part) end
+
+--- The rows that the head of a part asks for, from 1 to 6, or nil when the
+--- head doesn't ask.
+---@param part any
+function paw.heads.wish(part) end
 
 --- Run the checks named (all when none), each a result of `run`.
 ---@param names any

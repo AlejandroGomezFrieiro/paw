@@ -446,6 +446,8 @@ test("a clip's controller moves show as a curve on its name row, and a group wit
   paw.groups.link(paw.groups.make({ synth }, "band"), true)
   api.undo_checkpoint()
   paw.flush()
+  -- The meters in the headers show no sound of a test before.
+  T.until_meters_at_rest()
   T.keys("gg0")
   paw.ui.message = nil
   expect_screen("controller_moves", 60, 16, { rows = { 2, 7 }, cols = { 1, 33 } })

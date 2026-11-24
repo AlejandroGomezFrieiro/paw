@@ -14,6 +14,9 @@ local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
 local axis = require("paw.axis")
 local part_draw = require("paw.views.arrange_part")
+local heads = require("paw.heads")
+local head_pieces = require("paw.heads.pieces")
+require("paw.heads.default")
 local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -126,10 +129,9 @@ local record Arrange is contracts.ArrangeView
   type Comp = Comp
   --- The first part shown.
   top: integer
-  --- The header columns of the M, S, R and I chips, for the mouse.
-  flags: part_draw.Flags
-  --- The part column's width at the left of the headers, last drawn.
-  column_width: integer
+  --- What a press on the heads does, where the heads asked for it
+  --- (paw/heads.tl), in the view's columns and lines: last drawn.
+  head_hits: {heads.Hit}
   --- What the window drew last, and its time axis with its time folds:
   --- where every row, the ruler and the pointer place each beat.
   geometry: Geometry
@@ -181,7 +183,7 @@ end
 
 -- The view is the module.
 local view = Arrange
-view.scroll, view.top, view.flags = 0, 1, {}
+view.scroll, view.top, view.head_hits = 0, 1, {}
 -- What extensions draw on the timeline, by name, in name order, once the
 -- ruler and the parts are drawn and before the playhead:
 --   paw.ui.views:get("arrange").layers.marks = function(view, layer) ... end
@@ -193,7 +195,7 @@ view.share = {column = 2 / 5, least = 1 / 3}
 view.window_state = {
   "scroll",
   "top",
-  "flags",
+  "head_hits",
   "seen_index",
   "seen_fit",
   "seen_lane",
@@ -204,11 +206,11 @@ view.window_state = {
   "axis",
   "fold_ground",
 }
-view.window_fresh = {"geometry", "flags"}
+view.window_fresh = {"geometry", "head_hits"}
 -- Each seat (paw/seats.tl) has its own state of the window, as each
 -- window has.
 paw.seats.fields(
-  "arrange", view as {string: Data}, view.window_state, {scroll = 0, top = 1, flags = {}} as {string: Data}
+  "arrange", view as {string: Data}, view.window_state, {scroll = 0, top = 1, head_hits = {}} as {string: Data}
 )
 
 -- An empty list, to walk where there is none.
@@ -218,7 +220,7 @@ local NONE: {Span} = {}
 paw.on(kernel.project_loaded, function() view.scroll, view.top, view.seen_beat = 0, 1, nil end)
 
 view.meter = draw.meter
-view.level_glyph = part_draw.level_glyph
+view.level_glyph = head_pieces.level_glyph
 view.clip_props = part_draw.clip_props
 
 -- The headers' width with "auto" on the narrowest screens.
@@ -278,12 +280,29 @@ local function wants_ruler2(self: Arrange): boolean
   return false
 end
 
---- The lines a part's row takes, `th` the parts' height: its own rows
---- in the window's vertical zoom (paw/vzoom.tl), else its own share of
---- `th` (`height`, which a drag of its header's bottom edge sets), at
---- least one.
+--- Whether the user set the height of the parts: the window's vertical
+--- zoom, or `paw.opt.part_height`.
+local function user_height(): boolean
+  return (paw.vzoom.part_rows() or tonumber(paw.opt.part_height)) ~= nil
+end
+
+--- The lines a part's row takes, `th` the parts' height. The height that
+--- the user set comes first: its own rows in the window's vertical zoom
+--- (paw/vzoom.tl), its own share of `th` (`height`, which a drag of its
+--- header's bottom edge sets), or the height of all parts. Else one line
+--- on a crowded screen (`th` 1), else the larger of `th` and the rows
+--- that its head wishes for (paw/heads.tl), at most 6.
 function view.row_height(id: integer, th: number): integer
-  return paw.vzoom.rows_of(id) or math.max(1, math.floor(th * (part_number(id, "height") or 1) + 0.5))
+  local own = paw.vzoom.rows_of(id)
+  if own then
+    return own
+  end
+  local share = part_number(id, "height") or 1
+  if share ~= 1 or th <= 1 or user_height() then
+    return math.max(1, math.floor(th * share + 0.5))
+  end
+  local wish = heads.wish(id)
+  return math.floor(math.max(th, math.min(6, wish or 0)))
 end
 
 --- The parts of `parts` that end the parts of a subproject shown
@@ -410,6 +429,9 @@ function view:layout(w: integer, h: integer): Layout
     {rows = parts, count = count}, math.max(0, w - header - 8), math.max(0, header - NARROW_HEADER)
   )
   local hw = header + column.width - column.from_header
+  -- The heads' width class, which the heads' wishes depend on: the
+  -- headers less the part column, the stripe and the rule.
+  heads.begin_layout(hw - column.width - 2)
   -- The ruler, the song's bars under the scope's (`song_bars`), its
   -- second row if something asks for one, a row for each band of an
   -- extension's (`paw.frontend.bands`) that has entries, and the tempo
@@ -432,8 +454,15 @@ function view:layout(w: integer, h: integer): Layout
   end
   local th = view.part_height(#parts, math.max(1, room - lane_lines))
   -- Squeezed by panels below, a part takes what there is rather than vanish.
-  if not (paw.vzoom.part_rows() or tonumber(paw.opt.part_height)) and room < th then
+  if not user_height() and room < th then
     th = math.max(1, room)
+  end
+  -- A head that wishes for more rows than the parts' height gives its
+  -- row a height of its own.
+  if th > 1 and not user_height() then
+    for _, id in ipairs(parts) do
+      own = own or (heads.wish(id) or 0) > th
+    end
   end
   local L: Layout = {
     hw = hw,
@@ -1424,9 +1453,14 @@ function view:set_time_axis(left: number, zoom: number, _?: contracts.RenderCont
   end
 end
 
---- On an automation lane row the lane's own keys come first.
+--- On an automation lane row the lane's own keys come first. On a part's
+--- row the keys of its head come first (paw/heads.tl).
 function view:subscope(): string | {string}
-  return paw.cursor.lane_id() and "arrange.lane" or nil
+  if paw.cursor.lane_id() then
+    return "arrange.lane"
+  end
+  local part = paw.cursor.part_id()
+  return part and heads.scope(part) or nil
 end
 
 --- What a window of the arrange view shows besides what events announce
@@ -1465,6 +1499,8 @@ end
 local record Frame
   buf: Buf
   headers: Buf
+  --- The first column of `headers` in the view.
+  headers_x: integer
   lanes: Buf
   ruler: Buf
   ruler2: Buf
@@ -1958,6 +1994,13 @@ local function group_overview(F: Frame, row: Row, hue: Hue)
   end
 end
 
+--- Add the hits of a head to the window's (`self.head_hits`).
+local function add_hits(self: Arrange, list: {heads.Hit})
+  for _, hit in ipairs(list) do
+    self.head_hits[#self.head_hits + 1] = hit
+  end
+end
+
 --- The rows of the timeline: lanes and takes first, then each part's
 --- header and clips, and the cursor on its part. The timeline under the
 --- ruler is a plane, beats along and the view's lines down: a window
@@ -2009,8 +2052,20 @@ local function draw_rows(self: Arrange, F: Frame)
       local automation = api.lane_list(row.id)
       local hue = draw.part_hue(part, row.index)
       local on_part = selected and not F.cursor_lane
-      self.flags = part_draw.header(
-        F.headers, row.y, row.h, part, row.index, on_part, automation, hue, self.column_width
+      add_hits(
+        self,
+        heads.draw(
+          {
+            buf = F.headers,
+            y = row.y,
+            h = row.h,
+            part = part,
+            index = row.index,
+            selected = on_part,
+            hue = hue,
+            x = F.headers_x,
+          }
+        )
       )
       -- With its lanes open as rows, a part's curve is drawn there, not here.
       F.covered[row] = part_lane(
@@ -2250,8 +2305,19 @@ local function draw_master(self: Arrange, F: Frame)
   local mst, ax = F.L.master, F.ax
   local master = api.part_get(0)
   local on_master = F.cursor_part == 0
-  part_draw.header(
-    F.headers, mst.y, mst.h, master, nil, on_master, api.lane_list(0), draw.part_hue(master), self.column_width
+  add_hits(
+    self,
+    heads.draw(
+      {
+        buf = F.headers,
+        y = mst.y,
+        h = mst.h,
+        part = master,
+        selected = on_master,
+        hue = draw.part_hue(master),
+        x = F.headers_x,
+      }
+    )
   )
   if on_master and F.cursor_beat then
     local x, cw = cursor_cells(ax, F.cursor_beat)
@@ -2438,12 +2504,13 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   buf:hit(0, 0, w, h, {kind = "arrange"})
   -- The rule between the headers and the timeline, from top to bottom.
   buf:fill(hw - 1, 0, 1, h, draw.g.rule, "Rule")
-  -- The part column at the left, then the headers. Where the chips are,
-  -- for the pointer, is in the view's columns.
+  -- The part column at the left, then the headers. The heads give their
+  -- hits for the pointer in the view's columns.
   local cw = L.column.width
-  self.column_width = cw
+  self.head_hits = {}
   local column = cw > 0 and buf:sub(0, 0, cw, h) or nil
   F.headers, F.lanes = buf:sub(cw, 0, hw - 1 - cw, h), buf:sub(hw, 0, tw, h)
+  F.headers_x = cw
   buf:fill(0, 0, hw - 1, h, " ", "PartHeader")
   draw_ruler(self, F)
   draw_rows(self, F)

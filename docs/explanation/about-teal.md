@@ -927,8 +927,9 @@ drew them. The header now gives the columns back, and the view keeps them,
 so the drawing of a header changes nothing else. The drawing of a frame was
 one function of 352 lines and the header one of 208 lines. Each is now a
 short function that calls one function for each part, for example the
-ruler, the rows, the selection and the playhead. The header and the clips
-of one part are in `paw/views/arrange_part.tl`.
+ruler, the rows, the selection and the playhead. The clips of one part are
+in `paw/views/arrange_part.tl`, and a head of `paw/heads.tl` draws the
+header.
 
 The widget roles (`label`, `button`, `switch`, `knob` and `playhead`) are
 still defined in Lua, and their props had no record. The contracts give one

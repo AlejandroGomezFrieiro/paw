@@ -1,0 +1,9 @@
+{1: 1}{2: }{3:█}{4: }Quiet            {5:M}{4: }{6:│}
+--
+0: fg=#eef1f6 bg=#262c38 bold
+1: fg=#f5a95c bg=#262c38 bold
+2: fg=#8a91a3 bg=#262c38
+3: fg=#e0605a bg=#262c38
+4: fg=#eef1f6 bg=#262c38
+5: fg=#101216 bg=#e8a33d bold
+6: fg=#363d4b bg=#101216

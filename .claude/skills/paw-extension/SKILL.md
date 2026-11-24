@@ -168,7 +168,8 @@ paw.keymap.set("]e", fn, { view = "pianoroll", motion = true, desc = "Next onset
 paw.ui.view("euclid", { render = function(self, buf, ctx) end, on_key = …, title = "Euclid" })
 paw.buftype("tally", { … })                    -- a buffer type with its own keys/motions/K/status
 paw.textbuf.kind("clips", { … })               -- a listing edited as text, :w shows a plan
-paw.part_kinds.define("euclid", { … })        -- a kind of part (create, editor, describe)
+paw.part_kinds.define("euclid", { head = "euclid", … })  -- a kind of part (create, editor, describe, head)
+paw.heads.define("euclid", { rows = …, render = function(ctx) end, keys = { … } })  -- the header of its parts (docs/reference/extensions.md)
 paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
 paw.nest.define_kind("drums.pattern", { … })   -- a kind of subproject: create(region), enter(nest), describe(nest)
 paw.chain.define_kind("drums.transient", { min = 2, max = 2, first = 2 })  -- a kind of split in a chain; edit a chain with paw.chain.of({ part = id })
