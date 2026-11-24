@@ -538,7 +538,7 @@ fn a_terminal_attaches_to_a_kernel_without_one_types_and_leaves() {
     assert_eq!((grid.width, grid.height), (100, 30));
     assert_eq!(text.lines().count(), 30);
     // Typing goes to the kernel's keys: a command line, and what it does.
-    for key in [":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"] {
+    for key in [":", "p", "a", "r", "t", ".", "a", "d", "d", "<CR>"] {
         c.notify("ui.input", json!([{ "key": key }])).unwrap();
     }
     screen(&c, &mut grid, |t| t.contains("Part 2"));
@@ -671,7 +671,7 @@ fn two_terminals_attached_have_a_seat_each_in_one_project() {
     assert_eq!(at(&mut a), json!("Bass"));
     assert_eq!(at(&mut b), json!("Drums"), "the other cursor did not move");
     // What one adds, the other sees, and can take back: one history.
-    type_keys(&mut a, &["<Esc>", ":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"]);
+    type_keys(&mut a, &["<Esc>", ":", "p", "a", "r", "t", ".", "a", "d", "d", "<CR>"]);
     screen(&b, &mut gb, |t| t.contains("Part 3"));
     type_keys(&mut b, &["u"]);
     screen(&a, &mut ga, |t| !t.contains("Part 3"));
@@ -715,7 +715,7 @@ fn while_the_song_plays_terminals_are_sent_only_what_moves() {
     assert!(count(&after, "live") >= count(&before, "live") + 10, "frames of the live parts: {before} {after}");
     assert!(count(&after, "full") <= count(&before, "full") + 4, "few whole frames: {before} {after}");
     // A key still draws the whole screen at once.
-    type_keys(&mut a, &[":", "t", "r", "a", "c", "k", ".", "a", "d", "d", "<CR>"]);
+    type_keys(&mut a, &[":", "p", "a", "r", "t", ".", "a", "d", "d", "<CR>"]);
     screen(&a, &mut ga, |t| t.contains("Part 2"));
     screen(&b, &mut gb, |t| t.contains("Part 2"));
     a.call("cmd", json!(["transport.stop"])).unwrap();

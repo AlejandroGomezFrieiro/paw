@@ -1,27 +1,27 @@
  Song 1.1               │▼ ▏ ▏ ▏ 2 ▏ ▏ ▏ 3 ▏ ▏ ▏ 4 ▏ ▏ ▏▕5 ▏ ▏ ▏ 6 ▏ ▏ ▏ 7 ▏ ▏ ▏ 8 ▏ ▏ ▏ 9 ▏ ▏ ▏ 10
  1 ▾▌ Group        MSRI │▏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▏       ▏       ▏       ▏       ▏       ▏
    │▌in ─────────── 0.0 │▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏
- 2 │█ Part 1      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 2 │█ Part 1       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
    │█in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 3 ╰▌ Part 2      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 3 ╰▌ Part 2       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 4  ▌ Part 3      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 4  ▌ Part 3       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 5  ▌ Part 4      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 5  ▌ Part 4       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 6  ▌ Part 5      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 6  ▌ Part 5       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 7  ▌ Part 6      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 7  ▌ Part 6       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 8  ▌ Part 7      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 8  ▌ Part 7       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
- 9  ▌ Part 8      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 9  ▌ Part 8       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
-10  ▌ Part 9      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+10  ▌ Part 9       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
-11  ▌ Part 10     MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+11  ▌ Part 10      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▀▀▀▀                            ▏       ▏       ▏       ▏       ▏       ▏
-        o new part     │
+        o new part      │
                         │
                         │
     ▌ Master            │

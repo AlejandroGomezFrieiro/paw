@@ -98,7 +98,7 @@ test("Markdown is made into text: headings with their tag, bullets, aligned tabl
   eq(shown:find("\n 1. first", 1, true) ~= nil, true, "a number")
   eq(
     shown:find(
-      "Key  What\n───  ──────────────\ndd   delete a part\nyy   yank it",
+      "Key  What\n───  ─────────────\ndd   delete a part\nyy   yank it",
       1,
       true
     ) ~= nil,

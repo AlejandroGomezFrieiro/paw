@@ -2,25 +2,25 @@
  1 ▾▌ Group        MSRI │▏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▏       ▏       ▏       ▏       ▏       ▏
    │▌in ─────────── 0.0 │▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏
    │▌   C               │▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏       ▏
- 2 │█ Part 1      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 2 │█ Part 1       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
    │█in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
    │█   C       → Group │                                ▏       ▏       ▏       ▏       ▏       ▏
- 3 ╰▌ Part 2      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 3 ╰▌ Part 2       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
     ▌   C       → Group │                                ▏       ▏       ▏       ▏       ▏       ▏
- 4  ▌ Part 3      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 4  ▌ Part 3       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
     ▌   C               │                                ▏       ▏       ▏       ▏       ▏       ▏
- 5  ▌ Part 4      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 5  ▌ Part 4       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
     ▌   C               │                                ▏       ▏       ▏       ▏       ▏       ▏
- 6  ▌ Part 5      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 6  ▌ Part 5       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
     ▌   C               │                                ▏       ▏       ▏       ▏       ▏       ▏
- 7  ▌ Part 6      MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
+ 7  ▌ Part 6       MSRI │▏midi                           ▏       ▏       ▏       ▏       ▏       ▏
     ▌in ─────────── 0.0 │▄▄▄▄                            ▏       ▏       ▏       ▏       ▏       ▏
     ▌   C               │                                ▏       ▏       ▏       ▏       ▏       ▏
-        o new part     │
+        o new part      │
                         │
                         │
                         │

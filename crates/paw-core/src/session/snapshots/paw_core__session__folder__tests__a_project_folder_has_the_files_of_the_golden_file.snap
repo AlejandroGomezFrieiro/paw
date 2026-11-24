@@ -1,6 +1,5 @@
 ---
 source: crates/paw-core/src/session/folder.rs
-assertion_line: 2051
 expression: "crate::golden::folder_text(dir.path())"
 ---
 == .gitattributes (23 bytes)
@@ -26,33 +25,6 @@ expression: "crate::golden::folder_text(dir.path())"
 == meta.json (24 bytes)
 {
   "composer": "paw"
-}
-== project.toml (248 bytes)
-name = "untitled"
-sig_den = 4
-sig_num = 4
-tempo = 112.0
-parts = [
-    "Lead",
-    "Reverb",
-]
-version = 2
-
-[transport]
-loop_enabled = false
-loop_end = 16.0
-loop_start = 0.0
-metronome = false
-punch_enabled = false
-punch_end = 0.0
-punch_start = 0.0
-== screen.json (56 bytes)
-{
-  "tabs": [
-    {
-      "view": "arrange"
-    }
-  ]
 }
 == parts/Lead/automation/volume.json (237 bytes)
 {
@@ -111,7 +83,7 @@ punch_start = 0.0
     }
   }
 ]
-== parts/Lead/part.json (556 bytes)
+== parts/Lead/part.json (555 bytes)
 {
   "armed": false,
   "clips": [
@@ -177,4 +149,31 @@ punch_start = 0.0
   "sends": [],
   "solo": false,
   "volume": 0.0
+}
+== project.toml (247 bytes)
+name = "untitled"
+parts = [
+    "Lead",
+    "Reverb",
+]
+sig_den = 4
+sig_num = 4
+tempo = 112.0
+version = 2
+
+[transport]
+loop_enabled = false
+loop_end = 16.0
+loop_start = 0.0
+metronome = false
+punch_enabled = false
+punch_end = 0.0
+punch_start = 0.0
+== screen.json (56 bytes)
+{
+  "tabs": [
+    {
+      "view": "arrange"
+    }
+  ]
 }
