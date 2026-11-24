@@ -3,10 +3,10 @@ id: TASK-340
 title: >-
   The plugins pass of the suite: plugstate, Surge XT snapshot and the plugin
   setting guide fail
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T03:00:00Z'
-updated_date: '2026-11-24T16:08:00Z'
+updated_date: '2026-11-24T16:41:00Z'
 labels:
   - agent:worker
 milestone: m-12
@@ -42,4 +42,6 @@ Seen by the EL2 agent on 2026-11-24 in 'tests/tools/suite.sh plugins' (scratch H
 
 <!-- SECTION:NOTES:BEGIN -->
 Builder report 2026-11-24: the failures had the same causes as TASK-331. suite.sh plugins with seed 11: 2109 ok, 2 failures, both order leaks outside plugins (snippet.lua:212, ex.lua:82).
+
+On main in merge f08e1f81 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
