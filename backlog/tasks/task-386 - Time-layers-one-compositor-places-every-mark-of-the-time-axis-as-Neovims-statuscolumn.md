@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-24T17:41:00Z'
-updated_date: '2026-11-24T19:35:00Z'
+updated_date: '2026-11-24T19:57:00Z'
 labels:
   - design
   - ux
@@ -63,4 +63,6 @@ STATE 2026-11-24 (session paused): branch worktree-agent-adcf8552100a28494, head
 Opus review of d312068b (2026-11-24): merge after soft fixes, no hard finding. Sent to the builder: ruler.tl:19-23 header comment, ruler.tl:474-478 leftover doc comment, how-to says K 'on the ruler' (it is between clips), tests for marks.del/clear/get and route kept after unload, ruler.tl:193 precedence, and performance (kept marks copied per frame with no window filter, ruler.tl:324-340; places() over -1e12..1e12). Open points (old, not new): subproject screen has no regions row; zoom 2 in 6/8 ticks in adjacent cells. ara failures: not this branch; confirm on the main binary with PAW_ARA_BRIDGE. If the builder's commit is not on the branch at the next start, apply these fixes there.
 
 Builder done: head 35f95850 (all 6 review fixes; kept marks sorted with binary search; new paw.marks.within(ns, lo, hi, here?)). CHECK at merge: places() now reads the window, so the height of a row with routed marks can change on scroll: rows that jump while scrolling are a UX bug; if seen, keep a row's height for the whole scope. NEXT: owner accepts ADR 0044, merge check (words ruler tempo meter zoom section time_axis describe guide rulerplus marks), ff main, then the owner runs the skills command.
+
+Owner, 2026-11-24: ADR 0044 accepted.
 <!-- SECTION:NOTES:END -->
