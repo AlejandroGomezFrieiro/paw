@@ -15,12 +15,10 @@ local kernel = require("paw.events.kernel")
 local options = require("paw.options")
 local type partial = require("paw.partial")
 local type types = require("paw.types")
+local type LoadingModule = require("paw.loading")
 
-local record Loading
-  project_dir: function(path: string): string
-end
 local record Paw is partial.Paw
-  loading: Loading
+  loading: LoadingModule
 end
 local paw = (_G as {string: Paw}).paw
 

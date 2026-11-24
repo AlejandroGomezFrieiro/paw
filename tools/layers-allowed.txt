@@ -93,7 +93,6 @@ paw.query paw.frontend 2
 paw.query paw.qf 2
 paw.recent paw.defaults.clips 1
 paw.recent paw.pick 1
-paw.recent paw.pick.sources 1
 paw.render paw.keymap 1
 paw.render paw.ui 1
 paw.roles paw.keymap 1

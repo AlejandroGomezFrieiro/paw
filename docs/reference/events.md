@@ -78,11 +78,7 @@ Every event of paw is listed below, with the payload that its handler gets.
 | `buf.enter`, `buf.leave` | `{ buf, name }` | a window shows a different buffer |
 | `tab.enter` | `{ tab }` | a different tab |
 | `ui.resized` | `{ width, height }` | the screen changed size |
-| `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it |
 | `seat.opened`, `seat.closing` | `{ seat }` | a terminal or a graphical window attached, or will go |
-| `annotation.changed` | `{ namespace, document, ... }` | annotations changed |
-| `plugins.scanned` | `{ notes, ... }` | a scan for plugins ended |
-| `luadev.checked` | the results | paw checked the devices in Lua again |
 | `ext.loaded` | `{ name, ok }` | an extension loaded, or failed to load |
 | `ext.unloading`, `ext.unloaded` | `{ name }` | paw will unload an extension, and unloaded it |
 
@@ -102,6 +98,7 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 | Event | Payload | When | In Teal |
 | --- | --- | --- | --- |
 | `address.changed` | `{ uris, revision, rendered }` | things with addresses changed | `paw.address.changed` |
+| `annotation.changed` | `{ namespace, document }` | annotations changed | `paw.annotation.changed` |
 | `complete.changed` | `{ shown }` | suggestions appeared or disappeared | `paw.complete.changed` |
 | `cursor.changed` | `{ part, beat, lane }` | the cursor moved, or another seat's did | `paw.cursor.changed` |
 | `derived.changed` | `{ names }` | a slice of the work that paw derives from the project ended, and the values of these kinds of node changed | `require("paw.derived").changed` |
@@ -111,12 +108,14 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 | `lanes.changed` | `{}` | the lanes shown (automation or takes) changed | `paw.lanes.changed` |
 | `lsp.analysis` | `{ clip, client }` | the analysis of a clip arrived from a language server | `paw.lsp.analysed` |
 | `lsp.status` | `{ client, status, document }` | a language server started, failed or stopped | `paw.lsp.status_changed` |
+| `luadev.checked` | `{ added, changed, errors }` | paw checked the devices in Lua again | `paw.luadev.checked` |
 | `mode.changed` | `{ mode, old }` | the mode of the keymap changed | `paw.keymap.mode_changed` |
 | `nest.changed` | `{ nest, state }` | an edit changed the parts, clips, devices or lanes of a subproject. It comes once for each undo step | `paw.nest.changed` |
 | `nest.enter` | `{ nest, win, clip }` | a window went inside a subproject | `paw.nest.entered` |
 | `nest.leave` | `{ nest, win, clip }` | a window came out of a subproject | `paw.nest.left` |
 | `option.changed` | `{ name, value, old }` | an option got a different value | `paw.option.changed` |
 | `pianoroll.opened` | `{ clip }` | the piano roll opened a clip | `require("paw.views.pianoroll").opened` |
+| `plugins.scanned` | `{ notes, dir, kinds, name }` | a scan for plugins ended | `paw.plugins.scanned` |
 | `qf.changed` | `{ title, win }` | the quickfix list or a location list changed | `paw.qf.event` |
 | `render.before` | `{ path, opts, measure }` | a render will start | `paw.render.before` |
 | `render.finished` | `{ path, frames, seconds, sample_rate, peak, format, bits, channels, gain, loudness, nonfinite, elapsed, processing, blocks, threads, device_runs, device_sleeps, left_out }` | what a render in the foreground wrote | `paw.render.finished` |
@@ -125,6 +124,7 @@ paw.on(options.changed, function(e: options.Changed) print(e.name) end)
 | `snippet.expanded` | `{ name, clip }` | a snippet went into a clip | `paw.snippet.expanded` |
 | `snippet.finished` | `{ name }` | a snippet stopped, and the notes that it wrote stay | `paw.snippet.finished` |
 | `startup` | `{}` | the runtime, the extensions and the configuration loaded | `paw.events.startup` |
+| `ui.focus` | `{ focused }` | the terminal (mode 1004) or the window got the focus of the desktop, or lost it | `paw.ui.desktop_focus` |
 
 <!-- The end of the rows from tools/apidoc.lua. -->
 

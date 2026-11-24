@@ -29,16 +29,12 @@ local type CursorModule = require("paw.cursor")
 local type MarkersModule = require("paw.markers")
 local type ScopeModule = require("paw.scope")
 local type GroupsModule = require("paw.groups")
+local type LoadingModule = require("paw.loading")
 
 --- `paw.part_kinds` (paw/part_kinds.lua), the piece this module calls.
 local record PartKinds
   kinds: registry.Registry<contracts.PartKind>
   add: function(name: string, opts: {string: string}): objects.Part
-end
-
---- `paw.loading` (paw/loading.lua), the part this module calls.
-local record Loading
-  open: function(path: string, opts?: {string: boolean})
 end
 
 local record Paw is partial.Paw
@@ -47,7 +43,7 @@ local record Paw is partial.Paw
   scope: ScopeModule
   groups: GroupsModule
   time: objects.Time
-  loading: Loading
+  loading: LoadingModule
   add_part: function(opts?: objects.PartInput): objects.Part
 end
 local paw = (_G as {string: Paw}).paw
@@ -2262,7 +2258,7 @@ end
 --- `song_of`), and enter that subproject in the window, as `:e` of the path
 --- does. The song opens only when it is not open already; `opts` go to
 --- `paw.loading.open`. Returns the message.
-function M.open(path: string, opts?: {string: boolean}): string
+function M.open(path: string, opts?: LoadingModule.OpenOptions): string
   local song, id = M.song_of(path)
   if not song then
     error(path .. " is no subproject of a song", 0)

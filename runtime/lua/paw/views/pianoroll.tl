@@ -30,6 +30,7 @@ local type HarmonyModule = require("paw.harmony")
 local type KeymapModule = require("paw.keymap")
 local type LayoutModule = require("paw.layout")
 local type MouseModule = require("paw.mouse")
+local type PluginsModule = require("paw.plugins")
 local type TempoModule = require("paw.tempo")
 local type UiModule = require("paw.ui")
 local type VzoomModule = require("paw.vzoom")
@@ -396,6 +397,7 @@ local record Paw is partial.Paw
   keymap: KeymapModule
   harmony: HarmonyModule
   layout: LayoutModule
+  plugins: PluginsModule
   tempo: TempoModule
   vzoom: VzoomModule
   attr: AttrModule

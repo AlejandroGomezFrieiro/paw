@@ -6,6 +6,7 @@
 local api = require("paw.api")
 local options = require("paw.options")
 local commands = require("paw.commands")
+local type command = require("paw.command")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
 
@@ -42,8 +43,8 @@ function M.save_as(after?: function())
     {
       prompt = "Save as (" .. dir .. "): ",
       text = name,
-      complete = function(text: string): {{string: string}}
-        return commands.completers:get("projects")(text) as {{string: string}}
+      complete = function(text: string): {string | command.Entry}
+        return commands.completers:get("projects")(text) as {string | command.Entry}
       end,
     },
     function(typed: string)

@@ -9,6 +9,7 @@ local type Partial = require("paw.partial")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type AddressModule = require("paw.address")
+local type AnnotationModule = require("paw.annotation")
 local type AttrModule = require("paw.attr")
 local type AuditionModule = require("paw.audition")
 local type AxisModule = require("paw.axis")
@@ -30,6 +31,7 @@ local type EditModule = require("paw.edit")
 local type EventsModule = require("paw.events")
 local type ExModule = require("paw.ex")
 local type ExportModule = require("paw.export")
+local type ExternalModule = require("paw.external")
 local type FoldsModule = require("paw.folds")
 local type FormatsModule = require("paw.formats")
 local type FreezeBlockModule = require("paw.freeze_block")
@@ -47,7 +49,9 @@ local type LanesModule = require("paw.lanes")
 local type LangModule = require("paw.lang")
 local type LayoutModule = require("paw.layout")
 local type LimitModule = require("paw.limit")
+local type LoadingModule = require("paw.loading")
 local type LspModule = require("paw.lsp")
+local type LuadevModule = require("paw.luadev")
 local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
 local type MediaModule = require("paw.media")
@@ -64,9 +68,12 @@ local type PanesModule = require("paw.panes")
 local type PartcolumnModule = require("paw.partcolumn")
 local type PickModule = require("paw.pick")
 local type PlotModule = require("paw.plot")
+local type PluginsModule = require("paw.plugins")
 local type ProfileModule = require("paw.profile")
 local type QfModule = require("paw.qf")
 local type QueryModule = require("paw.query")
+local type RecentModule = require("paw.recent")
+local type ReconnectModule = require("paw.reconnect")
 local type RegexModule = require("paw.regex")
 local type RegistryModule = require("paw.registry")
 local type RemoteModule = require("paw.remote")
@@ -103,7 +110,7 @@ global record paw
    type Untyped = UntypedLua
    add_part: function(opts?: ObjectsModule.PartInput): ObjectsModule.Part
    address: AddressModule
-   annotation: Untyped
+   annotation: AnnotationModule
    attr: AttrModule
    audio: Untyped
    audition: AuditionModule
@@ -140,7 +147,7 @@ global record paw
    ex: ExModule
    export: ExportModule
    ext: Partial.Ext
-   external: Untyped
+   external: ExternalModule
    failure: function(err: string): string
    files: Partial.Files
    flush: function()
@@ -172,9 +179,9 @@ global record paw
    layouts: {string: LayoutModule.Spec}
    learn: Untyped
    limit: LimitModule
-   loading: Untyped
+   loading: LoadingModule
    lsp: LspModule
-   luadev: Untyped
+   luadev: LuadevModule
    markdown: MarkdownModule
    markers: MarkersModule
    master: ObjectsModule.Part
@@ -204,13 +211,13 @@ global record paw
    parts: function(): {ObjectsModule.Part}
    pick: PickModule
    plot: PlotModule
-   plugins: Partial.Plugins
+   plugins: PluginsModule
    profile: ProfileModule
    project: ObjectsModule.Project
    qf: QfModule
    query: QueryModule
-   recent: Untyped
-   reconnect: Untyped
+   recent: RecentModule
+   reconnect: ReconnectModule
    redo: function(): boolean
    regex: RegexModule
    registry: RegistryModule

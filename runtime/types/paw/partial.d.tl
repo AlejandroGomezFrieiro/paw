@@ -38,10 +38,6 @@ local record partial
       define: function(name: string, spec: contracts.PartKind): contracts.PartKind
       metamethod __index: function(PartKinds, string): Untyped
    end
-   record Plugins
-      key_names: function(part: integer): {integer:string}
-      metamethod __index: function(Plugins, string): Untyped
-   end
    --- The global `paw`, as far as the modules in Lua type it.
    interface Paw
       buftype: function<B is contracts.Buftype>(name: string, def: B): B
@@ -58,7 +54,6 @@ local record partial
       notify: function(text: string, level?: string)
       off: function(id: integer)
       part_kinds: PartKinds
-      plugins: Plugins
       render_cancel: function(): boolean
       render_tags: function(set?: types.RenderTags): types.RenderTags
       wait: function(ms: number)

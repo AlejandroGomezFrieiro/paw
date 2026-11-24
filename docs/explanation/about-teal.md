@@ -338,6 +338,7 @@ each other.
 | Done | Keys | `keymap` (with `keymap/registers` and `keymap/marks`), `keyrule`, `keybar`: 3,021 lines of Teal, 2 fewer entries on the allow-list, the 14 records that other modules kept of `paw.keymap` and the 4 of `paw.ui.keybar` gone, and no `any` or `paw.Untyped` in these modules | 1,950 | wave 4 |
 | Done | The piano roll | `views/pianoroll`, `views/pianoroll_mouse`, `views/pianoroll_strip`, `roll_clips`: 3,701 lines of Teal, 1 fewer entry on the allow-list, the 10 records that other modules kept of the piano roll gone, and no `any` or `paw.Untyped` in these modules | 2,430 | the keys |
 | Done | The arrange view | `views/arrange`, `views/arrange_mouse`, `roles/arrange`, and `views/arrange_part`, which the port split from the view: 4,450 lines of Teal, the 6 records that other modules kept of the view gone, and no `any` in these modules | 3,230 | the keys |
+| Done | Runtime services | `annotation`, `reconnect`, `external`, `recent`, `luadev`, `loading`, `plugins`: 1,480 lines of Teal, 7 fewer entries on the allow-list, the stand-in records that other modules kept of them gone, and no `any` or `paw.Untyped` in these modules | 1,100 | wave 5 |
 | 5 | Views | the rest of `defaults/`, `views/` and `roles/` | 12,000 | the keys |
 | Done | Extensions: `interop` | the readers and writers of REAPER and DAWproject files: 6,300 lines of Teal, no `any` or `paw.Untyped`, and no function over 100 lines (the longest had 196) | 4,300 | the modules of paw that it uses |
 | Done | Extensions: `plugstate` | the adapters, the library, the snapshots, the readers of the state of each framework and the client of TONE3000: 9,550 lines of Teal, no `any` or `paw.Untyped`, and no function over 50 lines | 6,400 | the modules of paw that it uses |
@@ -742,8 +743,10 @@ The menus use the types of `paw.frontend`. Its `recent_menu` has the type
 of a choice of a range (`name`, `label`), but `paw.recent` gives `label`
 and `path`, so the File menu casts the list. `paw.frontend`, `paw.remote`,
 `paw.render` and `paw.media` use the actual types of `paw.mouse`,
-`paw.panes` and `paw.ui`. They do not yet use the views of `paw.ui`, which
-`paw.frontend` reads as records of its own until wave 5.
+`paw.panes` and `paw.ui`. Since wave 5, `paw.frontend` has no record of its
+own for `paw.ui`: it uses the module `paw.ui`, and the views that it reads
+have their own types (`paw.views.pianoroll`). Only the inspector is still a
+record of the frontend, because the inspector is a view in Lua.
 
 `paw.seats.keep` takes values of one type, so `paw.ui` and `paw.panes` keep
 the state of each seat in a record. `paw.layout.within` and
@@ -1068,3 +1071,31 @@ makes can fill the same model later.
 Two checks of the Teal files had different rules. `tools/tlcheck.sh` ran
 `cyan check` and let a warning pass, such as a local that is not used. The
 check of the suite failed on it. Now the two run the same check.
+
+## What the checker found in the runtime services
+
+The port of `annotation`, `reconnect`, `external`, `recent`, `luadev`,
+`loading` and `plugins` changed no behavior, and the tests of these
+modules pass with no change. Each module now gives its event as a
+descriptor, and the modules that heard the event by its name use the
+descriptor.
+
+Two modules sent the event `plugins.scanned` with different payloads, and
+`paw.qf` kept a record of its own for the payload. `paw.plugins` owns the
+event now, and its record has the fields of both senders (`notes`, `dir`,
+`kinds` and `name`). The event `ui.focus` had a descriptor in the gestures
+of the frontend, so `paw.external` could not use it. `paw.ui` owns it now.
+
+The records that other modules kept of these modules are gone. The module
+`paw.lsp` used its own record of `paw.annotation`, and `paw.nest`,
+`paw.undofile`, `paw.shada` and `paw.frontend` each used a record of
+`paw.loading`. They use the module types now. The module `paw.recent` is
+the one exception: the menu of the window reads its list as the choices of
+a range, so the frontend still has a record for it.
+
+The module `paw.recent` read `time` from a file, and `os.date` takes a
+whole number or the time of now, so the picker rounds the time down in
+place of passing a fraction. The modules `paw.loading` and `paw.external` read one
+field of the project with `api.project_get("path")`. The types of the call
+take no key, and a call with no key builds the whole view of the project,
+so the two modules keep the one-field read through one cast of the function.

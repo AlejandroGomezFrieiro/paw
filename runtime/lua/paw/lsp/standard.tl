@@ -27,6 +27,7 @@ local A = require("paw.address")
 local type types = require("paw.types")
 local type util = require("paw.util")
 local type contracts = require("paw.contracts")
+local type AnnotationModule = require("paw.annotation")
 local type DiagnosticModule = require("paw.diagnostic")
 local type HarmonyModule = require("paw.harmony")
 local type CompleteModule = require("paw.complete")
@@ -245,12 +246,7 @@ local record Client
 end
 
 --- A label of a server on an address (`paw.annotation`).
-local record Annotation
-  location: Location
-  label: string
-  kind: string
-  tooltip: string
-end
+local type Annotation = AnnotationModule.Entry
 
 --- What a server heard of a clip's harmony, in project beats.
 local record Analysis

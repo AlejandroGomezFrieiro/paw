@@ -8,12 +8,13 @@ local timegrid = require("paw.timegrid")
 local motion = require("paw.motion")
 local type types = require("paw.types")
 local type KeymapModule = require("paw.keymap")
-local type KeybarModule = require("paw.keybar")
 local type objects = require("paw.objects")
 local type CanvasModule = require("paw.canvas")
 local type EditModule = require("paw.edit")
 local type MidifileModule = require("paw.midifile")
 local type PanesModule = require("paw.panes")
+local type UiModule = require("paw.ui")
+local type LoadingModule = require("paw.loading")
 local type RenderModule = require("paw.render")
 local type StatuslineModule = require("paw.statusline")
 local type TempoModule = require("paw.tempo")
@@ -31,8 +32,6 @@ local type TempolaneModule = require("paw.tempolane")
 local type VcaModule = require("paw.vca")
 local type RollClipsModule = require("paw.roll_clips")
 local type Roll = require("paw.views.pianoroll")
-local type registry = require("paw.registry")
-local type contracts = require("paw.contracts")
 local type MouseModule = require("paw.mouse")
 local type NestModule = require("paw.nest")
 
@@ -104,44 +103,6 @@ local record DevicePanel
   row: integer
   rows: function(self: DevicePanel): {DeviceRow}
   show: function(self: DevicePanel, device: integer, key?: string): integer
-end
-local record Rect
-  name: string
-  x: integer
-  y: integer
-  w: integer
-  h: integer
-end
-local record Float
-  name: string
-  title: string
-end
-local record InputOptions
-  prompt: string
-  text: string
-  complete: function(text: string): {{string: string}}
-end
-local record MouseEvent
-  kind: string
-  button: string
-  x: integer
-  y: integer
-end
---- paw/ui.tl, with the views as this module reads them (wave 5 types the views).
-local record Ui
-  focused: string
-  float: Float
-  message: Message
-  rects: {Rect}
-  views: registry.Registry<contracts.View>
-  keybar: KeybarModule
-  has_focus: boolean
-  grabber: function()
-  visible: function(name: string): boolean
-  focus: function(name: string)
-  hide: function(name: string)
-  input: function(opts: InputOptions, done: function(text: string))
-  mouse: function(event: MouseEvent)
 end
 --- A choice of an input, an output or an audio device (paw/audio.lua).
 local record Choice
@@ -243,9 +204,6 @@ end
 local record Help
   topic_of: function(view: string): string
 end
-local record Loading
-  toggle: function(device: objects.Device)
-end
 local record RecentModule
   menu: function(): {RangeChoice}
   open: function(path: string)
@@ -279,7 +237,7 @@ end
 local record Paw
   nest: NestModule
   keymap: KeymapModule
-  ui: Ui
+  ui: UiModule
   audio: Audio
   fx: Fx
   params: Params
@@ -292,7 +250,7 @@ local record Paw
   panes: PanesModule
   learn: Learn
   help: Help
-  loading: Loading
+  loading: LoadingModule
   recent: RecentModule
   autosave: Autosave
   files: Files
@@ -384,7 +342,6 @@ local record Host
   type RangeChoice = RangeChoice
   type Point = Point
   type Portion = Portion
-  type Rect = Rect
   type Choice = Choice
   type MixerRows = MixerRows
   type Menu = Menu
