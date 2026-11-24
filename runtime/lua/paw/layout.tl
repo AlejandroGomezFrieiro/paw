@@ -1499,6 +1499,23 @@ local function reap(id: integer)
   M.buffers[id] = nil
 end
 
+-- A seat that closes takes its tabs and windows with it, and so the buffers
+-- that only its windows showed (an empty window's), as `reap` does when a
+-- window closes. The event comes while the seat's tabs are the current ones.
+events.on(
+  events.event("seat.closing") as events.Event<events.Payload>,
+  function()
+    for _, t in ipairs(ui().tabs) do
+      for _, win in ipairs(M.windows(t.layout, true)) do
+        local buf = win.buf and M.buffers[win.buf]
+        if buf and not buf.listed then
+          M.buffers[win.buf] = nil
+        end
+      end
+    end
+  end
+)
+
 --- Delete a buffer (`:bd`): its windows close, and a buffer of a type that
 --- has more than one is forgotten. A view's buffer stays, as the view does.
 function M.buf_delete(buf: Buffer)

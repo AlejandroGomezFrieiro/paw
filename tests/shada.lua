@@ -9,18 +9,6 @@ local dir = T.scratch .. "/shada"
 os.execute("rm -rf '" .. dir .. "' && mkdir -p '" .. dir .. "'")
 local counter = 0
 
---- Keep the files in a folder of this test's own, as the program does when it
---- is not run with --clean; the state is back to the default afterwards.
-local function keeping(fn)
-  counter = counter + 1
-  local file = string.format("%s/user-%d.json", dir, counter)
-  paw.shada.use(file)
-  local ok, err = xpcall(fn, debug.traceback, file)
-  paw.shada.use()
-  paw.opt.shada = true
-  if not ok then error(err, 0) end
-end
-
 --- What a new start has in memory: nothing.
 local function forget()
   cmdline.set_history("cmdline", {})
@@ -29,6 +17,21 @@ local function forget()
   for name in pairs(paw.keymap.registers) do
     paw.keymap.registers[name] = nil
   end
+end
+
+--- Keep the files in a folder of this test's own, as the program does when it
+--- is not run with --clean; the state is back to the default afterwards.
+--- The test starts as a new start does, with nothing in memory: not the
+--- lines that an earlier test left in the histories.
+local function keeping(fn)
+  counter = counter + 1
+  local file = string.format("%s/user-%d.json", dir, counter)
+  paw.shada.use(file)
+  forget()
+  local ok, err = xpcall(fn, debug.traceback, file)
+  paw.shada.use()
+  paw.opt.shada = true
+  if not ok then error(err, 0) end
 end
 
 local function here() return paw.cursor.index() .. "@" .. paw.cursor.beat end

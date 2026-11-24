@@ -60,7 +60,7 @@ A clip has a name row and a darker body that shows its notes or waveform in the 
 | `<Space>al` | Chooses what to automate (volume, pan, a device parameter), and shows its lane. |
 | `<Space>aa` `<Space>aA` | Shows or hides the lanes of the part as rows. Shows the lanes of every part. |
 | `<Space>am` | Sets the automation mode of the part: read, touch, latch, write, off, in turn. |
-| `<Space><Space>` | Plays from the cursor, or stops. The cursor does not move, and the playhead stays where the song stopped. A playhead that you put with `gs`, `gp` or the ruler is where play starts, until the cursor moves. `paw.opt.play_from = "playhead"` plays from the playhead. |
+| `<Space><Space>` | Plays from the cursor, or stops. The cursor does not move, and the playhead stays where the song stopped. A playhead that you put with `gs`, `gp` or the ruler is where play starts, until the cursor moves or you open another project. `paw.opt.play_from = "playhead"` plays from the playhead. |
 | `gs` `gp` | Moves the playhead to the start, to the cursor. |
 | `gL` `gm` | Turns the playback loop on or off, and keeps its range. Turns the metronome on or off. |
 | `gl` | Sets the playback loop to the selection or to what the motion covers, and turns looping on. The message says the bars, for example `loop: bars 5 to 8, on`. |

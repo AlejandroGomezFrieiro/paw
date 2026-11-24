@@ -605,6 +605,15 @@ test("notation: entering in a key takes its sharps and flats; + and - change the
   eq(model_text_has(view, "q G4 q Cn4"), true, "written as a C with a natural sign")
 end)
 
+test("notation: a clip opened is entered in voice 1, whatever voice the clip before was entered in", function()
+  song()
+  keys("iv<Esc>")
+  local view, clip = song()
+  keys("ic<Esc>")
+  eq(notes_of(clip), "C4@0+1", "the note entered")
+  eq(model_text_has(view, "q C4"), true, "in voice 1, written on the staff")
+end)
+
 test("notation: chords with capitals, rests, dots and the value keys", function()
   local view, clip = song(nil, 8)
   keys("iCEg")

@@ -399,15 +399,16 @@ local function make_layout(self)
   local opts = view.layout_opts(c)
   -- Laid out from the score the clip's notes are written as.
   local sc = view.score_of(c)
+  -- The score is compared as a table, not by its address in a string: once
+  -- the score is collected, a new one can have the same address.
   local stamp = table.concat({
-    tostring(sc),
     c.length,
     opts.fifths,
     paw.opt.notation_grid,
     tostring(opts.bars[1] and opts.bars[1].number),
     serial(view.part_meta(c.part)),
   }, ":")
-  if self.cache and self.cache.stamp == stamp then return self.cache.layout end
+  if self.cache and self.cache.score == sc and self.cache.stamp == stamp then return self.cache.layout end
   local layout = L.layout(sc, {
     length = c.length,
     fifths = opts.fifths,
@@ -434,7 +435,7 @@ local function make_layout(self)
     end
   end
   view.decorate(layout, clip)
-  self.cache = { stamp = stamp, layout = layout }
+  self.cache = { score = sc, stamp = stamp, layout = layout }
   return layout
 end
 
@@ -2072,7 +2073,9 @@ end
 
 local function open(self, clip)
   self.clip_id, self.beat, self.first, self.chord, self.last, self.cache = clip.id, 0, 1, nil, nil, nil
-  self.parts, self.gone = nil, nil
+  -- Entry starts in voice 1, as it does on another staff (`view:activate`):
+  -- the voice of the clip before is no voice of this one.
+  self.parts, self.gone, self.voice = nil, nil, 1
   self.triplets, self.tuplet, self.again, self.push, self.repitch, self.grace, self.pending_grace =
     false, nil, nil, nil, nil, nil, nil
   local layout = self:layout()

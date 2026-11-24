@@ -186,6 +186,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.curves.provide("owned", function() end)
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
     paw.frontend.bands:put("owned", function() return {} end)
+    paw.ui.views:get("pianoroll").layer("owned", 99, function() end)
     paw.on("part.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
@@ -213,6 +214,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     "curves",
     "layers",
     "bands",
+    "roll",
   }) do
     eq(provided("owner", kind) ~= "", true, "it owns its " .. kind)
   end
@@ -266,6 +268,9 @@ test("what an extension registers is its own, and unloading it takes all of it a
     eq(layer.name ~= "owned", true, "its layer")
   end
   eq(paw.frontend.bands:get("owned"), nil, "its band under the ruler")
+  for _, layer in ipairs(paw.ui.views:get("pianoroll").layers) do
+    eq(layer.name ~= "owned", true, "its layer of the piano roll")
+  end
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
   paw.add_part({ name = "unheard" })
   paw.flush()

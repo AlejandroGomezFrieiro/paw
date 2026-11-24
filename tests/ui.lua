@@ -45,6 +45,8 @@ end)
 
 test("a new project says how to begin", function()
   fresh()
+  -- The master's meter is on the screen: the sound of an earlier test falls first.
+  T.until_meters_at_rest()
   with_tutor()
   paw.cmd("view.only")
   paw.ui.message = nil
@@ -299,6 +301,8 @@ local function parts_song(n)
   paw.groups.make({ made[1], made[2] }, "Group")
   paw.cursor.set_part(made[1])
   paw.flush()
+  -- The meters are on the screen: the sound of an earlier test falls first.
+  T.until_meters_at_rest()
 end
 
 test("with part_height auto, every part of a song of 7 fits on 100 by 30, three rows each", function()
@@ -323,11 +327,16 @@ end)
 
 test("with paw.opt.ascii the screen is drawn in plain ASCII", function()
   fresh()
+  -- The master's meter is on the screen: the sound of an earlier test falls first.
+  T.until_meters_at_rest()
   paw.cmd("view.only")
   local t = paw.add_part({ name = "t" })
   t:add_clip({ start = 0, length = 4, name = "c", notes = { { pitch = 60, start = 0, length = 1 } } })
   paw.flush()
   paw.ui.message = nil -- a message is text someone wrote, not drawing
+  -- A screen drawn first in box drawing: what the status line keeps of it
+  -- does not come back when the option changes.
+  api.ui_snapshot(120, 30)
   paw.opt.ascii = true
   local text = table.concat(api.ui_snapshot(120, 30), "\n")
   expect_screen("ascii", 60, 16, { styles = false })

@@ -76,7 +76,7 @@ test("a project saved to a folder name writes a folder of files and opens again 
   paw.flush()
   eq(api.project_get().path, dir .. "/project.toml", "opened by its folder")
   eq(api.project_get().tempo, 96, "tempo")
-  eq(api.project_get().name, "folder1-song", "named after its folder")
+  eq(api.project_get().name, dir:match("[^/]+$"), "named after its folder")
   local parts = api.part_list()
   eq(#parts, 2, "two parts")
   local k = api.part_get(parts[1])

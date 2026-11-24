@@ -22,6 +22,12 @@ local midi = require("notation.midi")
 local O = {}
 local EPS = 1e-6
 
+-- `O.visual` is the selection that a text object made in visual mode
+-- (`vit`), which the visual operator takes in place of the stretch of time.
+-- It holds only for that visual mode: an operator with a text object
+-- (`dit`) sets it too, and a later `V` over the same beats must not find it.
+paw.on("mode.changed", function() O.visual = nil end)
+
 -- The score and the cursor --------------------------------------------------------------------
 
 --- The open clip's score, to read: what its notes are written as, with the

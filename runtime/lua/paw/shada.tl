@@ -95,6 +95,14 @@ local MAX_REGISTER = 1024 * 1024
 local user_file = env.state_dir .. "/shada.json"
 local enabled = not env.clean and not env.scripted
 
+-- The times of what was read, so that a write can tell what is new.
+local history_times: {string: {number}} = {}
+local record Stamp
+  time: number
+  text: string
+end
+local register_stamp: {string: Stamp} = {}
+
 --- Keep the files in `file` (and the project files where they always are),
 --- and keep for all start options, for tests. `use()` sets all back.
 function M.use(file?: string)
@@ -103,19 +111,13 @@ function M.use(file?: string)
   else
     user_file, enabled = env.state_dir .. "/shada.json", not env.clean and not env.scripted
   end
+  -- The times of what was read from the file before are of that file.
+  history_times, register_stamp = {}, {}
 end
 
 local function active(): boolean
   return enabled and options.opt.shada ~= false
 end
-
--- The times of what was read, so that a write can tell what is new.
-local history_times: {string: {number}} = {}
-local record Stamp
-  time: number
-  text: string
-end
-local register_stamp: {string: Stamp} = {}
 
 -- The project whose state is in memory, and where its cursor was last.
 local current: string

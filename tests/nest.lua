@@ -1532,11 +1532,6 @@ local tempo_cases = {
 test(
   "inside a subproject, :tempo.ramp, :tempo.tap and :tempo.remove edit the window's map, one undo step each",
   function()
-    -- A clock that the test steps, far after the taps of other tests.
-    local clock = 1e12
-    local now = api.now
-    api.now = function() return clock end
-    T.after(function() api.now = now end)
     for _, case in ipairs(tempo_cases) do
       local maps = inside_cue(case.how)
       local before = maps()
@@ -1553,10 +1548,11 @@ test(
       eq(map(), with(90, ">"), case.name .. ": the change before the cursor ramps")
       keys("u")
       eq(map(), with(90), case.name .. ": u takes the ramp back")
+      -- A pause of more than 2 s: the taps of what came before are over.
+      T.advance(2001)
       keys(":tempo.tap<CR>")
-      clock = clock + 600
+      T.advance(600)
       keys(":tempo.tap<CR>")
-      clock = clock + 5000
       eq(map(), with(100), case.name .. ": a tap each 0.6 s is 100 bpm")
       keys("u")
       eq(map(), with(90), case.name .. ": u takes the tap back")

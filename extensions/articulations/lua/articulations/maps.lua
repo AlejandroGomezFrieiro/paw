@@ -473,13 +473,16 @@ end
 local cache = {} -- by file: { text, map, err }
 
 --- A map from its file, read again only when the file changed. Returns the
---- map, or nil and what is wrong.
+--- map, or nil and what is wrong. `id` is the map's name in its folder of
+--- maps (`examples/violin-section`); with none, the file's name. The map is
+--- kept for each file, so each load gives it the id of this load.
 function M.load(file, id)
+  id = id or file:match("([^/]+)%.art%.toml$")
   local known = cache[file]
   -- Drawing asks many times a second: the file is looked at again after a while.
   local now = api.now()
   if known and now - known.checked < 1000 then
-    if known.map and id then known.map.id = id end
+    if known.map then known.map.id = id end
     return known.map, known.err
   end
   local text = read(file)
@@ -489,11 +492,11 @@ function M.load(file, id)
   end
   if known and known.text == text then
     known.checked = now
-    if known.map and id then known.map.id = id end
+    if known.map then known.map.id = id end
     return known.map, known.err
   end
   local map, err = M.parse(text, file)
-  if map then map.id = id or file:match("([^/]+)%.art%.toml$") end
+  if map then map.id = id end
   cache[file] = { text = text, map = map, err = err, checked = now }
   return map, err
 end

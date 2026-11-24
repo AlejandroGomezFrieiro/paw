@@ -338,7 +338,7 @@ letters `g e a a` on a sketch of C4 D4 E4 F4 replace all four notes.
 | `Alt-2` … `Alt-8` | add a second … an octave above the last note entered, in the key, to its chord (`C` `Alt-3` `Alt-3` is a C major triad) |
 | `~` | hold the last note entered on by the chosen value, tied where it crosses a beat or a barline, and step on |
 | `t` | enter triplets of the chosen value (a triplet of rests is made where there is none, and filled), or plain values again |
-| `v` | enter in the other voice (1 or 2); `:notation.voice 3` chooses any of four |
+| `v` | enter in the other voice (1 or 2); `:notation.voice 3` chooses any of four. A clip that you open starts in voice 1 |
 | `R` | enter the last chord (or note) again here, and step on |
 | `r` `0` | a rest: clear the chosen value and step on |
 | `Space` | step on, and leave what is there |

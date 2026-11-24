@@ -26,6 +26,8 @@ local function cursor_beat()
 end
 -- Emitted at once by `paw.transport.seek`, with the song stopped only.
 paw.on("playhead.placed", function() pinned = not transport.playing and cursor_beat() or nil end)
+-- A playhead placed in the project before is not one of this project.
+paw.on("project.loaded", function() pinned = nil end)
 
 --- Put the playhead where a start from a stop begins.
 local function place()

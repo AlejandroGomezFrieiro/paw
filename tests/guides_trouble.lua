@@ -37,7 +37,13 @@ test("guide: fix no sound", function()
   start()
   local before = mark()
   keys(":engine<CR>")
-  eq(said(before):find("^step: none") ~= nil, true, ":engine names the backend and the output device: " .. said(before))
+  -- The backend that runs (the suite's is `step`), with no output device.
+  local backend = api.engine_get().backend
+  eq(
+    said(before):find("^" .. backend .. ": none") ~= nil,
+    true,
+    ":engine names the backend and the output device: " .. said(before)
+  )
   local lead = T.tone("Lead", 8)
   local keys_part = paw.add_part({ name = "Keys" })
   keys_part:add_clip({ start = 0, length = 8, notes = { { pitch = 64, start = 0, length = 8 } } })

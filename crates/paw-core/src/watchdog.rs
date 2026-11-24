@@ -27,6 +27,12 @@ const HOOK_KEY: &std::ffi::CStr = c"paw.limit.hook";
 /// In `deadline`: the kernel is gone and the thread should end.
 const GONE: u64 = u64::MAX;
 
+/// The longest the thread sleeps before it looks at the deadline again. A
+/// deadline set later than the one it sleeps for is then seen in time, and a
+/// deadline far in the future (`paw.api.limit_watch(2^53)`) does not keep
+/// the thread asleep after it is taken away.
+const LONGEST_NAP: Duration = Duration::from_secs(1);
+
 struct StatePtr(*mut ffi::lua_State);
 // SAFETY: only ever passed to `lua_sethook`, which LuaJIT allows from another thread, and
 // only while the mutex around it is held and `detach` has not cleared it (so the state is
@@ -110,12 +116,25 @@ impl Watchdog {
     /// The running callback must return by `ms` (on the clock of `started`),
     /// or `None` when it has returned.
     pub(crate) fn watch(&self, ms: Option<f64>) {
-        let micros = ms.map_or(0, |ms| ((ms.max(0.0) * 1000.0) as u64).max(1));
+        let micros = deadline_micros(ms);
         self.inner.deadline.store(micros, Ordering::SeqCst);
         if micros != 0 && self.inner.parked.swap(false, Ordering::SeqCst) {
             self.thread.unpark();
         }
     }
+}
+
+/// A deadline in milliseconds as the thread keeps it: microseconds, 0 for
+/// none, and at least 1 for a time that passed. A huge or infinite time
+/// stays below [`GONE`], so that no deadline ends the thread.
+fn deadline_micros(ms: Option<f64>) -> u64 {
+    ms.map_or(0, |ms| ((ms.max(0.0) * 1000.0) as u64).clamp(1, GONE - 1))
+}
+
+/// How long the thread sleeps while a deadline is ahead: until it, or
+/// [`LONGEST_NAP`] if that comes first.
+fn nap(deadline: u64, now: u64) -> Duration {
+    Duration::from_micros(deadline.saturating_sub(now)).min(LONGEST_NAP)
 }
 
 impl Drop for Watchdog {
@@ -144,7 +163,7 @@ fn watch(inner: &Inner) {
         if now < deadline {
             // Callbacks come and go many times before one overruns: sleep
             // through them and look at whichever is running afterwards.
-            thread::sleep(Duration::from_micros(deadline - now));
+            thread::sleep(nap(deadline, now));
             continue;
         }
         // Still the same callback, and its time is up.
@@ -161,5 +180,26 @@ fn watch(inner: &Inner) {
                 unsafe { ffi::lua_sethook(state.0, Some(hook), ffi::LUA_MASKCOUNT, 1 as c_int) };
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_deadline_ends_the_thread() {
+        for ms in [1e300, f64::INFINITY, 2f64.powi(64)] {
+            assert_ne!(deadline_micros(Some(ms)), GONE, "{ms} ms");
+        }
+        assert_eq!(deadline_micros(None), 0, "no deadline");
+        assert_eq!(deadline_micros(Some(-1.0)), 1, "a time that passed is still a deadline");
+        assert_eq!(deadline_micros(Some(f64::NAN)), 1, "so is a time that is not a number");
+    }
+
+    #[test]
+    fn the_thread_looks_again_within_a_second_of_a_far_deadline() {
+        assert_eq!(nap(GONE - 1, 0), LONGEST_NAP, "a deadline far in the future");
+        assert_eq!(nap(2_500, 1_000), Duration::from_micros(1_500), "a near deadline");
     }
 }

@@ -153,8 +153,10 @@ end)
 
 test("Esc ends a take and keeps it in each view where one records, after what it cancels first", function()
   start()
+  -- Back to the backend that ran before: the next test plays on it.
+  local backend = api.engine_get().backend
   api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({ backend = backend }) end)
   T.after(function() paw.opt.count_in = 0 end)
   paw.opt.count_in = 0
   local gtr = paw.add_part({ name = "Guitar" })
@@ -254,6 +256,20 @@ test(
     T.until_recorded()
   end
 )
+
+test("a playhead put by hand in one project does not hold play back in the next", function()
+  start()
+  keys("201|")
+  keys("gs")
+  paw.flush()
+  start()
+  keys("201|")
+  keys("<leader><Space>")
+  T.until_recorded()
+  eq(paw.transport.position >= 800, true, "play starts from the cursor")
+  keys("<leader><Space>")
+  T.until_recorded()
+end)
 
 test("the fader: - on a part above +6 dB goes down a dB, not to +6", function()
   start()

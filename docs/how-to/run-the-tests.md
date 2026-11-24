@@ -291,7 +291,7 @@ example a bake, the loading of a plugin or a render.
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock moves with these blocks. |
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program owes an answer, or works until it ends, the clock doesn't move: the wait is for the program. It fails when `ms` milliseconds have passed on the clock. |
 | `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |
-| `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter. |
+| `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. A meter falls while the engine plays, so the sound of an earlier test can still show. The clock moves one block at a time, for at most five seconds. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter, or waits for the engine to rest. |
 
 A test fails with `missed wakes` when work on another thread ended and
 paw found it only on its safety check, a quarter of a second later.

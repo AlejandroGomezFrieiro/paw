@@ -100,11 +100,10 @@ end
 --- changes: wrapped, in the galley, or on pages.
 function view:engrave(layout, width, st, top)
   local geo = view.page and page.geometry(st.sp, st.whole and st.cell)
-  local key = table.concat(
-    { tostring(layout), st.key, width, tostring(view.galley), view.spread, top or 0, geo and geo.key or "" },
-    ":"
-  )
-  if gui.eng and gui.eng_key == key then return gui.eng end
+  -- The layout is compared as a table, not by its address in a string: once
+  -- the layout is collected, a new one can have the same address.
+  local key = table.concat({ st.key, width, tostring(view.galley), view.spread, top or 0, geo and geo.key or "" }, ":")
+  if gui.eng and gui.eng_layout == layout and gui.eng_key == key then return gui.eng end
   -- The staves' ink is kept across layouts while the style holds.
   if gui.measures.style ~= st.key then gui.measures = { style = st.key, generation = 0 } end
   gui.measures.generation = gui.measures.generation + 1
@@ -119,7 +118,7 @@ function view:engrave(layout, width, st, top)
       { width = width, galley = view.galley, spread = view.spread, top = top or 0, cache = gui.measures }
     )
   end
-  gui.eng, gui.eng_key, gui.page = eng, key, nil
+  gui.eng, gui.eng_layout, gui.eng_key, gui.page = eng, layout, key, nil
   return eng
 end
 
