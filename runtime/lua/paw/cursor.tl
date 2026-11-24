@@ -2,9 +2,10 @@
 -- draw it. It survives a reload.
 --
 -- The position is a whole number of ticks (paw/timegrid.tl): `tick`, and
--- `want`, the tick where the last move of time landed, which a move by
--- rows keeps when a bound (the scope, a fold) took the cursor off it.
--- `beat` is the tick in beats, for the API: a beat set from outside becomes a tick once, here.
+-- `want`, the tick that the last move of time asked for, which a move by
+-- rows keeps when the scope took the cursor off it. A hop over a closed
+-- block sets `want` to where the cursor lands. `beat` is the tick in
+-- beats, for the API: a beat set from outside becomes a tick once, here.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -73,8 +74,9 @@ local record M
   beat: number
   --- The position of the cursor in ticks (read only: `set_tick` sets it).
   tick: integer
-  --- The tick where the last move of time landed: a move by rows keeps
-  --- it when a bound took the cursor off it.
+  --- The tick that the last move of time asked for: a move by rows keeps
+  --- it when the scope took the cursor off it. A hop over a closed block
+  --- sets it to where the cursor lands.
   want: integer
   set_tick: function(at: integer)
   lens: function(): integer
@@ -343,7 +345,6 @@ function M.move_part(delta: integer)
   if want ~= tick then
     local wanted = want
     place(wanted)
-    want = wanted
   end
 end
 
