@@ -4,7 +4,7 @@ title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and p
 status: To Do
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T18:05:00Z'
+updated_date: '2026-11-24T18:06:00Z'
 labels:
   - agent:builder
 dependencies:
@@ -39,6 +39,7 @@ Add tracing and tracing-subscriber (and tracing-appender if used) to .claude/ski
 - [ ] #6 :log opens the log of this run, :log! the previous run; a test with real keys
 - [ ] #7 No eprintln! outside tests and benches in the crates (a check in tools/ or clippy's print_stderr lint)
 - [ ] #8 Docs: state-files.md, a how-to (find out what went wrong: the log, :log, loglevel), cmdline.md, options; Vale 0
+- [ ] #9 Defaults as the note of 2026-11-24 says: info to the file, a debug flight recorder written on a panic, an error or :log dump, the trail of user actions, the start header, rate-limited audio counters, repeated lines folded, 5 runs of 10 MB; a test for the flight recorder on a panic and on an error
 <!-- AC:END -->
 
 ## Definition of Done
@@ -52,3 +53,17 @@ Add tracing and tracing-subscriber (and tracing-appender if used) to .claude/ski
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner, 2026-11-24: the default log level must be enough to trace crashes and bugs. Defaults to build (the ADR proposes them, the owner accepts):
+- The file gets info and above for every target by default.
+- A flight recorder: debug and above for every target in an in-memory ring (about the last 2000 events, no file write). paw writes the ring to the log on a panic, a crash signal (with TASK-389), an error-level event, and on :log dump. So a crash log has the detail before it, with no cost in a normal run.
+- The trail at info: each user action as one line (the command or key map name and its undo step label), so a log shows what led to a bug. Not each motion key.
+- A header at each start: paw version and commit, OS, terminal, audio backend, sample rate and block size, the extensions and plugins loaded, and the options that differ from their default.
+- The audio thread's counters (xruns, dropped events, late plugin blocks) at warn when they change, at most one line per second per counter.
+- The same line repeated: one line with a count.
+- Keep 5 runs, 10 MB each at most.
+- No secrets in the log: no environment dump, paths under the home folder written as ~.
+<!-- SECTION:NOTES:END -->
