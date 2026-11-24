@@ -105,6 +105,7 @@ Use one filter or smoother for each channel.
 - The call runs in the state of the device, between two blocks. A block that comes during the call doesn't wait for it: an instrument is silent for that block, and an effect passes its input on unchanged. A MIDI effect gives out nothing, because it gives out only what its script sends. The script gets the events of that block at frame 0 of its next block, so a note-off is not lost. The script sees each of these events once, and a MIDI effect sends each one once. Keep the call short.
 - A block can carry up to 1024 events to the script. An effect passes on at once the events that do not fit, and the script gets them in its next block. A MIDI effect gives out only what its script sends.
 - `paw.api.device_call(device, "lua.misses")` gives the number of blocks that the script didn't get because a call was running.
+- `paw.api.device_call(device, "lua.drops")` gives the number of events that the device could not pass on because the event list of the block was full.
 - `data` is a string, and the return value (a string, a number or nothing) is the answer. An error is an error of the caller, and the device continues to play.
 - `paw.api.device_post(kind, topic, data)` calls `dev.call(topic, data)` on each device of a kind. It calls the devices that exist immediately, and it calls each device made later before its first block (the private devices of an offline render too). paw keeps the latest data of each topic for these devices, so devices made at any time agree, and `nil` removes a topic.
 
