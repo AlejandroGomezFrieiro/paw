@@ -38,8 +38,6 @@ pub(crate) use crossover::{Allpass, Crossover};
 /// The longest delay that lines up the branches of a split, in frames.
 pub const MAX_PLAN_DELAY: u32 = 1 << 17;
 
-/// How many events an event list of a branch holds, as the slot's own does.
-pub const EVENTS: usize = 1024;
 
 /// A chain as the main thread describes it: nodes in series.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -420,7 +418,7 @@ pub fn compile(tree: &Tree, sample_rate: f32) -> Box<GraphPlan> {
         ops: c.ops.into(),
         arena: vec![0.0; arena_len].into(),
         bufs: c.max_bufs,
-        events: (0..c.max_events).map(|_| EventBuf::with_capacity(EVENTS)).collect(),
+        events: (0..c.max_events).map(|_| EventBuf::with_capacity(crate::event::PART_EVENTS)).collect(),
         crossovers: c.crossovers.into(),
         allpasses: c.allpasses.into(),
         gains: c.gains.into(),
