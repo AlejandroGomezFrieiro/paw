@@ -605,8 +605,8 @@ local record contracts
   end
 
   --- What each layer of the arrange view gets (`paw.ui.views:get("arrange").layers`):
-  --- `ruler`, the timeline's part of the ruler row; `ruler2`, its second
-  --- row when `ruler2` asks for one (else nil); `lanes`, the timeline
+  --- `ruler`, the timeline's part of the ruler's first line (the bars);
+  --- `lanes`, the timeline
   --- below, down to the master part; `x(beat)`, the column of a beat in
   --- any of them, and `axis`, the view's time axis (paw/axis.tl), which
   --- gives it and the cells of a stretch (`axis:range(a, b)`); `scroll` the
@@ -615,7 +615,6 @@ local record contracts
   --- a part.
   record ArrangeLayer
     ruler: Buf
-    ruler2: Buf
     lanes: Buf
     x: function(beat: number): integer
     axis: axis.Axis
@@ -642,8 +641,7 @@ local record contracts
 
   --- The arrange view (paw/views/arrange.tl), as other modules use it:
   --- what an extension draws on its timeline (`layers`, by name, in name
-  --- order) and what asks for a second row of its ruler (`ruler2`, by
-  --- name: true when it has something to show); its scroll, its
+  --- order); its scroll, its
   --- geometry, and its time axis (`axis`, paw/axis.tl): the column of a
   --- beat, and the beat of a column.
   interface ArrangeView is View
@@ -651,7 +649,6 @@ local record contracts
     top: integer
     geometry: ArrangeGeometry
     layers: {string: function(view: ArrangeView, layer: ArrangeLayer)}
-    ruler2: {string: function(view: ArrangeView): boolean}
     axis: axis.Axis
     center: function(self: ArrangeView)
     place: function(self: ArrangeView, right?: boolean)
@@ -1365,86 +1362,102 @@ local record contracts
     right: {string}
   end
 
-  --- What a bar label of the ruler draws one bar from. `bar` is the
-  --- bar's number as shown (counted from 1 at the start of a scope with
-  --- time, see `paw.scope`), `song_bar` its number in the song; `beat`
-  --- where it starts; `relative` how many `W` (or
-  --- `B`, behind the cursor) reach it, nil while `paw.opt.relativebar`
-  --- is off; `cursor` true on the bar the cursor is in; `style` the style
-  --- the bar's number has there (in the loop, in the punch range);
-  --- `glyphs` and `styles` the label's own; `room` the columns left for
-  --- the part before the next bar's label.
+  --- The time in sight of a window's ruler, as a row or a namespace
+  --- computes its marks from it. Beats are the window's: `here(beat)`
+  --- gives the window's beat of a beat of the song (they differ inside a
+  --- subproject), and `from` and `to` are the time of the window's scope
+  --- (nil when it shows all of the song). `left` and `right` are the beats
+  --- at the edges of the ruler, and `axis` (paw/axis.tl) places them.
+  --- `folded(beat)` is true for a beat inside a closed time fold, after
+  --- its start, and `closed(id)` for a region folded into its column.
+  --- `cursor` is the cursor's beat in the window (nil when the cursor is
+  --- elsewhere). `glyphs` and `styles` are those of the row or the
+  --- namespace. A row's `height` gets the fields of time only. A row's
+  --- `draw` gets its lines over the timeline (`buf`) and over the part
+  --- headers (`header`).
   record RulerContext
-    bar: integer
-    song_bar: integer
-    beat: number
-    room: integer
-    relative: integer
-    cursor: boolean
-    style: string
-    g: Glyphs
-    glyphs: {string: string}
-    styles: {string: string}
-  end
-
-  --- A part of each bar's label on the ruler (`paw.ruler.add`): its place
-  --- among the others (`order`, lower first), what it draws, and the
-  --- characters and highlight groups it draws with (`paw.ruler.set`).
-  record RulerLabel
-    name: string
-    order: number
-    render: function(bar: integer, ctx: RulerContext): ColumnCells
-    glyphs: {string: string}
-    styles: {string: string}
-    --- Added, but not put in `paw.opt.barlabel`.
-    hidden: boolean
-    --- The extension whose code added or last changed it, nil for the
-    --- user's (paw/ext.lua: what an extension owns).
-    ext: string
-  end
-
-  --- What `paw.ruler.set` changes of a part of the bar labels: only the
-  --- fields given; `glyphs` and `styles` are merged into the part's.
-  record RulerPatch
-    order: number
-    render: function(bar: integer, ctx: RulerContext): ColumnCells
-    glyphs: {string: string}
-    styles: {string: string}
-  end
-
-  --- What a lane of the ruler draws on (`paw.ruler.add_lane`): `buf` its
-  --- rows under the bar numbers (`rows` of them), `x` the column of a beat,
-  --- `scroll` and `span` the beats in sight, `glyphs` and `styles` the
-  --- lane's own. With time folds (paw/folds.tl), `folded(beat)` is true for
-  --- a beat inside a folded span, after its start, and `closed(id)` for a
-  --- region that is folded into its column. `here(beat)` is the beat of
-  --- the window's time for a beat of the song (they differ inside a
-  --- subproject), and `from` and `to` the time of the window's scope, in
-  --- the window's beats (nil when it shows all of the song's time). The
-  --- fields of time are there for `rows` too.
-  record RulerLaneContext
-    buf: Buf
-    rows: integer
-    x: function(beat: number): integer
     here: function(song_beat: number): number
     from: number
     to: number
-    scroll: number
-    span: number
+    left: number
+    right: number
+    axis: axis.Axis
     folded: function(beat: number): boolean
     closed: function(region: integer): boolean
+    cursor: number
     glyphs: {string: string}
     styles: {string: string}
+    buf: Buf
+    header: Buf
   end
 
-  --- A lane of rows under the ruler's bar numbers, as the regions' lane:
-  --- `rows` says how many rows it needs now (0 for none), `render` draws
-  --- them. Lanes stack in their `order`, lower first.
-  record RulerLane
+  --- A mark of the ruler: a thing at a time (`beat`), or over a stretch
+  --- of time (`beat` to `to`).
+  ---
+  --- A mark at a time has a `sign`, one cell in the column of its time,
+  --- and a `label`, the text after the sign (or from that column when
+  --- there is no sign). A `whole` label (a number, a value) is shown whole
+  --- or not at all; another label gets shorter with `…`. `priority` says
+  --- which sign a column shows and which label keeps its room: the higher
+  --- one. `style` is the style of the sign and the label, `label_style`
+  --- the style of the label when it differs. `edge` puts the sign in the
+  --- cell before the column of its time, as the loop's edges are. A label
+  --- never covers a sign, except a `soft` one: a mark of the grid, as the
+  --- ticks of the beats are, that shows only in a cell no label takes.
+  ---
+  --- A mark with `to` colors the background of its stretch in `style`,
+  --- and gives no text. A sign or a label in the stretch takes the style
+  --- that `restyle` gives for its own style, if any.
+  ---
+  --- `row` or `over` names the row that shows it: `row` gives that row a
+  --- line for it, `over` only draws on the row when the row has lines.
+  --- `line` is the line of the row, from 0. `text` says what the mark is
+  --- for `K` (the label when not given). `kind` and `ref` say what it marks
+  --- (`"region"` and the id of the marker), for the pointer, and a click on
+  --- the mark runs `cmd`, a command, when it has one. `ns` is the name of
+  --- the namespace, and `id` the id that `paw.marks.set` gave.
+  record RulerMark
+    id: integer
+    ns: string
+    beat: number
+    to: number
+    sign: string
+    label: string
+    whole: boolean
+    priority: integer
+    style: string
+    label_style: string
+    edge: boolean
+    soft: boolean
+    restyle: {string: string}
+    row: string
+    over: string
+    line: integer
+    text: string
+    kind: string
+    ref: integer
+    cmd: string
+  end
+
+  --- A row of the ruler (`paw.ruler.row`): a line, or a few, that the
+  --- user puts in its place with `paw.opt.rulerrows`. `marks(ctx)` gives
+  --- its marks for the time in sight (beats of the window). `height(ctx)`
+  --- gives how many lines it takes now (one when not given; 0 hides it).
+  --- `draw(ctx)` draws its lines itself, as the tempo lane does. With
+  --- `over`, it has no line of its own and draws on that row, as the
+  --- beats do on the bars. `priority` is the priority of the marks that
+  --- give none, and `glyphs` and `styles` are what it draws with
+  --- (`paw.ruler.set`). `after` names the row that it goes after in
+  --- `paw.opt.rulerrows` when it is added; `hidden` keeps it out.
+  record RulerRow
     name: string
-    order: number
-    rows: function(ctx: RulerLaneContext): integer
-    render: function(ctx: RulerLaneContext)
+    marks: function(ctx: RulerContext): {RulerMark}
+    height: function(ctx: RulerContext): integer
+    draw: function(ctx: RulerContext)
+    over: string
+    priority: integer
+    after: string
+    hidden: boolean
     glyphs: {string: string}
     styles: {string: string}
     --- The extension whose code added or last changed it, nil for the
@@ -1452,12 +1465,29 @@ local record contracts
     ext: string
   end
 
-  --- What `paw.ruler.set_lane` changes of a lane: only the fields given;
-  --- `glyphs` and `styles` are merged into the lane's.
-  record RulerLanePatch
-    order: number
-    rows: function(ctx: RulerLaneContext): integer
-    render: function(ctx: RulerLaneContext)
+  --- A namespace of marks (`paw.marks.namespace`): the marks of one owner,
+  --- by id, and where they go (`route`: `"row:name"` or `"over:name"`).
+  --- `source(ctx)`, when it is given, computes the marks for the time in
+  --- sight, in beats of the window, as paw does for its own namespaces.
+  --- The marks that `paw.marks.set` puts are at beats of the song.
+  record RulerNamespace
+    name: string
+    id: integer
+    route: string
+    priority: integer
+    glyphs: {string: string}
+    styles: {string: string}
+    source: function(ctx: RulerContext): {RulerMark}
+    marks: {integer: RulerMark}
+    --- The extension whose code made or last changed it, nil for the
+    --- user's.
+    ext: string
+  end
+
+  --- What `paw.ruler.set` changes of a row or a namespace: only the fields
+  --- given; `glyphs` and `styles` are merged into its own.
+  record RulerPatch
+    priority: integer
     glyphs: {string: string}
     styles: {string: string}
   end

@@ -655,6 +655,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.curve_glyphs()`: How paw draws curves in cells: "sextant", "braille" or "line", from `paw.opt.curve_glyphs`. `paw.opt.braille = false` and `paw.opt.ascii` both mean "line". `paw.opt.ascii` wins over all, and uses ASCII characters.
 - `paw.draw.db_cell(db, width)`: Where on a meter `width` cells long a level in dB falls, from 0.
 - `paw.draw.db_text(db)`: A volume in dB as few cells as it can: `-4.0`, `-inf`, `+2.5`.
+- `paw.draw.grid_lines(ax, last)`: The bar and beat lines of the axis `ax` from its scroll up to the beat `last`, as the window counts them. None inside a time fold.
 - `paw.draw.hold(key, peak)`: Peaks held for some time, by key. `hold(key, peak)` gives the loudest peak of the last two seconds, which falls after that time.
 - `paw.draw.hue(colour)`: Highlight groups in the shades of one color (`#rrggbb`), made the first time that a caller asks for the color:
 
@@ -1507,7 +1508,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.depth(id)`: The level of a region: 1 at the top, 2 inside one region, and so on. Nil for a marker.
 - `paw.markers.find(which)`: The marker or region of a number (its place in the song), of an id given as `{ id = n }`, or of a name. Nil if there is none.
 - `paw.markers.label(marker)`: What a marker is called on screen: its name, or its number in the song.
-- `paw.markers.lane_row(id, time)`: The row of the regions' lane that a marker or region is on: 0 for the first row (the top level, and the markers). With `time`, the window's time (`paw.ruler.lane_time()`), the regions that cover all the time of the window's scope are not on the lane, and the regions inside them go up a row.
 - `paw.markers.list()`: Each marker and region, in order of time: { id, beat, name, length, color }. A region has a `length` in beats. A marker has no length.
 - `paw.markers.move(id, beat, alone)`: Move a marker or a region so that it starts at `beat`. A region takes the regions and the markers inside it along, in one undo step, unless `alone`. Returns it and how many moved with it.
 - `paw.markers.next(beat)`: The first marker after a beat, and the last before it.
@@ -1515,7 +1515,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.parent(id)`: The region around a region (the smallest that holds it), or around a marker (the innermost at its beat). Nil at the top.
 - `paw.markers.path(beat)`: The regions around a beat, the outermost first. Where two siblings overlap, the one that starts later is taken.
 - `paw.markers.pathname(region)`: A region's names from the top down, joined by `/`: `Chorus 2/Verse A`. `:export in=` and `paw.markers.region` take it when names repeat.
-- `paw.markers.placed(m, time)`: Where a marker or region shows in the window, as the regions' lane draws it. `time` is the window's time: give it `paw.ruler.lane_time()`. Gives the start and end in the window's beats, or nil when it does not show.
 - `paw.markers.prev(beat)`: The last marker before a beat, or nil.
 - `paw.markers.region(which)`: A region by number, id, name or path of names (`Chorus 2/Verse A`).
 - `paw.markers.regions()`: The regions alone.
@@ -1523,6 +1522,24 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.markers.set(id, fields)`: Change a marker: `fields` may hold beat, name, length (false makes a region a marker again) and color.
 - `paw.markers.tree()`: The regions as a tree: the top-level regions, each a node with `region`, `depth` (1 at the top), `place` (among its siblings), `parent` and `children`, in order of time. Flat regions are a tree of depth 1.
 - `paw.markers.walk()`: Every region's node in the order of the tree: each region, then the regions inside it.
+
+## Module paw.marks
+
+- `paw.marks.clear(ns, from, to)`: Remove the marks of namespace `ns`: all of them, or those that start from `from` up to `to` (beats of the song).
+- `paw.marks.copy(m)`: A copy of a mark, which the ruler places at the window's time.
+- `paw.marks.del(ns, id)`: Remove the mark `id` of namespace `ns`. Gives whether it was there.
+- `paw.marks.get(ns)`: The marks of namespace `ns` that `paw.marks.set` put, in the order of their beats.
+- `paw.marks.namespace(name, spec)`: Make a namespace, or give the id of the namespace of that name. `spec` can give its `route` (`"row:name"` or `"over:name"`, else `"over:bars"`), the `priority` of its marks that give none, its `glyphs` and `styles`, and a `source(ctx)` that computes its marks for the time in sight. A spec makes the namespace again, with no marks.
+
+  ```lua
+  local ns = paw.marks.namespace("cues", { route = "row:regions" })
+  ```
+- `paw.marks.of(ns)`: The namespace that `ns` names: its id or its name. An error names a namespace that does not exist.
+- `paw.marks.set(ns, beat, spec)`: Put a mark at `beat` of the song in namespace `ns` (its id or name), or change the mark with the id `spec.id`. The fields of `spec` are those of a mark (`sign`, `label`, `priority`, `style`, `to`, `row` or `over`, ...). The table becomes the mark. Gives the id of the mark.
+
+  ```lua
+  paw.marks.set(ns, 32, { sign = "◆", label = "drop" })
+  ```
 
 ## Module paw.media
 
@@ -2128,23 +2145,33 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.ruler
 
-- `paw.ruler.add(name, spec)`: Add a part of the bar labels, or put a new one in place of one of that name. It goes into `paw.opt.barlabel` (unless `hidden`).
-- `paw.ruler.add_lane(name, spec)`: Add a lane of rows under the bar numbers, or put a new one in place of one of that name.
+- `paw.ruler.at(comp, y, x)`: The mark under column `x` of the ruler's line `y`: a sign or a label that shows there first, else the stretch of time there.
+- `paw.ruler.bar_number(bar)`: The number that the ruler gives the song's bar `bar`: in a scope with time, its bars count from 1 at the scope's start.
 - `paw.ruler.bars_of(from, to)`: The first and the last bar that a stretch of time (`from` up to `to`, in beats of the song) touches, numbered as the ruler numbers them: in a scope with time, from its own bar 1. The status line and the messages of the loop use it.
-- `paw.ruler.draw_lanes(buf, x, scroll, span, folds)`: Draw the lanes on `buf`, the rows under the bar numbers, one under the other. `x` is the column of a beat; `scroll` and `span` the beats in sight; `folds` the view's closed time folds (paw/folds.tl), if any.
-- `paw.ruler.label(bar, beat, style, cursor_beat, room)`: The pieces of bar `bar`'s label, from the parts in `paw.opt.barlabel` in their order. `bar` is the song's bar: in a scope with time, its label counts from 1 at the scope's start (`paw.scope.bar_offset`). `style` is the style of the bar's number there. `room` is how many columns the label has before the next bar's: each part gets what the parts before it left (`ctx.room`).
-- `paw.ruler.lane_rows()`: How many rows the lanes need now, all together.
-- `paw.ruler.lane_time()`: A context of a lane with only its fields of time: `here`, the beat of the window's time for a beat of the song, and `from` and `to`, the time of the window's scope. The regions' lane places the song's regions and markers with these fields, and the mouse finds them with the same fields.
+- `paw.ruler.compose(places, ctx, width)`: Compose the ruler of a window: the marks in sight of each row in `places`, each in its column of `ctx.axis`, `width` columns wide.
+- `paw.ruler.describe(comp, x)`: What `K` says of a column of the ruler: each mark there, on each row, also those that are not shown, and why. Nil when the column has only the number of its bar and the ticks of its beats.
 - `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
+- `paw.ruler.paint(buf, header, comp)`: Draw a composition on `buf`, the ruler's lines over the timeline, and the rows that draw themselves, with `header` (the ruler's lines over the part headers) for their headers.
+- `paw.ruler.places(ctx)`: The places of the rows shown, from the top of the ruler: a row with `over` has none, and a row of no lines now is left out. A row takes what its `height` gives (one line when it has none), and at least a line for each line of the marks of a namespace sent to it with `row:name`. `ctx` is the time of the window (`paw.ruler.time()`). Gives the places and the number of lines.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
-- `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`. The part that it replaced, if any, comes back.
-- `paw.ruler.remove_lane(name)`: Take a lane away.
-- `paw.ruler.set(name, patch)`: Change a component that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy, as with `paw.partcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
+- `paw.ruler.remove(name)`: Take a row away, and its name out of `paw.opt.rulerrows`. The row that it replaced, if any, comes back.
+- `paw.ruler.route(ns, where)`: Send the marks of a namespace (its id or name) to a row: `"row:name"` gives them a line of that row, `"over:name"` draws them on it. Nil gives back the namespace's own place.
 
   ```lua
-  paw.ruler.set("number", { styles = { cursor = "Title" } })
+  paw.ruler.route("paw.cues", "over:bars")
   ```
-- `paw.ruler.set_lane(name, patch)`: Change a lane that is there, the built-in `regions` too: its `order`, `rows`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The lane becomes a changed copy: `paw.ruler.add_lane(name, old)` puts back the table it had before.
+- `paw.ruler.row(name, spec)`: Add a row to the ruler, or put a new one in place of the row of that name. Unless it is `hidden` or there already, its name goes into `paw.opt.rulerrows` after the row `after` (else at the end).
+
+  ```lua
+  paw.ruler.row("chords", { after = "bars", marks = function(ctx) return {} end })
+  ```
+- `paw.ruler.set(name, patch)`: Change a row or a namespace that is there, paw's own too: the `priority` of its marks and the `glyphs` and `styles` it draws with (merged into its own). A row is found first, then a namespace. It becomes a changed copy, so the unload of the extension that changed it puts back the one before.
+
+  ```lua
+  paw.ruler.set("bars", { styles = { cursor = "Title" } })
+  paw.ruler.set("paw.meter", { glyphs = { sign = "M" } })
+  ```
+- `paw.ruler.time()`: The context of the time of the current window, with no axis yet: `here` and the time of its scope (`from`, `to`), the folds of its time and the cursor's beat. Rows and namespaces get it with their own glyphs and styles.
 
 ## Module paw.scene
 
@@ -2202,6 +2229,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.scope.song_beat(beat, s)`: The song's beat of a beat that the current scope shows.
 - `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset), and for a subproject inside another, that clip's place in the song too; else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
+- `paw.scope.under_cursor()`: What `K` says in the arrange view before the part: the closed fold under the cursor, else, in a scope and with no clip under the cursor, the scope. Nil when there is neither.
 - `paw.scope.where(s)`: Where a window is, in words, for its window bar and the status line: the path without the song, which is always there (`Verse › Keys`, `⧉Bridge`), or `Song` with no scope.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 - `paw.scope.window(win)`: The window whose scope and folds a view shows: the one given, else the one being drawn, else the current one; for a view that keeps no stack of its own (the mixer), the arrange window of its tab.

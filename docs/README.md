@@ -39,6 +39,7 @@ groups below link the main ones.
 - [How to configure paw](how-to/configure-paw.md): `init.lua`, options, colors, commands, keys, events
 - [How to change the status line](how-to/change-the-status-line.md): sections and components in `init.lua`
 - [How to personalize the part column and the ruler](how-to/personalize-the-part-column-and-the-ruler.md): glyphs, styles, signs and components of your own, and two extensions to copy
+- [How to add a row to the ruler](how-to/add-a-row-to-the-ruler.md): a row of your own, marks in a namespace, and marks sent to another row
 - [How to personalize insert mode](how-to/personalize-insert-mode.md): what the keys of insert mode insert, keys of your own for clips with notes in them
 - [How to load an extension](how-to/load-an-extension.md): a bundled extension, your own, or one from Nix
 - [How to check all the hardware](../extensions/doctor/README.md#how-to-check-all-the-hardware): the doctor's guided check and its report
@@ -199,7 +200,8 @@ groups below link the main ones.
 - [The terminal screen](reference/screen.md): the parts of the screen, the bottom line, colors
 - [Pictures in the terminal](reference/pictures.md): pixels in terminals that show images, strips, `paw.plot`
 - [The status line](reference/status-line.md): sections, components, `paw.statusline`
-- [The part column and the bar labels](reference/partcolumn.md): numbers, signs, group folds and bar labels, `paw.partcolumn`, `paw.ruler`
+- [The part column](reference/partcolumn.md): numbers, signs and group folds, `paw.partcolumn`
+- [The ruler](reference/ruler.md): its rows and marks, how they are placed, `paw.ruler`, `paw.marks`
 - [The graphical window](reference/window.md): its command line, each gesture, the panes and the views in windows of their own
 
 ### Find

@@ -74,6 +74,16 @@ local record BarLine
   bar: integer
 end
 
+--- A bar or beat line of a time view on its axis (`paw.draw.grid_lines`):
+--- its column, its bar (nil on a beat), its beat and its place on the
+--- axis's plane (`v`).
+local record GridLine
+  x: integer
+  bar: integer
+  beat: number
+  v: number
+end
+
 --- A line of a ruler (`paw.draw.beats`): `x` in columns, `bar` true on a
 --- bar, `beat` from the roll's beat 0.
 local record RulerLine
@@ -115,6 +125,7 @@ local record M
   type Hue = Hue
   type Glyphs = Glyphs
   type BarLine = BarLine
+  type GridLine = GridLine
   type RulerLine = RulerLine
   type WaveRun = WaveRun
   type Chip = Chip
@@ -1093,6 +1104,20 @@ function M.jump_scroll(ax: axis.Axis, target: number, span: number, jumped: bool
   end
   local at = opt.jumpview == "center" and span / 2 or ax:beats(opt.jumpmargin as number)
   return target - at
+end
+
+--- The bar and beat lines of the axis `ax` from its scroll up to the beat
+--- `last`, as the window counts them. None inside a time fold.
+function M.grid_lines(ax: axis.Axis, last: number): {GridLine}
+  local out: {GridLine} = {}
+  for _, piece in ipairs(ax:unfolded(ax.scroll, last + 1e-6)) do
+    for _, line in ipairs(M.bar_lines(piece[1], piece[2] - piece[1])) do
+      if line.beat >= piece[1] - 1e-9 and line.beat < piece[2] - 1e-9 then
+        out[#out + 1] = {x = ax:x_of(line.beat), bar = line.bar, beat = line.beat, v = ax:view(line.beat)}
+      end
+    end
+  end
+  return out
 end
 
 --- Write the numbers of a ruler above a roll that shows `span` beats on

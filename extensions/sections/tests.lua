@@ -291,6 +291,8 @@ end)
 
 test("sections: drawn on the ruler", function()
   local S = song()
+  -- The row of the sections under the bars (the runner puts the options back after each test).
+  paw.opt.rulerrows = { "bars", "sections", "beats", "regions", "tempo" }
   local arrange = paw.ui.views:get("arrange")
   local lines = api.ui_snapshot(100, 30)
   -- The ruler's second row, under the bars.
@@ -310,8 +312,10 @@ test("sections: drawn on the ruler", function()
   eq(ruler:find("‹Hook", 1, true) ~= nil, true, "and follows a rename")
 end)
 
-test("sections: a click on a section in the ruler's second row goes to its start, from either frontend", function()
+test("sections: a click on a section in the ruler's row of sections goes to its start, from either frontend", function()
   local S = song()
+  -- The row of the sections under the bars (the runner puts the options back after each test).
+  paw.opt.rulerrows = { "bars", "sections", "beats", "regions", "tempo" }
   local arrange = paw.ui.views:get("arrange")
   api.ui_snapshot(100, 30)
   arrange.scroll = 0

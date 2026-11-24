@@ -52,7 +52,7 @@ Use the text object `is` after the operator:
 
 ### In the graphical window
 
-- Click a section in the band under the ruler to go to its start.
+- Click a section on the ruler to go to its start.
 - Choose More, then Sections, or "Open in a window" on `<localleader>Sl`, to open
   the list in a window of its own.
 
@@ -60,8 +60,11 @@ Use the text object `is` after the operator:
 
 ### On the screen
 
-- The name of each section is on a second row of the ruler, under the bar
-  numbers, at the start of the section, and the row shows when there are sections.
+- The name of each section is on the ruler's row `sections`, under the bar
+  numbers, at the start of the section, and the row shows when there are
+  sections. `:set rulerrows-=sections` hides it, and
+  `paw.ruler.set("sections", { styles = { current = "Title" } })` changes
+  its styles `section` and `current`.
 - The section under the cursor is amber.
 - When the start of a section is past the left edge, its name stays at the
   left, after a `‹`.

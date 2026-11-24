@@ -1,9 +1,9 @@
 # How to personalize the part column and the ruler
 
-You can change the part column and the bar labels in your `init.lua`. The
+You can change the part column and the ruler in your `init.lua`. The
 part column is at the left of the part headers. It shows the number of
-each part, its signs and the folds of the groups. The bar labels are
-the numbers of the bars on the ruler.
+each part, its signs and the folds of the groups. The ruler is over the
+parts, and it shows the numbers of the bars and the marks of the song.
 
 ## Change a part of paw
 
@@ -24,8 +24,15 @@ the numbers of the bars on the ruler.
 4. Type `:reload` in paw.
 
 The glyphs and the styles that you do not give stay as they are. [The
-part column and the bar labels](../reference/partcolumn.md) lists the
-glyphs and the styles of each part.
+part column](../reference/partcolumn.md) lists the glyphs and the styles
+of each part. The ruler changes the same way:
+
+```lua
+paw.ruler.set("bars", { styles = { cursor = "Title" } })
+```
+
+[The ruler](../reference/ruler.md) lists the glyphs and the styles of
+its rows and marks.
 
 ## Add a sign
 
@@ -47,29 +54,34 @@ paw.partcolumn.sign("armed", {
 When you press `K` on an armed part, the description says "ready to
 record".
 
-## Add a part to the bar labels
+## Add a mark to the ruler
 
-The example part puts a dot before the number of every eighth bar, from
-bar 9:
+The example puts a dot before the number of every eighth bar, from bar 9:
 
 ```lua
-paw.ruler.add("eight", {
-  order = 5,
-  render = function(bar)
-    if bar > 1 and bar % 8 == 1 then return { { "·", "RulerTempo" } } end
+paw.marks.namespace("eight", {
+  source = function(ctx)
+    local out = {}
+    for _, line in ipairs(paw.draw.grid_lines(ctx.axis, ctx.right)) do
+      if line.bar and line.bar > 1 and line.bar % 8 == 1 then
+        out[#out + 1] = { beat = line.beat, sign = "·", style = "RulerTempo", text = "eight bars" }
+      end
+    end
+    return out
   end,
 })
 ```
 
-A part with an `order` less than 10 shows before the number of the bar,
-and a part with a higher `order` shows after it.
+The marks of a namespace go over the bar numbers, unless you give the
+namespace another `route`. [How to add a row to the
+ruler](add-a-row-to-the-ruler.md) gives more.
 
 ## Hide a part
 
 To hide a part, take its name out of the option:
 
 - `:set partcolumn-=signs` hides the signs.
-- `:set barlabel-=eight` hides the dots.
+- `:set rulerrows-=regions` hides the regions on the ruler.
 
 ## Make it an extension
 
@@ -87,6 +99,6 @@ below are fuller examples to copy:
 
 ## See also
 
-- [The part column and the bar labels](../reference/partcolumn.md):
-  each function, field, glyph and style.
+- [The part column](../reference/partcolumn.md) and [the
+  ruler](../reference/ruler.md): each function, field, glyph and style.
 - [How to write an extension in Teal](write-an-extension-in-teal.md).

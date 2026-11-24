@@ -29,7 +29,7 @@ local type RolesModule = require("paw.roles")
 local type FrontendModule = require("paw.frontend")
 local type PartcolumnModule = require("paw.partcolumn")
 local type NestModule = require("paw.nest")
-local type TempoModule = require("paw.tempo")
+local type RulerModule = require("paw.ruler")
 local type Buf = contracts.Buf
 local type Hue = DrawModule.Hue
 local type Data = util_t.Data
@@ -37,6 +37,7 @@ local type TimeSpan = FoldsModule.TimeSpan
 local type Axis = axis.Axis
 local type BeatLine = roles.BeatLine
 
+local ruler_marks = require("paw.marks")
 local draw = paw.draw
 local util = paw.util
 
@@ -63,9 +64,9 @@ end
 
 --- Where everything goes on the view (`view:layout`): the headers'
 --- columns with the rule (`hw`), the timeline's (`tw`), the part
---- column, rows a part (`th`), the ruler's rows (`ruler_rows`: the row
---- of the song's bars when `song_bars`, the regions' rows from `lanes_y`,
---- the bands' from `band_y` and the tempo lane's `tempo_rows` among them),
+--- column, rows a part (`th`), the ruler's lines (`ruler_rows`: the
+--- lines of its rows, each in its place (`places`, paw/ruler.tl), then
+--- the bands' from `band_y`), the time the ruler was placed in (`time`),
 --- the rows of the timeline from the first part shown, the parts, the
 --- line after the last row (`used`) and the master's row.
 local record Layout
@@ -74,9 +75,8 @@ local record Layout
   column: PartcolumnModule.Layout
   th: integer
   ruler_rows: integer
-  song_bars: boolean
-  lanes_y: integer
-  tempo_rows: integer
+  places: {RulerModule.Place}
+  time: contracts.RulerContext
   rows: {Row}
   parts: {integer}
   used: integer
@@ -85,25 +85,11 @@ local record Layout
   band_y: integer
 end
 
---- A tempo or signature flag on the ruler: the columns it is drawn in
---- (`x1` is the first one after it) and its mark.
-local record Flag
-  x0: integer
-  x1: integer
-  mark: TempoModule.Mark
-end
-
---- The tempo and signature changes that share one column of the ruler.
-local record MarkGroup
-  x: integer
-  marks: {TempoModule.Mark}
-end
-
---- What the last draw gave the pointer and the keys: its layout, and where
---- it drew the flags of the ruler.
+--- What the last draw gave the pointer and the keys: its layout, and
+--- where the ruler placed each of its marks (paw/ruler.tl).
 local record Geometry is contracts.ArrangeGeometry
   layout: Layout
-  flags: {Flag}
+  ruler: RulerModule.Composition
 end
 
 --- A take lane dragged across with the pointer: from column `x0` to `x1`
@@ -123,14 +109,8 @@ local record Recording
   to: number
 end
 
---- A bar or beat line of the timeline (`grid_lines`): its column, its bar
---- (nil on a beat), its beat and its place on the plane.
-local record GridLine
-  x: integer
-  bar: integer
-  beat: number
-  v: number
-end
+--- A bar or beat line of the timeline (`paw.draw.grid_lines`).
+local type GridLine = DrawModule.GridLine
 
 --- The stretch `{ from, to }` of columns that a thing takes.
 local type Span = {integer, integer}
@@ -144,7 +124,6 @@ local record Arrange is contracts.ArrangeView
   type Row = Row
   type Layout = Layout
   type Geometry = Geometry
-  type Flag = Flag
   type Comp = Comp
   --- The first part shown.
   top: integer
@@ -268,35 +247,6 @@ function view.part_height(count: integer, room: integer): integer
     return 3
   end
   return math.floor(util.clamp(math.floor(room / count), 1, 3))
-end
-
---- Whether the ruler has a second row: when something registered in
---- `view.ruler2` (by name, a function of the view) has something to show.
---- The lanes of `paw.ruler` (the regions' rows) add rows of their own, and
---- a layer draws on the first of them.
----   paw.ui.views:get("arrange").ruler2.marks = function(view) return #my_marks > 0 end
-view.ruler2 = {}
-
---- Whether the ruler has a row of the song's bars (`@9`) under the bars
---- of the window's scope: in a scope with time whose bars count from 1
---- (`scopebars=local`) and are not the song's. A region scope counts from
---- its first bar (`bar_offset`); a subproject counts from where its block
---- plays in the song (`origin`).
-local function shows_song_bars(): boolean
-  if paw.opt.scopebars == "song" or not paw.scope.span() then
-    return false
-  end
-  return paw.scope.bar_offset() ~= 0 or paw.scope.origin() ~= 0
-end
-
-local function wants_ruler2(self: Arrange): boolean
-  for _, wants in pairs(self.ruler2) do
-    local ok, yes = pcall(wants, self) as (boolean, boolean)
-    if ok and yes then
-      return true
-    end
-  end
-  return false
 end
 
 --- Whether the user set the height of the parts: the window's vertical
@@ -451,16 +401,12 @@ function view:layout(w: integer, h: integer): Layout
   -- The heads' width class, which the heads' wishes depend on: the
   -- headers less the part column, the stripe and the rule.
   heads.begin_layout(hw - column.width - 2)
-  -- The ruler, the song's bars under the scope's (`song_bars`), its
-  -- second row if something asks for one, a row for each band of an
-  -- extension's (`paw.frontend.bands`) that has entries, and the tempo
-  -- lane's two rows when it is shown.
-  local tempo_rows = paw.tempolane.shown() and 2 or 0
+  -- The ruler: the lines of its rows (paw/ruler.tl), then a line for each
+  -- band of an extension (`paw.frontend.bands`) that has entries.
   local bands = paw.frontend.band_state()
-  local song_bars = shows_song_bars()
-  local lanes_y = song_bars and 2 or 1
-  local band_y = lanes_y + math.max(paw.ruler.lane_rows(), wants_ruler2(self) and 1 or 0)
-  local ruler_rows = band_y + bands.rows + tempo_rows
+  local time = paw.ruler.time()
+  local places, band_y = paw.ruler.places(time)
+  local ruler_rows = band_y + bands.rows
   local master_rows = 2
   local room = math.max(1, h - ruler_rows - master_rows)
   -- Take lanes and automation lanes shown as rows (two lines each, or as
@@ -489,9 +435,8 @@ function view:layout(w: integer, h: integer): Layout
     column = column,
     th = th,
     ruler_rows = ruler_rows,
-    song_bars = song_bars,
-    lanes_y = lanes_y,
-    tempo_rows = tempo_rows,
+    places = places,
+    time = time,
     parts = parts,
     master = {kind = "master", id = 0, y = h - master_rows, h = master_rows},
     bands = bands,
@@ -552,20 +497,6 @@ function view:current_axis(): Axis
     return axis.new(self.scroll, ax.zoom, ax.spans)
   end
   return ax
-end
-
---- The bar and beat lines on the timeline. None inside a fold.
-local function grid_lines(ax: Axis, width: integer): {GridLine}
-  local out: {GridLine} = {}
-  local last = ax:beat_of(width)
-  for _, piece in ipairs(ax:unfolded(ax.scroll, last + 1e-6)) do
-    for _, line in ipairs(draw.bar_lines(piece[1], piece[2] - piece[1])) do
-      if line.beat >= piece[1] - 1e-9 and line.beat < piece[2] - 1e-9 then
-        out[#out + 1] = {x = ax:x_of(line.beat), bar = line.bar, beat = line.beat, v = ax:view(line.beat)}
-      end
-    end
-  end
-  return out
 end
 
 --- The bar and beat lines (`grid_lines`) as the `beats` role takes them:
@@ -1302,6 +1233,74 @@ function view:draw_tempo_row(headers: Buf, timeline: Buf, y: integer, lines: {Gr
   timeline:fill(x, y, cw, 1, nil, cursor_style)
 end
 
+-- The tempo lane is the ruler's row `tempo`: two lines while it is shown,
+-- which the view draws itself.
+paw.ruler.row(
+  "tempo",
+  {
+    height = function(_: contracts.RulerContext): integer return paw.tempolane.shown() and 2 or 0 end,
+    draw = function(ctx: contracts.RulerContext)
+      view:draw_tempo_row(ctx.header, ctx.buf, 0, draw.grid_lines(ctx.axis, ctx.right))
+    end,
+  }
+)
+
+-- The text that the time selection covers on the ruler, by its own style.
+local IN_SELECTION: {string: string} = {
+  RulerBar = "Visual",
+  RulerBarRelative = "Visual",
+  RulerBarCursor = "Visual",
+  RulerTick = "Visual",
+}
+
+-- The time selection of visual mode, over the bars as on the parts it
+-- covers. Styles: `selection`.
+ruler_marks.namespace(
+  "paw.selection",
+  {
+    route = "over:bars",
+    priority = 20,
+    styles = {selection = "Visual"},
+    source = function(ctx: contracts.RulerContext): {contracts.RulerMark}
+      local selection = paw.keymap.selection()
+      if not selection or selection.kind == "line" or paw.cursor.lane_id() then
+        return {}
+      end
+      return {
+        {
+          beat = selection.c0,
+          to = selection.c1,
+          style = ctx.styles.selection,
+          restyle = IN_SELECTION,
+          priority = 4,
+          kind = "selection",
+          text = "the time selection",
+        },
+      }
+    end,
+  }
+)
+
+--- What `K` says first in the arrange view: the closed fold or the scope
+--- under the cursor (paw/scope.tl), then, off a clip, the marks of the
+--- ruler in the cursor's column when there is more there than the bar's
+--- number.
+function view:describe(): contracts.Description
+  local lines: contracts.Description = {}
+  local function add(more: contracts.Description)
+    for _, line in ipairs(more or {}) do
+      lines[#lines + 1] = line
+    end
+  end
+  add(paw.scope.under_cursor())
+  -- On a clip, `K` tells of the clip: the ruler only between clips.
+  local g = self.geometry
+  if g and g.ruler and paw.cursor.beat and not paw.cursor.clip() then
+    add(paw.ruler.describe(g.ruler, g.axis:x_of(paw.cursor.beat)))
+  end
+  return #lines > 0 and lines or nil
+end
+
 --- One take lane: take `row.take` of every clip of the part that has that
 --- many, over the clip's own stretch of time, lit where it is the one that
 --- plays and faint where it is not: its name on the first row, and its
@@ -1518,21 +1517,18 @@ end
 -- A frame ---------------------------------------------------------------------------
 
 --- What the parts of one frame share: the buffers of the whole view, the
---- headers, the timeline under the ruler (`lanes`) and the ruler row; the
---- layout, the window's axis (`ax`, its time folds in it), the beats shown
---- and the beat at the right edge; the transport and `here`, which turns a
---- beat of the song into the window's time; the bar and beat lines; the
---- loop's columns (on or off) and the punch range's; the cursor's part
---- and lane.
+--- headers, the timeline under the ruler (`lanes`) and the ruler's first
+--- line; the layout, the window's axis (`ax`, its time folds in it), the
+--- beats shown and the beat at the right edge; the transport and `here`,
+--- which turns a beat of the song into the window's time; the bar and beat
+--- lines; the cursor's part and lane.
 local record Frame
   buf: Buf
-  flags: {Flag}
   headers: Buf
   --- The first column of `headers` in the view.
   headers_x: integer
   lanes: Buf
   ruler: Buf
-  ruler2: Buf
   L: Layout
   ax: Axis
   span: number
@@ -1541,9 +1537,6 @@ local record Frame
   here: function(beat: number): number
   spans: {TimeSpan}
   lines: {GridLine}
-  loop: Span
-  loop_off: Span
-  punch: Span
   cursor_part: integer
   cursor_lane: integer
   --- The cursor's beat in this window's time, or nil when the current
@@ -1596,24 +1589,6 @@ local function follow(self: Arrange, F: Frame, led: boolean)
     end
   end
   self.seen_beat, self.seen_jump = beat, paw.keymap.jump_serial
-end
-
---- True if the column `x` is in `span` (`{ from, to }`), when there is one.
-local function within(span: Span, x: integer): boolean
-  return span and x >= span[1] and x < span[2]
-end
-
---- The style of a thing on the ruler at column `x`: in the punch range,
---- in the loop, in the loop that is off, or none of them.
-local function ruler_style(F: Frame, x: integer, punch: string, loop: string, loop_off: string, plain: string): string
-  if within(F.punch, x) then
-    return punch
-  elseif within(F.loop, x) then
-    return loop
-  elseif within(F.loop_off, x) then
-    return loop_off
-  end
-  return plain
 end
 
 --- A path of scopes cut at its left to `room` columns: the outer levels
@@ -1670,212 +1645,6 @@ local function window_bar(buf: Buf, hw: integer, two_rows: boolean, beat: number
   end
 end
 
---- The loop's band on the ruler: bright while looping is on, dim while it
---- is off (the range stays in sight); then the punch range, in red over
---- the loop's amber where they meet. Only an on loop shades the lanes.
-local function ruler_ranges(F: Frame)
-  local t, tw, ruler, ax = F.t, F.L.tw, F.ruler, F.ax
-  if t.loop_end > t.loop_start then
-    local x0, x1 = math.max(0, ax:x_of(F.here(t.loop_start))), math.min(tw, ax:x_of(F.here(t.loop_end)))
-    if x1 > x0 then
-      if t.loop_enabled then
-        F.loop = {x0, x1}
-        ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoop")
-      else
-        F.loop_off = {x0, x1}
-        ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerLoopOff")
-      end
-    end
-  end
-  if t.punch_enabled and t.punch_end > t.punch_start then
-    local x0, x1 = math.max(0, ax:x_of(F.here(t.punch_start))), math.min(tw, ax:x_of(F.here(t.punch_end)))
-    if x1 > x0 then
-      F.punch = {x0, x1}
-      ruler:fill(x0, 0, x1 - x0, 1, nil, "RulerPunch")
-    end
-  end
-end
-
---- The pieces of a bar's label and their width in columns, in `room`.
-local function bar_label(F: Frame, line: GridLine, room: integer): {contracts.Piece}, integer
-  local style = ruler_style(F, line.x, "RulerPunch", "RulerLoop", "RulerLoopOffBar", "RulerBar")
-  local pieces = paw.ruler.label(line.bar, line.beat, style, paw.cursor.beat, room)
-  local width = 0
-  for _, piece in ipairs(pieces) do
-    width = width + api.str_width(piece[1])
-  end
-  return pieces, width
-end
-
---- The bars' labels and the beats' ticks on the ruler. Bar numbers that
---- would run into each other when zoomed out are skipped. Gives where
---- each bar's label ends, by its column, the bar lines with a label, and
---- the bar lines with a label that a tempo or meter mark takes first
---- (`ruler_tempo_marks` draws their number, if it fits after the value).
-local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {GridLine}, {integer: GridLine}
-  local ruler, ax = F.ruler, F.ax
-  local marked: {integer: MarkGroup} = {}
-  for _, group in ipairs(groups) do
-    marked[group.x] = group
-  end
-  local every = math.max(1, math.ceil(5 / ax:cells(paw.time.bar(ax.scroll))))
-  local free = 0 -- the first column a label has not taken
-  local label_end: {integer: integer} = {}
-  local labelled: {GridLine} = {}
-  local deferred: {integer: GridLine} = {}
-  for _, line in ipairs(F.lines) do
-    if line.bar then
-      if (line.bar - 1) % every == 0 and line.x >= free then
-        labelled[#labelled + 1] = line
-        if marked[line.x] then
-          free, deferred[line.x] = line.x + 1, line
-        else
-          -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl), in
-          -- its room: up to a column before the next bar whose label shows,
-          -- and before the next change of tempo or meter.
-          local room = math.max(1, math.floor(ax:cells(paw.time.bar(line.beat) * every)) - 1)
-          for _, group in ipairs(groups) do
-            if group.x > line.x then
-              room = math.max(1, math.min(room, group.x - line.x - 1))
-              break
-            end
-          end
-          local x = line.x
-          for _, piece in ipairs((bar_label(F, line, room))) do
-            x = x + ruler:text(x, 0, piece[1], piece[2])
-          end
-          free, label_end[line.x] = x + 1, x
-        end
-      end
-    elseif ax:cells(1) >= 2 and line.x >= free then
-      local style = ruler_style(F, line.x, "RulerPunchTick", "RulerLoopTick", "RulerLoopOffTick", "RulerTick")
-      ruler:text(line.x, 0, draw.g.tick, style)
-    end
-  end
-  return label_end, labelled, deferred
-end
-
---- Under the scope's bars, the song's (`@9`): the bar of the song where
---- each labelled bar of the scope is, as a bar typed with `@` is the
---- song's. Each label has the room up to the next one. In a subproject
---- with a meter of its own, two of its bars can start in one bar of the
---- song: only the first of them gets the label.
-local function song_bars(F: Frame, labelled: {GridLine})
-  local row = F.buf:sub(F.L.hw, 1, F.L.tw, 1)
-  row:fill(0, 0, row.width, 1, " ", "Ruler")
-  local last: integer
-  for i, line in ipairs(labelled) do
-    local stop = labelled[i + 1] and labelled[i + 1].x - 1 or row.width
-    local bar = math.floor(api.tempo_bar_of(paw.time.song_beat(line.beat))) + 1
-    if line.x >= 0 and stop - line.x >= 1 and bar ~= last then
-      row:text(line.x, 0, util.fit("@" .. tostring(bar), stop - line.x), "RulerBar")
-    end
-    last = bar
-  end
-end
-
---- The marks of the loop's and the punch range's edges on the ruler.
-local function ruler_edges(F: Frame)
-  local g, t, tw, ruler, ax = draw.g, F.t, F.L.tw, F.ruler, F.ax
-  if F.loop or F.loop_off then
-    local start, finish = ax:x_of(F.here(t.loop_start)), ax:x_of(F.here(t.loop_end))
-    if start >= 1 then
-      ruler:text(start - 1, 0, g.loop_in, F.loop and "RulerLoopEdge" or "RulerLoopOffEdge")
-    end
-    -- The end's mark sits in the band's last cell, clear of the next bar's
-    -- number; at the end of the scope, its `┃` marks it.
-    local _, scope_to = paw.scope.span()
-    local at_end = scope_to and math.abs(F.here(t.loop_end) - scope_to) < 1e-9
-    if finish >= 1 and finish <= tw and not at_end then
-      ruler:text(finish - 1, 0, g.loop_out, F.loop and "RulerLoopEdgeIn" or "RulerLoopOffEdge")
-    end
-  end
-  if F.punch then
-    local start, finish = ax:x_of(F.here(t.punch_start)), ax:x_of(F.here(t.punch_end))
-    if start >= 1 then
-      ruler:text(start - 1, 0, g.punch_in, "RulerPunchEdge")
-    end
-    if finish >= 1 and finish <= tw then
-      ruler:text(finish - 1, 0, g.punch_out, "RulerPunchEdge")
-    end
-  end
-end
-
---- The tempo and signature changes in sight, grouped by the column of their
---- beat (two changes at one beat share a column), in order. A change inside
---- a time fold is folded away with it.
-local function tempo_mark_groups(F: Frame): {MarkGroup}
-  local ax = F.ax
-  local groups: {MarkGroup} = {}
-  for _, mark in ipairs(paw.tempo.marks(ax.scroll, F.last)) do
-    if not ax:folded(mark.beat) then
-      local x = ax:x_of(mark.beat)
-      local last = groups[#groups]
-      if last and last.x == x then
-        last.marks[#last.marks + 1] = mark
-      else
-        groups[#groups + 1] = {x = x, marks = {mark}}
-      end
-    end
-  end
-  return groups
-end
-
---- Tempo and signature changes on the ruler: a glyph in the column of the
---- beat, never moved, and the value right after it. A value is shown whole
---- or not at all: it stops a cell before the next bar's number or the next
---- change. At a bar line, or in the cell of a bar's number, the number
---- follows the value if it fits whole after it, and is left out if not.
---- Gives the columns each flag took, for the pointer.
-local function ruler_tempo_marks(
-  F: Frame, label_end: {integer: integer}, groups: {MarkGroup}, deferred: {integer: GridLine}
-): {Flag}
-  local flags: {Flag} = {}
-  for i, group in ipairs(groups) do
-    local x = group.x
-    local glyphs: {string} = {}
-    local texts: {string} = {}
-    for k, mark in ipairs(group.marks) do
-      glyphs[k] = mark.kind == "tempo" and "▾" or "‖"
-      texts[k] = (k > 1 and glyphs[k] or "") .. mark.text
-    end
-    local stop = groups[i + 1] and groups[i + 1].x or F.L.tw
-    for from in pairs(label_end) do
-      if from > x then
-        stop = math.min(stop, from)
-      end
-    end
-    -- The last column that text may take: one cell stays free before the
-    -- next thing, except at the end of the ruler.
-    local limit = stop == F.L.tw and stop or stop - 1
-    local text = table.concat(texts, " ")
-    local after = x + 1
-    if after + api.str_width(text) <= limit then
-      F.ruler:text(after, 0, text, "RulerTempo")
-      local at = after
-      for k, mark in ipairs(group.marks) do
-        local width = api.str_width(texts[k])
-        flags[#flags + 1] = {x0 = k == 1 and x or at, x1 = at + width, mark = mark}
-        at = at + width + 1
-      end
-      after = after + api.str_width(text) + 1
-    else
-      flags[#flags + 1] = {x0 = x, x1 = x + 1, mark = group.marks[1]}
-    end
-    local line = deferred[x]
-    if line then
-      local pieces, width = bar_label(F, line, 1000)
-      if after + width <= limit then
-        for _, piece in ipairs(pieces) do
-          after = after + F.ruler:text(after, 0, piece[1], piece[2])
-        end
-      end
-    end
-    F.ruler:text(x, 0, glyphs[1], "RulerTempo")
-  end
-  return flags
-end
-
 --- The bands of extensions under the ruler (`paw.frontend.bands`), a row
 --- each: an entry with a length over its stretch, one without a flag where
 --- it is, each in its colour with its name.
@@ -1898,41 +1667,45 @@ local function draw_bands(F: Frame)
   end
 end
 
---- The ruler: the window bar in the corner; bars, beat ticks, the loop
---- and the punch range, the tempo's marks; under it the song's bars in a
---- scope, the regions' rows and a second row (`view.ruler2`), the bands of
---- extensions and the tempo lane.
+--- The ruler: the window bar in the corner; the rows of the ruler, with
+--- their marks placed by the compositor (paw/ruler.tl), which the view
+--- keeps for the pointer and `K`; the bands of extensions under them.
 local function draw_ruler(self: Arrange, F: Frame)
   local ax = F.ax
   local buf, L = F.buf, F.L
   local hw, tw = L.hw, L.tw
+  local rows = L.ruler_rows - L.bands.rows
   buf:fill(0, 0, hw - 1, L.ruler_rows, " ", "Ruler")
   F.ruler = buf:sub(hw, 0, tw, 1)
-  F.ruler:fill(0, 0, tw, 1, " ", "Ruler")
-  -- The window bar has two rows over the second row of the ruler or a
-  -- band's row; the tempo lane's header has the rows under them.
-  window_bar(buf, hw, L.band_y + L.bands.rows >= 2, F.cursor_beat)
-  ruler_ranges(F)
-  F.lines = grid_lines(ax, tw)
-  local mark_groups = tempo_mark_groups(F)
-  local label_end, labelled, deferred = ruler_bars(F, mark_groups)
-  ruler_edges(F)
-  F.flags = ruler_tempo_marks(F, label_end, mark_groups, deferred)
-  if L.song_bars then
-    song_bars(F, labelled)
+  local area = buf:sub(hw, 0, tw, math.max(1, rows))
+  area:fill(0, 0, tw, area.height, " ", "Ruler")
+  F.lines = draw.grid_lines(ax, F.last)
+  -- The window bar has two lines over the ruler's second line, unless a
+  -- row that draws itself (the tempo lane) has its header there.
+  local corner = 0
+  for _, place in ipairs(L.places) do
+    if place.row.draw then
+      break
+    end
+    corner = place.y + place.h
   end
-  if L.band_y > L.lanes_y then
-    -- The lanes of markers and regions under the ruler (paw/ruler.tl).
-    F.ruler2 = buf:sub(hw, L.lanes_y, tw, L.band_y - L.lanes_y)
-    F.ruler2:fill(0, 0, tw, L.band_y - L.lanes_y, " ", "Ruler")
-    paw.ruler.draw_lanes(
-      F.ruler2, function(beat: number): integer return ax:x_of(beat) end, ax.scroll, F.last - ax.scroll, F.spans
-    )
+  window_bar(buf, hw, corner + L.bands.rows >= 2, F.cursor_beat)
+  -- The time of the frame, with the window's axis and its folds.
+  local ctx = L.time
+  ctx.axis, ctx.left, ctx.right, ctx.cursor = ax, ax.scroll, F.last, F.cursor_beat
+  ctx.folded = function(beat: number): boolean return ax:folded(beat) end
+  ctx.closed = function(id: integer): boolean
+    for _, s in ipairs(F.spans) do
+      if s.fold.kind == "region" and s.fold.id == id then
+        return true
+      end
+    end
+    return false
   end
+  local comp = paw.ruler.compose(L.places, ctx, tw)
+  paw.ruler.paint(area, F.headers:sub(0, 0, F.headers.width, area.height), comp)
+  self.geometry.ruler = comp
   draw_bands(F)
-  if L.tempo_rows > 0 then
-    self:draw_tempo_row(F.headers, F.lanes, L.ruler_rows - L.tempo_rows, F.lines)
-  end
 end
 
 --- The take being made: from where the playhead was when it began, or
@@ -2133,7 +1906,7 @@ local function draw_rows(self: Arrange, F: Frame)
   ) as RolesModule.Plane
   local marks = grid_marks(F.lines)
   local loop: {number, number}
-  if F.loop then
+  if t.loop_enabled and t.loop_end > t.loop_start then
     loop = {ax:view(F.here(t.loop_start)), ax:view(F.here(t.loop_end))}
   end
   recording(self, t)
@@ -2467,7 +2240,6 @@ local function draw_layers(self: Arrange, F: Frame)
   local L = F.L
   local layer: contracts.ArrangeLayer = {
     ruler = F.ruler,
-    ruler2 = F.ruler2,
     lanes = F.buf:sub(L.hw, L.ruler_rows, L.tw, L.master.y - L.ruler_rows),
     x = function(beat: number): integer return F.ax:x_of(beat) end,
     axis = F.ax,
@@ -2596,7 +2368,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   -- The window's axis, at the scroll it has now: every row draws on it.
   local ax = axis.new(self.scroll, zoom, spans)
   self.axis, F.ax = ax, ax
-  self.geometry = {hw = hw, th = L.th, rows = #L.rows, zoom = zoom, span = F.span, layout = L, axis = ax, flags = {}}
+  self.geometry = {hw = hw, th = L.th, rows = #L.rows, zoom = zoom, span = F.span, layout = L, axis = ax}
   -- The beat at the right edge of the timeline.
   F.last = ax:beat_of(tw)
   -- What this window shows, in the song's beats, comes first: the chord
@@ -2623,7 +2395,6 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   F.headers_x = cw
   buf:fill(0, 0, hw - 1, h, " ", "PartHeader")
   draw_ruler(self, F)
-  self.geometry.flags = F.flags
   draw_rows(self, F)
   if column then
     self:draw_column(column, L, F.cursor_part, F.cursor_lane)

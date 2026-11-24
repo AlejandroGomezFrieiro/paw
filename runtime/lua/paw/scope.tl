@@ -1864,7 +1864,7 @@ end
 --- What `K` says in the arrange view before the part: the closed fold
 --- under the cursor, else, in a scope and with no clip under the cursor,
 --- the scope. Nil when there is neither.
-local function under_cursor(): contracts.Description
+function M.under_cursor(): contracts.Description
   local fold = paw.folds.closed_at()
   if fold then
     return {
@@ -1883,11 +1883,6 @@ local function under_cursor(): contracts.Description
       "",
     }
   end
-end
-local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
-if arrange then
-  -- `K` (the command `info`) puts this before what it says of the part.
-  arrange.describe = function(_: contracts.View): contracts.Description return under_cursor() end
 end
 
 -- The scope picker ---------------------------------------------------------------------

@@ -154,7 +154,8 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.ex.views` | views of ranges |
 | `paw.partcolumn.components` | components of the part column |
 | `paw.partcolumn.signs` | signs of the part column |
-| `paw.ruler.labels` | parts of the bar labels |
+| `paw.ruler.rows` | rows of the ruler |
+| `paw.marks.namespaces` | namespaces of marks on the ruler |
 | `paw.insert.kinds` | keys of insert mode in the arrange view |
 | `paw.grep.sources` | grep sources |
 | `paw.curves.providers` | curve providers |

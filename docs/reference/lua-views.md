@@ -362,13 +362,13 @@ The file manager is a kind of text buffer (`paw/views/files.lua`), with `paw.fil
 
 `paw.statusline.setup` and `paw.statusline.component` change and add to the status line, a winbar and the tab line. See "The status line" in [The status line](status-line.md).
 
-## The part column and the bar labels
+## The part column and the ruler
 
 `paw.partcolumn` adds, changes and removes the components of the column at
 the left of the part headers: the numbers, the signs and the folds of
-groups. `paw.ruler` does the same for the label of each bar on the ruler, and
-for the lanes of rows under it, as the lane of regions.
-See [The part column and the bar labels](partcolumn.md).
+groups. See [The part column](partcolumn.md). `paw.ruler` adds and changes
+the rows of the ruler, and `paw.marks` puts marks on them in namespaces.
+See [The ruler](ruler.md).
 
 ## Help
 

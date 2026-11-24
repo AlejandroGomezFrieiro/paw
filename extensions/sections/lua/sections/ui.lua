@@ -378,56 +378,52 @@ paw.ui.hl("Section", { fg = palette.fg, bg = palette.raise })
 paw.ui.hl("SectionCurrent", { fg = palette.bg, bg = palette.accent, bold = true })
 paw.ui.hl("SectionEdge", { fg = palette.faint })
 
---- The first characters of a text that fit in `width` cells.
-local function clip_text(text, width)
-  if width <= 0 then return "" end
-  if api.str_width(text) <= width then return text end
-  local out, used = {}, 0
-  for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-    local w = api.str_width(ch)
-    if used + w > width then break end
-    out[#out + 1], used = ch, used + w
-  end
-  return table.concat(out)
-end
-
---- Draw the sections on the arrange view's second ruler row: each name where its
---- section starts, the one at the cursor brighter, and the one at the left
---- edge kept in sight when its start has scrolled away. A faint line marks
---- each start across the parts.
-function M.draw(_, layer)
-  local list = S.list()
-  if #list == 0 then return end
-  local ruler = layer.ruler2 or layer.ruler
-  local width = ruler.width
-  local current = S.current()
-  for i, s in ipairs(list) do
-    local x0 = layer.x(s.start)
-    local x1 = list[i + 1] and layer.x(list[i + 1].start) or width
-    if x1 > 0 and x0 < width then
-      local lx = math.max(0, x0)
-      local mark = x0 < 0 and "‹" or "▍"
-      local label = clip_text(mark .. s.name, math.max(1, x1 - lx - 1))
-      ruler:text(lx, 0, label, current and current.index == i and "SectionCurrent" or "Section")
-      -- A click on it goes to the section, in either frontend.
-      ruler:hit(lx, 0, math.max(1, math.min(x1, width) - lx), 1, {
-        kind = "section",
-        cmd = "section.goto " .. i,
-        hint = "section " .. s.name .. ": click goes to its start",
-      })
+-- The sections are a row of the ruler, `sections`, under the bars: each
+-- name where its section starts, the one at the cursor in `current`, and
+-- the one at the left edge kept in sight after a `‹` when its start has
+-- scrolled away. A click on a name goes to the section. The row shows
+-- while there are sections. Styles: `section`, `current`.
+paw.ruler.row("sections", {
+  after = "bars",
+  styles = { section = "Section", current = "SectionCurrent" },
+  height = function() return #S.list() > 0 and 1 or 0 end,
+  marks = function(ctx)
+    local list, out = S.list(), {}
+    local current = S.current()
+    for i, s in ipairs(list) do
+      local style = current and current.index == i and ctx.styles.current or ctx.styles.section
+      -- The row's beats are the window's: they differ inside a subproject.
+      local after = list[i + 1] and ctx.here(list[i + 1].start) or math.huge
+      local start, sign = ctx.here(s.start), "▍"
+      if start < ctx.left and after > ctx.left then
+        start, sign = ctx.left, "‹"
+      end
+      if (start >= ctx.left or after > ctx.left) and not (ctx.to and start >= ctx.to) then
+        out[#out + 1] = {
+          beat = start,
+          sign = sign,
+          label = s.name,
+          style = style,
+          kind = "section",
+          cmd = "section.goto " .. i,
+          text = "section " .. s.name,
+        }
+      end
     end
-    if x0 >= 0 and x0 < width then layer.lanes:fill(x0, 0, 1, layer.lanes.height, nil, "SectionEdge") end
+    return out
+  end,
+})
+
+--- A faint line down the parts in the column where each section starts.
+function M.draw(_, layer)
+  for _, s in ipairs(S.list()) do
+    local x = layer.x(s.start)
+    if x >= 0 and x < layer.lanes.width then layer.lanes:fill(x, 0, 1, layer.lanes.height, nil, "SectionEdge") end
   end
 end
 
 local arrange = paw.ui.views:get("arrange")
-if arrange and arrange.layers then
-  arrange.layers.sections = M.draw
-  -- The ruler has a row for them while there are any.
-  if arrange.ruler2 then arrange.ruler2.sections = function() return #S.list() > 0 end end
-else
-  paw.notify("sections: this arrange view has no layers to draw on; sections are not shown on the ruler", "warn")
-end
+if arrange and arrange.layers then arrange.layers.sections = M.draw end
 
 -- A change made elsewhere (undo, loading) redraws the ruler.
 paw.on("sections.changed", function() api.ui_redraw() end)

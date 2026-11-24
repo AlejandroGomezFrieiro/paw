@@ -359,7 +359,7 @@ test(":narrow on a region shows its time: bars from 1 in its meter, the cursor k
   eq(text:find("Bridge 1.1 @17.1", 1, true) ~= nil, true, "the status line: the path, and both places")
   eq(text:find("cur 1.1 @17.1", 1, true) ~= nil, true, "the window bar: the place in its bars and the song's")
   eq(text:find("loop 1%D+8%D") ~= nil, true, "the status line's loop in its bars")
-  eq(paw.ruler.label(18, from + 3, "RulerBar", from)[1][1], "2", "the song's bar 18 is its bar 2")
+  eq(paw.ruler.bar_number(18), 2, "the song's bar 18 is its bar 2")
   -- Motions stop at its edges.
   keys("$")
   eq(paw.cursor.beat, to, "$: the drums' clip ends after it; the cursor stops at its end")

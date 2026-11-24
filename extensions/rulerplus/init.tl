@@ -1,71 +1,19 @@
--- rulerplus: an example of how to personalize the bar labels of the ruler
--- (paw.ruler, docs/reference/partcolumn.md). It adds three parts (a mark
--- at the start of each phrase, the key where it changes, the chord where
--- it changes) and changes the part `number` of paw: with `relativebar`,
--- the counts get a sign, `+4` ahead and `-4` behind. paw records each of
--- them as the extension's, so `:ext.unload rulerplus` puts the ruler back
--- as it was.
+-- rulerplus: an example of how to add to the ruler (paw.ruler, paw.marks,
+-- docs/reference/ruler.md). It adds a row (`harmony`: the chord and the key
+-- where they change), a namespace of marks (`rulerplus.phrase`: a mark at
+-- the start of each phrase, over the bars) and changes the row `bars` of
+-- paw: with `relativebar`, the counts get a sign, `+4` ahead and `-4`
+-- behind. paw records each of them as the extension's, so
+-- `:ext.unload rulerplus` puts the ruler back as it was.
 local type Ctx = paw.contracts.RulerContext
-local type Cells = paw.contracts.ColumnCells
-local type Label = paw.contracts.RulerLabel
+local type Mark = paw.contracts.RulerMark
 
 -- Options ------------------------------------------------------------------------
 
 local phrase = paw.option.define("rulerplus_phrase", 4, {min = 0, max = 64, integer = true})
 local signed = paw.option.define("rulerplus_signed", true)
 
---- `text` with a space before it, cut to the room that the label has left.
-local function fit(text: string, room: integer): string
-  if room < 2 then
-    return nil
-  end
-  text = " " .. text
-  if paw.api.str_width(text) > room then
-    text = paw.util.fit(text, room)
-  end
-  return text
-end
-
--- The phrases: a mark before the number of the first bar of each ----------------
-
-paw.ruler.add(
-  "phrase",
-  {
-    order = 5,
-    glyphs = {phrase = "┃"},
-    styles = {phrase = "RulerTempo"},
-    render = function(bar: integer, ctx: Ctx): Cells
-      local n = phrase:get()
-      -- Not on bar 1: the song starts there, and the mark would take room.
-      if n <= 0 or bar == 1 or (bar - 1) % n ~= 0 then
-        return nil
-      end
-      return {{paw.opt.ascii and "|" or ctx.glyphs.phrase, ctx.styles.phrase}}
-    end,
-  }
-)
-
--- The chord and the key: on the bars where they change -------------------------
-
-paw.ruler.add(
-  "chord",
-  {
-    order = 25,
-    styles = {chord = "RulerChord"},
-    render = function(bar: integer, ctx: Ctx): Cells
-      local chord = paw.harmony.at(ctx.beat, true)
-      if not chord then
-        return nil
-      end
-      local before = bar > 1 and paw.harmony.at(paw.time.bar_start(bar - 1), true) or nil
-      if before and before.name == chord.name and before.at == chord.at then
-        return nil
-      end
-      local text = fit(paw.harmony.label(chord), ctx.room)
-      return text and {{text, ctx.styles.chord}} or nil
-    end,
-  }
-)
+-- The chord and the key: a row under the bars --------------------------------------
 
 -- The key in short, in brackets: `(C)` C major, `(Am)` A minor, `(D dor)`.
 local function short(key: paw.harmony.Key): string
@@ -73,45 +21,97 @@ local function short(key: paw.harmony.Key): string
   return "(" .. paw.harmony.pc_name(key.tonic, key) .. mode .. ")"
 end
 
-paw.ruler.add(
-  "key",
+-- At each bar where the chord changes, its name; where the key changes, the
+-- key in short. A chord gets shorter with `…` where it has no room, and a
+-- key is whole or not shown: a key cut short reads as another.
+-- Styles: `chord`, `key`.
+paw.ruler.row(
+  "harmony",
   {
-    order = 30,
-    styles = {key = "RulerTempo"},
-    render = function(bar: integer, ctx: Ctx): Cells
-      local key = paw.harmony.key(ctx.beat, true)
-      if bar > 1 and paw.harmony.key(paw.time.bar_start(bar - 1), true).name == key.name then
-        return nil
+    after = "bars",
+    styles = {chord = "RulerChord", key = "RulerTempo"},
+    marks = function(ctx: Ctx): {Mark}
+      local out: {Mark} = {}
+      for _, line in ipairs(paw.draw.grid_lines(ctx.axis, ctx.right)) do
+        if line.bar then
+          local before = line.bar > 1 and paw.time.bar_start(line.bar - 1) or nil
+          local chord = paw.harmony.at(line.beat, true)
+          local last = before and paw.harmony.at(before, true)
+          if chord and not (last and last.name == chord.name and last.at == chord.at) then
+            local name = paw.harmony.label(chord)
+            out[#out + 1] = {
+              beat = line.beat, label = name, priority = 20, style = ctx.styles.chord, text = "chord " .. name
+            }
+          end
+          local key = paw.harmony.key(line.beat, true)
+          if not before or paw.harmony.key(before, true).name ~= key.name then
+            out[#out + 1] = {
+              beat = line.beat,
+              label = short(key),
+              whole = true,
+              priority = 15,
+              style = ctx.styles.key,
+              text = "key " .. key.name,
+            }
+          end
+        end
       end
-      -- Whole or not at all: a key cut short reads as another.
-      local text = " " .. short(key)
-      if paw.api.str_width(text) > ctx.room then
-        return nil
-      end
-      return {{text, ctx.styles.key}}
+      return out
     end,
   }
 )
 
--- The number of paw, with a sign on the counts --------------------------------
+-- The phrases: a mark on the first bar of each, over the bars -------------------
 
-local found: Label = paw.ruler.labels:get("number")
-if found then
-  local base = found.render
-  paw.ruler.set(
-    "number",
-    {
-      render = function(bar: integer, ctx: Ctx): Cells
-        local cells = base(bar, ctx)
-        if signed:get() and ctx.relative and cells is {paw.contracts.Piece} and cells[1] then
-          local ahead = bar > paw.time.bar_of(paw.cursor.beat)
-          cells[1] = {(ahead and "+" or "-") .. cells[1][1], cells[1][2]}
+-- Not on bar 1: the song starts there, and the mark would take room.
+-- Glyphs: `sign`. Styles: `phrase`.
+paw.marks.namespace(
+  "rulerplus.phrase",
+  {
+    route = "over:bars",
+    priority = 15,
+    glyphs = {sign = "┃"},
+    styles = {phrase = "RulerTempo"},
+    source = function(ctx: Ctx): {Mark}
+      local out: {Mark} = {}
+      local n = phrase:get()
+      if n <= 0 or not ctx.left then
+        return out
+      end
+      for _, line in ipairs(paw.draw.bar_lines(ctx.left, ctx.right - ctx.left)) do
+        if line.bar and line.bar > 1 and (line.bar - 1) % n == 0 then
+          out[#out + 1] = {
+            beat = line.beat,
+            sign = paw.opt.ascii and "|" or ctx.glyphs.sign,
+            style = ctx.styles.phrase,
+            text = string.format("a phrase of %d bars", n),
+          }
         end
-        return cells
-      end,
-    }
-  )
+      end
+      return out
+    end,
+  }
+)
+
+-- The counts of relativebar, with a sign ----------------------------------------
+
+local function apply()
+  if signed:get() then
+    paw.ruler.set("bars", {glyphs = {ahead = "+", behind = "-"}})
+  else
+    paw.ruler.set("bars", {glyphs = {ahead = "", behind = ""}})
+  end
 end
+apply()
+
+paw.on(
+  paw.option.changed,
+  function(e: paw.option.Changed)
+    if e.name == "rulerplus_signed" then
+      apply()
+    end
+  end
+)
 
 -- Commands and keys ---------------------------------------------------------------
 

@@ -11,7 +11,6 @@ local record Opts
    audition_delay: number
    audition_level: number
    autosave: number
-   barlabel: {string | number}
    bend_step: number
    braille: boolean
    budget_ms: number
@@ -95,6 +94,7 @@ local record Opts
    ripple: boolean
    roll_context: string | {string | number}
    roll_context_max: number
+   rulerrows: {string | number}
    scope_rest: string
    scopebars: string
    scopeloop: boolean
