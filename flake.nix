@@ -47,9 +47,10 @@
           # Only what cargo reads, so that a change to the manual, an
           # extension or an example does not rebuild the program. The
           # runtime's Lua is compiled into the binary (`include_dir!`).
-          # The fuzz crate is a workspace member: its manifest and targets,
+          # The fuzz crate and the harness of the Lua suite are workspace
+          # members: their manifests and code. Of the fuzz crate, its targets,
           # not its seeds.
-          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./clippy.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
+          cargoFiles = lib.fileset.unions [ ./Cargo.toml ./clippy.toml ./Cargo.lock ./.cargo ./crates ./runtime ./fuzz/Cargo.toml ./fuzz/fuzz_targets ./tests/harness ];
           src = lib.fileset.toSource { root = ./.; fileset = cargoFiles; };
           # The crates as cargo downloads them, each a store path, so every
           # file in them is read-only. LuaJIT's build copies its source tree
@@ -118,7 +119,8 @@
           # What `nix flake check` runs, each from `deps`. The Lua suite and
           # the window's tests need a private X server, plugins and their own
           # directories, which a build sandbox has none of: they run in the
-          # dev shell (`tests/tools/suite.sh`, `cargo test -p paw-gui`).
+          # dev shell (`tests/tools/suite.sh`, which runs the test binary
+          # `paw-lua-suite::lua` under cargo-nextest, and `cargo test -p paw-gui`).
           # Nothing is built on top of a check, so none keeps its `target`.
           checks = {
             # The default members and the fuzz targets, which keep
@@ -168,14 +170,15 @@
               installPhaseCommand = "mkdir -p $out";
             };
             # The Rust tests that need no display, audio device or Lua
-            # suite: those of the libraries and the engine's own. Some read
+            # suite: those of the libraries and the engine's own, and the
+            # harness of the Lua suite's own unit tests. Some read
             # the sound files in tests/fixtures, and paw-mcp's the manual.
             tests = craneLib.cargoNextest (withDeps // {
               src = lib.fileset.toSource {
                 root = ./.;
                 fileset = lib.fileset.unions [ cargoFiles ./tests/fixtures ./docs ];
               };
-              cargoNextestExtraArgs = "--workspace --exclude paw-gui -E 'not (package(paw-gui) | binary(suite) | binary(remote) | binary(safety))'";
+              cargoNextestExtraArgs = "--workspace --exclude paw-gui -E 'not (package(paw-gui) | binary_id(paw-lua-suite::lua) | binary(remote) | binary(safety))'";
               # A snapshot (insta) that is new or changed and not committed
               # fails, and the check writes no `.snap.new` file.
               INSTA_UPDATE = "no";
@@ -461,7 +464,7 @@
       rustlint = pkgs: pkgs.runCommand "paw-rustlint" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
-          fileset = nixpkgs.lib.fileset.unions [ ./sgconfig.yml ./tools/ast-grep ./tools/rustlint.sh ./crates ./extensions ];
+          fileset = nixpkgs.lib.fileset.unions [ ./sgconfig.yml ./tools/ast-grep ./tools/rustlint.sh ./crates ./extensions ./tests/harness ];
         };
         nativeBuildInputs = [ pkgs.ast-grep ];
       } ''
@@ -474,7 +477,7 @@
       machete = pkgs: pkgs.runCommand "paw-machete" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
-          fileset = nixpkgs.lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./crates ./fuzz/Cargo.toml ./fuzz/fuzz_targets ];
+          fileset = nixpkgs.lib.fileset.unions [ ./Cargo.toml ./Cargo.lock ./crates ./fuzz/Cargo.toml ./fuzz/fuzz_targets ./tests/harness ];
         };
         nativeBuildInputs = [ pkgs.cargo-machete ];
       } ''

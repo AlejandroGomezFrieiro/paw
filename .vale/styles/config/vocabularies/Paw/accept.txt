@@ -62,6 +62,7 @@ tutor
 msgpack
 TLS
 JSON
+JUnit
 TOML
 Nix
 nixpkgs

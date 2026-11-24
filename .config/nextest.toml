@@ -4,6 +4,7 @@
 #   cargo nextest run -p <crate>                  the edit loop: one crate
 #   cargo nextest run -p <crate> -E 'test(word)'  only some tests
 #   cargo nextest run --workspace --profile gate  before a push
+#   tests/tools/suite.sh                          the Lua suite (profile lua)
 #
 # Nextest does not run doc tests: `cargo test --doc` runs them.
 
@@ -18,16 +19,61 @@ test-threads = 4
 slow-timeout = { period = "60s", terminate-after = 5 }
 
 [profile.gate]
-# The check before a push: every test, all the cores the machine gives.
+# The check before a push: every Rust test, all the cores the machine
+# gives. The Lua suite runs on its own (tests/tools/suite.sh), with the
+# binary and the stub plugin that it prepares.
+default-filter = 'not binary_id(paw-lua-suite::lua)'
 test-threads = "num-cpus"
 failure-output = "immediate-final"
+
+# The Lua suite (tests/harness): each test is one part of tests/suite.lua,
+# which runs in a paw of its own. tests/tools/suite.sh runs this profile.
+[profile.lua]
+default-filter = 'binary_id(paw-lua-suite::lua)'
+retries = 0
+fail-fast = false
+test-threads = 4
+# A part that runs for 10 minutes hangs: stop it. A wait of a test stops
+# much earlier, at the stall guard of the runner (30 s).
+slow-timeout = { period = "60s", terminate-after = 10 }
+# A process that paw left behind keeps the output of the part open: the
+# part fails.
+leak-timeout = { period = "500ms", result = "fail" }
+# Show the parts that fail, run long or leak, and not each part that
+# passes: the wrapper prints the last line.
+status-level = "leak"
+final-status-level = "slow"
+failure-output = "final"
+# target/nextest/lua/junit.xml: each part with its result and time, for CI.
+junit = { path = "junit.xml" }
+
+# The runs of `tests/tools/suite.sh only` and `repeat`: one
+# part at a time, as the agents run them beside each other.
+[profile.lua-one]
+default-filter = 'binary_id(paw-lua-suite::lua)'
+retries = 0
+fail-fast = false
+test-threads = 1
+slow-timeout = { period = "60s", terminate-after = 10 }
+leak-timeout = { period = "500ms", result = "fail" }
+status-level = "leak"
+final-status-level = "slow"
+failure-output = "final"
+junit = { path = "junit.xml" }
 
 # Each window test starts an X server, a window and a kernel. In one
 # `cargo test` process a counting gate in window.rs holds them to three;
 # nextest runs each test in its own process, so this group does it.
+# Each part of the Lua suite starts one or two paw processes: four of them
+# at a time at most, whatever the profile or `--test-threads` asks.
 [test-groups]
 window = { max-threads = 3 }
+lua = { max-threads = 4 }
 
 [[profile.default.overrides]]
 filter = 'package(paw-gui) & binary(window)'
 test-group = "window"
+
+[[profile.default.overrides]]
+filter = 'binary_id(paw-lua-suite::lua)'
+test-group = "lua"

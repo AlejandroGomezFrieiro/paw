@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "fuzz"]
+members = ["crates/*", "fuzz", "tests/harness"]
 # The window (paw-gui) is paused while the work is on the terminal: a plain
 # `cargo build`, `cargo check` or `cargo test` at the top does not build it.
 # `-p paw-gui` still builds it. Nor does it build the fuzz targets

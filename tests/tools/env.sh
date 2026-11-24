@@ -42,3 +42,8 @@ export DBUS_SESSION_BUS_ADDRESS="${PAW_TEST_BUS:-unix:path=/nonexistent/bus}"
 # Checkouts tested side by side each need a display number of their own.
 PAW_TEST_DISPLAY=${PAW_TEST_DISPLAY:-96}
 BIN=${PAW_TEST_BIN:-$ROOT/target/release}
+# The stub plugin of the tests comes from beside a binary of PAW_TEST_BIN
+# (suite.sh builds it beside target/release).
+if [ -n "$PAW_TEST_BIN" ]; then
+  export PAW_TEST_STUB=${PAW_TEST_STUB:-$BIN/examples/libstub_clap.so}
+fi

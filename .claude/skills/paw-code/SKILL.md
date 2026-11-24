@@ -212,14 +212,25 @@ dependencies) and `cargo deny check bans licenses sources`
 The project hook
 `tools/guard-hook.py` refuses `cargo test --workspace`, a build of
 paw-gui, `tests/tools/loaded.sh` and `tests/tools/e2e.sh` before they
-run. `tests/tools/suite.sh` waits for a slot of the machine: one full
-run, and up to three runs of `only`.
+run.
+
+`tests/tools/suite.sh` runs the Lua suite under cargo-nextest. The test
+binary `paw-lua-suite::lua` (`tests/harness`) gives nextest one test for
+each part: a file of `tests/`, or the test files of one extension. Each
+part runs in a paw of its own, in the environment of `tests/tools/env.sh`.
+
+`.config/nextest.toml` holds the limits: the profile `lua` runs four
+parts at a time, `lua-one` (for `only` and `repeat`) one, and the test
+group `lua` never more than four. A part that runs ten minutes fails
+(`TIMEOUT`). A part that leaves a process fails (`LEAK-FAIL`). A paw of
+the suite has `PAW_TEST_IN_SUITE`, and the suite does not start when it
+is set: a test cannot start the suite again.
 
 | Tier | When | Commands |
 | --- | --- | --- |
 | Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |
 | Before a commit | The tests of the change, and the lints | `tests/tools/suite.sh only "<words>"` for each area that the change touches, `cargo nextest run -p <crate>` for each crate that it touches, `tools/tlcheck.sh`, `luacheck .`, `tools/fmtcheck.sh`, `luajit tools/testlint.lua`, `luajit tools/layers.lua`, `tools/vale.sh <pages>`, `paw --clean --no-plugins -l tools/apidoc.lua check` |
-| Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --profile gate`, `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail) |
+| Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --exclude paw-gui --profile gate` (the Rust tests: the profile leaves out the Lua suite), `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail) |
 | Nightly | When CI exists (paw has no CI yet). Until then, only when the owner asks | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
 | Release | Before a tagged version | `tests/tools/e2e.sh` (all the days), `tests/tools/suite.sh plugins`, the build and tests on each platform |
 
@@ -233,10 +244,12 @@ runs the full suite in four ways:
 | Dev (`cargo build`) | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 1` |
 | Dev | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 4 --shuffle` |
 
-The CI will keep `target/test-scratch/suite.tap` (each test, its result and the
-reason of a skip) and `target/test-scratch/times.txt` (the wall time of
-each test file) of each run. A shuffled run that fails gives its seed.
-Run `tests/tools/suite.sh --shuffle <seed>` to get the same order again.
+CI can split the parts of a run between machines with the option
+`--partition` of nextest. The CI will keep `target/nextest/lua/junit.xml`
+(each part, its result and its time) and `target/test-scratch/suite.out`
+(each test, its result and the reason of a skip) of each run. A shuffled
+run that fails gives its seed. Run `tests/tools/suite.sh --shuffle <seed>`
+to get the same order again.
 
 The flake policy:
 

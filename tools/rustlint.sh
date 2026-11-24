@@ -23,4 +23,4 @@ if ! command -v ast-grep > /dev/null; then
   exit 0
 fi
 ast-grep test --skip-snapshot-tests > /dev/null || exec ast-grep test --skip-snapshot-tests
-ast-grep scan crates extensions
+ast-grep scan crates extensions tests/harness

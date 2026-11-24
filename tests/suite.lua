@@ -14,11 +14,14 @@ local api = paw.api
 
 -- The settings of the run --------------------------------------------------
 --
--- tests/tools/suite.sh gives them in the environment:
+-- The harness of cargo nextest (tests/harness) and tests/tools/suite.sh give
+-- them in the environment:
 --
---   PAW_TEST_OUT      the folder for the files of the run: times.txt (the
---                     wall time of each test file) and tap.lines (each
---                     result, for the TAP file of CI). Not set: no files.
+--   PAW_TEST_PART     run only this part (see "A part" below): a file of
+--                     tests/, or `extensions/<name>/`. The harness runs
+--                     each part in a paw of its own. Not set: every part.
+--   PAW_TEST_LIST     print one line `part<tab><part>` for each part that
+--                     has a test of the words, and run no test.
 --   PAW_TEST_REPEAT   run the tests N times, and stop after the first run
 --                     that fails (to find a flaky test).
 --   PAW_TEST_SHUFFLE  a seed: run the parts, and the tests in each part, in
@@ -29,13 +32,14 @@ local api = paw.api
 --                     tests/runner.lua): its `*.lua` files, its own
 --                     `quarantine.txt`, and `declarations.txt` in place of
 --                     runtime/types/paw.lua.
-local out_dir = os.getenv("PAW_TEST_OUT")
+local only_part = os.getenv("PAW_TEST_PART")
+local list_parts = os.getenv("PAW_TEST_LIST") == "1"
 local rounds = tonumber(os.getenv("PAW_TEST_REPEAT") or "") or 1
 local shuffle_seed = tonumber(os.getenv("PAW_TEST_SHUFFLE") or "")
 local fixture = os.getenv("PAW_TEST_FIXTURE")
 
 -- A fault of the run itself: the run stops before the first test, and
--- tests/tools/suite.sh shows the line that starts with FAIL.
+-- the harness shows the line that starts with FAIL.
 local function refuse(name, why)
   print("FAIL  " .. name .. "\n      " .. why:gsub("\n", "\n      ") .. "\n\n1 failed")
   api.quit(1)
@@ -115,13 +119,13 @@ if not quarantined then
 end
 
 local tmp = os.getenv("TMPDIR") or "/tmp"
--- The shard's number keeps apart the folders of shards that start at once.
+-- The name of the part keeps apart the folders of parts that start at once.
 local scratch = tmp
   .. "/paw-test-"
   .. os.time()
   .. "-"
   .. math.floor(api.real_ms() * 1000)
-  .. (os.getenv("PAW_TEST_SHARD") or ""):gsub("%D", "-")
+  .. (only_part or ""):gsub("%W", "-")
 os.execute("mkdir -p '" .. scratch .. "'")
 
 -- Every file of the checkout outside `target/` and `.git`: at the end,
@@ -1004,26 +1008,24 @@ else
 end
 -- A part is a file of tests/, or all the test files of one extension: a
 -- file of an extension can use what an earlier file of it set up
--- (tests_tone3000_auth.lua). The leak check runs after each part, and a
--- shard runs whole parts.
+-- (tests_tone3000_auth.lua). The leak check runs after each part, and the
+-- harness runs whole parts. tests/harness/src/lib.rs (`parts_in`) lists the
+-- parts by the same rule.
 local function part_of(path) return path:match("^(extensions/[^/]+/)") or path end
--- Shards: `suite.sh -j N` starts N paw processes, and gives process K
--- (PAW_TEST_SHARD=K/N) every Nth part from the Kth.
-local shard, shards = (os.getenv("PAW_TEST_SHARD") or ""):match("^(%d+)/(%d+)$")
-shard, shards = tonumber(shard), tonumber(shards)
-local parts, number = 0, {}
+local part_found = false
 for _, path in ipairs(files) do
   local part = part_of(path)
-  if not number[part] then
-    parts = parts + 1
-    number[part] = parts
-  end
-  if not shards or (number[part] - 1) % shards == shard - 1 then
+  if not only_part or part == only_part then
+    part_found = true
     loading, loading_file = part, path
     assert(loadfile(path))(T)
   end
 end
 loading, loading_file = nil, nil
+if only_part and not part_found then
+  refuse("the part has test files", "PAW_TEST_PART is " .. only_part .. ", and no test file is in that part")
+  return
+end
 for _, t in ipairs(lasts) do
   tests[#tests + 1] = t
 end
@@ -1316,6 +1318,18 @@ local function wanted(name)
   end
   return false
 end
+-- The list of the harness: the parts that `only` runs, in both passes.
+if list_parts then
+  local listed = {}
+  for _, t in ipairs(tests) do
+    if wanted(t.name) and not listed[t.part] then
+      listed[t.part] = true
+      print("part\t" .. t.part)
+    end
+  end
+  api.quit(0)
+  return
+end
 -- The live pass (PAW_TEST_LIVE=1, on the wall clock) runs the live tests
 -- only. The pass on the manual clock runs the others.
 local live_pass = os.getenv("PAW_TEST_LIVE") == "1"
@@ -1326,13 +1340,18 @@ local function in_pass(t)
   if live_pass then return t.live ~= nil end
   return not (MANUAL and t.live)
 end
-local selected, whole = {}, {}
+local selected, whole, live_left = {}, {}, 0
 for _, t in ipairs(tests) do
   if in_pass(t) and wanted(t.name) then
     selected[#selected + 1] = t
     whole[t.part] = (whole[t.part] or 0) + 1
+  elseif t.live and wanted(t.name) then
+    live_left = live_left + 1
   end
 end
+-- The pass on the manual clock says how many live tests it left to the
+-- live pass: the harness starts the live pass only when there are some.
+if MANUAL then print("live tests: " .. live_left) end
 
 -- The order of a shuffled run. The parts move as wholes, so that the leak
 -- check after each part stays true, and the tests of each part move inside
@@ -1419,35 +1438,20 @@ local function note_kernel(t)
 end
 -- The results ------------------------------------------------------------------
 --
--- Each result is a line of the output, which tests/tools/suite.sh reads:
--- "ok", "skip", "FAIL" or "quarantined", then the name of the test, and the
--- error on the lines after it. With PAW_TEST_OUT, it is also a line of TAP in
--- tap.lines, which suite.sh makes into suite.tap for CI: a skip is
--- "# SKIP <reason>", and a quarantined failure is "not ok" with
--- "# TODO quarantined", which TAP does not count as a failure.
-local tap = out_dir and io.open(out_dir .. "/tap.lines", "a")
-
+-- Each result is a line of the output, which the harness (tests/harness) and
+-- tests/tools/suite.sh read: "ok", "skip", "FAIL" or "quarantined", then the
+-- name of the test, and the error on the lines after it.
 local function report(status, name, detail)
   local indented = detail and ("\n      " .. tostring(detail):gsub("\n", "\n      ")) or ""
-  local tap_name = name:gsub("#", "\\#")
-  local line
   if status == "ok" then
     print("ok    " .. name .. (detail and (" (" .. detail .. ")") or ""))
-    line = "ok - " .. tap_name
   elseif status == "skip" then
     print("skip  " .. name .. " (" .. detail .. ")")
-    line = "ok - " .. tap_name .. " # SKIP " .. detail:gsub("#", "\\#")
   elseif status == "quarantined" then
     print("quarantined  " .. name .. " (waits for: " .. quarantined[name] .. ")" .. indented)
-    line = "not ok - " .. tap_name .. " # TODO quarantined, waits for: " .. quarantined[name]:gsub("#", "\\#")
   else
     failed = failed + 1
     print("FAIL  " .. name .. indented)
-    line = "not ok - " .. tap_name .. (detail and ("\n# " .. tostring(detail):gsub("\n", "\n# ")) or "")
-  end
-  if tap then
-    tap:write(line, "\n")
-    tap:flush()
   end
 end
 
@@ -1575,9 +1579,6 @@ local function reload(list)
   end
 end
 
--- The wall time of each test file, in milliseconds. It is information for
--- a person who looks for a slow file, never a reason to fail.
-local spent = {}
 for round = 1, rounds do
   local failed_before = failed
   if round > 1 then
@@ -1586,9 +1587,7 @@ for round = 1, rounds do
     base = fingerprint()
   end
   for i, t in ipairs(selected) do
-    local started = api.real_ms()
     run(t)
-    spent[t.file] = (spent[t.file] or 0) + api.real_ms() - started
     local next_test = selected[i + 1]
     if not next_test or next_test.part ~= t.part then check(t.part) end
   end
@@ -1597,35 +1596,6 @@ for round = 1, rounds do
     break
   end
 end
-if tap then tap:close() end
-
--- times.txt: one line for each test file, "<ms><tab><file>", the slowest
--- first. The live pass adds its times to those of the pass before it.
-if out_dir then
-  local path = out_dir .. "/times.txt"
-  local file = io.open(path)
-  if file then
-    for line in file:lines() do
-      local ms, name = line:match("^(%d+)\t(.+)$")
-      if ms then spent[name] = (spent[name] or 0) + tonumber(ms) end
-    end
-    file:close()
-  end
-  local names = {}
-  for name in pairs(spent) do
-    names[#names + 1] = name
-  end
-  table.sort(names, function(a, b)
-    if spent[a] ~= spent[b] then return spent[a] > spent[b] end
-    return a < b
-  end)
-  file = assert(io.open(path, "w"))
-  for _, name in ipairs(names) do
-    file:write(string.format("%d\t%s\n", spent[name], name))
-  end
-  file:close()
-end
-
 -- An entry of the allow-list whose part ran whole, its live tests too, and
 -- leaked nothing of that kind is out of date: the list only gets shorter.
 local has_live = {}

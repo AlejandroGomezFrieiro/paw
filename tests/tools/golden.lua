@@ -199,7 +199,7 @@ end
 -- For each test file: how many tests it has, how many ran to the end without
 -- a skip, and the golden files that its tests used. A golden file that no
 -- test used is unused only when every test of its file ran to the end: a
--- filter, a shard, a skip or a failure can leave out the test that uses it.
+-- filter, a skip or a failure can leave out the test that uses it.
 local registered, completed, used = {}, {}, {}
 
 -- `fn`, the test `name` of `file`, as a test that counts when it ends
