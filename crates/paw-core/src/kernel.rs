@@ -7,7 +7,7 @@
 //! is [`reactor::Reactor::turn`].
 
 mod audio_watch;
-pub(crate) use audio_watch::AudioWatch;
+pub(crate) use audio_watch::{AudioWatch, COUNTERS as AUDIO_COUNTERS};
 mod reactor;
 #[cfg(test)]
 mod turn_tests;

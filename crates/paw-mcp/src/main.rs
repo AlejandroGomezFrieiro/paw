@@ -112,9 +112,14 @@ fn policy(cli: &Cli) -> Result<Policy> {
 /// its own lines from `info`, the lines of the libraries from `warn`.
 /// `PAW_LOG` gives other levels, in the form `info,rmcp=debug`.
 fn start_log() {
-    let levels = std::env::var("PAW_LOG")
-        .ok()
-        .and_then(|given| given.parse().ok())
+    let given = std::env::var("PAW_LOG").ok();
+    let parsed = given.as_deref().map(str::parse::<tracing_subscriber::filter::Targets>);
+    let wrong = match &parsed {
+        Some(Err(err)) => Some(format!("PAW_LOG={} is not a list of levels ({err}): the log keeps its default", given.unwrap_or_default())),
+        _ => None,
+    };
+    let levels = parsed
+        .and_then(Result::ok)
         .unwrap_or_else(|| tracing_subscriber::filter::Targets::new().with_default(tracing::Level::WARN).with_target("paw_mcp", tracing::Level::INFO));
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -125,6 +130,9 @@ fn start_log() {
         .finish()
         .with(levels)
         .init();
+    if let Some(wrong) = wrong {
+        tracing::warn!("{wrong}");
+    }
 }
 
 fn run() -> Result<()> {

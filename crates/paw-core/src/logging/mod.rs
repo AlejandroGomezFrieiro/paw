@@ -103,6 +103,9 @@ pub(crate) struct Book {
 static BOOK: OnceLock<Arc<Book>> = OnceLock::new();
 
 thread_local! {
+    /// Set while the program says an error itself: the log does not echo
+    /// it on the standard error too.
+    static QUIET: Cell<bool> = const { Cell::new(false) };
     /// Set while this thread writes an event: an event that the writing
     /// makes (a panic in it, for example) is dropped, not written into a
     /// lock that this thread holds.
@@ -181,6 +184,16 @@ impl Book {
         (Self { state: Mutex::new(state) }, note)
     }
 
+    /// The files, or nothing when the lock is held: by this thread (a
+    /// panic in a write) or for a moment by another one.
+    fn files(&self) -> Files {
+        match self.state.try_lock() {
+            Ok(state) => state.files.clone(),
+            Err(std::sync::TryLockError::Poisoned(state)) => state.into_inner().files.clone(),
+            Err(std::sync::TryLockError::WouldBlock) => Files::default(),
+        }
+    }
+
     fn lock(&self) -> MutexGuard<'_, State> {
         // A panic while the lock was held leaves the state usable: each
         // write is whole or absent.
@@ -253,8 +266,11 @@ pub fn set_echo(echo: Echo) {
 }
 
 /// The files of the log.
+///
+/// Empty while this thread holds the lock of the log: a panic in a write
+/// runs the panic hook, which asks the files, with the lock held.
 pub fn files() -> Files {
-    book().map(|book| book.lock().files.clone()).unwrap_or_default()
+    book().map(Book::files).unwrap_or_default()
 }
 
 /// Write the events of the flight recorder that the file left out, since
@@ -289,6 +305,14 @@ pub fn panic(message: &str) {
     tracing::error!(target: "panic", "{message}\n{backtrace}");
 }
 
+/// Log the error that ends the program, which the program then says on
+/// the standard error itself: the log does not echo it a second time.
+pub fn fatal(message: &str) {
+    QUIET.with(|quiet| quiet.set(true));
+    tracing::error!("{message}");
+    QUIET.with(|quiet| quiet.set(false));
+}
+
 /// The time of a line: UTC, to the millisecond.
 fn now() -> String {
     jiff::Timestamp::now().strftime("%Y-%m-%d %H:%M:%S%.3f").to_string()
@@ -317,6 +341,7 @@ impl State {
     /// own line there, so the target `lua` never does.
     fn echoes(&self, level: Level, target: &str, wanted: bool) -> bool {
         target != "lua"
+            && !QUIET.with(Cell::get)
             && match self.echo {
                 Echo::Off => false,
                 Echo::Warnings => level <= Level::WARN,
@@ -481,6 +506,19 @@ mod tests {
             assert!(book.lock().from_env);
         });
         assert!(!log_text(dir.path()).contains("hidden"));
+    }
+
+    #[test]
+    fn the_files_come_back_while_this_thread_writes() {
+        // A panic in a write runs the panic hook with the lock held, and
+        // the hook asks the files: it must not wait for itself.
+        let dir = tempfile::tempdir().unwrap();
+        session(dir.path(), None, |book| {
+            let held = book.lock();
+            assert_eq!(book.files().current, None);
+            drop(held);
+            assert_eq!(book.files().current, Some(dir.path().join("paw.log")));
+        });
     }
 
     #[test]

@@ -67,7 +67,7 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | --- | --- | --- |
 | `paw.opt.loglevel` | `"info"` | The levels that `paw.log` takes: one level (`error`, `warn`, `info`, `debug` or `trace`), or a level for each target after it, for example `"info,plugin=debug"`. The targets are `kernel`, `lua`, `undo`, `plugin`, `audio`, `panic` and the names of paw's Rust code, such as `paw_core`. `PAW_LOG` wins over it for the run that it starts. |
 
-The log also has a flight recorder. paw keeps the last 2000 events of the `debug` level and above in memory, and it writes those that the file left out before an error, at a crash and on `:log dump`. See [How to find out what went wrong](../how-to/find-out-what-went-wrong.md).
+The log also has a flight recorder. paw keeps the last 2000 events of the `debug` level and above in memory, and it writes those that the file left out before an error, at a crash and on `:log dump`. A log takes 10 MB of lines, and after that only the flight recorder, up to 20 MB. See [How to find out what went wrong](../how-to/find-out-what-went-wrong.md).
 
 ## Play and record
 

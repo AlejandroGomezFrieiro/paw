@@ -183,7 +183,10 @@ impl Shared {
             tracing::Level::ERROR => tracing::error!(target: "kernel", "{line}"),
             tracing::Level::WARN => tracing::warn!(target: "kernel", "{line}"),
             tracing::Level::INFO => tracing::info!(target: "kernel", "{line}"),
-            _ => tracing::debug!(target: "kernel", "{line}"),
+            _ => {
+                tracing::debug!(target: "kernel", "{line}");
+                return;
+            }
         }
         self.keep(line);
     }

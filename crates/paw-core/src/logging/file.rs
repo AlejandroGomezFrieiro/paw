@@ -129,7 +129,8 @@ fn fold_stderr(stderr: &Path, log: &Path) -> io::Result<()> {
         text.drain(..=end);
     }
     let mut log = OpenOptions::new().create(true).append(true).open(log)?;
-    writeln!(log, "---- stderr.log of this run: what plugins, libraries and other programs printed ----")?;
+    let name = stderr.file_name().unwrap_or_default().to_string_lossy();
+    writeln!(log, "---- {name} of this run: what plugins, libraries and other programs printed ----")?;
     log.write_all(&text)?;
     if !text.ends_with(b"\n") {
         log.write_all(b"\n")?;
@@ -144,6 +145,9 @@ pub(super) struct LogFile {
     written: u64,
     /// Set when a line did not fit in [`CAP`]: after that, only dumps.
     full: bool,
+    /// Set when the dumps went past two times [`CAP`]: after that,
+    /// nothing.
+    closed: bool,
     /// The last line written, without its time, for the fold.
     last: String,
     /// How many times `last` came again and was not written.
@@ -154,7 +158,7 @@ impl LogFile {
     /// Open a new, empty log at `path`.
     pub(super) fn create(path: &Path) -> io::Result<Self> {
         let file = File::create(path)?;
-        Ok(Self { file, written: 0, full: false, last: String::new(), repeats: 0 })
+        Ok(Self { file, written: 0, full: false, closed: false, last: String::new(), repeats: 0 })
     }
 
     /// Write one line: `time`, a space, then `body` (level, target and
@@ -183,8 +187,20 @@ impl LogFile {
         true
     }
 
-    /// Write `lines` whatever the cap, after one line `header`.
+    /// Write `lines` past the cap, after one line `header`, up to two
+    /// times the cap. After that the file takes nothing more.
     pub(super) fn dump<'a>(&mut self, time: &str, header: &str, lines: impl Iterator<Item = &'a str>) {
+        if self.closed {
+            return;
+        }
+        if self.written > 2 * CAP {
+            self.raw(&format!(
+                "{time} WARN  log: paw.log is past {} MB: it takes no more dumps of the flight recorder",
+                (2 * CAP) >> 20
+            ));
+            self.closed = true;
+            return;
+        }
         self.end_repeats(time);
         self.raw(&format!("{time} ---- {header} ----"));
         for line in lines {
@@ -310,5 +326,14 @@ mod tests {
         assert!(text.contains("paw.log is full (10 MB)"));
         assert!(!text.contains("later"));
         assert!(text.contains("t DEBUG test: kept"));
+        // The dumps stop at two times the cap, with one line that says so.
+        for _ in 0..12 {
+            log.dump("t", "flight recorder", [long.as_str()].into_iter());
+        }
+        log.dump("t", "flight recorder", ["t DEBUG test: too late"].into_iter());
+        let text = read(&path);
+        assert!(text.contains("paw.log is past 20 MB"));
+        assert!(!text.contains("too late"));
+        assert!(text.len() < 22 << 20, "{}", text.len());
     }
 }

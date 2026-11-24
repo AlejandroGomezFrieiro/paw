@@ -298,6 +298,30 @@ fn two_sessions_at_once_each_keep_their_own_log() {
 }
 
 #[test]
+fn log_dump_writes_the_detail_that_the_file_left_out() {
+    let mut screen = Screen::start("log-dump");
+    screen.connect().call("eval", json!(["paw.api.log('kept-detail', 'debug')"])).unwrap();
+    assert!(!screen.paw_log().contains("kept-detail"));
+    screen.type_until(":log dump\r", "flight recorder");
+    let log = screen.paw_log();
+    let dump = log.find("---- flight recorder").expect("a dump in the log");
+    assert!(log[dump..].contains("DEBUG lua: kept-detail"), "{log}");
+}
+
+#[test]
+fn an_error_that_ends_paw_is_said_once() {
+    let dir = std::env::temp_dir().join(format!("paw-sc-once-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut paw = Command::new(env!("CARGO_BIN_EXE_paw"));
+    sealed::seal(&mut paw, &dir).args(["--clean", "--no-plugins", "--audio", "null", "-l", "no-such-script.lua"]);
+    let out = paw.output().unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success());
+    assert_eq!(said.matches("no-such-script.lua").count(), 1, "{said}");
+}
+
+#[test]
 fn log_shows_this_run_and_log_bang_the_run_before() {
     let mut screen = Screen::start_with("log-cmd", |dir, _| {
         let state = dir.join("xdg/state/paw");

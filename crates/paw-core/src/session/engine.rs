@@ -127,7 +127,7 @@ impl Session {
     /// `kernel/audio_watch.rs`: xruns, late plugin blocks, dropped MIDI
     /// events, dropped frames of the take, leaked blocks. The audio
     /// thread and the plugin hosts count them; the kernel logs them.
-    pub(crate) fn audio_counters(&self) -> [u64; 5] {
+    pub(crate) fn audio_counters(&self) -> [u64; crate::kernel::AUDIO_COUNTERS] {
         let shared = &self.engine.handle.shared;
         [
             u64::from(shared.xruns()),

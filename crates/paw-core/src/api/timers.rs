@@ -291,7 +291,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
                 )));
             };
             crate::logging::lua(level, &line);
-            sh.keep(line);
+            // The ring of `log_get` keeps what the log file takes by
+            // default: a stream of detail does not push the rest out.
+            if level <= tracing::Level::INFO {
+                sh.keep(line);
+            }
             Ok(())
         }
         // Set the levels of the log, as `paw.opt.loglevel` holds them:

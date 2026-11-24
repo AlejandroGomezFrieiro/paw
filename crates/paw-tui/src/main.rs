@@ -74,12 +74,13 @@ fn start_log(session: bool) -> Option<String> {
     if session {
         tracing::info!(
             target: "start",
-            "paw {} ({}) on {} {}, process {}",
+            "paw {} ({}) on {} {}, process {}, TERM {}",
             env!("CARGO_PKG_VERSION"),
             option_env!("PAW_COMMIT").unwrap_or("commit unknown"),
             std::env::consts::OS,
             std::env::consts::ARCH,
-            std::process::id()
+            std::process::id(),
+            std::env::var("TERM").unwrap_or_else(|_| "unset".to_string())
         );
     }
     note
@@ -105,11 +106,12 @@ enum LogStart {
 fn output_log(start: LogStart) -> Result<std::fs::File> {
     // A session writes the file of its slot of the log (paw-core's
     // logging/file.rs), so that two sessions do not mix their output.
-    let path = match start {
-        LogStart::Empty => logging::files().stderr,
-        LogStart::Append => None,
-    }
-    .unwrap_or_else(|| cache_dir().join("stderr.log"));
+    // A session with no slot (each one taken) adds to `stderr.log` and
+    // does not empty it: a session that runs writes it.
+    let (path, start) = match (start, logging::files().stderr) {
+        (LogStart::Empty, Some(path)) => (path, LogStart::Empty),
+        _ => (cache_dir().join("stderr.log"), LogStart::Append),
+    };
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
@@ -450,8 +452,10 @@ fn dispatch(cli: Cli) -> Result<Start> {
     // A client process logs its warnings to the standard error: for a
     // plugin host, that is the pipe that paw reads into its log. A kernel
     // starts its log in `run`.
-    if !matches!(cli.command, None | Some(Command::Chain { .. } | Command::Doctor(_))) {
-        let _ = start_log(false);
+    if !matches!(cli.command, None | Some(Command::Chain { .. } | Command::Doctor(_)))
+        && let Some(note) = start_log(false)
+    {
+        say(&note);
     }
     Ok(match cli.command {
         None => Start::Kernel(Box::new(cli.run), Purpose::Session),
@@ -816,7 +820,7 @@ fn main() -> ExitCode {
     match result {
         Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
         Err(err) => {
-            tracing::error!("{err:#}");
+            logging::fatal(&format!("{err:#}"));
             say(&format!("{err:#}"));
             ExitCode::FAILURE
         }
