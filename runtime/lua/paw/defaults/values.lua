@@ -50,7 +50,7 @@ end, {
 })
 
 command("device.value", function()
-  local device, row = paw.ui.views:get("devices"):selected()
+  local device, row = paw.ui.views:get("inspector"):selected()
   if not (device and row and row.param) then
     return paw.notify("choose a parameter in the device panel first", "warn")
   end

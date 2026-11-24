@@ -39,14 +39,10 @@ end
 --- Show the device in the panel, with the keyboard on it, and its window.
 local function open(view, device, opts)
   M.device[view] = device.id
-  local panel = paw.ui.views:get("devices")
-  if panel then
-    for i, row in ipairs(panel:rows()) do
-      if row.device.id == device.id and not row.param and not row.picture then panel.row = i end
-    end
-  end
+  local inspector = paw.ui.views:get("inspector")
+  if inspector then inspector:show(device.id) end
   paw.canvas.open(view, opts)
-  pcall(paw.ui.focus, "devices")
+  pcall(paw.ui.focus, "inspector")
 end
 
 -- The equaliser ---------------------------------------------------------------

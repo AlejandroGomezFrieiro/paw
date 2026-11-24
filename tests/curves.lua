@@ -210,8 +210,8 @@ test("lane rows, the device panel and the piano roll open their curves with gC",
   eq(paw.buf.current().name, paw.address.lane(lane.id), "a lane row's curve")
   L.restore(initial)
   paw.cursor.set_part(t)
-  paw.ui.focus("devices")
-  local devices = paw.ui.views:get("devices")
+  paw.ui.focus("inspector")
+  local devices = paw.ui.views:get("inspector")
   for i, row in ipairs(devices:rows()) do
     if row.param and row.param.key == "cutoff" then devices.row = i end
   end
@@ -237,8 +237,8 @@ test("in the device panel A automates the parameter at its value, on the lane ro
   paw.cursor.set_beat(6)
   local value = d:get().params.cutoff
   api.undo_checkpoint()
-  paw.ui.focus("devices")
-  local devices = paw.ui.views:get("devices")
+  paw.ui.focus("inspector")
+  local devices = paw.ui.views:get("inspector")
   for i, row in ipairs(devices:rows()) do
     if row.param and row.param.key == "cutoff" then devices.row = i end
   end

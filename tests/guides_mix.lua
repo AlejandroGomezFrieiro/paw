@@ -97,10 +97,10 @@ test("guide: add an effect and change its settings", function()
   local comp = vocal:devices()[2]
   eq(comp.kind, "compressor", "a adds the device at the end of the chain")
   keys("<Space>dd")
-  eq(paw.ui.focused, "devices", "Space dd shows the device panel")
+  eq(paw.ui.focused, "inspector", "Space dd shows the device panel")
   keys("w")
   local function row()
-    local device, r = paw.ui.views:get("devices"):selected()
+    local device, r = paw.ui.views:get("inspector"):selected()
     return (r and r.param and r.param.key) or (r and r.device and "device " .. r.device.kind) or tostring(device)
   end
   eq(row(), "device compressor", "w goes to the next device")

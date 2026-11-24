@@ -132,7 +132,7 @@ test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and
   eq(words:find("WaveNet", 1, true) ~= nil, true, "a .nam file says what it is: " .. words)
 
   local dry = render()
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(amp.id)
   keys("]m")
   eq(plugstate.slot(amp.id).value, models .. "/BossLSTM-1x16.nam", "]m loads the first model")
@@ -280,7 +280,7 @@ local function same(a, b, what) T.near(a, b, 0.002, what) end
 local function differs(a, b, what) eq(math.abs(a - b) > 0.005, true, what .. string.format(" (%.4f, %.4f)", a, b)) end
 
 local function devices_on(id)
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(id)
 end
 

@@ -431,8 +431,8 @@ function M.under_cursor(note)
     local win = M.current()
     return win and uri_of(win)
   end
-  if focused == "devices" then
-    local _, row = paw.ui.views:get("devices"):selected()
+  if focused == "inspector" then
+    local _, row = paw.ui.views:get("inspector"):selected()
     if not (row and row.param) then return nil, "no parameter under the cursor" end
     return paw.address.param(row.device.id, row.param.key)
   end
@@ -1255,7 +1255,7 @@ end, { desc = "Show this curve in a window of its own, in the graphical frontend
 command("param.automate", function(ctx)
   local device, key = tonumber(ctx.args[1]), ctx.args[2] and tostring(ctx.args[2])
   if not (device and key) then
-    local _, row = paw.ui.views:get("devices"):selected()
+    local _, row = paw.ui.views:get("inspector"):selected()
     if not (row and row.param) then return paw.notify("no parameter under the cursor", "warn") end
     device, key = row.device.id, row.param.key
   end
@@ -1417,11 +1417,11 @@ paw.ui.keybar.set("curve.gen", "n", { { "<Tab>", "next choice" }, { "<C-n>", "ch
 -- fader or pan, the piano roll's strip (`gX` the note's own expression).
 map("gC", "curve.open", { view = "arrange.lane", desc = "Edit this lane's curve" })
 map("<CR>", "curve.open", { view = "arrange.lane", desc = "Edit this lane's curve" })
-map("gC", "curve.open", { view = "devices", desc = "Edit the parameter's curve" })
+map("gC", "curve.open", { view = "inspector", desc = "Edit the parameter's curve" })
 map(
   "A",
   "param.automate",
-  { view = "devices", desc = "Automate the parameter: its lane, with a point at its value at the cursor" }
+  { view = "inspector", desc = "Automate the parameter: its lane, with a point at its value at the cursor" }
 )
 map("gC", "curve.open", { view = "pianoroll", desc = "Edit the strip's controller as a curve" })
 map("gX", "curve.open note", { view = "pianoroll", desc = "Edit the note's own expression as a curve" })
@@ -1439,7 +1439,7 @@ classic("gw", "curve.window", "Show the curve in a window of its own")
 classic("gn", nil, "Draw a wave", { mode = nx, operator = M.ops.wave })
 paw.keymap.classic("gc", "curve.open", { view = "pianoroll", desc = "Edit the strip's controller as a curve" })
 paw.keymap.classic("gC", "curve.open note", { view = "pianoroll", desc = "Edit the note's own expression as a curve" })
-paw.keymap.classic("gc", "curve.open", { view = "devices", desc = "Edit the parameter's curve" })
+paw.keymap.classic("gc", "curve.open", { view = "inspector", desc = "Edit the parameter's curve" })
 
 -- The frontends' menus and gestures.
 paw.frontend.act.automate_param = function(device, key) return M.automate(device, key) end

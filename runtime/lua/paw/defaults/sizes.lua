@@ -14,11 +14,12 @@ paw.option.define("devices_width", 36)
 paw.option.define("mixer_height", 12)
 paw.option.define("pianoroll_height", 0)
 
---- A view's place in the layout: its node, and whether it sits in a row
---- beside others (it has a width) or in the column (a height).
+--- A view's place in the layout: its node (or the split that it shares
+--- with the windows beside it), and whether it sits in a row beside others
+--- (it has a width) or in the column (a height).
 local function layout_node(name)
   local function find(node, in_row)
-    if node.view == name then return node, in_row end
+    if node.view == name or node.holds == name then return node, in_row end
     for _, child in ipairs(node) do
       local found, row = find(child, node.dir == "h")
       if found then return found, row end

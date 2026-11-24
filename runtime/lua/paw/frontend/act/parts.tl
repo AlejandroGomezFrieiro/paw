@@ -75,17 +75,15 @@ function A.choose_engine(group: string, index: integer)
 end
 
 --- A click on a device of a part's chain, as a mixer strip lists them: the
---- part becomes the cursor's and the device panel gets the keyboard, on
+--- part becomes the cursor's and the inspector gets the keyboard, on
 --- the `index`th device, from 1.
 function A.pick_device(part: integer, index: integer)
   A.select(part)
-  local panel = host.devices()
-  for row, entry in ipairs(panel:rows()) do
-    if not entry.param and entry.device.index == index then
-      panel.row = row
-    end
+  local device = api.part_get(part).devices[index]
+  if device then
+    host.devices():show(device)
   end
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
 end
 
 function A.rename_part(part: integer, name: string)

@@ -229,19 +229,19 @@ function M.slot(id: integer, name?: string): Slot
   end
 end
 
---- The device panel, as far as plugstate reads it.
+--- The inspector, as far as plugstate reads it.
 local record DevicePanel
   selected: function(self: DevicePanel): paw.Device
 end
 
---- The device on the row of the device panel, or nil.
+--- The device on the row of the inspector, or nil.
 function M.panel_device(): integer
-  local panel = paw.ui.views:get("devices") as DevicePanel
+  local panel = paw.ui.views:get("inspector") as DevicePanel
   local selected = panel and panel.selected and panel:selected()
   return selected and selected.id or nil
 end
 
---- The device the commands act on: the one selected in the device panel
+--- The device the commands act on: the one selected in the inspector
 --- when an adapter knows it, else the first device of the cursor part that
 --- one knows. Nil and a reason when there is none.
 function M.target(): integer, string

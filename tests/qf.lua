@@ -161,8 +161,8 @@ test("qf: :copen docks the list along the bottom; j and Enter go to an entry in 
     "where each is"
   )
   keys("j<CR>")
-  eq(paw.ui.focused, "devices", "Enter on a parameter goes to the device panel")
-  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
+  eq(paw.ui.focused, "inspector", "Enter on a parameter goes to the device panel")
+  local row = paw.ui.views:get("inspector"):rows()[paw.ui.views:get("inspector").row]
   eq(row.param and row.param.key, "cutoff", "on the parameter")
   eq(qf.current().idx, 2, "which becomes the current entry")
   ex("copen")

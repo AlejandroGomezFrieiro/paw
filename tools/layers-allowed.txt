@@ -45,7 +45,7 @@ paw.fx paw.frontend 3
 paw.fx paw.keymap 1
 paw.fx paw.pick 1
 paw.fx paw.ui 2
-paw.fx paw.views.devices 1
+paw.fx paw.views.inspector 1
 paw.grep paw.pick 1
 paw.grep paw.qf 5
 paw.harmony paw.draw 1
@@ -60,9 +60,9 @@ paw.lanes paw.frontend 1
 paw.layout paw.keymap 1
 paw.layout paw.views.start 1
 paw.learn paw.pick 1
-paw.loading paw.views.devices 1
+paw.loading paw.views.inspector 1
 paw.locators paw.ui 2
-paw.locators paw.views.devices 1
+paw.locators paw.views.inspector 1
 paw.locators paw.views.pianoroll 1
 paw.lsp paw 1
 paw.lsp paw.frontend 1
@@ -71,7 +71,7 @@ paw.lsp paw.roll_clips 1
 paw.lsp paw.views.pianoroll 1
 paw.lsp.subjects paw.roll_clips 1
 paw.lsp.subjects paw.views.pianoroll 1
-paw.luadev paw.views.devices 1
+paw.luadev paw.views.inspector 1
 paw.markers paw.keymap 1
 paw.markers paw.pick 1
 paw.markers paw.ruler 2
@@ -138,7 +138,8 @@ paw.views.arrange paw.frontend 3
 paw.views.arrange_mouse paw.frontend 3
 paw.views.arrange_part paw.frontend 1
 paw.views.curve paw.frontend 2
-paw.views.devices paw.frontend 3
+paw.views.devices paw.frontend 2
+paw.views.inspector paw.frontend 3
 paw.views.effect_windows paw.frontend 1
 paw.views.files paw.defaults.clips 2
 paw.views.mixer paw.frontend 1

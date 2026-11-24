@@ -470,7 +470,7 @@ for _, c in ipairs(live) do
       eq(require("plugstate").adapter_of(d.id) ~= nil, true, "an adapter knows it")
       if not c.path then return end
       local before = c.louder ~= nil and level(1) or nil
-      paw.ui.focus("devices")
+      paw.ui.focus("inspector")
       paw.fx.select(d.id)
       if c.echo then
         -- What `:plugstate.path` gives the plugin, as a state lane takes it.
@@ -535,7 +535,7 @@ test(
     local d = part:add_device(kind)
     paw.flush()
     api.undo_checkpoint()
-    paw.ui.focus("devices")
+    paw.ui.focus("inspector")
     paw.fx.select(d.id)
     eq(plugstate.adapter_of(d.id).name, "state", "the adapter of every plugin knows it")
     keys(":plugstate.tree<CR>")
@@ -568,7 +568,7 @@ test(
         local d2 = t2:add_device(k)
         paw.flush()
         api.undo_checkpoint()
-        paw.ui.focus("devices")
+        paw.ui.focus("inspector")
         paw.fx.select(d2.id)
         keys(":plugstate.load " .. file .. "<CR>")
         eq(tonumber(holds(fw, d2.id, "/DPF/Parameters@dry_level", "0")), 0, format .. ": the preset sets dry_level")

@@ -246,8 +246,8 @@ test("c and = in the device panel ask for the parameter's value in its unit", fu
   local t = paw.add_part({ name = "S" })
   t:add_device("synth")
   paw.cursor.set_part(t)
-  paw.ui.focus("devices")
-  local panel = paw.ui.views:get("devices")
+  paw.ui.focus("inspector")
+  local panel = paw.ui.views:get("inspector")
   local cutoff
   for i, row in ipairs(panel:rows()) do
     if row.param and row.param.key == "cutoff" then
@@ -318,7 +318,7 @@ test("Ctrl-w _ maximises the focused panel and puts the others back", function()
   for _, r in ipairs(paw.ui.arrange(120, 30)) do
     names[#names + 1] = r.name
   end
-  eq(table.concat(names, " "), "arrange devices mixer status cmdline", "back as it was")
+  eq(table.concat(names, " "), "arrange devices inspector mixer status cmdline", "back as it was")
   eq(paw.ui.focused, "devices", "with the panel focused")
   paw.ui.hide("mixer")
   paw.ui.hide("devices")

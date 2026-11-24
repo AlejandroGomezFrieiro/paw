@@ -1,4 +1,4 @@
--- Tests of the device panel (paw/views/devices.lua) as one view for both
+-- Tests of the inspector (paw/views/inspector.lua) as one view for both
 -- frontends: its buttons, menus, sliders and sends worked by the pointer in
 -- the terminal's cells, and its scene as a window gets it, the widget roles
 -- painted there, a press coming back in fractions of a cell, and a
@@ -7,7 +7,7 @@
 local T = ...
 local test, eq, near, fresh = T.test, T.eq, T.near, T.fresh
 local api = paw.api
-local panel = paw.ui.views:get("devices")
+local panel = paw.ui.views:get("inspector")
 
 local W, H, CELL = 140, 44, { w = 8, h = 16 }
 local ROLES = { "label", "button", "switch", "knob", "fader", "meter", "peak", "chip", "param", "power", "band" }
@@ -28,7 +28,7 @@ local function shown(part)
   paw.ui.show("devices")
   local lines = api.ui_snapshot(W, H)
   for _, r in ipairs(paw.ui.rects) do
-    if r.name == "devices" then return r, lines end
+    if r.name == "inspector" then return r, lines end
   end
 end
 
@@ -165,7 +165,7 @@ test("on another part, j goes from the panel's first device to its first paramet
   a:add_device("synth")
   b:add_device("saturation")
   shown(a)
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   T.keys("jjj")
   paw.cursor.set_part(b)
   T.keys("j")
@@ -225,8 +225,8 @@ end)
 --- The panel's scene for a window that paints the widget roles, `w` by
 --- `h` cells, as the kernel sends it; the patch, decoded.
 local function scene(w, h)
-  paw.ui.render_scene("devices", w or 50, h or 40, CELL)
-  local patch = api.scene_end(0, "devices")
+  paw.ui.render_scene("inspector", w or 50, h or 40, CELL)
+  local patch = api.scene_end(0, "inspector")
   return patch and api.json_decode(patch)
 end
 
@@ -247,7 +247,7 @@ test("in a window the panel is its scene: a band, a name and a power button a de
   api.scene_forget(0)
   api.scene_roles(0, ROLES)
   local patch = scene()
-  eq(panel:title_of(), "Devices · Keys · 1 device", "the window's title over it names the part")
+  eq(panel:title_of(), "Inspector · Synth", "the window's title over it names the device")
   eq(#nodes(patch, "band"), 1, "the device's heading is a band")
   eq(#nodes(patch, "power"), 1, "with its power button")
   local params = nodes(patch, "param")
@@ -262,7 +262,7 @@ test("in a window the panel is its scene: a band, a name and a power button a de
   eq(
     paw.roles.input(
       0,
-      "devices",
+      "inspector",
       panel,
       nil,
       { kind = "down", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" },
@@ -271,7 +271,14 @@ test("in a window the panel is its scene: a band, a name and a power button a de
     true,
     "the slider takes the press"
   )
-  paw.roles.input(0, "devices", panel, nil, { kind = "up", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" }, held)
+  paw.roles.input(
+    0,
+    "inspector",
+    panel,
+    nil,
+    { kind = "up", x = r[1] + bar / 2, y = r[2] + 0.5, button = "left" },
+    held
+  )
   near(
     paw.params.fraction(p, api.device_get(synth.id).params[p.key]),
     0.5,
@@ -284,7 +291,7 @@ test("in a window the panel is its scene: a band, a name and a power button a de
   paw.mouse.forget()
   paw.roles.input(
     0,
-    "devices",
+    "inspector",
     panel,
     nil,
     { kind = "down", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" },
@@ -292,7 +299,7 @@ test("in a window the panel is its scene: a band, a name and a power button a de
   )
   paw.roles.input(
     0,
-    "devices",
+    "inspector",
     panel,
     nil,
     { kind = "up", x = power.r[1] + 1, y = power.r[2] + 0.5, button = "left" },

@@ -7,7 +7,7 @@
 -- `V` over rows and any of these does it to them all, and `.` again.
 local api, util = paw.api, paw.util
 local keymap = paw.keymap
-local panel = paw.ui.views:get("devices")
+local panel = paw.ui.views:get("inspector")
 local M = {}
 
 local function rows() return panel:rows() end
@@ -69,7 +69,7 @@ panel.grid = {
 local map = keymap.set
 local lines = { motion = true, linewise = true }
 local far_lines = { motion = true, linewise = true, jump = true }
-local function dmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "devices", desc = desc }, opts)) end
+local function dmap(lhs, rhs, desc, opts) map(lhs, rhs, util.merge({ view = "inspector", desc = desc }, opts)) end
 local function step(n)
   return function(ctx) to(here() + n * (ctx.count or 1)) end
 end
@@ -168,7 +168,7 @@ dmap("gS", "device.sidechain", "Choose the part the device listens to (side-chai
 --- What `K` shows: the device, or the parameter, under the cursor.
 function panel:describe()
   local _, row = self:selected()
-  if not row then return nil end
+  if not (row and row.device) then return paw.ui.views:get("devices"):describe() end
   local d = row.device
   local out = { only = true, title = d.name }
   if row.param then
@@ -193,7 +193,7 @@ function panel:describe()
 end
 
 -- Operators over rows.
-local function op(lhs, fn, desc, opts) keymap.operator(lhs, fn, util.merge({ view = "devices", desc = desc }, opts)) end
+local function op(lhs, fn, desc, opts) keymap.operator(lhs, fn, util.merge({ view = "inspector", desc = desc }, opts)) end
 --- The register value for whole devices: one, or several in their order.
 local function taken(devices)
   local snaps = {}
@@ -251,7 +251,7 @@ end, "Bypass the devices, or let them play again", { role = "mute" })
 -- On a selection the value keys change every parameter selected.
 local function vop(lhs, sign, desc, role)
   map(lhs, nil, {
-    view = "devices",
+    view = "inspector",
     mode = "x",
     desc = desc,
     role = role,
@@ -301,36 +301,38 @@ end
 dmap("p", paste(1), "Paste devices after this one, or settings onto it")
 dmap("P", paste(0), "Paste devices before this one, or settings onto it")
 
--- A window of the panel pinned to a part shows that part's devices
--- wherever the cursor goes: two panels show two parts.
+-- A window of the devices view pinned to a part shows that part's devices
+-- wherever the cursor goes: two windows show two parts. Its inspector
+-- shows the node under its cursor.
 paw.command("devices.pin", function(ctx)
   local L = paw.layout
+  local graph = paw.ui.views:get("devices")
   local cur = L.current()
   local win = cur and cur.view == "devices" and cur or L.find(paw.ui.layout, "devices", true)
   if not win then
-    return paw.notify("no device panel on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn")
+    return paw.notify("no devices view on the screen: `" .. paw.keymap.human("<leader>dd") .. "` shows it", "warn")
   end
   local name = ctx.args[1] and table.concat(ctx.args, " ")
   L.within(win, function()
     if name then
-      local id = panel.part_named(name)
+      local id = graph.part_named(name)
       if not id then return paw.notify("no part `" .. name .. "`", "warn") end
-      return panel:set_pin(id)
+      return graph:set_pin(id)
     end
-    if panel.pin then return panel:set_pin(nil) end
-    local id = panel:part_id()
-    if not id then return paw.notify("no part to pin the panel to", "warn") end
-    panel:set_pin(id)
+    if graph.pin then return graph:set_pin(nil) end
+    local id = graph:part_id()
+    if not id then return paw.notify("no part to pin the devices view to", "warn") end
+    graph:set_pin(id)
   end)
 end, {
-  desc = "Keep the device panel on a part whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
+  desc = "Keep the devices view on a part whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
   complete = { "parts" },
 })
-dmap("<localleader>p", "devices.pin", "Pin the panel to its part, or follow the cursor again")
+dmap("<localleader>p", "devices.pin", "Pin the devices view to its part, or follow the cursor again")
 
 -- The keys the panel had before the rule (`paw.opt.keys = "classic"`).
 local function classic(lhs, rhs, desc, opts)
-  keymap.classic(lhs, rhs, util.merge({ view = "devices", desc = desc, mode = "n" }, opts))
+  keymap.classic(lhs, rhs, util.merge({ view = "inspector", desc = desc, mode = "n" }, opts))
 end
 classic("l", adjust(1), "Raise the parameter")
 classic("h", adjust(-1), "Lower the parameter")

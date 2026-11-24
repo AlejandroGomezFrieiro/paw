@@ -271,8 +271,8 @@ test("the device panel and the window choose a device's side-chain", function()
   local comp = pad:add_device("compressor")
   pad:add_device("delay")
   paw.cursor.set_part(pad)
-  paw.ui.focus("devices")
-  paw.ui.views:get("devices").row = 1
+  paw.ui.focus("inspector")
+  paw.ui.views:get("inspector").row = 1
   paw.commands.exec("device.sidechain Kick pre=1")
   eq(comp.sidechain .. " " .. tostring(comp.sidechain_pre), kick.id .. " true", ":device.sidechain sets it")
   paw.flush()
@@ -488,8 +488,8 @@ test("the window and the device panel route a kit's pairs", function()
   paw.frontend.act.route_pair(kit.id, 2, 1)
   eq(next(kit.outputs), nil, "and Nowhere takes it away")
 
-  paw.ui.focus("devices")
-  paw.ui.views:get("devices").row = 1
+  paw.ui.focus("inspector")
+  paw.ui.views:get("inspector").row = 1
   paw.commands.exec("device.output 3 Snare")
   eq(kit.outputs["3"], paw.part("Snare").id, ":device.output routes a pair by number")
   paw.flush()

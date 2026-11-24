@@ -1,5 +1,5 @@
 -- Search TONE3000's library from paw: `:plugstate.search <words>` (and
--- `<localleader>t` in the device panel) lists the tones that TONE3000
+-- `<localleader>t` in the inspector) lists the tones that TONE3000
 -- finds, a page at a time; Enter on a tone lists its models; Enter on a
 -- model downloads it once into paw's cache and loads it into the device
 -- through its adapter (a block of TONE3000, the model of Neural Amp
@@ -571,7 +571,7 @@ paw.command(
 paw.keymap.set(
   "<localleader>t",
   "plugstate.search_prompt",
-  {view = "devices", desc = "Search TONE3000's library for a model or an impulse response"}
+  {view = "inspector", desc = "Search TONE3000's library for a model or an impulse response"}
 )
 
 --- `paw.health.executable`: the path of a program on the PATH, or nil.

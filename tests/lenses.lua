@@ -262,9 +262,9 @@ test("lenses: diagnostics on devices, parameters and stretches of time are drawn
   end
   has(ruler or "", paw.draw.g.mark, "the ruler marks the stretch of time")
   -- ]d in the device panel goes to the parameter.
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.keymap.feed("]d")
-  local row = paw.ui.views:get("devices"):rows()[paw.ui.views:get("devices").row]
+  local row = paw.ui.views:get("inspector"):rows()[paw.ui.views:get("inspector").row]
   eq(row.param and row.param.key, "cutoff", "]d goes to the parameter")
   api.undo_checkpoint()
   paw.keymap.feed("<leader>la")

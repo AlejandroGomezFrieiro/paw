@@ -1126,7 +1126,7 @@ paw.ui.layer(
 )
 -- A device: a sign after its name and what is said of it; a parameter: a sign before its name.
 paw.ui.layer(
-  "devices",
+  "inspector",
   "device",
   "diagnostics",
   30,
@@ -1151,7 +1151,7 @@ paw.ui.layer(
   end
 )
 paw.ui.layer(
-  "devices",
+  "inspector",
   "param",
   "diagnostics",
   30,

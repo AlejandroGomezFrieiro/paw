@@ -480,7 +480,7 @@ command(
 )
 
 local function dmap(lhs: string, rhs: string, desc: string)
-  paw.keymap.set(lhs, rhs, {view = "devices", desc = desc})
+  paw.keymap.set(lhs, rhs, {view = "inspector", desc = desc})
 end
 dmap("]m", "plugstate.next", "Load the next file of the folder (model, impulse response)")
 dmap("[m", "plugstate.prev", "Load the previous file of the folder")

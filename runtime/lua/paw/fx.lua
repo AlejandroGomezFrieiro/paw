@@ -83,13 +83,8 @@ M.last_touched = nil
 
 paw.on("param.touched", function(e)
   M.last_touched = { device = e.device, param = e.param, id = e.id, from = e.from }
-  -- One moved in the plugin's own window shows itself in the device panel.
-  if e.from == "editor" then
-    local panel = paw.ui.views:get("devices")
-    for i, row in ipairs(panel:rows()) do
-      if row.param and row.device.id == e.device and row.param.key == e.param then panel.row = i end
-    end
-  end
+  -- One moved in the plugin's own window shows itself in the inspector.
+  if e.from == "editor" then paw.ui.views:get("inspector"):show(e.device, e.param) end
 end)
 
 local function shown_of(d)
@@ -148,16 +143,11 @@ function M.card_params(d)
   return out
 end
 
---- Put the device panel's row on one parameter of a device.
-function M.focus_param(id, key)
-  local panel = paw.ui.views:get("devices")
-  for i, row in ipairs(panel:rows()) do
-    if row.param and row.device.id == id and row.param.key == key then panel.row = i end
-  end
-end
+--- Put the inspector's row on one parameter of a device.
+function M.focus_param(id, key) paw.ui.views:get("inspector"):show(id, key) end
 
 --- Select one of the parameters of the device: type a part of its name. It
---- shows first on the card of the window, and it is selected in the device panel.
+--- shows first on the card of the window, and it is selected in the inspector.
 function M.pick_param(device)
   device = device or M.target()
   if not device then return end
@@ -607,10 +597,10 @@ end
 
 local function clean(err) return (tostring(err):gsub("^[^:]*:%d+: ", ""):match("^[^\n]*")) end
 
---- The device the preset commands act on: the one selected in the device
---- panel (its row stays where it was when another view has the keys).
+--- The device the preset commands act on: the one selected in the inspector
+--- (its row stays where it was when another view has the keys).
 function M.target()
-  local device = paw.ui.views:get("devices"):selected()
+  local device = paw.ui.views:get("inspector"):selected()
   if not device then paw.notify("no device here: add one with `a` in the device panel", "warn") end
   return device
 end
@@ -765,7 +755,7 @@ function M.setup()
     end
     local d = api.device_get(last.device)
     paw.cursor.set_part(d.part)
-    paw.ui.focus("devices")
+    paw.ui.focus("inspector")
     M.focus_param(last.device, last.param)
     local what = ctx.args[1]
     if what == "automate" then
@@ -780,7 +770,7 @@ function M.setup()
     desc = "Go to the parameter last touched; `param.last automate`, `param.last learn` or `param.last show` act on it",
   })
 
-  local function dmap(lhs, rhs, desc) paw.keymap.set(lhs, rhs, { view = "devices", desc = desc }) end
+  local function dmap(lhs, rhs, desc) paw.keymap.set(lhs, rhs, { view = "inspector", desc = desc }) end
   dmap("f", "param", "Find a parameter by name")
   dmap("t", "param.last", "The parameter last touched")
 
@@ -916,12 +906,8 @@ function M.setup()
   end
 end
 
---- Put the device panel's row on a device of the cursor part.
-function M.select(id)
-  local panel = paw.ui.views:get("devices")
-  for i, row in ipairs(panel:rows()) do
-    if row.device.id == id and not row.param and not row.picture then panel.row = i end
-  end
-end
+--- Put the cursor of the devices view, and so the inspector, on a device
+--- of the cursor part.
+function M.select(id) paw.ui.views:get("inspector"):show(id) end
 
 return M

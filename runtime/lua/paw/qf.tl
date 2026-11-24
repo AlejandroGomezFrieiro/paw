@@ -724,7 +724,7 @@ function M.go(e: Located): boolean
       return true
     end
   end
-  for _, name in ipairs({"pianoroll", "devices", "arrange", "mixer"}) do
+  for _, name in ipairs({"pianoroll", "inspector", "arrange", "mixer"}) do
     local locator = paw.ui.locators[name]
     if locator and locator.place(loc, true) then
       paw.ui.go(loc)
@@ -1585,7 +1585,7 @@ local function shown_target(): DiagnosticModule.Target
   if view == "pianoroll" then
     return (paw.ui.views:get("pianoroll") as Roll.PianoRoll).clip_id
   end
-  if view == "mixer" or view == "devices" then
+  if view == "mixer" or view == "devices" or view == "inspector" then
     local id = paw.cursor.part_id()
     return id and A.part(id) or nil
   end

@@ -398,8 +398,8 @@ end
 --- the parameter under the device panel's cursor, the mixer's fader.
 function M.under_cursor()
   local ui = paw.ui
-  if ui.focused == "devices" then
-    local panel = ui.views:get("devices")
+  if ui.focused == "inspector" then
+    local panel = ui.views:get("inspector")
     local row = panel:rows()[panel.row]
     if row and row.param then
       return {

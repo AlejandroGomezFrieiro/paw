@@ -47,7 +47,7 @@ local function instrument(kind, beats)
   local d = part:add_device(kind)
   paw.flush()
   paw.cursor.set_part(part.id)
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(d.id)
   api.undo_checkpoint()
   return d

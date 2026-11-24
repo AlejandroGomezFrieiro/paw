@@ -1,6 +1,6 @@
 -- Lesson 9: instruments, effects, parameters, plugins and their windows.
 local function selected()
-  local device, row = paw.ui.views:get("devices"):selected()
+  local device, row = paw.ui.views:get("inspector"):selected()
   return device, row
 end
 
@@ -13,16 +13,19 @@ and bypass the echo.
 
 Each part has a chain of devices. The first device is an instrument, which
 makes sound from notes, and the effects come after it. Each effect changes
-the sound of the device before it. The device panel shows the chain of the
-part under the cursor, with the parameters of each device, and you use the
+the sound of the device before it. The devices view shows the chain of the
+part under the cursor as a row of cards, one for each device. The inspector
+under it shows the parameters of the device under the cursor. You use the
 same kind of keys there as in the other views.
 
 The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`.
 The CLAP, LV2 and VST3 plugins that you installed are also devices, and most
 of them have their own window.]],
   idea = [[
-In the device panel, `j` and `k` select a row, which is the name of a device
-or one of its parameters, and `w` and `b` select a device. `+` and `-`
+In the inspector, `j` and `k` select a row, which is the name of a device or
+one of its parameters, and `w` and `b` select a device. `<C-w>k` goes up to
+the devices view, where `l` and `h` go from card to card and `<CR>` comes
+back to the inspector. `+` and `-`
 change a parameter by one step, and a count before them, e.g., `10+`,
 changes it by more steps.
 
@@ -30,11 +33,10 @@ changes it by more steps.
 `p` copy and move devices, also to other parts. `<A-j>` and `<A-k>` change
 the order, and `ge` opens the window of a plugin.
 
-`<leader>dd` shows and hides the panel, and `<C-w>c` closes it. In the
+`<leader>dd` shows and hides the devices view and the inspector. In the
 arrange view, `ge` opens the plugin window of the part.]],
   vim = [[
-`<C-w>c` closes a panel as it closes a window in Vim, and `yy` `dd` `p` work
-on devices as they work on lines. `+` and `-` change a value as `<C-a>` and
+`yy` `dd` `p` work on devices as they work on lines. `+` and `-` change a value as `<C-a>` and
 `<C-x>` change a number, and `gc` bypasses a device as it changes a line to
 a comment.]],
   setup = function(look)
@@ -55,10 +57,10 @@ a comment.]],
   at = function() paw.cursor.set_part(paw.part("Lead")) end,
   steps = {
     {
-      say = "The cursor is on Lead. Press `<leader>dd` (the space bar, then d two times) to show its device panel on the right, and the panel gets the keys.",
+      say = "The cursor is on Lead. Press `<leader>dd` (the space bar, then d two times) to show its devices on the right, and the inspector gets the keys.",
       keys = { "<leader>dd" },
-      check = function(_, look) return look.focused() == "devices" end,
-      done = "The panel shows the name of the synth, and below it one row for each parameter.",
+      check = function(_, look) return look.focused() == "inspector" end,
+      done = "The devices view at the top shows the synth as a card. The inspector under it shows the name of the synth, and below it one row for each parameter.",
       hint = "The leader key is the space bar, and it starts many commands of two keys.",
     },
     {
@@ -128,12 +130,12 @@ a comment.]],
       done = "Done.",
     },
     {
-      say = "`<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`.",
-      keys = { "<C-w>c" },
+      say = "`<leader>dd` hides the devices view and the inspector, and the arrange view gets the keys again. Press `<leader>dd`.",
+      keys = { "<leader>dd" },
       check = function(ctx, look)
         return look.became(ctx, "closed", not look.visible("devices") and look.focused() == "arrange")
       end,
-      done = "The panel is closed, and `<leader>dd` shows it again.",
+      done = "Both are hidden, and `<leader>dd` shows them again.",
     },
     {
       say = "Listen to the line with its echo. Press `<leader><Space>`, and `<leader><Space>` to stop.",
@@ -142,5 +144,5 @@ a comment.]],
       done = "You hear a synth and a delay that you adjusted by ear.",
     },
   },
-  outro = "We used the device panel to select and change parameters. We added and bypassed a device, and we found where plugin windows open.",
+  outro = "We used the devices view and the inspector to select and change parameters. We added and bypassed a device, and we found where plugin windows open.",
 }

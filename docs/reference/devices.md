@@ -72,7 +72,7 @@ Each device, built-in or plugin, has two parameters from paw after its own param
 
 - You set, automate, bind and save them in presets like any other parameter. In Lua, `paw.fx.set_wet(device, 50)` sets the mix.
 - The card of a device in the graphical window shows both, below the preset.
-- The device panel shows `wet 50%` on the line of the device when the mix is not 100 %, and `+` and `-` on that line change it. Both parameters are the last rows of the device.
+- The inspector shows `wet 50%` on the line of the device when the mix is not 100 %, and `+` and `-` on that line change it. Both parameters are the last rows of the device.
 - A bypass, the end of a bypass, and any change of the mix fade over 5 ms, with no click. A bypassed device adds no delay.
 
 ## Presets

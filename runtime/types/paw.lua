@@ -3986,7 +3986,7 @@ function paw.fx.device_list(wanted) end
 ---@param device any
 function paw.fx.factory_presets(device) end
 
---- Put the device panel's row on one parameter of a device.
+--- Put the inspector's row on one parameter of a device.
 ---@param id any
 ---@param key any
 function paw.fx.focus_param(id, key) end
@@ -4029,7 +4029,7 @@ function paw.fx.note_used(kind, query) end
 function paw.fx.pick(device) end
 
 --- Select one of the parameters of the device: type a part of its name. It
---- shows first on the card of the window, and it is selected in the device panel.
+--- shows first on the card of the window, and it is selected in the inspector.
 ---@param device any
 function paw.fx.pick_param(device) end
 
@@ -4080,7 +4080,8 @@ function paw.fx.save(device, name) end
 ---@param wanted any
 function paw.fx.search(query, limit, wanted) end
 
---- Put the device panel's row on a device of the cursor part.
+--- Put the cursor of the devices view, and so the inspector, on a device
+--- of the cursor part.
 ---@param id any
 function paw.fx.select(id) end
 
@@ -4116,8 +4117,8 @@ function paw.fx.shown(device) end
 ---@param step any
 function paw.fx.step(device, step) end
 
---- The device the preset commands act on: the one selected in the device
---- panel (its row stays where it was when another view has the keys).
+--- The device the preset commands act on: the one selected in the inspector
+--- (its row stays where it was when another view has the keys).
 function paw.fx.target() end
 
 --- Make a kind of device a favorite, or not. Returns true if it is a favorite now.
@@ -10032,7 +10033,7 @@ function paw.ui.focus_next(step) end
 function paw.ui.frame_ms() end
 
 --- Go to a location in the view that shows it best, and focus that view.
---- The piano roll shows notes, the device panel shows devices and
+--- The piano roll shows notes, the inspector shows devices and
 --- parameters, and the arrange view shows parts and time.
 ---@param location any
 function paw.ui.go(location) end

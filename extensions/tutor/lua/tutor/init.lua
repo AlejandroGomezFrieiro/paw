@@ -142,13 +142,13 @@ end
 
 local function tidy_screen()
   if paw.ui.float then paw.ui.close() end
-  for _, name in ipairs({ "pianoroll", "mixer", "devices" }) do
+  for _, name in ipairs({ "pianoroll", "mixer", "devices", "inspector" }) do
     paw.ui.hide(name)
   end
-  -- The note length chosen in insert mode lasts the session, and the device
-  -- panel keeps its row from part to part: lessons start from the top.
+  -- The note length chosen in insert mode lasts the session, and the
+  -- inspector keeps its row from part to part: lessons start from the top.
   paw.ui.views:get("pianoroll"):set_step(nil)
-  paw.ui.views:get("devices").row = 1
+  paw.ui.views:get("inspector").row = 1
   paw.ui.focus("arrange")
   if paw.keymap.mode ~= "n" then paw.keymap.set_mode("n") end
 end

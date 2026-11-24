@@ -403,7 +403,7 @@ test("plugstate: TONE3000 search with keys: a tone, its models, a download into 
   m.need_token_for_files = false
   fresh()
   local d = fake_device()
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(d.id)
 
   keys("\\t")
@@ -440,7 +440,7 @@ test("plugstate: TONE3000 search with keys: a tone, its models, a download into 
     "the project keeps the tone, the model, the author and the license"
   )
 
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   keys("u")
   eq(plugstate.slot(d.id).value, nil, "u takes the load back")
   eq(((api.device_get(d.id).meta or {}).plugstate or {}).tone3000, nil, "with what it kept, in one step")
@@ -622,7 +622,7 @@ test("plugstate: a model from TONE3000's library plays in Neural Amp Modeler and
   local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(amp.id)
 
   keys(":plugstate.search clean<CR>")
@@ -665,7 +665,7 @@ test("plugstate: a model from TONE3000's library goes into a block of the TONE30
   local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   paw.fx.select(amp.id)
 
   keys(":plugstate.search clean<CR>")
@@ -683,7 +683,7 @@ test("plugstate: a model from TONE3000's library goes into a block of the TONE30
   local slot = plugstate.slot(amp.id, key)
   eq(slot.value, want, "the block holds the file")
   eq(slot.label:find("Plexi Clean", 1, true) ~= nil, true, "under the name of the model: " .. slot.label)
-  paw.ui.focus("devices")
+  paw.ui.focus("inspector")
   keys("u")
   eq(((api.device_get(amp.id).meta or {}).plugstate or {}).tone3000, nil, "u takes it back")
 end)

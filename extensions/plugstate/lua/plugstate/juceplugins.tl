@@ -199,7 +199,7 @@ plugstate.adapter(
 
 -- --- commands for any plugin ----------------------------------------------------------------
 
---- The plugin device the commands act on: the one of the device panel's
+--- The plugin device the commands act on: the one of the inspector's
 --- row, else the first plugin of the cursor part.
 function M.target(): integer, string
   local selected = plugstate.panel_device()
@@ -212,7 +212,7 @@ function M.target(): integer, string
       return id
     end
   end
-  return nil, "no plugin here: put the row of the device panel on one"
+  return nil, "no plugin here: put the row of the inspector on one"
 end
 
 --- The state of a device as a document of its framework, or nil and why.

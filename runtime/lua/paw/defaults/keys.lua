@@ -130,9 +130,20 @@ map("<Tab>", "view.next", { mode = nx, desc = "Focus the next view" })
 map("<S-Tab>", "view.prev", { mode = nx, desc = "Focus the previous view" })
 -- Windows and tabs (`Ctrl-w`, `gt`) are mapped in paw/layout.tl.
 map("<leader>mm", "view.toggle mixer", { desc = "Show or hide the mixer" })
-map("<leader>dd", "view.toggle devices", { desc = "Show or hide the device panel" })
+-- The device panel is the devices view and the inspector under it. The
+-- inspector gets the keys: its rows are the parameters, and `Ctrl-w k`
+-- goes to the graph.
+local function device_panel()
+  local from = paw.layout.current()
+  paw.cmd("view.toggle", { "devices" })
+  if not paw.ui.visible("devices") then return end
+  paw.ui.focus("inspector")
+  -- `Ctrl-w p` goes back to the window before the panel, not to the graph.
+  if from then paw.layout.tab().prev = from.id end
+end
+map("<leader>dd", device_panel, { desc = "Show or hide the device panel" })
 map("<leader>vm", "view.toggle mixer", { desc = "Show or hide the mixer" })
-map("<leader>vd", "view.toggle devices", { desc = "Show or hide the device panel" })
+map("<leader>vd", device_panel, { desc = "Show or hide the device panel" })
 map("<leader>vp", "roll.toggle", { desc = "Show or hide the piano roll, on the clip under the cursor" })
 -- Workspaces: a screen for each task (paw/workspace.tl). The letters of
 -- the four default ones: record, edit, mix, and score for notation.
@@ -1174,7 +1185,7 @@ end, { view = "pianoroll", desc = "Let go of the chosen notes; end a take; back 
 -- is under the cursor in each view: a note, a clip, a part, a strip, a
 -- device or parameter. `K` means other things in these views, so asking
 -- what is known about it is `gK`.
-for _, v in ipairs({ "pianoroll", "arrange", "mixer", "devices" }) do
+for _, v in ipairs({ "pianoroll", "arrange", "mixer", "devices", "inspector" }) do
   map(
     "]d",
     function(ctx) paw.diagnostic.jump(1, ctx.count) end,

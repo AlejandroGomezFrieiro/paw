@@ -85,6 +85,9 @@ local record Node is {Node}, contracts.Window
   instances: {string: Instance}
   alt: Alt
   pending: string
+  --- On a split that a view and the windows beside it share (a home's
+  --- `of`): that view. The split takes the view's place and its size.
+  holds: string
 end
 
 --- A tab: its tree, its name, the window with the keyboard (`win`), the
@@ -111,6 +114,9 @@ local record Home
   weight: number
   min: integer
   float_below: integer
+  --- The view whose window this one goes beside, on `side`, when that
+  --- window is on screen: the inspector goes under the devices view.
+  of: string
 end
 
 --- What `dock` takes.
@@ -536,6 +542,7 @@ function M.default_tree(): Node
 end
 
 M.homes.devices = {side = "right", size = 40, float_below = 80}
+M.homes.inspector = {side = "bottom", of = "devices", weight = 1}
 M.homes.pianoroll = {side = "bottom", weight = 2}
 M.homes.mixer = {side = "bottom", weight = 0.5, min = 14}
 
@@ -1210,6 +1217,10 @@ local function place_home(root: Node, name: string, home: Home, hidden?: boolean
   local dir: Dir = (side == "left" or side == "right") and "h" or "v"
   local before = side == "left" or side == "top"
   local cur = keyboard_in(root)
+  local beside = home.of and M.find(root, home.of)
+  if beside and not beside.hidden then
+    cur = beside
+  end
   local parent, at: Node, integer
   if cur then
     parent, at = parent_of(root, cur)
@@ -1236,6 +1247,12 @@ local function place_home(root: Node, name: string, home: Home, hidden?: boolean
   else
     local node: Node = {dir = dir, size = cur.size, weight = cur.weight, min = cur.min}
     cur.size, cur.weight, cur.min = nil, nil, nil
+    -- Beside its view, the window shares that view's place: on a narrow
+    -- screen both float together.
+    if cur == beside then
+      node.holds, node.float_below, cur.float_below, win.float_below = cur.view, cur.float_below, nil, nil
+      win.size, win.weight, win.min = nil, nil, nil
+    end
     node[1], node[2] = before and win or cur, before and cur or win
     parent[at] = node
   end
@@ -2470,7 +2487,8 @@ end
 --- Set the size a node takes along its parent: a panel whose size is an
 --- option (`devices_width`) has it set there.
 function M.set_size(node: Node, axis: string, size: integer)
-  local option = node.view and node.view .. "_" .. axis
+  local name = node.view or node.holds
+  local option = name and name .. "_" .. axis
   if option and opt[option] ~= nil then
     opt[option] = size
   else

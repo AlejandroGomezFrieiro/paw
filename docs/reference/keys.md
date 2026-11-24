@@ -1,7 +1,7 @@
 # Keys, by idea
 <!-- tags: course-keys -->
 
-The keys page is a list of keys to keep next to the keyboard, and the keys are written as Vim writes them. `<C-r>` is Ctrl and r, `<A-j>` is Alt and j, `<CR>` is Enter, and `<Esc>` is Escape. `<Space>` (the space bar) is the leader key, and `\` is the local leader of a view (the notation popovers). **A** is the arrange view, **R** is the piano roll, **M** is the mixer, and **D** is the device panel.
+The keys page is a list of keys to keep next to the keyboard, and the keys are written as Vim writes them. `<C-r>` is Ctrl and r, `<A-j>` is Alt and j, `<CR>` is Enter, and `<Esc>` is Escape. `<Space>` (the space bar) is the leader key, and `\` is the local leader of a view (the notation popovers). **A** is the arrange view, **R** is the piano roll, **M** is the mixer, **D** is the devices view, and **I** is the inspector under it.
 
 The tests of the tutor compare every key here with the mappings of paw, and `?` in paw lists every key of the view that you are in.
 
@@ -30,7 +30,7 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 | `zs` `zz` `ze` | put the cursor at the left, in the middle, at the right of the timeline | |
 | `zh` `zl` | scroll a bar | |
 
-The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
+The motion keys only move, in every view. In **M**, `h` `l` are strips, `j` `k` are the rows of a strip (devices, sends, fader, pan, mute, solo, arm), `gg` `G` are its top and bottom, and `0` `$` are the first and last strip. In **D**, `h` `l` `w` `b` are the nodes of the chain in the order of the signal, `j` `k` are the branches of a split, and `za` `zR` `zM` fold and open splits and racks as Vim folds lines. In **I**, `j` `k` are rows, `w` `b` are devices, and `e` is the last parameter of a device.
 
 ## Act (operators and single keys)
 
@@ -91,13 +91,13 @@ The same keys mean the same in every view:
 | `K` | describe |
 | `ge` | the window of the plugin |
 | `gc` | mute or bypass |
-| `gC` | a curve (`<CR>` too on a lane row and in **D**) |
+| `gC` | a curve (`<CR>` too on a lane row and in **I**) |
 | `<Esc>` | cancel, and stay in the view; with nothing else to cancel, stop a recording and keep the take |
 | `<C-w>p` | the window before |
 
 The full rule is in [The key rule](key-rule.md).
 
-In **D**, `A` automates the parameter, and `gC` or `<CR>` edits its curve. On a lane row, `gC` or `<CR>` edits the curve of the lane, and `gc` turns the lane off and on.
+In **I**, `A` automates the parameter, and `gC` or `<CR>` edits its curve. On a lane row, `gC` or `<CR>` edits the curve of the lane, and `gc` turns the lane off and on.
 
 In the **curve editor**:
 
@@ -297,7 +297,7 @@ After the leader, the first key is a domain, and the next key is what to do in i
 | --- | --- |
 | a: automation (A) | `<Space>aa` `<Space>aA` the lanes of the part, of every part; `<Space>al` choose what to automate; `<Space>am` the mode; `<Space>at` off and on; `<Space>aw` write; `<Space>ax` clear |
 | c: clip (A) | `<Space>cf` fade the clip in and out; `<Space>cl` put a linked copy after the clip; `<Space>cu` take the clip out of its link |
-| d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in D, `<Space>dw` save a preset and `<Space>dW` make it the default |
+| d: devices | `<Space>dd` show or hide the device panel; `<Space>da` add a device; in I, `<Space>dw` save a preset and `<Space>dW` make it the default |
 | e: export | `<Space>em` the mix, `<Space>es` the stems, `<Space>et` the parts, `<Space>er` the regions, `<Space>ep` a preset from a list, `<Space>ee` the last export again; in visual mode, for the selection (see [Export](export.md#export)) |
 | f: find | `<Space>ff` files, `<Space>fg` any text, `<Space>fk` keys, `<Space>fc` clips, `<Space>fr` regions, `<Space>fm` markers, `<Space>ft` parts, `<Space>fd` the devices of the part, `<Space>fn` notes, `<Space>fa` audio files, `<Space>f:` commands, and more: [Pickers](pickers.md) |
 | g: versions (projdiff) | `<Space>gd` what changed since the save, `<Space>gm` settle merge conflicts, `<Space>gs` keep a snapshot |

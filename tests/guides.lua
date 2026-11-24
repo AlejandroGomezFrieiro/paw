@@ -201,7 +201,7 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
 
   step("a", "saturation", "<CR>")
   step("<Space>dd")
-  eq(paw.ui.focused, "devices", "Space dd opens the device panel")
+  eq(paw.ui.focused, "inspector", "Space dd opens the device panel")
   step("j", "12+", "j", "+")
   local saturation = guitar:devices()[1]
   eq(params(saturation).drive > 10, true, "more drive")

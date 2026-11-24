@@ -347,7 +347,7 @@ test(":loudness shows the master's device panel, with the meter it added", funct
   eq(paw.cursor.part_id(), 0, "the cursor goes to the master")
   local meter = paw.master:device("meter")
   eq(meter ~= nil, true, "a meter on the master")
-  local device = paw.ui.views:get("devices"):selected()
+  local device = paw.ui.views:get("inspector"):selected()
   eq(device and device.id, meter.id, "the device panel shows the master's meter")
   eq(screen():find("Master") ~= nil, true, "and names the master")
   paw.ui.close()

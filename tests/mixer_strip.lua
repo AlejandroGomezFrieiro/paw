@@ -97,8 +97,8 @@ test("a mixer strip names four devices, the last counting those it has no room f
   eq(short:find("6 ", 1, true) ~= nil, true, "which counts them")
   s, at = shown(a, 30)
   click(at(s.x + 2, s.devices + 3))
-  eq(paw.ui.focused, "devices", "a click on the fourth row picks the fourth device")
-  eq(paw.ui.views:get("devices"):selected().id, a:get().devices[4], "in the device panel")
+  eq(paw.ui.focused, "inspector", "a click on the fourth row picks the fourth device")
+  eq(paw.ui.views:get("inspector"):selected().id, a:get().devices[4], "in the device panel")
   -- The keyboard's cursor on the sixth device: the fourth row names it.
   paw.ui.focus("mixer")
   paw.mixer_rows.to(6)

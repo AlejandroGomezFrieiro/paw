@@ -319,6 +319,20 @@ set_all(
   "devices",
   {
     n = {
+      {"l", "next"},
+      {"j", "branch"},
+      {"za", "fold"},
+      {"zR", "open all"},
+      {"<CR>", "inspect"},
+      {"K", "describe"},
+      {"?", "keys"},
+    },
+  }
+)
+set_all(
+  "inspector",
+  {
+    n = {
       {"j", "row"},
       {"w", "device"},
       {"+", "raise"},

@@ -81,6 +81,7 @@ paw.ui.role, paw.ui.roles = paw.roles.define, paw.roles.registry
 require("paw.roles.widgets")
 require("paw.roles.notes")
 require("paw.roles.arrange")
+require("paw.roles.graph")
 require("paw.menu")
 paw.canvas = require("paw.canvas")
 -- The tabs and windows as panes of a graphical frontend (paw/panes.tl).
@@ -207,6 +208,7 @@ function K.startup()
     "cmdline",
     "mixer",
     "devices",
+    "inspector",
     "pianoroll",
     "eventlist",
     "help",

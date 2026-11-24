@@ -95,20 +95,9 @@ local record Fx
   toggle_favourite: function(kind: string)
 end
 
---- A row of the device panel: the device it is on, and what part of it.
-local record DeviceRow
-  record Ref
-    id: integer
-  end
-  device: Ref
-  param: string
-  picture: boolean
-end
-
---- The device panel (paw/views/devices.lua, in Lua): what this module calls of it.
+--- The inspector (paw/views/inspector.lua, in Lua): what this module calls of it.
 local record DevicesView
-  rows: function(self: DevicesView): {DeviceRow}
-  row: integer
+  show: function(self: DevicesView, device: integer, key?: string): integer
 end
 
 --- A message of the program (`paw.ui.messages`).
@@ -1035,13 +1024,9 @@ local function make(pick: Pick): Sources
       return string.format("%d. %s%s", d.index, d.name, d.bypass and "  (bypassed)" or "")
     end,
     on_choose = function(d: DeviceLine)
-      local panel = paw.ui.views:get("devices") as DevicesView
-      paw.ui.focus("devices")
-      for i, row in ipairs(panel:rows()) do
-        if row.device.id == d.id and not row.param and not row.picture then
-          panel.row = i
-        end
-      end
+      local inspector = paw.ui.views:get("inspector") as DevicesView
+      paw.ui.focus("inspector")
+      inspector:show(d.id)
       api.ui_redraw()
     end,
     actions = {

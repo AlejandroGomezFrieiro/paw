@@ -266,8 +266,8 @@ test("pick: devices adds to the part, and device.add asks with it", function()
 
   paw.ui.focus("arrange")
   choose("part_devices", "synth")
-  eq(paw.ui.focused, "devices", "the device panel")
-  eq(paw.ui.views:get("devices"):selected().kind, "synth", "on the device chosen")
+  eq(paw.ui.focused, "inspector", "the device panel")
+  eq(paw.ui.views:get("inspector"):selected().kind, "synth", "on the device chosen")
   paw.ui.focus("arrange")
 end)
 

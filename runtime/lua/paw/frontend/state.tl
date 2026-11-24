@@ -349,14 +349,14 @@ local function modal(): Modal
   -- Views that can be opened in one, for the views menu.
   out.views = paw.canvas.openable()
   out.menus = menus()
-  if ui.focused == "devices" then
+  if ui.focused == "inspector" or ui.focused == "devices" then
     -- The row the keyboard is on, as a device of the part and one of its
     -- parameters (0 for the device's own line).
     local panel = host.devices()
     local rows = panel:rows()
     panel.row = util.clamp(panel.row, 1, math.max(1, #rows)) as integer
     local row = rows[panel.row]
-    if row then
+    if row and row.device then
       out.device, out.param = row.device.index, 0
       for i, p in ipairs(row.device.param_info) do
         if row.param and p.key == row.param.key then

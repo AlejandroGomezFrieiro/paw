@@ -21,11 +21,13 @@ local record DeviceRow
   picture: boolean
 end
 
---- The device panel (paw/views/devices.lua), as far as this module reads
---- it: its rows, and the row of its cursor.
+--- The inspector (paw/views/inspector.lua), as far as this module reads
+--- it: its rows, the row of its cursor, and `show`, which puts the cursor
+--- of the devices view on a device and gives the row of a parameter.
 local record Devices
   row: integer
   rows: function(self: Devices): {DeviceRow}
+  show: function(self: Devices, device: integer, key?: string): integer
 end
 
 -- No module requires this one, so it sees the global `paw` with its types.
@@ -182,12 +184,13 @@ paw.ui.locator(
   }
 )
 
--- The device panel: the devices of the cursor's part and their parameters.
-local devices = paw.ui.views:get("devices") as Devices
+-- The inspector: the node under the cursor of the devices view.
+local devices = paw.ui.views:get("inspector") as Devices
 local function device_row(device: integer, param: string): integer
   for i, row in ipairs(devices:rows()) do
     if
-      row.device.id == device
+      row.device
+      and row.device.id == device
       and not row.picture
       and ((param == nil and not row.param) or (row.param and row.param.key == param))
     then
@@ -196,11 +199,11 @@ local function device_row(device: integer, param: string): integer
   end
 end
 paw.ui.locator(
-  "devices",
+  "inspector",
   {
     at = function(): Location
       local row = devices:rows()[devices.row or 1]
-      if not row then
+      if not (row and row.device) then
         local id = paw.cursor.part_id()
         return id and A.location(A.part(id)) or nil
       end
@@ -221,15 +224,16 @@ paw.ui.locator(
       if p.part ~= paw.cursor.part_id() then
         return nil
       end
-      local i = device_row(p.device, p.param)
-      return i and {i} or nil
+      -- A device that the inspector does not show is in the part: its
+      -- place is the start, where `go` shows it.
+      return {device_row(p.device, p.param) or 0}
     end,
     go = function(location: Location)
       local p = A.parse(location.uri)
       if p.part ~= paw.cursor.part_id() then
         paw.cursor.set_part(p.part)
       end
-      devices.row = device_row(p.device, p.param) or devices.row
+      devices:show(p.device, p.param)
       api.ui_redraw()
     end,
   }

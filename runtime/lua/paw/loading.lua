@@ -186,7 +186,7 @@ function M.toggle(device)
 end
 
 paw.command("device.offline", function()
-  local device = paw.ui.views:get("devices") and paw.ui.views:get("devices"):selected()
+  local device = paw.ui.views:get("inspector") and paw.ui.views:get("inspector"):selected()
   if not device then return paw.notify("select a device in the device panel first", "warn") end
   M.toggle(device)
 end, { desc = "Set the selected device offline (not run, kept with its state), or back online" })

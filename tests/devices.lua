@@ -213,7 +213,7 @@ test("devices: the device panel draws what the effects are doing", function()
   paw.flush()
   paw.cursor.set_part(t)
   paw.ui.show("devices")
-  local screen = table.concat(api.ui_snapshot(140, 160), "\n")
+  local screen = table.concat(api.ui_snapshot(140, 320), "\n")
   eq(screen:find("+18 dB", 1, true) ~= nil, true, "the equaliser's curve with its scale")
   eq(screen:find("1k", 1, true) ~= nil, true, "and its frequencies")
   eq(screen:find("GR", 1, true) ~= nil, true, "the compressor's gain reduction")
@@ -236,7 +236,7 @@ test("devices: :eq, :tuner and :loudness open the effects' windows", function()
     names[w.name] = w.title
   end
   eq(names.eq_window, "EQ · Vox", "its window is open")
-  eq(paw.ui.focused, "devices", "the keyboard stays in the device panel")
+  eq(paw.ui.focused, "inspector", "the keyboard goes to the inspector")
   local painted = paw.canvas.paint("eq_window", 900, 420)
   local texts = {}
   for _, op in ipairs(painted.ops) do

@@ -1,23 +1,32 @@
--- The device panel: the cursor part's device chain and every parameter,
--- then where the part's sound goes. One view for both frontends: its
--- parts are roles (paw/roles/widgets.lua) and hit regions, which a window
--- paints as widgets and the pointer works through `view.gestures`
--- (paw/views/panels_mouse.lua) in a terminal and in a window alike.
+-- The inspector: the window under the devices view (paw/views/devices.tl).
+-- It shows the node under the cursor of the graph. On a device, that
+-- device and the devices in series with it, each with every parameter: on
+-- a part with no splits, the whole chain. On a split or a rack, its macros
+-- and links (its macro face). On a branch, its gain and pan, then its
+-- devices. Then where the part's sound goes. The row of the inspector and
+-- the cursor of the graph go together: a row on another device puts the
+-- cursor of the graph on it. One
+-- view for both frontends: its parts are roles (paw/roles/widgets.lua) and
+-- hit regions, which a window paints as widgets and the pointer works
+-- through `view.gestures` (paw/views/panels_mouse.lua) in a terminal and
+-- in a window alike.
+--
+-- Lua and not Teal for now: the keys of the inspector (paw/device_rows.lua)
+-- and the modes of the graph change it next, and the port goes with them.
 local api = paw.api
 local util = paw.util
+local graph = paw.ui.views:get("devices")
 
--- `pin` is the part a window shows whatever the cursor is on, or nil to
--- follow the cursor. Each window of the panel has its own row, scroll and
--- pin: two panels show the devices of two parts. `row_part` is the part
--- the row was chosen on.
+-- Each window of the inspector has its own row and scroll. `row_node` is
+-- the part and the series of the graph that the rows show, and `seen` the
+-- node of the graph that the row was put on last.
 local view = {
   row = 1,
   scroll = 0,
-  pin = nil,
-  window_state = { "row", "scroll", "geometry", "pin", "row_part" },
+  window_state = { "row", "scroll", "geometry", "row_node", "seen" },
   window_fresh = { "geometry" },
 }
-paw.seats.fields("devices", view, { "row", "scroll", "geometry", "pin", "row_part" }, { row = 1, scroll = 0 })
+paw.seats.fields("inspector", view, { "row", "scroll", "geometry", "row_node", "seen" }, { row = 1, scroll = 0 })
 -- A parameter that a lane moves is drawn bound to its live value: a
 -- window moves it as the song plays with no new scene.
 view.live_roles = { "param" }
@@ -33,43 +42,78 @@ local pictures = require("paw.views.device_pictures")
 -- read each other's again.
 local cache = { revision = -1, parts = {} }
 
---- The panel as a flat list of rows: a device heading, then its parameters.
-local function rows_for(part_id)
+--- The rows of a device: its heading, its picture, then its parameters.
+local function device_rows(rows, device)
+  rows[#rows + 1] = { device = device }
+  local picture = device.format == "builtin" and pictures[device.kind]
+  if picture and not device.missing then
+    for line = 1, picture.rows do
+      rows[#rows + 1] = { device = device, picture = picture, line = line }
+    end
+  end
+  -- The host's wet/dry mix and output gain come last, after the device's own.
+  for _, param in ipairs(device.param_info) do
+    rows[#rows + 1] =
+      { device = device, param = param, value = device.params[param.key], host = paw.fx.host_params[param.key] }
+  end
+end
+
+--- The rows of a split or a rack: its heading, a row for each macro (its
+--- macro face), and a row for each link of a macro to a parameter.
+local function container_rows(rows, place)
+  local split = place.chain_split
+  rows[#rows + 1] = { container = place }
+  for _, macro in ipairs(split.macros or {}) do
+    rows[#rows + 1] = { container = place, macro = macro }
+  end
+  for _, link in ipairs(split.links or {}) do
+    rows[#rows + 1] = { container = place, link = link }
+  end
+end
+
+--- The rows of a branch: its heading, its gain and its pan.
+local function branch_rows(rows, place, chain)
+  local found = chain and paw.chain.find(chain, place.node.id)
+  local branch = found and found.branch
+  if not branch then return end
+  rows[#rows + 1] = { branch = branch, place = place }
+  rows[#rows + 1] = { branch = branch, place = place, field = "gain" }
+  rows[#rows + 1] = { branch = branch, place = place, field = "pan" }
+end
+
+--- What the rows of the node at `place` show: a key that is the same for
+--- each node of one series.
+local function series_key(part_id, place)
+  if not place then return tostring(part_id) .. ":" end
+  if place.chain_split then return tostring(part_id) .. ":split:" .. place.node.id end
+  return tostring(part_id) .. ":" .. tostring(place.branch or "top")
+end
+
+--- The inspector as a flat list of rows, for the node `place` of the
+--- graph of the part `part_id`.
+local function rows_for(part_id, place)
   local edits = api.project_get("edits")
   if cache.revision ~= paw.frontend.revision or cache.edits ~= edits then
     cache = { revision = paw.frontend.revision, edits = edits, parts = {} }
   end
-  local kept = cache.parts[part_id or false]
+  local key = series_key(part_id, place)
+  local kept = cache.parts[key]
   if kept then return kept end
   local rows = {}
-  for _, id in ipairs(part_id and api.part_get(part_id).devices or {}) do
-    local device = api.device_get(id)
-    rows[#rows + 1] = { device = device }
-    local picture = device.format == "builtin" and pictures[device.kind]
-    if picture and not device.missing then
-      for line = 1, picture.rows do
-        rows[#rows + 1] = { device = device, picture = picture, line = line }
-      end
-    end
-    -- The host's wet/dry mix and output gain come last, after the device's own.
-    for _, param in ipairs(device.param_info) do
-      rows[#rows + 1] =
-        { device = device, param = param, value = device.params[param.key], host = paw.fx.host_params[param.key] }
+  if place and place.chain_split then
+    container_rows(rows, place)
+  elseif place then
+    if not place.device then branch_rows(rows, place, paw.chain.get({ part = part_id })) end
+    for _, id in ipairs(graph:series(place)) do
+      device_rows(rows, api.device_get(id))
     end
   end
-  cache.parts[part_id or false] = rows
+  cache.parts[key] = rows
   return rows
 end
 
---- The pinned part of the window, if it is still in the project.
-local function pinned(self)
-  local id = self.pin
-  if id and id ~= 0 and pcall(api.part_get, id) then return id end
-end
-
---- The id of the part whose devices the window shows: its pinned part,
---- else the cursor's.
-function view:part_id() return pinned(self) or paw.cursor.part_id() end
+--- The id of the part whose devices the inspector shows: the graph's.
+function view:part_id() return graph:part_id() end
 
 --- The part the window shows, as a `paw.Part`, or nil.
 function view:part()
@@ -77,81 +121,69 @@ function view:part()
   return id and paw.part(id) or nil
 end
 
+--- The node of the graph that the inspector shows, or nil.
+function view:node()
+  if not self:part_id() then return nil end
+  return graph:node()
+end
+
+--- The row of the heading of the device `id` in `rows`, or nil.
+local function heading_of(rows, id)
+  for i, row in ipairs(rows) do
+    if row.device and row.device.id == id and not row.param and not row.picture then return i end
+  end
+end
+
 function view:rows()
   local id = self:part_id()
-  -- Another part: the cursor starts again on its first device, not on
-  -- the row that it had in the chain before.
-  if self.row_part ~= id then
-    self.row_part, self.row, self.scroll = id, 1, 0
+  local place = self:node()
+  -- Another series: the cursor starts again on its first row.
+  local key = series_key(id, place)
+  if self.row_node ~= key then
+    self.row_node, self.row, self.scroll, self.seen = key, 1, 0, nil
   end
-  return rows_for(id)
+  local rows = rows_for(id, place)
+  local cursor = place and place.node.id
+  local row = rows[self.row]
+  if cursor ~= self.seen then
+    -- The cursor of the graph moved: the row goes to its device.
+    self.seen = cursor
+    self.row = place and place.device and heading_of(rows, cursor) or self.row
+  elseif row and row.device and row.device.id ~= cursor then
+    -- The row moved to another device: the cursor of the graph goes there.
+    graph.cursor, self.seen = row.device.id, row.device.id
+  end
+  return rows
 end
 
--- Another project can have a part with the same id: its cursor starts
--- again on the first device too.
-paw.on("project.loaded", function() view.row_part = nil end)
+--- Show the device `device` in the inspector, on the row of its parameter
+--- `key` when one is given: the cursor of the graph goes to the device.
+--- Gives the row.
+function view:show(device, key)
+  graph:go(device)
+  local rows = self:rows()
+  for i, row in ipairs(rows) do
+    if key and row.param and row.device.id == device and row.param.key == key then
+      self.row = i
+      return i
+    end
+  end
+  self.row = heading_of(rows, device) or 1
+  return self.row
+end
 
---- Its title where a window shows one over it: the part it shows.
+-- Another project can have a node with the same id: its cursor starts
+-- again on the first row too.
+paw.on("project.loaded", function() view.row_node = nil end)
+
+--- Its title where a window shows one over it: the node it shows.
 function view:title_of()
-  local part = self:part()
-  if not part then return "Devices" end
-  local n = #api.part_get(part.id).devices
-  return "Devices · "
-    .. part.name
-    .. (pinned(self) and " (pinned)" or "")
-    .. (n > 0 and " · " .. n .. (n == 1 and " device" or " devices") or "")
+  local place = self:node()
+  return place and ("Inspector · " .. place.node.name) or "Inspector"
 end
 
---- The part that a name stands for: its number, `paw://part/3`, or its name.
-local function part_named(target)
-  local id = tonumber(target) or tonumber(tostring(target):match("^paw://part/(%d+)"))
-  if id then return id ~= 0 and pcall(api.part_get, id) and id or nil end
-  for _, other in ipairs(api.part_list()) do
-    if api.part_get(other, "name") == target then return other end
-  end
-end
-view.part_named = part_named
-
---- Pin the window to a part (`:e devices://Bass`, `:vs devices://3`).
-function view:open_target(target)
-  local id = part_named(target)
-  if not id then return false, "no part `" .. tostring(target) .. "`" end
-  self.pin, self.row, self.scroll = id, 1, 0
-end
-
---- What a saved layout keeps of the window: the number of its pinned part.
-function view:window_target() return pinned(self) end
-
---- Pin the window to `part` (an id), or with nil follow the cursor again.
---- It says what it did.
-function view:set_pin(part)
-  self.pin, self.row, self.scroll = part, 1, 0
-  if part then
-    paw.notify(
-      "the device panel stays on " .. api.part_get(part, "name") .. "; `:devices.pin` again follows the cursor"
-    )
-  else
-    paw.notify("the device panel follows the cursor part")
-  end
-  api.ui_redraw()
-end
-
---- Keys and commands typed in a pinned window act on its part: the part
---- of "the cursor" is the window's while that window has the keyboard, or
---- while paw draws it.
-paw.cursor.lens = function()
-  local u = paw.ui
-  local L = paw.layout
-  local win = u.drawing_win
-  if win then
-    if win.view ~= "devices" or L.bound("devices") ~= win then return nil end
-  else
-    if u.focused ~= "devices" or u.float then return nil end
-    win = L.current()
-    if not (win and win.view == "devices" and L.bound("devices") == win) then return nil end
-  end
-  return pinned(view)
-end
+--- Pin the devices view to a part (an id), or with nil follow the cursor.
+function view:set_pin(part) graph:set_pin(part) end
 
 -- Automation ------------------------------------------------------------------------------
 
@@ -283,9 +315,13 @@ local function heading(buf, y, w, index, d, devices, chosen)
     )
     after = after + 2
   end
-  -- What modules mark on the device (`paw.ui.layer("devices", "device", ...)`):
+  -- What modules mark on the device (`paw.ui.layer("inspector", "device", ...)`):
   -- from `x`, `width` columns up to its on/off chip.
-  paw.ui.paint("devices", "device", { buf = buf, x = after, y = y, width = math.max(0, w - 6 - after), device = d.id })
+  paw.ui.paint(
+    "inspector",
+    "device",
+    { buf = buf, x = after, y = y, width = math.max(0, w - 6 - after), device = d.id }
+  )
   -- A device that is not running says so, and what brings it back.
   local status = d.status
   local mark = status == "loading" and { "loading", "Warn", nil, "circle" }
@@ -387,7 +423,7 @@ local function param_row(buf, y, lay, index, row, chosen, lanes, binds)
     tone = chosen and "text" or row.host and "text_3" or "text_2",
     hit = { kind = "row", index = index },
   })
-  paw.ui.paint("devices", "param", { buf = buf, x = 1, y = y, width = buf.width, device = d.id, param = p.key })
+  paw.ui.paint("inspector", "param", { buf = buf, x = 1, y = y, width = buf.width, device = d.id, param = p.key })
   local lane = lanes[d.id] and lanes[d.id][p.key]
   local fraction, text = shown_value(p, row.value, lane)
   local bind = lane and ("param:" .. d.id .. ":" .. p.key) or nil
@@ -498,19 +534,84 @@ local function footer(buf, y, w, part, draw)
   return n
 end
 
+--- A row of a split, a rack or a branch: its heading, a macro, a link,
+--- or the gain or the pan of a branch.
+local function chain_row(buf, y, w, lay, index, row, chosen)
+  buf:hit(0, y, w, 1, { kind = "row", index = index })
+  local function slider(name, fraction, text, label)
+    buf:mark("label", 2, y, lay.name_w, 1, {
+      text = name,
+      style = chosen and "Bright" or "Param",
+      font = "sans",
+      capital = true,
+      tone = chosen and "text" or "text_2",
+    })
+    buf:mark("param", lay.bar_at, y, lay.right - lay.bar_at, 1, {
+      fraction = fraction,
+      text = text,
+      bar = lay.bar,
+      style = chosen and "ParamBar" or "ParamBarDim",
+      off_style = "ParamBarOff",
+      value_style = chosen and "Bright" or "ParamValue",
+      label = label,
+    })
+  end
+  if row.macro then
+    local m = row.macro
+    slider(m.name, m.value, string.format("%d %%", math.floor(m.value * 100 + 0.5)), "macro " .. m.name)
+  elseif row.link then
+    local link = row.link
+    local d = api.device_get(link.device)
+    local macro = paw.chain.find(row.container.chain_split and { root = row.container.chain_split }, link.source)
+    local text = string.format(
+      "↳ %s: %s.%s %+d %%",
+      macro and macro.macro and macro.macro.name or "?",
+      d.name,
+      link.param,
+      math.floor(link.depth * 100 + 0.5)
+    )
+    buf:text(2, y, util.fit(text, math.max(1, w - 3)), "Dim")
+  elseif row.field == "gain" then
+    local gain = row.branch.gain or 0
+    slider(
+      "gain",
+      util.clamp((gain + 60) / 72, 0, 1),
+      string.format("%.1f dB", gain),
+      "gain of " .. row.place.node.name
+    )
+  elseif row.field == "pan" then
+    local pan = row.branch.pan or 0
+    slider("pan", (pan + 1) / 2, string.format("%d", math.floor(pan * 100 + 0.5)), "pan of " .. row.place.node.name)
+  else
+    local place = row.container or row.place
+    local node = place.node
+    local kind = row.container and (node.kind == "rack" and "rack" or place.chain_split.kind .. " split") or "branch"
+    local words = row.container
+        and string.format("%s · %d device%s", kind, node.devices, node.devices == 1 and "" or "s")
+      or kind
+    buf:mark("band", 0, y, w, 1, { selected = chosen or nil })
+    buf:text(
+      1,
+      y,
+      paw.draw.g.open .. " " .. util.fit(node.name, math.max(1, w - 4 - api.str_width(words) - 2)),
+      "DeviceName"
+    )
+    buf:text(math.max(2, w - 1 - api.str_width(words)), y, words, "DeviceFormat")
+    if node.warn then buf:text(1, y, paw.draw.g.open, "Warn") end
+  end
+end
+
 function view:render(buf, ctx)
   local g = paw.draw.g
   local part = self:part()
   local rows = self:rows()
-  local devices = 0
-  for _, row in ipairs(rows) do
-    if not row.param and not row.picture then devices = devices + 1 end
-  end
+  local devices = part and #api.part_get(part.id).devices or 0
+  local place = self:node()
   local inner = paw.ui.titlebar(buf, {
-    name = "Devices",
-    context = part and (part.name .. (pinned(self) and " · pinned" or "")) or nil,
+    name = "Inspector",
+    context = place and place.node.name or nil,
     focused = ctx.focused,
-    right = devices > 0 and tostring(devices) or nil,
+    right = place and place.node.warn and "plays branch 1" or nil,
   })
   local w, h = inner.width, inner.height
   -- The bound parameters of this window, kept apart from its other windows'.
@@ -558,6 +659,8 @@ function view:render(buf, ctx)
         local box = inner:sub(2, y - (row.line - 1), math.max(1, w - 3), row.picture.rows)
         row.picture.draw(box, d, chosen)
       end
+    elseif not d then
+      chain_row(inner, y, w, lay, index, row, chosen)
     elseif not row.param then
       heading(inner, y, w, index, d, devices, chosen)
     else
@@ -574,6 +677,21 @@ function view:adjust(steps)
   local row = self:rows()[self.row]
   if not row then return end
   if row.picture then return end
+  local h = { part = self:part_id() }
+  -- A macro moves by a step of its range; a branch's gain by a dB, its pan
+  -- by a step of 1 %.
+  if row.macro then
+    paw.chain.set(h, row.macro.id, { value = util.clamp(row.macro.value + steps / 100, 0, 1) })
+    return
+  elseif row.field == "gain" then
+    paw.chain.set(h, row.branch.id, { gain = (row.branch.gain or 0) + steps })
+    return
+  elseif row.field == "pan" then
+    paw.chain.set(h, row.branch.id, { pan = util.clamp((row.branch.pan or 0) + steps / 100, -1, 1) })
+    return
+  elseif not row.device then
+    return
+  end
   -- On the device's own line: its wet/dry mix.
   if not row.param then
     local wet = api.device_get(row.device.id).params.fx_wet
@@ -591,8 +709,8 @@ function view.value(row) return api.device_get(row.device.id).params[row.param.k
 
 function view:selected()
   local row = self:rows()[self.row]
-  return row and paw.device(row.device.id), row
+  return row and row.device and paw.device(row.device.id) or nil, row
 end
 
-paw.ui.view("devices", view)
+paw.ui.view("inspector", view)
 return view

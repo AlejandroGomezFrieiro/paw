@@ -22,7 +22,7 @@ You can also do the course without an install. [The course in your browser](in-t
 | 6 | [The same grammar on notes](06-grammar-notes.md) | We used the grammar of lesson 5 on notes: `dw`, `.`, `>in`, `yie` `p`, `cin`, `dd` and `/`. |
 | 7 | [Visual mode: select, then act](07-visual.md) | We selected with `v`, `V` and motions, and then used `x`, `y`, `~`, or a count and `<C-a>`. We also used `gv` to select again, and we used visual mode in the piano roll. |
 | 8 | [Yank, paste, registers and macros](08-registers.md) | We used `yic` and `p` with counts, and we used named registers, `:registers` and `2u`. Then we recorded a macro with `qq` and played it with `@q` and `@@`. |
-| 9 | [Devices, parameters and plugins](09-devices.md) | We used the device panel to select and change parameters. We added and bypassed a device, and we found where plugin windows open. |
+| 9 | [Devices, parameters and plugins](09-devices.md) | We used the devices view and the inspector to select and change parameters. We added and bypassed a device, and we found where plugin windows open. |
 | 10 | [The mix: faders, pan, buses, sends, automation](10-mixing.md) | We used the faders, pan, solo and mute of the mixer. We made a bus with `:part.output`, and we added a send and volume automation with `A`. |
 | 11 | [Loops, marks and jumps](11-loops.md) | We set the loop with `gL`, `glic` and `gl2W`, and the click with `gm`. We used `/` to find clips, and `ma`, `'a` and `''` to jump. |
 | 12 | [Record audio and MIDI](12-recording.md) | We selected an input with `I`, armed the part with `r`, recorded with `R` and stopped with `<Esc>`, and we made an audio take and a MIDI take. |

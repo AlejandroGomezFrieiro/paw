@@ -910,7 +910,7 @@ test("a send in a mixer strip drags sideways, and a click on a device picks it i
   near(a:get().sends[1].level, -3, 1e-9, "three cells, three decibels")
   x, y = at(s.x + 2, s.devices)
   click(x, y)
-  eq(paw.ui.focused, "devices", "the device panel has the keyboard")
+  eq(paw.ui.focused, "inspector", "the device panel has the keyboard")
 end)
 
 test("a right click on a mixer strip opens the part's menu", function()
@@ -932,9 +932,9 @@ test(
     shot()
     local rect
     for _, r in ipairs(paw.ui.rects) do
-      if r.name == "devices" then rect = r end
+      if r.name == "inspector" then rect = r end
     end
-    local panel = paw.ui.views:get("devices")
+    local panel = paw.ui.views:get("inspector")
     -- The " on " chip at the right of the device's line.
     local x, y = rect.x + rect.w - 4, rect.y + 1
     click(x, y)

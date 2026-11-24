@@ -1237,7 +1237,7 @@ test("a click on a mixer strip's insert picks that device in the device panel", 
   paw.cursor.set_part(b)
   act.pick_device(a.id, 2)
   eq(paw.cursor.part_id(), a.id, "the strip's part is the cursor's")
-  eq(paw.ui.focused, "devices", "the device panel has the keyboard")
+  eq(paw.ui.focused, "inspector", "the device panel has the keyboard")
   local state = paw.frontend.state(-1)
   eq(state.modal.device, 2, "on the second device")
   eq(state.modal.param, 0, "on its own line")

@@ -937,7 +937,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.device_line(info)`: The line that lists a device: a star for a favorite, then its name and vendor. Then the extension that it came with, if any, its format, and if it is an instrument or an effect.
 - `paw.fx.device_list(wanted)`: Every device that can be added: favourites first, then the ones used last, newest first, then the rest (the kind `wanted` first, see `preferred`; built-in ones first, by name).
 - `paw.fx.factory_presets(device)`: The device's own presets: a plugin's, or a built-in device's from `paw.fx.factory`. `{ name, category, id }`, in the order the plugin gives.
-- `paw.fx.focus_param(id, key)`: Put the device panel's row on one parameter of a device.
+- `paw.fx.focus_param(id, key)`: Put the inspector's row on one parameter of a device.
 - `paw.fx.hide_param(device, key)`: Take a parameter off the device's card in the window.
 - `paw.fx.interactive()`: True if a person uses paw: a terminal UI is attached, or a graphical frontend asked for the state recently. Scripts (`-l`) and a kernel that nobody looks at do not count.
 - `paw.fx.is_favourite(kind)`: True if a kind of device is a favorite.
@@ -946,7 +946,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.load(device, preset)`: Load a preset into the device by name (the user's first), or one from `paw.fx.presets(device)`. One undo step.
 - `paw.fx.note_used(kind, query)`: Note that a device was chosen, after `query` was typed if anything.
 - `paw.fx.pick(device)`: Choose a preset of the device in a picker and load it.
-- `paw.fx.pick_param(device)`: Select one of the parameters of the device: type a part of its name. It shows first on the card of the window, and it is selected in the device panel.
+- `paw.fx.pick_param(device)`: Select one of the parameters of the device: type a part of its name. It shows first on the card of the window, and it is selected in the inspector.
 - `paw.fx.place(part, kind, opts)`: The first half of `add`: the device on the part, set to the preset new ones start from. What the device picker tries out before it is chosen.
 - `paw.fx.preferred(part_id)`: The kind of device that a part probably needs next. "instrument" is for a part that makes sound from MIDI and has no instrument yet. "effect" is for the other parts (a part with an instrument, the master, a part of audio).
 - `paw.fx.presets(device)`: Every preset of the device: the user's first, then the factory's.
@@ -955,7 +955,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.reload_library()`: Forget what was read, for tests that change the file underneath.
 - `paw.fx.save(device, name)`: Save the device as it is now as a user preset. Returns the file's path.
 - `paw.fx.search(query, limit, wanted)`: The devices that match `query`, best first, at most `limit`. The "Add a device" box of the window shows this list.
-- `paw.fx.select(id)`: Put the device panel's row on a device of the cursor part.
+- `paw.fx.select(id)`: Put the cursor of the devices view, and so the inspector, on a device of the cursor part.
 - `paw.fx.set_default(kind, name)`: Mark the preset that new instances of `kind` start from, or none.
 - `paw.fx.set_gain(device, db)`: A device's own gain after its effect, in dB.
 - `paw.fx.set_wet(device, percent)`: How much of a device's effect is heard, in percent.
@@ -963,7 +963,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.show_param(device, key)`: Show a parameter first on the card of the device. The device keeps this setting.
 - `paw.fx.shown(device)`: The keys of the parameters the user chose to show for a device.
 - `paw.fx.step(device, step)`: Load the next (`step` 1) or previous (-1) preset of the device's list.
-- `paw.fx.target()`: The device the preset commands act on: the one selected in the device panel (its row stays where it was when another view has the keys).
+- `paw.fx.target()`: The device the preset commands act on: the one selected in the inspector (its row stays where it was when another view has the keys).
 - `paw.fx.toggle_favourite(kind)`: Make a kind of device a favorite, or not. Returns true if it is a favorite now.
 - `paw.fx.user_presets(kind)`: The user's presets for a kind of device, by name: `{ name, path }`.
 
@@ -2475,7 +2475,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.focus(name)`: Give a view the keyboard, and show it first if it is hidden. The window that contains it gets the keys, and paw goes to the tab of that window.
 - `paw.ui.focus_next(step)`: Focus the next (or with -1 the previous) window that takes the keyboard.
 - `paw.ui.frame_ms()`: How many milliseconds at least go between two frames while something moves: 1000 / `paw.opt.fps`, as the option is now.
-- `paw.ui.go(location)`: Go to a location in the view that shows it best, and focus that view. The piano roll shows notes, the device panel shows devices and parameters, and the arrange view shows parts and time.
+- `paw.ui.go(location)`: Go to a location in the view that shows it best, and focus that view. The piano roll shows notes, the inspector shows devices and parameters, and the arrange view shows parts and time.
 - `paw.ui.hide(name)`: Close the window of a view, in each tab. The view keeps its place for the next time. The last window of a tab does not close: it goes on showing the view, as `Ctrl-w c` leaves it.
 - `paw.ui.hl(name, def)`: Define a highlight group: a table of `fg`, `bg`, `bold`, `dim`, `italic`, `underline`, `reverse`, `strike`, or the name of a group to follow. Colors are `#rrggbb`, or a number for one of the 256 colors of the terminal. On a terminal without 24-bit color, each `#rrggbb` shows as the nearest of the 256.
 - `paw.ui.hover(title, lines)`: Show lines next to the cursor of the focused window, in a small float that leaves the keys where they are: the next key closes it and does what it does. Each line is a string or `{ text = ..., style = ... }`.

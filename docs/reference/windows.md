@@ -4,7 +4,7 @@
 
 The screen has the same layout as Neovim, built from buffers, windows and tabs.
 
-- A buffer is a thing to show and edit. The views are buffers, namely the arrange view (`arrange`), the piano roll (`roll`), the mixer (`mixer`) and the device panel (`devices`). The event list, help and the view of an extension (`notation`, `drums`, `utau`, the session view `session` of the clip launcher and more) are buffers too.
+- A buffer is a thing to show and edit. The views are buffers, namely the arrange view (`arrange`), the piano roll (`roll`), the mixer (`mixer`), the devices view (`devices`) and the inspector under it (`inspector`). The event list, help and the view of an extension (`notation`, `drums`, `utau`, the session view `session` of the clip launcher and more) are buffers too.
 - A window shows one buffer.
 - A tab holds windows, split side by side and one above the other.
 
@@ -50,7 +50,7 @@ in the new half. `Ctrl-w h` and `Ctrl-w l` go between the two. Each window
 takes its own keys, and a clip that you open shows in that window.
 
 - The arrange view, the piano roll, the notation view, the mixer, the device panel and the session view of the clip launcher show in any number of windows. Each window has its own state: the open clip, the cursor, the scroll and the zoom of the view. The edit cursor of the arrange view (the part and the time) is one for all the windows.
-- Each device panel follows the cursor part, or shows the part that it is pinned to (`devices://Bass`, `\p`). See [Two panels on two parts](device-panel.md#two-panels-on-two-parts).
+- Each devices view follows the cursor part, or shows the part that it is pinned to (`devices://Bass`, `\p`). When the devices view shows, the inspector shows in a window under it, and when it hides, the inspector hides too. See [Two panels on two parts](device-panel.md#two-panels-on-two-parts).
 - The views of extensions without a state for each window show in one window at a time, so if you show one of them in a different window, it moves there with a message.
 - A panel window closed with `Ctrl-w c` keeps its place, and the panel returns there. A second window of a view closes for good.
 - New windows go to the right of and below the window that you split. `:set splitright!` and `:set splitbelow!` put them to the left and above.
@@ -66,7 +66,7 @@ A view that opens a thing of its own takes a name of the form
 | `roll://riff` | The piano roll on the clip named riff (the first in the order of the parts). |
 | `roll://7`, `roll://paw://clip/7` | The piano roll on clip 7. |
 | `notation://riff` | The notation view on the clip riff (the notation extension). |
-| `devices://Bass`, `devices://3` | The device panel, pinned to the part Bass, or to part 3. |
+| `devices://Bass`, `devices://3` | The devices view, pinned to the part Bass, or to part 3. |
 
 A name that is not a clip or a part shows a message, and the window shows the view as it was.
 
@@ -92,7 +92,7 @@ A name that is not a clip or a part shows a message, and the window shows the vi
 | `Ctrl-w H` `Ctrl-w J` `Ctrl-w K` `Ctrl-w L` | Move the window to the far left, bottom, top, right. |
 | `Ctrl-w x` | Exchanges the window with the next. |
 | `Ctrl-w r` `Ctrl-w R` | Rotate the windows of the row or column. |
-| `Ctrl-w +` `Ctrl-w -` `Ctrl-w <` `Ctrl-w >` | Resize the window. A count goes further. In the device panel, `<` `>` change `devices_width`. |
+| `Ctrl-w +` `Ctrl-w -` `Ctrl-w <` `Ctrl-w >` | Resize the window. A count goes further. In the devices view and the inspector, `<` `>` change `devices_width`. |
 | `Ctrl-w =` | Gives the windows equal sizes. |
 | `Ctrl-w _` `Ctrl-w \|` | Gives the window the whole tab. Again: puts the other windows back. |
 | `:resize 20`, `:resize +5`, `:vertical resize 40` | Set the height or the width of the window. |

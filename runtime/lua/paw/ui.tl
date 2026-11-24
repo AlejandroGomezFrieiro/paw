@@ -700,7 +700,7 @@ local function place(node: Node, x: integer, y: integer, w: integer, h: integer,
   local children: {Node} = {}
   for _, child in ipairs(node) do
     if L.shown(child) then
-      if child.float_below and screen_w < child.float_below and child.view then
+      if child.float_below and screen_w < child.float_below then
         -- Too narrow to stand beside the others: drawn over them instead.
         out.floating[#out.floating + 1] = child
       else
@@ -771,7 +771,15 @@ function M.arrange(width?: integer, height?: integer): Arrangement
   -- top part of the screen.
   for _, node in ipairs(out.floating) do
     local w = math.min(node.size or 40, width - 4)
-    out[#out + 1] = { name = node.view, win = node.id, x = width - w, y = top, w = w, h = math.max(1, height - top - 2), after = "box" }
+    local h = math.max(1, height - top - 2)
+    if node.view then
+      out[#out + 1] = { name = node.view, win = node.id, x = width - w, y = top, w = w, h = h, after = "box" }
+    else
+      -- A split that floats: its windows in their places, each in a box.
+      local first = #out + 1
+      place(node, width - w, top, w, h, out, math.huge)
+      for i = first, #out do out[i].after = "box" end
+    end
   end
   out.floating = nil
   out.tabline = top > 0 and { y = 0, w = width } or nil
@@ -2117,10 +2125,10 @@ function M.location(view?: string, win?: Node): contracts.Location
 end
 
 --- Go to a location in the view that shows it best, and focus that view.
---- The piano roll shows notes, the device panel shows devices and
+--- The piano roll shows notes, the inspector shows devices and
 --- parameters, and the arrange view shows parts and time.
 function M.go(location: contracts.Location)
-  for _, name in ipairs({ "pianoroll", "devices", "arrange", "mixer" }) do
+  for _, name in ipairs({ "pianoroll", "inspector", "arrange", "mixer" }) do
     local loc = M.locators[name]
     -- A window of the view that shows the place already has it first.
     for _, win in ipairs(loc and L.windows(M.layout) or {}) do

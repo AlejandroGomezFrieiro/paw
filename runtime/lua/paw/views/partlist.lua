@@ -676,14 +676,8 @@ tb.kind("devices", {
     local part = chain_part(ctx)
     if part ~= paw.master.id then paw.cursor.set_part(part) end
     paw.ui.show("devices")
-    local panel = paw.ui.views:get("devices")
-    for i, row in ipairs(panel:rows()) do
-      if row.device and row.device.id == line.id and not row.param then
-        panel.row = i
-        break
-      end
-    end
-    paw.ui.focus("devices")
+    paw.ui.views:get("inspector"):show(line.id)
+    paw.ui.focus("inspector")
   end,
   plan = function(ch, ctx)
     local part = chain_part(ctx)

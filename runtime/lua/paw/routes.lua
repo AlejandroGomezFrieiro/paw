@@ -274,7 +274,7 @@ function M.setup()
     )
   end, { desc = "Spread the device's output pairs over new parts, named after them and grouped with its part" })
 
-  paw.keymap.set("O", "device.output", { view = "devices", desc = "Route the device's further output pairs" })
+  paw.keymap.set("O", "device.output", { view = "inspector", desc = "Route the device's further output pairs" })
 
   command("part.midi_out", function(ctx)
     local part = paw.cursor.part()

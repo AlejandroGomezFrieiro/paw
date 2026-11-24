@@ -71,7 +71,7 @@ paw.ui.layer("mixer", "strip_foot", "annotations", 40, function(c)
     c.buf:text(c.x + c.width - api.str_width(text), c.y, text, "Annotation")
   end
 end)
-paw.ui.layer("devices", "device", "annotations", 40, function(c)
+paw.ui.layer("inspector", "device", "annotations", 40, function(c)
   if not next(store) then return end
   local list = M.get(A.device(c.device), true)
   if #list > 0 and c.width > #list[1].label + 2 then

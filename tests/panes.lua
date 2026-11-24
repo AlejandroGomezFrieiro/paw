@@ -74,7 +74,7 @@ test(
     eq(by.arrange.x + by.arrange.w, by.devices.x, "the arrange view beside it")
     eq(by.arrange.h, H, "the whole height")
     eq(focused and focused.view, "arrange", "the arrange view has the keyboard")
-    eq(#P.state().borders, 1, "one border between them")
+    eq(#P.state().borders, 2, "a border between them, and one over the inspector")
     eq(P.state().tabs[2], nil, "one tab")
   end
 )

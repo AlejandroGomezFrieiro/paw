@@ -148,7 +148,7 @@ test("Escape cancels and stays in every view", function()
   end)
   stays("devices", function()
     paw.ui.show("devices")
-    paw.ui.focus("devices")
+    paw.ui.focus("inspector")
   end)
   eq(table.concat(moved, ", "), "", "views Escape left")
   -- A second Escape soon after says how to leave.
@@ -246,13 +246,13 @@ local function panel()
   api.undo_checkpoint()
   paw.cursor.set_part(t)
   paw.ui.show("devices")
-  paw.ui.focus("devices")
-  paw.ui.views:get("devices").row = 1
+  paw.ui.focus("inspector")
+  paw.ui.views:get("inspector").row = 1
   return t, synth, delay
 end
 
 local function param_row(device, key)
-  for i, row in ipairs(paw.ui.views:get("devices"):rows()) do
+  for i, row in ipairs(paw.ui.views:get("inspector"):rows()) do
     if row.param and row.device.id == device.id and row.param.key == key then return i end
   end
 end
@@ -260,7 +260,7 @@ end
 test("in the device panel w b go from device to device, + - change a parameter, gc bypasses, M r the part", function()
   local t, synth, delay = panel()
   keys("w")
-  local device, row = paw.ui.views:get("devices"):selected()
+  local device, row = paw.ui.views:get("inspector"):selected()
   eq(device.id == delay.id and not row.param, true, "w is the next device's heading")
   keys("gcc")
   eq(api.device_get(delay.id).bypass, true, "gcc bypasses it")
@@ -271,8 +271,8 @@ test("in the device panel w b go from device to device, + - change a parameter, 
     "M r mute and arm the panel's part, as wherever there is a part"
   )
   keys("b")
-  eq(paw.ui.views:get("devices").row, 1, "b is the device before")
-  paw.ui.views:get("devices").row = param_row(synth, "cutoff")
+  eq(paw.ui.views:get("inspector").row, 1, "b is the device before")
+  paw.ui.views:get("inspector").row = param_row(synth, "cutoff")
   local before = api.device_get(synth.id).params.cutoff
   keys("5<C-a>")
   local after = api.device_get(synth.id).params.cutoff
@@ -286,7 +286,7 @@ test("in the device panel w b go from device to device, + - change a parameter, 
     1e-3,
     "dd on a parameter puts it back at its default"
   )
-  paw.ui.views:get("devices").row = 1
+  paw.ui.views:get("inspector").row = 1
   paw.ui.hide("devices")
 end)
 
@@ -294,11 +294,11 @@ test("in the device panel y p copy a device's settings onto another", function()
   local t, synth = panel()
   local other = t:add_device("synth")
   api.undo_checkpoint()
-  paw.ui.views:get("devices").row = param_row(synth, "cutoff")
+  paw.ui.views:get("inspector").row = param_row(synth, "cutoff")
   keys("10+")
   keys("yy")
   eq(keymap.getreg().kind, "params", "yy on a parameter yanks its setting")
-  paw.ui.views:get("devices").row = param_row(other, "cutoff")
+  paw.ui.views:get("inspector").row = param_row(other, "cutoff")
   keys("p")
   near(
     api.device_get(other.id).params.cutoff,
@@ -307,7 +307,7 @@ test("in the device panel y p copy a device's settings onto another", function()
     "p puts it on the device under the cursor"
   )
   eq(#t:devices(), 3, "no device was added")
-  paw.ui.views:get("devices").row = 1
+  paw.ui.views:get("inspector").row = 1
   paw.ui.hide("devices")
 end)
 

@@ -367,15 +367,15 @@ We used `yic` and `p` with counts, and we used named registers, `:registers` and
 
 In this lesson, we make a synth brighter and darker, add an echo after it, and bypass the echo.
 
-Each part has a chain of devices. The first device is an instrument, which makes sound from notes, and the effects come after it. Each effect changes the sound of the device before it. The device panel shows the chain of the part under the cursor, with the parameters of each device, and you use the same kind of keys there as in the other views.
+Each part has a chain of devices. The first device is an instrument, which makes sound from notes, and the effects come after it. Each effect changes the sound of the device before it. The devices view shows the chain of the part under the cursor as a row of cards, one for each device. The inspector under it shows the parameters of the device under the cursor. You use the same kind of keys there as in the other views.
 
 The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. The CLAP, LV2 and VST3 plugins that you installed are also devices, and most of them have their own window.
 
 <span data-paw-open='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Open lesson 9 in paw'></span>
 
-1. The cursor is on Lead. Press `<Space>dd` (the space bar, then d two times) to show its device panel on the right, and the panel gets the keys. <span data-paw-keys='["&lt;leader&gt;dd"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+1. The cursor is on Lead. Press `<Space>dd` (the space bar, then d two times) to show its devices on the right, and the inspector gets the keys. <span data-paw-keys='["&lt;leader&gt;dd"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - *Hint:* The leader key is the space bar, and it starts many commands of two keys.
-   - ✓ The panel shows the name of the synth, and below it one row for each parameter.
+   - ✓ The devices view at the top shows the synth as a card. The inspector under it shows the name of the synth, and below it one row for each parameter.
 2. `j` and `k` select a row. Press `6j` to go down to `cutoff`, which sets how bright the sound is. <span data-paw-keys='["6j"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
    - ✓ `cutoff` is selected.
 3. `+` increases the parameter by one step, and `-` decreases it. A count before them gives the number of steps. Press `10+` three times. <span data-paw-keys='["10+",400,"10+",400,"10+"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
@@ -393,12 +393,12 @@ The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. Th
    - ✓ For a plugin, the window opens, and `ge` again closes it, in every view.
 9. If you installed plugins, `a` shows them with the built-in devices. Press `a`, type a part of the name of a plugin and press `<CR>`, and then press `ge` to see its window. `:devices` shows all the devices. <span data-paw-keys='["&lt;leader&gt;hn"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Next step'></span>
    - *The tutor cannot check this step* (The installed plugins are different on each computer, and a plugin window needs a desktop). `<Space>hn` moves to the next step.
-10. `<C-w>c` closes the panel, and the arrange view gets the keys again. Press `<C-w>c`. <span data-paw-keys='["&lt;C-w&gt;c"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
-    - ✓ The panel is closed, and `<Space>dd` shows it again.
+10. `<Space>dd` hides the devices view and the inspector, and the arrange view gets the keys again. Press `<Space>dd`. <span data-paw-keys='["&lt;leader&gt;dd"]' data-paw-state='{"lesson":9,"keys":"&lt;Esc&gt;"}' data-paw-label='Type it'></span>
+    - ✓ Both are hidden, and `<Space>dd` shows them again.
 11. Listen to the line with its echo. Press `<Space><Space>`, and `<Space><Space>` to stop.
     - ✓ You hear a synth and a delay that you adjusted by ear.
 
-We used the device panel to select and change parameters. We added and bypassed a device, and we found where plugin windows open.
+We used the devices view and the inspector to select and change parameters. We added and bypassed a device, and we found where plugin windows open.
 
 [Lesson 9](09-devices.md) has the same steps with the idea of the lesson and notes for Vim users.
 

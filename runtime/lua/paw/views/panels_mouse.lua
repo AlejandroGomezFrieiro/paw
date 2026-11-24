@@ -135,7 +135,7 @@ mixer.gestures = {
 
 -- The device panel ---------------------------------------------------------------------
 
-local devices = paw.ui.views:get("devices")
+local devices = paw.ui.views:get("inspector")
 
 --- A menu of the window's (paw/window_menus.tl) at the pointer, on the
 --- button's release.

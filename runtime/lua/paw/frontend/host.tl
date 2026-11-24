@@ -103,6 +103,7 @@ end
 local record DevicePanel
   row: integer
   rows: function(self: DevicePanel): {DeviceRow}
+  show: function(self: DevicePanel, device: integer, key?: string): integer
 end
 local record Rect
   name: string
@@ -364,9 +365,9 @@ local function by_beat(a: Point, b: Point): boolean
   return a[1] < b[1]
 end
 
---- The device panel, as these modules read it.
+--- The inspector, as these modules read it.
 local function devices(): DevicePanel
-  return paw.ui.views:get("devices") as DevicePanel
+  return paw.ui.views:get("inspector") as DevicePanel
 end
 
 --- The piano roll.
