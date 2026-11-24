@@ -422,6 +422,21 @@ test("a jump to a marker off screen puts it at the left margin, or in the middle
   near(view.scroll + view.geometry.span / 2, 200, 0.01, "zz puts it in the middle")
 end)
 
+test("after playback past the view's end, a stop brings the cursor back into view", function()
+  song()
+  eq(paw.cursor.beat, 0, "the cursor starts at the first beat")
+  local span = view.geometry.span
+  paw.keymap.feed("<Space><Space>")
+  T.until_beat(math.ceil(span) + 4)
+  redraw()
+  eq(view.scroll > 0, true, "the view followed the playhead")
+  paw.keymap.feed("<Space><Space>")
+  redraw()
+  paw.keymap.feed("0")
+  redraw()
+  eq(view.scroll, 0, "the cursor is in view after the stop and 0")
+end)
+
 test("a jump just past the right edge aligns the target at the left margin; a step scrolls just enough", function()
   song()
   local saved = { view = paw.opt.jumpview, margin = paw.opt.jumpmargin }
