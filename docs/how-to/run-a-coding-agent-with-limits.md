@@ -40,34 +40,72 @@ To see the limits of a running agent, run
 `systemctl --user list-units 'paw-agent-*'` to find the name of its scope,
 and then `systemctl --user show -p TasksMax -p MemoryMax paw-agent-<number>.scope`.
 
+## Limit all the agents together
+
+Each agent gets its own scope, and the limits of a scope hold for that
+agent only. Two agents can use twice the memory of one, so the machine
+can still run out of memory when several agents work at the same time.
+To limit them together, give the slice a user unit:
+
+1. Write the file `~/.config/systemd/user/paw-agents.slice`:
+
+   ```ini
+   [Unit]
+   Description=Coding agents of paw
+
+   [Slice]
+   TasksMax=30000
+   MemoryHigh=20G
+   MemoryMax=24G
+   MemorySwapMax=8G
+   CPUWeight=50
+   ```
+
+2. Run `systemctl --user daemon-reload`.
+
+If you use home-manager, define the same slice with
+`systemd.user.slices.paw-agents` in place of the file. Without the unit,
+`nix run .#agent` says that the slice has no `MemoryMax`, and only the
+limits of each scope hold.
+
 ## Know what the sandbox allows
 
 The project settings in `.claude/settings.json` turn on the sandbox of
-Claude Code for each command that the agent runs. The settings apply
-whether or not you start the agent with `nix run .#agent`.
+Claude Code for each command that the agent runs. The settings apply to
+every session of Claude Code in the checkout, whether or not you start it
+with `nix run .#agent`.
 
 - A command can write in the checkout, in the temporary folder of Claude
   Code (`/tmp/claude-` and your user id), in `~/.cargo`, in
-  `~/.cache/sccache`, in `~/.cache/nix` and in `/tmp/paw-suite-locks`,
-  where `tests/tools/suite.sh` keeps the slots of the machine. An agent in
-  a worktree can also write the shared `.git` folder of the checkout, so
-  that `git commit` works.
-- A command can't read or write `~/.config/paw`, `~/.local/share/OpenUtau`,
-  `~/.config/REAPER`, `~/.wine`, `~/.local/share/wineprefixes`, `~/.ssh`
-  and `~/.gnupg`. In the sandbox, each of these folders is empty, and a
-  file written there is gone when the command ends.
+  `~/.cache/sccache`, in `~/.cache/nix`, in `~/.groma` and in
+  `/tmp/paw-suite-locks`. A hook of the settings makes
+  `/tmp/paw-suite-locks` when a session starts, and `tests/tools/suite.sh`
+  keeps the slots of the machine there.
+- A command can't read `~/.config/paw`, `~/.local/state/paw`,
+  `~/.cache/paw`, `~/.local/share/OpenUtau`, `~/.config/REAPER`, `~/.wine`,
+  `~/.local/share/wineprefixes`, `~/.ssh` and `~/.gnupg`. In the sandbox,
+  each of these folders is an empty folder in memory. A command can write a
+  file there without an error, but the file is gone when the command ends,
+  and the real folder doesn't change.
+- A command can't read `~/.config/gh`, `~/.claude.json` and
+  `~/.claude/.credentials.json`, which hold sign-in tokens.
 - A command can reach crates.io, GitHub, the Nix cache and the Nix flake
   registry, and the Rust documentation sites, and no other host.
 - A command can open Unix sockets, because the tests start paw with a
-  control socket, and `nix` talks to the Nix daemon through one. The
-  daemon builds and downloads in a sandbox of its own, so `nix develop`,
-  `nix build` and `nix flake check` work in the sandbox.
+  control socket, and `nix` talks to the Nix daemon through one. On Linux,
+  the sandbox allows all Unix sockets or none. So the settings hide the
+  folders where the sockets of your desktop are: `/run/user` (the session
+  bus, PipeWire and a paw that you have open), `/run/dbus` and
+  `/tmp/.X11-unix` (your X display). The Nix daemon builds and downloads
+  in a sandbox of its own, so `nix develop`, `nix build` and
+  `nix flake check` work in the sandbox.
 - The tests of `extensions/interop` that open a project in REAPER start
   REAPER in a sandbox of their own, which can't start inside the sandbox of
   Claude Code. The suite skips them there, and says why.
 
-Only `git push` runs outside the sandbox, because it needs the keys in
-`~/.ssh`.
+The commands of git that reach a remote over SSH, `git push`, `git fetch`,
+`git pull` and `git ls-remote`, run outside the sandbox, because they need
+the keys in `~/.ssh`.
 
 A command that the sandbox refuses fails with an error such as
 `Read-only file system`, and the agent can't run it outside the sandbox. If

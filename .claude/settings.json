@@ -7,26 +7,43 @@
     "allowUnsandboxedCommands": false,
     "excludedCommands": [
       "git push",
-      "git push *"
+      "git push *",
+      "git fetch",
+      "git fetch *",
+      "git pull",
+      "git pull *",
+      "git ls-remote",
+      "git ls-remote *"
     ],
     "filesystem": {
       "allowWrite": [
         "~/.cargo",
         "~/.cache/sccache",
         "~/.cache/nix",
+        "~/.groma",
         "/tmp/paw-suite-locks"
       ],
       "denyRead": [
         "~/.config/paw",
+        "~/.local/state/paw",
+        "~/.cache/paw",
         "~/.local/share/OpenUtau",
         "~/.config/REAPER",
         "~/.wine",
         "~/.local/share/wineprefixes",
         "~/.ssh",
-        "~/.gnupg"
+        "~/.gnupg",
+        "~/.config/gh",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "/run/user",
+        "/run/dbus",
+        "/tmp/.X11-unix"
       ],
       "denyWrite": [
         "~/.config/paw",
+        "~/.local/state/paw",
+        "~/.cache/paw",
         "~/.local/share/OpenUtau",
         "~/.config/REAPER",
         "~/.wine",
@@ -54,6 +71,18 @@
     }
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p /tmp/paw-suite-locks",
+            "timeout": 10,
+            "statusMessage": "Making the folder of the suite slots"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",

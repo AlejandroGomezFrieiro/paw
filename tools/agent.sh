@@ -16,11 +16,6 @@ memory_swap_max=${PAW_AGENT_MEMORY_SWAP_MAX:-8G}
 # Below the default weight of 100: the desktop gets the CPU first.
 cpu_weight=${PAW_AGENT_CPU_WEIGHT:-50}
 
-# tests/tools/suite.sh takes its slots in this folder (PAW_SUITE_LOCKS in
-# .claude/settings.json). The sandbox of Claude Code makes a path writable
-# only if the path exists when a command starts.
-mkdir -p /tmp/paw-suite-locks
-
 # A claude started from an agent already has the limits of its scope.
 if grep -q "/$slice/" /proc/self/cgroup; then
   echo "agent: already in $slice, claude starts in the same scope" >&2
@@ -30,6 +25,12 @@ fi
 if ! command -v systemd-run > /dev/null || ! systemctl --user show-environment > /dev/null 2>&1; then
   echo "agent: no systemd user manager, claude starts with no limits on tasks, memory and CPU" >&2
   exec claude "$@"
+fi
+
+# The limits above hold for each scope. Only a user unit of the slice
+# limits all the agents together (docs/how-to/run-a-coding-agent-with-limits.md).
+if [ "$(systemctl --user show -p MemoryMax --value "$slice")" = infinity ]; then
+  echo "agent: $slice has no MemoryMax, so the agents together have no limit; see docs/how-to/run-a-coding-agent-with-limits.md" >&2
 fi
 
 exec systemd-run --user --scope --quiet --collect \
