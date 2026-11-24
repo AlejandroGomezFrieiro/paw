@@ -400,6 +400,9 @@ test("= matches the output gain of a device to its input, from what played", fun
   T.near(api.device_get(last).params.fx_gain, 0, 0.3, "6 dB louder out than in: = takes the 6 dB off")
   keys("u")
   eq(api.device_get(last).params.fx_gain, 6, "one u")
+  -- The meters of the tests after this one must start at rest.
+  paw.transport.stop()
+  T.until_meters_at_rest()
 end)
 
 test("gm and gM link the devices to a macro of their container, each one undo step", function()
@@ -431,7 +434,7 @@ test("zf folds the containers of a motion; znn enters one and zW shows the whole
   eq(v.scope, top_split(t, 2).id, "znn enters the layer")
   -- The rows above the meters of the devices: the path and the lane of the
   -- first branch, with no node of the chain outside the layer.
-  T.expect_screen("scope_layer", 100, 24, { rows = { 1, 4 } })
+  T.expect_screen("scope_layer", 100, 24)
   keys("zW")
   eq(v.scope, nil, "zW shows the whole chain")
 end)
