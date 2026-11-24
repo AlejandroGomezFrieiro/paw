@@ -1,10 +1,10 @@
 ---
 id: TASK-384
 title: 'Bug: plugin and audio library output prints over the terminal screen'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T17:34:00Z'
-updated_date: '2026-11-24T17:34:00Z'
+updated_date: '2026-11-24T17:35:00Z'
 labels:
   - bug
   - ux
@@ -40,6 +40,7 @@ Direction (the builder decides the details):
 - [ ] #3 A panic still prints its message on the terminal after paw restores it
 - [ ] #4 Ctrl-l redraws the whole screen; a test with real keys
 - [ ] #5 docs: the troubleshooting guide says where plugin output goes and how to read it
+- [ ] #6 Audit (owner, 2026-11-24: a more stable terminal UI): list each other way the screen can go out of step with paw's frame (wide and combining characters, emoji, tabs and control characters in names, resize during a draw, a slow or stalled terminal, SIGCONT, alternate screen and mouse modes after a crash, terminals without synchronized output), each with how to reproduce it and a proposed fix, as Changes for the orchestrator; fix in this ticket only what is small and certain
 <!-- AC:END -->
 
 ## Definition of Done
@@ -53,3 +54,9 @@ Direction (the builder decides the details):
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Started 2026-11-24: branch tui-output, base 427be393.
+<!-- SECTION:NOTES:END -->
