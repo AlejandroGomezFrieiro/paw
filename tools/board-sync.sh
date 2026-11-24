@@ -36,6 +36,18 @@ git log --first-parent --merges --format='%h %s' "$range" | grep -E '^[0-9a-f]+ 
   done
 [ "$dry" -eq 1 ] && exit 0
 git rev-parse HEAD > "$mark"
+# The commit is made with a scratch index: inside the post-merge hook git
+# refuses a commit of some paths, and other staged files must stay out.
 if [ -n "$(git status --porcelain -- backlog)" ]; then
-  git add backlog && git commit -q -m "Board: the tickets of the merges on main are Done" -- backlog && echo "board-sync: board committed"
+  index=$(mktemp)
+  GIT_INDEX_FILE=$index git read-tree HEAD
+  GIT_INDEX_FILE=$index git add backlog
+  tree=$(GIT_INDEX_FILE=$index git write-tree)
+  rm -f "$index"
+  old=$(git rev-parse HEAD)
+  new=$(git commit-tree "$tree" -p "$old" -m "Board: the tickets of the merges on main are Done")
+  git update-ref -m "board-sync" refs/heads/main "$new" "$old"
+  git reset -q -- backlog
+  git rev-parse HEAD > "$mark"
+  echo "board-sync: board committed ($(git rev-parse --short HEAD))"
 fi
