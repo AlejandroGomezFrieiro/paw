@@ -3,6 +3,7 @@
 local api = paw.api
 local command = paw.command
 local cursor = paw.cursor
+local timegrid = paw.timegrid
 local keymap, edit = paw.keymap, paw.edit
 local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
@@ -427,16 +428,21 @@ end, { desc = "Mute or unmute the clip" })
 command("clip.move", function(ctx)
   local clip = need_clip()
   if not clip then return end
-  local by = (ctx.args.by or 1) * (ctx.count or 1) * paw.timegrid.step()
-  clip.start = math.max(0, clip.start + by)
-  cursor.set_beat(math.max(0, cursor.beat + by))
-end, { desc = "Move the clip by grid steps: `clip.move by=-1`" })
+  -- The whole clip moves by lines and keeps its offset from the grid.
+  local start = timegrid.tick(clip.start)
+  local by = paw.motion.relative(start, (tonumber(ctx.args.by) or 1) * (ctx.count or 1)) - start
+  clip.start = timegrid.beat(start + by)
+  cursor.set_tick(math.max(0, cursor.tick + by))
+end, { desc = "Move the clip by grid steps, keeping its offset from the grid: `clip.move by=-1`" })
 command("clip.resize", function(ctx)
   local clip = need_clip()
   if not clip then return end
-  local length = clip.length + (ctx.args.by or 1) * (ctx.count or 1) * paw.timegrid.step()
-  if length > 0 then clip.length = length end
-end, { desc = "Lengthen or shorten the clip by grid steps: `clip.resize by=-1`" })
+  -- One edge: the end goes to the grid's lines, as `h` and `l` go.
+  local n = (tonumber(ctx.args.by) or 1) * (ctx.count or 1)
+  local start = timegrid.tick(clip.start)
+  local finish = paw.motion.edge(start + timegrid.tick(clip.length), n > 0 and 1 or -1, math.abs(n))
+  if finish > start then clip.length = timegrid.beat(finish - start) end
+end, { desc = "Move the clip's end to the next grid line or the one before: `clip.resize by=-1`" })
 command("clip.split", function()
   -- Clips chosen with the pointer are split together.
   if paw.frontend.act.split_clips() then return end

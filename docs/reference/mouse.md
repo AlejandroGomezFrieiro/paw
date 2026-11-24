@@ -9,8 +9,9 @@ The mouse does in the terminal what it does in the graphical window (see [The gr
 - A press gives the keyboard to the view under the pointer.
 - A gesture that changes the project changes it when you release the button, as one undo step, and until then the view shows where the change will go (in the timeline and the piano roll).
 - A gesture that moves a control (a fader, a pan, a parameter, the loop) moves it with the pointer.
-- A cell is the grid step that it shows, so a click puts things on the step of the cell and a drag to a cell includes that cell.
-- Shift moves off the grid, where the terminal sends it (see below).
+- A click on a cell puts the cursor on the grid line in that cell, or on the line before the cell when no line is in it. A drag to a cell includes that cell.
+- A drag of a whole clip moves it by whole grid steps, and the clip keeps its distance from the grid. A drag of one edge puts the edge on the nearest grid line.
+- Shift moves off the grid, where the terminal sends it (see below). With `:set nosnap`, the pointer is always off the grid.
 - Two presses on one cell in 400 ms are a double click.
 - When the pointer is over a thing, the status line says what it is and what a click there does.
 
@@ -55,5 +56,5 @@ paw asks the terminal to report every press, release and move of the pointer, wi
 
 - Under tmux, the pointer goes to paw with `set -g mouse on`. Without it, tmux keeps the pointer for the terminal.
 - A different multiplexer sends the pointer to paw when it sends the request of paw to the terminal.
-- Most terminals (WezTerm, kitty, foot, xterm, Alacritty) keep Shift and a press for their own selection of text, so Shift does not go to paw there. To move off the grid in those terminals, use `:set grid=…` or `:set note_snap!`.
+- Most terminals (WezTerm, kitty, foot, xterm, Alacritty) keep Shift and a press for their own selection of text, so Shift does not go to paw there. To move off the grid in those terminals, use `:set grid=…` or `:set snap!`.
 - `:set mouse!` (`paw.opt.mouse = false`) stops the reports, and the terminal keeps the pointer, and the same command again starts the reports.

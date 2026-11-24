@@ -14,6 +14,7 @@ local api = require("paw.api")
 local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type Arrange = require("paw.views.arrange")
@@ -80,8 +81,14 @@ end
 -- Columns and beats through the view's time axis, which has its time
 -- folds (paw/axis.tl, `view:current_axis`): the step of the grid drawn in
 -- a column, and a move of the pointer in beats.
+-- A press on a cell goes to the grid line drawn in it (paw/motion.tl, rule
+-- 11); with `snap` off, to the beat at the left edge of the cell.
 local function grid_at(self: Arrange, tx: number): number
-  return self:current_axis():step_at(math.floor(tx), timegrid.step())
+  local from, to = self:current_axis():cell_span(math.floor(tx))
+  if not paw.opt.snap then
+    return from
+  end
+  return timegrid.beat(motion.press(from, to))
 end
 local function cells(self: Arrange, d: number): number
   return self:current_axis():beats(d)
@@ -527,13 +534,19 @@ local function press_warp(self: Arrange, e: MouseEvent, h: Hit, c: types.Clip, f
   )
 end
 
---- Where the clips a drag moves would go, `drows` parts down and `by`
---- beats later: ghosts of them on their rows.
-local function ghosts_moved(v: Arrange, c: types.Clip, by: number, drows: integer)
+--- Where the clips a drag moves would go, `drows` parts down and as
+--- `drag_clips` moves them for `dbeat` beats of the pointer: ghosts of
+--- them on their rows.
+local function ghosts_moved(v: Arrange, c: types.Clip, dbeat: number, free: boolean, drows: integer)
   local rows: {integer: integer} = {}
   for i, part in ipairs(paw.groups.rows()) do
     rows[part] = i
   end
+  local first = c.start
+  for _, id in ipairs(grabbed(c.id)) do
+    first = math.min(first, api.clip_get(id).start)
+  end
+  local by = motion.pointer_by(first, dbeat, free)
   for _, id in ipairs(grabbed(c.id)) do
     local other = api.clip_get(id)
     local row = rows[other.part] and row_of(v, rows[other.part] + drows)
@@ -546,7 +559,7 @@ end
 --- Where a trim of edge `edge` of `c` by `dbeat` would put it: a ghost.
 local function ghost_trimmed(v: Arrange, row: Row, c: types.Clip, edge: string, dbeat: number, free: boolean)
   local at = edge == "start" and c.start or c.start + c.length
-  local to = free and math.max(0, at + dbeat) or math.max(0, paw.cursor.snap(at + dbeat))
+  local to = motion.pointer_edge(at + dbeat, free)
   local a, b = c.start, c.start + c.length
   if edge == "start" then
     a = math.min(to, b - timegrid.step())
@@ -583,6 +596,7 @@ local function press_clip(self: Arrange, e: MouseEvent, h: Hit)
   if not deferred then
     A.select_clip(c.id, grid_at(self, h.tx), "only")
   end
+  -- Shift, or the option `snap` off: exact (paw/motion.tl, rule 11).
   local free = mouse.has(e, "S")
   local function click()
     if deferred then
@@ -608,7 +622,7 @@ local function press_clip(self: Arrange, e: MouseEvent, h: Hit)
         if edge then
           return ghost_trimmed(v, h.row, c, edge, dbeat, free)
         end
-        ghosts_moved(v, c, free and dbeat or util.round(dbeat, timegrid.step()), row_index(v, d.y) - h.row.index)
+        ghosts_moved(v, c, dbeat, free, row_index(v, d.y) - h.row.index)
       end,
       drag = function(d: MouseEvent)
         held().d = d
@@ -1183,7 +1197,7 @@ local function press_markers(self: Arrange, e: MouseEvent, h: Hit)
   local start = paw.time.local_beat(m.beat)
   local function moved_to(d: MouseEvent): number
     local to = start + cells(self, d.dx)
-    return mouse.has(d, "S") and to or paw.cursor.snap(to)
+    return motion.pointer_edge(to, mouse.has(d, "S"))
   end
   hold(
     e,

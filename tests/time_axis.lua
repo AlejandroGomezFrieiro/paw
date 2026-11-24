@@ -302,18 +302,18 @@ test("the cursor keeps its exact beat and the ruler's column over a long run of 
     local rule = rule_of(frame())
     eq(view.caret.x - rule, view.axis:x_of(beat), "its column after " .. keys .. " at zoom " .. paw.opt.zoom)
   end
-  -- The clip's edges are exact, and a grid step keeps the offset it has.
+  -- The clip's edges are exact, and a grid key goes to a grid line.
   at("w", 4.375)
-  at("l", 4.625)
-  at("3l", 5.375)
+  at("l", 4.5)
+  at("3l", 5.25)
   at("e", 6.625)
-  at("h", 6.375)
+  at("h", 6.5)
   at("b", 4.375)
   at("zi", 4.375)
-  at("2h", 3.875)
-  at(":zoom 1.4142<CR>", 3.875)
-  at("8l", 5.875)
-  at("zl", 5.875)
+  at("2h", 4)
+  at(":zoom 1.4142<CR>", 4)
+  at("8l", 6)
+  at("zl", 6)
   at("0", 0)
   -- A tenth of a beat: thirty steps there and back are exact.
   paw.opt.grid = 0.1

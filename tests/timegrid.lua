@@ -263,9 +263,4 @@ test("timegrid: :grid 1/8t and swing 60, 999l then 999h, gives back the same who
   eq(far, 343 * TPQ + TPQ / 15, "999 triplets of eighths more are 333 beats, and a swing")
   T.keys("999h")
   eq(paw.cursor.tick, 10 * TPQ, "999h comes back")
-  -- In this bundle a move off the grid keeps its offset, as before.
-  paw.opt.grid, paw.opt.swing = 1, 50
-  paw.cursor.set_beat(2.25)
-  T.keys("l")
-  eq(paw.cursor.beat, 3.25, "l from 2.25 on a 1-beat grid")
 end)

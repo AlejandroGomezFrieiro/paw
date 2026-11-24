@@ -26,15 +26,15 @@ end
 local function opened(notes)
   fresh()
   paw.keymap.feed("<Esc><Esc>")
-  local saved = { zoom = paw.opt.note_zoom, grid = paw.opt.note_grid, snap = paw.opt.note_snap }
+  local saved = { zoom = paw.opt.note_zoom, grid = paw.opt.note_grid, snap = paw.opt.snap }
   T.after(function()
-    paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = saved.zoom, saved.grid, saved.snap
+    paw.opt.note_zoom, paw.opt.note_grid, paw.opt.snap = saved.zoom, saved.grid, saved.snap
     roll:set_step(nil)
     paw.mouse.forget()
     api.scene_forget(0)
     paw.ui.hide("pianoroll")
   end)
-  paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = 8, 0.25, true
+  paw.opt.note_zoom, paw.opt.note_grid, paw.opt.snap = 8, 0.25, true
   -- The roll keeps the length of a step that an earlier test chose.
   roll:set_step(nil)
   local t = paw.add_part({ name = "keys" })

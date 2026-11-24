@@ -204,6 +204,32 @@ test("Esc ends a take and keeps it in each view where one records, after what it
   paw.transport.stop()
 end)
 
+test("with the classic keys, Esc in the piano roll ends a take and stays; the next Esc leaves", function()
+  start()
+  api.engine_restart({ test_input = { frequency = 440, level = -12, channels = 2 } })
+  T.after(function() api.engine_restart({}) end)
+  T.after(function()
+    paw.opt.count_in, paw.opt.keys = 0, "default"
+  end)
+  paw.opt.count_in, paw.opt.keys = 0, "classic"
+  local gtr = paw.add_part({ name = "Guitar" })
+  paw.cursor.set_part(gtr)
+  keys("Isignal 1<CR>")
+  keys("r")
+  paw.ui.focus("pianoroll")
+  keys("R")
+  until_(function() return paw.transport.take ~= nil and paw.transport.playing end, "the take")
+  until_beat(paw.transport.position + 0.6)
+  local take = paw.transport.take
+  keys("<Esc>")
+  eq(paw.transport.recording, false, "Esc ends the take")
+  eq(paw.ui.focused, "pianoroll", "and the piano roll keeps the keys")
+  eq(said(), "recording stopped: take " .. take .. " kept (u removes it)", "and names the take")
+  T.until_recorded()
+  keys("<Esc>")
+  eq(paw.ui.focused ~= "pianoroll", true, "the next Esc leaves the piano roll")
+end)
+
 test(
   "<Space><Space> plays from the cursor, 200 bars ahead; gs keeps the playhead; play_from=playhead is the old way",
   function()

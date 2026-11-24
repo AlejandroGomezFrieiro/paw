@@ -76,6 +76,7 @@ local record M
   --- The tick that the last move of time asked for: a move by rows keeps
   --- it when a bound kept the cursor from it.
   want: integer
+  set_tick: function(at: integer)
   lens: function(): integer
   over: function(old: number, new: number): number
   stop: function(part: integer, beat: number): integer
@@ -328,10 +329,18 @@ function M.move_part(delta: integer)
   end
   at = at or 1
   if reach and at + delta > #lines then
-    return M.set_part(0)
+    M.set_part(0)
+  else
+    local to = lines[util.clamp(at + delta, 1, #lines) as integer]
+    M.set_part(to.part, to.lane)
   end
-  local to = lines[util.clamp(at + delta, 1, #lines) as integer]
-  M.set_part(to.part, to.lane)
+  -- The time that the last move of time asked for, which a bound of the
+  -- row before (a closed block fold of its part) can have kept the cursor
+  -- from: as Vim's `curswant`.
+  if want ~= tick then
+    local wanted = want
+    M.set_tick(wanted)
+  end
 end
 
 --- A function that gives where the cursor goes when it moves from one

@@ -70,7 +70,7 @@ local record Opts
    native_dialogs: boolean
    nest_part: string
    note_grid: number | string
-   note_snap: boolean
+   snap: boolean
    note_zoom: number
    number: boolean
    on_external_change: string

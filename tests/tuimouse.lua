@@ -43,7 +43,7 @@ local function start()
   paw.ui.focus("arrange")
   arrange.scroll, arrange.top = 0, 1
   paw.opt.mouse, paw.opt.zoom, paw.opt.grid, paw.opt.part_height = true, 4, 1, 3
-  paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = 8, 0.25, true
+  paw.opt.note_zoom, paw.opt.note_grid, paw.opt.snap = 8, 0.25, true
   paw.tempolane.show(false)
   apart()
 end

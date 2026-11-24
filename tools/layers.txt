@@ -66,6 +66,8 @@ paw.objects
 # The grid of time: ticks and the lines that grid motions stop on.
 paw.timegrid
 paw.cursor
+# The motion layer: how each class of key moves a position on the grid of time.
+paw.motion
 paw.edit
 # The registers hold what a yank took: paw.edit's records are registers.
 paw.keymap.registers

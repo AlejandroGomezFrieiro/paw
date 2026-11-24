@@ -514,12 +514,11 @@ aop("c", function(region, ctx)
   roll:edit(part:add_clip({ start = c0, length = c1 - c0, name = first and first.name or nil }))
   keymap.set_mode("i")
 end, "Change: empty it and enter notes")
---- Move a region's clips by grid steps, and the cursor with them so that
---- `.` finds them again.
+--- Move a region's clips by grid steps, each keeping its offset from the
+--- grid, and the cursor with them so that `.` finds them again.
 local function shift(region, steps)
-  local by = math.max(steps * paw.timegrid.step(), -region.c0)
-  edit.arrange.shift(region, by)
-  if region.kind ~= "line" then cursor.set_beat(cursor.beat + by) end
+  local by = edit.arrange.shift(region, steps)
+  if region.kind ~= "line" then cursor.set_tick(cursor.tick + paw.timegrid.tick(by)) end
 end
 aop(">", function(region, ctx) shift(region, region.visual and ctx.count or 1) end, "Move clips later")
 aop("<lt>", function(region, ctx) shift(region, -(region.visual and ctx.count or 1)) end, "Move clips earlier")
@@ -1163,10 +1162,13 @@ pmap("<Esc>", function()
   if chosen() then return paw.frontend.act.clear_note_selection() end
   keymap.escape_hint()
 end, "Let go of the chosen notes", { repeatable = false })
+-- In the classic keys Escape leaves the roll, but first it ends what
+-- records, as in every view: the next Escape leaves.
 keymap.classic("<Esc>", function()
   if chosen() then return paw.frontend.act.clear_note_selection() end
+  if keymap.escape_ends() then return end
   paw.layout.back()
-end, { view = "pianoroll", desc = "Let go of the chosen notes; back to the window before" })
+end, { view = "pianoroll", desc = "Let go of the chosen notes; end a take; back to the window before" })
 
 -- Diagnostics and language servers (paw.diagnostic, paw.lsp), on whatever
 -- is under the cursor in each view: a note, a clip, a part, a strip, a

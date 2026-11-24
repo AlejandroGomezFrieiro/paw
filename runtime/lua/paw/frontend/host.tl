@@ -5,6 +5,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type types = require("paw.types")
 local type KeymapModule = require("paw.keymap")
 local type KeybarModule = require("paw.keybar")
@@ -337,9 +338,12 @@ local function render_module(): RenderModule
   return require("paw.render")
 end
 
-local function snap(beat: number): number
-  return math.max(0, paw.cursor.snap(beat))
-end
+-- The pointer on the grid of time (paw/motion.tl): an edge goes to the
+-- nearest line, a press to the line of its cell, and a whole thing moves
+-- by lines; each exact with the option `snap` off.
+local snap = function(beat: number): number return motion.pointer_edge(beat) end
+local press = function(beat: number): number return motion.pointer_press(beat) end
+local relative = motion.pointer_by
 
 local function note_snap(beat: number): number
   local grid = timegrid.step("note")
@@ -392,6 +396,8 @@ local record Host
   project_text: function(key: string): string
   render_module: function(): RenderModule
   snap: function(beat: number): number
+  press: function(beat: number): number
+  relative: function(beat: number, dbeat: number, free?: boolean): number
   note_snap: function(beat: number): number
   to_arrange: function()
   by_beat: function(a: Point, b: Point): boolean
@@ -406,6 +412,8 @@ Host.part_number = part_number
 Host.project_text = project_text
 Host.render_module = render_module
 Host.snap = snap
+Host.press = press
+Host.relative = relative
 Host.note_snap = note_snap
 Host.to_arrange = to_arrange
 Host.by_beat = by_beat

@@ -180,7 +180,7 @@ When the lanes are closed, the part of the cursor draws its volume curve in the 
 | `gC`, `Enter` | Opens the curve of the lane in the [curve editor](curve-editor.md). |
 
 In a selection (`v`) on a lane row, `x` and `d` remove the points in it.
-`H` `L` move them a grid step, and `+` `-` raise or lower them.
+`H` `L` move them a grid step, and they keep their distance from the grid. `+` `-` raise or lower them.
 
 ## The tempo lane
 

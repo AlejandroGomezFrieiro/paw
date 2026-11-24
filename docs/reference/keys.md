@@ -13,7 +13,7 @@ A command is a count, an operator, and a motion or a text object, e.g., `3>ic`, 
 
 | Keys | A | R |
 | --- | --- | --- |
-| `h` `l` | a grid step | a step in time |
+| `h` `l` | next, previous grid line | a step in time |
 | `j` `k` | next, previous part | a semitone down, up |
 | `<C-d>` `<C-u>` | four parts down, up | an octave down, up |
 | `w` `b` `e` | next clip's start, this clip's start, this clip's end | the same for notes |

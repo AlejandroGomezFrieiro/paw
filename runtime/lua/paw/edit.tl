@@ -26,6 +26,7 @@ local util = require("paw.util")
 local options = require("paw.options")
 local transform = require("paw.notes")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type registers = require("paw.keymap.registers")
@@ -450,23 +451,44 @@ function A.paste(value: Yanked, before?: boolean, count?: integer)
   paw.notify("pasted " .. util.amount(value.length * (count or 1), "beat"))
 end
 
---- Move the clips that start in a region by `by` beats.
-function A.shift(region: Region, by: number)
+--- Move the clips that start in a region by `steps` lines of the grid,
+--- each by the same ticks. The first of them moves by whole lines and
+--- keeps its distance from the grid. Returns the beats that they moved,
+--- or 0 when no clip starts in the region.
+function A.shift(region: Region, steps: integer): number
+  local moving: {types.Clip} = {}
+  local anchor: integer
   for _, id in ipairs(A.parts(region)) do
     for _, c in ipairs(starting_in(id, region)) do
-      api.clip_set(c.id, {start = math.max(0, c.start + by)})
+      moving[#moving + 1] = c
+      local at = timegrid.tick(c.start)
+      anchor = anchor and math.min(anchor, at) or at
     end
   end
+  if not anchor then
+    return 0
+  end
+  local by = motion.relative(anchor, steps) - anchor
+  for _, c in ipairs(moving) do
+    api.clip_set(c.id, {start = timegrid.beat(timegrid.tick(c.start) + by)})
+  end
+  return timegrid.beat(by)
 end
 
---- Snap the clips that start in a region to the grid, and the notes in them
---- to the piano roll's.
+--- Snap the clips that start in a region to the nearest lines of the
+--- grid, and the notes in them to the grid of the piano roll. It's the one
+--- edit that puts a clip that's between two lines back on the grid.
 function A.quantize(region: Region)
-  local grid, note_grid = timegrid.step(), timegrid.step("note")
+  local note_grid = timegrid.step("note")
   for _, id in ipairs(A.parts(region)) do
     for _, c in ipairs(starting_in(id, region)) do
-      api.clip_set(c.id, {start = util.round(c.start, grid)})
-      api.clip_set(c.id, {length = math.max(grid, util.round(c.length, grid))})
+      local start = motion.nearest(timegrid.tick(c.start))
+      local finish = motion.nearest(timegrid.tick(c.start + c.length))
+      -- A clip keeps one cell at least.
+      if finish <= start then
+        finish = motion.edge(start, 1)
+      end
+      api.clip_set(c.id, {start = timegrid.beat(start), length = timegrid.beat(finish - start)})
       if c.kind == "midi" then
         api.clip_set_notes(c.id, transform.quantize(api.clip_notes(c.id), {grid = note_grid}))
       end

@@ -232,6 +232,9 @@ local function build(): Groups
     PlayheadShade = {bg = c.playhead_clip}, -- a column that keeps its cells (a clip's body, the drum grid)
     Cursor = {bg = c.normal, fg = c.bg},
     CursorVisual = {bg = c.visual, fg = c.bg},
+    -- The cursor off the grid (after `w` to the end of a take that ends
+    -- between two lines): one column, amber; `h` or `l` put it on a line.
+    CursorOff = {bg = c.accent, fg = c.bg},
     CursorTail = {bg = "#2a3a50"},
     Visual = {bg = "#3a3352", fg = c.bright},
     ScopeOutside = {fg = c.faint, bg = c.bg},

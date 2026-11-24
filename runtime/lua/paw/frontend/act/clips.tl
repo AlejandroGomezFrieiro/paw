@@ -17,7 +17,7 @@ local timegrid = require("paw.timegrid")
 
 local paw = host.paw
 local A = M.act
-local snap = host.snap
+local snap, press = host.snap, host.press
 local to_arrange = host.to_arrange
 local type Region = host.Region
 local type Value = host.Value
@@ -175,7 +175,7 @@ function A.select(part: integer, beat?: number)
     paw.cursor.set_part(part)
   end
   if beat then
-    paw.cursor.set_beat(snap(beat))
+    paw.cursor.set_beat(press(beat))
   end
   pointing = false
   if beat and next(picked.set) then
@@ -191,7 +191,7 @@ local function cursor_into(id: integer, beat?: number)
   pointing = true
   to_arrange()
   paw.cursor.set_part(c.part)
-  beat = snap(beat or c.start)
+  beat = press(beat or c.start)
   if beat < c.start or beat >= c.start + c.length then
     beat = c.start
   end
@@ -359,13 +359,18 @@ end
 --- the parts. One undo step, as one call. Returns the ids of what moved.
 function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean, free?: boolean): {integer}
   local ids = grabbed_clips(id)
-  local by = free and dbeat or util.round(dbeat, timegrid.step())
   local rows_by = math.floor((drows or 0) + 0.5)
   local rows, list = row_index(), paw.groups.rows()
   local clips: {types.Clip} = {}
+  local first: number
   for i, cid in ipairs(ids) do
-    local c = api.clip_get(cid)
-    clips[i] = c
+    clips[i] = api.clip_get(cid)
+    first = math.min(first or clips[i].start, clips[i].start)
+  end
+  -- Each clip moves by the same beats: the first by whole lines, with its
+  -- offset from the grid (paw/motion.tl, rule 6).
+  local by = first and host.relative(first, dbeat, free) or dbeat
+  for _, c in ipairs(clips) do
     by = math.max(by, -c.start)
     local row = rows[c.part]
     if row then

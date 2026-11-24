@@ -15,6 +15,7 @@ local derived = require("paw.derived")
 local axis = require("paw.axis")
 local part_draw = require("paw.views.arrange_part")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type util_t = require("paw.util")
@@ -536,11 +537,20 @@ local function shows_beats(ax: Axis): boolean
   return ax:cells(1) >= 4
 end
 
---- The cursor's cells at `beat`: its first column and how many, a step of
---- the grid wide.
-local function cursor_cells(ax: Axis, beat: number): integer, integer
-  local x0, x1 = ax:range(beat, beat + timegrid.step())
-  return x0, x1 - x0
+--- The cursor's cells at `beat`: its first column, how many, and its
+--- style. On the grid, the cells of its grid cell, up to the next line.
+--- Off the grid, the one column that holds it, in `CursorOff`, so that it
+--- never covers two cells of the ruler.
+local function cursor_cells(ax: Axis, beat: number): integer, integer, string
+  local mode = paw.keymap.mode
+  local style = mode == "x" and "CursorVisual" or mode == "i" and "InsertCursor" or "Cursor"
+  local t = timegrid.tick(beat)
+  if motion.off(t) then
+    return ax:x_of(beat), 1, style == "Cursor" and "CursorOff" or style
+  end
+  local _, to = motion.cell(t)
+  local x0, x1 = ax:range(beat, timegrid.beat(to))
+  return x0, x1 - x0, style
 end
 
 -- Curves ----------------------------------------------------------------------------
@@ -1133,8 +1143,8 @@ function view:draw_lane_row(headers: Buf, timeline: Buf, row: Row, lines: {GridL
       timeline:fill(x0, y, x1 - x0, lh, nil, "Visual")
     end
   end
-  local x, cw = cursor_cells(ax, beat)
-  timeline:fill(x, y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+  local x, cw, cursor_style = cursor_cells(ax, beat)
+  timeline:fill(x, y, cw, 1, nil, cursor_style)
   timeline:fill(x, y + 1, cw, lh - 1, nil, "CursorTail")
 end
 
@@ -1241,8 +1251,8 @@ function view:draw_tempo_row(headers: Buf, timeline: Buf, y: integer, lines: {Gr
       color = require("paw.theme").palette.accent,
     }
   )
-  local x, cw = cursor_cells(ax, beat)
-  timeline:fill(x, y, cw, 1, nil, "Cursor")
+  local x, cw, cursor_style = cursor_cells(ax, beat)
+  timeline:fill(x, y, cw, 1, nil, cursor_style)
 end
 
 --- One take lane: take `row.take` of every clip of the part that has that
@@ -1577,7 +1587,8 @@ local function window_bar(buf: Buf, hw: integer, two_rows: boolean, beat: number
   end
   local room = hw - 2
   local path = paw.scope.where()
-  local place = beat and paw.scope.place(beat)
+  -- Off the grid, the hundredths too: `Song 2.2.31`.
+  local place = beat and (motion.off(timegrid.tick(beat)) and paw.scope.format(beat) or paw.scope.place(beat))
   if not two_rows then
     local after = place and (" " .. place) or ""
     local fitted = fit_path(path, math.max(1, room - api.str_width(after)))
@@ -1814,10 +1825,9 @@ local function cursor_cell(self: Arrange, F: Frame, y: integer, h: integer)
   if not F.cursor_beat then
     return
   end
-  local x, cw = cursor_cells(F.ax, F.cursor_beat)
+  local x, cw, style = cursor_cells(F.ax, F.cursor_beat)
   self.caret = {x = F.lanes.x + math.max(0, x), y = F.lanes.y + y, w = cw, h = 1}
-  local mode = paw.keymap.mode
-  F.lanes:fill(x, y, cw, 1, nil, mode == "x" and "CursorVisual" or mode == "i" and "InsertCursor" or "Cursor")
+  F.lanes:fill(x, y, cw, 1, nil, style)
   if h > 1 then
     F.lanes:fill(x, y + 1, cw, h - 1, nil, "CursorTail")
   end
@@ -2254,8 +2264,8 @@ local function draw_master(self: Arrange, F: Frame)
     F.headers, mst.y, mst.h, master, nil, on_master, api.lane_list(0), draw.part_hue(master), self.column_width
   )
   if on_master and F.cursor_beat then
-    local x, cw = cursor_cells(ax, F.cursor_beat)
-    F.lanes:fill(x, mst.y, cw, 1, nil, paw.keymap.mode == "x" and "CursorVisual" or "Cursor")
+    local x, cw, style = cursor_cells(ax, F.cursor_beat)
+    F.lanes:fill(x, mst.y, cw, 1, nil, style)
   end
   for _, l in ipairs(api.lane_list(0)) do
     if l.target == "volume" and l.point_count > 0 then
@@ -2515,6 +2525,7 @@ view.grid = {
     paw.cursor.set_beat(col)
   end,
   step = function(): number return timegrid.step() end,
+  cell = function(col: number): number local _, to = motion.cell(timegrid.tick(col)); return timegrid.beat(to) end,
   label = function(): string return timegrid.label() end,
   -- A mark stays with its part when parts are moved around.
   mark = function(): contracts.GridMark return {part = paw.cursor.part_id(), beat = paw.cursor.beat} end,

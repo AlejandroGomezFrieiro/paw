@@ -930,8 +930,10 @@ emap("<Esc>", function()
 end, "Forget the selection", { repeatable = false })
 paw.keymap.classic("<Esc>", function()
   if next(editor.sel) then return editor:clear_selection() end
+  -- A take ends first, as in every view. The next Escape leaves.
+  if paw.keymap.escape_ends() then return end
   paw.layout.back()
-end, { view = "utau", desc = "Forget the selection, else back to the window before" })
+end, { view = "utau", desc = "Forget the selection, else end a take, else back to the window before" })
 
 local function smap(lhs, rhs, desc, opts) map(lhs, rhs, paw.util.merge({ view = "utau_lyrics", desc = desc }, opts)) end
 smap("j", function(ctx)

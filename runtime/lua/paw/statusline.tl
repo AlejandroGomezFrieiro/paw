@@ -32,6 +32,7 @@ local kernel = require("paw.events.kernel")
 local derived = require("paw.derived")
 local registry = require("paw.registry")
 local timegrid = require("paw.timegrid")
+local motion = require("paw.motion")
 local type contracts = require("paw.contracts")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -401,6 +402,14 @@ function M.grid_text(grid: number): string
   return timegrid.note_text(grid)
 end
 
+--- An offset after a grid line, in ticks, as beats in hundredths, as the
+--- position shows them: `+.31`, `+2.50`.
+function M.offset_text(ticks: integer): string
+  local hundredths = math.floor(ticks * 100 / timegrid.TPQ + 0.5)
+  local whole = hundredths // 100
+  return string.format("+%s.%02d", whole > 0 and tostring(whole) or "", hundredths % 100)
+end
+
 --- The position of the playhead, read without the transport's table: what
 --- the components that show it move with (`moves`).
 local function playhead(_: Context): number
@@ -684,6 +693,13 @@ spec(
         text = timegrid.label()
       else
         text = cells.label and cells.label() or M.grid_text(cells.step())
+      end
+      -- In the arrange view, how far the cursor is after its line.
+      if paw.ui.focused == "arrange" then
+        local offset = motion.offset()
+        if offset ~= 0 then
+          text = text .. " · " .. M.offset_text(offset)
+        end
       end
       return {{"grid " .. text, "StatusDim"}}
     end,
