@@ -9,6 +9,7 @@ pub mod api;
 pub mod clipfile;
 pub mod clock;
 pub mod grid;
+pub mod logging;
 pub mod media;
 pub mod model;
 pub mod remote;

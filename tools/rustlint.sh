@@ -13,6 +13,8 @@
 #   lints and the build breaks. `cargo clippy -- -D warnings` does the job.
 # - model-names-higher-layer: no module of paw-core's model names the
 #   session, the sync, the API or the kernel.
+# - audio-no-log: no log macro in paw-engine. Its code runs on the audio
+#   thread: the engine counts, and the kernel logs the counts.
 #
 # The lints of clippy (casts, unwrap, long functions) are in
 # [workspace.lints.clippy] of Cargo.toml, and `cargo clippy -- -D warnings`

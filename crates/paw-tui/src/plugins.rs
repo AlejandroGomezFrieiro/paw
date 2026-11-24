@@ -121,7 +121,7 @@ pub(crate) unsafe fn host(args: &[String]) -> i32 {
     #[cfg(target_vendor = "browserpod")]
     {
         let _ = args;
-        eprintln!("paw: this build of paw holds no plugins");
+        tracing::error!("this build of paw holds no plugins");
         1
     }
 }
@@ -136,7 +136,7 @@ pub(crate) fn scan(args: &[String]) -> i32 {
     #[cfg(target_vendor = "browserpod")]
     {
         let _ = args;
-        eprintln!("paw: this build of paw holds no plugins");
+        tracing::error!("this build of paw holds no plugins");
         1
     }
 }

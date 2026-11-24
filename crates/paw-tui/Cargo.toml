@@ -20,6 +20,8 @@ paw-raster.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+# The log: paw-core's logging.rs installs the subscriber.
+tracing.workspace = true
 crossterm = "0.29"
 # dup and dup2 of stdout and stderr in stdio.rs.
 # The terminal's settings, the poll of /dev/tty, and the writes of the

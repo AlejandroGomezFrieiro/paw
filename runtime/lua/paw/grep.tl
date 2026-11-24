@@ -394,7 +394,7 @@ local function collect(found: function(Found))
   for _, name in ipairs(M.order) do
     local ok, err = pcall(function(): string M.sources:get(name)(add) end)
     if not ok then
-      api.log("grep: " .. name .. ": " .. tostring(err))
+      api.log("grep: " .. name .. ": " .. tostring(err), "warn")
     end
   end
 end

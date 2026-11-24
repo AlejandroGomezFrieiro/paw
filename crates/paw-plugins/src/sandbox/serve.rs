@@ -278,7 +278,9 @@ pub unsafe fn serve_with(
     match unsafe { run(args, make) } {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("plugin-host: {err:#}");
+            // The standard error of a helper is the pipe that paw reads
+            // into its log (factory.rs).
+            tracing::error!("plugin-host: {err:#}");
             1
         }
     }

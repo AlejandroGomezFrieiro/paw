@@ -21,6 +21,9 @@ paw-measure.workspace = true
 # Decibels and the names of pitches, shared with the engine.
 paw-types.workspace = true
 serde_json.workspace = true
+# The log of the server: its standard error, as MCP over stdio has it.
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt"] }
 arrayvec = "0.7"
 hound = "3.5"
 rustix = { version = "1", default-features = false, features = ["std", "net", "process"] }

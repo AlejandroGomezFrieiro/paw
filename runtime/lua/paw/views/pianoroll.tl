@@ -746,7 +746,7 @@ local function paint_layers(p: Layer)
   for _, layer in ipairs(view.layers) do
     local ok, err = pcall(layer.paint, p) as (boolean, string)
     if not ok then
-      api.log("piano roll layer " .. layer.name .. ": " .. tostring(err))
+      api.log("piano roll layer " .. layer.name .. ": " .. tostring(err), "warn")
     end
   end
 end
@@ -815,7 +815,7 @@ function view.new_note(clip: objects.Clip, note: objects.NoteInput): objects.Not
   for _, e in ipairs(view.enterers) do
     local ok, err = pcall(e.fn, note, clip) as (boolean, string)
     if not ok then
-      api.log("piano roll entering " .. e.name .. ": " .. tostring(err))
+      api.log("piano roll entering " .. e.name .. ": " .. tostring(err), "warn")
     end
   end
   return note
@@ -1238,7 +1238,7 @@ local function draw_ruler(
       } as BandContext
     ) as (boolean, string)
     if not ok then
-      api.log("piano roll band " .. band.name .. ": " .. tostring(err))
+      api.log("piano roll band " .. band.name .. ": " .. tostring(err), "warn")
     end
   end
   return lines

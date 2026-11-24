@@ -1376,6 +1376,9 @@ local function exec(map: Map, ctx: Context, motion?: boolean)
   -- operator's motion to the operator.
   if not map.norepeat and not motion then
     label(map.desc)
+    -- The flight recorder keeps each key that acts, for a log of what led
+    -- to a crash. The file leaves it out (it is `debug`), as each motion.
+    api.log("key " .. M.human(map.lhs) .. (map.desc and " (" .. map.desc .. ")" or ""), "debug")
   end
   local rhs = map.rhs
   if rhs is string then

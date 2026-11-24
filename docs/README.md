@@ -145,6 +145,7 @@ groups below link the main ones.
 - [How to open a project without its plugins](how-to/open-a-project-without-its-plugins.md)
 - [How to fix a plugin editor that does not work](how-to/fix-a-plugin-editor.md)
 - [How to recover lost work](how-to/recover-lost-work.md)
+- [How to find out what went wrong](how-to/find-out-what-went-wrong.md)
 
 ### Extend paw
 

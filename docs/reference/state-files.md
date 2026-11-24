@@ -37,6 +37,8 @@ The state belongs to the computer and not to a project.
 | `token` | The token for network connections. paw makes it at the first start. |
 | `tls/` | The certificate and key of this instance for network connections. paw makes them the first time that it listens. |
 | `known_instances` | The certificate fingerprints of the instances that this computer connected to. |
+| `paw.log` | The log of this run: what paw did and what went wrong, one line for each event with its time in UTC, its level and its target. `:log` shows it. See [How to find out what went wrong](../how-to/find-out-what-went-wrong.md). |
+| `paw.log.1` to `paw.log.4` | The logs of the four runs before, the newest in `paw.log.1`. `:log!` shows `paw.log.1`. Each log ends with the text of `stderr.log` of its run. |
 
 ## Cache: `~/.cache/paw`
 
@@ -47,7 +49,7 @@ paw can delete the cache and make it again, so you don't need to keep it.
 | `plugins.json` | The result of the plugin scan. paw loads a plugin file again only when it changes, or when you use one of its plugins. |
 | `bakes/` | What paw makes from sound files and keeps for the next time: the waveform overviews, and the sound of stretched clips and of clips with an edit list. All projects use one cache. It stays within `paw.opt.media_cache` gigabytes, and paw removes what it used least recently. |
 | `media/` | The decoded sound of long files, up to `paw.opt.media_cache` gigabytes. |
-| `stderr.log` | The output and the errors that plugins, the sound system and the programs that paw starts print while the terminal interface runs. A line from a plugin starts with `plugin` and its name. paw empties it at each start, and `paw attach` adds to it. |
+| `stderr.log` | The output and the errors that the sound system, plugins loaded with `--plugins-in-process` and the programs that paw starts print while the terminal interface runs. At the next start, paw adds its text to the end of the log of its run (`paw.log.1`) and empties it. `paw attach` adds to it. What a plugin host prints goes to `paw.log`. |
 
 ## Editing history
 

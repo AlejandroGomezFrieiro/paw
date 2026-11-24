@@ -645,6 +645,8 @@ command("cmdline", function(ctx)
     -- A number alone is a bar to go to, as it is a line in an editor.
     if line:match("^%s*%d+%s*$") then return paw.commands.run("cursor.bar", { tonumber(line) }) end
     if line:match("%S") then
+      -- The trail of the log: each command line typed.
+      api.log(":" .. line)
       paw.state.last_cmdline = line
       paw.commands.used(line:match("^%s*:?(%S+)"))
     end

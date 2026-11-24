@@ -8,6 +8,7 @@ mod plugins;
 mod stdio;
 mod terminal;
 
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::OnceLock;
@@ -16,7 +17,7 @@ use anyhow::{Context, Result, bail};
 use args::{Attach, ChainCommand, Cli, ClipCommand, ClockChoice, Command, Connect, Ctl};
 use clap::Parser;
 use paw_core::clock::Clock;
-use paw_core::{Kernel, KernelOpts, rpc, startuptime};
+use paw_core::{Kernel, KernelOpts, logging, rpc, startuptime};
 use paw_proto::dirs::Dirs;
 use paw_engine::backend::{BackendChoice, BackendOptions};
 // The terminal's keys; terminal.rs reads them as `crate::keys`.
@@ -46,6 +47,42 @@ fn home_dir() -> Option<PathBuf> {
 fn dirs() -> &'static Dirs {
     static DIRS: OnceLock<Dirs> = OnceLock::new();
     DIRS.get_or_init(|| Dirs::from_vars(|name| std::env::var_os(name)))
+}
+
+/// Tell the user of the command line `text` on the standard error, as
+/// `paw: text`. It is for what the user reads before the terminal shows
+/// paw or after it gives the terminal back. The log has its own lines.
+fn say(text: &str) {
+    // A standard error that cannot be written cannot say so.
+    let _ = writeln!(std::io::stderr().lock(), "paw: {text}");
+}
+
+/// Start the log (paw-core's logging.rs): `paw.log` in the state folder for
+/// a session, else warnings to the standard error. Returns a note for the
+/// user when a part of it did not start.
+fn start_log(session: bool) -> Option<String> {
+    let run = if session {
+        logging::Run::Session { state: dirs().paw_state(), stderr_log: cache_dir().join("stderr.log") }
+    } else {
+        logging::Run::Script
+    };
+    let note = logging::init(logging::Options {
+        run,
+        env_filter: std::env::var("PAW_LOG").ok(),
+        home: home_dir(),
+    });
+    if session {
+        tracing::info!(
+            target: "start",
+            "paw {} ({}) on {} {}, process {}",
+            env!("CARGO_PKG_VERSION"),
+            option_env!("PAW_COMMIT").unwrap_or("commit unknown"),
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            std::process::id()
+        );
+    }
+    note
 }
 
 fn config_dir() -> PathBuf {
@@ -124,11 +161,10 @@ fn connect(options: &Connect) -> Result<rpc::Connection> {
             }
             let connection = rpc::Connection::tcp_with(&address, &token, &wire)?;
             if let Some(print) = &connection.trusted_now {
-                eprintln!(
-                    "paw: {address} is trusted from now on: its certificate is {print} \
-                     (remembered in {})",
+                say(&format!(
+                    "{address} is trusted from now on: its certificate is {print} (remembered in {})",
                     rpc::known_file(dirs()).display()
-                );
+                ));
             }
             Ok(connection)
         }
@@ -405,6 +441,12 @@ enum Purpose {
 
 /// Run the subcommands that need no kernel, or pick the options to start one.
 fn dispatch(cli: Cli) -> Result<Start> {
+    // A client process logs its warnings to the standard error: for a
+    // plugin host, that is the pipe that paw reads into its log. A kernel
+    // starts its log in `run`.
+    if !matches!(cli.command, None | Some(Command::Chain { .. } | Command::Doctor(_))) {
+        let _ = start_log(false);
+    }
     Ok(match cli.command {
         None => Start::Kernel(Box::new(cli.run), Purpose::Session),
         Some(Command::Clip { command: ClipCommand::Cat { file } }) => {
@@ -459,10 +501,7 @@ fn join_running(args: &args::Run, scripted: bool) -> Result<bool> {
         && let Some(project) = &args.project
         && running_has(project)
     {
-        eprintln!(
-            "paw: {} is open in a running paw: joining it as a new seat (`:detach` leaves)",
-            project.display()
-        );
+        say(&format!("{} is open in a running paw: joining it as a new seat (`:detach` leaves)", project.display()));
         let result = attach(&Attach::default());
         terminal::restore();
         result?;
@@ -489,10 +528,28 @@ fn install_safety_copy_hook() {
         let copy = paw_core::session::panic::write_copy(&info.to_string());
         hook(info);
         if let Some(copy) = copy {
-            eprintln!(
-                "paw: the unsaved project was kept in {}; `:recover` opens it at the next start",
-                copy.display()
-            );
+            tracing::warn!("the unsaved project was kept in {}", copy.display());
+            say(&format!("the unsaved project was kept in {}; `:recover` opens it at the next start", copy.display()));
+        }
+    }));
+}
+
+/// The outer panic hook: a panic that no part of paw catches goes to the
+/// log with its backtrace and the flight recorder, before the hooks under
+/// it give the terminal back and print the message. Then the user learns
+/// where the log is.
+fn install_log_hook() {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        // A device's panic is the engine's to report, and one in a function
+        // of `paw.api` is a Lua error: both reach the log as reports.
+        let caught = paw_engine::guard::in_device() || paw_core::api::in_call();
+        if !caught {
+            logging::panic(&info.to_string());
+        }
+        hook(info);
+        if !caught && let Some(log) = logging::files().current {
+            say(&format!("the log of this run is {}", log.display()));
         }
     }));
 }
@@ -507,6 +564,9 @@ struct Attached {
 /// Start the terminal and attach it to the kernel.
 fn attach_terminal(kernel: &mut Kernel) -> Result<Attached> {
     let no_log = capture_output(LogStart::Empty);
+    // Descriptor 2 is stderr.log now, or the screen: the log goes only to
+    // its file.
+    logging::set_echo(logging::Echo::Off);
     let sender = kernel.sender();
     let (terminal, width, height) = terminal::Terminal::start(move |event| {
         sender.send(paw_core::KernelMsg::Input(event)).is_ok()
@@ -654,6 +714,9 @@ fn run() -> Result<i32> {
     if join_running(&args, scripted)? {
         return Ok(0);
     }
+    // After the join: a terminal that joins a running paw must not rotate
+    // the log that paw writes.
+    let log_note = start_log(!scripted);
     // A terminal older than the display it names cannot open a plugin's
     // window. Put that right while this is still the only thread.
     // SAFETY: Called from `main` before any thread starts: only the arguments were parsed and, at
@@ -702,6 +765,7 @@ fn run() -> Result<i32> {
     } else {
         None
     };
+    install_log_hook();
     if attached.is_some() {
         startuptime::event("terminal");
     }
@@ -716,12 +780,19 @@ fn run() -> Result<i32> {
             kernel.eval("paw.notify(..., 'warn')", &[message])?;
         }
     }
+    if let Some(note) = &log_note {
+        kernel.eval("paw.notify(..., 'warn')", &[note])?;
+    }
     if !scripted {
         // Opening a project or adding a plugin does not wait for plugins
         // to be made: they come in as they are ready.
         kernel.eval("paw.api.load_apart(true)", &[])?;
     }
     report_plugin_notes(&mut kernel, &plugin_notes, scanned)?;
+    if !scripted {
+        // The rest of the start header: what only the runtime knows.
+        kernel.eval("require('paw.logfile').header()", &[])?;
+    }
     let _server = serve_listeners(&args, scripted, &mut kernel)?;
     startuptime::event("plugin notes, control socket");
     open_and_feed(&args, &mut kernel)?;
@@ -739,7 +810,8 @@ fn main() -> ExitCode {
     match result {
         Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
         Err(err) => {
-            eprintln!("paw: {err:#}");
+            tracing::error!("{err:#}");
+            say(&format!("{err:#}"));
             ExitCode::FAILURE
         }
     }

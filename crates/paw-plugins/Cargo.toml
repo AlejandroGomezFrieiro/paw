@@ -16,6 +16,8 @@ rtrb = "0.4"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# The output of plugin hosts and the errors of a helper go to the log.
+tracing.workspace = true
 clap-sys = "0.5"
 # Safe wrappers over clap-sys for the CLAP host (clap/): the entry, the
 # plugin factory, the instance, the host's callbacks, processing and the

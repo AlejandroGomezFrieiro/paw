@@ -8,6 +8,10 @@
 //! through `tests/tools/run.sh`, which gives the sealed environment of
 //! `tests/tools/env.sh`.
 
+// The harness is test code: it tells the person at the terminal what it
+// waits for, as a test does.
+#![expect(clippy::print_stderr, reason = "test code: the harness of the suite prints to the terminal of the run")]
+
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::ErrorKind;

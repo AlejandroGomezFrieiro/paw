@@ -170,7 +170,7 @@ fn adopt() {
         for path in std::env::split_paths(&paths) {
             match open(&path) {
                 Ok(lib) => libs.push(Arc::new(lib)),
-                Err(err) => eprintln!("paw: {err:#}"),
+                Err(err) => tracing::warn!("{err:#}"),
             }
         }
     });

@@ -4,6 +4,10 @@
 //!
 //! tests/tools/suite.sh runs it so, and gives the words of `only`.
 
+// A test runner of its own (libtest-mimic, no `#[test]`): it prints to the
+// terminal of the run as a test does.
+#![expect(clippy::print_stderr, reason = "test code: the runner prints to the terminal of the run")]
+
 use std::env;
 use std::process::ExitCode;
 

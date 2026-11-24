@@ -233,6 +233,14 @@ impl Document {
         let previous = std::mem::replace(&mut self.undo.checkpoint, self.project.clone());
         self.undo.history.set_current_snapshot(previous);
         let state = self.undo.history.push(self.undo.checkpoint.clone(), wall);
+        // The trail of the log: each undo step, with what made it.
+        if let Some(step) = self.undo.history.get(state) {
+            let label = step.label.as_deref().unwrap_or("edit");
+            match &step.keys {
+                Some(keys) => tracing::info!(target: "undo", "step {state}: {label} (keys {keys})"),
+                None => tracing::info!(target: "undo", "step {state}: {label}"),
+            }
+        }
         if self.undo.history.newly_pruned() {
             self.warnings.push(format!(
                 "the undo history keeps {} steps and {} MB at most: its oldest steps are let go",

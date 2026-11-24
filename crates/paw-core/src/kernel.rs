@@ -6,6 +6,8 @@
 //! and exposes `paw.api` for Lua to call back into. One turn of its loop
 //! is [`reactor::Reactor::turn`].
 
+mod audio_watch;
+pub(crate) use audio_watch::AudioWatch;
 mod reactor;
 #[cfg(test)]
 mod turn_tests;
@@ -232,6 +234,7 @@ impl Kernel {
             waiter,
             missed: Cell::new(Woken::empty()),
             missed_wakes: Cell::new(0),
+            audio_watch: RefCell::default(),
             looked_on_a_tick: Cell::new(false),
             scenes: Default::default(),
             env: Env {
@@ -409,10 +412,7 @@ impl Kernel {
             if self.shared.reload.replace(false)
                 && let Err(err) = self.boot()
             {
-                self.shared.log(format!("reload failed: {err:#}"));
-                if !self.shared.attached.get() {
-                    eprintln!("reload failed: {err:#}");
-                }
+                self.shared.log(tracing::Level::ERROR, format!("reload failed: {err:#}"));
             }
             if let Some(code) = self.shared.quit.get() {
                 // Scripts get to tidy up: an `exit` event.
@@ -440,11 +440,7 @@ impl Kernel {
                 }
             }
             Err(err) => {
-                let line = format!("--startuptime: cannot write the file: {err}");
-                if !self.shared.attached.get() {
-                    eprintln!("{line}");
-                }
-                self.shared.log(line);
+                self.shared.log(tracing::Level::WARN, format!("--startuptime: cannot write the file: {err}"));
             }
         }
     }
