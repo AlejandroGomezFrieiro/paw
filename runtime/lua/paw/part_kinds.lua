@@ -8,6 +8,7 @@
 --   paw.part_kinds.define("vocal", {
 --     title = "Vocal part",            -- how it is offered and described
 --     letter = "V",                     -- what the part header shows before the name
+--     head = "vocal",                   -- the head of its rows (paw.heads), if not the default
 --     create = function(part, args) end, -- make an ordinary part this kind
 --     editor = function(clip) return true end, -- open a clip (Enter, double click, clip.edit)
 --     describe = function(part) return "Kitane" end, -- a few words for K and the header
@@ -184,11 +185,5 @@ end
 
 -- Enter, a double click and `clip.edit` ask the part's kind first.
 table.insert(paw.frontend.openers, 1, M.open)
-
--- The kind's letter in the part header, in the free column before the name.
-paw.ui.layer("arrange", "header", "part_kinds", 20, function(c)
-  local spec = M.spec(c.part)
-  if spec then c.buf:text(c.x, c.y, spec.letter:sub(1, 1), "PartIndex") end
-end)
 
 return M

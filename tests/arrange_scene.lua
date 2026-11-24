@@ -251,8 +251,12 @@ test(
 test("in a window the header's switches and its volume take the pointer", function()
   local a, _, _, _, at = song()
   local _, y = at(a, 0, 0.5)
-  input("down", view.flags.mute + 0.4, y)
-  input("up", view.flags.mute + 0.4, y)
+  local mute
+  for _, hit in ipairs(view.head_hits) do
+    if hit.subject.part == a.id and hit.name == "mute" then mute = hit.x end
+  end
+  input("down", mute + 0.4, y)
+  input("up", mute + 0.4, y)
   eq(a:get().mute, true, "M mutes it")
   local x = view.geometry.hw - 6
   drag(x, y + 1, x + 3.5, y + 1)

@@ -37,6 +37,7 @@ local type FrontendModule = require("paw.frontend")
 local type GrepModule = require("paw.grep")
 local type GroupsModule = require("paw.groups")
 local type HarmonyModule = require("paw.harmony")
+local type HeadsModule = require("paw.heads")
 local type HelpModule = require("paw.help")
 local type HooksModule = require("paw.hooks")
 local type InsertModule = require("paw.insert")
@@ -150,6 +151,7 @@ global record paw
    grep: GrepModule
    groups: GroupsModule
    harmony: HarmonyModule
+   heads: HeadsModule
    health: Partial.Health
    help: HelpModule
    hooks: HooksModule

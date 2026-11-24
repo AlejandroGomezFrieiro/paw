@@ -80,14 +80,8 @@ local record CurveProps is contracts.MarkProps
   draw: function(buf: contracts.Buf)
 end
 
---- The props of `parthead`.
-local record PartheadProps is contracts.MarkProps
-  style: Style
-  stripe: string
-  stripe_style: Style
-  color: string
-  selected: boolean
-end
+--- The props of `parthead` (paw/heads.tl marks it).
+local type PartheadProps = contracts.PartheadMark
 
 --- The props of `recording`.
 local record RecordingProps is contracts.MarkProps

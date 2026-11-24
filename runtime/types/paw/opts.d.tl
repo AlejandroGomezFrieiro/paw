@@ -44,6 +44,8 @@ local record Opts
    graphics: boolean
    grid: number | string
    harmony_step: number
+   head_limit: number
+   head_pictures: boolean
    header_width: integer | string
    hint_delay: number
    hints: boolean

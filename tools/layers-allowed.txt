@@ -126,7 +126,6 @@ paw.takes paw.pick 1
 paw.textbuf paw 1
 paw.textbuf paw.frontend 1
 paw.part_kinds paw.frontend 2
-paw.part_kinds paw.ui 1
 paw.partcolumn paw.ext 1
 paw.partcolumn paw.frontend 1
 paw.ui paw.keybar 1

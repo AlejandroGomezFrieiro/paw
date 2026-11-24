@@ -60,6 +60,15 @@ local function row_y(id, kind)
 end
 
 --- Where text is on the screen: its column and line.
+--- The column of the hit `name` that the head of part `id` asked for
+--- (paw/heads.tl): a chip (`mute`, `solo`, `monitor`), `volume` or `pan`.
+local function hit_x(id, name)
+  for _, hit in ipairs(arrange.head_hits) do
+    if hit.subject.part == id and hit.name == name then return hit.x end
+  end
+  error("no hit " .. name .. " on the head of part " .. id)
+end
+
 local function find(text)
   for y, line in ipairs(shot()) do
     local i = line:find(text, 1, true)
@@ -246,13 +255,20 @@ test("a header's M, S, R and I switch, and a press on M swept down mutes the par
   local a, b = two_parts()
   local c = paw.add_part({ name = "C" })
   shot()
-  local flags = arrange.flags
-  click(flags.solo, row_y(a.id))
+  click(hit_x(a.id, "solo"), row_y(a.id))
   eq(a:get().solo, true, "S solos")
-  click(flags.monitor, row_y(a.id))
+  click(hit_x(a.id, "monitor"), row_y(a.id))
   eq(a:get().monitor, true, "I monitors")
-  drag(flags.mute, row_y(a.id), flags.mute, row_y(c.id))
+  drag(hit_x(a.id, "mute"), row_y(a.id), hit_x(a.id, "mute"), row_y(c.id))
   eq(tostring(a:get().mute) .. tostring(b:get().mute) .. tostring(c:get().mute), "truetruetrue", "all three muted")
+end)
+
+test("a click on a header's in button opens the menu of the part's input", function()
+  local a = two_parts()
+  shot()
+  click(hit_x(a.id, "input"), row_y(a.id) + 1)
+  eq(screen():find("Monitor: hear the input without arming", 1, true) ~= nil, true, "the input menu")
+  paw.keymap.feed("<Esc>")
 end)
 
 test("the volume on a header drags sideways a decibel a cell, and a double click puts it at 0 dB", function()

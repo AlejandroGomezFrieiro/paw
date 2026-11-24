@@ -440,8 +440,8 @@ The limits page lists what paw does not do, and the known limits of what it does
     say how a new clip on it starts. Kinds have no `new_clip`: a double click
     makes an empty clip on any part.
   - Commands of the extension change the kind of a part (`:utau.voice`, `:drums.map off`), and not a list.
-  - The header shows the letter of a kind in the column before the name.
-    Diagnostics mark the same column and draw over it.
+  - A head draws only the header of a part. The rows of a part's lanes
+    have no head of their own until parts have lanes.
   - An extension finds the CLAP and VST3 plugins of its own with
     `paw.plugins.add_dir`. It cannot add LV2 plugins that way.
 - Packaged extensions (`paw.withExtensions`) load at startup, and to leave them out for one run, you must run the plain program.

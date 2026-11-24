@@ -17,6 +17,7 @@ local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type Arrange = require("paw.views.arrange")
+local heads = require("paw.heads")
 local type roles = require("paw.roles.arrange")
 local type FrontendModule = require("paw.frontend")
 local type MouseModule = require("paw.mouse")
@@ -758,55 +759,38 @@ local function drag_value(
   )
 end
 
---- A press on the first row of a header: on one of its M, S, R and I
---- buttons (a press on one swept across the others sets them all alike),
---- or on the fold mark of a group. True when it was on one.
-local function press_chips(
-  self: Arrange, e: MouseEvent, row: Row, t: types.Part, cx: integer, column_width: integer
-): boolean
-  local id = row.id
-  -- The chips are where the view has them (`view.flags`, in its columns).
-  for field, x in pairs(self.flags) do
-    if cx + column_width == x then
-      if field == "monitor" then
-        A.toggle(id, field)
-        return true
-      end
-      local on = not (t as {string: boolean})[field]
-      A.set_flag(id, field, on)
-      hold(e, {drag = function(d: MouseEvent) A.sweep_flag(row.index, row_index(self, d.y), field, on) end})
-      return true
+--- The row of the arrange view where the part `id` is drawn, if it is.
+local function part_row(self: Arrange, id: integer): Row
+  for _, row in ipairs(self.geometry.layout.rows) do
+    if row.kind == "part" and row.id == id then
+      return row
     end
   end
-  -- Without the column's `fold`, the group's mark is before its name.
-  if paw.groups.is_group(id) and not paw.partcolumn.shows("fold") and cx == 2 then
-    A.fold(id)
-    return true
-  end
-  return false
 end
 
---- A press on the second row of a header: the input's button, the
---- volume, which a click puts the clip light out on, and the meter, which
---- a drag moves the volume along (a double click puts it back). True
---- when it was on one.
-local function press_volume(e: MouseEvent, row: Row, t: types.Part, cx: integer, hw: integer, name_at: integer): boolean
-  local id = row.id
-  if hw >= 16 and cx >= 1 and cx < 3 then
-    paw.ui.menu(require("paw.window_menus").input(id), screen_at(e, 1))
-    return true
+--- A press on a chip of a head: it switches its flag, and a press on M, S
+--- or R swept across other rows sets them all alike.
+local function press_chip(s: contracts.HeadSubject, e: MouseEvent, flag: string)
+  local id = s.part
+  if flag == "monitor" then
+    A.toggle(id, flag)
+    return
   end
-  if cx >= hw - 1 - #paw.draw.db_text(t.volume) then
-    paw.draw.clear_peak(id)
-    api.ui_redraw()
-    return true
+  local on = not (api.part_get(id) as {string: boolean})[flag]
+  A.set_flag(id, flag, on)
+  local row = part_row(view, id)
+  if row then
+    hold(e, {drag = function(d: MouseEvent) A.sweep_flag(row.index, row_index(view, d.y), flag, on) end})
   end
-  if cx < name_at then
-    return false
-  end
+end
+
+--- A press on the meter of a head: a drag moves the volume along it, and
+--- a double click puts it back at 0 dB.
+local function press_volume(s: contracts.HeadSubject, e: MouseEvent)
+  local id = s.part
   if e.double then
     A.set_volume(id, 0)
-    return true
+    return
   end
   A.select(id)
   drag_value(
@@ -818,12 +802,12 @@ local function press_volume(e: MouseEvent, row: Row, t: types.Part, cx: integer,
     1,
     0.1
   )
-  return true
 end
 
---- A press on the pan of a header's third row: dragged sideways, a
---- double click puts it back.
-local function press_pan(e: MouseEvent, id: integer)
+--- A press on the pan of a head: dragged sideways, a double click puts it
+--- back.
+local function press_pan(s: contracts.HeadSubject, e: MouseEvent)
+  local id = s.part
   if e.double then
     A.set_pan(id, 0)
     return
@@ -838,6 +822,25 @@ local function press_pan(e: MouseEvent, id: integer)
     0.05,
     0.01
   )
+end
+
+-- What the pieces of the heads of the core start (paw/heads/pieces.tl).
+heads.gestures.flag = press_chip
+heads.gestures.volume = press_volume
+heads.gestures.pan = press_pan
+heads.gestures.peak = function(s: contracts.HeadSubject) paw.draw.clear_peak(s.part); api.ui_redraw() end
+heads.gestures.input = function(s: contracts.HeadSubject, e: MouseEvent)
+  paw.ui.menu(require("paw.window_menus").input(s.part), screen_at(e, 1))
+end
+heads.gestures.fold = function(s: contracts.HeadSubject) A.fold(s.part) end
+
+--- The hit of a head under the view's cell `x`, `y`, if any.
+local function head_hit(self: Arrange, x: integer, y: integer): heads.Hit
+  for _, found in ipairs(self.head_hits or {}) do
+    if x >= found.x and x < found.x + found.w and y >= found.y and y < found.y + found.h then
+      return found
+    end
+  end
 end
 
 --- A press on a header elsewhere: it selects the part, renames it on a
@@ -874,12 +877,9 @@ local function press_part(self: Arrange, e: MouseEvent, row: Row)
 end
 
 --- A press on a part's header: the part column at its left, its bottom
---- edge, its chips, its volume and its pan, or the rest of it.
+--- edge, what its head asked for (paw/heads.tl), or the rest of it.
 local function press_header(self: Arrange, e: MouseEvent, h: Hit)
   local row, id = h.row, h.row.id
-  local t = api.part_get(id)
-  -- The part column at the left (paw/partcolumn.tl), then the header,
-  -- whose controls are placed from its own left edge.
   local column = self.geometry.layout.column
   local cx, cy = math.floor(e.x), math.floor(e.y)
   if cx < column.width and row.kind == "part" then
@@ -888,20 +888,18 @@ local function press_header(self: Arrange, e: MouseEvent, h: Hit)
     api.ui_redraw()
     return
   end
-  cx = cx - column.width
-  local hw = self.geometry.hw - 1 - column.width
-  local name_at = hw < 16 and 2 or 4
   if on_edge(row, e.y, h.fine, e) then
     return press_height(self, e, row)
   end
-  if cy == row.y and press_chips(self, e, row, t, cx, column.width) then
+  local found = head_hit(self, cx, cy)
+  if found then
+    local action = found.action
+    if action is string then
+      paw.cmd(action)
+    else
+      action(found.subject, e)
+    end
     return
-  end
-  if row.h >= 2 and cy == row.y + 1 and press_volume(e, row, t, cx, hw, name_at) then
-    return
-  end
-  if row.h >= 3 and cy == row.y + 2 and cx >= name_at and cx < name_at + 4 then
-    return press_pan(e, id)
   end
   press_part(self, e, row)
 end

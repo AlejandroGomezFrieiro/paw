@@ -102,8 +102,10 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | --- | --- | --- |
 | `paw.opt.zoom` | `2` | The columns for each beat in the arrange view. |
 | `paw.opt.note_zoom` | `8` | The columns for each beat in the piano roll. |
-| `paw.opt.part_height` | `"auto"` | The rows for each part in the arrange view, 1 to 12. `"auto"` gives each part the most rows, from 1 to 3, that let every part fit on the screen. A song with more parts than fit at 1 row scrolls. |
+| `paw.opt.part_height` | `"auto"` | The rows for each part in the arrange view, 1 to 12. `"auto"` gives each part the most rows, from 1 to 3, that let every part fit on the screen. A song with more parts than fit at 1 row scrolls. When the parts have 2 rows or more, a part whose head asks for more rows gets them, up to 6. |
 | `paw.opt.header_width` | `"auto"` | The columns of the part headers, 8 to 60. `"auto"` gives 26, 22, 18 or 12 columns, by the width of the screen. The part column at their left is not in these columns. |
+| `paw.opt.head_limit` | `5` | The time in ms that a head of an extension has to draw a part's header. A head that takes longer, or that fails, is out until it's defined again, and the part shows the default header. `0` gives no limit. |
+| `paw.opt.head_pictures` | `true` | Heads of extensions can show a picture in a part's header. When `false`, they show none. |
 | `paw.opt.number` (`nu`) | `true` | Shows the number of each part in the part column of the arrange view. |
 | `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each part. The part of the cursor keeps its number. |
 | `paw.opt.partcolumn` | `number,signs,fold` | The components of the part column that show. See [The part column](partcolumn.md). |

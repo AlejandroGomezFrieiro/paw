@@ -179,6 +179,8 @@ paw.device_rows
 paw.keybar
 paw.mouse_menus
 paw.window_menus
+paw.heads
+paw.heads.*
 
 [frontends]
 # The terminal and the clients of the control socket.

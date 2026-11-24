@@ -1054,6 +1054,22 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.voice.distance(a, b)`: How far voices move from `a` to `b`. When the chords have the same number of voices, it measures voice by voice. If not, it measures each note to the nearest note of the other chord, in the two directions, and halves the sum.
 - `paw.harmony.voice.voice(tones, opts)`: The best voicing of `tones` (pitch classes, root first). The options are `low` and `high` (48 and 84), `count` (the number of voices, by default the number of tones) and `style` ("smooth"). `prev` and `next` are the pitches of the chords around it, to lead from and into. `bass` is the pitch class that must be the lowest. `center` is a pitch to stay near when there is no chord before. Nil when nothing fits the range.
 
+## Module paw.heads
+
+- `paw.heads.begin_layout(width)`: Start a layout of heads that are `width` columns wide. paw asks the heads for their rows again when the width class or the stamp of a head changes.
+- `paw.heads.builtin(name, spec)`: Define a head of the core, the same way as `define`. paw doesn't time the heads of the core.
+- `paw.heads.class_of(width)`: The width class of a head that's `width` columns wide, without the stripe.
+- `paw.heads.compose(lines)`: A render made of lines. The first line always shows, and each later line shows when its pieces have something to show and there are rows left. A line is a `HeadLine`, or the name of a piece that takes a whole line and starts under the name.
+- `paw.heads.define(name, spec)`: Define a head. `name` is a word, the one that a kind of part names in its `head` field, and `spec` is a `Head` (paw/contracts.tl). A new head with the name of a head that's already defined hides the old one until the new one is removed. Returns the head.
+- `paw.heads.describe(part)`: The lines that `K` shows about the head of a part's row. When no extension here defines the head that the row asks for, or the head is out, the first line says so, and the head's own lines come after it.
+- `paw.heads.draw(row)`: Draw the head of a row with its frame, its kept cells or a new render, the lit switches, and what other modules mark there. Returns the places that a click reaches, in the columns and lines of the view.
+- `paw.heads.of(s)`: The head that a row uses, which is the first head that the row asks for that's defined and isn't out, or the default head when there's none.
+- `paw.heads.piece(name, spec)`: Define a piece that heads draw with, such as the name or the meter (paw/heads/pieces.tl). Returns the piece.
+- `paw.heads.remove(name)`: Remove a head, so that the head it hid, if there's one, comes back.
+- `paw.heads.scope(part)`: The scope of the keys of the head of a part, or nil when the head has no keys.
+- `paw.heads.subject(part)`: What the row of a part shows. Until parts have lanes of their own, the row of a part shows the part and its lane in one head.
+- `paw.heads.wish(part)`: The rows that the head of a part asks for, from 1 to 6, or nil when the head doesn't ask.
+
 ## Module paw.health
 
 - `paw.health.check(names)`: Run the checks named (all when none), each a result of `run`.

@@ -141,6 +141,8 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.layout.types` | buffer types |
 | `paw.textbuf.kinds` | kinds of text buffer |
 | `paw.part_kinds.kinds` | kinds of part |
+| `paw.heads.heads` | heads of parts |
+| `paw.heads.pieces` | pieces that heads draw with |
 | `paw.clip_kinds.kinds` | kinds of clip |
 | `paw.nest.kinds` | kinds of subproject |
 | `paw.ui.roles` | roles |
@@ -351,6 +353,7 @@ The core has parts that let an extension own a full feature, and the utau extens
 | --- | --- |
 | `title` | the name of the kind |
 | `letter` | shown in the part header before the name |
+| `head` | the name of the head that draws the header of its parts (see [Heads of parts](#heads-of-parts)). Without it, or when no extension defines that head, the part has the default header |
 | `create(part, args)` | makes an ordinary part this kind, with its devices or a question |
 | `editor(clip)` | what Enter, a double click and `:clip.edit` open for its clips. It returns true when it opened an editor |
 | `describe(part)` | a few words for `K` and the part header of the graphical window |
@@ -359,6 +362,51 @@ The core has parts that let an extension own a full feature, and the utau extens
 After that, `:part.add <name> [words]`, `:part.new` (a list of every kind), the buttons and menus of the graphical window that make a part, the header, `K` and `:clip.edit` know the kind.
 
 The kind is in `meta.kind` of the part, and the project saves it. Without the extension, the part is an ordinary part, and `K` gives the kind that it was. Vocal parts (utau) and drum parts (drums) are kinds. `paw.part_kinds.add(name, opts)`, `set(part, name, args)`, `clear(part)`, `of(part)` and `describe(part)` are for scripts.
+
+### Heads of parts
+
+A head draws the header of a part in the arrange view. paw has a default head, which shows the name, the switches, the volume, the meter, the input and the sends. A kind of part can name a head of its own in its `head` field, and `paw.heads.define(name, spec)` defines one.
+
+```lua
+paw.heads.define("vocal", {
+  rows = function(size) return 3 end,
+  render = function(ctx)
+    ctx:line(0, { "badge", "name" }, { "chips" })
+    ctx:text(1, 1, ctx.width - 2, "Kitane", "PartInfo")
+  end,
+  keys = { { lhs = "s", run = "utau.singer", desc = "Choose the singer" } },
+})
+```
+
+| Field | Value |
+| --- | --- |
+| `render(ctx)` | draws the header. `ctx.buf` holds the cells of the header only, without the part column, the stripe and the rule |
+| `rows(size)` | the rows that the head asks for, from 1 to 6. `size.width` is its columns, and `size.class` is `narrow` (under 15 columns), `default` or `wide` (23 columns or more) |
+| `keys` | keys on `<localleader>`, each with `lhs`, `run` (a command, or a function of the row) and `desc` |
+| `describe(subject)` | lines that `K` shows after its own lines |
+| `stamp(subject)` | a text of what the head reads outside the project, such as a file. The header is drawn again when the text changes |
+| `title` | the name of the head |
+
+`ctx` has these functions:
+
+| Function | Effect |
+| --- | --- |
+| `ctx:line(y, left, right)` | draws one line of pieces, `left` from the left and `right` from the right. When the line is too short, the piece that is least needed goes first |
+| `ctx:piece(name, x, y, w)` | draws one piece and returns the columns that it used |
+| `ctx:text(x, y, w, words, style)` | writes `words`, cut to `w` columns |
+| `ctx:picture(x, y, w, h, key)` | shows a picture of `paw.canvas.image`. Where the terminal shows no images, it shows half blocks, and with `paw.opt.head_pictures` set to `false` it shows nothing |
+| `ctx:sub(x, y, w, h)` | a context for some of the cells of the header, such as the columns beside a picture |
+| `ctx:hit(x, y, w, h, action, name)` | a click on the cells runs `action`, a command or a function |
+
+The pieces are `name`, `badge` (the letter of the kind), `chips` (the switches `M S R I`), `automation`, `bake`, `volume`, `input_button`, `meter`, `route`, `sends` and `input`. `paw.heads.piece(name, spec)` defines another one.
+
+The rules for a head:
+
+- The height that you set wins over the rows that a head asks for, and when the parts get one row each, a head gets one row too. A head gets more rows than the other parts only when they have 2 rows or more.
+- The keys of a head work only while the cursor is on one of its parts. A head can't take a key that paw or the arrange view uses, and `paw.heads.define` gives an error that names the key and who uses it.
+- When a switch is on and the head doesn't show it, paw shows it at the right of the header, and `K` says it.
+- A head that fails, or that takes longer than `paw.opt.head_limit`, is out until it's defined again. paw says so once, and its parts get the default header.
+- Without the extension, the part has the default header, and `K` names the head that it asked for.
 
 ### Kinds of clip
 

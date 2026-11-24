@@ -185,6 +185,10 @@ local function under_cursor()
   if t.chain_origin then lines[#lines + 1] = "  devices copied from " .. t.chain_origin end
   local kind = paw.part_kinds.describe(part.id)
   if kind then lines[#lines + 1] = "  kind    " .. kind end
+  -- What the head of the part's row says of it (paw/heads.tl).
+  for _, line in ipairs(paw.heads.describe(part.id)) do
+    lines[#lines + 1] = "  " .. line
+  end
   -- A frozen part: whether its file is up to date (paw/freeze.lua).
   local frozen = paw.freeze.describe(part.id)
   if frozen then lines[#lines + 1] = "  " .. frozen end

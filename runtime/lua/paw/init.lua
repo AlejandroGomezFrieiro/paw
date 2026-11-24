@@ -134,6 +134,8 @@ paw.vzoom = require("paw.vzoom")
 paw.lanes = require("paw.lanes")
 -- The part column and the ruler's bar labels, which extensions add to.
 paw.partcolumn = require("paw.partcolumn")
+-- The heads of the arrange view's rows, by name (paw/heads.tl).
+paw.heads = require("paw.heads")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
