@@ -29,7 +29,13 @@ fn main() -> ExitCode {
         return libtest_mimic::run(&args, Vec::new()).exit_code();
     }
     let suite = Suite::from_env();
-    let parts = match suite.parts() {
+    // nextest runs each part as `<binary> <part> --exact`: the part is
+    // known, and the list (a paw, with the words of `only`) is not needed.
+    let parts = match (&args.filter, args.exact) {
+        (Some(part), true) => Ok(vec![part.clone()]),
+        _ => suite.parts(),
+    };
+    let parts = match parts {
         Ok(parts) => parts,
         Err(message) => {
             eprintln!("{message}");

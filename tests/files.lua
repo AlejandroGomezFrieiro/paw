@@ -207,7 +207,7 @@ end)
 test("files: a deleted line moves the file to the trash, where it can be taken back from", function()
   start()
   -- The trash outlives a run, so what is put in it has a name of its own.
-  local name = "gone-" .. T.scratch:match("(%d+-%d+)$")
+  local name = "gone-" .. T.scratch_id
   sh("cp '" .. root .. "/kick.wav' '" .. root .. "/" .. name .. ".wav'")
   open(root)
   local before = (api.fs_stat(root .. "/kick.wav") or {}).size
@@ -356,7 +356,7 @@ test("files: the media folder marks what no clip plays, and `:media.unused` list
   local song = T.scratch .. "/files-song"
   sh("rm -rf '" .. song .. "' && mkdir -p '" .. song .. "/media'")
   sh("cp tests/fixtures/tone-mono-8k.wav '" .. song .. "/media/used.wav'")
-  sh("cp tests/fixtures/shape.wav '" .. song .. "/media/spare-" .. T.scratch:match("(%d+-%d+)$") .. ".wav'")
+  sh("cp tests/fixtures/shape.wav '" .. song .. "/media/spare-" .. T.scratch_id .. ".wav'")
   local t = paw.add_part({ name = "Take" })
   t:add_clip({ start = 0, file = song .. "/media/used.wav" })
   paw.flush()
@@ -364,7 +364,7 @@ test("files: the media folder marks what no clip plays, and `:media.unused` list
   keys(":files media<CR>")
   eq(tb.buf().name, "paw://files" .. song .. "/media", "`:files media` is the project's folder")
   eq(
-    lines()[row_of("spare-" .. T.scratch:match("(%d+-%d+)$") .. ".wav")]:find("unused", 1, true) ~= nil,
+    lines()[row_of("spare-" .. T.scratch_id .. ".wav")]:find("unused", 1, true) ~= nil,
     true,
     "the spare file is marked"
   )
@@ -373,7 +373,7 @@ test("files: the media folder marks what no clip plays, and `:media.unused` list
   eq(#lines(), 1, "only the unused file is listed: " .. table.concat(lines(), "\n"))
   keys("dd")
   write()
-  local spare = "spare-" .. T.scratch:match("(%d+-%d+)$") .. ".wav"
+  local spare = "spare-" .. T.scratch_id .. ".wav"
   eq(exists(song .. "/media/" .. spare), false, "deleted")
   eq(exists(song .. "/media/used.wav"), true, "and the other is not touched")
   eq(exists(trash_dir() .. "/files/" .. spare), true, "to the trash")

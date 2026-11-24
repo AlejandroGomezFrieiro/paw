@@ -69,8 +69,11 @@ impl Slots {
                 Err(TryLockError::Error(error)) => return Err(fail(&error)),
             }
         }
-        // Every slot is taken: wait on one of them. The process id spreads
-        // the waiters over the slots.
+        // Every slot is taken: wait on one of them, chosen by the process
+        // id, so that the waiters spread over the slots. A waiter can wait
+        // on a slot while another slot is free again: a lock cannot wait
+        // on several files. The wait counts toward the timeout of the part
+        // (slow-timeout in .config/nextest.toml).
         let k = usize::try_from(std::process::id()).unwrap_or(0) % self.count + 1;
         let file = open(k)?;
         eprintln!(

@@ -119,13 +119,13 @@ if not quarantined then
 end
 
 local tmp = os.getenv("TMPDIR") or "/tmp"
--- The name of the part keeps apart the folders of parts that start at once.
-local scratch = tmp
-  .. "/paw-test-"
-  .. os.time()
-  .. "-"
-  .. math.floor(api.real_ms() * 1000)
-  .. (only_part or ""):gsub("%W", "-")
+-- A name of this run (T.scratch_id): the seconds and the microseconds of
+-- its start, digits and one dash only. A test that needs a name that
+-- outlives the run (a file in the trash) takes it, and never parses the
+-- folder of the run. The name of the part keeps apart the folders of
+-- parts that start at once.
+local scratch_id = os.time() .. "-" .. math.floor(api.real_ms() * 1000)
+local scratch = tmp .. "/paw-test-" .. (only_part and (only_part:gsub("%W", "-") .. "-") or "") .. scratch_id
 os.execute("mkdir -p '" .. scratch .. "'")
 
 -- Every file of the checkout outside `target/` and `.git`: at the end,
@@ -149,9 +149,9 @@ end
 local files_before = checkout_files()
 
 local tests, failed = {}, 0
--- The part and the file whose tests are being collected (see "Shards"
+-- The part and the file whose tests are being collected (see "A part"
 -- below): each test keeps them, so that the leak check names the part that
--- leaves state behind, and times.txt gives the time of each file.
+-- leaves state behind.
 local loading, loading_file
 -- `opts.live` marks a test that needs real time, and says why: it runs in a
 -- second paw on the wall clock (see "Time in the tests").
@@ -939,6 +939,7 @@ local T = {
   until_recorded = until_recorded,
   stop = stop,
   scratch = scratch,
+  scratch_id = scratch_id,
   home = home,
   read_file = read_file,
   write_wav = write_wav,
@@ -1012,6 +1013,19 @@ end
 -- harness runs whole parts. tests/harness/src/lib.rs (`parts_in`) lists the
 -- parts by the same rule.
 local function part_of(path) return path:match("^(extensions/[^/]+/)") or path end
+--- The parts of the suite, in their order: tests/runner.lua compares
+--- them with the parts that the harness lists.
+function T.parts()
+  local out, seen = {}, {}
+  for _, path in ipairs(files) do
+    local part = part_of(path)
+    if not seen[part] then
+      seen[part] = true
+      out[#out + 1] = part
+    end
+  end
+  return out
+end
 local part_found = false
 for _, path in ipairs(files) do
   local part = part_of(path)

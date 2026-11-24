@@ -22,6 +22,9 @@ use slot::Slots;
 /// again would start processes without end.
 pub const IN_SUITE: &str = "PAW_TEST_IN_SUITE";
 
+/// The path of this binary, in the environment of each paw of a run.
+const HARNESS: &str = "PAW_TEST_HARNESS";
+
 /// The words of `tests/tools/suite.sh only`, one on each line. A test runs
 /// when its name holds one of them.
 const WORDS: &str = "PAW_TEST_WORDS";
@@ -186,6 +189,11 @@ impl Suite {
         };
         let file = output_file(out, pass)
             .map_err(|error| format!("cannot write {}: {error}", out.display()))?;
+        // tests/runner.lua runs this binary to check its guard and its list
+        // of the parts.
+        if let Ok(harness) = env::current_exe() {
+            command.env(HARNESS, harness);
+        }
         command
             .env_remove("PAW_TEST_LIST")
             .env("PAW_TEST_SCRATCH", scratch)

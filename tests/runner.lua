@@ -203,6 +203,38 @@ end)
   end
 end)
 
+-- The harness of nextest (tests/harness) gives each paw of a run its path.
+local harness = os.getenv("PAW_TEST_HARNESS")
+
+--- Run the harness binary with `args`, after the shell text `env`. Gives
+--- what it printed (with its errors) and its exit code on the last line.
+local function run_harness(env, args)
+  local pipe = io.popen(env .. " '" .. harness .. "' " .. args .. ' 2>&1; echo "exit $?"')
+  local printed = pipe:read("*a")
+  pipe:close()
+  return printed
+end
+
+test("the harness of the suite refuses to start inside a run of the suite", function()
+  if not harness then return "the run did not start from the harness of nextest" end
+  eq(
+    run_harness("PAW_TEST_IN_SUITE=1", "--list"),
+    "the Lua suite does not start inside a run of the Lua suite (PAW_TEST_IN_SUITE is set)\nexit 2\n",
+    "what it printed"
+  )
+end)
+
+test("the harness lists the parts of the runner", function()
+  if not harness then return "the run did not start from the harness of nextest" end
+  -- With no words, the list reads the folders and starts no paw.
+  local printed = run_harness("env -u PAW_TEST_IN_SUITE -u PAW_TEST_WORDS", "--list --format terse")
+  local listed = {}
+  for part in printed:gmatch("([^\n]+): test\n") do
+    listed[#listed + 1] = part
+  end
+  eq(listed, T.parts(), "the parts of the harness and of tests/suite.lua")
+end)
+
 test("tests/tools/suite.sh refuses to start inside a run of the suite", function()
   -- A paw of the suite has PAW_TEST_IN_SUITE: a test that starts the suite
   -- again would start paw processes without end. The limit on processes
