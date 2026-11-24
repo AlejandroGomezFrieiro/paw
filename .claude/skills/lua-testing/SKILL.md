@@ -73,9 +73,9 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.frequency(info, from, to)`, `T.channel_peaks(info, from, to)` | Read a render. |
 | `T.tone`, `T.three_clips`, `T.melody`, `T.layout`, `T.roll_notes` | Fixtures. |
 | `T.until_(cond, what)` | Settle, then check a state. While the state waits for the engine (a meter, a device that sleeps, the playhead), the engine plays block by block, and the clock moves with it. Fails with "nothing is left to do, and <what> is false" when no work is left, after about 2 s of blocks. While the song plays, it fails after 30 s of the song. |
-| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads, renders and measurements ended, and the files of stretched clips have a hash (`api.settle()`). The loop sleeps until each worker rings when its work ends. The clock does not move. Idle work (a job of `paw.slices` with `idle`, as the collector) and a job that polls at no delay are not work. Gives `api.pending()`: `quiet` is true when nothing is in flight, no helper works and the engine plays nothing. |
+| `T.settle()` | Turn the loop until the due timers fired and the bakes, plugin loads, renders and measurements ended, and the files of stretched clips have a hash (`api.settle()`). The loop sleeps until each worker rings when its work ends. The clock does not move. Idle work (a job of `paw.slices` with `idle`, as the collector) and a job that polls at no delay are not work. Gives `api.pending()`: `quiet` is true when nothing is in flight, no helper or plugin works, no plugin owes its new state, and the engine plays nothing. |
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, the engine plays the blocks of that time, then the kernel settles. |
-| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. While a helper owes an answer (`helpers_busy` of `api.pending()`), the clock does not move: the wait is for the helper, up to the stall guard. Fails after `ms` of schedule time. |
+| `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. While a helper owes an answer (`helpers_busy` of `api.pending()`), or a plugin works on a thread of its own (`plugins_busy`), the clock does not move: the wait is for the helper or the plugin, up to the stall guard. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Play exactly `n` blocks (1 if not given), so that a change sent before is in effect. The clock moves by their time. With `device`, play until that device ran `n` blocks: a device that sleeps does not count them. |
 | `T.meter(part)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
 | `T.level(part, side)` | The peak level of the part after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
@@ -309,6 +309,21 @@ T.check_keys(
   must take a state on, not for a time. A helper process that still
   runs is work in flight (`api.pending().helpers`): `T.until_` waits
   for it.
+- A plugin does some of its work in its next blocks or on threads of
+  its own. A parameter, a property or a preset reaches the plugin in
+  its next block. A model, an analysis or a state comes later from a
+  thread of the plugin. The runner waits for this work:
+  - `api.pending().plugins_busy` counts the plugins with a thread that
+    works now, or an attachment that answers `paw.busy` with `1`.
+    `T.until_` and `T.advance_until` hold the clock and wait for them,
+    up to the stall guard.
+  - `api.pending().plugins_owe` counts the plugins that took a request
+    (`device_load` with a call or a preset) and do not show the new
+    state yet. `T.until_` plays blocks for them, and `T.render` waits
+    for them.
+  - A value that the plugin tells (a parameter, a slot of
+    `plugstate`) after it takes the work on: wait for that value with
+    `T.until_`. Do not read it once after `T.settle`.
 - A test fails when a worker did not ring the loop when its work ended
   ("missed wakes", `api.pending().missed_wakes`): the loop found the
   result only on its safety tick. Fix the worker: it rings its bell
