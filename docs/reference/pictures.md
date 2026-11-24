@@ -17,7 +17,7 @@ render = function(self, buf, ctx)
     under = true,                         -- the cells drawn here stay, above the picture
     draw = function(g, px)                -- after the screen is drawn. px: w, h, cell = { w, h }, fg, bg
       paw.plot.curve(g, px, { points = points, from = left, pixels_per_beat = zoom * px.cell.w,
-        lo = 0, hi = 1, color = paw.draw.track_colour(track) })
+        lo = 0, hi = 1, color = paw.draw.part_colour(part) })
     end,
   })
   if not pictured then draw_the_curve_in_cells(plot) end

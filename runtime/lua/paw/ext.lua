@@ -429,8 +429,8 @@ function M.load(path, why)
 end
 
 --- Of the device kinds an extension brings (its devices written in Lua and
---- the plugins in directories it added), those on tracks and the tracks'
---- names: `{ used = { kinds }, tracks = { names } }`.
+--- the plugins in directories it added), those on parts and the parts'
+--- names: `{ used = { kinds }, parts = { names } }`.
 local function devices_in_use(entry)
   local kinds, any = {}, false
   for _, dir in ipairs(paw.luadev.dirs:owned_by(entry.name)) do
@@ -444,23 +444,23 @@ local function devices_in_use(entry)
       kinds[kind], any = true, true
     end
   end
-  local tracks, used, seen = {}, {}, {}
-  if not any then return { tracks = tracks, used = used } end
-  local ids = api.track_list()
+  local parts, used, seen = {}, {}, {}
+  if not any then return { parts = parts, used = used } end
+  local ids = api.part_list()
   ids[#ids + 1] = 0
   for _, id in ipairs(ids) do
-    local t = api.track_get(id)
+    local t = api.part_get(id)
     for _, device in ipairs(t.devices) do
       local kind = api.device_get(device).kind
       if kinds[kind] then
         if not seen[kind] then
           seen[kind], used[#used + 1] = true, kind
         end
-        if tracks[#tracks] ~= t.name then tracks[#tracks + 1] = t.name end
+        if parts[#parts] ~= t.name then parts[#parts + 1] = t.name end
       end
     end
   end
-  return { tracks = tracks, used = used }
+  return { parts = parts, used = used }
 end
 
 --- Unload an extension. paw removes all that it registered (while it
@@ -470,11 +470,11 @@ end
 --- the devices written in Lua and the plugin directories that it added. paw
 --- forgets its modules, so a new load runs them again.
 ---
---- While a track contains one of its devices, paw does not unload it (as
+--- While a part contains one of its devices, paw does not unload it (as
 --- Neovim does not delete a buffer with changes). With `opts.force`, it
 --- unloads, and the devices stay and play until you remove them. paw cannot
 --- find them when you open the project again without the extension. Returns
---- true (with `opts.force`, the devices that stay on tracks, in words), or
+--- true (with `opts.force`, the devices that stay on parts, in words), or
 --- nil and the reason.
 function M.unload(name, opts)
   local entry = M.loaded[name]
@@ -488,8 +488,8 @@ function M.unload(name, opts)
   end
   local devices = devices_in_use(entry)
   local left
-  if #devices.tracks > 0 then
-    local what = table.concat(devices.used, ", ") .. " on " .. table.concat(devices.tracks, ", ")
+  if #devices.parts > 0 then
+    local what = table.concat(devices.used, ", ") .. " on " .. table.concat(devices.parts, ", ")
     if not (opts and opts.force) then
       return nil,
         what

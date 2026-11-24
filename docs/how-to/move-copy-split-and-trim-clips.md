@@ -8,7 +8,7 @@ and each key is one undo step, so `u` takes it back. All the keys are in
 [Motions, operators and modes](../reference/grammar.md).
 
 To put the cursor on a clip, press `w` for the next clip or `b` for the
-start of the current clip. Press `j` and `k` to go to a different track.
+start of the current clip. Press `j` and `k` to go to a different part.
 
 <!-- paw-live: {"project": "demo-song"} -->
 
@@ -16,7 +16,7 @@ start of the current clip. Press `j` and `k` to go to a different track.
 
 - Press `L` to move the clip one grid step later, and `H` to move it
   earlier. `4L` moves it four steps.
-- To move a clip to a different track, press `x` to cut it, move the
+- To move a clip to a different part, press `x` to cut it, move the
   cursor to the new place, and press `P`.
 
 ## Copy a clip

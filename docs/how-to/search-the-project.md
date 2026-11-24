@@ -4,13 +4,13 @@
 
 You can find each place in a song that has a text or a kind of note, and
 go from one place to the next. paw puts the places in the quickfix list.
-To find a track by its name, see
-[How to find a track by name](find-a-track-clip-or-marker.md).
+To find a part by its name, see
+[How to find a part by name](find-a-part-clip-or-marker.md).
 
 ## Find a text anywhere
 
 1. Type `:vimgrep /pizz/`. paw finds every text that holds `pizz`, such as
-   the names of tracks, clips, markers and devices, lyrics, articulations
+   the names of parts, clips, markers and devices, lyrics, articulations
    and comments. The cursor goes to the first place.
 2. Press `]q` to go to the next place, and `[q` to go to the place
    before.
@@ -42,7 +42,7 @@ through them.
 ## Change every place
 
 To act on each place in the list, type `:cdo` and a command. For example,
-`:vimgrep /^Viol/ track` and then `:cdo track.mute` mute every track whose
+`:vimgrep /^Viol/ part` and then `:cdo part.mute` mute every part whose
 name starts with `Viol`, in one undo step.
 
 ## See also

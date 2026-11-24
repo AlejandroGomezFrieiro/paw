@@ -336,7 +336,7 @@ local function draw_selection(g, eng, layout, F, selection, area)
 end
 
 --- In a score, the staves not under the cursor dimmed (`score_dim`) or
---- tinted in their tracks' colours (`score_colors`), and a mark at the
+--- tinted in their parts' colours (`score_colors`), and a mark at the
 --- active staff's start on every system.
 local function draw_staves(g, eng, layout, F, area)
   local st = eng.style
@@ -351,9 +351,9 @@ local function draw_staves(g, eng, layout, F, area)
     end
     for s = 1, #layout.staves do
       if s < first or s > last then
-        local id = layout.tracks and layout.tracks[s]
+        local id = layout.parts and layout.parts[s]
         local colour = paw.opt.score_dim and alpha(st.paper, 0.55)
-          or paw.opt.score_colors and id and alpha(paw.draw.track_colour(api.track_get(id)), 0.16)
+          or paw.opt.score_colors and id and alpha(paw.draw.part_colour(api.part_get(id)), 0.16)
         if colour then
           local y0, y1 = edge(s - 1), edge(s)
           g.ops[#g.ops + 1] = { "r", 0, round(y0 + dy), round(area.width), round(y1 - y0), colour, "", 1, 0 }
@@ -627,7 +627,7 @@ local function icon(g, name, x, y, colour)
 end
 
 --- The toolbar's buttons, in groups: the clip's name, the note value, the
---- accidentals, the marks, the dynamics. `colour` is the track's.
+--- accidentals, the marks, the dynamics. `colour` is the part's.
 local function bar_groups(g, name, colour)
   local marks = view.marks
   local values, accidentals, shapes, dynamics = {}, {}, {}, {}
@@ -823,8 +823,8 @@ function view:paint(g, ctx)
     return
   end
   local data = clip:get()
-  local track = api.track_get(data.track)
-  local colour = paw.draw.track_colour(track)
+  local part = api.part_get(data.part)
+  local colour = paw.draw.part_colour(part)
   -- The clip's staff, or the score it is a staff of (`view:frame`).
   local F = self:frame()
   local layout = F.layout
@@ -900,7 +900,7 @@ function view:paint(g, ctx)
       .. "/"
       .. layout.meter.den
       .. "  ·  "
-      .. track.name
+      .. part.name
       .. (F.multi and ("  ·  staff " .. (F.base + 1) .. " of " .. #layout.staves) or "")
       .. (view.raw_view() and "  ·  raw" or "")
       .. (view.galley and "  ·  galley" or "")

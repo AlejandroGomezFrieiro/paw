@@ -4,7 +4,7 @@ An ARA plugin can read a whole clip at any time, before or after the
 playback position, while a usual plugin sees the sound one block at a time
 while the song plays. For example, Melodyne finds the notes of a vocal in
 that way and then changes them. Synthesizer V reads the notes of its vocal
-tracks, and an audio-to-MIDI plugin hears all of a take before it writes
+parts, and an audio-to-MIDI plugin hears all of a take before it writes
 the notes.
 
 ARA (Audio Random Access, version 2) is the interface between the host and
@@ -26,7 +26,7 @@ parts:
   analyzes them.
 - An audio modification holds the edits of the plugin to one source, so
   two clips of the same file can have different edits.
-- A region sequence is a track, and a playback region puts a part of an
+- A region sequence is a part, and a playback region puts a stretch of an
   audio modification on the timeline, in seconds.
 
 One plugin instance is bound to the document. Its roles are playback
@@ -64,7 +64,7 @@ uses:
   before the plugin is active. The library can use the extensions of the
   plugin, and it answers calls to the device. When it must change what the
   plugin plays, it asks the core to stop the plugin for the call.
-- Clips for a device. The core gives a device the audio clips of its track
+- Clips for a device. The core gives a device the audio clips of its part
   and the tempo as JSON, and gives them again after each change. Undo, a
   moved clip and a new tempo get to the plugin in the same way.
 - Files beside the state. A device can keep a file of its own in the
@@ -74,11 +74,11 @@ uses:
 The extension's native part, `paw-ara.so`, makes the ARA document from the
 clips. It gives the plugin the audio reader and the content readers, and it
 writes and reads the archive. The extension's Lua code puts ARA plugins on
-tracks and makes MIDI clips from the notes that a plugin found.
+parts and makes MIDI clips from the notes that a plugin found.
 
 ## MIDI and the project stay the truth
 
-The clips of the track decide what the plugin gets, and the plugin owns
+The clips of the part decide what the plugin gets, and the plugin owns
 only its edits, in its archive. A project opens and plays without the
 extension, and the clips then play as they are, without the edits of the
 plugin. The design follows

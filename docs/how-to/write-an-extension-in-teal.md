@@ -118,18 +118,18 @@ a family with no declared event in it, paw writes the name in the log, and
 `:checkhealth events` lists it. So declare
 each event that your extension sends, also from Lua.
 
-For a family of events (`track.*`), use `paw.events.pattern("track.*")`.
+For a family of events (`part.*`), use `paw.events.pattern("part.*")`.
 Its handler gets a payload with no fields, so cast the payload to read it.
 
 ### The kernel's setters
 
-`paw.api.track_set` and the other setters (`clip_set`, `device_set`,
+`paw.api.part_set` and the other setters (`clip_set`, `device_set`,
 `lane_set`, `project_set`, `transport_set`) take a table of the fields to
 change, with the record of the object. The key form,
-`paw.api.track_set(id, "output", nil)`, only clears a field:
+`paw.api.part_set(id, "output", nil)`, only clears a field:
 
 ```lua
-paw.api.track_set(id, { name = "Bass", volume = -6 })
+paw.api.part_set(id, { name = "Bass", volume = -6 })
 ```
 
 ### The data in `meta`
@@ -159,17 +159,17 @@ local n: integer = steps:get()
 steps:set(n * 2)
 ```
 
-### Tracks, clips and devices
+### Parts, clips and devices
 
-`paw.track`, `paw.clip`, `paw.device` and `paw.lane` give objects with the
-types `paw.Track`, `paw.Clip`, `paw.Device` and `paw.Lane`. A field of an
+`paw.part`, `paw.clip`, `paw.device` and `paw.lane` give objects with the
+types `paw.Part`, `paw.Clip`, `paw.Device` and `paw.Lane`. A field of an
 object reads the kernel, and the checker knows its type. A method checks
 what you give it:
 
 ```lua
-local track: paw.Track = paw.track(1)
-local volume: number = track.volume
-track:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
+local part: paw.Part = paw.part(1)
+local volume: number = part.volume
+part:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
 ```
 
 ### The parts of paw that are in Lua
@@ -246,7 +246,7 @@ field, so a wrong name is an error before the extension runs.
 3. Check the types. A field with a wrong name, for example
    `on_keys = ...` in a view, gives the error `unknown field on_keys`.
 
-The other contracts are `Buftype`, `TextKind<I, F>`, `TrackKind`,
+The other contracts are `Buftype`, `TextKind<I, F>`, `PartKind`,
 `Role<P>`, `StatusComponent`, `QueryField`, `GrepSource`, `HealthCheck`
 and `Manifest`. `runtime/lua/paw/contracts.tl` lists the fields of each.
 

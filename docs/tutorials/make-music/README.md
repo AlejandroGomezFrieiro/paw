@@ -7,7 +7,7 @@ song, mix it and render it. Each lesson takes 15 to 25 minutes and ends
 with music that you can hear.
 
 The lessons are written for musicians, so we expect that you know what a
-DAW, a track, a plugin and a MIDI keyboard are. You do not need to know Vim
+DAW, a part, a plugin and a MIDI keyboard are. You do not need to know Vim
 or Lua. You play paw from the keyboard, so each step gives the keys to
 press. The lessons show the terminal, and the graphical window shows the
 same views.

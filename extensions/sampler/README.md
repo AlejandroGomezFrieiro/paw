@@ -9,22 +9,22 @@ player.
 
 ```
 extensions/sampler/
-  init.lua, lua/sampler/   the kind of track, the instrument picker, describe
+  init.lua, lua/sampler/   the kind of part, the instrument picker, describe
   native/                  the source of the plugin (its own Cargo workspace)
   nix/                     how the plugin and the extension are packaged
 ```
 
-![:track.add sampler on the demo song: the instrument picker loads each instrument of a small library and plays a phrase through it as the selection rests. Then viol narrows it to the violins, Enter keeps them, and :sampler.info](images/tui-sampler.gif)
+![:part.add sampler on the demo song: the instrument picker loads each instrument of a small library and plays a phrase through it as the selection rests. Then viol narrows it to the violins, Enter keeps them, and :sampler.info](images/tui-sampler.gif)
 
 ## Try it
 
 1. Build the plugin (see [How to build the plugin](#how-to-build-the-plugin)).
    Put an `.sfz` instrument in `~/.local/share/paw/instruments`.
-2. Type `:ext.load sampler`, then `:sampler.track`. The instrument picker
+2. Type `:ext.load sampler`, then `:sampler.part`. The instrument picker
    opens.
 3. Move the selection to an instrument and wait a moment, and a short phrase
    plays through the instrument.
-4. Press Enter, and the new track keeps the instrument.
+4. Press Enter, and the new part keeps the instrument.
 5. Type `:sampler.info`, and paw shows the range of the instrument and its
    articulations.
 
@@ -49,15 +49,15 @@ The extension adds the folder of the plugin to the plugin scan
 folder. If your build of paw does not have `add_dir`, put the folder in
 `CLAP_PATH`, or link the plugin into `~/.clap`.
 
-### How to add a sampler track
+### How to add a sampler part
 
-Type `:sampler.track` with a file, or with words to filter the picker. The
-graphical window, `:track.add sampler` and `:track.new` do the same.
+Type `:sampler.part` with a file, or with words to filter the picker. The
+graphical window, `:part.add sampler` and `:part.new` do the same.
 
-### How to change the instrument of a track
+### How to change the instrument of a part
 
-Put the cursor on the sampler track, and type `:sampler.load`. In the
-graphical window, choose "Sampler instrument…" in the menu of the track.
+Put the cursor on the sampler part, and type `:sampler.load`. In the
+graphical window, choose "Sampler instrument…" in the menu of the part.
 
 ### How to add a folder of instruments
 
@@ -73,16 +73,16 @@ Run `paw-sampler describe file.sfz`, which prints the description as JSON.
 
 | Command | Effect |
 | --- | --- |
-| `:sampler.track [file or words]` | adds a sampler track. With a file, it loads that file, and with words or with nothing it opens the instrument picker |
-| `:sampler.load [file or words]` | chooses the instrument of the sampler track at the cursor |
+| `:sampler.part [file or words]` | adds a sampler part. With a file, it loads that file, and with words or with nothing it opens the instrument picker |
+| `:sampler.load [file or words]` | chooses the instrument of the sampler part at the cursor |
 | `:sampler.info` | tells you what the instrument is, including its range, its articulations with their codes and keyswitches, and what in the file does not play |
 
 - The picker lists every `.sfz` and `.dspreset` under the folders in
   `paw.opt.sampler_libraries` and under `~/.local/share/paw/instruments`.
   When the selection stays on one, paw loads it for a trial, and a short
-  phrase in its range plays through the track. Enter keeps the instrument (one undo
+  phrase in its range plays through the part. Enter keeps the instrument (one undo
   step), and Escape restores the instrument that was there.
-- `K` and the track header show `Sampler track · Violins · SFZ · 3
+- `K` and the part header show `Sampler part · Violins · SFZ · 3
   articulations`.
 - A load is an edit, as the load of a preset is, and undo removes it. The
   project keeps the state of the plugin, which names the file and the

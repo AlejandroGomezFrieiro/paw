@@ -6,7 +6,7 @@
 //! rendering carry on), and `audio.lost` says which device it was. Every few
 //! seconds the device is looked for; once it is back it is opened again
 //! with the same settings (`audio.restored`). MIDI ports that go away and
-//! come back are told of too (`midi.lost`, `midi.returned`); the tracks that
+//! come back are told of too (`midi.lost`, `midi.returned`); the parts that
 //! chose one take it again by its name.
 
 use crate::events::{AudioLost, AudioRestored, KernelEvent as E, MidiPort};
@@ -248,11 +248,11 @@ impl Session {
         let Some(before) = self.watch.ports.replace(now.clone()) else {
             return;
         };
-        let tracks = |session: &Session, port: &str| -> Vec<String> {
+        let parts = |session: &Session, port: &str| -> Vec<String> {
             let key = paw_engine::midi::port_key(port);
             session
                 .doc.project
-                .tracks
+                .parts
                 .iter()
                 .filter(|t| {
                     t.midi_input
@@ -265,8 +265,8 @@ impl Session {
         };
         for port in before.difference(&now) {
             self.watch.ports_gone.insert(port.clone());
-            let tracks = tracks(self, port);
-            self.doc.emit(E::MidiLost(MidiPort { port: port.clone(), tracks }));
+            let parts = parts(self, port);
+            self.doc.emit(E::MidiLost(MidiPort { port: port.clone(), parts }));
         }
         let back: Vec<String> = now
             .iter()
@@ -275,8 +275,8 @@ impl Session {
             .collect();
         for port in back {
             self.watch.ports_gone.remove(&port);
-            let tracks = tracks(self, &port);
-            self.doc.emit(E::MidiReturned(MidiPort { port, tracks }));
+            let parts = parts(self, &port);
+            self.doc.emit(E::MidiReturned(MidiPort { port, parts }));
         }
     }
 }

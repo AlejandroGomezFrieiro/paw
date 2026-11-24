@@ -1,4 +1,4 @@
--- The sound the engine sang, on its way to the vocal tracks' devices.
+-- The sound the engine sang, on its way to the vocal parts' devices.
 --
 -- The `utau` device (devices/utau.lua, `lua:utau`) plays the phrases of the
 -- voice its `voice` parameter names. Each phrase is written here to a file
@@ -7,7 +7,7 @@
 -- an offline render's among them, are given the same list before they play.
 -- The devices map the files, so the sound is kept once, in the files.
 --
--- Voices outlive tracks and projects, but not the program: the files are
+-- Voices outlive parts and projects, but not the program: the files are
 -- under the cache, in a directory of this process's own, which goes when
 -- it ends (or, if it ended without saying, when the next one starts).
 local api = paw.api

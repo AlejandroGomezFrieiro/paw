@@ -9,24 +9,24 @@ local ui = require("utau.editor")
 local editor, sheet, picker = ui.editor, ui.sheet, ui.picker
 local command, map = paw.command, paw.keymap.set
 
---- The vocal track the cursor is on, or a warning.
-local function vocal_track()
-  local id = paw.cursor.track_id()
+--- The vocal part the cursor is on, or a warning.
+local function vocal_part()
+  local id = paw.cursor.part_id()
   if id and utau.device_of(id) then return id end
-  paw.notify("not a vocal track: `:utau.track` adds one, `:utau.voice` makes this one sing", "warn")
+  paw.notify("not a vocal part: `:utau.part` adds one, `:utau.voice` makes this one sing", "warn")
 end
 
 --- The clip to act on: the editor's, else the vocal clip under the cursor.
 local function vocal_clip()
   local clip = sheet:clip()
-  if not clip then paw.notify("no vocal clip: open one with Enter on a vocal track", "warn") end
+  if not clip then paw.notify("no vocal clip: open one with Enter on a vocal part", "warn") end
   return clip
 end
 
-local function set_singer(track, words)
-  if #words == 0 then return picker:open(track) end
+local function set_singer(part, words)
+  if #words == 0 then return picker:open(part) end
   local query = table.concat(words, " ")
-  local s = utau.choose_singer(track, query)
+  local s = utau.choose_singer(part, query)
   if s then
     paw.notify("singer: " .. s.name)
   elseif #utau.singers > 0 then
@@ -34,19 +34,19 @@ local function set_singer(track, words)
   end
 end
 
--- A vocal track is a kind of track (`paw.track_kinds`): `:track.add vocal`,
--- `:track.new`, the window's menus that make a track, the header's `V`, `K`
+-- A vocal part is a kind of part (`paw.part_kinds`): `:part.add vocal`,
+-- `:part.new`, the window's menus that make a part, the header's `V`, `K`
 -- and Enter on its clips all come from here.
-paw.track_kinds.define("vocal", {
-  title = "Vocal track",
+paw.part_kinds.define("vocal", {
+  title = "Vocal part",
   letter = "V",
   desc = "sung by a singer of OpenUtau's",
   -- The singing device first, then the singer: the words after the kind
-  -- (`track.add vocal Katyusha`), or chosen from a list (not with `ask = false`).
-  create = function(track, args)
-    if not utau.device_of(track.id) then track:add_device(utau.DEVICE, nil, { index = 1 }) end
+  -- (`part.add vocal Katyusha`), or chosen from a list (not with `ask = false`).
+  create = function(part, args)
+    if not utau.device_of(part.id) then part:add_device(utau.DEVICE, nil, { index = 1 }) end
     utau.sync()
-    if args.ask ~= false then set_singer(track.id, args.words or {}) end
+    if args.ask ~= false then set_singer(part.id, args.words or {}) end
   end,
   editor = function(clip)
     if clip:get().kind ~= "midi" then return false end
@@ -60,37 +60,37 @@ paw.track_kinds.define("vocal", {
     if utau.frozen(id) then words = words .. ", frozen" end
     return words
   end,
-  -- Vocal tracks made before there were kinds of track have the device.
+  -- Vocal parts made before there were kinds of part have the device.
   is = function(id) return utau.device_of(id) ~= nil end,
 })
 
-command("utau.track", function(ctx)
+command("utau.part", function(ctx)
   local args = { kind = "vocal", name = ctx.args.name or "Vocal" }
   for i, word in ipairs(ctx.args) do
     args[i] = word
   end
-  paw.cmd("track.add", args)
-end, { desc = "Add a vocal track, with a singer: `utau.track Katyusha` (as `track.add vocal Katyusha`)" })
+  paw.cmd("part.add", args)
+end, { desc = "Add a vocal part, with a singer: `utau.part Katyusha` (as `part.add vocal Katyusha`)" })
 
 command("utau.voice", function()
-  local track = paw.cursor.track()
-  if not track then return paw.notify("no track selected", "warn") end
-  if utau.device_of(track.id) then return paw.notify("already a vocal track") end
-  paw.track_kinds.set(track, "vocal", { ask = false })
-end, { desc = "Make the cursor track a vocal track" })
+  local part = paw.cursor.part()
+  if not part then return paw.notify("no part selected", "warn") end
+  if utau.device_of(part.id) then return paw.notify("already a vocal part") end
+  paw.part_kinds.set(part, "vocal", { ask = false })
+end, { desc = "Make the cursor part a vocal part" })
 
 command("utau.singer", function(ctx)
-  local track = vocal_track()
-  if track then set_singer(track, ctx.args) end
-end, { desc = "Choose the singer of the vocal track; with no name, from a list" })
+  local part = vocal_part()
+  if part then set_singer(part, ctx.args) end
+end, { desc = "Choose the singer of the vocal part; with no name, from a list" })
 
 for _, field in ipairs({ "phonemizer", "renderer", "resampler" }) do
   command("utau." .. field, function(ctx)
-    local track = vocal_track()
-    if not track then return end
+    local part = vocal_part()
+    if not part then return end
     local value = ctx.args[1]
     if not value then
-      return paw.notify(string.format("%s: %s", field, utau.config(track)[field] or "(the singer's default)"))
+      return paw.notify(string.format("%s: %s", field, utau.config(part)[field] or "(the singer's default)"))
     end
     if field == "phonemizer" then
       for _, p in ipairs(utau.phonemizers) do
@@ -100,14 +100,14 @@ for _, field in ipairs({ "phonemizer", "renderer", "resampler" }) do
         end
       end
     end
-    utau.configure(track, { [field] = value == "default" and false or value })
-  end, { desc = "Set the vocal track's " .. field .. " (`default` for the singer's own)" })
+    utau.configure(part, { [field] = value == "default" and false or value })
+  end, { desc = "Set the vocal part's " .. field .. " (`default` for the singer's own)" })
 end
 
 command("utau.color", function(ctx)
-  local track = vocal_track()
-  if track then utau.configure(track, { voice_color = ctx.args[1] or false }) end
-end, { desc = "Set the vocal track's voice colour (a subbank name), or clear it" })
+  local part = vocal_part()
+  if part then utau.configure(part, { voice_color = ctx.args[1] or false }) end
+end, { desc = "Set the vocal part's voice colour (a subbank name), or clear it" })
 
 command("utau.edit", function()
   local clip = paw.cursor.clip()
@@ -231,25 +231,25 @@ command(
 )
 
 command("utau.render", function()
-  local track = vocal_track()
-  if not track then return end
-  utau.engine.send(require("utau.proto").encode.invalidate(tostring(track), ""))
-end, { desc = "Render the vocal track again from scratch" })
+  local part = vocal_part()
+  if not part then return end
+  utau.engine.send(require("utau.proto").encode.invalidate(tostring(part), ""))
+end, { desc = "Render the vocal part again from scratch" })
 
 command("utau.import", function(ctx)
   local path = ctx.args[1]
   if not path then return paw.notify("usage: utau.import <file.ustx|.ust|.vsqx|.svp|.mid|.musicxml>", "warn") end
   local ok, result = pcall(require("utau.import").file, path, { at = paw.cursor.beat })
   if not ok then return paw.notify("utau.import: " .. tostring(result), "error") end
-  paw.notify(string.format("imported %d vocal tracks from %s", #result, path))
-end, { desc = "Import an OpenUtau, UTAU or other singing project as vocal tracks", raw = true, complete = "files" })
+  paw.notify(string.format("imported %d vocal parts from %s", #result, path))
+end, { desc = "Import an OpenUtau, UTAU or other singing project as vocal parts", raw = true, complete = "files" })
 
 -- Getting the work out ----------------------------------------------------------------
 
-local function args_tracks(ctx)
+local function args_parts(ctx)
   if ctx.args.all then return nil end
-  local track = vocal_track()
-  return track and { track } or false
+  local part = vocal_part()
+  return part and { part } or false
 end
 
 command("utau.export", function(ctx)
@@ -258,67 +258,67 @@ command("utau.export", function(ctx)
   local opts = {}
   if ctx.args.clip then
     local clip = paw.cursor.clip()
-    if not clip or not utau.device_of(api.clip_get(clip.id).track) then
+    if not clip or not utau.device_of(api.clip_get(clip.id).part) then
       return paw.notify("no vocal clip under the cursor", "warn")
     end
     opts.clip = clip.id
   else
-    opts.tracks = args_tracks(ctx)
-    if opts.tracks == false then return end
+    opts.parts = args_parts(ctx)
+    if opts.parts == false then return end
   end
   local ok, files = pcall(require("utau.export").write, tostring(path), opts)
   if not ok then return paw.notify("utau.export: " .. tostring(files), "error") end
   paw.notify("exported " .. table.concat(files, ", "))
 end, {
-  desc = "Export the vocal track to OpenUtau (.ustx), UTAU (.ust) or MIDI with lyrics (.mid); `all=1` every vocal track, `clip=1` the clip",
+  desc = "Export the vocal part to OpenUtau (.ustx), UTAU (.ust) or MIDI with lyrics (.mid); `all=1` every vocal part, `clip=1` the clip",
 })
 
 command("utau.openutau", function()
   local ok, path, argv = pcall(require("utau.export").open)
   if not ok then return paw.notify("utau.openutau: " .. tostring(path), "error") end
   paw.notify("opening " .. path .. " in OpenUtau (" .. argv[1] .. ")")
-end, { desc = "Write the vocal tracks to a .ustx beside the project and open it in OpenUtau" })
+end, { desc = "Write the vocal parts to a .ustx beside the project and open it in OpenUtau" })
 
 -- Freezing ---------------------------------------------------------------------------------
 
 command("utau.freeze", function()
-  local track = vocal_track()
-  if not track then return end
-  local ok, audio = pcall(require("utau.freeze").freeze, track)
+  local part = vocal_part()
+  if not part then return end
+  local ok, audio = pcall(require("utau.freeze").freeze, part)
   if not ok then return paw.notify("utau.freeze: " .. tostring(audio), "warn") end
   paw.notify(
-    api.track_get(track, "name")
+    api.part_get(part, "name")
       .. " is frozen: it plays as audio on "
       .. audio.name
       .. "; `:utau.unfreeze` to sing it again"
   )
-end, { desc = "Render the vocal track to audio on a track below it, and stop singing it" })
+end, { desc = "Render the vocal part to audio on a part below it, and stop singing it" })
 
 command("utau.unfreeze", function()
-  local id = paw.cursor.track_id()
-  -- On the audio track of a frozen track too.
-  for _, vocal in ipairs(utau.vocal_tracks()) do
-    if require("utau.freeze").audio(vocal.track) == id then id = vocal.track end
+  local id = paw.cursor.part_id()
+  -- On the audio part of a frozen part too.
+  for _, vocal in ipairs(utau.vocal_parts()) do
+    if require("utau.freeze").audio(vocal.part) == id then id = vocal.part end
   end
-  if not id or not utau.device_of(id) then return paw.notify("not a vocal track", "warn") end
+  if not id or not utau.device_of(id) then return paw.notify("not a vocal part", "warn") end
   local ok, err = pcall(require("utau.freeze").unfreeze, id)
   if not ok then return paw.notify("utau.unfreeze: " .. tostring(err), "warn") end
-  paw.cursor.set_track(id)
-end, { desc = "Sing the frozen vocal track again, and remove its audio" })
+  paw.cursor.set_part(id)
+end, { desc = "Sing the frozen vocal part again, and remove its audio" })
 
 -- Singer presets -------------------------------------------------------------------------
 
 local presets = require("utau.singer_presets")
 
 command("utau.singer_save", function(ctx)
-  local track = vocal_track()
-  if not track then return end
+  local part = vocal_part()
+  if not part then return end
   local name = table.concat(ctx.args, " ")
   if name == "" then return paw.notify("usage: utau.singer_save <name>", "warn") end
-  local ok, path = pcall(presets.save, track, name)
+  local ok, path = pcall(presets.save, part, name)
   if not ok then return paw.notify("utau.singer_save: " .. tostring(path), "error") end
   paw.notify("saved the voice as `" .. name .. "` (" .. path .. ")")
-end, { desc = "Save the vocal track's voice as a singer preset: `utau.singer_save Soft Kitane`" })
+end, { desc = "Save the vocal part's voice as a singer preset: `utau.singer_save Soft Kitane`" })
 
 local function preset_line(p)
   local options = {}
@@ -337,31 +337,31 @@ local function preset_line(p)
 end
 
 paw.pick.sources:put("utau_presets", {
-  desc = "Give the vocal track a saved singer preset",
+  desc = "Give the vocal part a saved singer preset",
   title = "Singer presets",
   items = function() return presets.list() end,
   format = function(p) return string.format("%s  (%s)", p.name, p.singer ~= "" and p.singer or "no singer") end,
   preview = preset_line,
   empty = "no singer presets yet: `:utau.singer_save <name>` saves one",
   on_choose = function(p)
-    local track = vocal_track()
-    if track then
-      presets.apply(track, p)
+    local part = vocal_part()
+    if part then
+      presets.apply(part, p)
       paw.notify("voice: " .. p.name)
     end
   end,
 })
 
 command("utau.singer_preset", function(ctx)
-  local track = vocal_track()
-  if not track then return end
+  local part = vocal_part()
+  if not part then return end
   local name = table.concat(ctx.args, " ")
   if name == "" then return paw.pick("utau_presets") end
-  local ok, p = pcall(presets.apply, track, name)
+  local ok, p = pcall(presets.apply, part, name)
   if not ok then return paw.notify("utau.singer_preset: " .. tostring(p), "warn") end
   paw.notify("voice: " .. p.name)
 end, {
-  desc = "Give the vocal track a singer preset; with no name, from a list",
+  desc = "Give the vocal part a singer preset; with no name, from a list",
   complete = function()
     local out = {}
     for _, p in ipairs(presets.list()) do
@@ -403,7 +403,7 @@ end, {
 })
 
 paw.pick.sources:put("utau_singers", {
-  desc = "The installed singers; choosing one gives it to the vocal track",
+  desc = "The installed singers; choosing one gives it to the vocal part",
   title = "Installed singers",
   items = function()
     if #utau.singers == 0 and utau.engine.state == "off" then utau.sync() end
@@ -415,9 +415,9 @@ paw.pick.sources:put("utau_singers", {
   end,
   empty = "no singers installed: `:utau.install <voicebank.zip>` installs one",
   on_choose = function(s)
-    local track = paw.cursor.track_id()
-    if track and utau.device_of(track) and s.id then
-      utau.configure(track, { singer = s.id })
+    local part = paw.cursor.part_id()
+    if part and utau.device_of(part) and s.id then
+      utau.configure(part, { singer = s.id })
       paw.notify("singer: " .. s.name)
     end
   end,
@@ -426,7 +426,7 @@ paw.pick.sources:put("utau_singers", {
 command(
   "utau.singers",
   function() paw.pick("utau_singers") end,
-  { desc = "List the installed singers (choosing one gives it to the vocal track)" }
+  { desc = "List the installed singers (choosing one gives it to the vocal part)" }
 )
 
 -- Harmony and doubling ---------------------------------------------------------------------
@@ -434,15 +434,15 @@ command(
 local harmony = require("utau.harmony")
 
 command("utau.harmony", function(ctx)
-  local track = vocal_track()
-  if not track then return end
-  local ok, made, info = pcall(harmony.create, track, {
+  local part = vocal_part()
+  if not part then return end
+  local ok, made, info = pcall(harmony.create, part, {
     interval = ctx.args[1] or "3up",
     key = ctx.args.key,
     preset = ctx.args.preset,
   })
   if not ok then return paw.notify("utau.harmony: " .. tostring(made), "warn") end
-  paw.cursor.set_track(made)
+  paw.cursor.set_part(made)
   paw.notify(
     string.format(
       "%s: %d notes, a %s in %s (%s)",
@@ -454,7 +454,7 @@ command("utau.harmony", function(ctx)
     )
   )
 end, {
-  desc = "Add a harmony track under the vocal track: `utau.harmony 3up` (3up 3down 5up 4down 6down 8up 8down), `key=Dm`, `key=F#_major`, `preset=name`",
+  desc = "Add a harmony part under the vocal part: `utau.harmony 3up` (3up 3down 5up 4down 6down 8up 8down), `key=Dm`, `key=F#_major`, `preset=name`",
   complete = function()
     local out = {}
     for _, iv in ipairs(harmony.INTERVALS) do
@@ -465,18 +465,18 @@ end, {
 })
 
 command("utau.double", function(ctx)
-  local track = vocal_track()
-  if not track then return end
-  local ok, made, info = pcall(harmony.create, track, {
+  local part = vocal_part()
+  if not part then return end
+  local ok, made, info = pcall(harmony.create, part, {
     interval = "double",
     take = tonumber(ctx.args.take) or 1,
     preset = ctx.args.preset,
   })
   if not ok then return paw.notify("utau.double: " .. tostring(made), "warn") end
-  paw.cursor.set_track(made)
+  paw.cursor.set_part(made)
   paw.notify(string.format("%s: %d notes with their own timing and tuning", made.name, info.notes))
 end, {
-  desc = "Add a double of the vocal track: the same notes, a little apart in timing and tuning (`take=2` for another)",
+  desc = "Add a double of the vocal part: the same notes, a little apart in timing and tuning (`take=2` for another)",
 })
 
 -- What depends on the renderer -------------------------------------------------------------
@@ -490,15 +490,15 @@ local function on_off(value, current)
 end
 
 command("utau.ai_pitch", function(ctx)
-  local track = vocal_track()
-  if not track then return end
-  local on = on_off(ctx.args[1], renderer.option(track, "pitchmode") ~= "manual")
-  renderer.ai_pitch(track, on)
+  local part = vocal_part()
+  if not part then return end
+  local on = on_off(ctx.args[1], renderer.option(part, "pitchmode") ~= "manual")
+  renderer.ai_pitch(part, on)
   paw.notify(
     "AI pitch "
       .. (on and "on (the renderer's pitch model sings, drawn pitch on top)" or "off (the notes and drawn pitch alone)")
   )
-end, { desc = "AI pitch on or off for the vocal track (DiffSinger and other renderers with a pitch model)" })
+end, { desc = "AI pitch on or off for the vocal part (DiffSinger and other renderers with a pitch model)" })
 
 local function take_notes(ctx)
   if ctx.args.note then
@@ -547,16 +547,16 @@ local function show_curve(want)
 end
 
 command("utau.curve", function(ctx)
-  local track = vocal_track()
-  if not track then return end
+  local part = vocal_part()
+  if not part then return end
   local abbr = ctx.args[1]
-  local list = renderer.extra_expressions(track)
+  local list = renderer.extra_expressions(part)
   if not abbr then
     local names, drawn = {}, {}
     for _, c in ipairs(editor:curves()) do
       names[#names + 1] = c.key .. ": " .. c.name
     end
-    for _, x in ipairs(utau.extra_curves(track)) do
+    for _, x in ipairs(utau.extra_curves(part)) do
       drawn[#drawn + 1] = x.abbr .. " on " .. x.key
     end
     for _, e in ipairs(list) do
@@ -566,13 +566,13 @@ command("utau.curve", function(ctx)
   end
   if ctx.args.off then
     return paw.notify(
-      renderer.remove_curve(track, abbr) and (abbr .. " is no longer drawn") or ("no curve " .. abbr),
+      renderer.remove_curve(part, abbr) and (abbr .. " is no longer drawn") or ("no curve " .. abbr),
       "info"
     )
   end
   for _, e in ipairs(list) do
     if e.abbr == abbr then
-      local ok, slot = pcall(renderer.add_curve, track, e)
+      local ok, slot = pcall(renderer.add_curve, part, e)
       if not ok then return paw.notify("utau.curve: " .. tostring(slot), "warn") end
       show_curve(slot)
       return paw.notify(string.format("%s (%s) is drawn on the device's `%s` lane", e.name, abbr, slot))
@@ -587,8 +587,8 @@ end, {
     for _, c in ipairs(editor:curves()) do
       out[#out + 1] = c.key
     end
-    local track = paw.cursor.track()
-    for _, e in ipairs(track and renderer.extra_expressions(track.id) or {}) do
+    local part = paw.cursor.part()
+    for _, e in ipairs(part and renderer.extra_expressions(part.id) or {}) do
       out[#out + 1] = e.abbr
     end
     return out
@@ -596,10 +596,10 @@ end, {
 })
 
 command("utau.unison", function(ctx)
-  local track = vocal_track()
-  if not track then return end
+  local part = vocal_part()
+  if not part then return end
   local voices = tonumber(ctx.args[1]) or 1
-  renderer.unison(track, voices, {
+  renderer.unison(part, voices, {
     spacing = ctx.args.spacing,
     pitch = ctx.args.pitch,
     timing = ctx.args.timing,
@@ -607,17 +607,17 @@ command("utau.unison", function(ctx)
   })
   paw.notify(voices >= 2 and ("unison: " .. voices .. " voices") or "unison off")
 end, {
-  desc = "Sing the vocal track with several voices: `utau.unison 4 spacing=60 pitch=8 timing=20 level=0`, `utau.unison 1` off",
+  desc = "Sing the vocal part with several voices: `utau.unison 4 spacing=60 pitch=8 timing=20 level=0`, `utau.unison 1` off",
 })
 
 command(
   "utau.shift",
   function(ctx)
-    local track = vocal_track()
-    if not track then return end
-    renderer.shift(track, tonumber(ctx.args[1]) or 0, tonumber(ctx.args.cents) or 0)
+    local part = vocal_part()
+    if not part then return end
+    renderer.shift(part, tonumber(ctx.args[1]) or 0, tonumber(ctx.args.cents) or 0)
   end,
-  { desc = "Sing the vocal track higher or lower without moving its notes: `utau.shift 12`, `utau.shift 0 cents=-20`" }
+  { desc = "Sing the vocal part higher or lower without moving its notes: `utau.shift 12`, `utau.shift 0 cents=-20`" }
 )
 
 command("utau.restart", function()
@@ -632,51 +632,51 @@ command("utau.status", function()
     lines[#lines + 1] = string.format("paw-utau-engine %s, OpenUtau %s", e.info.engine, e.info.openutau)
   end
   lines[#lines + 1] = string.format("%d singers; log: %s", #utau.singers, e.log_path())
-  for _, vocal in ipairs(utau.vocal_tracks()) do
-    local state, counts = utau.status(vocal.track)
+  for _, vocal in ipairs(utau.vocal_parts()) do
+    local state, counts = utau.status(vocal.part)
     local parts = {}
     for name, n in pairs(counts) do
       parts[#parts + 1] = n .. " " .. name
     end
-    lines[#lines + 1] = string.format("%s: %s %s", api.track_get(vocal.track, "name"), state, table.concat(parts, ", "))
+    lines[#lines + 1] = string.format("%s: %s %s", api.part_get(vocal.part, "name"), state, table.concat(parts, ", "))
   end
   paw.notify(table.concat(lines, "\n"))
 end, { desc = "Show what the singing engine is doing" })
 
 -- Keys ------------------------------------------------------------------------------------
 
--- Enter on a clip of a vocal track opens the vocal editor; elsewhere it does
+-- Enter on a clip of a vocal part opens the vocal editor; elsewhere it does
 -- what it always did.
 map("<CR>", function()
   local clip = paw.cursor.clip()
-  if clip and utau.device_of(api.clip_get(clip.id).track) and clip.kind == "midi" then return editor:edit(clip.id) end
+  if clip and utau.device_of(api.clip_get(clip.id).part) and clip.kind == "midi" then return editor:edit(clip.id) end
   paw.cmd("clip.edit")
 end, { view = "arrange", desc = "Edit the clip's notes" })
 -- In the arrange view's insert mode, `u` inserts a vocal clip on a vocal
--- track, and Enter after it opens the vocal editor (paw.insert).
+-- part, and Enter after it opens the vocal editor (paw.insert).
 paw.insert.add("u", {
   kind = "midi",
   desc = "A vocal clip, to sing; Enter opens the vocal editor",
   order = 15,
-  tracks = { "vocal" },
+  parts = { "vocal" },
   name = "Vocal %d",
   open = function(_, item) editor:edit(item.id) end,
 })
 -- From every view, on the leader.
 paw.keymap.group("<leader>u", "utau")
-map("<leader>ut", "utau.track", { desc = "Add a vocal track" })
-map("<leader>uv", "utau.voice", { desc = "Make the cursor track a vocal track" })
-map("<leader>us", "utau.singer", { desc = "Choose the vocal track's singer" })
+map("<leader>ut", "utau.part", { desc = "Add a vocal part" })
+map("<leader>uv", "utau.voice", { desc = "Make the cursor part a vocal part" })
+map("<leader>us", "utau.singer", { desc = "Choose the vocal part's singer" })
 map("<leader>ue", "utau.edit", { desc = "Open the clip under the cursor in the vocal editor" })
 map("<leader>ul", "utau.sheet", { desc = "Show or hide the lyric sheet" })
-map("<leader>ur", "utau.render", { desc = "Render the vocal track again from scratch" })
-map("<leader>uf", "utau.freeze", { desc = "Render the vocal track to audio, and stop singing it" })
-map("<leader>uF", "utau.unfreeze", { desc = "Sing the frozen vocal track again" })
-map("<leader>uo", "utau.openutau", { desc = "Open the vocal tracks in OpenUtau" })
+map("<leader>ur", "utau.render", { desc = "Render the vocal part again from scratch" })
+map("<leader>uf", "utau.freeze", { desc = "Render the vocal part to audio, and stop singing it" })
+map("<leader>uF", "utau.unfreeze", { desc = "Sing the frozen vocal part again" })
+map("<leader>uo", "utau.openutau", { desc = "Open the vocal parts in OpenUtau" })
 map("<leader>ui", "utau.status", { desc = "What the singing engine is doing" })
 paw.keymap.group("<localleader>V", "vocal", { view = "arrange" })
-map("<localleader>Vt", "utau.track", { view = "arrange", desc = "Add a vocal track" })
-map("<localleader>Vs", "utau.singer", { view = "arrange", desc = "Choose the vocal track's singer" })
+map("<localleader>Vt", "utau.part", { view = "arrange", desc = "Add a vocal part" })
+map("<localleader>Vs", "utau.singer", { view = "arrange", desc = "Choose the vocal part's singer" })
 
 -- The editor is a piano roll, and takes the same grammar: motions, the
 -- operators below with any of them, text objects, visual mode, registers,
@@ -917,12 +917,12 @@ eop("=", function(_, region)
   if region.kind == "line" then
     c0, c1 = 0, clip.length
   end
-  notes.reset(clip.track, device, editor.curve, clip.start + c0, clip.start + c1)
+  notes.reset(clip.part, device, editor.curve, clip.start + c0, clip.start + c1)
 end, "Put the curve back")
 emap("~", "utau.vibrato", "Vibrato on or off")
 emap("S", "utau.singer", "Choose the singer")
 emap("s", "utau.sheet", "Show or hide the lyric sheet")
-emap("r", "utau.render", "Render the track again")
+emap("r", "utau.render", "Render the part again")
 -- Escape cancels and stays, as in every view (docs/reference/key-rule.md): it lets go of the selection.
 emap("<Esc>", function()
   if next(editor.sel) then return editor:clear_selection() end

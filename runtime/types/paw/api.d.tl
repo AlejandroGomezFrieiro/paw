@@ -13,7 +13,7 @@ local record api
    audio_test_device: function(opts?: types.TestDeviceOptions)
    audio_use: function(opts?: types.AudioUseOptions)
    audio_watch: function(opts?: types.AudioWatchOptions)
-   automation_hold: function(track: integer, target: string, device?: integer, param?: string, on: boolean)
+   automation_hold: function(part: integer, target: string, device?: integer, param?: string, on: boolean)
    base64_decode: function(text: string): string, string
    base64_encode: function(data: string, opts?: types.Base64Options): string
    block_beat: function(path: {integer}, beat: number): number
@@ -38,13 +38,13 @@ local record api
    chain_tap: function(owner: types.ChainOwner, device: integer, from: integer | string)
    chain_unwrap: function(owner: types.ChainOwner, split: integer, keep?: integer): integer
    chain_wrap: function(owner: types.ChainOwner, nodes: {integer}, kind: string, opts?: types.ChainWrapOptions): integer
-   chain_write: function(track: integer, file: string): {string}
+   chain_write: function(part: integer, file: string): {string}
    checkpoint_delete: function(file: string)
    checkpoint_dir: function(): string
    checkpoint_list: function(): {types.Checkpoint}
    checkpoint_restore: function(file: string): integer
    checkpoint_write: function(name: string, id?: integer): types.Checkpoint
-   clip_add: function(track: integer, opts?: types.ClipOptions): integer
+   clip_add: function(part: integer, opts?: types.ClipOptions): integer
    clip_add_notes: function(id: integer, notes: {types.Note})
    clip_collect: function(): integer
    clip_controls: function(id: integer): {types.Control}
@@ -58,7 +58,7 @@ local record api
    clip_kind_remove: function(name: string)
    clip_kinds: function(): {string}
    clip_link: function(id: integer): integer
-   clip_list: function(track: integer, from?: number, to?: number): {types.Clip}
+   clip_list: function(part: integer, from?: number, to?: number): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
    clip_note_add: function(id: integer, note: types.Note): integer
    clip_note_at: function(id: integer, pitch: integer, beat: number): types.Note, integer
@@ -75,7 +75,7 @@ local record api
    clip_set_custom: function(id: integer, set: types.CustomSet)
    clip_set_notes: function(id: integer, notes: {types.Note})
    clip_source_length: function(id: integer): number
-   clip_to_cues: function(id: integer, track: integer): integer
+   clip_to_cues: function(id: integer, part: integer): integer
    clip_unlink: function(id: integer)
    clip_warp_add: function(id: integer, beat: number): integer
    clip_warp_move: function(id: integer, index: integer, beat: number): integer
@@ -83,10 +83,10 @@ local record api
    clock: function(): string
    crc32: function(data: string): integer
    cue: function(list: {types.Cue})
-   cue_list: function(track: integer): {types.Clip}
+   cue_list: function(part: integer): {types.Clip}
    cue_state: function(): {types.CueState}
    deflate: function(data: string, format: string): string, string
-   device_add: function(track: integer, kind: string, opts?: types.DeviceOptions): integer
+   device_add: function(part: integer, kind: string, opts?: types.DeviceOptions): integer
    device_alias: function(old: string, new: string)
    device_call: function(id: integer, method: string, data?: string): string
    device_editor: function(id: integer, open?: boolean): boolean
@@ -94,7 +94,7 @@ local record api
    device_find_all: function(query: types.DeviceQuery): {types.DeviceType}
    device_get: function(id: integer): types.Device
    device_load: function(id: integer, load: types.PresetLoad)
-   device_move: function(id: integer, track: integer, index: integer)
+   device_move: function(id: integer, part: integer, index: integer)
    device_note_names: function(id: integer): {integer: string}
    device_param: function(id: integer, name: string): types.ParamInfo
    device_param_parse: function(id: integer, name: string, text: string): number
@@ -107,12 +107,12 @@ local record api
    device_set_param: function(id: integer, name: string, value: number | string)
    device_state: function(id: integer): string
    device_types: function(): {types.DeviceType}
-   engine_audible: function(tracks?: {integer})
-   engine_follow: function(track?: integer)
-   engine_follow_always: function(track?: integer)
+   engine_audible: function(parts?: {integer})
+   engine_follow: function(part?: integer)
+   engine_follow_always: function(part?: integer)
    engine_get: function(): types.EngineInfo
    engine_held: function(): {integer}
-   engine_hold: function(track: integer, file?: string)
+   engine_hold: function(part: integer, file?: string)
    engine_load: function(): number, integer, integer
    engine_midi_filter: function(name: string, rules?: {types.MidiFilterRule})
    engine_reset_stats: function()
@@ -154,11 +154,11 @@ local record api
    json_array: function<T>(t?: {T}): {T}
    json_decode: function(text: string): any, string
    json_encode: function(value: any, pretty?: boolean): string
-   lane_add: function(track: integer, opts: types.LaneOptions): integer
+   lane_add: function(part: integer, opts: types.LaneOptions): integer
    lane_add_point: function(id: integer, beat: number, value: number)
    lane_add_state: function(id: integer, state: types.LaneState): integer
    lane_get: function(id: integer): types.Lane
-   lane_list: function(track: integer): {types.Lane}
+   lane_list: function(part: integer): {types.Lane}
    lane_points: function(id: integer): {types.LanePoint}
    lane_remove: function(id: integer)
    lane_set: function(id: integer, patch: types.Lane)
@@ -203,7 +203,7 @@ local record api
    midi_open_port: function(name: string)
    midi_outputs: function(): {types.MidiPort}
    midi_select: function(which?: {string})
-   midi_send: function(track: integer, event: types.MidiEvent)
+   midi_send: function(part: integer, event: types.MidiEvent)
    midi_test_ports: function(ports: {string})
    midi_ump: function(event: types.MidiEvent): {integer}
    nest_add: function(opts?: types.NestOptions): integer
@@ -230,10 +230,22 @@ local record api
    nest_tempo_seconds: function(clip: integer, beat: number): number
    nest_tempo_signature: function(clip: integer, beat: number): integer, integer
    nest_unique: function(clip: integer): integer
-   note_off: function(track: integer, pitch?: integer)
-   note_on: function(track: integer, pitch: integer, velocity?: number, attr?: types.NoteAttr)
+   note_off: function(part: integer, pitch?: integer)
+   note_on: function(part: integer, pitch: integer, velocity?: number, attr?: types.NoteAttr)
    notes_set: function(columns: types.NoteColumns)
    now: function(): number
+   part_add: function(opts?: types.PartOptions): integer
+   part_attr_delay: function(id: integer, attr?: types.NoteAttr): number
+   part_chain_file: function(part: integer, file: string, refer?: boolean): integer
+   part_collect: function(): integer, integer
+   part_get: function(id: integer): types.Part
+   part_import_folder: function(folder: string, index?: integer): integer
+   part_list: function(opts?: types.PartListOptions): {integer}
+   part_meter: function(id: integer): number, number
+   part_move: function(id: integer, index: integer)
+   part_remove: function(id: integer)
+   part_set: function(id: integer, patch: types.Part)
+   part_set: function(id: integer, key: string, value: nil)
    pending: function(): types.Pending
    plugins_add_dir: function(dir: string): types.PluginDir
    plugins_attach: function(path: string): string
@@ -355,18 +367,6 @@ local record api
    timer_stop: function(id: integer)
    toml_decode: function(text: string): any, string
    toml_encode: function(value: any, inline?: boolean): string
-   track_add: function(opts?: types.TrackOptions): integer
-   track_attr_delay: function(id: integer, attr?: types.NoteAttr): number
-   track_chain_file: function(track: integer, file: string, refer?: boolean): integer
-   track_collect: function(): integer, integer
-   track_get: function(id: integer): types.Track
-   track_import_folder: function(folder: string, index?: integer): integer
-   track_list: function(opts?: types.TrackListOptions): {integer}
-   track_meter: function(id: integer): number, number
-   track_move: function(id: integer, index: integer)
-   track_remove: function(id: integer)
-   track_set: function(id: integer, patch: types.Track)
-   track_set: function(id: integer, key: string, value: nil)
    transport_get: function(): types.Transport
    transport_play: function()
    transport_playhead: function(): boolean, number, integer, integer

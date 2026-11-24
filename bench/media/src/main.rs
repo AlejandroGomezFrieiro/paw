@@ -19,7 +19,7 @@ use paw_core::stretch::{self, Mode, Params};
 use paw_engine::{AudioData, Sink};
 use symphonia::core::codecs::audio::AudioDecoderOptions;
 use symphonia::core::formats::probe::Hint;
-use symphonia::core::formats::{FormatOptions, TrackType};
+use symphonia::core::formats::{FormatOptions, PartType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 
@@ -141,9 +141,9 @@ fn decode_file(path: &Path) -> f64 {
     let mut format = symphonia::default::get_probe()
         .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
         .unwrap();
-    let track = format.default_track(TrackType::Audio).unwrap();
-    let params = track.codec_params.as_ref().and_then(|p| p.audio()).unwrap().clone();
-    let id = track.id;
+    let part = format.default_part(PartType::Audio).unwrap();
+    let params = part.codec_params.as_ref().and_then(|p| p.audio()).unwrap().clone();
+    let id = part.id;
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(&params, &AudioDecoderOptions::default())
         .unwrap();
@@ -151,7 +151,7 @@ fn decode_file(path: &Path) -> f64 {
     let mut frames = 0usize;
     let mut rate = 0;
     while let Ok(Some(packet)) = format.next_packet() {
-        if packet.track_id != id {
+        if packet.part_id != id {
             continue;
         }
         if let Ok(buf) = decoder.decode(&packet) {

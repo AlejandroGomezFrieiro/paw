@@ -106,7 +106,7 @@ function M.owner(): string
 end
 
 --- Define or replace a command.
----   paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
+---   paw.command("part.mute", function(ctx) ... end, { desc = "Mute the part" })
 --- The handler gets `ctx` with `ctx.args` (positional and named arguments)
 --- and `ctx.count` (the number typed before a key mapping, or nil). With
 --- `opts.raw`, the command line gives its text as one string in

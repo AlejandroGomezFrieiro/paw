@@ -1,4 +1,4 @@
-//! A track's attribute map (`track.attr_map`): how the MIDI 2.0 attributes
+//! A part's attribute map (`part.attr_map`): how the MIDI 2.0 attributes
 //! of its notes (articulations, mostly) reach an instrument that does not
 //! take them, as the keyswitches, controllers, program changes and channels
 //! it does take.
@@ -8,7 +8,7 @@
 //! only plays it, so a project plays the same with no extension loaded:
 //!
 //! ```lua
-//! track.attr_map = {
+//! part.attr_map = {
 //!   send = "change",                  -- or "every": before every note
 //!   chase = { 1, 11 },                -- controllers sent again after a change
 //!   default = { out = "ks=C1" },      -- notes with no attribute, or a code: "10.0"
@@ -30,7 +30,7 @@
 //! attribute of another type by `by_type`, and a note with none, or with
 //! nothing found, by `default`.
 //!
-//! [`downgrade`] puts the events in a track's sorted events, each change
+//! [`downgrade`] puts the events in a part's sorted events, each change
 //! just before the note it is for, on the note's beat (the order a
 //! keyswitched sampler needs), and lists the changes as switches the engine
 //! sends again when playback starts after them.
@@ -207,7 +207,7 @@ pub(crate) struct Plan {
 
 impl AttrMap {
     /// Whether any note is moved in time: then where it lands depends on
-    /// the tempo map, and the track's events are made again with it.
+    /// the tempo map, and the part's events are made again with it.
     pub(crate) fn has_delay(&self) -> bool {
         let moves = |a: &Art| a.delay().is_some_and(|d| d != 0.0);
         self.delay.is_some_and(|d| d != 0.0)
@@ -495,7 +495,7 @@ fn on_channel(kind: EventKind, ch: u8) -> EventKind {
     paw_engine::midi_out::on_channel(kind, Some(ch))
 }
 
-/// Put what a track's map sends into its sorted events: before each note
+/// Put what a part's map sends into its sorted events: before each note
 /// whose articulation is not the one before it (or every note), the
 /// articulation's events on the note's beat, ahead of it; the note on its
 /// articulation's channel; the attribute kept or dropped. Every change is
@@ -643,7 +643,7 @@ pub(crate) fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
     set.switches.sort_by(|a, b| a.beat.total_cmp(&b.beat));
 }
 
-/// The map of a track from Lua's or a file's data: nothing for nil, an
+/// The map of a part from Lua's or a file's data: nothing for nil, an
 /// empty table or `false`.
 pub(crate) fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
     use serde_json::Value;

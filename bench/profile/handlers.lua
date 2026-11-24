@@ -1,5 +1,5 @@
 -- The event handlers that run after a key, and the time of each: for the
--- keys `x` (delete a clip), `dd` (delete a track) and their `u`, on the
+-- keys `x` (delete a clip), `dd` (delete a part) and their `u`, on the
 -- large project of project.lua. Load it in a running paw with the setup of
 -- the driver, and read the result at the end:
 --   bench/profile/run.sh repeat --keys x,u,dd,u --times 10 \

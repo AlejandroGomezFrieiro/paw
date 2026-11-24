@@ -49,13 +49,13 @@ no code for it.
 ## Open it from a menu
 
 1. Make a command that opens the view, for example `:scope.open`.
-2. Add an entry to the menu of a clip, a track or the timeline:
+2. Add an entry to the menu of a clip, a part or the timeline:
 
    ```lua
    table.insert(paw.frontend.menus.clip, { label = "Open in the scope", command = "scope.open", only = "audio" })
    ```
 
-3. If the editor is for the clips of a kind of track, give the kind an
+3. If the editor is for the clips of a kind of part, give the kind an
    `editor`, and a double-click on such a clip opens it. For other clips,
    add a function to `paw.frontend.openers`.
 

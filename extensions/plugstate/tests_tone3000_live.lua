@@ -298,9 +298,9 @@ steps[3] = {
 
     T.fresh()
     if nam then
-      local track = T.tone("guitar", 2, "A2")
-      paw.cursor.set_track(track.id)
-      local amp = track:add_device(nam)
+      local part = T.tone("guitar", 2, "A2")
+      paw.cursor.set_part(part.id)
+      local amp = part:add_device(nam)
       paw.flush()
       api.undo_checkpoint()
       local dry = T.render({ tail = 0 })
@@ -337,9 +337,9 @@ steps[3] = {
     local t3k = (os.getenv("PAW_TEST_TONE3000") or "") ~= "" and kind_of("clap", "^TONE3000$")
     if t3k then
       T.fresh()
-      local track = T.tone("guitar", 2, "A2")
-      paw.cursor.set_track(track.id)
-      local amp = track:add_device(t3k)
+      local part = T.tone("guitar", 2, "A2")
+      paw.cursor.set_part(part.id)
+      local amp = part:add_device(t3k)
       paw.flush()
       api.undo_checkpoint()
       local dry = T.render({ tail = 0 })

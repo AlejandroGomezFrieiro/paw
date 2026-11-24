@@ -5,12 +5,12 @@
 rig_start $GUI_SIZE
 gui_start
 rec_start gui-mix
-cap "Type a device's name to add it to the track"
+cap "Type a device's name to add it to the part"
 pause 0.4
 glide 1100 106; pause 0.2; xdotool click 1; pause 0.4
 typ "chorus"; pause 0.5
 key Return; pause 0.8
-cap "Play, and open the mixer: a strip for every track"
+cap "Play, and open the mixer: a strip for every part"
 glide 181 21; pause 0.2; xdotool click 1; pause 0.4
 glide 892 21; pause 0.2; xdotool click 1; pause 0.8
 cap "Drag a fader"

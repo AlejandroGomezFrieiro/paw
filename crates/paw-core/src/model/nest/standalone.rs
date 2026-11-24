@@ -1,4 +1,4 @@
-//! A nest, or a view of tracks over a time, as a project of its own
+//! A nest, or a view of parts over a time, as a project of its own
 //! (`:export project <folder>/` in its window; `nest.md` 3.6, 4.3).
 //!
 //! The project that this module makes is a copy: the song does not change.
@@ -17,7 +17,7 @@ use serde_json::{Map, Value};
 
 use super::time::song_tempos_from;
 use super::{Nest, NestId, NestMeter, NestTempo, placed_clip, placed_lane};
-use crate::model::{ClipContent, Id, MASTER_ID, Project, Track};
+use crate::model::{ClipContent, Id, MASTER_ID, Project, Part};
 
 /// Two beats closer than this are one.
 const EPS: f64 = 1e-9;
@@ -95,7 +95,7 @@ impl Project {
     /// of that place where the nest's beat 0 is. A block of the song comes
     /// before a block inside another nest; then the earliest.
     fn first_block(&self, id: NestId) -> Option<(Option<NestId>, f64)> {
-        self.all_tracks()
+        self.all_parts()
             .flat_map(|t| t.clips.iter().map(move |c| (t.nest, c)))
             .filter_map(|(place, c)| match &c.content {
                 ClipContent::Nest { nest, offset, .. } if *nest == id => Some((place, c.start - offset)),
@@ -128,11 +128,11 @@ impl Project {
         TempoMap::new(&tempos, &sigs)
     }
 
-    /// The nests that the clips of `tracks` place, and the nests inside
+    /// The nests that the clips of `parts` place, and the nests inside
     /// those, all the way down.
-    fn nests_below<'a>(&self, tracks: impl IntoIterator<Item = &'a Track>) -> BTreeSet<NestId> {
+    fn nests_below<'a>(&self, parts: impl IntoIterator<Item = &'a Part>) -> BTreeSet<NestId> {
         let held = self.nests_held();
-        let mut stack: Vec<NestId> = tracks
+        let mut stack: Vec<NestId> = parts
             .into_iter()
             .flat_map(|t| t.clips.iter().chain(&t.cues))
             .filter_map(|c| match &c.content {
@@ -149,14 +149,14 @@ impl Project {
         out
     }
 
-    /// A project of `tracks` (now the song's) with `master`, the nests
+    /// A project of `parts` (now the song's) with `master`, the nests
     /// that they place, and the tempo and meter of `map`.
-    fn made_of(&self, name: &str, master: Track, tracks: Vec<Track>, map: TempoMap) -> Project {
-        let inner = self.nests_below(&tracks);
+    fn made_of(&self, name: &str, master: Part, parts: Vec<Part>, map: TempoMap) -> Project {
+        let inner = self.nests_below(&parts);
         let mut out = Project { name: name.to_string(), master: Arc::new(master), ..Project::default() };
-        out.tracks = tracks.into_iter().map(Arc::new).collect();
-        out.tracks.extend(
-            self.tracks
+        out.parts = parts.into_iter().map(Arc::new).collect();
+        out.parts.extend(
+            self.parts
                 .iter()
                 .filter(|t| t.nest.is_some_and(|n| inner.contains(&n)))
                 .cloned(),
@@ -166,15 +166,15 @@ impl Project {
         out
     }
 
-    /// Nest `id` as a project of its own: its tracks are the song's, its
+    /// Nest `id` as a project of its own: its parts are the song's, its
     /// master the master, its markers and data the project's, its key
     /// (`meta.key`) the project's key, and its tempo and meter as its
     /// first block plays them. The nests inside it stay nests.
     pub(crate) fn nest_standalone(&self, id: NestId) -> Result<Standalone> {
         let nest = self.nest(id).with_context(|| format!("no subproject {id}"))?;
         let from_master = |to: Id| if to == nest.master { MASTER_ID } else { to };
-        let tracks: Vec<Track> = self
-            .nest_tracks(id)
+        let parts: Vec<Part> = self
+            .nest_parts(id)
             .filter(|t| t.id != nest.master)
             .map(|t| {
                 let mut t = (**t).clone();
@@ -184,38 +184,38 @@ impl Project {
                 t
             })
             .collect();
-        let mut master = (**self.track(nest.master).context("its master track is gone")?).clone();
+        let mut master = (**self.part(nest.master).context("its master part is gone")?).clone();
         master.id = MASTER_ID;
         master.nest = None;
         let map = map_over(&self.played_map(nest), 0.0, nest.length);
-        let mut project = self.made_of(&nest.name, master, tracks, map);
+        let mut project = self.made_of(&nest.name, master, parts, map);
         project.meta = nest.meta.clone();
         project.key = key_of(&mut project.meta).or_else(|| self.key.clone());
         project.validate()?;
         Ok(Standalone { project, changes: Vec::new() })
     }
 
-    /// The tracks `tracks` (of one place) from beat `from` to `to` of that
-    /// place as a project named `name`: copies of the tracks with their
+    /// The parts `parts` (of one place) from beat `from` to `to` of that
+    /// place as a project named `name`: copies of the parts with their
     /// devices, their clips and lanes in the time from beat 0, the markers
     /// and regions that fit in the time, the tempo and meter of the time,
-    /// and a master with no devices. A route to a track that is not in the
+    /// and a master with no devices. A route to a part that is not in the
     /// view is cut, and each cut is told. A clip that crosses an edge and
     /// cannot be cut there is an error.
-    pub(crate) fn view_standalone(&self, name: &str, tracks: &[Id], from: f64, to: f64) -> Result<Standalone> {
+    pub(crate) fn view_standalone(&self, name: &str, parts: &[Id], from: f64, to: f64) -> Result<Standalone> {
         if !(from.is_finite() && to.is_finite() && to - from > EPS) {
             bail!("the view has no time to write");
         }
-        let place = self.view_place(tracks)?;
-        self.check_cuts(tracks, from, to)?;
-        let ids: HashSet<Id> = tracks.iter().copied().collect();
+        let place = self.view_place(parts)?;
+        self.check_cuts(parts, from, to)?;
+        let ids: HashSet<Id> = parts.iter().copied().collect();
         // The master of the place is the project's master.
         let master_of_place = place.and_then(|n| self.nest(n)).map_or(MASTER_ID, |n| n.master);
-        let name_of = |id: Id| self.track(id).map_or_else(|| id.to_string(), |t| t.name.clone());
+        let name_of = |id: Id| self.part(id).map_or_else(|| id.to_string(), |t| t.name.clone());
         let mut changes = Vec::new();
         let mut copies = Vec::new();
-        for id in tracks {
-            let mut t = (**self.track(*id).context("no track")?).clone();
+        for id in parts {
+            let mut t = (**self.part(*id).context("no part")?).clone();
             t.nest = None;
             t.clips = t
                 .clips
@@ -223,13 +223,13 @@ impl Project {
                 .filter_map(|c| placed_clip(c, -from, 0.0, to - from, c.id).map(Arc::new))
                 .collect();
             t.lanes = t.lanes.iter().map(|l| Arc::new(placed_lane(l, &[(-from, 0.0, to - from)]))).collect();
-            // A copy cut to the time is the project's own, not a track
+            // A copy cut to the time is the project's own, not a part
             // folder outside that it refers to.
             t.origin = t.source.take().or(t.origin);
             changes.extend(cut_routes(&mut t, &ids, master_of_place, &name_of));
             copies.push(t);
         }
-        let mut master = Track::new(MASTER_ID);
+        let mut master = Part::new(MASTER_ID);
         master.name = "Master".into();
         let length = to - from;
         let map = map_over(&self.place_map(place), from, length);
@@ -251,30 +251,30 @@ impl Project {
         Ok(Standalone { project, changes })
     }
 
-    /// The place of the tracks of a view: one for all, none a master.
-    pub(crate) fn view_place(&self, tracks: &[Id]) -> Result<Option<NestId>> {
-        if tracks.is_empty() {
-            bail!("the view has no tracks");
+    /// The place of the parts of a view: one for all, none a master.
+    pub(crate) fn view_place(&self, parts: &[Id]) -> Result<Option<NestId>> {
+        if parts.is_empty() {
+            bail!("the view has no parts");
         }
         let mut place = None;
-        for (i, id) in tracks.iter().enumerate() {
-            let t = self.track(*id).with_context(|| format!("no track {id}"))?;
+        for (i, id) in parts.iter().enumerate() {
+            let t = self.part(*id).with_context(|| format!("no part {id}"))?;
             if *id == MASTER_ID || t.nest.and_then(|n| self.nest(n)).is_some_and(|n| n.master == *id) {
-                bail!("{} is a master track: take a view without it", t.name);
+                bail!("{} is a master part: take a view without it", t.name);
             }
             if i > 0 && t.nest != place {
-                bail!("the tracks of the view are of two places: take a view of one");
+                bail!("the parts of the view are of two places: take a view of one");
             }
             place = t.nest;
         }
         Ok(place)
     }
 
-    /// An error for the first clip of `tracks` that crosses an edge of the
+    /// An error for the first clip of `parts` that crosses an edge of the
     /// time `from..to` and cannot be cut there: an audio or a looped clip.
-    pub(crate) fn check_cuts(&self, tracks: &[Id], from: f64, to: f64) -> Result<()> {
+    pub(crate) fn check_cuts(&self, parts: &[Id], from: f64, to: f64) -> Result<()> {
         let tempo = self.tempo_map();
-        for t in tracks.iter().filter_map(|id| self.track(*id)) {
+        for t in parts.iter().filter_map(|id| self.part(*id)) {
             for c in t.clips.iter().filter(|c| c.start < to - EPS && c.start + c.length > from + EPS) {
                 let crosses = c.start < from - EPS || c.start + c.length > to + EPS;
                 let cuttable = !c.looped && matches!(c.content, ClipContent::Midi { .. } | ClipContent::Nest { .. });
@@ -293,12 +293,12 @@ impl Project {
     }
 }
 
-/// Cut the routes of a track copy `t` to tracks not in `ids`: its output
+/// Cut the routes of a part copy `t` to parts not in `ids`: its output
 /// goes to the master, and its sends, side-chains and output pairs there
 /// go. A group that is not in `ids` is no longer its group. A route to
 /// `master`, the master of its place, goes to the project's master.
 /// Returns what changed, in words.
-fn cut_routes(t: &mut Track, ids: &HashSet<Id>, master: Id, name_of: &dyn Fn(Id) -> String) -> Vec<String> {
+fn cut_routes(t: &mut Part, ids: &HashSet<Id>, master: Id, name_of: &dyn Fn(Id) -> String) -> Vec<String> {
     let to_master = |id: Id| if id == master { MASTER_ID } else { id };
     t.output = t.output.map(to_master).filter(|o| *o != MASTER_ID);
     t.sends.iter_mut().for_each(|s| s.target = to_master(s.target));
@@ -344,7 +344,7 @@ mod tests {
     use serde_json::json;
 
     fn names(p: &Project) -> Vec<&str> {
-        p.tracks.iter().map(|t| t.name.as_str()).collect()
+        p.parts.iter().map(|t| t.name.as_str()).collect()
     }
 
     #[test]
@@ -352,7 +352,7 @@ mod tests {
         // The song places Bridge (10) at beat 8, where it slows to 90; Bridge
         // places Fill (20).
         let mut p = song(10);
-        Arc::make_mut(&mut p.tracks[0]).clips = vec![nest_clip(2, 10, 8.0, json!("master"))].into();
+        Arc::make_mut(&mut p.parts[0]).clips = vec![nest_clip(2, 10, 8.0, json!("master"))].into();
         add_nest(&mut p, 10, "Bridge", vec![nest_clip(5, 20, 0.0, json!("master"))]);
         add_nest(&mut p, 20, "Fill", Vec::new());
         p.tempo_changes = vec![TempoChange { beat: 8.0, bpm: 90.0, ramp: false }];
@@ -364,8 +364,8 @@ mod tests {
         assert_eq!(made.name, "Bridge");
         assert_eq!((made.tempo, made.tempo_changes.len()), (90.0, 0), "the song's tempo over the block");
         assert_eq!(made.master.id, MASTER_ID);
-        assert_eq!(names(&made), ["Keys", "Keys", "Master"], "its Keys, then Fill's tracks");
-        assert_eq!(made.tracks[0].nest, None, "its tracks are the song's");
+        assert_eq!(names(&made), ["Keys", "Keys", "Master"], "its Keys, then Fill's parts");
+        assert_eq!(made.parts[0].nest, None, "its parts are the song's");
         assert_eq!(made.nests.keys().copied().collect::<Vec<_>>(), [NestId(20)], "Fill stays a subproject");
     }
 
@@ -378,24 +378,24 @@ mod tests {
         }))
         .expect("a clip");
         riff.content = ClipContent::Midi { notes: Notes::from(vec![note(1.0, 1), note(5.0, 2)]), controls: Vec::new() };
-        let mut bass = Track::new(1);
+        let mut bass = Part::new(1);
         bass.name = "Bass".into();
         bass.clips.push(Arc::new(riff));
         bass.sends.push(Send { target: 2, level: -6.0, pre: false });
-        let mut verb = Track::new(2);
+        let mut verb = Part::new(2);
         verb.name = "Verb".into();
-        let p = Project { tracks: vec![Arc::new(bass), Arc::new(verb)], ..Project::default() };
+        let p = Project { parts: vec![Arc::new(bass), Arc::new(verb)], ..Project::default() };
 
         let made = p.view_standalone("Bridge", &[1], 4.0, 8.0).expect("a project");
 
         assert_eq!(names(&made.project), ["Bass"]);
-        let bass = &made.project.tracks[0];
+        let bass = &made.project.parts[0];
         assert!(bass.sends.is_empty(), "the send to Verb is cut");
         assert_eq!(made.changes, ["the send of Bass to Verb is left out"]);
         let clip = &bass.clips[0];
         assert_eq!((clip.start, clip.length), (0.0, 4.0), "the clip from the view's start");
         let ClipContent::Midi { notes, .. } = &clip.content else { panic!("a MIDI clip") };
         assert_eq!(notes.iter().map(|n| n.start).collect::<Vec<_>>(), [1.0], "the note at beat 5, now at 1");
-        assert_eq!(p.tracks[0].sends.len(), 1, "the song keeps its send");
+        assert_eq!(p.parts[0].sends.len(), 1, "the song keeps its send");
     }
 }

@@ -1,6 +1,6 @@
 //! MIDI output to hardware and other programs, through the ALSA sequencer.
 //!
-//! A track can send what it plays to a port. The audio thread makes no
+//! A part can send what it plays to a port. The audio thread makes no
 //! system calls, so it stamps each message with when it is to be heard, on
 //! the clock of [`clock_ns`], and pushes it into a lock-free queue. A thread
 //! of its own reads the queue and hands each message to the sequencer,
@@ -8,19 +8,19 @@
 //! time however late the thread itself wakes. The audio is heard later than
 //! it is made (the output's latency, and the delay that lines plugins up),
 //! so the messages are stamped that much later too, and an instrument on
-//! the port sounds together with the tracks.
+//! the port sounds together with the parts.
 //!
 //! What leaves is MIDI 2.0 where the port takes Universal MIDI Packets (the
 //! sequencer and the port's program both speak MIDI 2.0), and otherwise the
-//! MIDI 1.0 form the track's route asks for, plain, MPE or with fourteen-bit
+//! MIDI 1.0 form the part's route asks for, plain, MPE or with fourteen-bit
 //! controllers ([`crate::midi_form`]).
 //!
-//! The thread remembers the notes it has sent on, and when a track stops or
+//! The thread remembers the notes it has sent on, and when a part stops or
 //! jumps (an `AllNotesOff` from the engine) it ends them with note-offs and
 //! an All Notes Off on each channel that had one.
 //!
 //! It can also make ports of its own that other programs read from
-//! ([`MidiOutputs::open_port`]): what a track sends there goes to whoever
+//! ([`MidiOutputs::open_port`]): what a part sends there goes to whoever
 //! is subscribed, a synth in another program for one.
 
 use std::collections::HashMap;
@@ -147,7 +147,7 @@ impl MidiOutputs {
     }
 
     /// Make a port of this program's that other programs read MIDI from,
-    /// shown to them as `paw out: <name>`; tracks send to it by `name`.
+    /// shown to them as `paw out: <name>`; parts send to it by `name`.
     pub fn open_port(&self, name: &str) {
         let _ = self.commands.send(Command::Open(name.to_string()));
     }
@@ -323,7 +323,7 @@ mod imp {
     /// How often the list of ports is read again.
     const REFRESH: Duration = Duration::from_secs(1);
     /// The catch-all input of this program's MIDI input, which would send
-    /// what it is sent straight back to the tracks that send it.
+    /// what it is sent straight back to the parts that send it.
     const OWN_INPUT: &str = "paw: input";
 
     struct Seq(*mut snd_seq_t);

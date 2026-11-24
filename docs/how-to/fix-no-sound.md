@@ -1,7 +1,7 @@
 # How to fix no sound
 
 You can find why you hear nothing when the song plays by checking the
-output device, the tracks and the system, in that order. The audio devices
+output device, the parts and the system, in that order. The audio devices
 are described in [Audio devices](../reference/audio-devices.md).
 
 ## Check the output device
@@ -19,19 +19,19 @@ are described in [Audio devices](../reference/audio-devices.md).
 
 To use the default output of the system, type `:audio.output default`.
 
-## Check the tracks
+## Check the parts
 
-1. Look at the chips `M` and `S` on the track headers. A lit `M` mutes the
-   track, and a lit `S` on a different track silences the other tracks.
-   To unmute all the tracks, type `:t* unmute`. To remove all the solos,
+1. Look at the chips `M` and `S` on the part headers. A lit `M` mutes the
+   part, and a lit `S` on a different part silences the other parts.
+   To unmute all the parts, type `:t* unmute`. To remove all the solos,
    type `:t* unsolo`.
-2. Look at the fader of each track and of the master. To set a fader to
-   0 dB, put the cursor on the track, press `grv`, type `0` and press
+2. Look at the fader of each part and of the master. To set a fader to
+   0 dB, put the cursor on the part, press `grv`, type `0` and press
    `Enter`.
-3. A MIDI track needs an instrument, and the track header names its
-   devices. If a MIDI track has no instrument, press `a` and add one, for
+3. A MIDI part needs an instrument, and the part header names its
+   devices. If a MIDI part has no instrument, press `a` and add one, for
    example `Synth`.
-4. If a device on the track is stopped, see
+4. If a device on the part is stopped, see
    [How to deal with a plugin that crashes or hangs](deal-with-a-plugin-that-crashes.md).
 
 ## Check the system

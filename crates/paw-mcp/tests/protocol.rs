@@ -289,13 +289,13 @@ fn handshake_and_tool_list() {
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     for expected in [
         "get_project",
-        "get_track",
+        "get_part",
         "get_clip",
         "get_device",
         "find_devices",
         "get_status",
-        "add_track",
-        "set_track",
+        "add_part",
+        "set_part",
         "add_clip",
         "edit_clip",
         "add_device",
@@ -396,9 +396,9 @@ fn build_render_undo() {
     );
     assert!(text.contains("110 BPM"), "{text}");
 
-    // A bass track with its instrument and a two-bar riff, in one call.
+    // A bass part with its instrument and a two-bar riff, in one call.
     let text = c.ok(
-        "add_track",
+        "add_part",
         json!({
             "name": "Bass",
             "volume": -3,
@@ -414,7 +414,7 @@ fn build_render_undo() {
     let bass_synth = id_after(&text, "devices: [id ");
     let riff = id_after(&text, "clips:\n     [id ");
 
-    let text = c.ok("add_track", json!({
+    let text = c.ok("add_part", json!({
         "name": "Drums",
         "devices": ["drums"],
         "clips": [{ "start": "1.1", "length": 8, "notes": ["C2 0", "D2 1", "C2 2", "D2 3", "F#2 0 1/8", "F#2 2 1/8"] }]
@@ -422,13 +422,13 @@ fn build_render_undo() {
     assert!(text.contains("\"Drums\""), "{text}");
 
     let text = c.ok(
-        "add_track",
+        "add_part",
         json!({ "name": "Echo", "devices": [{ "kind": "delay", "params": { "mix": 1 } }] }),
     );
     assert!(text.contains("Delay"), "{text}");
     let text = c.ok(
-        "set_track",
-        json!({ "track": "bass", "sends": [{ "target": "Echo", "level": -10 }], "pan": -0.25 }),
+        "set_part",
+        json!({ "part": "bass", "sends": [{ "target": "Echo", "level": -10 }], "pan": -0.25 }),
     );
     assert!(text.contains("sends: \"Echo\""), "{text}");
     assert!(text.contains("pan -0.25"), "{text}");
@@ -488,18 +488,18 @@ fn build_render_undo() {
     // Automation, then undo it: the lane is gone and the clip still there.
     let text = c.ok(
         "automate",
-        json!({ "track": "Bass", "points": [[0, -40], ["2.1", 0]] }),
+        json!({ "part": "Bass", "points": [[0, -40], ["2.1", 0]] }),
     );
     assert!(text.contains("New automation"), "{text}");
     assert!(
-        c.ok("get_track", json!({ "track": "Bass" }))
+        c.ok("get_part", json!({ "part": "Bass" }))
             .contains("automation:")
     );
     let text = c.ok("undo", json!({}));
     assert!(text.contains("Undid 1 step"), "{text}");
-    let track = c.ok("get_track", json!({ "track": "Bass" }));
-    assert!(!track.contains("automation:"), "{track}");
-    assert!(track.contains("\"riff\""), "{track}");
+    let part = c.ok("get_part", json!({ "part": "Bass" }));
+    assert!(!part.contains("automation:"), "{part}");
+    assert!(part.contains("\"riff\""), "{part}");
     assert!(
         c.ok("undo", json!({ "redo": true }))
             .contains("Redid 1 step")
@@ -508,7 +508,7 @@ fn build_render_undo() {
     // A call that fails part-way changes nothing.
     let before = c.ok("get_project", json!({}));
     let text = c.fails(
-        "add_track",
+        "add_part",
         json!({ "name": "Broken", "devices": ["synth", "no such device at all"] }),
     );
     assert!(text.contains("rolled back"), "{text}");
@@ -516,15 +516,15 @@ fn build_render_undo() {
 
     // Bad arguments come back as tool errors the model can act on.
     assert!(
-        c.fails("add_clip", json!({ "track": "Bass", "strat": 0 }))
+        c.fails("add_clip", json!({ "part": "Bass", "strat": 0 }))
             .contains("unknown argument `strat`")
     );
     assert!(
-        c.fails("add_clip", json!({ "track": "Bass", "notes": ["H9 0"] }))
+        c.fails("add_clip", json!({ "part": "Bass", "notes": ["H9 0"] }))
             .contains("not a note name")
     );
     assert!(
-        c.fails("add_clip", json!({ "track": "Bass", "start": "0.5" }))
+        c.fails("add_clip", json!({ "part": "Bass", "start": "0.5" }))
             .contains("bar 3 beat 1")
     );
     assert!(
@@ -532,12 +532,12 @@ fn build_render_undo() {
             .contains("no clip 99999")
     );
     assert!(
-        c.fails("set_track", json!({ "track": "Nobody" }))
-            .contains("no track named")
+        c.fails("set_part", json!({ "part": "Nobody" }))
+            .contains("no part named")
     );
     assert!(
-        c.fails("get_track", json!({}))
-            .contains("missing required argument `track`")
+        c.fails("get_part", json!({}))
+            .contains("missing required argument `part`")
     );
     assert!(
         c.fails("lua", json!({ "code": "1" }))
@@ -561,7 +561,7 @@ fn build_render_undo() {
         json!({ "action": "save", "path": "song.json" }),
     );
     assert!(dir.path().join("song.json").is_file(), "{text}");
-    c.ok("set_track", json!({ "track": "Drums", "mute": true }));
+    c.ok("set_part", json!({ "part": "Drums", "mute": true }));
     assert!(
         c.fails("project_file", json!({ "action": "new" }))
             .contains("unsaved")
@@ -644,7 +644,7 @@ fn kernel_gone_and_back() {
     assert!(text.contains("No paw kernel at"), "{text}");
 
     let mut k = kernel();
-    c.ok("add_track", json!({ "name": "First" }));
+    c.ok("add_part", json!({ "name": "First" }));
     k.kill().unwrap();
     k.wait().unwrap();
     let text = c.fails("get_project", json!({}));
@@ -652,7 +652,7 @@ fn kernel_gone_and_back() {
 
     let mut k = kernel();
     let text = c.ok("get_project", json!({}));
-    assert!(text.contains("Tracks (0)"), "a fresh kernel: {text}");
+    assert!(text.contains("Parts (0)"), "a fresh kernel: {text}");
     c.finish();
     k.kill().unwrap();
     k.wait().unwrap();
@@ -685,7 +685,7 @@ impl Client {
 
     fn add_drums(&mut self) {
         self.ok(
-            "add_track",
+            "add_part",
             json!({
                 "name": "Drums", "devices": ["drums"],
                 "clips": [{ "start": 4, "length": 4, "notes": ["C2 0", "D2 1", "C2 2", "D2 3"] }]
@@ -713,27 +713,27 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
 
     // Results are JSON as well as prose; empty lists are lists.
     let p = c.data("get_project", json!({}));
-    assert_eq!(p["project"]["tracks"], json!([]));
+    assert_eq!(p["project"]["parts"], json!([]));
     assert_eq!(p["project"]["markers"], json!([]));
 
     // Time in every syntax means the same place; the key is the project's.
     c.ok("set_project", json!({ "key": "D minor", "tempo": 120 }));
     let d = c.data(
-        "add_track",
+        "add_part",
         json!({
             "name": "Lead", "devices": ["synth"],
             "clips": [{ "name": "tune", "start": "bar 2 beat 1", "length": "2 bars",
                         "notes": ["D4 0 1", "F4 1 1", "A4 2 1", "C5 3 1 80"] }]
         }),
     );
-    let clip = &d["track"]["clips"][0];
+    let clip = &d["part"]["clips"][0];
     assert_eq!(clip["start"], 4.0);
     assert_eq!(clip["at"], "2.1");
     let id = clip["id"].as_u64().unwrap();
     for start in ["2.1", "2:1", "bar 2 beat 1", "bar 2"] {
         let t = c.data(
             "add_clip",
-            json!({ "track": "Lead", "start": start, "notes": ["C4 0 1"] }),
+            json!({ "part": "Lead", "start": start, "notes": ["C4 0 1"] }),
         );
         assert_eq!(t["clip"]["start"], 4.0, "{start}");
     }
@@ -830,19 +830,19 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
     assert!(f["total"].as_u64().unwrap() >= 1, "{f}");
     c.fails("find", json!({ "query": "note[" }));
     c.ok(
-        "add_track",
+        "add_part",
         json!({ "name": "Strings", "clips": [{ "start": 0, "notes": ["C4 0 1"] }] }),
     );
-    c.ok("add_track", json!({ "name": "Blank" }));
+    c.ok("add_part", json!({ "name": "Blank" }));
     let dg = c.data("diagnose", json!({}));
     let found = dg["findings"].as_array().unwrap().clone();
-    assert!(found.iter().any(|f| f["rule"] == "empty_track"), "{dg}");
-    let silent = found.iter().find(|f| f["rule"] == "silent_midi_track").unwrap();
+    assert!(found.iter().any(|f| f["rule"] == "empty_part"), "{dg}");
+    let silent = found.iter().find(|f| f["rule"] == "silent_midi_part").unwrap();
     assert!(silent["message"].as_str().unwrap().contains("Strings"));
     let dg = c.data("diagnose", json!({ "measure": true }));
     assert!(dg["measure"]["integrated"].is_number(), "{dg}");
-    c.ok("set_track", json!({ "track": "Lead", "sends": [{ "target": "Blank" }] }));
-    c.ok("set_track", json!({ "track": "Blank", "mute": true }));
+    c.ok("set_part", json!({ "part": "Lead", "sends": [{ "target": "Blank" }] }));
+    c.ok("set_part", json!({ "part": "Blank", "mute": true }));
     let dg = c.data("diagnose", json!({}));
     assert!(
         dg["findings"].as_array().unwrap().iter().any(|f| f["rule"] == "muted_destination"),
@@ -854,15 +854,15 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
     let text = c.ok(
         "batch",
         json!({ "label": "verse bass", "steps": [
-            { "tool": "add_track", "arguments": { "name": "Bass", "devices": ["synth"] } },
-            { "tool": "add_clip", "arguments": { "track": "Bass", "notes": ["A1 0 1"] } },
+            { "tool": "add_part", "arguments": { "name": "Bass", "devices": ["synth"] } },
+            { "tool": "add_clip", "arguments": { "part": "Bass", "notes": ["A1 0 1"] } },
             { "tool": "marker", "arguments": { "action": "add", "at": 8, "name": "Bass in" } },
         ]}),
     );
     assert!(text.contains("mcp: verse bass"), "{text}");
     let list = c.data("undo", json!({ "list": true }));
     assert_eq!(list["history"][0]["label"], "mcp: verse bass");
-    assert_eq!(list["history"][1]["label"], "mcp: set_track Blank");
+    assert_eq!(list["history"][1]["label"], "mcp: set_part Blank");
     let undone = c.ok("undo", json!({}));
     assert!(undone.contains("Undid 1 step: mcp: verse bass"), "{undone}");
     assert_eq!(c.ok("get_project", json!({})), before);
@@ -872,8 +872,8 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
     let text = c.fails(
         "batch",
         json!({ "steps": [
-            { "tool": "add_track", "arguments": { "name": "Doomed" } },
-            { "tool": "set_track", "arguments": { "track": "Nobody", "mute": true } },
+            { "tool": "add_part", "arguments": { "name": "Doomed" } },
+            { "tool": "set_part", "arguments": { "part": "Nobody", "mute": true } },
         ]}),
     );
     assert!(text.contains("step 2"), "{text}");
@@ -883,8 +883,8 @@ fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
         json!({ "steps": [{ "tool": "render", "arguments": {} }] }),
     );
 
-    // Per-track meter in get_track; nothing to undo is an error.
-    assert!(c.ok("get_track", json!({ "track": "Lead" })).contains("meter now"));
+    // Per-part meter in get_part; nothing to undo is an error.
+    assert!(c.ok("get_part", json!({ "part": "Lead" })).contains("meter now"));
     for _ in 0..50 {
         let (_, error) = c.call("undo", json!({ "steps": 100 }));
         if error {
@@ -905,7 +905,7 @@ fn the_manual_and_the_api_are_resources() {
     assert!(init["capabilities"]["resources"].is_object());
     let api = c.request("resources/read", json!({ "uri": "paw://reference/api" }));
     let text = api["result"]["contents"][0]["text"].as_str().unwrap();
-    assert!(text.contains("### `track_add("), "{}", &text[..300.min(text.len())]);
+    assert!(text.contains("### `part_add("), "{}", &text[..300.min(text.len())]);
     let lua = c.request("resources/read", json!({ "uri": "paw://reference/lua/harmony" }));
     assert!(lua["result"]["contents"][0]["text"]
         .as_str()

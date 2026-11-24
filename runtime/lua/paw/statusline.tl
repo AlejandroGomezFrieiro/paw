@@ -706,7 +706,7 @@ local function selected_time(from: number, to: number, dash: string): string
 end
 
 -- How much a visual selection of the arrange view holds, the same in each
--- mode: `bars 3–10 · 3 tracks`; `V` selects whole tracks, so only those.
+-- mode: `bars 3–10 · 3 parts`; `V` selects whole parts, so only those.
 -- When the line is too long, only the mode stays longer (rank 1).
 spec(
   "selection",
@@ -718,8 +718,8 @@ spec(
       if not selection then
         return nil
       end
-      local tracks = math.floor(selection.r1 - selection.r0 + 1)
-      local text = tracks .. (tracks == 1 and " track" or " tracks")
+      local parts = math.floor(selection.r1 - selection.r0 + 1)
+      local text = parts .. (parts == 1 and " part" or " parts")
       if selection.kind ~= "line" then
         local dash = ctx.g.ellipsis == "…" and "–" or "-"
         text = selected_time(selection.c0, selection.c1, dash) .. " " .. ctx.g.dot .. " " .. text
@@ -879,7 +879,7 @@ spec(
   }
 )
 
--- The track the cursor is on and the clip under it.
+-- The part the cursor is on and the clip under it.
 spec(
   "cursor",
   {
@@ -887,13 +887,13 @@ spec(
     min = 100,
     rank = 6,
     fn = function(): StatusText
-      local track = paw.cursor.track()
-      if not track then
+      local part = paw.cursor.part()
+      if not part then
         return nil
       end
       local clip = paw.cursor.clip()
       local name = clip and clip.name ~= "" and clip.name or nil
-      return {{track.name, "StatusName"}, {name and ("  " .. name) or "", "StatusDim"}}
+      return {{part.name, "StatusName"}, {name and ("  " .. name) or "", "StatusDim"}}
     end,
   }
 )

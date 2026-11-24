@@ -6,13 +6,13 @@
 -- The state is plain data:
 --
 --   { tempo, markers = { { name, beat, length } },  -- a region has a length
---     tracks = { { name, color, volume, pan, mute, solo,
+--     parts = { { name, color, volume, pan, mute, solo,
 --                  devices = { kind, ... }, sends = { { target = name, level } },
 --                  clips = { { kind, start, length, notes = { ... }, file } } | ANY,
 --                  notes = { { pitch, start, length, velocity } },
 --                  lanes = { { target, points = { { beat, value } } } } } } }
 --
--- `track.notes` is every note of the track at its time in the song (in
+-- `part.notes` is every note of the part at its time in the song (in
 -- beats), sorted. `clips` is the layout of the clips, or `M.ANY` where the
 -- scenario does not say it (the clips of an imported MIDI file). `ANY` in
 -- any field means "not checked".
@@ -20,7 +20,7 @@ local M = {}
 
 M.ANY = setmetatable({}, { __tostring = function() return "<any>" end })
 
-function M.new() return { tempo = 120, markers = {}, tracks = {} } end
+function M.new() return { tempo = 120, markers = {}, parts = {} } end
 
 local function copy(v)
   if type(v) ~= "table" or v == M.ANY then return v end
@@ -32,14 +32,14 @@ local function copy(v)
 end
 M.copy = copy
 
-function M.track(state, name)
-  for i, t in ipairs(state.tracks) do
+function M.part(state, name)
+  for i, t in ipairs(state.parts) do
     if t.name == name then return t, i end
   end
-  error("the model has no track " .. tostring(name), 2)
+  error("the model has no part " .. tostring(name), 2)
 end
 
-function M.new_track(name)
+function M.new_part(name)
   return {
     name = name,
     color = nil,
@@ -56,17 +56,17 @@ function M.new_track(name)
 end
 
 --- Add an automation point `{ beat, value }` to the lane of `target` of a
---- track ("volume", "pan"). A point at the beat of another replaces it, as
+--- part ("volume", "pan"). A point at the beat of another replaces it, as
 --- docs/reference/automation.md says ("over what the lane had there").
-function M.automate(track, target, beat, value)
+function M.automate(part, target, beat, value)
   local lane
-  for _, l in ipairs(track.lanes) do
+  for _, l in ipairs(part.lanes) do
     if l.target == target then lane = l end
   end
   if not lane then
     lane = { target = target, points = {} }
-    track.lanes[#track.lanes + 1] = lane
-    table.sort(track.lanes, function(a, b) return a.target < b.target end)
+    part.lanes[#part.lanes + 1] = lane
+    table.sort(part.lanes, function(a, b) return a.target < b.target end)
   end
   for i = #lane.points, 1, -1 do
     if math.abs(lane.points[i][1] - beat) < 1e-9 then table.remove(lane.points, i) end
@@ -81,17 +81,17 @@ local function note_order(a, b)
   return a.length < b.length
 end
 
---- Make `track.notes` again from its clips (where the clips are known).
-function M.renote(track)
-  if track.clips == M.ANY then return end
+--- Make `part.notes` again from its clips (where the clips are known).
+function M.renote(part)
+  if part.clips == M.ANY then return end
   local out = {}
-  for _, c in ipairs(track.clips) do
+  for _, c in ipairs(part.clips) do
     for _, n in ipairs(c.notes or {}) do
       out[#out + 1] = { pitch = n.pitch, start = c.start + n.start, length = n.length, velocity = n.velocity }
     end
   end
   table.sort(out, note_order)
-  track.notes = out
+  part.notes = out
 end
 
 --- Markers and regions in the order of time; at one beat, by name.
@@ -171,7 +171,7 @@ local function u32(s, i) return ((s:byte(i) * 256 + s:byte(i + 1)) * 256 + s:byt
 local function le16(s, i) return s:byte(i) + s:byte(i + 1) * 256 end
 local function le32(s, i) return le16(s, i) + le16(s, i + 2) * 65536 end
 
---- The parts of a Standard MIDI File that have notes: `{ { name, notes } }`,
+--- The tracks of a Standard MIDI File that have notes: `{ { name, notes } }`,
 --- notes in beats from the start of the file, sorted.
 function M.read_midi(path)
   local s = read(path)

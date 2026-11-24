@@ -15,13 +15,13 @@ time_signatures:
 tempos:
 - position: 0
   bpm: 100
-tracks:
+parts:
 - singer: Kitane sno act5 VCV
   phonemizer: OpenUtau.Core.DefaultPhonemizer
   renderer_settings:
     renderer: WORLDLINE-R
-  track_name: Imported vocal
-  track_color: Blue
+  part_name: Imported vocal
+  part_color: Blue
   mute: false
   solo: false
   volume: 0
@@ -32,7 +32,7 @@ voice_parts:
 - duration: 1920
   name: Verse
   comment: ''
-  track_no: 0
+  part_no: 0
   position: 960
   notes:
   - position: 0

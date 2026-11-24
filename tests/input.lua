@@ -37,12 +37,12 @@ end
 
 local level = 10 ^ (-12 / 20) -- the test input's peak
 
-test("input is heard through the track's devices when armed or monitored", function()
+test("input is heard through the part's devices when armed or monitored", function()
   with_input(function()
     fresh()
     local e = api.engine_get()
     eq(e.input_channels .. " " .. e.input_device, "2 test signal", "the engine reports its input")
-    local t = paw.add_track({ name = "guitar" })
+    local t = paw.add_part({ name = "guitar" })
     t.input = 1
     eq(t.input, "1", "inputs read back as text")
     next_block(10)
@@ -62,9 +62,9 @@ test("input is heard through the track's devices when armed or monitored", funct
     t.armed = true
     paw.flush()
     next_block(10)
-    near(T.level(t), level / 2, 0.01, "armed tracks are heard")
+    near(T.level(t), level / 2, 0.01, "armed parts are heard")
     t.armed = false
-    until_(function() return T.level(t) < 0.005 end, "a disarmed track to be silent")
+    until_(function() return T.level(t) < 0.005 end, "a disarmed part to be silent")
     fails(function() t.input = "1/3" end, "1/3", "a pair must be neighbours")
     fails(function() paw.master.input = "1" end, "master", "the master has no input")
   end)
@@ -74,9 +74,9 @@ test("recording the input makes a clip where recording began", function()
   with_input(function()
     fresh()
     paw.project.save(scratch .. "/rec.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "2", true
-    local idle = paw.add_track({ name = "idle" })
+    local idle = paw.add_part({ name = "idle" })
     idle.input = "1"
     local added = 0
     local handle = paw.on("clip.added", function() added = added + 1 end)
@@ -93,9 +93,9 @@ test("recording the input makes a clip where recording began", function()
     paw.off(handle)
     eq(paw.transport.take, nil, "the take is over")
     eq(added, 1, "one clip.added event")
-    eq(#idle:clips(), 0, "an unarmed track records nothing")
+    eq(#idle:clips(), 0, "an unarmed part records nothing")
     local clips = mic:clips()
-    eq(#clips, 1, "the armed track has a clip")
+    eq(#clips, 1, "the armed part has a clip")
     local c = clips[1]:get()
     eq(c.kind, "audio", "kind")
     eq(c.start, 4, "it starts where recording began")
@@ -119,7 +119,7 @@ end)
 test("recordings of an unsaved project move beside it when it is saved", function()
   with_input(function()
     fresh()
-    local t = paw.add_track({ name = "draft" })
+    local t = paw.add_part({ name = "draft" })
     t.input, t.armed = "1", true
     paw.transport.record()
     T.until_beat(paw.transport.position + 0.6) -- a short take
@@ -135,21 +135,21 @@ test("recordings of an unsaved project move beside it when it is saved", functio
   end)
 end)
 
-test("MIDI input plays armed tracks and records into a clip", function()
+test("MIDI input plays armed parts and records into a clip", function()
   with_input(function()
     fresh()
     paw.project.save(scratch .. "/midi.json")
-    local keys = paw.add_track({ name = "keys" })
+    local keys = paw.add_part({ name = "keys" })
     keys:add_device("synth", { attack = 0.001, release = 0.01 })
     keys.armed = true
-    local other = paw.add_track({ name = "other" })
+    local other = paw.add_part({ name = "other" })
     other:add_device("synth")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.flush()
 
     paw.midi.note_on("A3", 100)
-    until_(function() return T.level(keys) > 0.01 end, "an armed track to play the note")
+    until_(function() return T.level(keys) > 0.01 end, "an armed part to play the note")
     eq(T.level(other), 0, "an unarmed one does not")
     keys.armed = false
     until_(function() return T.level(keys) < 0.005 end, "disarming to release held notes")
@@ -172,7 +172,7 @@ test("MIDI input plays armed tracks and records into a clip", function()
     T.stop()
     local stopped = paw.transport.position
 
-    eq(#other:clips(), 0, "the unarmed track records nothing")
+    eq(#other:clips(), 0, "the unarmed part records nothing")
     local clip = keys:clips()[1]
     eq(clip.kind .. "@" .. clip.start, "midi@8", "a MIDI clip where recording began")
     near(clip.start + clip.length, stopped, 0.03, "ending where recording stopped")

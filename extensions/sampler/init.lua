@@ -1,5 +1,5 @@
 -- paw's sample player: SFZ and Decent Sampler instruments played by the
--- extension's own CLAP plugin (`native/`), a kind of track for them, and
+-- extension's own CLAP plugin (`native/`), a kind of part for them, and
 -- an instrument picker that lets each one be heard. See README.md.
 paw.option.define("sampler_plugin_dir", "") -- where paw-sampler.clap is; `clap/` beside the extension when empty
 paw.option.define("sampler_libraries", "") -- folders of instruments, separated by `:`

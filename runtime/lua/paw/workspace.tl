@@ -66,7 +66,7 @@ local record M
   --- What going to a workspace does after its windows show, by the name
   --- of the workspace: a function that gives a text for the message, or
   --- nil. `paw.workspace.on_enter.record` puts the cursor on the first
-  --- armed track.
+  --- armed part.
   on_enter: {string: function(): string}
 end
 
@@ -126,7 +126,7 @@ end
 --- names no workspace or none of its windows can show.
 function M.go(name: string): boolean, string
   -- In the workspace already: its windows stay, and its `on_enter` runs
-  -- again (`<Space>wr` finds the armed track again).
+  -- again (`<Space>wr` finds the armed part again).
   if name ~= state.current then
     local spec, why = spec_of(name)
     if not spec then
@@ -147,18 +147,18 @@ function M.go(name: string): boolean, string
   return true, enter and enter()
 end
 
--- The record workspace: the cursor on the first armed track of the song,
+-- The record workspace: the cursor on the first armed part of the song,
 -- so that `R` records there.
 M.on_enter = {
   record = function(): string
-    for _, id in ipairs(api.track_list()) do
-      local track = api.track_get(id)
-      if track.armed then
-        cursor.set_track(id)
-        return "the cursor on " .. track.name .. ", the first armed track"
+    for _, id in ipairs(api.part_list()) do
+      local part = api.part_get(id)
+      if part.armed then
+        cursor.set_part(id)
+        return "the cursor on " .. part.name .. ", the first armed part"
       end
     end
-    return "no track is armed: the cursor stays, and `r` arms the track at the cursor"
+    return "no part is armed: the cursor stays, and `r` arms the part at the cursor"
   end,
 }
 

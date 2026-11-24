@@ -62,16 +62,16 @@ local function load_utau()
   return utau
 end
 
---- A vocal track with a clip of `pitches`, a beat each, sung on SYLLABLES.
+--- A vocal part with a clip of `pitches`, a beat each, sung on SYLLABLES.
 local function vocal(pitches)
-  local track = paw.add_track({ name = "Vocal" })
-  track:add_device(load_utau().DEVICE)
+  local part = paw.add_part({ name = "Vocal" })
+  part:add_device(load_utau().DEVICE)
   local list = {}
   for i, p in ipairs(pitches) do
     list[i] = { pitch = p, start = i - 1, length = 1, meta = { lyric = SYLLABLES[(i - 1) % #SYLLABLES + 1] } }
   end
-  local clip = track:add_clip({ start = 0, length = #pitches + 1, notes = list })
-  return track, clip
+  local clip = part:add_clip({ start = 0, length = #pitches + 1, notes = list })
+  return part, clip
 end
 
 --- Put the vocal editor's window as it is when paw starts: the tool, the
@@ -101,22 +101,22 @@ local function need_singer()
   end
 end
 
-test("vocal tracks keep lyrics, properties and curves through undo and saving", function()
+test("vocal parts keep lyrics, properties and curves through undo and saving", function()
   fresh()
   load_utau()
   local notes = require("utau.notes")
-  local track, clip = vocal({ 60, 62, 64 })
+  local part, clip = vocal({ 60, 62, 64 })
   local other = vocal({ 60 })
   paw.flush()
-  local device = utau.device_of(track.id)
+  local device = utau.device_of(part.id)
   local voice = api.device_get(device).params.voice
   eq(voice >= 1, true, "the device gets a voice of its own")
   eq(api.device_get(utau.device_of(other.id)).params.voice ~= voice, true, "each device its own")
   other:remove()
-  utau.configure(track.id, { singer = "Someone", phonemizer = "Some.Phonemizer" })
-  eq(utau.config(track.id).phonemizer, "Some.Phonemizer", "config")
-  utau.configure(track.id, { singer = "Someone else" })
-  eq(utau.config(track.id).phonemizer, nil, "a new singer starts from its own defaults")
+  utau.configure(part.id, { singer = "Someone", phonemizer = "Some.Phonemizer" })
+  eq(utau.config(part.id).phonemizer, "Some.Phonemizer", "config")
+  utau.configure(part.id, { singer = "Someone else" })
+  eq(utau.config(part.id).phonemizer, nil, "a new singer starts from its own defaults")
   api.undo_checkpoint()
   notes.set_lyric(clip.id, 2, "ら")
   api.undo_checkpoint()
@@ -124,19 +124,19 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
     p.vb = { 75, 175, 25, 10, 10, 0, 0, 0 }
     return true
   end, { [1] = true })
-  notes.bend(track.id, device, "pitd", 1.5, 50, 0.25)
+  notes.bend(part.id, device, "pitd", 1.5, 50, 0.25)
   api.undo_checkpoint()
   eq(clip:notes()[2].meta.lyric, "ら", "lyric")
   eq(clip:notes()[1].meta.utau.vb[2], 175, "vibrato")
-  eq(notes.curve_at(track.id, device, "pitd", 1.5), 50, "pitch bend")
-  eq(notes.curve_at(track.id, device, "pitd", 1), 0, "only where it was bent")
+  eq(notes.curve_at(part.id, device, "pitd", 1.5), 50, "pitch bend")
+  eq(notes.curve_at(part.id, device, "pitd", 1), 0, "only where it was bent")
   -- The engine sees all of it.
   local snap = utau.snapshot()
-  eq(#snap.parts, 1, "one part")
-  eq(snap.parts[1].notes[2].payload:find("ら", 1, true) ~= nil, true, "the lyric is in the payload")
-  eq(snap.parts[1].notes[1].payload:find("vb", 1, true) ~= nil, true, "and the vibrato")
+  eq(#snap.vparts, 1, "one part")
+  eq(snap.vparts[1].notes[2].payload:find("ら", 1, true) ~= nil, true, "the lyric is in the payload")
+  eq(snap.vparts[1].notes[1].payload:find("vb", 1, true) ~= nil, true, "and the vibrato")
   local pitd
-  for _, c in ipairs(snap.parts[1].curves) do
+  for _, c in ipairs(snap.vparts[1].curves) do
     if c.abbr == "pitd" then pitd = c end
   end
   local peak = 0
@@ -145,7 +145,7 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
   end
   eq(peak, 50, "and the curve")
   paw.undo()
-  eq(notes.lane(track.id, device, "pitd"), nil, "undo takes the curve away")
+  eq(notes.lane(part.id, device, "pitd"), nil, "undo takes the curve away")
   eq(clip:notes()[1].meta and clip:notes()[1].meta.utau, nil, "and the vibrato")
   eq(clip:notes()[2].meta.lyric, "ら", "but not the lyric before them")
   paw.undo()
@@ -155,22 +155,22 @@ test("vocal tracks keep lyrics, properties and curves through undo and saving", 
   local path = paw.project.save(scratch .. "/vocal.json")
   fresh()
   paw.project.load(path)
-  track = paw.tracks()[1]
-  device = utau.device_of(track.id)
-  clip = track:clips()[1]
+  part = paw.parts()[1]
+  device = utau.device_of(part.id)
+  clip = part:clips()[1]
   eq(clip:notes()[2].meta.lyric, "ら", "the lyric is loaded")
   eq(clip:notes()[1].meta.utau.vb[1], 75, "the vibrato is loaded")
-  eq(utau.config(track.id).singer, "Someone else", "the singer is loaded")
-  eq(notes.lane(track.id, device, "pitd") ~= nil, true, "the curve is loaded")
-  eq(notes.curve_at(track.id, device, "pitd", 1.5), 50, "with its points")
+  eq(utau.config(part.id).singer, "Someone else", "the singer is loaded")
+  eq(notes.lane(part.id, device, "pitd") ~= nil, true, "the curve is loaded")
+  eq(notes.curve_at(part.id, device, "pitd", 1.5), 50, "with its points")
 end)
 
 test("lyrics are typed note by note, from text, and by batch edits", function()
   fresh()
   load_utau()
   local editor = require("utau.editor").editor
-  local track, clip = vocal({ 60, 62, 64, 65 })
-  paw.cursor.set_track(track)
+  local part, clip = vocal({ 60, 62, 64, 65 })
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(0)
   paw.ui.focus("arrange")
   paw.keymap.feed("<CR>")
@@ -195,7 +195,7 @@ test("lyrics are typed note by note, from text, and by batch edits", function()
   eq(clip:notes()[1].meta.utau.vb[2], 150, "a tuning preset sets vibrato")
   paw.cmd("utau.preset", { "raspy" })
   local notes = require("utau.notes")
-  eq(notes.curve_at(track.id, utau.device_of(track.id), "tenc", 1.5), 40, "and curves")
+  eq(notes.curve_at(part.id, utau.device_of(part.id), "tenc", 1.5), 40, "and curves")
   local sheet = require("utau.lyrics")
   local text = sheet.sheet(clip.id)
   eq(text, "か き ら る", "the lyric sheet reads one line per phrase")
@@ -208,8 +208,8 @@ test("the vocal editor takes operators, and notes keep their lyrics", function()
   fresh()
   load_utau()
   local editor = require("utau.editor").editor
-  local track, clip = vocal({ 60, 62, 64 })
-  paw.cursor.set_track(track)
+  local part, clip = vocal({ 60, 62, 64 })
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(0)
   paw.ui.focus("arrange")
   paw.keymap.feed("<Esc><CR>")
@@ -245,7 +245,7 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   load_utau()
   local editor = require("utau.editor").editor
   local gui = gui_as_new()
-  local track, clip = vocal({ 60, 64 })
+  local part, clip = vocal({ 60, 64 })
   -- Where a beat and a pitch are in the window (see utau/gui.lua).
   local function at(beat, pitch)
     return 64 + (beat - gui.scroll) * gui.zoom, 38 + 24 + (gui.top - pitch) * gui.row + gui.row / 2
@@ -309,8 +309,8 @@ test("the vocal editor paints itself in a pane and is worked with the pointer", 
   pointer("move", 0.4, 62.6)
   pointer("move", 0.8, 62.2)
   pointer("up", 0.8, 62.2)
-  local device = utau.device_of(track.id)
-  local lane = require("utau.notes").lane(track.id, device, "pitd")
+  local device = utau.device_of(part.id)
+  local lane = require("utau.notes").lane(part.id, device, "pitd")
   eq(lane ~= nil and #api.lane_points(lane) >= 3, true, "the pitch tool draws how the pitch bends away from the note")
   pointer("down", 0.5, 62, { button = "right" })
   local flat = true
@@ -334,8 +334,8 @@ test("the vocal editor shows notes, lyrics, phonemes, render state and the lyric
   fresh()
   load_utau()
   local editor = require("utau.editor").editor
-  local track, clip = vocal({ 60, 64 })
-  utau.configure(track.id, { singer = "Nobody" })
+  local part, clip = vocal({ 60, 64 })
+  utau.configure(part.id, { singer = "Nobody" })
   editor:edit(clip.id)
   -- What the engine reports, as it would report it.
   utau.phonemes[clip.id] = {
@@ -348,7 +348,7 @@ test("the vocal editor shows notes, lyrics, phonemes, render state and the lyric
   utau.pitch[clip.id] = { step = 5, ticks = { [0] = 6000, [240] = 6000, [480] = 6390 } }
   paw.ui.show("utau_lyrics")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
-  eq(text:find("Vocal  Nobody", 1, true) ~= nil, true, "the header names the track and singer")
+  eq(text:find("Vocal  Nobody", 1, true) ~= nil, true, "the header names the part and singer")
   eq(table.concat(paw.ui.keybar.check(), ", "), "", "the keys the bottom line shows for it are all mapped")
   eq(text:find("C4   - あ", 1, true) ~= nil, true, "notes show their lyric on their row")
   -- The keyboard names the Cs and the cursor's pitch; E4 is four rows above C4.
@@ -376,7 +376,7 @@ local function vocal_window(pitches)
   load_utau()
   local editor = require("utau.editor").editor
   local gui = require("utau.gui")
-  local track, clip = vocal(pitches)
+  local part, clip = vocal(pitches)
   paw.flush()
   paw.frontend.act.open_clip(clip.id)
   -- Popped out into a window of its own, where Ctrl+V pastes.
@@ -384,7 +384,7 @@ local function vocal_window(pitches)
   -- The zoom and the scroll of an earlier test would move the notes that
   -- win.at finds under the inspector or out of the window.
   gui_as_new()
-  local win = { editor = editor, gui = gui, track = track, clip = clip }
+  local win = { editor = editor, gui = gui, part = part, clip = clip }
   function win.paint() return paw.canvas.paint("utau", 1180, 620) end
   function win.at(beat, pitch)
     return 64 + (beat - gui.scroll) * gui.zoom, 38 + 24 + (gui.top - pitch) * gui.row + gui.row / 2
@@ -502,9 +502,9 @@ end)
 
 test("the vocal editor draws and erases expression curves under the notes", function()
   local win = vocal_window({ 60, 62, 64 })
-  local editor, track, clip = win.editor, win.track, win.clip
+  local editor, part, clip = win.editor, win.part, win.clip
   local notes = require("utau.notes")
-  local device = utau.device_of(track.id)
+  local device = utau.device_of(part.id)
   local was = editor.curve
   T.after(function() editor.curve = was end)
   win.paint()
@@ -517,27 +517,27 @@ test("the vocal editor draws and erases expression curves under the notes", func
   local xa = win.at(0.2, 60)
   local xb = win.at(2.6, 60)
   win.drag(xa, y_for(60), xb, y_for(60))
-  local lane = notes.lane(track.id, device, "dyn")
+  local lane = notes.lane(part.id, device, "dyn")
   eq(lane ~= nil, true, "drawing makes the curve's lane on the device's parameter")
-  near(notes.curve_at(track.id, device, "dyn", 1.5), 60, 3, "with the value drawn")
-  near(notes.curve_at(track.id, device, "dyn", 2.9), 0, 1e-6, "and only where it was drawn")
+  near(notes.curve_at(part.id, device, "dyn", 1.5), 60, 3, "with the value drawn")
+  near(notes.curve_at(part.id, device, "dyn", 2.9), 0, 1e-6, "and only where it was drawn")
   local xc, xd = win.at(1, 60), win.at(2, 60)
   win.drag(xc, y_for(0), xd, y_for(0), { button = "right" })
-  near(notes.curve_at(track.id, device, "dyn", 1.5), 0, 1e-6, "a right drag puts it back to its default")
-  near(notes.curve_at(track.id, device, "dyn", 0.5), 60, 3, "there only")
+  near(notes.curve_at(part.id, device, "dyn", 1.5), 0, 1e-6, "a right drag puts it back to its default")
+  near(notes.curve_at(part.id, device, "dyn", 0.5), 60, 3, "there only")
   -- A frontend may pass a right drag on as its press and its release only.
   win.press("down", win.at(0.25, 60), y_for(0), { button = "right" })
   win.press("up", win.at(0.45, 60), y_for(0), { button = "right" })
-  near(notes.curve_at(track.id, device, "dyn", 0.35), 0, 1e-6, "a right drag is erased from its press to its release")
-  near(notes.curve_at(track.id, device, "dyn", 0.6), 60, 3, "and no further")
-  eq(notes.curve_at(track.id, device, "pitd", 1.5), 0, "other curves are left alone")
+  near(notes.curve_at(part.id, device, "dyn", 0.35), 0, 1e-6, "a right drag is erased from its press to its release")
+  near(notes.curve_at(part.id, device, "dyn", 0.6), 60, 3, "and no further")
+  eq(notes.curve_at(part.id, device, "pitd", 1.5), 0, "other curves are left alone")
   -- In the terminal: the chosen curve under the notes, raised at the cursor.
   paw.ui.focus("utau")
   editor.curve, editor.beat, editor.pitch = "pitd", 2, 64
   paw.keymap.feed("]e]e")
   eq(editor.curve, "tenc", "]e shows the next curve")
   paw.keymap.feed("3}")
-  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 15, "} raises it at the cursor")
+  eq(notes.curve_at(part.id, device, "tenc", clip.start + 2), 15, "} raises it at the cursor")
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(
     text:find("tenc", 1, true) ~= nil and text:find("15", 1, true) ~= nil,
@@ -550,7 +550,7 @@ test("the vocal editor draws and erases expression curves under the notes", func
     "drawn in sextants under the notes"
   )
   paw.keymap.feed("=in")
-  eq(notes.curve_at(track.id, device, "tenc", clip.start + 2), 0, "=in puts it back under the note")
+  eq(notes.curve_at(part.id, device, "tenc", clip.start + 2), 0, "=in puts it back under the note")
   win.close()
 end)
 
@@ -593,7 +593,7 @@ test("the vocal editor edits transition points and vibrato with the pointer", fu
   win.drag(x0, y0, x1, y0)
   local notes_ = require("utau.notes")
   near(
-    notes_.curve_at(win.track.id, utau.device_of(win.track.id), "pitd", 0.55),
+    notes_.curve_at(win.part.id, utau.device_of(win.part.id), "pitd", 0.55),
     100,
     6,
     "a line drawn a row above a note bends it up a semitone"
@@ -767,17 +767,17 @@ test("the vocal editor plays notes as they are placed, follows the playhead, and
   win.close()
 end)
 
-test("OpenUtau projects import as vocal tracks", function()
+test("OpenUtau projects import as vocal parts", function()
   fresh()
   load_utau()
   if not utau.engine.find() then return "skipped: paw-utau-engine not found (set PAW_UTAU_ENGINE)" end
   local ok, ids = pcall(require("utau.import").file, fixtures .. "vocal.ustx")
   eq(ok, true, "imported: " .. tostring(ids))
-  local track = paw.track(ids[1])
-  eq(track.name, "Imported vocal", "a vocal track per OpenUtau track")
-  eq(utau.config(track.id).singer, "Kitane sno act5 VCV", "with its singer")
+  local part = paw.part(ids[1])
+  eq(part.name, "Imported vocal", "a vocal part per OpenUtau part")
+  eq(utau.config(part.id).singer, "Kitane sno act5 VCV", "with its singer")
   eq(paw.project.tempo, 100, "the tempo")
-  local clip = track:clips()[1]
+  local clip = part:clips()[1]
   eq(clip.start .. "/" .. clip.length, "2/5", "a clip per part")
   local notes = clip:notes()
   eq(#notes, 3, "notes")
@@ -789,7 +789,7 @@ test("OpenUtau projects import as vocal tracks", function()
   eq(notes[1].meta.utau.tu, 15, "tuning")
   eq(notes[2].meta.utau.vb[1], 60, "vibrato")
   local n = require("utau.notes")
-  eq(n.curve_at(track.id, utau.device_of(track.id), "dyn", 3), -60, "curves become lanes")
+  eq(n.curve_at(part.id, utau.device_of(part.id), "dyn", 3), -60, "curves become lanes")
 end)
 
 test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait for it", function()
@@ -797,11 +797,11 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   local why = need_singer()
   if why then return why end
   paw.project.tempo = 120
-  local track, clip = vocal({ 57, 60, 64 })
-  utau.configure(track.id, { singer = SINGER })
+  local part, clip = vocal({ 57, 60, 64 })
+  utau.configure(part.id, { singer = SINGER })
   -- Rendering waits until the singing is final, so no waiting here.
   local info = render({ bits = 16, tail = 0 })
-  eq(utau.rendered(track.id), true, "the render waited for the engine")
+  eq(utau.rendered(part.id), true, "the render waited for the engine")
   eq(channel_peaks(info, 0.1, 0.4) > 0.05, true, "the vocal is in the render")
   for i, note in ipairs({ 57, 60, 64 }) do
     local f = pitch(info, (i - 1) * 0.5 + 0.15, (i - 1) * 0.5 + 0.45)
@@ -815,27 +815,27 @@ test("a phrase with lyrics is sung at the notes' pitch, and offline renders wait
   paw.transport.play()
   local loudest = 0
   T.until_(function()
-    loudest = math.max(loudest, track:meter())
+    loudest = math.max(loudest, part:meter())
     return paw.transport.position >= 1.5
   end, "the playhead at beat 1.5")
   paw.transport.stop()
   eq(loudest > 0.05, true, "heard while playing")
   require("utau.editor").editor:edit(clip.id)
   local text = table.concat(api.ui_snapshot(100, 30), "\n")
-  eq(text:find("ready", 1, true) ~= nil, true, "the editor says the track is rendered")
+  eq(text:find("ready", 1, true) ~= nil, true, "the editor says the part is rendered")
   eq(text:find("- あ", 1, true) ~= nil, true, "and shows phonemes from the voicebank")
   paw.ui.hide("utau")
   paw.ui.focus("arrange")
-end, { live = "the meter of the track is read while the engine plays in real time" })
+end, { live = "the meter of the part is read while the engine plays in real time" })
 
 test("changing a lyric or a note sings it again", function()
   fresh()
   local why = need_singer()
   if why then return why end
   paw.project.tempo = 120
-  local track, clip = vocal({ 60, 60 })
-  local device = utau.device_of(track.id)
-  utau.configure(track.id, { singer = SINGER })
+  local part, clip = vocal({ 60, 60 })
+  local device = utau.device_of(part.id)
+  utau.configure(part.id, { singer = SINGER })
   local function hashes()
     eq(utau.finish(120), true, "the engine finished")
     local out = {}

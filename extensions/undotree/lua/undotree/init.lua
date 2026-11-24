@@ -120,7 +120,7 @@ end
 function M.summary(diff)
   if diff.same then return "no change" end
   local parts = {}
-  for _, kind in ipairs({ "tracks", "devices", "clips", "notes", "lanes" }) do
+  for _, kind in ipairs({ "parts", "devices", "clips", "notes", "lanes" }) do
     local c = diff[kind]
     for _, what in ipairs({ "added", "removed", "changed" }) do
       if c[what] > 0 then

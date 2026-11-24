@@ -5,7 +5,7 @@ use crate::guard;
 
 use super::MAX_BLOCK;
 
-/// A device's side-chain input: a block of the track it listens to.
+/// A device's side-chain input: a block of the part it listens to.
 pub type KeyBuf = [Vec<f32>; 2];
 
 /// A buffer for a side-chain, made on the main thread.
@@ -35,7 +35,7 @@ pub(super) struct DeviceRt {
     pub(super) device: Box<dyn Device>,
     pub(super) bypass: bool,
     pub(super) host: Option<Box<crate::host::HostPath>>,
-    /// Where the track it listens to puts its sound, when it has a side-chain.
+    /// Where the part it listens to puts its sound, when it has a side-chain.
     pub(super) key: Option<Box<KeyBuf>>,
     /// Where it puts its further output pairs, when some are routed.
     pub(super) outs: Option<Box<OutBufs>>,

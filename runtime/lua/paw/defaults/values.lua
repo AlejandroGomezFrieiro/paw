@@ -5,37 +5,34 @@ local util = paw.util
 local command, map = paw.command, paw.keymap.set
 local cursor = paw.cursor
 local common = require("paw.defaults.common")
-local need_track, read_pan, param_reader = common.need_track, common.read_pan, common.param_reader
+local need_part, read_pan, param_reader = common.need_part, common.read_pan, common.param_reader
 
 --
 -- A prompt that takes a number (`-6` is -6), or `+=2` and `-=3` to step from the value now.
 
-command("track.volume.set", function()
-  local track = need_track()
-  if not track then return end
-  paw.ui.ask_value(
-    { label = track.name .. " volume", now = track.volume, unit = "dB", min = -120, max = 24 },
-    function(v)
-      track.volume = v
-      paw.notify(string.format("%s at %+.1f dB", track.name, track.volume))
-    end
-  )
-end, { desc = "Type the track's volume in dB: a number (-6 is -6 dB), or +=2 and -=3 to step" })
-command("track.pan.set", function()
-  local track = need_track()
-  if not track then return end
+command("part.volume.set", function()
+  local part = need_part()
+  if not part then return end
+  paw.ui.ask_value({ label = part.name .. " volume", now = part.volume, unit = "dB", min = -120, max = 24 }, function(v)
+    part.volume = v
+    paw.notify(string.format("%s at %+.1f dB", part.name, part.volume))
+  end)
+end, { desc = "Type the part's volume in dB: a number (-6 is -6 dB), or +=2 and -=3 to step" })
+command("part.pan.set", function()
+  local part = need_part()
+  if not part then return end
   paw.ui.ask_value({
-    label = track.name .. " pan",
-    now = util.round(track.pan * 100, 1),
+    label = part.name .. " pan",
+    now = util.round(part.pan * 100, 1),
     parse = read_pan,
     min = -100,
     max = 100,
     show = function(v) return paw.draw.pan_text(v / 100) end,
   }, function(v)
-    track.pan = v / 100
-    paw.notify(track.name .. " panned " .. paw.draw.pan_text(track.pan))
+    part.pan = v / 100
+    paw.notify(part.name .. " panned " .. paw.draw.pan_text(part.pan))
   end)
-end, { desc = "Type the track's pan: L30, R25, C, or -100 to 100; +=10 and -=10 step" })
+end, { desc = "Type the part's pan: L30, R25, C, or -100 to 100; +=10 and -=10 step" })
 command("tempo.set", function()
   -- The tempo in force at the cursor: the change at or before it, in the
   -- window's map as the tempo lane edits it (inside a subproject with its
@@ -72,8 +69,8 @@ command("device.value", function()
 end, { desc = "Type the value of the parameter chosen in the device panel, in its own unit" })
 
 for _, name in ipairs({ "arrange", "mixer" }) do
-  map("grv", "track.volume.set", { view = name, desc = "Type the volume" })
-  map("grp", "track.pan.set", { view = name, desc = "Type the pan" })
+  map("grv", "part.volume.set", { view = name, desc = "Type the volume" })
+  map("grp", "part.pan.set", { view = name, desc = "Type the pan" })
 end
 map("grt", "tempo.set", { desc = "Type the tempo" })
 -- Tapped again and again in time; each tap sets the tempo from the taps so far.

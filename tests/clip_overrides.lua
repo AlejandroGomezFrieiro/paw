@@ -5,9 +5,9 @@ local T = ...
 local test, eq, keys = T.test, T.eq, T.keys
 local api = paw.api
 
---- A track with a synth, a clip `riff` of four beats (C4 D4 E4 F4, one on
+--- A part with a synth, a clip `riff` of four beats (C4 D4 E4 F4, one on
 --- each beat, velocity 100) and a linked copy of it after it; the cursor on
---- the copy in the arrange view. Gives the track, the clip and the copy.
+--- the copy in the arrange view. Gives the part, the clip and the copy.
 local function linked()
   T.fresh()
   paw.keymap.feed("<Esc><Esc>")
@@ -18,14 +18,14 @@ local function linked()
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   t:add_device("synth", { attack = 0.001, release = 0.01 })
   local notes = {}
   for i, pitch in ipairs({ 60, 62, 64, 65 }) do
     notes[i] = { pitch = pitch, start = i - 1, length = 1, velocity = 100 }
   end
   local riff = t:add_clip({ name = "riff", start = 0, length = 4, notes = notes })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.opt.grid, paw.opt.note_grid = 1, 0.25
   keys("<Space>cl")
@@ -105,7 +105,7 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   keys(":w " .. dir .. "<CR>")
   api.project_load(dir)
   paw.flush()
-  t = paw.track(api.track_list()[1])
+  t = paw.part(api.part_list()[1])
   local after = api.clip_list(t.id)[2]
   eq({ after.link, after.transpose, after.velocity }, { "riff", 3, -10 }, "the reopened copy")
   eq(api.clip_list(t.id)[1].transpose, 0, "the first clip has none")

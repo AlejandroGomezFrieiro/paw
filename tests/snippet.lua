@@ -70,7 +70,7 @@ local function define()
   })
 end
 
---- A track with an empty four-bar clip open in the piano roll, the cursor
+--- A part with an empty four-bar clip open in the piano roll, the cursor
 --- on C4 at its start.
 local function open(start)
   fresh()
@@ -80,8 +80,8 @@ local function open(start)
     paw.ui.close()
   end
   define()
-  local track = paw.add_track({ name = "Keys" })
-  local clip = track:add_clip({ start = start or 0, length = 16, notes = {} })
+  local part = paw.add_part({ name = "Keys" })
+  local clip = part:add_clip({ start = start or 0, length = 16, notes = {} })
   paw.flush()
   api.undo_checkpoint()
   local roll = paw.ui.views:get("pianoroll")

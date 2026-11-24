@@ -203,12 +203,12 @@ with paw running beside the steps.]]
   add(
     paragraphs(
       [[
-Lessons 1 to 4 teach the screen, the cursor, and how to make tracks and
+Lessons 1 to 4 teach the screen, the cursor, and how to make parts and
 notes. Lessons 5 to 8 teach the grammar of the keys, which all of paw uses.
 Lessons 9 to 13 teach devices, the mix, loops and recordings, and how to
 save and render. Lessons 14 to 16 help you find keys, make paw your own, and
 use the extensions. Lesson 17 edits by line, with ranges
-of bars and tracks, `:s` and `:g`.]]
+of bars and parts, `:s` and `:g`.]]
     )
   )
   add("")

@@ -23,7 +23,7 @@ the core never requires an extension.
 
 | In the core | Why |
 | --- | --- |
-| Tracks, routing, sends before or after the fader, buses | the engine mixes them |
+| Parts, routing, sends before or after the fader, buses | the engine mixes them |
 | Clips, notes, controller moves, fades, automation lanes | they are the model, and what the engine plays |
 | Delay compensation, the limiter and the other built-in devices | the engine runs them |
 | The hosts of CLAP, LV2 and VST3 plugins, plugin windows | native code, and the audio thread |
@@ -74,7 +74,7 @@ the graphical window knows about strips. See
 
 The synthesis of a voice is an extension, including its engine, and the
 core of paw has no code for it. The utau extension brings the vocal editor,
-the kind of track, the device that plays the voice, and the engine that
+the kind of part, the device that plays the voice, and the engine that
 sings. A Nix configuration that names the extension gets all of them.
 
 ```
@@ -88,7 +88,7 @@ extensions/utau/
 The core gives the extension parts that any extension can use:
 
 - Devices in Lua that get data from scripts, and helper programs.
-- Kinds of track, and renamed kinds of device.
+- Kinds of part, and renamed kinds of device.
 - Plugins in folders of the extension.
 - Nix packages with parts to build.
 

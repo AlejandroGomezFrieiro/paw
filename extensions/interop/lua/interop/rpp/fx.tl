@@ -169,16 +169,16 @@ function M.describe(block: fmt.Node): Description
   return d
 end
 
---- A device of a plugin on a track: what `import` adds, with the bypass of
+--- A device of a plugin on a part: what `import` adds, with the bypass of
 --- REAPER's chain.
 local record Adder
-  track: integer
+  part: integer
   bypass: boolean
 end
 
 --- Add a device of `kind`; nil and why when the plugin does not load here.
 local function add_device(at: Adder, kind: string, opts?: types.DeviceOptions): integer, string
-  local ok, id = pcall(api.device_add, at.track, kind, opts or {}) as (boolean, integer)
+  local ok, id = pcall(api.device_add, at.part, kind, opts or {}) as (boolean, integer)
   if not ok then
     return nil, "could not load here: " .. tostring(id):gsub("\n.*", "")
   end
@@ -262,12 +262,12 @@ local function import_vst3(block: fmt.Node, d: Description, at: Adder, meta: M.M
   return id
 end
 
---- Add the plugin a block describes to a track. Returns the device id, or
+--- Add the plugin a block describes to a part. Returns the device id, or
 --- nil and why it could not be carried over; `notes` gets a line for each
 --- part that was left out although the plugin itself was added.
-function M.import(block: fmt.Node, track: integer, bypass: boolean, notes: {string}): integer, string
+function M.import(block: fmt.Node, part: integer, bypass: boolean, notes: {string}): integer, string
   local d = M.describe(block)
-  local at: Adder = {track = track, bypass = bypass}
+  local at: Adder = {part = part, bypass = bypass}
   local meta: M.Meta = {header = block.tokens, quotes = block.quotes}
   if d.format == "CLAP" then
     return import_clap(block, d, at, meta)

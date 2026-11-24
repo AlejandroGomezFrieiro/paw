@@ -1,16 +1,16 @@
 -- Subjects: what a server is shown. Each is a projection of part of the
 -- project into plain data, named by the address it projects (the clip, the
--- track, the project, the rendered file), sent as a document whose version
+-- part, the project, the rendered file), sent as a document whose version
 -- moves when the projection does.
 --
 --   paw.lsp.subject("lyrics", {
 --     language = "paw-lyrics",
---     targets = function(where) return { "paw://track/3" } end,  -- what there is to show
+--     targets = function(where) return { "paw://part/3" } end,  -- what there is to show
 --     build = function(address, where) return { words = ... } end,
 --     depends = { "paw://clip/**" },                             -- what makes it worth sending again
 --   })
 --
--- `where` is the attachment's `where` (`focus`, `tracks`, `drums`, ...).
+-- `where` is the attachment's `where` (`focus`, `parts`, `drums`, ...).
 -- The document's URI is the address, or the address and `#<subject>` when
 -- the subject is not the address's own (`paw://project#mix`).
 --
@@ -49,11 +49,11 @@ local paw = (_G as {string: Paw}).paw
 local opt = options.opt
 
 --- What a server is attached to besides the subjects: `focus` (what the
---- cursor is on or the piano roll edits, or all), `tracks` (patterns of
---- their names) and `drums` (tracks that play drums, or the others).
+--- cursor is on or the piano roll edits, or all), `parts` (patterns of
+--- their names) and `drums` (parts that play drums, or the others).
 local record Where
   focus: boolean
-  tracks: {string}
+  parts: {string}
   drums: boolean
 end
 
@@ -101,7 +101,7 @@ local record SendDoc
   pre: boolean
 end
 
---- A clip of a track's document.
+--- A clip of a part's document.
 local record ClipDoc
   id: integer
   address: string
@@ -114,9 +114,9 @@ local record ClipDoc
   file: string
 end
 
---- A track as a subject shows it: its chain of devices with their
---- parameters, its routing, and (`track`) what its clips are.
-local record TrackDoc
+--- A part as a subject shows it: its chain of devices with their
+--- parameters, its routing, and (`part`) what its clips are.
+local record PartDoc
   id: integer
   address: string
   name: string
@@ -146,8 +146,8 @@ end
 
 --- The `mix` subject's document.
 local record MixDoc
-  tracks: {TrackDoc}
-  master: TrackDoc
+  parts: {PartDoc}
+  master: PartDoc
   tempo: {types.TempoPoint}
   signatures: {types.SigPoint}
   sample_rate: integer
@@ -155,8 +155,8 @@ local record MixDoc
   render: RenderRef
 end
 
---- A track in the `project` subject's document.
-local record ProjectTrack
+--- A part in the `project` subject's document.
+local record ProjectPart
   id: integer
   address: string
   name: string
@@ -168,7 +168,7 @@ end
 local record ProjectDoc
   name: string
   path: string
-  tracks: {ProjectTrack}
+  parts: {ProjectPart}
   length: number
   tempo: {types.TempoPoint}
   markers: {MarkersModule.Marker}
@@ -187,7 +187,7 @@ local record RenderDoc
   loudness: number
   gain: number
   opts: A.RenderOptions
-  master: TrackDoc
+  master: PartDoc
 end
 
 local record M
@@ -197,11 +197,11 @@ local record M
   type DeviceDoc = DeviceDoc
   type SendDoc = SendDoc
   type ClipDoc = ClipDoc
-  type TrackDoc = TrackDoc
+  type PartDoc = PartDoc
   type Targets = Targets
   type RenderRef = RenderRef
   type MixDoc = MixDoc
-  type ProjectTrack = ProjectTrack
+  type ProjectPart = ProjectPart
   type ProjectDoc = ProjectDoc
   type RenderDoc = RenderDoc
   --- The subjects, by name, with the extension that added each one.
@@ -249,20 +249,20 @@ local function glob(pattern: string, text: string): boolean
   return tostring(text):lower():match(lua) ~= nil
 end
 
---- Whether a track passes an attachment's `where`: its name matches one of
---- `tracks` (when given), and it plays drums or not as `drums` says.
-function M.track_passes(track: types.Track, where?: Where): boolean
+--- Whether a part passes an attachment's `where`: its name matches one of
+--- `parts` (when given), and it plays drums or not as `drums` says.
+function M.part_passes(part: types.Part, where?: Where): boolean
   where = where or {}
-  if where.tracks then
+  if where.parts then
     local any = false
-    for _, p in ipairs(where.tracks) do
-      any = any or glob(p, track.name)
+    for _, p in ipairs(where.parts) do
+      any = any or glob(p, part.name)
     end
     if not any then
       return false
     end
   end
-  if where.drums ~= nil and where.drums ~= paw.harmony.is_drums(track) then
+  if where.drums ~= nil and where.drums ~= paw.harmony.is_drums(part) then
     return false
   end
   return true
@@ -304,13 +304,13 @@ local function open_clips(): {integer}
   return out
 end
 
--- The track each seat's cursor is on.
-local function focused_tracks(): {integer}
+-- The part each seat's cursor is on.
+local function focused_parts(): {integer}
   local seen: {integer: boolean} = {}
   local out: {integer} = {}
   each_seat(
     function()
-      local id = paw.cursor.track_id()
+      local id = paw.cursor.part_id()
       if id and not seen[id] then
         seen[id], out[#out + 1] = true, id
       end
@@ -319,9 +319,9 @@ local function focused_tracks(): {integer}
   return out
 end
 
-local function all_tracks(): {integer}
+local function all_parts(): {integer}
   local out: {integer} = {}
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     out[#out + 1] = id
   end
   out[#out + 1] = 0
@@ -346,8 +346,8 @@ local function device_of(id: integer): DeviceDoc
   }
 end
 
-local function track_of(id: integer): TrackDoc
-  local t = api.track_get(id)
+local function part_of(id: integer): PartDoc
+  local t = api.part_get(id)
   local devices: {DeviceDoc} = {}
   for _, d in ipairs(t.devices or {}) do
     devices[#devices + 1] = device_of(d)
@@ -358,7 +358,7 @@ local function track_of(id: integer): TrackDoc
   end
   return {
     id = id,
-    address = A.track(id),
+    address = A.part(id),
     name = t.name,
     master = id == 0,
     volume = t.volume,
@@ -390,7 +390,7 @@ M.define(
     targets = function(where: Where): {string}
       local ids: {integer} = {}
       if where.focus == false then
-        for _, t in ipairs(all_tracks()) do
+        for _, t in ipairs(all_parts()) do
           for _, c in ipairs(api.clip_list(t)) do
             if c.kind == "midi" then
               ids[#ids + 1] = c.id
@@ -403,7 +403,7 @@ M.define(
       local out: {string} = {}
       for _, id in ipairs(ids) do
         local ok, c = pcall(api.clip_get, id) as (boolean, types.Clip)
-        if ok and c.kind == "midi" and M.track_passes(api.track_get(c.track), where) then
+        if ok and c.kind == "midi" and M.part_passes(api.part_get(c.part), where) then
           out[#out + 1] = A.clip(id)
         end
       end
@@ -413,30 +413,30 @@ M.define(
     build = function(address: string, _?: Where, key?: string): rpc.Payload
       return document.build(A.parse(address).clip, key) as rpc.Payload
     end,
-    depends = {"paw://clip/*", "paw://track/*", "paw://project"},
+    depends = {"paw://clip/*", "paw://part/*", "paw://project"},
   }
 )
 
--- One track: its chain of devices with their parameters, its routing, and
--- what its clips are. By focus, the track a cursor is on.
+-- One part: its chain of devices with their parameters, its routing, and
+-- what its clips are. By focus, the part a cursor is on.
 M.define(
-  "track",
+  "part",
   {
-    language = "paw-track",
-    own = function(uri: string): boolean return kind_of(uri) == "track" end,
+    language = "paw-part",
+    own = function(uri: string): boolean return kind_of(uri) == "part" end,
     targets = function(where: Where): {string}
       local out: {string} = {}
-      for _, id in ipairs(where.focus and focused_tracks() or all_tracks()) do
-        local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
-        if ok and M.track_passes(t, where) then
-          out[#out + 1] = A.track(id)
+      for _, id in ipairs(where.focus and focused_parts() or all_parts()) do
+        local ok, t = pcall(api.part_get, id) as (boolean, types.Part)
+        if ok and M.part_passes(t, where) then
+          out[#out + 1] = A.part(id)
         end
       end
       return out
     end,
     build = function(address: string): rpc.Payload
-      local id = A.parse(address).track
-      local out = track_of(id)
+      local id = A.parse(address).part
+      local out = part_of(id)
       out.clips = {}
       for _, c in ipairs(api.clip_list(id)) do
         out.clips[#out.clips + 1] = {
@@ -453,14 +453,14 @@ M.define(
       end
       return out as rpc.Payload
     end,
-    depends = {"paw://track/**", "paw://clip/*"},
+    depends = {"paw://part/**", "paw://clip/*"},
   }
 )
 
 options.define("loudness_target", -14) -- LUFS a mix is meant to sit at (for a mix server)
 options.define("true_peak_target", -1) -- dBTP it should stay under
 
--- The mix: every track with its fader, pan, mute and solo, sends, where it
+-- The mix: every part with its fader, pan, mute and solo, sends, where it
 -- goes, its devices and their parameters; the master; the tempo; the
 -- loudness it is meant for; the options of the last render.
 M.define(
@@ -469,9 +469,9 @@ M.define(
     language = "paw-mix",
     targets = function(): {string} return {A.project()} end,
     build = function(): rpc.Payload
-      local tracks: {TrackDoc} = {}
-      for _, id in ipairs(api.track_list()) do
-        tracks[#tracks + 1] = track_of(id)
+      local parts: {PartDoc} = {}
+      for _, id in ipairs(api.part_list()) do
+        parts[#parts + 1] = part_of(id)
       end
       local last: A.Rendered
       for _, r in pairs(A.renders) do
@@ -481,8 +481,8 @@ M.define(
       end
       local e = api.engine_get()
       local doc: MixDoc = {
-        tracks = tracks,
-        master = track_of(0),
+        parts = parts,
+        master = part_of(0),
         tempo = paw.tempo.points(),
         signatures = paw.tempo.signatures(),
         sample_rate = e.sample_rate,
@@ -491,11 +491,11 @@ M.define(
       }
       return doc as rpc.Payload
     end,
-    depends = {"paw://track/**", "paw://project"},
+    depends = {"paw://part/**", "paw://project"},
   }
 )
 
--- The whole project, summarised: tracks with what is on them, markers, the
+-- The whole project, summarised: parts with what is on them, markers, the
 -- tempo, how long it is.
 M.define(
   "project",
@@ -505,29 +505,27 @@ M.define(
     targets = function(): {string} return {A.project()} end,
     build = function(): rpc.Payload
       local p = api.project_get()
-      local tracks: {ProjectTrack} = {}
+      local parts: {ProjectPart} = {}
       local finish = 0.0
-      for _, id in ipairs(api.track_list()) do
-        local t = api.track_get(id)
+      for _, id in ipairs(api.part_list()) do
+        local t = api.part_get(id)
         local clips = api.clip_list(id)
         for _, c in ipairs(clips) do
           finish = math.max(finish, c.start + c.length)
         end
-        tracks[#tracks + 1] = {
-          id = id, address = A.track(id), name = t.name, clips = #clips, devices = #(t.devices or {})
-        }
+        parts[#parts + 1] = {id = id, address = A.part(id), name = t.name, clips = #clips, devices = #(t.devices or {})}
       end
       local doc: ProjectDoc = {
         name = p.name,
         path = p.path,
-        tracks = tracks,
+        parts = parts,
         length = finish,
         tempo = paw.tempo.points(),
         markers = paw.markers and paw.markers.list() or {},
       }
       return doc as rpc.Payload
     end,
-    depends = {"paw://track/*", "paw://clip/*", "paw://project"},
+    depends = {"paw://part/*", "paw://clip/*", "paw://project"},
   }
 )
 
@@ -569,7 +567,7 @@ M.define(
         loudness = r.loudness,
         gain = r.gain,
         opts = rendered.opts,
-        master = track_of(0),
+        master = part_of(0),
       }
       return doc as rpc.Payload
     end,

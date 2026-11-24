@@ -27,12 +27,12 @@ local function render()
   return info
 end
 
---- A track that plays one held note through the built-in synth, with the
+--- A part that plays one held note through the built-in synth, with the
 --- cursor and the device panel on it.
 local function guitar(name)
-  local track = T.tone(name or "guitar", 2, "A2")
-  paw.cursor.set_track(track.id)
-  return track
+  local part = T.tone(name or "guitar", 2, "A2")
+  paw.cursor.set_part(part.id)
+  return part
 end
 
 --- Let a state loaded into the plugin (an undo, a recall) reach it, and
@@ -119,8 +119,8 @@ test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and
   T.after(function() paw.opt.plugstate_folders = folders end)
 
   fresh()
-  local track = guitar()
-  local amp = track:add_device(kind)
+  local part = guitar()
+  local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
   eq(plugstate.adapter_of(amp.id).name, "nam", "the NAM adapter knows the plugin")
@@ -167,7 +167,7 @@ test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and
   local path = paw.project.save(T.scratch .. "/plugstate.json")
   fresh()
   paw.project.load(path)
-  local loaded = paw.tracks()[1]:devices()[2]
+  local loaded = paw.parts()[1]:devices()[2]
   settle(loaded.id, models .. "/BossLSTM-1x24.nam")
   eq(#plugstate.snapshots(loaded.id), 2, "the snapshots are in the project")
   eq(plugstate.slot(loaded.id).value, models .. "/BossLSTM-1x24.nam", "the model comes back")
@@ -191,8 +191,8 @@ test("plugstate: an impulse response file goes into LSP's convolver", function()
   if not kind then return "skipped: test plugins not found" end
   load()
   fresh()
-  local track = guitar("room")
-  local ir = track:add_device(kind)
+  local part = guitar("room")
+  local ir = part:add_device(kind)
   paw.flush()
   eq(plugstate.adapter_of(ir.id).name, "lsp-ir", "the LSP adapter knows the plugin")
   local slots = plugstate.slots(ir.id)
@@ -217,9 +217,9 @@ test("plugstate: a state codec gives sfizz (VST3) another instrument", function(
   if not kind then return "skipped: sfizz not found" end
   load()
   fresh()
-  local track = paw.add_track({ name = "sfizz" })
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
-  local sfizz = track:add_device(kind)
+  local part = paw.add_part({ name = "sfizz" })
+  part:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
+  local sfizz = part:add_device(kind)
   paw.flush()
   eq(plugstate.adapter_of(sfizz.id).name, "sfizz", "the sfizz adapter knows the plugin")
   local low, high = T.scratch .. "/low.sfz", T.scratch .. "/high.sfz"
@@ -266,11 +266,11 @@ end
 
 local function loudness(from) return level(T.render({ tail = 0, bits = 16 }), from) end
 
---- A track that holds a note for two bars, with the cursor on it.
+--- A part that holds a note for two bars, with the cursor on it.
 local function long_guitar(name)
-  local track = T.tone(name or "guitar", 8, "A2")
-  paw.cursor.set_track(track.id)
-  return track
+  local part = T.tone(name or "guitar", 8, "A2")
+  paw.cursor.set_part(part.id)
+  return part
 end
 
 --- The sound after the first second (see `level`).
@@ -296,8 +296,8 @@ test(
     local factory = pkg .. "/share/tone3000/factory-presets"
 
     fresh()
-    local track = long_guitar()
-    local amp = track:add_device(kind)
+    local part = long_guitar()
+    local amp = part:add_device(kind)
     paw.flush()
     api.undo_checkpoint()
     eq(plugstate.adapter_of(amp.id).name, "tone3000", "the TONE3000 adapter knows the plugin")
@@ -348,7 +348,7 @@ test(
     local path = paw.project.save(T.scratch .. "/tone3000.json")
     fresh()
     paw.project.load(path)
-    local loaded = paw.tracks()[1]:devices()[2]
+    local loaded = paw.parts()[1]:devices()[2]
     paw.flush()
     eq(plugstate.slot(loaded.id, "block2").value, nam, "the project keeps the model")
     same(sound(), with_model, "and sounds the same")
@@ -381,8 +381,8 @@ test("plugstate: Soundshed Guitar presets of a pack, scenes and block models", f
   load()
 
   fresh()
-  local track = long_guitar()
-  local amp = track:add_device(kind)
+  local part = long_guitar()
+  local amp = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
   eq(plugstate.adapter_of(amp.id).name, "soundshed", "the Soundshed adapter knows the plugin")
@@ -427,7 +427,7 @@ test("plugstate: Soundshed Guitar presets of a pack, scenes and block models", f
   local path = paw.project.save(T.scratch .. "/soundshed.json")
   fresh()
   paw.project.load(path)
-  local loaded = paw.tracks()[1]:devices()[2]
+  local loaded = paw.parts()[1]:devices()[2]
   paw.flush()
   eq(plugstate.slot(loaded.id, "amp1").value, other, "the project keeps it")
   same(sound(), marshall, "and sounds the same")
@@ -567,14 +567,14 @@ test("plugstate: the JUCE layer reads and writes back each container, byte for b
   eq(made.outer.controller, "CTRL", "with what the device's own state has around the data")
 end)
 
---- A track with a held A3 and a device of `kind`, with the cursor and the
+--- A part with a held A3 and a device of `kind`, with the cursor and the
 --- device panel on it.
 local function instrument(kind, name)
-  local track = paw.add_track({ name = name })
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
-  local d = track:add_device(kind)
+  local part = paw.add_part({ name = name })
+  part:add_clip({ start = 0, length = 4, notes = { { pitch = "A3", start = 0, length = 4 } } })
+  local d = part:add_device(kind)
   paw.flush()
-  paw.cursor.set_track(track.id)
+  paw.cursor.set_part(part.id)
   devices_on(d.id)
   return d
 end
@@ -592,7 +592,7 @@ test(
     -- Each format: the real state goes through the layer unchanged.
     for _, kind in ipairs({ clap, vst3, lv2 }) do
       if kind then
-        local d = paw.add_track({ name = kind }):add_device(kind)
+        local d = paw.add_part({ name = kind }):add_device(kind)
         paw.flush()
         local dev = api.device_get(d.id)
         local state = api.device_state(d.id)
@@ -681,7 +681,7 @@ test("plugstate: the JUCE layer reads TONE3000's real states byte for byte in ea
     local kind = kind_of(format, "^TONE3000$")
     if kind then
       fresh()
-      local d = paw.add_track({ name = format }):add_device(kind)
+      local d = paw.add_part({ name = format }):add_device(kind)
       paw.flush()
       local state = api.device_state(d.id)
       local doc = js.open(state, format, { desc = t3k.desc })
@@ -792,15 +792,15 @@ test("plugstate: a state lane gives sfizz another instrument through its saved s
   if not kind then return "skipped: sfizz not found" end
   load()
   fresh()
-  local track = paw.add_track({ name = "sfizz" })
+  local part = paw.add_part({ name = "sfizz" })
   -- An instrument lets go of its notes when it takes a new state: a note
   -- starts a little after the point.
-  track:add_clip({
+  part:add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = "A3", start = 0, length = 2 }, { pitch = "A3", start = 2.25, length = 1.75 } },
   })
-  local sfizz = track:add_device(kind)
+  local sfizz = part:add_device(kind)
   paw.flush()
   local low, high = T.scratch .. "/low.sfz", T.scratch .. "/high.sfz"
   T.write_file(low, "<region> sample=*sine\n")
@@ -821,9 +821,9 @@ end)
 --- of the point.
 local function amp_lane(kind, slot, a, b, prepare)
   fresh()
-  local track = T.tone("guitar", 16, "A2")
-  paw.cursor.set_track(track.id)
-  local amp = track:add_device(kind)
+  local part = T.tone("guitar", 16, "A2")
+  paw.cursor.set_part(part.id)
+  local amp = part:add_device(kind)
   paw.flush()
   if prepare then prepare(amp) end
   eq(plugstate.set(amp.id, slot, a), true, "the first preset")

@@ -362,9 +362,9 @@ function M.preset(id, clip_id, which)
   local preset = M.PRESET_BY_ID[id]
   if not preset then error("no tuning preset `" .. tostring(id) .. "`", 2) end
   local clip = api.clip_get(clip_id)
-  local track = clip.track
-  local device = require("utau").device_of(track)
-  if not device then error("the clip is not on a vocal track", 2) end
+  local part = clip.part
+  local device = require("utau").device_of(part)
+  if not device then error("the clip is not on a vocal part", 2) end
   local list = api.clip_notes(clip_id)
   local chosen, avg = {}, 0
   for index, note in ipairs(list) do
@@ -397,7 +397,7 @@ function M.preset(id, clip_id, which)
         local _, min, max = notes.default(device, op.curve)
         local value = min == 0 and op.value or base + op.value
         value = math.max(min, math.min(max, value))
-        notes.stroke(track, device, op.curve, { { a, value }, { b, value } })
+        notes.stroke(part, device, op.curve, { { a, value }, { b, value } })
         count = #chosen
       else
         for _, index in ipairs(chosen) do
@@ -406,7 +406,7 @@ function M.preset(id, clip_id, which)
             local a = clip.start + n.start
             local s = samples(op, a, a + n.length, base, n.pitch, avg)
             if #s > 0 then
-              notes.stroke(track, device, op.curve, s)
+              notes.stroke(part, device, op.curve, s)
               count = count + 1
             end
           end
@@ -417,7 +417,7 @@ function M.preset(id, clip_id, which)
       for _, abbr in ipairs(op.reset) do
         for _, index in ipairs(chosen) do
           local n = list[index]
-          notes.reset(track, device, abbr, clip.start + n.start, clip.start + n.start + n.length)
+          notes.reset(part, device, abbr, clip.start + n.start, clip.start + n.start + n.length)
         end
       end
       done[#done + 1] = "curves reset"

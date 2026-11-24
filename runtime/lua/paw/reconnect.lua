@@ -36,7 +36,7 @@ paw.on(
   function(e) paw.notify(string.format("The audio device %s is back, and open again", e.device)) end
 )
 
-local function tracks(list)
+local function parts(list)
   if #list == 0 then return "" end
   return " (" .. table.concat(list, ", ") .. ")"
 end
@@ -45,7 +45,7 @@ paw.on(
   "midi.lost",
   function(e)
     paw.notify(
-      string.format("The MIDI input %s went away%s; it is taken again when it comes back", e.port, tracks(e.tracks)),
+      string.format("The MIDI input %s went away%s; it is taken again when it comes back", e.port, parts(e.parts)),
       "warn"
     )
   end
@@ -53,7 +53,7 @@ paw.on(
 
 paw.on(
   "midi.returned",
-  function(e) paw.notify(string.format("The MIDI input %s is back%s", e.port, tracks(e.tracks))) end
+  function(e) paw.notify(string.format("The MIDI input %s is back%s", e.port, parts(e.parts))) end
 )
 
 --- Try to open again the device that went away. Returns true if it is open.

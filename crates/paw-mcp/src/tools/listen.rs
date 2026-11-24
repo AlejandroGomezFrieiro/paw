@@ -16,14 +16,14 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "render",
             title: "Render and measure",
-            description: "Render the project (or a stretch of it) to a file, faster than real time, and measure it: duration, loudness in LUFS (integrated, short-term maximum, loudness range) and true peak, and, for WAV, peak and RMS per channel, clipping, stereo correlation and width, level per bar, and octave-band spectrum. The format is the file's extension: wav, flac, and mp3, ogg or opus when ffmpeg is installed. Choose the stretch with `region` (a marker region by name), or `start` and `end`; only some tracks with `tracks` (they play through what they pass through to the master, as when soloed); every track on its own with `stems` (then `path` is a directory). `loudness` (LUFS) and `normalize` (peak dB) bring the file to a level. The file is written under the server's working directory unless --allow-any-path.".into(),
+            description: "Render the project (or a stretch of it) to a file, faster than real time, and measure it: duration, loudness in LUFS (integrated, short-term maximum, loudness range) and true peak, and, for WAV, peak and RMS per channel, clipping, stereo correlation and width, level per bar, and octave-band spectrum. The format is the file's extension: wav, flac, and mp3, ogg or opus when ffmpeg is installed. Choose the stretch with `region` (a marker region by name), or `start` and `end`; only some parts with `parts` (they play through what they pass through to the master, as when soloed); every part on its own with `stems` (then `path` is a directory). `loudness` (LUFS) and `normalize` (peak dB) bring the file to a level. The file is written under the server's working directory unless --allow-any-path.".into(),
             schema: obj(json!({
                 "path": {"type": "string", "description": "File to write (default render.wav; with stems, the directory, default stems); overwritten if it exists"},
                 "start": position("Where to start (default the start)"),
                 "end": position("Where to stop (default the end of the last clip)"),
                 "region": marker_ref("Render this region (a named stretch made with the marker tool); instead of start and end"),
-                "tracks": {"type": "array", "items": track_ref("A track"), "description": "Only these tracks, with what they pass through"},
-                "stems": {"type": "boolean", "description": "One file per track in the directory `path`, named after the track (the tracks that are not muted and have clips, or `tracks`)"},
+                "parts": {"type": "array", "items": part_ref("A part"), "description": "Only these parts, with what they pass through"},
+                "stems": {"type": "boolean", "description": "One file per part in the directory `path`, named after the part (the parts that are not muted and have clips, or `parts`)"},
                 "format": {"type": "string", "enum": ["wav", "flac", "mp3", "ogg", "opus"], "description": "With stems: the files' format (default wav); otherwise the path's extension decides"},
                 "tail": {"type": "number", "minimum": 0, "description": "Seconds to keep rendering after the end, for release and echoes (default 1)"},
                 "bits": {"type": "integer", "enum": [16, 24, 32], "description": "16 or 24 bit PCM, or 32 bit float (default 24)"},

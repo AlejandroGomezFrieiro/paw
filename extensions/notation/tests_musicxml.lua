@@ -557,14 +557,14 @@ test(
     local path = T.scratch .. "/mx-piano.musicxml"
     write_file(path, PIANO)
     paw.commands.exec("open! " .. path)
-    local tracks = paw.tracks()
-    eq(#tracks, 1, "a track for the part")
-    eq(tracks[1].name, "Piano", "named after it")
+    local parts = paw.parts()
+    eq(#parts, 1, "a part for the part of the score")
+    eq(parts[1].name, "Piano", "named after it")
     eq(api.project_get("name"), "mx-piano", "the project is named after the file")
     eq(api.project_get("path"), nil, "and has no file of its own")
     eq(api.project_get().meta.title, "Little Piece", "the title for the page")
     eq(math.floor(paw.tempo.at(0) + 0.5), 72, "the tempo mark's bpm is the song's tempo")
-    local clip = tracks[1]:clips()[1]
+    local clip = parts[1]:clips()[1]
     require("notation")
     eq((clip:notes()[1].meta or {}).notation ~= nil, true, "a MIDI clip whose notes keep what the score decided")
     local found
@@ -592,8 +592,8 @@ test("musicxml: grace notes play before the beat or on it, and a pickup's clip s
   write_file(path, TUPLETS)
   paw.cursor.set_beat(8)
   paw.commands.exec("import " .. path)
-  local track = paw.tracks()[1]
-  local clip = track:clips()[1]
+  local part = paw.parts()[1]
+  local clip = part:clips()[1]
   eq(clip:get().start, 8, "the first bar at the cursor")
   local at = {}
   for _, n in ipairs(clip:notes()) do
@@ -617,7 +617,7 @@ test("musicxml: grace notes play before the beat or on it, and a pickup's clip s
   write_file(path, LEAD)
   paw.cursor.set_beat(0)
   paw.commands.exec("import " .. path .. " tempo=yes")
-  clip = paw.tracks()[1]:clips()[1]
+  clip = paw.parts()[1]:clips()[1]
   eq(clip:get().start, 2, "the pickup's note on beat 3 of the first bar")
   eq(clip:notes()[1].start, 0, "where the clip starts")
   local names = {}
@@ -629,26 +629,26 @@ test("musicxml: grace notes play before the beat or on it, and a pickup's clip s
   eq(num .. "/" .. den, "3/4", "the time signature with tempo=yes")
 end)
 
-test("musicxml: :notation.export writes the score clip back, and `all` every track as a part", function()
+test("musicxml: :notation.export writes the score clip back, and `all` every part as a part of the score", function()
   fresh()
   local mx = load()
   local path = T.scratch .. "/mx-changes.musicxml"
   write_file(path, CHANGES)
   paw.commands.exec("open! " .. path)
-  local track = paw.tracks()[1]
-  paw.cursor.set_track(track)
+  local part = paw.parts()[1]
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(0)
   local out = T.scratch .. "/mx-changes-out.musicxml"
   paw.commands.exec("notation.export " .. out)
   local again = assert(mx.read(out))
   eq(describe(again.parts[1].score), describe(assert(mx.parse(CHANGES)).parts[1].score), "the score as it came in")
-  local other = paw.add_track({ name = "Bass" })
+  local other = paw.add_part({ name = "Bass" })
   other:add_clip({ start = 0, length = 4, notes = { { pitch = 40, start = 0, length = 4, velocity = 80 } } })
   paw.flush()
   paw.commands.exec("notation.export " .. T.scratch .. "/mx-all.mxl all")
   local both = assert(mx.read(T.scratch .. "/mx-all.mxl"))
   eq(#both.parts, 2, "two parts")
-  eq(both.parts[2].name, "Bass", "the plain MIDI clip's track too, written as a score")
+  eq(both.parts[2].name, "Bass", "the plain MIDI clip's part too, written as a score")
   eq(#both.parts[2].score.measures, #both.parts[1].score.measures, "as many bars as the longest part")
   eq(describe(both.parts[2].score):find("s1v1: E2/1:1", 1, true) ~= nil, true, "the bass's whole note")
 end)

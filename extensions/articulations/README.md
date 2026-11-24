@@ -2,7 +2,7 @@
 
 An articulation is how a note is played, for example sustain, staccato,
 pizzicato or a trill. The extension writes it on the note and sends it to
-the instrument of the track. The instrument can be a sampler that reads MIDI
+the instrument of the part. The instrument can be a sampler that reads MIDI
 2.0, or any MIDI 1.0 instrument through its keyswitches, controllers or
 programs.
 
@@ -14,7 +14,7 @@ paw.ext.load("/path/to/paw/extensions/articulations")
 
 ## Try it
 
-1. Type `:ext.load articulations`. Open a clip of a violin track in the
+1. Type `:ext.load articulations`. Open a clip of a violin part in the
    piano roll.
 2. Type `:art.map examples/violin-section`. The keyswitch rows on the
    keyboard edge now have names, and a band `art` is above the ruler.
@@ -35,16 +35,16 @@ paw.ext.load("/path/to/paw/extensions/articulations")
 - To give new notes an articulation, press `\a` in insert mode, or type
   `:art.pen name`.
 - For the note that you draw in the piano roll, press `a` in insert mode
-  and type the name. The names of the map of the track complete.
+  and type the name. The names of the map of the part complete.
 
 ### How to make a map for a library
 
-1. Put the cursor on the track of the instrument.
+1. Put the cursor on the part of the instrument.
 2. Type `:art.generate` with the path of an `.sfz`, a `.dspreset`, a
    `.dslibrary` or a folder of samples. With no path, paw asks a device that
    describes its instrument, for example the sampler.
 3. paw writes the map to `~/.local/share/paw/articulations/generated/` and
-   binds it to the track.
+   binds it to the part.
 4. To change names or controllers, edit the `.art.toml` file. paw reads it
    again.
 
@@ -52,12 +52,12 @@ paw.ext.load("/path/to/paw/extensions/articulations")
 
 - To import, type `:art.import file.reabank`. Each bank becomes a map in
   `~/.config/paw/articulations/reaticulate`.
-- To export the map of the track, type `:art.export reabank [file]`.
+- To export the map of the part, type `:art.export reabank [file]`.
 
 ### How to use a plugin instrument
 
-1. Add the plugin to a track. When a map names the plugin in its `match`,
-   paw binds the map to the track, as one undo step. A message tells you
+1. Add the plugin to a part. When a map names the plugin in its `match`,
+   paw binds the map to the part, as one undo step. A message tells you
    so. `paw.opt.art_auto_map = false` stops this.
 2. If the keyswitches of the plugin are on other keys than those of the
    map, type `:art.shift -1oct` (or `-12`, `+2`). `:art.shift 0` puts them
@@ -68,11 +68,11 @@ instrument](../../docs/how-to/use-articulations-with-a-plugin-instrument.md).
 
 ### How to make notes sound on the beat
 
-1. Bind the map of the instrument to the track.
+1. Bind the map of the instrument to the part.
 2. Type `:art.measure`. paw renders one note of each articulation and shows
    the delays that it finds.
 3. Type `:art.measure!`. paw writes the delays into the map and sends them
-   to the track.
+   to the part.
 
 ### How to draw dynamics on several controllers at once
 
@@ -95,9 +95,9 @@ Type `:art.check`. The problems of the notes go to the quickfix list.
   Lua](../../docs/reference/lua-objects.md#note-attributes-noteattr).
 - A map gives the names of the codes on one instrument, and how to send
   them to it. Each instrument has one `.art.toml` file.
-- When you bind a map to a track, the track keeps the binding
-  (`track.meta.articulations`). The extension gives the core the downgrade
-  map of the track (`track.attr_map`), which sends the keyswitch, controller
+- When you bind a map to a part, the part keeps the binding
+  (`part.meta.articulations`). The extension gives the core the downgrade
+  map of the part (`part.attr_map`), which sends the keyswitch, controller
   or program of each note before the note, to an instrument that does not
   take the attribute.
 - The core does not use the map, and the extension reads the TOML of the map
@@ -196,15 +196,15 @@ legato sample, the start of a bow). `delay = "-80ms"` on an articulation,
 or on the full instrument at the top of its map, plays those notes that
 much earlier, so they sound on the grid.
 
-- The delay goes into the downgrade map of the track
+- The delay goes into the downgrade map of the part
   (`attr_map.arts[code].delay`, and `attr_map.delay` for the instrument).
   The kernel applies it.
 - `K` on a note tells its delay.
 - `:art.measure` renders one note of each articulation offline through the
-  instrument of the track, after the keyswitch, controllers, program and
+  instrument of the part, after the keyswitch, controllers, program and
   attribute. It finds where each sound starts, and shows the delays.
 - `:art.measure!` writes them into the map of the instrument (on the line
-  of each articulation, with comments kept) and sends them to the track, as
+  of each articulation, with comments kept) and sends them to the part, as
   one undo step.
 - The start of the sound is the first 1 ms block whose peak is within
   20 dB of the loudest block. paw looks at the first two seconds of the
@@ -259,17 +259,17 @@ Notes entered with the keys, in insert mode or by a click take the pen.
 | Command | Effect |
 | --- | --- |
 | `:art name` | sets the articulation of the note under the cursor. With a range, of its notes: `:'<,'>art stc`, `:5,8art pizz`, `:%art sus`, `:g/art=pz/art arco`. `none` removes it. Alone, the popover |
-| `:art.default name` | what the notes of the track with no articulation play |
+| `:art.default name` | what the notes of the part with no articulation play |
 | `:art.pen name` | the articulation of new notes (`none`) |
 | `:art.mod name` | a modifier over the range or the note |
-| `:art.map [name]`, `:art.unmap`, `:art.maps` | binds a map (alone: the map whose `match` names a device of the track, else a list), removes it, lists all maps |
+| `:art.map [name]`, `:art.unmap`, `:art.maps` | binds a map (alone: the map whose `match` names a device of the part, else a list), removes it, lists all maps |
 | `:art.generate [library]` | makes a map from an `.sfz`, a `.dspreset` or `.dslibrary`, a folder of samples named by articulation, or (alone) a device that describes its instrument, and binds it |
 | `:art.import file.reabank` | makes a map of each bank of a Reaticulate file, in `~/.config/paw/articulations/reaticulate` |
-| `:art.export reabank [file]` | writes the map of the track as a Reaticulate bank |
+| `:art.export reabank [file]` | writes the map of the part as a Reaticulate bank |
 | `:art.new name` | a map to fill |
 | `:art.from-keyswitches` | changes keyswitch notes and the controller moves that switch articulations into the articulations of the notes after them: CC32 (UACC), and a controller that two articulations set to other values (not one that the map chases or links) |
-| `:art.shift [keys]` | moves the keyswitches of the map of the track: `-12`, `+2`, `-1oct`. `0` puts them back. Alone, tells where they are |
-| `:art.check` | the problems of the notes of bound tracks, in the quickfix list |
+| `:art.shift [keys]` | moves the keyswitches of the map of the part: `-12`, `+2`, `-1oct`. `0` puts them back. Alone, tells where they are |
+| `:art.check` | the problems of the notes of bound parts, in the quickfix list |
 | `:art.measure`, `:art.measure!` | measures how late each articulation sounds. With `!`, writes it into the map |
 | `:art.lane [name]` | a linked lane of controllers as one curve |
 
@@ -321,7 +321,7 @@ When the notation extension is loaded too, the following changes apply:
 - A run of notes starts with its `text` (`pizz.`), with `ord.` where the
   default returns.
 - A mark in the score (`g'` a staccato) or a technique (`\p pizz.`, `arco`)
-  sets the attribute of the notes, when the map of the track has an
+  sets the attribute of the notes, when the map of the part has an
   articulation with that mark or text. `paw.opt.art_from_notation = false`
   turns this off.
 
@@ -329,14 +329,14 @@ When the notation extension is loaded too, the following changes apply:
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `art_auto_map` | `true` | a plugin added to a track with no map binds the map whose `match` names it |
+| `art_auto_map` | `true` | a plugin added to a part with no map binds the map whose `match` names it |
 | `art_from_notation` | `true` | a mark or technique written in the score sets the articulation of the notes |
 
 ### Events
 
 | Event | Payload | When |
 | --- | --- | --- |
-| `articulations.bound` | `{ track, map }` | a map was bound to a track. With no `map`, the binding was taken away |
+| `articulations.bound` | `{ part, map }` | a map was bound to a part. With no `map`, the binding was taken away |
 
 ### Limits
 

@@ -130,7 +130,7 @@ test("cancelling during the encode stops it and leaves nothing", function()
   -- A long file to play, made by ffmpeg, so that the encode takes a while.
   local src = dir .. "/src.wav"
   os.execute("ffmpeg -v error -f lavfi -i 'sine=frequency=440:duration=1500:sample_rate=48000' -ac 2 " .. sh_quote(src))
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = src, start = 0, length = 3000 })
   local out = fresh_dir("cancel-out")
   local events = {}
@@ -188,7 +188,7 @@ test("without ffmpeg a lossy format is refused before anything is rendered, and 
     "and how formats that need nothing are named"
   )
   fails(function() paw.cmd("export", { dir .. "/a.ogg" }) end, "ffmpeg", "the command too")
-  fails(function() paw.export.plan(dir .. "/stems/ each=track format=mp3") end, "ffmpeg", "an export too")
+  fails(function() paw.export.plan(dir .. "/stems/ each=part format=mp3") end, "ffmpeg", "an export too")
   paw.off(off)
   eq(heard, false, "nothing was rendered")
   local by = {}
@@ -212,7 +212,7 @@ test("stems and regions are rendered to a lossy format too", function()
   paw.project.tempo = 120
   paw.markers.add(0, "Intro", { length = 2 })
   local dir = fresh_dir("stems")
-  paw.export.run(paw.export.plan(dir .. "/ each=track format=ogg tail=0 wait=true"))
+  paw.export.run(paw.export.plan(dir .. "/ each=part format=ogg tail=0 wait=true"))
   eq(names(dir), "Lead.ogg", "a stem is an Ogg file")
   paw.export.run(paw.export.plan(dir .. "/regions/ each=region format=opus tail=0 wait=true"))
   eq(#T.read_file(dir .. "/regions/01 Intro.opus") > 500, true, "a region is an Opus file")

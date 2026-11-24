@@ -1,12 +1,12 @@
 -- Diagnostics, as `vim.diagnostic`: what is wrong (or worth knowing) about
--- anything with an address (paw/address.tl): notes of a clip, a track, a
+-- anything with an address (paw/address.tl): notes of a clip, a part, a
 -- device or one of its parameters, a stretch of time, the project, a
 -- rendered file. Anyone publishes them (a language server through
 -- `paw.lsp`, a lint written in Lua) under a namespace of their own, for a
 -- document of theirs; each view shows those it can place (`paw.ui.locator`).
 --
 -- A diagnostic is a table:
---   { location = { uri = "paw://track/3", selector = { time = { 8, 16 } } },
+--   { location = { uri = "paw://part/3", selector = { time = { 8, 16 } } },
 --     severity,              -- 1 error, 2 warning, 3 info, 4 hint; or those words
 --     message, rule, source,
 --     fixes = { { title, edit = { workspace changes } },     -- see paw.address.edit
@@ -29,7 +29,7 @@ local type partial = require("paw.partial")
 local type UiModule = require("paw.ui")
 local type objects = require("paw.objects")
 local type DrawModule = require("paw.draw")
-local type TrackColumnModule = require("paw.trackcolumn")
+local type PartColumnModule = require("paw.partcolumn")
 local type Roll = require("paw.views.pianoroll")
 
 --- A severity: 1 (error) to 4 (hint), or one of the words `error`,
@@ -102,7 +102,7 @@ local record Diagnostic
 end
 
 --- What `get` asks about: a clip id, an address, or an object of the Lua
---- interface (`paw.clip(7)`, `paw.track(3)`).
+--- interface (`paw.clip(7)`, `paw.part(3)`).
 local type Target = integer | string | A.Thing
 
 --- The least and most severe of `Filter.severity`.
@@ -177,9 +177,9 @@ local record RollMark
   actions: {string}
 end
 
---- The worst diagnostic about a track, in the window.
-local record TrackMark
-  track: integer
+--- The worst diagnostic about a part, in the window.
+local record PartMark
+  part: integer
   severity: integer
   message: string
 end
@@ -194,7 +194,7 @@ end
 
 --- The marks of the window in the views other than the piano roll.
 local record Marks
-  tracks: {TrackMark}
+  parts: {PartMark}
   times: {TimeMark}
 end
 
@@ -229,7 +229,7 @@ local record PartLayer
   y: integer
   width: integer
   clip: ClipOfLayer
-  track: integer
+  part: integer
   device: integer
   param: string
 end
@@ -262,7 +262,7 @@ local record Paw is partial.Paw
   pick: Pick
   frontend: Frontend
   draw: DrawModule
-  trackcolumn: TrackColumnModule
+  partcolumn: PartColumnModule
   qf: Qf
   time: objects.Time
   Clip: objects.Clip
@@ -526,7 +526,7 @@ function M.notes_of(d: Diagnostic): {types.Note}
 end
 
 --- The kind of item that a diagnostic is about, to make groups: clip,
---- track, device, time, project, render, or the kind of an extension.
+--- part, device, time, project, render, or the kind of an extension.
 function M.kind(d: Diagnostic): string
   local p = A.parse(d.location.uri)
   if not p then
@@ -539,10 +539,10 @@ function M.kind(d: Diagnostic): string
     return "device"
   end
   if p.kind == "send" then
-    return "track"
+    return "part"
   end
-  if (p.kind == "project" or p.kind == "track") and d.location.selector and d.location.selector.time then
-    return p.kind == "project" and "time" or "track"
+  if (p.kind == "project" or p.kind == "part") and d.location.selector and d.location.selector.time then
+    return p.kind == "project" and "time" or "part"
   end
   return p.kind
 end
@@ -565,7 +565,7 @@ function M.about(d: Diagnostic, uri: string): boolean
   return false
 end
 
-local KIND_ORDER: {string: integer} = {clip = 1, track = 2, device = 3, time = 4, project = 5, render = 6}
+local KIND_ORDER: {string: integer} = {clip = 1, part = 2, device = 3, time = 4, project = 5, render = 6}
 
 local function sorted(list: {Diagnostic}): {Diagnostic}
   table.sort(
@@ -599,8 +599,8 @@ local function alive(d: Diagnostic): boolean
   if p.kind == "clip" or p.kind == "note" or p.kind == "control" then
     return (pcall(api.clip_get, p.clip))
   end
-  if p.kind == "track" or p.kind == "send" then
-    return (pcall(api.track_get, p.track))
+  if p.kind == "part" or p.kind == "send" then
+    return (pcall(api.part_get, p.part))
   end
   if p.kind == "device" or p.kind == "param" then
     return (pcall(api.device_get, p.device))
@@ -755,9 +755,9 @@ end
 
 -- Where a diagnostic is, in words -------------------------------------------
 
-local function track_name(id: integer): string
-  local ok, t = pcall(api.track_get, id)
-  return ok and t.name or ("track " .. id)
+local function part_name(id: integer): string
+  local ok, t = pcall(api.part_get, id)
+  return ok and t.name or ("part " .. id)
 end
 
 --- Where a diagnostic is about, in a few words: `Lead › Synth · cutoff`,
@@ -773,12 +773,12 @@ function M.where(d: Diagnostic): string
     local ok, c = pcall(api.clip_get, p.clip)
     return ok and string.format("%s %s", c.name, paw.time.format(c.start + (d.at or 0))) or "a clip"
   end
-  if p.kind == "track" or p.kind == "send" then
-    return track_name(p.track) .. (t and (" " .. paw.time.format(t[1])) or "")
+  if p.kind == "part" or p.kind == "send" then
+    return part_name(p.part) .. (t and (" " .. paw.time.format(t[1])) or "")
   end
   if p.kind == "device" or p.kind == "param" then
     local ok, dev = pcall(api.device_get, p.device)
-    local name = track_name(p.track) .. " › " .. (ok and dev.name or "a device")
+    local name = part_name(p.part) .. " › " .. (ok and dev.name or "a device")
     if p.kind == "param" then
       for _, info in ipairs(ok and dev.param_info or {}) do
         if info.key == p.param then
@@ -910,7 +910,7 @@ function M.goto_prev(opts?: GotoOptions): Diagnostic
 end
 
 local KIND_TITLE: {string: string} = {
-  clip = "Notes", track = "Tracks", device = "Devices", time = "Time", project = "Project", render = "Renders"
+  clip = "Notes", part = "Parts", device = "Devices", time = "Time", project = "Project", render = "Renders"
 }
 
 --- Every diagnostic (of `target`, as `get` takes it) in a picker, as the
@@ -967,7 +967,7 @@ end
 local g = function(): contracts.Glyphs return paw.draw.g end
 
 --- One clip's, `offset` beats from the roll's own.
-function M.paint_part(p: RollLayer, id: integer, offset: number)
+function M.paint_portion(p: RollLayer, id: integer, offset: number)
   local list = M.get(id)
   if #list == 0 then
     return
@@ -1021,8 +1021,8 @@ end
 --- The message comes after the last note while there is space, and a mark
 --- on the ruler shows where it starts.
 function M.paint_roll(p: RollLayer)
-  for _, part in ipairs(p.parts or {{id = p.clip.id, offset = 0}}) do
-    M.paint_part(p, part.id, part.offset or 0)
+  for _, portion in ipairs(p.portions or {{id = p.clip.id, offset = 0}}) do
+    M.paint_portion(p, portion.id, portion.offset or 0)
   end
 end
 
@@ -1052,21 +1052,21 @@ paw.ui.layer(
     end
   end
 )
--- A sign in the track column (paw/trackcolumn.tl), as in Neovim's sign
--- column: the worst said of the track, its devices, its sends or its clips.
+-- A sign in the part column (paw/partcolumn.tl), as in Neovim's sign
+-- column: the worst said of the part, its devices, its sends or its clips.
 -- Its glyphs (`error`, `warn`) and styles (`error`, `warn`) can be set
--- with `paw.trackcolumn.set_sign("diagnostics", ...)`.
-paw.trackcolumn.sign(
+-- with `paw.partcolumn.set_sign("diagnostics", ...)`.
+paw.partcolumn.sign(
   "diagnostics",
   {
     priority = 30,
     glyphs = {},
     styles = {},
-    render = function(track: integer, ctx: contracts.TrackColumnContext): contracts.ColumnCells
+    render = function(part: integer, ctx: contracts.PartColumnContext): contracts.ColumnCells
       if not (options.signs and next(store)) then
         return nil
       end
-      local worst = M.worst(A.track(track))
+      local worst = M.worst(A.part(part))
       if not worst then
         return nil
       end
@@ -1075,11 +1075,11 @@ paw.trackcolumn.sign(
         {ctx.glyphs[which] or (worst == 1 and g().error or g().warn), ctx.styles[which] or M.group("Diagnostic", worst)}
       }
     end,
-    describe = function(track: integer): string
+    describe = function(part: integer): string
       if not next(store) then
         return nil
       end
-      local n = M.count(A.track(track))
+      local n = M.count(A.part(part))
       if n.total == 0 then
         return nil
       end
@@ -1118,7 +1118,7 @@ paw.ui.layer(
     if not next(store) then
       return
     end
-    local worst = M.worst(A.track(c.track))
+    local worst = M.worst(A.part(c.part))
     if worst then
       c.buf:text(c.x + c.width - 1, c.y, worst == 1 and g().error or g().warn, M.group("Diagnostic", worst))
     end
@@ -1230,31 +1230,31 @@ function M.roll_marks(id: integer): {RollMark}
   return out
 end
 
---- The marks of the window in other views. Each track (by id) has the worst
+--- The marks of the window in other views. Each part (by id) has the worst
 --- severity about it, its devices or its sends, and the first message.
 --- The ranges of time are also marks.
 function M.marks(): Marks
-  local tracks: {integer: TrackMark} = {}
+  local parts: {integer: PartMark} = {}
   local times: {TimeMark} = {}
   for _, d in ipairs(M.get()) do
     local kind = M.kind(d)
-    local track = A.track_of(d.location.uri)
-    if track and kind ~= "clip" then
-      local t = tracks[track]
+    local part = A.part_of(d.location.uri)
+    if part and kind ~= "clip" then
+      local t = parts[part]
       if not t or d.severity < t.severity then
-        tracks[track] = {track = track, severity = d.severity, message = M.format(d)}
+        parts[part] = {part = part, severity = d.severity, message = M.format(d)}
       end
     elseif kind == "time" then
       local t = d.location.selector.time
       times[#times + 1] = {from = t[1], to = t[2], severity = d.severity, message = M.format(d)}
     end
   end
-  local list: {TrackMark} = {}
-  for _, t in pairs(tracks) do
+  local list: {PartMark} = {}
+  for _, t in pairs(parts) do
     list[#list + 1] = t
   end
-  table.sort(list, function(a: TrackMark, b: TrackMark): boolean return a.track < b.track end)
-  return {tracks = list, times = times}
+  table.sort(list, function(a: PartMark, b: PartMark): boolean return a.part < b.part end)
+  return {parts = list, times = times}
 end
 
 local roll = paw.ui.views:get("pianoroll") as PianoRoll

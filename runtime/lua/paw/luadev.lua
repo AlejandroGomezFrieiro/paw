@@ -13,14 +13,14 @@ M.RANK_CONFIG = 1
 --- any Lua script when `kinds` is nil.
 local function devices_of(kinds)
   local out = {}
-  local function look(track)
-    for _, device in ipairs(track:devices()) do
+  local function look(part)
+    for _, device in ipairs(part:devices()) do
       local kind = device.kind
       if kind:match("^lua:") and (kinds == nil or kinds[kind]) and not device.offline then out[#out + 1] = device end
     end
   end
-  for _, track in ipairs(paw.tracks()) do
-    look(track)
+  for _, part in ipairs(paw.parts()) do
+    look(part)
   end
   look(paw.master)
   return out
@@ -135,16 +135,16 @@ end)
 
 paw.command("device.reload", function()
   -- The device chosen in the panel if it is written in Lua, else every one
-  -- on the track.
+  -- on the part.
   M.check()
   local chosen = paw.ui.focused == "devices" and paw.ui.views:get("devices"):selected() or nil
   local devices
   if chosen and chosen.kind:match("^lua:") then
     devices = { chosen }
   else
-    local track = paw.cursor.track()
+    local part = paw.cursor.part()
     devices = {}
-    for _, device in ipairs(track and track:devices() or {}) do
+    for _, device in ipairs(part and part:devices() or {}) do
       if device.kind:match("^lua:") and not device.offline then devices[#devices + 1] = device end
     end
   end

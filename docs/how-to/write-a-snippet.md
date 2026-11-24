@@ -32,7 +32,7 @@ The example writes IV and then I of the key, and each field is in
       try the next value.
    3. Press `<Esc>` to keep the notes.
 
-`ctx:chord` puts the chord in the range of the track and leads it from the
+`ctx:chord` puts the chord in the range of the part and leads it from the
 chord before, and the `voicing` choice sets its style.
 
 If the snippet cannot write anything at the cursor, return nil and a

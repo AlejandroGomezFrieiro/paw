@@ -30,7 +30,7 @@ end
 
 --- A small valid project file, as text.
 local function valid_project()
-  local t = api.track_add({ name = "A" })
+  local t = api.part_add({ name = "A" })
   api.device_add(t, "synth")
   api.device_add(t, "delay")
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
@@ -54,7 +54,7 @@ local function load(text)
   api.project_save(dir .. "/again.json")
   local ok, err = pcall(api.project_load, dir .. "/again.json")
   if not ok then return "BAD", "saved a file it cannot load: " .. tostring(err) end
-  return "ok", string.format("%d tracks, %.1f beats, peak %.3f", #api.track_list(), length, info.peak)
+  return "ok", string.format("%d parts, %.1f beats, peak %.3f", #api.part_list(), length, info.peak)
 end
 
 local cases = {}
@@ -89,17 +89,17 @@ case(
 )
 case("file: note length -1", function() return load((valid_project():gsub('"length": 1.0', '"length": -1.0', 1))) end)
 case("file: volume 1e300", function() return load((valid_project():gsub('"volume": 0.0', '"volume": 1e300', 1))) end)
-case("file: duplicate track ids", function()
+case("file: duplicate part ids", function()
   local text = valid_project()
   local p = text:gsub(
-    '"tracks": %[',
-    '"tracks": [ { "id": 1, "name": "dup", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null },',
+    '"parts": %[',
+    '"parts": [ { "id": 1, "name": "dup", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null },',
     1
   )
   return load(p)
 end)
 case(
-  "file: track routed into itself",
+  "file: part routed into itself",
   function() return load((valid_project():gsub('"output": null', '"output": 1', 1))) end
 )
 case(
@@ -111,7 +111,7 @@ case(
   function() return load((valid_project():gsub('"params": {}', '"params": { "cutoff": 1e300 }', 1))) end
 )
 case("file: missing audio file", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, file = B.wav() })
   paw.flush()
   local text = read(api.project_save(dir .. "/audio.json"))
@@ -121,17 +121,17 @@ end)
 case("file: audio file truncated", function()
   local data = read(B.wav())
   local path = write(dir .. "/truncated.wav", data:sub(1, 5000))
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, file = path })
   return "ok", "added"
 end)
 case("file: audio file is text", function()
   local path = write(dir .. "/text.wav", "this is not audio")
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, file = path })
   return "ok", "added"
 end)
-case("file: 5000 tracks", function()
+case("file: 5000 parts", function()
   local parts = {}
   for i = 1, 5000 do
     parts[i] = string.format(
@@ -142,7 +142,7 @@ case("file: 5000 tracks", function()
       200000 + i
     )
   end
-  local text = '{ "version": 1, "project": { "name": "big", "tempo": 120.0, "sig_num": 4, "sig_den": 4, "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null }, "tracks": ['
+  local text = '{ "version": 1, "project": { "name": "big", "tempo": 120.0, "sig_num": 4, "sig_den": 4, "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false, "armed": false, "output": null, "sends": [], "devices": [], "clips": [], "color": null }, "parts": ['
     .. table.concat(parts, ",")
     .. "] } }"
   local outcome, detail = load(text)
@@ -152,8 +152,8 @@ end)
 
 -- Values through the API -------------------------------------------------------------
 
-local function synth_track()
-  local t = api.track_add({})
+local function synth_part()
+  local t = api.part_add({})
   local d = api.device_add(t, "synth")
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 2 } } })
   paw.flush()
@@ -171,26 +171,26 @@ local function still_sane(what)
   return "ok", what .. " went through and nothing broke"
 end
 
-case("api: track volume NaN at add", function()
-  api.track_add({ volume = 0 / 0 })
-  return still_sane("track_add")
+case("api: part volume NaN at add", function()
+  api.part_add({ volume = 0 / 0 })
+  return still_sane("part_add")
 end)
-case("api: track pan inf at add", function()
-  api.track_add({ pan = 1 / 0 })
-  return still_sane("track_add")
+case("api: part pan inf at add", function()
+  api.part_add({ pan = 1 / 0 })
+  return still_sane("part_add")
 end)
 case("api: parameter NaN", function()
-  local _, d = synth_track()
+  local _, d = synth_part()
   api.device_set_param(d, "cutoff", 0 / 0)
   return still_sane("device_set_param")
 end)
 case("api: note start inf", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 1 / 0, length = 1 } } })
   return still_sane("clip_add")
 end)
 case("api: note length -1", function()
-  local t = synth_track()
+  local t = synth_part()
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = -1 } } })
   -- A note-off before its note-on leaves the note sounding to the end.
   api.render(dir .. "/neg.wav", { start = 0, ["end"] = 16, tail = 0, bits = 16 })
@@ -201,75 +201,75 @@ case("api: note length -1", function()
   return still_sane("negative note length")
 end)
 case("api: note pitch 200", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, notes = { { pitch = 200, start = 0, length = 1 } } })
   return still_sane("pitch 200")
 end)
 case("api: clip gain NaN", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, file = B.wav(), gain = 0 / 0 })
   return still_sane("clip gain NaN")
 end)
 case("api: clip offset -inf", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.clip_add(t, { start = 0, length = 4, file = B.wav(), offset = -1 / 0 })
   return still_sane("clip offset -inf")
 end)
 case("api: live note velocity NaN", function()
-  local t = synth_track()
+  local t = synth_part()
   api.device_add(t, "delay")
   api.note_on(t, 60, 0 / 0)
   api.sleep(100)
-  local l = api.track_meter(t)
-  if l ~= l then return "BAD", "the track's meter reads NaN" end
+  local l = api.part_meter(t)
+  if l ~= l then return "BAD", "the part's meter reads NaN" end
   return "ok", "meter " .. tostring(l)
 end)
 case("api: render tail 1e12", function()
-  synth_track()
+  synth_part()
   local t0 = api.real_ms()
   local info = api.render(dir .. "/long.wav", { tail = 1e12 })
   return "BAD", string.format("rendered %s s in %.0f ms", tostring(info.seconds), api.real_ms() - t0)
 end)
 case("api: render end 1e15", function()
-  synth_track()
+  synth_part()
   local info = api.render(dir .. "/long.wav", { ["end"] = 1e15 })
   return "BAD", "rendered " .. tostring(info.seconds) .. " s"
 end)
 case("api: render sample rate 0", function()
-  synth_track()
+  synth_part()
   local info = api.render(dir .. "/sr0.wav", { sample_rate = 0 })
   return "BAD", "rendered at 0 Hz: " .. tostring(info.frames) .. " frames"
 end)
 case("api: render sample rate 4e9", function()
-  local _ = synth_track()
-  api.device_add(api.track_list()[1], "delay")
+  local _ = synth_part()
+  api.device_add(api.part_list()[1], "delay")
   api.render(dir .. "/sr4e9.wav", { sample_rate = 4000000000, ["end"] = 0.001, tail = 0 })
   return "BAD", "rendered at 4 GHz"
 end)
 case("api: engine sample rate 0", function()
   api.engine_restart({ backend = "null", sample_rate = 0 })
-  synth_track()
+  synth_part()
   api.transport_play()
   api.sleep(200)
   return "BAD", "the engine runs at 0 Hz: " .. paw.inspect(api.engine_get().sample_rate)
 end)
 case("api: engine buffer 0", function()
   api.engine_restart({ backend = "null", buffer_size = 0 })
-  synth_track()
+  synth_part()
   api.transport_play()
   api.sleep(200)
   return "ok", "buffer " .. tostring(api.engine_get().buffer_size)
 end)
 case("api: engine buffer 1e9", function()
   api.engine_restart({ backend = "null", buffer_size = 1000000000 })
-  synth_track()
+  synth_part()
   api.transport_play()
   api.sleep(200)
   return "BAD", "the engine took a buffer of 1e9 frames"
 end)
 case("api: tiny loop under load", function()
   for _ = 1, 50 do
-    synth_track()
+    synth_part()
   end
   paw.transport.loop_start, paw.transport.loop_end = 0, 0.0001
   paw.transport.loop_enabled = true
@@ -282,22 +282,22 @@ case("api: tiny loop under load", function()
   return "ok", string.format("worst block %.2f of its budget", load)
 end)
 case("api: seek to 1e300 and play", function()
-  synth_track()
+  synth_part()
   api.transport_seek(1e300)
   api.transport_play()
   api.sleep(100)
   return "ok", "position " .. tostring(api.transport_get().position)
 end)
-case("api: 2000 tracks", function()
+case("api: 2000 parts", function()
   for i = 1, 2000 do
-    api.track_add({})
+    api.part_add({})
   end
   paw.flush()
   local warnings = api.warnings()
   -- Remove the first 1000: the rest should now all get an engine slot.
-  local list = api.track_list()
+  local list = api.part_list()
   for i = 1, 1000 do
-    api.track_remove(list[i])
+    api.part_remove(list[i])
   end
   paw.flush()
   local t = list[2000]
@@ -306,12 +306,12 @@ case("api: 2000 tracks", function()
   paw.flush()
   api.note_on(t, 60, 100)
   api.sleep(150)
-  local l = api.track_meter(t)
-  if l == 0 then return "BAD", #warnings .. " warnings; track 2000 stays silent after 1000 tracks were removed" end
-  return "ok", #warnings .. " warnings, track 2000 sounds once there is room"
+  local l = api.part_meter(t)
+  if l == 0 then return "BAD", #warnings .. " warnings; part 2000 stays silent after 1000 parts were removed" end
+  return "ok", #warnings .. " warnings, part 2000 sounds once there is room"
 end)
 case("api: 10000 devices", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   local ok, err
   for i = 1, 10000 do
     ok, err = pcall(api.device_add, t, "gain")
@@ -320,7 +320,7 @@ case("api: 10000 devices", function()
   return ok and "BAD" or "rejected", tostring(err)
 end)
 case("api: 1e6 notes in one clip", function()
-  local t = api.track_add({})
+  local t = api.part_add({})
   api.device_add(t, "synth")
   local notes = {}
   for i = 1, 1000000 do

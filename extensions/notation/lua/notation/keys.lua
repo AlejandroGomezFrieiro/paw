@@ -26,9 +26,9 @@ command("notation.clef", function(ctx)
   -- On a score's bar after the first: a clef change there.
   if valid and want ~= "grand" and want ~= "auto" and require("notation.write").clef(ctx, want) then return end
   local clip = view.target()
-  local track = clip and clip:track() or paw.cursor.track()
-  if not track then return paw.notify("no track", "warn") end
-  local meta = track.meta or {}
+  local part = clip and clip:part() or paw.cursor.part()
+  if not part then return paw.notify("no part", "warn") end
+  local meta = part.meta or {}
   if not want then
     local fixed = type(meta.notation) == "table" and meta.notation.clef
     return paw.notify("clef: " .. (fixed or "chosen by the notes"))
@@ -39,11 +39,11 @@ command("notation.clef", function(ctx)
   local own = type(meta.notation) == "table" and meta.notation or {}
   own.clef = want ~= "auto" and want or nil
   meta.notation = next(own) and own or nil
-  track.meta = meta
+  part.meta = meta
   paw.notify("clef: " .. (own.clef or "chosen by the notes"))
 end, {
   range = true,
-  desc = "Fix the track's clef: `notation.clef bass` (treble, treble8, bass, bass8, alto, tenor, grand, auto); in a score after its first bar, a clef change at the cursor's bar",
+  desc = "Fix the part's clef: `notation.clef bass` (treble, treble8, bass, bass8, alto, tenor, grand, auto); in a score after its first bar, a clef change at the cursor's bar",
 })
 
 command("notation.key", function(ctx)
@@ -359,14 +359,14 @@ end, { desc = "Forget the clip's transcription settings" })
 command("notation.tab", function(ctx)
   local tab = require("notation.tab")
   local clip = view.target()
-  local track = clip and clip:track() or paw.cursor.track()
-  if not track then return paw.notify("no track", "warn") end
+  local part = clip and clip:part() or paw.cursor.part()
+  if not part then return paw.notify("no part", "warn") end
   local words = {}
   for _, a in ipairs(ctx.args) do
     words[#words + 1] = tostring(a)
   end
   if #words == 0 then
-    local own = tab.of_track(track.id)
+    local own = tab.of_part(part.id)
     if not own then
       return paw.notify(
         "no tablature: `notation.tab guitar`, `bass`, `dropd`, `7string`, `bass5`, or the strings' notes"
@@ -378,15 +378,15 @@ command("notation.tab", function(ctx)
     end
     return paw.notify("tablature: " .. table.concat(names, " "))
   end
-  local own, err = tab.set(track, words)
+  local own, err = tab.set(part, words)
   if err then return paw.notify(err, "warn") end
   view.cache = nil
   paw.notify(own and ("tablature: " .. #own.tuning .. " strings") or "no tablature")
 end, {
-  desc = "Tablature under the staff for a guitar or bass track: `notation.tab guitar` (bass, dropd, dadgad, 7string, bass5, or `E2 A2 D3 G3 B3 E4`), `notation.tab off`",
+  desc = "Tablature under the staff for a guitar or bass part: `notation.tab guitar` (bass, dropd, dadgad, 7string, bass5, or `E2 A2 D3 G3 B3 E4`), `notation.tab off`",
 })
 
-command("notation.tracks", function(ctx)
+command("notation.parts", function(ctx)
   local clip = view:clip() or view.target()
   if not clip then return paw.notify("no clip open as notation", "warn") end
   if view.parts and not ctx.args[1] then
@@ -397,7 +397,7 @@ command("notation.tracks", function(ctx)
   if not view:clip() then view:edit(clip) end
   local c = clip:get()
   local ids = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     for _, other in ipairs(t:clips()) do
       local oc = other:get()
       if
@@ -411,15 +411,13 @@ command("notation.tracks", function(ctx)
       end
     end
   end
-  -- The score of those tracks' clips over this one's stretch, to edit.
-  view.staves.show(ids, "the score of " .. #ids .. " tracks", { from = c.start, to = c.start + c.length })
+  -- The score of those parts' clips over this one's stretch, to edit.
+  view.staves.show(ids, "the score of " .. #ids .. " parts", { from = c.start, to = c.start + c.length })
   paw.notify(
-    "notation: "
-      .. #ids
-      .. " tracks, a staff each, this clip's the active one; :notation.tracks again for the clip alone"
+    "notation: " .. #ids .. " parts, a staff each, this clip's the active one; :notation.parts again for the clip alone"
   )
 end, {
-  desc = "Show every track's MIDI over this clip's stretch as a score, a staff each, to edit; or this clip alone again",
+  desc = "Show every part's MIDI over this clip's stretch as a score, a staff each, to edit; or this clip alone again",
 })
 
 command("notation.value", function(ctx)
@@ -433,36 +431,36 @@ command("notation.export", function(ctx)
   local export = require("notation.export")
   local clip = view.target()
   if not clip then return paw.notify("no clip under the cursor", "warn") end
-  local whole_track = ctx.args.track == "yes" or ctx.args.track == true or ctx.args[2] == "track"
+  local whole_part = ctx.args.part == "yes" or ctx.args.part == true or ctx.args[2] == "part"
   local c = clip:get()
-  local track = clip:track()
-  local name = whole_track and track.name or c.name
+  local part = clip:part()
+  local name = whole_part and part.name or c.name
   -- The message names what was written, so that a clip chosen by the notation
   -- view or the arrange cursor is not a surprise.
-  local what = whole_track and ("track '" .. track.name .. "'")
-    or ("'" .. (c.name ~= "" and c.name or "clip") .. "' (" .. track.name .. ")")
+  local what = whole_part and ("part '" .. part.name .. "'")
+    or ("'" .. (c.name ~= "" and c.name or "clip") .. "' (" .. part.name .. ")")
   local path = ctx.args[1] and tostring(ctx.args[1]) or (name:gsub("[^%w%-_]+", "_") .. ".musicxml")
   -- `pdf`, `svg` or `png` alone: a file of that kind named after the clip.
   local engraved = { pdf = true, svg = true, png = true }
   if engraved[path] then path = name:gsub("[^%w%-_]+", "_") .. "." .. path end
   local ext = (path:match("%.(%w+)$") or ""):lower()
   local all = ctx.args[2] == "all"
-  if (ext == "musicxml" or ext == "xml" or ext == "mxl" or ext == "ly") and not whole_track then
+  if (ext == "musicxml" or ext == "xml" or ext == "mxl" or ext == "ly") and not whole_part then
     -- Written from the score itself: every bar, voice and mark it holds.
     local files = require("notation.files")
     local title, composer = require("notation.page").heading(name)
     local clips = all and files.all_clips() or { clip }
     local ok, err = pcall(files.export, path, clips, { title = title, composer = composer })
     if not ok then return paw.notify("could not write " .. path .. ": " .. tostring(err), "error") end
-    if all then what = #clips .. (#clips == 1 and " track" or " tracks") end
+    if all then what = #clips .. (#clips == 1 and " part" or " parts") end
     return paw.notify("wrote " .. what .. " to " .. path)
   end
   local _, stored = view.key()
   local opts = view.layout_opts(c)
   local layout
-  if whole_track then
+  if whole_part then
     opts.bars, opts.tuplets, opts.length, opts.offset = nil, nil, nil, nil
-    layout = export.track_layout(track, opts, view.bars)
+    layout = export.part_layout(part, opts, view.bars)
   else
     layout = require("notation.layout").layout(
       view.score_of(c),
@@ -484,14 +482,14 @@ command("notation.export", function(ctx)
   if path:match("%.ly$") then
     text = export.lilypond(layout, { title = name, scale = stored and stored.scale })
   else
-    text = export.musicxml(layout, { title = name, part = track.name })
+    text = export.musicxml(layout, { title = name, part = part.name })
   end
   local ok, err = export.write(path, text)
   if not ok then return paw.notify("could not write " .. path .. ": " .. tostring(err), "error") end
   paw.notify("wrote " .. what .. " to " .. path)
 end, {
-  desc = "Write the clip's score as MusicXML (`.mxl` zipped), LilyPond, or engraved pages: `notation.export song.musicxml`, `notation.export score.mxl all` (every track), `notation.export lead.ly track`, `notation.export pdf`, `notation.export tune.svg`",
-  complete = { "files", function() return { "all", "track" } end },
+  desc = "Write the clip's score as MusicXML (`.mxl` zipped), LilyPond, or engraved pages: `notation.export song.musicxml`, `notation.export score.mxl all` (every part), `notation.export lead.ly part`, `notation.export pdf`, `notation.export tune.svg`",
+  complete = { "files", function() return { "all", "part" } end },
 })
 
 -- Reaching it from the arrange view and the window's clip menu.
@@ -499,7 +497,7 @@ end, {
 paw.keymap.group("<leader>n", "notation")
 map("<leader>nn", "notation", { desc = "Show the clip under the cursor as notation" })
 map("<leader>vn", "notation", { desc = "Show the clip under the cursor as notation" })
-map("<leader>ns", "score", { desc = "Show every track with MIDI as a score, a staff each" })
+map("<leader>ns", "score", { desc = "Show every part with MIDI as a score, a staff each" })
 map("<leader>nc", "score.check", { desc = "Show the score's pages as they will be exported, to check them" })
 map("<leader>ne", "notation.export", { desc = "Export the clip as MusicXML, a file named after it" })
 map("<leader>nE", "notation.export pdf", { desc = "Export the clip as an engraved PDF, a file named after it" })
@@ -758,7 +756,7 @@ nmap("gd", function()
 end, "Dotted values on or off, for entering")
 nmap("gh", function() view:audition() end, "Hear the pitch under the cursor")
 nmap("gR", function() paw.cmd("notation.raw") end, "Raw view: every note as played, or interpreted again")
-nmap("zS", function() paw.cmd("notation.tracks") end, "Every track over this stretch as a score, or this clip alone")
+nmap("zS", function() paw.cmd("notation.parts") end, "Every part over this stretch as a score, or this clip alone")
 nmap("zi", function()
   view.zoom = math.min(4, view.zoom + 0.5)
   view.gui.zoom(1)
@@ -1001,9 +999,9 @@ paw.ex.view("notation", {
     local clip = view:clip()
     return clip and { clip.id } or nil
   end,
-  track = function()
+  part = function()
     local clip = view:clip()
-    return clip and clip.track or nil
+    return clip and clip.part or nil
   end,
   go = function(beat)
     local clip = view:clip()
@@ -1218,7 +1216,7 @@ do
     local on = marks.slur(view:clip(), O.beat(sc, a), O.beat(sc, b) - 1e-3, staff)
     paw.notify(on and "slurred: the notes played legato" or "slur taken away")
   end
-  -- `s` is solo wherever there is a track; `(` and `)` go by phrase.
+  -- `s` is solo wherever there is a part; `(` and `)` go by phrase.
   sop("g(", slur, "Slur over the notes (again: taken away)")
   sop("g?", function(region, ctx)
     P.on(region, function(sc, sel)

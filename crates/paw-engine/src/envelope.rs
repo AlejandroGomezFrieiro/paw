@@ -62,19 +62,19 @@ pub fn envelope(path: &Path) -> Result<Envelope> {
     let mut format = symphonia::default::get_probe()
         .probe(&hint, stream, FormatOptions::default(), MetadataOptions::default())
         .map_err(|_| anyhow::anyhow!("{name} is not a sound file that can be read"))?;
-    let Some(track) = format.default_track(TrackType::Audio) else {
+    let Some(stream) = format.default_track(TrackType::Audio) else {
         bail!("{name} holds no audio");
     };
-    let Some(params) = track.codec_params.as_ref().and_then(|p| p.audio()) else {
+    let Some(params) = stream.codec_params.as_ref().and_then(|p| p.audio()) else {
         bail!("{name} holds no audio");
     };
-    let track_id = track.id;
+    let stream_id = stream.id;
     let mut out = Envelope {
         sample_rate: params.sample_rate.unwrap_or(0),
         channels: params.channels.as_ref().map_or(0, |c| c.count()),
         ..Envelope::default()
     };
-    if let Some(n) = track.num_frames {
+    if let Some(n) = stream.num_frames {
         out.frames.reserve(n as usize);
     }
     let mut decoder = symphonia::default::get_codecs()
@@ -89,7 +89,7 @@ pub fn envelope(path: &Path) -> Result<Envelope> {
             Err(Error::IoError(_)) => break,
             Err(err) => bail!("{name} is damaged: {err}"),
         };
-        if packet.track_id != track_id {
+        if packet.track_id != stream_id {
             continue;
         }
         let buffer = match decoder.decode(&packet) {

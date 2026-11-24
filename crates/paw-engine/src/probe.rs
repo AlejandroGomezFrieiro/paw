@@ -35,10 +35,10 @@ pub fn probe(path: &Path) -> Result<Probe> {
             MetadataOptions::default(),
         )
         .map_err(|_| anyhow::anyhow!("{} is not a sound file that can be read", path.display()))?;
-    let Some(track) = format.default_track(TrackType::Audio) else {
+    let Some(stream) = format.default_track(TrackType::Audio) else {
         bail!("{} holds no audio", path.display());
     };
-    let Some(params) = track.codec_params.as_ref().and_then(|p| p.audio()) else {
+    let Some(params) = stream.codec_params.as_ref().and_then(|p| p.audio()) else {
         bail!("{} holds no audio", path.display());
     };
     let sample_rate = params.sample_rate.unwrap_or(0);
@@ -48,7 +48,7 @@ pub fn probe(path: &Path) -> Result<Probe> {
     Ok(Probe {
         sample_rate,
         channels: params.channels.as_ref().map_or(0, |c| c.count() as u32),
-        seconds: track.num_frames.map(|n| n as f64 / sample_rate as f64),
+        seconds: stream.num_frames.map(|n| n as f64 / sample_rate as f64),
     })
 }
 

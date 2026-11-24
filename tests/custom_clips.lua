@@ -11,7 +11,7 @@ local function forget_film() pcall(api.clip_kind_remove, "film") end
 
 test("a custom clip is added, set in one step, and undone", function()
   fresh()
-  local t = paw.add_track({ name = "Film" })
+  local t = paw.add_part({ name = "Film" })
   fails(
     function() api.clip_add(t.id, { kind = "film", data = { json = {} }, length = 4 }) end,
     "no clip kind `film` is defined",
@@ -77,7 +77,7 @@ test("clip_kinds: a kind's clip is made, set as one undo step and described; a s
   fresh()
   T.after(function() paw.clip_kinds.remove("film") end)
   paw.clip_kinds.define("film", film())
-  local t = paw.add_track({ name = "Film" })
+  local t = paw.add_part({ name = "Film" })
   local clip = paw.clip_kinds.add(t, "film", { "intro.mp4" })
   api.undo_checkpoint()
   eq(clip:data().file .. " " .. clip.length, "intro.mp4 1", "made by create, as long as it compiled")
@@ -118,7 +118,7 @@ test(
     fresh()
     T.after(function() paw.clip_kinds.remove("film") end)
     paw.clip_kinds.define("film", film())
-    local clip = paw.clip_kinds.add(paw.add_track({ name = "Film" }), "film", { "a.mp4" })
+    local clip = paw.clip_kinds.add(paw.add_part({ name = "Film" }), "film", { "a.mp4" })
     api.undo_checkpoint()
     local path = T.scratch .. "/film.paw"
     api.project_save(path)
@@ -132,7 +132,7 @@ test(
 
     api.project_load(path)
     paw.flush()
-    clip = paw.clip(api.clip_list(api.track_list()[1])[1].id)
+    clip = paw.clip(api.clip_list(api.part_list()[1])[1].id)
     eq((api.clip_custom(clip.id).version or 1) .. " " .. clip:data().scenes, "2 2", "migrated when it opens")
     eq(api.undo_pending(), false, "opening is not an undo step")
 
@@ -155,7 +155,7 @@ test("clip_kinds: unloading the extension removes its kind; its clips keep their
   )
   f:close()
   eq(paw.ext.load(root).ok, true, "the extension loads")
-  local clip = paw.clip_kinds.add(paw.add_track({ name = "Words" }), "lyrics", { length = 4 })
+  local clip = paw.clip_kinds.add(paw.add_part({ name = "Words" }), "lyrics", { length = 4 })
   api.undo_checkpoint()
   paw.ext.unload("ext-lyrics")
   eq(table.concat(paw.clip_kinds.list(), " ") .. "|" .. table.concat(api.clip_kinds(), " "), "|", "the kind is gone")
@@ -168,7 +168,7 @@ end)
 
 test("a custom clip's data is plain data, never binary", function()
   fresh()
-  local t = paw.add_track({ name = "Film" })
+  local t = paw.add_part({ name = "Film" })
   api.clip_kind_define("film")
   T.after(forget_film)
   local id = api.clip_add(t.id, { kind = "film", data = { json = { n = 1 } }, length = 4 })

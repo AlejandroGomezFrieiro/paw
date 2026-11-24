@@ -119,7 +119,7 @@ The tree in the terminal shows the newest state at the top:
 - Each row shows the number of the state, its time and its name in
   quotes, and it shows `[A]` `[B]`, and `(saved)` for the state saved last.
 - Each row then shows what made the state, which is the description of the key or the
-  command followed by the keys typed (`Delete the clip  x`, `Add a track above
+  command followed by the keys typed (`Delete the clip  x`, `Add a part above
   O`, `Set Keys volume`). A row shows `a change` for changes by scripts, and
   `opened` for the project as it opened.
 
@@ -162,7 +162,7 @@ do.
   and undo is, so the transport does not stop or move.
 - paw sends the engine only what differs between the two versions. A
   volume change is sent as a volume change, a different list of clips replaces the
-  clips of that track, and a device that is only in one version is added or
+  clips of that part, and a device that is only in one version is added or
   removed. A plugin added in this way starts from its saved state, and you
   can hear the start.
 - paw does not prune A and B while they are marked.
@@ -217,7 +217,7 @@ In `paw.api`, plain data only:
 | `undo_travel(seconds)` | goes to the newest state made that long after (before, when negative) the current state, and returns the id, or nil |
 | `undo_name(name, id)` | names a state, the current state by default, and returns the id. nil or `""` removes the name |
 | `undo_keep(id, keep)` | protects a state from pruning, or removes the protection |
-| `undo_diff(a, b)` | returns what differs from `a` to `b` (`b` defaults to the current state, `a` to the parent of `b`) as `{ from, to, same, project, tracks, devices, clips, notes, lanes, items }`. Each kind is `{ added, removed, changed }`, `project` is a list of fields, and `items` are lines such as `~ device synth on track Bass: cutoff` |
+| `undo_diff(a, b)` | returns what differs from `a` to `b` (`b` defaults to the current state, `a` to the parent of `b`) as `{ from, to, same, project, parts, devices, clips, notes, lanes, items }`. Each kind is `{ added, removed, changed }`, `project` is a list of fields, and `items` are lines such as `~ device synth on part Bass: cutoff` |
 | `undo_label(text)`, `undo_keys(text)` | set what makes the open step (the first label wins) and the keys typed, and the runtime sets them from the description of the key or the command |
 | `checkpoint_dir()` | the folder, or nil for a project with no file |
 | `checkpoint_write(name, id)` | writes a state (the current state by default) and names it. Returns `{ file, name, time, state }` |
@@ -249,6 +249,6 @@ drawing), `go(id)`, `travel(dir, amount, count)`, `mark_a(id)`,
 - A note that moves counts as removed and added. Notes in added or removed
   clips do not count.
 - The comparison by ear switches the full project, so it has no A/B of one
-  track and no crossfade at the switch.
+  part and no crossfade at the switch.
 - Vim has `:earlier 1f` (by file writes) and `:undolist`, and paw has neither, because the
   window does both jobs.

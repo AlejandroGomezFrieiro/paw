@@ -10,7 +10,7 @@
 --     export = function(path, opts) ... end,   -- optional: opts.args
 --   })
 --
--- `:import song.rpp` brings the file in (`opts.merge` is true: its tracks
+-- `:import song.rpp` brings the file in (`opts.merge` is true: its parts
 -- are added to the project), `:open song.rpp` and `:edit song.rpp` open it
 -- in place of the project (`opts.merge` false), `:export song.rpp` writes
 -- the project to it, and so does `:write song.rpp` for a format that is a

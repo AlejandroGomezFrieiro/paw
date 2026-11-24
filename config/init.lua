@@ -23,11 +23,11 @@ local plugins = home .. "/extensions"
 -- The plugins. Take a line out, or put `--` before it, to leave one out;
 -- each has a README in its directory saying what it adds and which keys.
 for _, name in ipairs({
-  "drums", -- drum tracks in one step, a grid of the kit's pieces (`\kn`; `:drums.track`)
+  "drums", -- drum parts in one step, a grid of the kit's pieces (`\kn`; `:drums.part`)
   "notation", -- a MIDI clip as staff notation, to read and edit (`\n` on a clip)
-  "utau", -- singing synthesis and the vocal editor (`\Vt` adds a vocal track)
+  "utau", -- singing synthesis and the vocal editor (`\Vt` adds a vocal part)
   "vinput", -- virtual inputs: a guitar heard as MIDI through gdi2m (`\i`)
-  "templates", -- tracks, groups and device chains saved under a name (`\Tl` makes one, `\Ts` saves)
+  "templates", -- parts, groups and device chains saved under a name (`\Tl` makes one, `\Ts` saves)
   "pattern", -- clips written as a line of pattern text (`\tt`)
   "sections", -- named sections of the song, and arranging by section (`\S…`)
   "musicops", -- humanize, strum, arpeggiate, scales and the project's key
@@ -42,7 +42,7 @@ for _, name in ipairs({
   paw.ext.load(plugins .. "/" .. name)
 end
 
--- Plugins that `:doctor` loads on a track of its own and plays a few notes
+-- Plugins that `:doctor` loads on a part of its own and plays a few notes
 -- on, to say whether sound comes out: name fragments, as `:device.add` takes.
 -- paw.opt.doctor_plugins = { "MT-PowerDrumKit", "Ugritone" }
 
@@ -53,8 +53,8 @@ end
 -- How things look and behave. These are the values the program starts with;
 -- change one and take the `--` away.
 -- paw.opt.zoom = 2              -- columns per beat in the terminal's arrange view
--- paw.opt.track_height = "auto" -- rows per track in the terminal; a number to fix it
--- paw.opt.header_width = "auto" -- columns for the terminal's track headers
+-- paw.opt.part_height = "auto" -- rows per part in the terminal; a number to fix it
+-- paw.opt.header_width = "auto" -- columns for the terminal's part headers
 -- paw.opt.termcolors = "auto"   -- "true" for 24-bit colour, "256", or "auto" to ask the terminal
 -- paw.opt.ascii = false         -- draw the terminal with plain ASCII characters only
 -- paw.opt.curve_glyphs = "sextant" -- curves in cells: "sextant" (connected), "braille" (dots) or "line"
@@ -73,17 +73,17 @@ end
 -- paw.ui.hl("Playhead", { bg = "#ff5555" })
 
 -- A command of your own. `ctx.args` holds what was typed after the name:
--- `:track.synth Lead cutoff=900`.
-paw.command("track.synth", function(ctx)
-  local track = paw.add_track({ name = ctx.args[1] or "Synth" })
-  track:add_device("synth", { wave = 1, cutoff = tonumber(ctx.args.cutoff) or 1800 })
-  track:add_device("delay", { mix = 0.2 })
-  paw.cursor.set_track(track)
-end, { desc = "Add a track with a synth and a delay: `track.synth Lead cutoff=900`" })
+-- `:part.synth Lead cutoff=900`.
+paw.command("part.synth", function(ctx)
+  local part = paw.add_part({ name = ctx.args[1] or "Synth" })
+  part:add_device("synth", { wave = 1, cutoff = tonumber(ctx.args.cutoff) or 1800 })
+  part:add_device("delay", { mix = 0.2 })
+  paw.cursor.set_part(part)
+end, { desc = "Add a part with a synth and a delay: `part.synth Lead cutoff=900`" })
 
--- A key of your own: `<Space>tn` (tracks, new) runs that command. The right-hand side is a
+-- A key of your own: `<Space>tn` (parts, new) runs that command. The right-hand side is a
 -- command line or a function.
-paw.keymap.set("<leader>tn", "track.synth", { desc = "Add a synth track" })
+paw.keymap.set("<leader>tn", "part.synth", { desc = "Add a synth part" })
 
 -- An event: react to what happens in the project.
 -- paw.on("project.saved", function(event) paw.notify("saved to " .. event.path) end)

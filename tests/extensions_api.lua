@@ -176,9 +176,9 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.ui.view("ownerview", { render = function(_, buf) buf:text(0, 0, "owned") end })
     paw.buftype("ownerbuf", { create = function() return {} end, render = function() end })
     paw.textbuf.kind("owned", { pattern = "^paw://owned$", read = function() return {} end, format = function() return {} end })
-    paw.track_kinds.define("ownedkind", { title = "Owned track" })
+    paw.part_kinds.define("ownedkind", { title = "Owned part" })
     paw.pick.sources:put("owned", { items = function() return {} end })
-    paw.query.field("track", "ownedness", function() return 1 end)
+    paw.query.field("part", "ownedness", function() return 1 end)
     paw.statusline.component("owned", function() return "O" end)
     paw.grep.source("owned", function(add) end)
     paw.ex.field("owned", { level = "note", type = "number", get = function() return 1 end })
@@ -187,7 +187,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.ui.layer("arrange", "header", "owned", 99, function() end)
     paw.frontend.bands:put("owned", function() return {} end)
     paw.ui.views:get("pianoroll").layer("owned", 99, function() end)
-    paw.on("track.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
+    paw.on("part.added", function() _G.owner_heard = (_G.owner_heard or 0) + 1 end)
     paw.option.define("owned_option", 7)
   ]]
   )
@@ -199,8 +199,8 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(provided("owner", "keys"), "<leader>Zo (n)", "its keys")
   eq(provided("owner", "views"), "ownerview", "its view")
   eq(provided("owner", "buftypes"), "ownerbuf", "its buffer type")
-  eq(provided("owner", "track_kinds"), "ownedkind", "its kind of track")
-  eq(provided("owner", "hooks"), "track.added", "its hook")
+  eq(provided("owner", "part_kinds"), "ownedkind", "its kind of part")
+  eq(provided("owner", "hooks"), "part.added", "its hook")
   eq(provided("owner", "options"), "owned_option", "its option")
   for _, kind in ipairs({
     "key_groups",
@@ -230,7 +230,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(shown:find("owns things", 1, true) ~= nil, true, "the description")
   eq(shown:find(":owner.go", 1, true) ~= nil, true, "and what it registered")
 
-  paw.add_track({ name = "heard" })
+  paw.add_part({ name = "heard" })
   paw.flush()
   eq(_G.owner_heard, 1, "its hook runs while it is loaded")
 
@@ -250,12 +250,12 @@ test("what an extension registers is its own, and unloading it takes all of it a
   eq(paw.ui.views:get("ownerbuf"), nil, "its buffer type's view")
   eq(paw.layout.types:get("ownerbuf"), nil, "its buffer type")
   eq(paw.textbuf.kinds:get("owned"), nil, "its text buffer kind")
-  eq(paw.track_kinds.kinds:get("ownedkind"), nil, "its kind of track")
+  eq(paw.part_kinds.kinds:get("ownedkind"), nil, "its kind of part")
   for _, item in ipairs(paw.frontend.menus.timeline) do
-    if item.track_kind == "ownedkind" then error("its kind is still in the menu") end
+    if item.part_kind == "ownedkind" then error("its kind is still in the menu") end
   end
   eq(paw.pick.sources:get("owned"), nil, "its picker source")
-  eq(paw.query.fields:get("track ownedness"), nil, "its query field")
+  eq(paw.query.fields:get("part ownedness"), nil, "its query field")
   eq(paw.statusline.components:get("owned"), nil, "its status line component")
   eq(paw.grep.sources:get("owned"), nil, "its grep source")
   for _, name in ipairs(paw.grep.order) do
@@ -272,7 +272,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     eq(layer.name ~= "owned", true, "its layer of the piano roll")
   end
   eq(package.loaded["owner.lib"], nil, "its modules are forgotten")
-  paw.add_track({ name = "unheard" })
+  paw.add_part({ name = "unheard" })
   paw.flush()
   eq(_G.owner_heard, 1, "its hook no longer runs")
 
@@ -353,8 +353,8 @@ test("an extension's pencil keys and insert keys work, show in the key bar by or
   eq(provided("pens", "pencil"), "gs (pencil) gz (pencil)", "it owns its pencil keys")
   eq(provided("pens", "insert"), "Q (insert mode)", "and its insert key")
 
-  local track = paw.add_track({ name = "Lead" })
-  local clip = track:add_clip({ name = "tune", start = 0, length = 4 })
+  local part = paw.add_part({ name = "Lead" })
+  local clip = part:add_clip({ name = "tune", start = 0, length = 4 })
   paw.ui.focus("arrange")
   T.keys("iQ<Esc>")
   paw.ui.show("pianoroll")
@@ -487,12 +487,12 @@ end)
     eq(provided("later", "hooks"), "later.ping", "and the hook")
     eq(provided("later", "timers"), "timer timer", "and both timers")
 
-    -- A device of its own on a track keeps it loaded, unless forced.
-    local t = paw.add_track({ name = "Uses it" })
+    -- A device of its own on a part keeps it loaded, unless forced.
+    local t = paw.add_part({ name = "Uses it" })
     local d = t:add_device("lua:laterfx")
     paw.flush()
     local ok, why = paw.ext.unload("later")
-    eq(ok, nil, "refused while a track holds its device")
+    eq(ok, nil, "refused while a part holds its device")
     eq(why, "lua:laterfx on Uses it: remove it first, or `:ext.unload! later` leaves it there", "and says where")
     eq(paw.ext.loaded.later ~= nil, true, "still loaded")
     paw.commands.exec("ext.unload! later")
@@ -502,7 +502,7 @@ end)
       "later unloaded: what it registered is gone; lua:laterfx on Uses it left there until removed",
       "and says what is left"
     )
-    eq(api.device_get(d.id).kind, "lua:laterfx", "the device stays on its track")
+    eq(api.device_get(d.id).kind, "lua:laterfx", "the device stays on its part")
     eq(offered("lua:laterfx"), false, "but is offered no more")
 
     eq(paw.commands.get("later.made"), nil, "the command made later is gone")
@@ -523,7 +523,7 @@ end)
     eq(offered("lua:laterfx"), true, "and its device")
     t:remove()
     paw.flush()
-    eq(paw.ext.unload("later"), true, "with no device on a track it unloads")
+    eq(paw.ext.unload("later"), true, "with no device on a part it unloads")
     _G.later_ticks, _G.later_timer, _G.later_fired = nil, nil, nil
   end
 )
@@ -564,7 +564,7 @@ paw.luadev.watch()
 -- (nil where the core has none). The registry keeps the entry at `prefix`
 -- and the name, then `suffix`.
 local registries = {
-  { reg = paw.pick.sources, core = "tracks", put = "paw.pick.sources:put(%q, { desc = 'mine', items = {} })" },
+  { reg = paw.pick.sources, core = "parts", put = "paw.pick.sources:put(%q, { desc = 'mine', items = {} })" },
   {
     reg = paw.statusline.components,
     core = "mode",
@@ -578,7 +578,7 @@ local registries = {
     put = "paw.buftype(%q, { create = function() return {} end, render = function() end })",
   },
   { reg = paw.textbuf.kinds, core = "history", put = "paw.textbuf.kind(%q, { read = function() return {} end })" },
-  { reg = paw.track_kinds.kinds, put = "paw.track_kinds.define(%q, { title = 'Mine' })" },
+  { reg = paw.part_kinds.kinds, put = "paw.part_kinds.define(%q, { title = 'Mine' })" },
   {
     reg = paw.clip_kinds.kinds,
     put = "paw.clip_kinds.define(%q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
@@ -597,9 +597,9 @@ local registries = {
     put = "paw.ex.field(%q, { level = 'note', type = 'number', get = function() return 1 end })",
   },
   { reg = paw.ex.views, put = "paw.ex.view(%q, { song = function(col) return col end })" },
-  { reg = paw.commands.completers, core = "tracks", put = "paw.commands.completers:put(%q, function() return {} end)" },
-  { reg = paw.trackcolumn.components, core = "fold", put = "paw.trackcolumn.add(%q, { render = function() end })" },
-  { reg = paw.trackcolumn.signs, core = "diagnostics", put = "paw.trackcolumn.sign(%q, { render = function() end })" },
+  { reg = paw.commands.completers, core = "parts", put = "paw.commands.completers:put(%q, function() return {} end)" },
+  { reg = paw.partcolumn.components, core = "fold", put = "paw.partcolumn.add(%q, { render = function() end })" },
+  { reg = paw.partcolumn.signs, core = "diagnostics", put = "paw.partcolumn.sign(%q, { render = function() end })" },
   { reg = paw.ruler.labels, core = "number", put = "paw.ruler.add(%q, { render = function() end })" },
   { reg = paw.insert.kinds, core = "m", put = "paw.insert.add(%q, { kind = 'midi', desc = 'Mine' })" },
   { reg = paw.grep.sources, put = "paw.grep.source(%q, function() end)" },

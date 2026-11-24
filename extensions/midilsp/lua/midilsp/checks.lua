@@ -37,7 +37,7 @@ local function lower_master(db)
   db = math.ceil(db * 10) / 10
   return {
     title = string.format("Lower the master by %.1f dB", db),
-    edit = { { uri = A.track(0), set = { volume = api.track_get(0, "volume") - db } } },
+    edit = { { uri = A.part(0), set = { volume = api.part_get(0, "volume") - db } } },
   }
 end
 

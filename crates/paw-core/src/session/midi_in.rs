@@ -1,4 +1,4 @@
-//! MIDI input: ports, the track that hears them and live notes.
+//! MIDI input: ports, the part that hears them and live notes.
 
 use std::collections::BTreeSet;
 
@@ -37,7 +37,7 @@ pub(crate) struct TransportView {
     pub closing: u32,
 }
 
-/// A control of MIDI input that tracks do not get, as a script names it:
+/// A control of MIDI input that parts do not get, as a script names it:
 /// a key (`note`) or a controller (`cc`), from the port of that name (every
 /// port without), on a `channel` from 1 to 16 (every channel without).
 #[derive(Clone, Debug, Deserialize)]
@@ -74,7 +74,7 @@ impl TryFrom<FilterRule> for Rule {
     }
 }
 
-/// MIDI ports, in and out, and the track the input is heard on.
+/// MIDI ports, in and out, and the part the input is heard on.
 #[derive(Default)]
 pub(super) struct MidiIo {
     /// MIDI input ports, open while a real audio device is.
@@ -93,7 +93,7 @@ pub(super) struct MidiIo {
     /// MIDI ports to list on the null backend, which opens none, so that
     /// scripts and tests can choose among them.
     pub test_ports: Vec<String>,
-    /// The controls of MIDI input that tracks do not get, by who set them
+    /// The controls of MIDI input that parts do not get, by who set them
     /// (step input, learn), and all of them together as the engine has them.
     pub filters: BTreeMap<String, Vec<Rule>>,
     pub filter: MidiFilter,
@@ -168,7 +168,7 @@ impl Session {
     }
 
     /// Make a MIDI port of this program's, for other programs to send to:
-    /// they see it as `paw: <name>`, and tracks choose it by `name` like
+    /// they see it as `paw: <name>`, and parts choose it by `name` like
     /// any other port. It is kept through engine restarts.
     pub(crate) fn midi_open_port(&mut self, name: &str) -> Result<()> {
         if name.is_empty() || name.contains('\0') {
@@ -215,7 +215,7 @@ impl Session {
         self.midi.test_ports = ports;
     }
 
-    /// The controls of MIDI input that tracks do not get, kept under `name`
+    /// The controls of MIDI input that parts do not get, kept under `name`
     /// beside those that other names keep; none removes them. Scripts still
     /// hear those controls, as `midi.in` events marked `filtered`.
     pub(crate) fn set_midi_filter(&mut self, name: &str, rules: Vec<FilterRule>) -> Result<()> {
@@ -372,24 +372,24 @@ impl Session {
         Ok(())
     }
 
-    /// Play a note on a track right now, outside the timeline.
-    pub(crate) fn live(&mut self, track: Id, event: EventKind) -> Result<()> {
+    /// Play a note on a part right now, outside the timeline.
+    pub(crate) fn live(&mut self, part: Id, event: EventKind) -> Result<()> {
         self.flush();
         let slot = *self
             .engine.map
-            .tracks
-            .get(&track)
-            .with_context(|| format!("no track {track}"))?;
-        self.engine.handle.send(Msg::Live { track: slot, event });
+            .parts
+            .get(&part)
+            .with_context(|| format!("no part {part}"))?;
+        self.engine.handle.send(Msg::Live { part: slot, event });
         Ok(())
     }
 
-    /// Play a note on a track now, with its attribute: what the track's
+    /// Play a note on a part now, with its attribute: what the part's
     /// attribute map sends for it goes first.
-    pub(crate) fn live_note(&mut self, track: Id, key: u8, vel: f32, attr: paw_types::Attr) -> Result<()> {
+    pub(crate) fn live_note(&mut self, part: Id, key: u8, vel: f32, attr: paw_types::Attr) -> Result<()> {
         let plan = self
             .doc.project
-            .track(track)
+            .part(part)
             .and_then(|t| t.attr_map.as_ref())
             .and_then(|m| m.plan().ok());
         let (before, ch, keep) = match &plan {
@@ -397,35 +397,35 @@ impl Session {
             None => (Vec::new(), None, true),
         };
         for event in before {
-            self.live(track, event)?;
+            self.live(part, event)?;
         }
         let attr = if keep { attr } else { paw_types::Attr::NONE };
         let ch = ch.unwrap_or(0);
-        self.live(track, EventKind::NoteOn { key, vel, ch, attr })
+        self.live(part, EventKind::NoteOn { key, vel, ch, attr })
     }
 
 
     /// Stop a note played with [`live_note`](Self::live_note), on every
-    /// channel the track's attribute map may have sent it to.
-    pub(crate) fn live_note_off(&mut self, track: Id, key: u8) -> Result<()> {
+    /// channel the part's attribute map may have sent it to.
+    pub(crate) fn live_note_off(&mut self, part: Id, key: u8) -> Result<()> {
         let channels = self
             .doc.project
-            .track(track)
+            .part(part)
             .and_then(|t| t.attr_map.as_ref())
             .and_then(|m| m.plan().ok())
             .map(|plan| plan.channels())
             .unwrap_or_default();
         for ch in channels {
-            self.live(track, EventKind::NoteOff { key, ch })?;
+            self.live(part, EventKind::NoteOff { key, ch })?;
         }
-        self.live(track, EventKind::NoteOff { key, ch: 0 })
+        self.live(part, EventKind::NoteOff { key, ch: 0 })
     }
 
-    /// Post-fader peak level of a track as linear `(left, right)`.
-    pub(crate) fn meter(&self, track: Id) -> (f32, f32) {
+    /// Post-fader peak level of a part as linear `(left, right)`.
+    pub(crate) fn meter(&self, part: Id) -> (f32, f32) {
         self.engine.map
-            .tracks
-            .get(&track)
+            .parts
+            .get(&part)
             .map(|slot| self.engine.handle.shared.meter(*slot))
             .unwrap_or((0.0, 0.0))
     }

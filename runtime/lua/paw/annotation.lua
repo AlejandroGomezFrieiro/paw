@@ -4,7 +4,7 @@
 -- document as diagnostics are, and drawn by the views that can place them.
 --
 --   paw.annotation.set("mixcheck", "paw://project#mix", {
---     { location = { uri = "paw://track/3" }, label = "-9.1 LUFS", kind = "loudness" },
+--     { location = { uri = "paw://part/3" }, label = "-9.1 LUFS", kind = "loudness" },
 --   })
 local api = paw.api
 local A = paw.address
@@ -57,13 +57,13 @@ function M.get(uri, exact)
   return out
 end
 
--- Where they are drawn: a track's label on its mixer strip, over the peak
+-- Where they are drawn: a part's label on its mixer strip, over the peak
 -- readout (the meter still holds the peak); a
 -- device's after its name in the device panel; stretches of time on the
 -- arrange view's ruler.
 paw.ui.layer("mixer", "strip_foot", "annotations", 40, function(c)
   if not next(store) then return end
-  local list = M.get(A.track(c.track), true)
+  local list = M.get(A.part(c.part), true)
   if #list > 0 and c.width > 1 then
     local text = list[1].label
     if api.str_width(text) > c.width then text = paw.util.fit(text, c.width) end

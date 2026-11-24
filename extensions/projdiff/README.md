@@ -2,7 +2,7 @@
 
 The projdiff extension shows the changes between two versions of a project, and it merges two
 versions that changed separately. A project is a folder of files, and
-projdiff reads the whole folder as paw opens it. It compares what the project holds (tracks, devices, clips, notes, automation,
+projdiff reads the whole folder as paw opens it. It compares what the project holds (parts, devices, clips, notes, automation,
 the tempo map and markers) and not lines of text.
 
 ```lua
@@ -12,18 +12,18 @@ paw.ext.load("extensions/projdiff")   -- or put the directory in ~/.config/paw/e
 In the picture, `:Pdiff` lists the changes, `]c` and `za` go through them,
 and `Enter` goes to one:
 
-![The demo song saved. Then its melody moved, three notes changed, the lead renamed and the bass turned down. A list shows the six changes by track, clip and note](images/tui-projdiff.gif)
+![The demo song saved. Then its melody moved, three notes changed, the lead renamed and the bass turned down. A list shows the six changes by part, clip and note](images/tui-projdiff.gif)
 
 ## Try it
 
 1. Type `:ext.load projdiff`. Open a saved project.
-2. Rename a track, and change the velocity of a note.
+2. Rename a part, and change the velocity of a note.
 3. Type `:Pdiff`, and a window opens over the project with two changes, by
-   track, clip and note:
+   part, clip and note:
 
    ```
    saved → now: 2 changes
-   ▾ ~ track 1 "Lead" -> "Lead 2"
+   ▾ ~ part 1 "Lead" -> "Lead 2"
        ~ name: "Lead" -> "Lead 2"
    ...
    ```
@@ -59,7 +59,7 @@ the window in that subproject, as `Enter` in the window of `:Pdiff` does.
 ### How to settle the conflicts of a git merge
 
 git merges a project folder file by file. When both branches changed the
-same file, for example the same clip or the same track, git stops with
+same file, for example the same clip or the same part, git stops with
 conflicts in those files.
 
 1. Open the project, and type `:Pmerge`, or press `<Space>gm`. If paw can't
@@ -94,7 +94,7 @@ is saved, paw writes the snapshot in the project folder, in
 session only.
 
 To read a git revision, projdiff asks git for the files that paw writes in
-the project folder at that revision (`project.toml`, `tracks/`, `nests/` and
+the project folder at that revision (`project.toml`, `parts/`, `nests/` and
 the others), and paw puts the project together from them. The media files
 come from the folder on the disk.
 
@@ -106,17 +106,17 @@ come from the folder on the disk.
 | `za` `zo` `zc` | open and close a fold, and so do `Tab` and a click on its arrow |
 | `zR` `zM` | open and close all folds |
 | `]c` `[c` | the next and the previous change |
-| `Enter` | closes the window and puts the cursor on the change (the track, the clip, the note, the parameter, the lane, the marker or the tempo map), inside its subproject when the change is in one |
+| `Enter` | closes the window and puts the cursor on the change (the part, the clip, the note, the parameter, the lane, the marker or the tempo map), inside its subproject when the change is in one |
 | `Q`, `gq` | sends every change to the quickfix list |
 | `q` | closes |
 
 A short diff opens with no folds closed, and a long diff closes the folds
-below the tracks and clips.
+below the parts and clips.
 
 ### What a diff names
 
-- tracks added, removed, renamed and moved, and the fader, pan, routing,
-  sends and clips off the timeline (the slots of the clip launcher) of a track
+- parts added, removed, renamed and moved, and the fader, pan, routing,
+  sends and clips off the timeline (the slots of the clip launcher) of a part
 - devices added and removed, their parameters, bypass, offline state,
   side-chain, and the saved state of a plugin
 - clips added, removed, moved, resized and renamed, and their fades,
@@ -127,24 +127,24 @@ below the tracks and clips.
 - the tempo and the time signature, and their changes
 - markers and regions
 - subprojects added, removed and renamed, their length, tempo, meter and
-  `meta`, and the changes to their tracks
+  `meta`, and the changes to their parts
 - the rest of the `meta` of the project
 
 A change inside a subproject shows under the name of the subproject, with
-its tracks, clips and notes below that name, as the changes of the song do. A
+its parts, clips and notes below that name, as the changes of the song do. A
 subproject that another subproject places shows under the name of that
 subproject, so a change two levels down shows under both names:
 
 ```
 ~ subproject 12 "Bridge"
   ~ subproject 14 "Verse"
-    ~ track 17 "Strings"
+    ~ part 17 "Strings"
       ~ clip 19 "pad"
         ~ notes +1
 ```
 
 A subproject that the song places shows at the top level, also when another
-subproject places it too. The master track of a subproject shows as `master`
+subproject places it too. The master part of a subproject shows as `master`
 under its name.
 
 `Enter` on a change inside a subproject puts the window in that subproject,
@@ -158,15 +158,15 @@ extension does not need to know about the field.
 ### Merges
 
 A merge keeps the changes of both sides when they are to different
-things, for example different tracks, different clips, different notes of
+things, for example different parts, different clips, different notes of
 one clip, different parameters of one device, or tempo changes at different
 beats.
 
-- When both sides added items with the same id (a subproject, a track, a
+- When both sides added items with the same id (a subproject, a part, a
   clip, a note, a marker), the merge keeps both and gives the second item a new
   number. Whatever points at that item (outputs, sends, side-chains,
   automation, the clips that place a subproject) changes with it. A subproject
-  that gets a new number gives new numbers to its tracks too, and when both
+  that gets a new number gives new numbers to its parts too, and when both
   subprojects have the same name, the second one gets another folder name
   when you save.
 - A conflict is the same value changed in two ways, or changed on one side
@@ -192,9 +192,9 @@ window of `:Pdiff`, also two levels down:
 ```
 song: 2 conflicts
 subproject 2 "Bridge"
-  track 6 "Keys" › volume
+  part 6 "Keys" › volume
   subproject 4 "Verse"
-    track 8 "Strings" › volume
+    part 8 "Strings" › volume
 ```
 
 | Keys | Effect |
@@ -254,7 +254,7 @@ paw.api.project_file_text(merged)                      -- the text of the file, 
 ## About
 
 A project is a folder of small files, so git shows and merges a change to
-one track or one clip on its own. paw writes a `.gitattributes` file that
+one part or one clip on its own. paw writes a `.gitattributes` file that
 lets `git diff` show a clip file as notes (see
 [Project files](../../docs/reference/project-files.md)). git still can't
 tell what two changes to one file mean. projdiff reads the whole folder, as

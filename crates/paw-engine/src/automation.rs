@@ -1,4 +1,4 @@
-//! Automation as the audio thread sees it: per track, the lanes that are on,
+//! Automation as the audio thread sees it: per part, the lanes that are on,
 //! each a list of points in the target's own units.
 
 use crate::slot::DeviceSlot;
@@ -90,7 +90,7 @@ impl StateLane {
     }
 }
 
-/// Every active lane of one track. Built on the main thread and handed to the
+/// Every active lane of one part. Built on the main thread and handed to the
 /// engine whole, like a [`ClipSet`](crate::ClipSet).
 #[derive(Default)]
 pub struct Automation {

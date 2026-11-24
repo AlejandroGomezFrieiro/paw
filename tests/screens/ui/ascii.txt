@@ -13,4 +13,4 @@
    | Master   |
    | .... 0.0 |
  NOR  # 1.1.00                                   * untitled
- Space Space play . o track . a device . i insert . ? keys
+ Space Space play . o part . a device . i insert . ? keys

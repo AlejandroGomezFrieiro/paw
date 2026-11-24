@@ -113,24 +113,24 @@ fn map_custom_files(clip: &mut Clip, f: &mut impl FnMut(&Path) -> Option<PathBuf
 }
 
 /// Change the file of every audio clip, of every other take of one, and of
-/// every frozen track and block (see `crate::freeze`), for which `f` gives
+/// every frozen part and block (see `crate::freeze`), for which `f` gives
 /// a new one.
-/// Returns how many clips and tracks changed.
+/// Returns how many clips and parts changed.
 pub(super) fn map_files(
     project: &mut Project,
     mut f: impl FnMut(&Path) -> Option<PathBuf>,
 ) -> usize {
     let mut changed = 0;
-    for track in project
-        .tracks
+    for part in project
+        .parts
         .iter_mut()
         .chain(std::iter::once(&mut project.master))
     {
-        if freeze::frozen_file(track).is_some_and(|file| f(&file).is_some()) {
-            freeze::map_frozen_file(Arc::make_mut(track), &mut f);
+        if freeze::frozen_file(part).is_some_and(|file| f(&file).is_some()) {
+            freeze::map_frozen_file(Arc::make_mut(part), &mut f);
             changed += 1;
         }
-        let new: Vec<(Option<PathBuf>, bool)> = track
+        let new: Vec<(Option<PathBuf>, bool)> = part
             .clips
             .iter()
             .map(|c| {
@@ -147,8 +147,8 @@ pub(super) fn map_files(
         if new.iter().all(|(own, others)| own.is_none() && !others) {
             continue;
         }
-        let track = Arc::make_mut(track);
-        for (clip, (path, others)) in track.clips.iter_mut().zip(new) {
+        let part = Arc::make_mut(part);
+        for (clip, (path, others)) in part.clips.iter_mut().zip(new) {
             if path.is_none() && !others {
                 continue;
             }
@@ -171,10 +171,10 @@ pub(super) fn map_files(
 
 /// Every file the project's clips use, once each: the takes that are not
 /// playing included, the media and the audio sound of custom clips, and the
-/// files frozen tracks and blocks play.
+/// files frozen parts and blocks play.
 pub(crate) fn files(project: &Project) -> BTreeSet<PathBuf> {
     project
-        .all_tracks()
+        .all_parts()
         .flat_map(|t| &t.clips)
         .flat_map(|c| {
             let own = match &c.content {
@@ -186,7 +186,7 @@ pub(crate) fn files(project: &Project) -> BTreeSet<PathBuf> {
                 .chain(custom_files(c).into_iter().map(|(file, _)| file))
                 .chain(freeze::block_file(c))
         })
-        .chain(project.all_tracks().filter_map(|t| freeze::frozen_file(t)))
+        .chain(project.all_parts().filter_map(|t| freeze::frozen_file(t)))
         .collect()
 }
 
@@ -195,7 +195,7 @@ pub(crate) fn files(project: &Project) -> BTreeSet<PathBuf> {
 /// collected.
 pub(crate) fn derived_files(project: &Project) -> BTreeSet<PathBuf> {
     project
-        .all_tracks()
+        .all_parts()
         .flat_map(|t| &t.clips)
         .flat_map(|c| custom_files(c))
         .filter_map(|(file, derived)| derived.then_some(file))
@@ -498,7 +498,7 @@ impl Session {
             let start = map.seconds(t.loop_start);
             windows.push((start, start + AHEAD));
         }
-        for clip in self.doc.project.all_tracks().flat_map(|t| &t.clips) {
+        for clip in self.doc.project.all_parts().flat_map(|t| &t.clips) {
             let ClipContent::Audio { file, offset, .. } = &clip.content else {
                 continue;
             };

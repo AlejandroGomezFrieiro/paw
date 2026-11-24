@@ -98,7 +98,7 @@ local stale_at, waiting
 
 local function song_notes()
   local n = 0
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     for _, c in ipairs(api.clip_list(id)) do
       n = n + (c.note_count or 0)
     end
@@ -136,14 +136,14 @@ function view.key_name(fifths, stored, beat)
   return (MAJORS[fifths] or "C") .. " major"
 end
 
---- The staves a track's clips are all written on, where they would choose
+--- The staves a part's clips are all written on, where they would choose
 --- different ones (`notation.parts`, which puts them on one staff in a
---- score), by track.
-view.track_clefs = {}
+--- score), by part.
+view.part_clefs = {}
 
---- The clef a track asks for, or nil to choose by the notes.
-function view.track_clef(track_id)
-  local ok, t = pcall(api.track_get, track_id)
+--- The clef a part asks for, or nil to choose by the notes.
+function view.part_clef(part_id)
+  local ok, t = pcall(api.part_get, part_id)
   local meta = ok and t.meta and t.meta.notation
   return type(meta) == "table" and meta.clef or nil
 end
@@ -270,11 +270,9 @@ function view.layout_opts(c, own)
   own = own or view.own(c)
   local settings = score.settings(own.settings)
   settings.grid = (own.settings or {}).grid or paw.opt.notation_grid
-  -- The track's clef, else the staves the clip was written on in notation.
+  -- The part's clef, else the staves the clip was written on in notation.
   local staves = type(own.staves) == "table" and own.staves or nil
-  local clef = view.track_clef(c.track)
-    or view.track_clefs[c.track]
-    or (staves and (#staves == 2 and "grand" or staves[1]))
+  local clef = view.part_clef(c.part) or view.part_clefs[c.part] or (staves and (#staves == 2 and "grand" or staves[1]))
   return {
     length = c.length,
     offset = c.start,
@@ -408,7 +406,7 @@ local function make_layout(self)
     opts.fifths,
     paw.opt.notation_grid,
     tostring(opts.bars[1] and opts.bars[1].number),
-    serial(view.track_meta(c.track)),
+    serial(view.part_meta(c.part)),
   }, ":")
   if self.cache and self.cache.score == sc and self.cache.stamp == stamp then return self.cache.layout end
   local layout = L.layout(sc, {
@@ -495,9 +493,9 @@ function view.notes_of(c)
   return hit and hit.notes or api.clip_notes(c.id)
 end
 
---- What the track keeps for notation (its clef, its tablature).
-function view.track_meta(track_id)
-  local ok, t = pcall(api.track_get, track_id)
+--- What the part keeps for notation (its clef, its tablature).
+function view.part_meta(part_id)
+  local ok, t = pcall(api.part_get, part_id)
   return ok and t.meta and t.meta.notation or nil
 end
 
@@ -598,7 +596,7 @@ function view:note()
   if note then return note, written.index, written end
 end
 
---- What `K` shows before the track: the note under the cursor as it is
+--- What `K` shows before the part: the note under the cursor as it is
 --- written, and the MIDI note it is.
 function view:describe()
   local note, _, written = self:note()
@@ -669,13 +667,13 @@ function view:set(step, beat)
   api.ui_redraw()
 end
 
---- Sound a pitch on the clip's track.
+--- Sound a pitch on the clip's part.
 function view:audition(pitch)
   -- A controller plays its own sound.
   if self.quiet then return end
   local clip = self:clip()
   pitch = pitch or self:cursor_pitch()
-  if clip and pitch >= 0 and pitch <= 127 then clip:track():play_note(pitch, paw.opt.velocity, 220) end
+  if clip and pitch >= 0 and pitch <= 127 then clip:part():play_note(pitch, paw.opt.velocity, 220) end
 end
 
 --- Move the cursor by beats and staff positions.
@@ -783,7 +781,7 @@ end
 function view.store(clip, before, sc)
   sc._frame = nil
   local c = clip:get()
-  local named = midi.sync(clip.id, before, sc, view.own(c), view.track_clef(c.track))
+  local named = midi.sync(clip.id, before, sc, view.own(c), view.part_clef(c.part))
   local f = D.frame(sc)
   local last = 0
   for i, m in ipairs(sc.measures) do
@@ -1049,7 +1047,7 @@ function view.add_sounding(sc, note, t, len, staff)
   end
 end
 
---- A single staff whose clef the track leaves to the notes becomes a
+--- A single staff whose clef the part leaves to the notes becomes a
 --- grand staff when a note is entered more than three ledger lines outside
 --- it (a bass under a melody, a melody over a bass), from the cursor put
 --- there. A note that `continues` a line entered on the staff (its octave
@@ -1059,7 +1057,7 @@ end
 function view:make_room(sc, pitch, continues)
   if #sc.staves ~= 1 or continues then return end
   local clip = self:clip()
-  if not clip or view.track_clef(clip:get().track) then return end
+  if not clip or view.part_clef(clip:get().part) then return end
   local clef = sc.staves[1].clef
   if (clef == "treble" and pitch < 53) or (clef == "bass" and pitch > 67) then
     local upper = clef == "treble" and sc.staves[1] or { id = D.id(sc, "s"), clef = "treble" }

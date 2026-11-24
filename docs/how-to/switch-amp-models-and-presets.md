@@ -8,7 +8,7 @@ the plugin. The examples use TONE3000 and Soundshed Guitar. The same steps
 work for Neural Amp Modeler and the other plugins that
 [plugstate](../../extensions/plugstate/README.md) knows.
 
-The steps assume a guitar track with the amp plugin on it, as
+The steps assume a guitar part with the amp plugin on it, as
 [How to record a guitar or a bass](record-a-guitar-or-a-bass.md) shows.
 
 ## Load the extension
@@ -18,7 +18,7 @@ each start, see [How to load an extension](load-an-extension.md).
 
 ## Step through the presets
 
-1. Put the cursor on the guitar track, and press `<Space>dd`. The device
+1. Put the cursor on the guitar part, and press `<Space>dd`. The device
    panel opens.
 2. Press `]m`. The plugin loads the next preset, and the message line
    shows its name.

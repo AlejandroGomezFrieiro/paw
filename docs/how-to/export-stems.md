@@ -5,9 +5,9 @@ word is in [Export](../reference/export.md#stems).
 
 ## One file for each group
 
-1. Put the tracks of each part into a group (`<Space>tg` on the selected tracks).
+1. Put the parts of each stem into a group (`<Space>tg` on the selected parts).
 2. Type `:export stems`, or press `<Space>es`. paw shows the plan, with
-   each file and the tracks that it holds.
+   each file and the parts that it holds.
 3. Press `y` or `Enter` to export. The files go into the folder
    `renders/stems` of the project, for example `song/renders/stems`.
 
@@ -26,12 +26,12 @@ the mix and measures it. Then it gives each stem the gain that brings the
 mix to that level, so the stems still add up to the mix. The plan says so
 in a note.
 
-## One file for each track
+## One file for each part
 
-1. Type `:export tracks`, or press `<Space>et`.
+1. Type `:export parts`, or press `<Space>et`.
 2. Press `y` or `Enter`.
 
-Each file has the track with its devices, fader and pan, but not its
+Each file has the part with its devices, fader and pan, but not its
 groups or the master.
 
 ## One group

@@ -1,6 +1,6 @@
 -- Chords that lead somewhere: dominants, their substitutes and approaches,
 -- suspensions and cadences. Each is written from the cursor up to the next
--- chord the song has (on any pitched track), voiced in the track's range
+-- chord the song has (on any pitched part), voiced in the part's range
 -- and led smoothly from what this clip plays before.
 local S = require("snippets")
 local H = paw.harmony

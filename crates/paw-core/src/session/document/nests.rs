@@ -12,7 +12,7 @@ use serde_json::{Map, Value, json};
 use super::Document;
 use super::values::{de, de_meta, holds};
 use crate::model::{
-    Clip, ClipContent, DeviceInst, Id, Lane, Nest, NestId, NestMeter, NestPlay, NestTempo, Target, Track,
+    Clip, ClipContent, DeviceInst, Id, Lane, Nest, NestId, NestMeter, NestPlay, NestTempo, Target, Part,
 };
 
 /// The length of a nest made with none: 8 bars of 4/4.
@@ -73,7 +73,7 @@ impl NestField {
 }
 
 impl Document {
-    /// Make a nest with its master track and no other track. Returns its id.
+    /// Make a nest with its master part and no other part. Returns its id.
     pub(crate) fn nest_add(&mut self, opts: NestOpts) -> Result<NestId> {
         let id = NestId(self.new_id());
         let master = self.new_id();
@@ -93,11 +93,11 @@ impl Document {
             source: None,
             origin: None,
         };
-        let mut track = Track::new(master);
-        track.name = "Master".into();
-        track.nest = Some(id);
+        let mut part = Part::new(master);
+        part.name = "Master".into();
+        part.nest = Some(id);
         let mut candidate = self.project.clone();
-        candidate.tracks.push(Arc::new(track));
+        candidate.parts.push(Arc::new(part));
         candidate.nests.insert(id, Arc::new(nest));
         crate::model::check_nest(&candidate, id, &candidate.nests[&id])?;
         self.edit(|p| {
@@ -106,28 +106,28 @@ impl Document {
         })
     }
 
-    /// A nest as a table: its fields, `tracks` (its tracks in order, without
+    /// A nest as a table: its fields, `parts` (its parts in order, without
     /// the master) and `used` (whether the song plays it).
     pub(crate) fn nest_view(&self, id: NestId) -> Result<Value> {
         let nest = self
             .project
             .nest(id)
             .with_context(|| format!("no subproject {id}"))?;
-        let tracks: Vec<Id> = self
+        let parts: Vec<Id> = self
             .project
-            .nest_tracks(id)
+            .nest_parts(id)
             .map(|t| t.id)
             .filter(|t| *t != nest.master)
             .collect();
         let mut view = serde_json::to_value(&**nest)?;
         let map = view.as_object_mut().context("a subproject")?;
-        map.insert("tracks".into(), json!(tracks));
+        map.insert("parts".into(), json!(parts));
         map.insert("used".into(), json!(self.project.nests_in_use().contains(&id)));
         map.entry("meta").or_insert_with(|| json!({}));
         Ok(view)
     }
 
-    /// One field of a nest's own (not `tracks` or `used`): quicker than
+    /// One field of a nest's own (not `parts` or `used`): quicker than
     /// [`Document::nest_view`], which looks at every clip.
     pub(crate) fn nest_field(&self, id: NestId, key: &str) -> Result<Value> {
         let nest = self
@@ -189,7 +189,7 @@ fn same_instance(a: &Clip, b: &Clip) -> bool {
 
 impl Document {
     /// Make the instance of block `clip` a nest of its own (FL Studio's
-    /// "make unique"): a copy of its nest, its tracks, devices, lanes and
+    /// "make unique"): a copy of its nest, its parts, devices, lanes and
     /// clips with new ids, named `Ballad 2`. The block, and the stems of
     /// the same instance, then place the copy. One undo step. Returns the
     /// copy's id.
@@ -204,7 +204,7 @@ impl Document {
         // The clips of this instance, and whether another instance plays it.
         let mut ours = Vec::new();
         let mut others = 0;
-        for t in p.all_tracks() {
+        for t in p.all_parts() {
             for c in t.clips.iter().chain(&t.cues) {
                 if matches!(&c.content, ClipContent::Nest { nest, .. } if *nest == old) {
                     if same_instance(c, &block) {
@@ -223,15 +223,15 @@ impl Document {
             .map(|n| format!("{} {n}", held.name))
             .find(|n| !names.contains(n.as_str()))
             .expect("a free name");
-        // New ids for the tracks first: their routes point at each other.
+        // New ids for the parts first: their routes point at each other.
         let id = NestId(self.new_id());
-        let sources: Vec<Arc<Track>> = self.project.nest_tracks(old).cloned().collect();
+        let sources: Vec<Arc<Part>> = self.project.nest_parts(old).cloned().collect();
         let mut ids: HashMap<Id, Id> = HashMap::new();
         for t in &sources {
             let made = self.new_id();
             ids.insert(t.id, made);
         }
-        let copies: Vec<Arc<Track>> = sources.iter().map(|t| Arc::new(self.copy_track(t, id, &ids))).collect();
+        let copies: Vec<Arc<Part>> = sources.iter().map(|t| Arc::new(self.copy_part(t, id, &ids))).collect();
         let nest = Nest {
             id,
             name,
@@ -241,9 +241,9 @@ impl Document {
             ..(*held).clone()
         };
         let mut candidate = self.project.clone();
-        candidate.tracks.extend(copies);
+        candidate.parts.extend(copies);
         candidate.nests.insert(id, Arc::new(nest));
-        for t in candidate.tracks.iter_mut() {
+        for t in candidate.parts.iter_mut() {
             if !t.clips.iter().chain(&t.cues).any(|c| ours.contains(&c.id)) {
                 continue;
             }
@@ -251,8 +251,8 @@ impl Document {
             for c in t.clips.iter_mut().chain(t.cues.iter_mut()).filter(|c| ours.contains(&c.id)) {
                 if let ClipContent::Nest { nest, play, .. } = &mut Arc::make_mut(c).content {
                     *nest = id;
-                    if let NestPlay::Track(track) = play {
-                        *track = ids.get(track).copied().unwrap_or(*track);
+                    if let NestPlay::Part(part) = play {
+                        *part = ids.get(part).copied().unwrap_or(*part);
                     }
                 }
             }
@@ -264,11 +264,11 @@ impl Document {
         })
     }
 
-    /// Copies of a track's devices and lanes, with new ids: a lane of a
+    /// Copies of a part's devices and lanes, with new ids: a lane of a
     /// device follows its copy, and the side-chains and output pairs of the
-    /// devices go to the tracks `tracks` names (by old id), else stay.
-    pub(crate) fn copy_devices_and_lanes(&mut self, t: &Track, tracks: &HashMap<Id, Id>) -> (Vec<Arc<DeviceInst>>, Vec<Arc<Lane>>) {
-        let track = |id: Id| tracks.get(&id).copied().unwrap_or(id);
+    /// devices go to the parts `parts` names (by old id), else stay.
+    pub(crate) fn copy_devices_and_lanes(&mut self, t: &Part, parts: &HashMap<Id, Id>) -> (Vec<Arc<DeviceInst>>, Vec<Arc<Lane>>) {
+        let part = |id: Id| parts.get(&id).copied().unwrap_or(id);
         let mut ids: HashMap<Id, Id> = HashMap::new();
         let devices = t
             .devices
@@ -276,8 +276,8 @@ impl Document {
             .map(|d| {
                 let made = DeviceInst {
                     id: self.new_id(),
-                    sidechain: d.sidechain.map(track),
-                    outputs: d.outputs.iter().map(|(k, o)| (*k, track(*o))).collect(),
+                    sidechain: d.sidechain.map(part),
+                    outputs: d.outputs.iter().map(|(k, o)| (*k, part(*o))).collect(),
                     ..(**d).clone()
                 };
                 ids.insert(d.id, made.id);
@@ -300,10 +300,10 @@ impl Document {
         (devices, lanes)
     }
 
-    /// A copy of a nest's track for the nest `nest`, with the new track ids
+    /// A copy of a nest's part for the nest `nest`, with the new part ids
     /// `ids` (by old id), and new ids for its devices, lanes and clips. Its
-    /// routes to tracks of the nest follow the copies.
-    fn copy_track(&mut self, t: &Track, nest: NestId, ids: &HashMap<Id, Id>) -> Track {
+    /// routes to parts of the nest follow the copies.
+    fn copy_part(&mut self, t: &Part, nest: NestId, ids: &HashMap<Id, Id>) -> Part {
         let map = |id: Id| ids.get(&id).copied().unwrap_or(id);
         let mut copy = t.clone();
         copy.id = map(t.id);

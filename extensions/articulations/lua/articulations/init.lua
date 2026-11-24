@@ -6,13 +6,13 @@
 -- M2-123 code): it plays with no extension loaded. A map (`.art.toml`,
 -- see `articulations.maps`) gives the codes names, tags and colours, says
 -- the instrument's range and keyswitch rows, and how a MIDI 1.0 instrument
--- is told (`out`), which binding compiles into the track's `attr_map` for
+-- is told (`out`), which binding compiles into the part's `attr_map` for
 -- the core to send.
 --
 --   local art = require("articulations")
---   art.bind(track, "violin-section")       -- find the map, keep it on the track, compile attr_map
+--   art.bind(part, "violin-section")       -- find the map, keep it on the part, compile attr_map
 --   art.set({ { clip = id, place = 3 } }, "pizzicato")   -- one undo step
---   art.of(track, note)                     -- the map's articulation a note plays, through M2-123's fallback
+--   art.of(part, note)                     -- the map's articulation a note plays, through M2-123's fallback
 --   art.attr_of(note)                       -- { type, data } or nil
 local api = paw.api
 local util = paw.util
@@ -20,7 +20,7 @@ local m2 = require("articulations.m2")
 local maps = require("articulations.maps")
 
 local M = { m2 = m2, maps = maps, toml = require("articulations.toml") }
---- The event `articulations.bound`: a track got an articulation map, or lost it.
+--- The event `articulations.bound`: a part got an articulation map, or lost it.
 M.bound = paw.events.event("articulations.bound")
 
 -- Notes' attributes ----------------------------------------------------------------
@@ -56,36 +56,36 @@ function M.same(a, b)
   return a.type == b.type and (a.data or 0) == (b.data or 0)
 end
 
--- Tracks ---------------------------------------------------------------------------
+-- Parts ---------------------------------------------------------------------------
 
-local function track_of(which)
+local function part_of(which)
   if type(which) == "table" then return which.id or which end
   return which
 end
 
---- What a track keeps: `{ map, file, hash, default, pen, names }`, or nil.
-function M.info(track)
-  local ok, t = pcall(api.track_get, track_of(track))
+--- What a part keeps: `{ map, file, hash, default, pen, names }`, or nil.
+function M.info(part)
+  local ok, t = pcall(api.part_get, part_of(part))
   local info = ok and type(t.meta) == "table" and t.meta.articulations
   return type(info) == "table" and info or nil
 end
 
-local function keep(track, fn)
-  local id = track_of(track)
-  local meta = util.merge(api.track_get(id, "meta") or {}, {})
+local function keep(part, fn)
+  local id = part_of(part)
+  local meta = util.merge(api.part_get(id, "meta") or {}, {})
   local info = util.merge(type(meta.articulations) == "table" and meta.articulations or {}, {})
   fn(info)
   meta.articulations = next(info) and info or nil
   -- An empty table would cross over as a list; one key keeps it a table.
   if next(meta) == nil then meta = { articulations_was = true } end
-  api.track_set(id, "meta", meta)
+  api.part_set(id, "meta", meta)
 end
 M.keep = keep
 
---- The map a track is bound to, or nil (and why, when its file is gone).
---- With the track's keyswitch shift (`:art.shift`) applied.
-function M.map_of(track)
-  local info = M.info(track)
+--- The map a part is bound to, or nil (and why, when its file is gone).
+--- With the part's keyswitch shift (`:art.shift`) applied.
+function M.map_of(part)
+  local info = M.info(part)
   if not info or not info.map then return nil end
   local map, err
   if info.file then
@@ -114,11 +114,11 @@ function M.compile(map, default)
   return { send = map.send, chase = map.chase, default = d and d.code or nil, arts = arts, delay = map.delay }
 end
 
---- Hand the core a track's downgrade map (nil takes it away). A core that
+--- Hand the core a part's downgrade map (nil takes it away). A core that
 --- does not keep `attr_map` yet gets it kept with the binding instead.
-function M.set_attr_map(track, attr_map)
-  local id = track_of(track)
-  local ok = pcall(api.track_set, id, "attr_map", attr_map)
+function M.set_attr_map(part, attr_map)
+  local id = part_of(part)
+  local ok = pcall(api.part_set, id, "attr_map", attr_map)
   if ok then
     keep(id, function(info) info.attr_map = nil end)
   else
@@ -126,23 +126,23 @@ function M.set_attr_map(track, attr_map)
   end
 end
 
---- The downgrade map the track has.
-function M.attr_map(track)
-  local ok, t = pcall(api.track_get, track_of(track))
+--- The downgrade map the part has.
+function M.attr_map(part)
+  local ok, t = pcall(api.part_get, part_of(part))
   if ok and type(t.attr_map) == "table" then return t.attr_map end
-  local info = M.info(track)
+  local info = M.info(part)
   return info and info.attr_map
 end
 
---- Bind a map to a track (by id, name or file; nil for the one whose
---- `match` names a device of the track). Returns the map.
-function M.bind(track, which)
-  local id = track_of(track)
+--- Bind a map to a part (by id, name or file; nil for the one whose
+--- `match` names a device of the part). Returns the map.
+function M.bind(part, which)
+  local id = part_of(part)
   local map, err
   if which == nil or which == "" then
     map = maps.matching(id)[1]
     if not map then
-      error("no map names a device of this track: name one (`:art.map violin-section`), or `:art.maps`", 0)
+      error("no map names a device of this part: name one (`:art.map violin-section`), or `:art.maps`", 0)
     end
   else
     map, err = maps.find(which)
@@ -166,17 +166,17 @@ function M.bind(track, which)
     info.shift = shift
   end)
   M.set_attr_map(id, M.compile(played, default))
-  paw.emit(M.bound, { track = id, map = map.id })
+  paw.emit(M.bound, { part = id, map = map.id })
   return map
 end
 
---- Move the keyswitches of a track's map by `shift` keys (0: as the map
+--- Move the keyswitches of a part's map by `shift` keys (0: as the map
 --- says), for an instrument whose keyswitch area was moved. Returns the
 --- moved map, or fails with why.
-function M.set_shift(track, shift)
-  local id = track_of(track)
+function M.set_shift(part, shift)
+  local id = part_of(part)
   local info = M.info(id)
-  if not info or not info.map then error("the track has no articulation map: :art.map", 0) end
+  if not info or not info.map then error("the part has no articulation map: :art.map", 0) end
   local map, err = maps.load(info.file or "", info.map)
   if not map then
     map, err = maps.find(info.map)
@@ -192,15 +192,15 @@ function M.set_shift(track, shift)
 end
 
 --- Take the binding away: the notes keep their attributes.
-function M.unbind(track)
-  local id = track_of(track)
-  pcall(api.track_set, id, "attr_map", nil)
+function M.unbind(part)
+  local id = part_of(part)
+  pcall(api.part_set, id, "attr_map", nil)
   keep(id, function(info)
     for k in pairs(info) do
       info[k] = nil
     end
   end)
-  paw.emit(M.bound, { track = id })
+  paw.emit(M.bound, { part = id })
 end
 
 --- The articulation of a map an attribute plays, by M2-123's fallback, and
@@ -219,36 +219,36 @@ function M.resolve(map, attr)
   end
 end
 
---- The track's default articulation of its map.
-function M.default_of(track, map)
-  map = map or M.map_of(track)
+--- The part's default articulation of its map.
+function M.default_of(part, map)
+  map = map or M.map_of(part)
   if not map then return nil end
-  local info = M.info(track) or {}
+  local info = M.info(part) or {}
   return map.by_id[info.default or ""] or map.by_id[map.default]
 end
 
---- What a note plays on a track: `art, exact, map`. `art` is the map's
+--- What a note plays on a part: `art, exact, map`. `art` is the map's
 --- articulation (the default for a note with none); nil with no map.
-function M.of(track, note)
-  local map = M.map_of(track)
+function M.of(part, note)
+  local map = M.map_of(part)
   if not map then return nil end
   local attr = M.attr_of(note)
-  if not attr then return M.default_of(track, map), true, map end
+  if not attr then return M.default_of(part, map), true, map end
   local art, exact = M.resolve(map, attr)
   return art, exact, map
 end
 
---- A note's articulation as a short tag: the map's, else the name the track
+--- A note's articulation as a short tag: the map's, else the name the part
 --- kept, else the code. Nil for a note with none.
-function M.tag_of(track, note)
+function M.tag_of(part, note)
   local attr = M.attr_of(note)
   if not attr then return nil end
-  local map = M.map_of(track)
+  local map = M.map_of(part)
   if map then
     local art = M.resolve(map, attr)
     if art then return art.tag, art end
   end
-  local info = M.info(track)
+  local info = M.info(part)
   local code = m2.code(attr)
   return (info and info.names and info.names[code]) or code
 end
@@ -340,21 +340,21 @@ function M.set(places, choice)
   return changed
 end
 
---- Set a track's default articulation (by id), or its pen (`which = "pen"`,
+--- Set a part's default articulation (by id), or its pen (`which = "pen"`,
 --- nil for none).
-function M.set_track(track, which, art_id)
-  keep(track, function(info) info[which] = art_id end)
+function M.set_part(part, which, art_id)
+  keep(part, function(info) info[which] = art_id end)
   if which == "default" then
-    local map = M.map_of(track) -- with its shift
-    if map then M.set_attr_map(track, M.compile(map, art_id)) end
+    local map = M.map_of(part) -- with its shift
+    if map then M.set_attr_map(part, M.compile(map, art_id)) end
   end
 end
 
---- The pen of a track: the choice new notes get, or nil.
-function M.pen(track)
-  local info = M.info(track)
+--- The pen of a part: the choice new notes get, or nil.
+function M.pen(part)
+  local info = M.info(part)
   if not info or not info.pen then return nil end
-  local map = M.map_of(track)
+  local map = M.map_of(part)
   if map and map.by_id[info.pen] then return { attr = map.by_id[info.pen].attr, art = map.by_id[info.pen] } end
   local attr = m2.parse(info.pen)
   return attr and { attr = attr } or nil
@@ -365,7 +365,7 @@ function M.runs(clip_id)
   local c = api.clip_get(clip_id)
   local out = {}
   for place, n in ipairs(api.clip_notes(clip_id)) do
-    local tag, art = M.tag_of(c.track, n)
+    local tag, art = M.tag_of(c.part, n)
     out[#out + 1] = { note = n, place = place, attr = M.attr_of(n), tag = tag, art = art }
   end
   return out

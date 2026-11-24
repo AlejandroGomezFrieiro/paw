@@ -125,10 +125,10 @@ paw.takes paw.keymap 2
 paw.takes paw.pick 1
 paw.textbuf paw 1
 paw.textbuf paw.frontend 1
-paw.track_kinds paw.frontend 2
-paw.track_kinds paw.ui 1
-paw.trackcolumn paw.ext 1
-paw.trackcolumn paw.frontend 1
+paw.part_kinds paw.frontend 2
+paw.part_kinds paw.ui 1
+paw.partcolumn paw.ext 1
+paw.partcolumn paw.frontend 1
 paw.ui paw.keybar 1
 paw.ui paw.keymap 1
 paw.ui paw.remote 1
@@ -137,7 +137,7 @@ paw.ui paw.views.cmdline 1
 paw.util paw.draw 1
 paw.views.arrange paw.frontend 3
 paw.views.arrange_mouse paw.frontend 3
-paw.views.arrange_track paw.frontend 1
+paw.views.arrange_part paw.frontend 1
 paw.views.curve paw.frontend 2
 paw.views.devices paw.frontend 3
 paw.views.effect_windows paw.frontend 1
@@ -147,5 +147,5 @@ paw.views.panels_mouse paw.frontend 2
 paw.views.pianoroll paw.frontend 2
 paw.views.pianoroll_mouse paw.frontend 3
 paw.views.pianoroll_strip paw.frontend 1
-paw.views.tracklist paw 1
+paw.views.partlist paw 1
 paw.window_menus paw.frontend 1

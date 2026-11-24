@@ -138,15 +138,15 @@ function view:paint(g, ctx)
     g:text(
       24,
       50,
-      "Double click a clip of a vocal track, or put the cursor on one and run :utau.edit.",
+      "Double click a clip of a vocal part, or put the cursor on one and run :utau.edit.",
       { color = c.text_2 }
     )
     return
   end
-  local track = api.track_get(clip.track)
-  local device = utau.device_of(clip.track)
-  local hue = paw.draw.track_colour(track)
-  local config = utau.config(clip.track)
+  local part = api.part_get(clip.part)
+  local device = utau.device_of(clip.part)
+  local hue = paw.draw.part_colour(part)
+  local config = utau.config(clip.part)
   local list = notes.list(clip.id)
   local grid = paw.timegrid.step("note")
   -- Vibratos and pitch points are in milliseconds: at the tempo where the clip is.
@@ -177,7 +177,7 @@ function view:paint(g, ctx)
   -- One look at the notes for everything below.
   local S = {
     clip = clip,
-    track = track,
+    part = part,
     device = device,
     list = list,
     tempo = tempo,
@@ -206,8 +206,8 @@ function view:paint(g, ctx)
   g:rect(10, 8, #clip.name * 7 + 22, 22, { fill = hue, radius = 5 })
   g:text(21, 12, clip.name, { color = c.surface, bold = true })
   local x = 10 + #clip.name * 7 + 22 + 10
-  g:text(x, 12, track.name, { color = c.text_2 })
-  x = x + #track.name * 7 + 14
+  g:text(x, 12, part.name, { color = c.text_2 })
+  x = x + #part.name * 7 + 14
   gui.singer_x = x
   local singer = "choose a singer"
   for _, s in ipairs(utau.singers) do
@@ -222,7 +222,7 @@ function view:paint(g, ctx)
     function() gui.singers = not gui.singers end,
     { color = c.text_2 }
   )
-  local state, counts = utau.status(clip.track)
+  local state, counts = utau.status(clip.part)
   local parts = {}
   for _, name in ipairs({ "final", "draft", "rendering", "pending", "error" }) do
     if counts[name] then parts[#parts + 1] = counts[name] .. " " .. name end
@@ -257,7 +257,7 @@ function view:paint(g, ctx)
   -- Ruler: bars and beats, and under them how far each phrase is rendered.
   g:rect(0, top, w - side, RULER, { fill = c.panel })
   local ruler = g:sub(KEYS, top, roll_w, RULER)
-  local layout = utau.layouts[tostring(clip.track)]
+  local layout = utau.layouts[tostring(clip.part)]
   for _, p in ipairs(layout and layout.phrases or {}) do
     local x0 = x_of(paw.tempo.seconds_to_beats(p.start) - clip.start)
     local x1 = x_of(paw.tempo.seconds_to_beats(p.stop) - clip.start)
@@ -344,7 +344,7 @@ function view:paint(g, ctx)
   -- The pitch that was drawn, as it bends away from the notes; then the
   -- pitch that is sung.
   if device then
-    local lane = notes.lane(clip.track, device, "pitd")
+    local lane = notes.lane(clip.part, device, "pitd")
     local points = lane and api.lane_points(lane) or {}
     if #points > 0 then
       local over, value = notes.walker(list), notes.sampler(points, 0)
@@ -605,7 +605,7 @@ function view:pointer(e)
   local clip = self:clip()
   if not clip or not gui.size or not gui.geo then return end
   local geo = gui.geo
-  local device = utau.device_of(clip.track)
+  local device = utau.device_of(clip.part)
   local in_roll = e.x >= KEYS and e.x < KEYS + geo.roll_w and e.y >= geo.roll_y and e.y < geo.roll_y + geo.roll_h
   local x, y = e.x - KEYS, e.y - geo.roll_y
 
@@ -643,7 +643,7 @@ function view:pointer(e)
     local row = l and math.floor((e.y - l.y) / l.row) + 1
     local singer = l and e.x >= l.x and e.x < l.x + l.w and utau.singers[row]
     gui.singers = false
-    if singer then utau.configure(clip.track, { singer = singer.id }) end
+    if singer then utau.configure(clip.part, { singer = singer.id }) end
     return
   end
   if e.kind == "down" or e.kind == "double" then
@@ -702,7 +702,7 @@ function view:pointer(e)
     if e.button == "right" then
       if not note then return end
       if gui.tool == "pitch" and device then
-        notes.reset(clip.track, device, "pitd", clip.start + note.start, clip.start + note.start + note.length)
+        notes.reset(clip.part, device, "pitd", clip.start + note.start, clip.start + note.start + note.length)
       elseif self.sel[view.key_of(note)] then
         local remove = self:selected(list)
         self:clear_selection()
@@ -794,7 +794,7 @@ function view:pointer(e)
       end
     elseif drag.mode == "pitch" and device and #drag.samples > 1 then
       table.sort(drag.samples, function(a, b) return a[1] < b[1] end)
-      notes.stroke(clip.track, device, "pitd", drag.samples)
+      notes.stroke(clip.part, device, "pitd", drag.samples)
     end
   end
 end
@@ -809,7 +809,7 @@ end
 
 function view:on_hide() paw.canvas.close("utau") end
 
--- Opening a vocal clip (the vocal track kind's editor) opens this editor, in
+-- Opening a vocal clip (the vocal part kind's editor) opens this editor, in
 -- the terminal and in a window.
 local edit = view.edit
 function view:edit(clip_id)
@@ -824,9 +824,9 @@ function view:edit(clip_id)
   paw.canvas.open("utau", { title = "Vocal editor", width = 1180, height = 620 })
 end
 
--- In the window's track menu: singing for a track that is there already.
--- A new vocal track is offered wherever a track is made, as a kind of
--- track (see utau.commands).
-table.insert(paw.frontend.menus.track, { label = "Make this a vocal track", command = "utau.voice" })
+-- In the window's part menu: singing for a part that is there already.
+-- A new vocal part is offered wherever a part is made, as a kind of
+-- part (see utau.commands).
+table.insert(paw.frontend.menus.part, { label = "Make this a vocal part", command = "utau.voice" })
 
 return gui

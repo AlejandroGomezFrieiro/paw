@@ -125,10 +125,10 @@ function M.open(path, opts)
   end
 end
 
---- Every device of the project, with its track.
+--- Every device of the project, with its part.
 local function each_device(fn)
-  for _, track in ipairs(paw.tracks()) do
-    for _, device in ipairs(track:devices()) do
+  for _, part in ipairs(paw.parts()) do
+    for _, device in ipairs(part:devices()) do
       fn(device)
     end
   end

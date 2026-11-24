@@ -13,17 +13,17 @@ Type `:ext.load interop`. If you want it to load at each start, see
 
 ## Open a REAPER project
 
-1. Type `:e song.rpp`, with the path of the REAPER project. The tracks
+1. Type `:e song.rpp`, with the path of the REAPER project. The parts
    and the clips appear in the arrange view.
 2. If a page opens, read it. It lists what paw could not bring across, for
    example plugins that paw does not have. Press `q` to close it.
 3. To keep the project, save it as a project of paw: `:w song`.
 
-If the MIDI tracks are silent because their instrument stayed in REAPER,
+If the MIDI parts are silent because their instrument stayed in REAPER,
 type `:e song.rpp instrument=synth`, and paw gives each of the silent
-tracks a `synth`.
+parts a `synth`.
 
-To add the tracks of a REAPER project to the open project, type
+To add the parts of a REAPER project to the open project, type
 `:import song.rpp`.
 
 ## Save a project for REAPER
@@ -31,7 +31,7 @@ To add the tracks of a REAPER project to the open project, type
 1. Type `:w song.rpp`, and paw writes the project as a REAPER project.
 2. A page lists what paw could not write, for example the built-in
    devices of paw. Press `q` to close it.
-3. Open `song.rpp` in REAPER. The tracks, folders, colors, clips, notes,
+3. Open `song.rpp` in REAPER. The parts, folders, colors, clips, notes,
    controllers, automation and markers are there.
 
 `:w song.rpp` does not change the project file of paw, and the project

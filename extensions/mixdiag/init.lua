@@ -20,7 +20,7 @@ local function try(fn)
   if not ok then paw.notify("mix: " .. tostring(err), "error") end
 end
 
-local scopes = { "song", "loop", "selection", "track" }
+local scopes = { "song", "loop", "selection", "part" }
 
 paw.command("mix.analyze", function(ctx)
   local scope = ctx.args[1] or (paw.keymap.selection() and "selection") or "song"
@@ -28,7 +28,7 @@ paw.command("mix.analyze", function(ctx)
   if paw.keymap.mode == "x" then paw.keymap.set_mode("n") end
   try(function() mixdiag.analyze(scope) end)
 end, {
-  desc = "Measure the mix and list what is wrong: `mix.analyze [song|loop|selection|track]`, `mix.analyze file=x.wav`",
+  desc = "Measure the mix and list what is wrong: `mix.analyze [song|loop|selection|part]`, `mix.analyze file=x.wav`",
   complete = function() return scopes end,
 })
 
@@ -105,7 +105,7 @@ local map = paw.keymap.set
 -- On the core's `<leader>m` (mix), beside `<leader>mm`, the mixer.
 map("<leader>ma", "mix.analyze", { mode = { "n", "x" }, desc = "Measure the mix (the selection in visual mode)" })
 map("<leader>ml", "mix.analyze loop", { desc = "Measure the loop" })
-map("<leader>mk", "mix.analyze track", { desc = "Measure the cursor track's contribution" })
+map("<leader>mk", "mix.analyze part", { desc = "Measure the cursor part's contribution" })
 map("<leader>mx", "mix.list", { desc = "List the mix findings" })
 map("<leader>mr", "mix.report", { desc = "The mix report" })
 map("<leader>mp", "view.open mixdiag_paint", { desc = "The painted report (pixels, where the terminal shows them)" })

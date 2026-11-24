@@ -12,10 +12,10 @@ local paw = require("paw")
 ## Layers
 
 - `paw.api` is a flat set of functions over plain data, for example
-  `paw.api.track_set(id, { volume = -6 })`. The kernel in Rust defines them.
+  `paw.api.part_set(id, { volume = -6 })`. The kernel in Rust defines them.
   A setter also takes one key and its value,
-  `paw.api.track_set(id, "volume", -6)`, and only this form clears an entry
-  (`paw.api.track_set(id, "output", nil)`).
+  `paw.api.part_set(id, "volume", -6)`, and only this form clears an entry
+  (`paw.api.part_set(id, "output", nil)`).
 - The objects of the `paw` module are a thin layer over `paw.api`, in
   [objects.tl](../../runtime/lua/paw/objects.tl).
 - The other modules of `paw` are Lua or Teal in `runtime/lua/paw`.
@@ -35,7 +35,7 @@ local paw = require("paw")
 
 | Page | What it describes |
 | --- | --- |
-| [Project objects](lua-objects.md) | the project, tracks, devices, clips, notes, MIDI files, note attributes, the transport, the tempo map, automation |
+| [Project objects](lua-objects.md) | the project, parts, devices, clips, notes, MIDI files, note attributes, the transport, the tempo map, automation |
 | [Commands, keys and options](lua-commands.md) | commands, ranges, fields of `:s` and `:g`, keys, operators, options |
 | [Views and buffers](lua-views.md) | views, roles, buffer types, windows and tabs, text buffers, the pointer, curves, completion, the layers of the piano roll |
 | [Addresses and lists](lua-addresses.md) | addresses, diagnostics, the quickfix list, annotations, language servers, queries |

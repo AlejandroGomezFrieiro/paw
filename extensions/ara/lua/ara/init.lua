@@ -1,8 +1,8 @@
--- ARA plugins on paw's tracks. The native part (native/bridge.cpp) is an
+-- ARA plugins on paw's parts. The native part (native/bridge.cpp) is an
 -- attachment that paw offers each CLAP plugin: it gives an ARA plugin the
--- track's audio clips and the tempo, and keeps the plugin's ARA archive
+-- part's audio clips and the tempo, and keeps the plugin's ARA archive
 -- beside the device's state. This module finds the attachment, puts ARA
--- plugins on tracks and reads what they found in the clips.
+-- plugins on parts and reads what they found in the clips.
 local api = paw.api
 
 local M = {}
@@ -64,23 +64,23 @@ function M.status(device)
   return ok2 and data or nil
 end
 
---- The ARA devices of a track, first to last.
-function M.devices(track)
+--- The ARA devices of a part, first to last.
+function M.devices(part)
   local out = {}
-  for _, id in ipairs(api.track_get(track).devices) do
+  for _, id in ipairs(api.part_get(part).devices) do
     if M.status(id) then out[#out + 1] = id end
   end
   return out
 end
 
---- Put an ARA plugin first on a track, so that it plays the track's clips.
+--- Put an ARA plugin first on a part, so that it plays the part's clips.
 --- Returns the device, or nil and why. A plugin that turns out not to be
 --- an ARA plugin is taken away again, and leaves no undo step.
-function M.add(track, kind)
+function M.add(part, kind)
   local ok, err = M.attach()
   if not ok then return nil, err end
   if M.is_ara_kind(kind) == false then return nil, kind .. " is not an ARA plugin" end
-  local added, id = pcall(api.device_add, track, kind, { index = 1 })
+  local added, id = pcall(api.device_add, part, kind, { index = 1 })
   if not added then return nil, tostring(id) end
   if not M.status(id) then
     api.undo_discard()
@@ -89,7 +89,7 @@ function M.add(track, kind)
   return id
 end
 
---- The notes the plugin of a device found in the track's clips, in beats:
+--- The notes the plugin of a device found in the part's clips, in beats:
 --- `{ { pitch, start, length, velocity } }`. While it is still at work:
 --- nil and the part done (0 to 1).
 function M.notes(device)
@@ -123,7 +123,7 @@ function M.summary(device)
   local s = M.status(device)
   if not s then return "not an ARA plugin" end
   local n = #(s.clips or {})
-  local text = string.format("%s: %d clip%s on %s", s.plugin, n, n == 1 and "" or "s", s.track)
+  local text = string.format("%s: %d clip%s on %s", s.plugin, n, n == 1 and "" or "s", s.part)
   if s.restored then text = text .. ", its edits restored from the project" end
   if s.error and s.error ~= "" then text = text .. " (" .. s.error .. ")" end
   return text

@@ -1,6 +1,6 @@
 //! The project: plain data, cheap to clone.
 //!
-//! Tracks, devices and clips sit behind `Arc`, and edits go through
+//! Parts, devices and clips sit behind `Arc`, and edits go through
 //! `Arc::make_mut`. A clone of a [`Project`] therefore shares everything that
 //! did not change, which is what makes snapshot undo and pointer-comparing
 //! diffs cheap.
@@ -41,7 +41,7 @@ pub(crate) use racks::RackDef;
 
 pub(crate) type Id = u64;
 
-/// The master track's id in every project.
+/// The master part's id in every project.
 pub(crate) const MASTER_ID: Id = 0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -72,10 +72,10 @@ pub struct Project {
     /// [`set_tempo_map`](Project::set_tempo_map) whenever they change.
     #[serde(skip)]
     map: Arc<TempoMap>,
-    pub master: Arc<Track>,
-    /// The song's tracks and the tracks of every nest (`Track::nest`), in
+    pub master: Arc<Part>,
+    /// The song's parts and the parts of every nest (`Part::nest`), in
     /// order.
-    pub tracks: Vec<Arc<Track>>,
+    pub parts: Vec<Arc<Part>>,
     /// The nests (subprojects), by id: see `model/nest.rs`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty", with = "nest::as_list")]
     pub(crate) nests: BTreeMap<NestId, Arc<Nest>>,
@@ -95,7 +95,7 @@ pub struct Project {
     places: Places,
 }
 
-/// Where each clip was last seen, by id: its track and its place there.
+/// Where each clip was last seen, by id: its part and its place there.
 /// Only a hint, checked before it is used, and shared by every copy of a
 /// project (which mostly keep their clips where they were), so that finding
 /// a clip does not cost a look through every clip of the project.
@@ -120,11 +120,11 @@ impl Default for Project {
             sig_changes: Vec::new(),
             key: None,
             map: Arc::new(TempoMap::default()),
-            master: Arc::new(Track {
+            master: Arc::new(Part {
                 name: "Master".into(),
-                ..Track::new(MASTER_ID)
+                ..Part::new(MASTER_ID)
             }),
-            tracks: Vec::new(),
+            parts: Vec::new(),
             nests: BTreeMap::new(),
             meta: Map::new(),
             export: Map::new(),
@@ -135,7 +135,7 @@ impl Default for Project {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Track {
+pub struct Part {
     pub id: Id,
     pub name: String,
     /// Fader level in dB.
@@ -145,15 +145,15 @@ pub struct Track {
     pub mute: bool,
     pub solo: bool,
     pub armed: bool,
-    /// The track this one feeds, or `None` for the master track.
+    /// The part this one feeds, or `None` for the master part.
     pub output: Option<Id>,
     pub(crate) sends: Vec<Send>,
-    /// Every device of the track. With no chain, the devices play in
+    /// Every device of the part. With no chain, the devices play in
     /// series in this order. With one, this is the chain's signal order.
     pub(crate) devices: Vec<Arc<DeviceInst>>,
-    /// The chain of the track's devices: splits and branches that name the
+    /// The chain of the part's devices: splits and branches that name the
     /// devices by id (`model/chain.rs`). `None` plays the devices in
-    /// series. Its key in `track.json` stays `graph` until the strips of
+    /// series. Its key in `part.json` stays `graph` until the strips of
     /// the mix hold it.
     #[serde(rename = "graph", default, skip_serializing_if = "Option::is_none")]
     pub(crate) chain: Option<Arc<Chain>>,
@@ -168,23 +168,23 @@ pub struct Track {
     /// for a stereo pair, `None` for none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input: Option<InputChannels>,
-    /// Hear the input even when the track is not armed.
+    /// Hear the input even when the part is not armed.
     #[serde(default)]
     pub monitor: bool,
-    /// Which MIDI input the track plays and records when it is armed and
+    /// Which MIDI input the part plays and records when it is armed and
     /// has no audio input; `None` for every port and channel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) midi_input: Option<MidiInput>,
-    /// The MIDI output port the track sends what it plays to (its clips'
+    /// The MIDI output port the part sends what it plays to (its clips'
     /// notes and controllers, and MIDI input passing through), and on which
     /// channel; `None` for none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) midi_output: Option<MidiOutput>,
-    /// How tall the track is drawn, as a share of the height all tracks
+    /// How tall the part is drawn, as a share of the height all parts
     /// have at the frontend's zoom; `None` for that height.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f64>,
-    /// What moving a fader, the pan or a parameter of the track does to
+    /// What moving a fader, the pan or a parameter of the part does to
     /// its automation while the song plays, and whether its lanes play.
     #[serde(default, skip_serializing_if = "AutoMode::is_read")]
     pub(crate) automation: AutoMode,
@@ -197,22 +197,22 @@ pub struct Track {
     /// not take them: see `attr_map.rs`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) attr_map: Option<crate::attr_map::AttrMap>,
-    /// The track folder outside the project's folder that the track is
+    /// The part folder outside the project's folder that the part is
     /// read from: the project refers to it and keeps no copy. The first
-    /// edit of the track makes it the project's own (`origin`).
+    /// edit of the part makes it the project's own (`origin`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<PathBuf>,
-    /// The track folder outside the project that the track was copied from.
+    /// The part folder outside the project that the part was copied from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<PathBuf>,
     /// The chain file (a `devices.json`) outside the project's folder that
-    /// the devices are read from, kept as `source` is for the track.
+    /// the devices are read from, kept as `source` is for the part.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chain_source: Option<PathBuf>,
     /// The chain file outside the project that the devices were copied from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chain_origin: Option<PathBuf>,
-    /// The nest (subproject) the track belongs to; `None` for the song's.
+    /// The nest (subproject) the part belongs to; `None` for the song's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nest: Option<NestId>,
 }
@@ -256,7 +256,7 @@ impl Quantize {
     }
 }
 
-/// How a track treats its automation.
+/// How a part treats its automation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum AutoMode {
@@ -268,7 +268,7 @@ pub(crate) enum AutoMode {
     Touch,
     /// A control writes from when it is first moved until the song stops.
     Latch,
-    /// Everything the track's lanes move is written over from where the
+    /// Everything the part's lanes move is written over from where the
     /// song starts playing until it stops, moved or not.
     Write,
     /// The lanes are kept but do not play.
@@ -359,7 +359,7 @@ impl MidiOutput {
     }
 }
 
-impl Track {
+impl Part {
     pub(crate) fn new(id: Id) -> Self {
         Self {
             id,
@@ -393,10 +393,10 @@ impl Track {
         }
     }
 
-    /// The names of the fields (as `track_get` names them) that differ from
-    /// `before`, the same track in an earlier state. The lists of devices,
+    /// The names of the fields (as `part_get` names them) that differ from
+    /// `before`, the same part in an earlier state. The lists of devices,
     /// clips, cues and lanes compare by identity, as the sync does.
-    pub(crate) fn changed_fields(&self, before: &Track) -> Vec<&'static str> {
+    pub(crate) fn changed_fields(&self, before: &Part) -> Vec<&'static str> {
         fn same_arcs<T>(a: &[Arc<T>], b: &[Arc<T>]) -> bool {
             a.len() == b.len() && a.iter().zip(b).all(|(x, y)| Arc::ptr_eq(x, y))
         }
@@ -488,7 +488,7 @@ pub(crate) struct Send {
     pub target: Id,
     /// Send level in dB.
     pub level: f64,
-    /// Taken after the track's devices but before its fader, pan and mute,
+    /// Taken after the part's devices but before its fader, pan and mute,
     /// so that the send does not follow the fader.
     #[serde(default, skip_serializing_if = "is_false")]
     pub pre: bool,
@@ -545,16 +545,16 @@ pub(crate) struct DeviceInst {
     /// parameters are kept as they are.
     #[serde(default, skip_serializing_if = "is_false")]
     pub offline: bool,
-    /// The track whose sound the device listens to as its side-chain, such
+    /// The part whose sound the device listens to as its side-chain, such
     /// as a kick that a compressor on a bass ducks under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sidechain: Option<Id>,
-    /// The side-chain is taken after that track's devices but before its
+    /// The side-chain is taken after that part's devices but before its
     /// fader, pan and mute, rather than after them.
     #[serde(default, skip_serializing_if = "is_false")]
     pub sidechain_pre: bool,
     /// Where the device's further output pairs play, by pair number (2 for
-    /// its second) and track. Pairs not named here are not heard.
+    /// its second) and part. Pairs not named here are not heard.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub outputs: BTreeMap<u32, Id>,
     /// The device's own id (`ParamInfo::id`) of each parameter key that the
@@ -1099,7 +1099,7 @@ impl Clip {
 /// line up: it looks at the places after the last one found first, then
 /// through the whole list, and makes a map only when many are not where
 /// they were. Every edit compares states (for the undo history, the engine
-/// and the change events), so this stays quick for a track of thousands of
+/// and the change events), so this stays quick for a part of thousands of
 /// clips.
 pub(crate) struct ByKey<'a, T, K, F = fn(&T) -> K> {
     old: &'a [T],
@@ -1147,8 +1147,8 @@ impl<'a, T, K: Eq + std::hash::Hash + Copy, F: Fn(&T) -> K> ByKey<'a, T, K, F> {
 /// [`ByKey`] for lists of items with ids.
 pub(crate) type ById<'a, T> = ByKey<'a, Arc<T>, Id>;
 
-/// Where a track's clips may differ from `before` (the same track in another
-/// state, or `None` for a new track): `before`'s clips in that stretch, and
+/// Where a part's clips may differ from `before` (the same part in another
+/// state, or `None` for a new part): `before`'s clips in that stretch, and
 /// the places of `clips` in it. Every clip outside it is the very same in
 /// both, found by the runs they share (see [`Clips::changed`]).
 pub(crate) fn changed_clips<'a>(
@@ -1181,7 +1181,7 @@ pub(crate) fn name_notes(notes: &mut Notes) -> bool {
     true
 }
 
-/// Automation of one of a track's settings, or of a parameter of one of its devices.
+/// Automation of one of a part's settings, or of a parameter of one of its devices.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Lane {
     pub id: Id,
@@ -1332,13 +1332,13 @@ impl Lane {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum Target {
-    /// The track's fader, in dB.
+    /// The part's fader, in dB.
     Volume,
-    /// The track's pan, -1 to 1.
+    /// The part's pan, -1 to 1.
     Pan,
-    /// A parameter, by key, of a device on the same track.
+    /// A parameter, by key, of a device on the same part.
     Param { device: Id, param: String },
-    /// The state of a device on the same track: a lane of states, whose
+    /// The state of a device on the same part: a lane of states, whose
     /// points each name one of the lane's [`Lane::states`] and hold it up
     /// to the next point, with no curve between.
     State { device: Id },
@@ -1358,28 +1358,28 @@ impl Project {
     /// the clips that are not the very same as in `before` (the state the
     /// last naming saw), and touching only those that need it.
     pub(crate) fn name_notes(&mut self, before: &Project) -> bool {
-        self.name_notes_since(&before.tracks, &before.master)
+        self.name_notes_since(&before.parts, &before.master)
     }
 
-    /// [`name_notes`](Self::name_notes), with only the tracks of `before`.
-    pub(crate) fn name_notes_since(&mut self, before: &[Arc<Track>], master: &Arc<Track>) -> bool {
+    /// [`name_notes`](Self::name_notes), with only the parts of `before`.
+    pub(crate) fn name_notes_since(&mut self, before: &[Arc<Part>], master: &Arc<Part>) -> bool {
         let mut named = false;
-        let mut old_tracks = ById::new(before, |t: &Arc<Track>| t.id);
-        let tracks = self.tracks.iter_mut().chain(std::iter::once(&mut self.master));
-        for track in tracks {
-            let old = if track.id == MASTER_ID {
+        let mut old_parts = ById::new(before, |t: &Arc<Part>| t.id);
+        let parts = self.parts.iter_mut().chain(std::iter::once(&mut self.master));
+        for part in parts {
+            let old = if part.id == MASTER_ID {
                 Some(master)
             } else {
-                old_tracks.find(track.id)
+                old_parts.find(part.id)
             };
-            if old.is_some_and(|o| Arc::ptr_eq(o, track)) {
+            if old.is_some_and(|o| Arc::ptr_eq(o, part)) {
                 continue;
             }
-            let (old_clips, places) = changed_clips(old.map(|o| &o.clips), &track.clips);
+            let (old_clips, places) = changed_clips(old.map(|o| &o.clips), &part.clips);
             let mut old_clips = ByKey::new(&old_clips[..], |c: &&Arc<Clip>| c.id);
             // The places of the clips that this state changed and that have
             // notes to name.
-            let needs: Vec<usize> = track
+            let needs: Vec<usize> = part
                 .clips
                 .range(places.clone())
                 .zip(places)
@@ -1394,7 +1394,7 @@ impl Project {
             if needs.is_empty() {
                 continue;
             }
-            let clips = &mut Arc::make_mut(track).clips;
+            let clips = &mut Arc::make_mut(part).clips;
             for i in needs {
                 if let ClipContent::Midi { notes, .. } = &mut Arc::make_mut(&mut clips[i]).content {
                     named |= name_notes(notes);
@@ -1408,81 +1408,81 @@ impl Project {
     /// share with it: what keeping it as a step of the undo history costs.
     pub(crate) fn weight_over(before: &Project, project: &Project) -> usize {
         use std::mem::size_of;
-        let mut old = ById::new(&before.tracks, |t: &Arc<Track>| t.id);
+        let mut old = ById::new(&before.parts, |t: &Arc<Part>| t.id);
         let mut bytes = 0;
-        for track in project.all_tracks() {
-            let was = if track.id == MASTER_ID {
+        for part in project.all_parts() {
+            let was = if part.id == MASTER_ID {
                 Some(&before.master)
             } else {
-                old.find(track.id)
+                old.find(part.id)
             };
-            if was.is_some_and(|w| Arc::ptr_eq(w, track)) {
+            if was.is_some_and(|w| Arc::ptr_eq(w, part)) {
                 continue;
             }
-            bytes += size_of::<Track>();
-            bytes += track.clips.weight_over(was.map(|w| &w.clips));
-            let (old_clips, places) = changed_clips(was.map(|w| &w.clips), &track.clips);
+            bytes += size_of::<Part>();
+            bytes += part.clips.weight_over(was.map(|w| &w.clips));
+            let (old_clips, places) = changed_clips(was.map(|w| &w.clips), &part.clips);
             let mut clips = ByKey::new(&old_clips[..], |c: &&Arc<Clip>| c.id);
-            for clip in track.clips.range(places) {
+            for clip in part.clips.range(places) {
                 let was = clips.find(clip.id);
                 if !was.is_some_and(|c| Arc::ptr_eq(c, clip)) {
                     bytes += clip.weight_over(was.map(|c| &***c));
                 }
             }
             let mut devices = ById::new(was.map_or(&[][..], |w| &w.devices[..]), |d: &Arc<DeviceInst>| d.id);
-            for device in &track.devices {
+            for device in &part.devices {
                 if !devices.find(device.id).is_some_and(|d| Arc::ptr_eq(d, device)) {
                     bytes += size_of::<DeviceInst>()
                         + device.state.as_ref().map_or(0, String::len)
                         + device.params.len() * 48;
                 }
             }
-            bytes += track.lanes.iter().map(|l| l.points.len() * 16).sum::<usize>();
+            bytes += part.lanes.iter().map(|l| l.points.len() * 16).sum::<usize>();
         }
         bytes
     }
 
-    /// Every track including the master track, which comes last.
-    pub(crate) fn all_tracks(&self) -> impl Iterator<Item = &Arc<Track>> {
-        self.tracks.iter().chain(std::iter::once(&self.master))
+    /// Every part including the master part, which comes last.
+    pub(crate) fn all_parts(&self) -> impl Iterator<Item = &Arc<Part>> {
+        self.parts.iter().chain(std::iter::once(&self.master))
     }
 
-    pub(crate) fn track(&self, id: Id) -> Option<&Arc<Track>> {
-        self.all_tracks().find(|t| t.id == id)
+    pub(crate) fn part(&self, id: Id) -> Option<&Arc<Part>> {
+        self.all_parts().find(|t| t.id == id)
     }
 
-    pub(crate) fn track_mut(&mut self, id: Id) -> Option<&mut Track> {
-        let track = if id == MASTER_ID {
+    pub(crate) fn part_mut(&mut self, id: Id) -> Option<&mut Part> {
+        let part = if id == MASTER_ID {
             &mut self.master
         } else {
-            self.tracks.iter_mut().find(|t| t.id == id)?
+            self.parts.iter_mut().find(|t| t.id == id)?
         };
-        Some(Arc::make_mut(track))
+        Some(Arc::make_mut(part))
     }
 
-    /// The track that holds a device, and the device's position in its chain.
+    /// The part that holds a device, and the device's position in its chain.
     pub(crate) fn find_device(&self, id: Id) -> Option<(Id, usize)> {
-        self.all_tracks()
+        self.all_parts()
             .find_map(|t| t.devices.iter().position(|d| d.id == id).map(|i| (t.id, i)))
     }
 
-    /// The track that holds an automation lane, and the lane's index on it.
+    /// The part that holds an automation lane, and the lane's index on it.
     pub(crate) fn find_lane(&self, id: Id) -> Option<(Id, usize)> {
-        self.all_tracks()
+        self.all_parts()
             .find_map(|t| t.lanes.iter().position(|l| l.id == id).map(|i| (t.id, i)))
     }
 
     pub(crate) fn lane(&self, id: Id) -> Option<&Arc<Lane>> {
-        let (track, index) = self.find_lane(id)?;
-        Some(&self.track(track)?.lanes[index])
+        let (part, index) = self.find_lane(id)?;
+        Some(&self.part(part)?.lanes[index])
     }
 
     pub(crate) fn lane_mut(&mut self, id: Id) -> Option<&mut Lane> {
-        let (track, index) = self.find_lane(id)?;
-        Some(Arc::make_mut(&mut self.track_mut(track)?.lanes[index]))
+        let (part, index) = self.find_lane(id)?;
+        Some(Arc::make_mut(&mut self.part_mut(part)?.lanes[index]))
     }
 
-    /// The track that holds a clip, and the clip's index on it.
+    /// The part that holds a clip, and the clip's index on it.
     ///
     /// Where the clip was last found is looked at first, and the places
     /// beside it (a clip taken out or put in before it moves it by one).
@@ -1490,18 +1490,18 @@ impl Project {
     /// place of each is remembered.
     pub(crate) fn find_clip(&self, id: Id) -> Option<(Id, usize)> {
         let mut places = self.places.0.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(&(track, index)) = places.get(&id)
-            && let Some(t) = self.track(track)
+        if let Some(&(part, index)) = places.get(&id)
+            && let Some(t) = self.part(part)
         {
             let near = [index, index.wrapping_sub(1), index + 1];
             if let Some(&at) = near.iter().find(|&&i| t.clips.get(i).is_some_and(|c| c.id == id)) {
-                places.insert(id, (track, at));
-                return Some((track, at));
+                places.insert(id, (part, at));
+                return Some((part, at));
             }
         }
         places.clear();
         let mut found = None;
-        for t in self.all_tracks() {
+        for t in self.all_parts() {
             for (i, c) in t.clips.iter().enumerate() {
                 places.insert(c.id, (t.id, i));
                 if c.id == id && found.is_none() {
@@ -1513,52 +1513,52 @@ impl Project {
     }
 
     /// Remember where a clip is, having just put it there.
-    pub(crate) fn found_clip(&self, id: Id, track: Id, index: usize) {
+    pub(crate) fn found_clip(&self, id: Id, part: Id, index: usize) {
         let mut places = self.places.0.lock().unwrap_or_else(|e| e.into_inner());
-        places.insert(id, (track, index));
+        places.insert(id, (part, index));
     }
 
     pub(crate) fn device(&self, id: Id) -> Option<&Arc<DeviceInst>> {
-        let (track, index) = self.find_device(id)?;
-        Some(&self.track(track)?.devices[index])
+        let (part, index) = self.find_device(id)?;
+        Some(&self.part(part)?.devices[index])
     }
 
     /// A clip on the timeline or off it, for cues.
     pub(crate) fn clip(&self, id: Id) -> Option<&Arc<Clip>> {
-        if let Some((track, index)) = self.find_clip(id) {
-            return Some(&self.track(track)?.clips[index]);
+        if let Some((part, index)) = self.find_clip(id) {
+            return Some(&self.part(part)?.clips[index]);
         }
-        let (track, index) = self.find_cue_clip(id)?;
-        Some(&self.track(track)?.cues[index])
+        let (part, index) = self.find_cue_clip(id)?;
+        Some(&self.part(part)?.cues[index])
     }
 
-    /// The track that holds a clip off the timeline, and the clip's index
+    /// The part that holds a clip off the timeline, and the clip's index
     /// among its cue clips.
     pub(crate) fn find_cue_clip(&self, id: Id) -> Option<(Id, usize)> {
-        self.all_tracks()
+        self.all_parts()
             .find_map(|t| t.cues.iter().position(|c| c.id == id).map(|i| (t.id, i)))
     }
 
 
     pub(crate) fn device_mut(&mut self, id: Id) -> Option<&mut DeviceInst> {
-        let (track, index) = self.find_device(id)?;
-        Some(Arc::make_mut(&mut self.track_mut(track)?.devices[index]))
+        let (part, index) = self.find_device(id)?;
+        Some(Arc::make_mut(&mut self.part_mut(part)?.devices[index]))
     }
 
     /// A clip on the timeline or off it, to change.
     pub(crate) fn clip_mut(&mut self, id: Id) -> Option<&mut Clip> {
-        if let Some((track, index)) = self.find_clip(id) {
-            return Some(Arc::make_mut(&mut self.track_mut(track)?.clips[index]));
+        if let Some((part, index)) = self.find_clip(id) {
+            return Some(Arc::make_mut(&mut self.part_mut(part)?.clips[index]));
         }
-        let (track, index) = self.find_cue_clip(id)?;
-        Some(Arc::make_mut(&mut self.track_mut(track)?.cues[index]))
+        let (part, index) = self.find_cue_clip(id)?;
+        Some(Arc::make_mut(&mut self.part_mut(part)?.cues[index]))
     }
 
     /// Whether routing `from` into `to` would make audio flow in a circle.
-    /// Audio flows on from a track through its output and its sends alike.
+    /// Audio flows on from a part through its output and its sends alike.
     pub(crate) fn would_cycle(&self, from: Id, to: Id) -> bool {
-        let tracks: std::collections::HashMap<Id, &Track> =
-            self.tracks.iter().map(|t| (t.id, &**t)).collect();
+        let parts: std::collections::HashMap<Id, &Part> =
+            self.parts.iter().map(|t| (t.id, &**t)).collect();
         let mut seen = std::collections::HashSet::new();
         let mut stack = vec![to];
         while let Some(id) = stack.pop() {
@@ -1568,14 +1568,14 @@ impl Project {
             if id == MASTER_ID || !seen.insert(id) {
                 continue;
             }
-            if let Some(t) = tracks.get(&id) {
+            if let Some(t) = parts.get(&id) {
                 stack.extend(t.output);
                 stack.extend(t.sends.iter().map(|s| s.target));
                 stack.extend(t.devices.iter().flat_map(|d| d.outputs.values()));
             }
-            // A track feeds the tracks of the devices that listen to it.
+            // A part feeds the parts of the devices that listen to it.
             stack.extend(
-                self.all_tracks()
+                self.all_parts()
                     .filter(|t| t.devices.iter().any(|d| d.sidechain == Some(id)))
                     .map(|t| t.id),
             );
@@ -1585,7 +1585,7 @@ impl Project {
 
     /// The largest id in use.
     pub(crate) fn max_id(&self) -> Id {
-        self.all_tracks()
+        self.all_parts()
             .flat_map(|t| {
                 std::iter::once(t.id)
                     .chain(t.devices.iter().map(|d| d.id))
@@ -1700,13 +1700,13 @@ impl Project {
     pub(crate) fn retime(&mut self, map: TempoMap) {
         let old = self.map.clone();
         self.fit_own_tempo_blocks(&old, &map);
-        let tracks = std::iter::once(&mut self.master).chain(self.tracks.iter_mut());
-        for track in tracks {
+        let parts = std::iter::once(&mut self.master).chain(self.parts.iter_mut());
+        for part in parts {
             let audio = |c: &Arc<Clip>| matches!(c.content, ClipContent::Audio { .. });
-            if !track.clips.iter().any(audio) {
+            if !part.clips.iter().any(audio) {
                 continue;
             }
-            for clip in Arc::make_mut(track).clips.iter_mut().filter(|c| audio(c)) {
+            for clip in Arc::make_mut(part).clips.iter_mut().filter(|c| audio(c)) {
                 let s0 = old.seconds(clip.start);
                 let s1 = old.seconds(clip.start + clip.length);
                 if clip.timebase == Some(Timebase::Stretch) {
@@ -1773,7 +1773,7 @@ impl Project {
 
     /// Where the song's last clip ends, in beats.
     pub(crate) fn end(&self) -> f64 {
-        self.all_tracks()
+        self.all_parts()
             .filter(|t| t.nest.is_none())
             .flat_map(|t| t.clips.iter().map(|c| c.start + c.length))
             .fold(0.0, f64::max)
@@ -1786,12 +1786,12 @@ impl Project {
     pub(crate) fn validate(&self) -> anyhow::Result<()> {
         self.check_tempo_and_signature()?;
         self.check_master_and_ids()?;
-        let tracks: std::collections::HashMap<Id, &Track> =
-            self.all_tracks().map(|t| (t.id, &**t)).collect();
-        for t in self.all_tracks() {
-            check_track(t, &tracks)?;
+        let parts: std::collections::HashMap<Id, &Part> =
+            self.all_parts().map(|t| (t.id, &**t)).collect();
+        for t in self.all_parts() {
+            check_part(t, &parts)?;
         }
-        self.check_routing_loops(&tracks)?;
+        self.check_routing_loops(&parts)?;
         self.check_links()?;
         nest::check(self)
     }
@@ -1830,7 +1830,7 @@ impl Project {
             || self.master.output.is_some()
             || !self.master.sends.is_empty()
         {
-            bail!("the master track must have id {MASTER_ID} and no output or sends");
+            bail!("the master part must have id {MASTER_ID} and no output or sends");
         }
         let mut ids = std::collections::HashSet::new();
         let mut unique = |id: Id| -> anyhow::Result<()> {
@@ -1839,7 +1839,7 @@ impl Project {
             }
             Ok(())
         };
-        for t in self.all_tracks() {
+        for t in self.all_parts() {
             unique(t.id)?;
             for d in &t.devices {
                 unique(d.id)?;
@@ -1855,21 +1855,21 @@ impl Project {
     }
 
     /// Routing must not go round in a circle: a depth-first walk along
-    /// outputs and sends that never comes back to a track on its own path.
+    /// outputs and sends that never comes back to a part on its own path.
     fn check_routing_loops(
         &self,
-        tracks: &std::collections::HashMap<Id, &Track>,
+        parts: &std::collections::HashMap<Id, &Part>,
     ) -> anyhow::Result<()> {
         use anyhow::bail;
         let mut state: std::collections::HashMap<Id, u8> = std::collections::HashMap::new();
-        for start in &self.tracks {
+        for start in &self.parts {
             if state.contains_key(&start.id) {
                 continue;
             }
             let mut stack: Vec<(Id, usize)> = vec![(start.id, 0)];
             state.insert(start.id, 1);
             while let Some(&mut (id, ref mut next)) = stack.last_mut() {
-                let t = tracks[&id];
+                let t = parts[&id];
                 let targets: Vec<Id> = t
                     .output
                     .iter()
@@ -1880,7 +1880,7 @@ impl Project {
                     Some(&to) => {
                         *next += 1;
                         match state.get(&to) {
-                            Some(1) => bail!("track {} ({}) is routed in a loop", t.id, t.name),
+                            Some(1) => bail!("part {} ({}) is routed in a loop", t.id, t.name),
                             Some(_) => {}
                             None => {
                                 state.insert(to, 1);
@@ -1906,15 +1906,15 @@ fn check_range(what: &str, v: f64, lo: f64, hi: f64) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// One track: its levels, routing, devices, clips and lanes.
-fn check_track(t: &Track, tracks: &std::collections::HashMap<Id, &Track>) -> anyhow::Result<()> {
+/// One part: its levels, routing, devices, clips and lanes.
+fn check_part(t: &Part, parts: &std::collections::HashMap<Id, &Part>) -> anyhow::Result<()> {
     use anyhow::bail;
-    let name = format!("track {} ({})", t.id, t.name);
+    let name = format!("part {} ({})", t.id, t.name);
     check_range(&format!("the volume of {name}"), t.volume, -120.0, 24.0)?;
     check_range(&format!("the pan of {name}"), t.pan, -1.0, 1.0)?;
     for target in t.output.iter().chain(t.sends.iter().map(|s| &s.target)) {
-        if *target == t.id || *target == MASTER_ID || !tracks.contains_key(target) {
-            bail!("{name} is routed to track {target}, which it cannot be");
+        if *target == t.id || *target == MASTER_ID || !parts.contains_key(target) {
+            bail!("{name} is routed to part {target}, which it cannot be");
         }
     }
     for s in &t.sends {
@@ -2005,8 +2005,8 @@ fn check_clip(c: &Clip) -> anyhow::Result<()> {
     check_range(&what, c.loop_start, -1e9, 1e9)
 }
 
-/// One automation lane of track `t`: its points, shapes and target.
-fn check_lane(t: &Track, l: &Lane) -> anyhow::Result<()> {
+/// One automation lane of part `t`: its points, shapes and target.
+fn check_lane(t: &Part, l: &Lane) -> anyhow::Result<()> {
     use anyhow::bail;
     if l.points
         .iter()
@@ -2038,7 +2038,7 @@ fn check_lane(t: &Track, l: &Lane) -> anyhow::Result<()> {
         && !t.devices.iter().any(|d| d.id == device)
     {
         bail!(
-            "automation lane {} is for device {device}, which is not on its track",
+            "automation lane {} is for device {device}, which is not on its part",
             l.id
         );
     }
@@ -2063,14 +2063,14 @@ mod tests {
         }
     }
 
-    /// A project as files were written before tracks had a height of their
+    /// A project as files were written before parts had a height of their
     /// own and before anything could lie hidden before a clip's start.
     const OLD: &str = r#"{
         "name": "old", "tempo": 120.0, "sig_num": 4, "sig_den": 4,
         "master": { "id": 0, "name": "Master", "volume": 0.0, "pan": 0.0, "mute": false,
             "solo": false, "armed": false, "output": null, "sends": [], "devices": [],
             "clips": [], "color": null },
-        "tracks": [{ "id": 1, "name": "Keys", "volume": -3.0, "pan": 0.0, "mute": false,
+        "parts": [{ "id": 1, "name": "Keys", "volume": -3.0, "pan": 0.0, "mute": false,
             "solo": false, "armed": false, "output": null, "sends": [], "devices": [],
             "color": null,
             "clips": [{ "id": 2, "name": "riff", "start": 4.0, "length": 4.0, "muted": false,
@@ -2083,12 +2083,12 @@ mod tests {
     fn an_old_project_loads_unchanged() {
         let project: Project = serde_json::from_str(OLD).expect("an old project loads");
         project.validate().expect("and is valid");
-        let track = &project.tracks[0];
+        let part = &project.parts[0];
         assert_eq!(
-            track.height, None,
-            "a track is as tall as the zoom makes it"
+            part.height, None,
+            "a part is as tall as the zoom makes it"
         );
-        let ClipContent::Midi { notes, controls } = &track.clips[0].content else {
+        let ClipContent::Midi { notes, controls } = &part.clips[0].content else {
             panic!("a MIDI clip");
         };
         assert_eq!((notes.len(), controls.len()), (1, 1));
@@ -2099,9 +2099,9 @@ mod tests {
     #[test]
     fn a_height_and_hidden_moves_are_kept() {
         let mut project: Project = serde_json::from_str(OLD).unwrap();
-        let track = Arc::make_mut(&mut project.tracks[0]);
-        track.height = Some(2.5);
-        let clip = Arc::make_mut(&mut track.clips[0]);
+        let part = Arc::make_mut(&mut project.parts[0]);
+        part.height = Some(2.5);
+        let clip = Arc::make_mut(&mut part.clips[0]);
         if let ClipContent::Midi { notes, controls } = &mut clip.content {
             notes[0].start = -1.0;
             controls[0].start = -0.5;
@@ -2111,7 +2111,7 @@ mod tests {
             .expect("notes and moves before the start are allowed");
         let again: Project =
             serde_json::from_str(&serde_json::to_string(&project).unwrap()).unwrap();
-        assert_eq!(again.tracks[0].height, Some(2.5));
+        assert_eq!(again.parts[0].height, Some(2.5));
     }
 }
 

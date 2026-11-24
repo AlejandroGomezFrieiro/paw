@@ -6,7 +6,7 @@
 
 In this lesson, we make a synth brighter and darker, add an echo after it, and bypass the echo.
 
-Each track has a chain of devices. The first device is an instrument, which makes sound from notes, and the effects come after it. Each effect changes the sound of the device before it. The device panel shows the chain of the track under the cursor, with the parameters of each device, and you use the same kind of keys there as in the other views.
+Each part has a chain of devices. The first device is an instrument, which makes sound from notes, and the effects come after it. Each effect changes the sound of the device before it. The device panel shows the chain of the part under the cursor, with the parameters of each device, and you use the same kind of keys there as in the other views.
 
 The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. The CLAP, LV2 and VST3 plugins that you installed are also devices, and most of them have their own window.
 
@@ -14,9 +14,9 @@ The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`. Th
 
 In the device panel, `j` and `k` select a row, which is the name of a device or one of its parameters, and `w` and `b` select a device. `+` and `-` change a parameter by one step, and a count before them, e.g., `10+`, changes it by more steps.
 
-`a` adds a device, `x` removes one and `gc` bypasses one. `yy`, `dd` and `p` copy and move devices, also to other tracks. `<A-j>` and `<A-k>` change the order, and `ge` opens the window of a plugin.
+`a` adds a device, `x` removes one and `gc` bypasses one. `yy`, `dd` and `p` copy and move devices, also to other parts. `<A-j>` and `<A-k>` change the order, and `ge` opens the window of a plugin.
 
-`<Space>dd` shows and hides the panel, and `<C-w>c` closes it. In the arrange view, `ge` opens the plugin window of the track.
+`<Space>dd` shows and hides the panel, and `<C-w>c` closes it. In the arrange view, `ge` opens the plugin window of the part.
 
 ## If you know Vim
 

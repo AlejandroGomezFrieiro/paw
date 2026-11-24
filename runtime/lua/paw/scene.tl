@@ -311,7 +311,7 @@ end
 
 --- The values that move the bound nodes of a frontend (see the `bind` of
 --- crates/paw-scene). These are the playhead, the clock and the load of the
---- engine. For each track id, they are the meter, the recent peak, the clip
+--- engine. For each part id, they are the meter, the recent peak, the clip
 --- light and the input. paw rounds them to what a frontend can show. So a program that
 --- does nothing has no new data to send (the load is as `paw.audio.load`
 --- gives it, as `frontend.watch` sends it). Each call gives the current values.
@@ -326,18 +326,18 @@ local function live(): Live
     return math.floor(v * 10000 + 0.5) / 10000
   end
   local function meter(id: integer)
-    local l, r, hold, clipped = paw.draw.track_peak(id)
+    local l, r, hold, clipped = paw.draw.part_peak(id)
     meters[tostring(id)], peaks[tostring(id)] = {round(l), round(r)}, round(hold)
     if clipped then
       clips[tostring(id)] = true
     end
   end
-  local track_input = api.track_get as function(id: integer, key: string): string
-  for _, id in ipairs(api.track_list({all = true})) do
+  local part_input = api.part_get as function(id: integer, key: string): string
+  for _, id in ipairs(api.part_list({all = true})) do
     meter(id)
-    inputs[tostring(id)] = round(paw.audio.level({input = track_input(id, "input")}, levels))
+    inputs[tostring(id)] = round(paw.audio.level({input = part_input(id, "input")}, levels))
   end
-  -- The master's, as track 0.
+  -- The master's, as part 0.
   meter(0)
   local out: Live = {
     position = t.position,

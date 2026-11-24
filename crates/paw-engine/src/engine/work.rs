@@ -1,4 +1,4 @@
-//! Making one track's block, on whichever thread takes it.
+//! Making one part's block, on whichever thread takes it.
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
@@ -8,7 +8,7 @@ use crate::automation::AutoTarget;
 use crate::device::ProcessCtx;
 use crate::event::Event;
 use crate::launch;
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::slot::{DeviceSlot, PartSlot};
 
 use super::clock::Clock;
 use super::device_rt::DeviceRt;
@@ -16,9 +16,9 @@ use super::guarded::{Claim, Guarded};
 use super::regions::mix_audio;
 use super::schedule::SchedEntry;
 use super::shared::Shared;
-use super::track::TrackRt;
+use super::part::PartRt;
 
-/// What every track of a block shares.
+/// What every part of a block shares.
 pub(super) struct Block<'a> {
     pub(super) ctx: ProcessCtx,
     pub(super) n: usize,
@@ -37,20 +37,20 @@ pub(super) struct Block<'a> {
     /// Devices at rest sleep through silent blocks.
     pub(super) sleep: bool,
     pub(super) meter_fall: f32,
-    /// A take captures in this block: an armed track with an audio input
+    /// A take captures in this block: an armed part with an audio input
     /// plays its input only, not its clips, as a tape machine does.
     pub(super) capturing: bool,
 }
 
-/// One group of tracks to process, and what they read while it is done.
+/// One group of parts to process, and what they read while it is done.
 pub(super) struct Work<'a> {
     pub(super) block: &'a Block<'a>,
     pub(super) entries: &'a [SchedEntry],
-    pub(super) tracks: &'a [Guarded<Option<Box<TrackRt>>>],
+    pub(super) parts: &'a [Guarded<Option<Box<PartRt>>>],
     pub(super) devices: &'a [Guarded<Option<DeviceRt>>],
     pub(super) inputs: &'a [Vec<f32>],
     pub(super) shared: &'a Shared,
-    /// Nanoseconds the tracks of the group took, added up.
+    /// Nanoseconds the parts of the group took, added up.
     pub(super) spent: &'a AtomicU64,
 }
 
@@ -85,21 +85,21 @@ impl Programs {
 }
 
 impl Work<'_> {
-    /// Make one track's block, and count the time it took.
-    pub(super) fn track(&self, index: usize) {
+    /// Make one part's block, and count the time it took.
+    pub(super) fn part(&self, index: usize) {
         let began = std::time::Instant::now();
         self.make(index);
         self.spent
             .fetch_add(began.elapsed().as_nanos() as u64, Relaxed);
     }
 
-    /// Make one track's block: its clips and input, through its devices and
-    /// its fader. What has been sent into it by the tracks that feed it is
-    /// already in its buffer. Touches nothing but the track and its devices.
+    /// Make one part's block: its clips and input, through its devices and
+    /// its fader. What has been sent into it by the parts that feed it is
+    /// already in its buffer. Touches nothing but the part and its devices.
     pub(super) fn make(&self, index: usize) {
         let entry = &self.entries[index];
         let Block { n, start, end, .. } = *self.block;
-        let Some(mut claim) = self.tracks.get(entry.slot.index()).and_then(Guarded::claim) else {
+        let Some(mut claim) = self.parts.get(entry.slot.index()).and_then(Guarded::claim) else {
             return;
         };
         let Some(t) = claim.as_deref_mut() else {
@@ -123,17 +123,17 @@ impl Work<'_> {
         if let Some(state) = self.shared.launch.get(entry.slot.index()) {
             t.launcher.publish(state);
         }
-        // A track with sends or side-chains from before its fader keeps
+        // A part with sends or side-chains from before its fader keeps
         // the fader for when they have been taken.
         if !entry.taps_pre() {
             fader(t, entry.slot, self.block, self.shared);
         }
     }
 
-    /// What goes into the track's devices: the block's events (notes to
+    /// What goes into the part's devices: the block's events (notes to
     /// stop and to chase, what was played live, the clips' or the playing
     /// slot's), the sound of its audio clips, and its input.
-    fn gather(&self, t: &mut TrackRt, slack: f64) {
+    fn gather(&self, t: &mut PartRt, slack: f64) {
         let Block { ref ctx, n, start, .. } = *self.block;
         let playing = ctx.playing;
         let (flush, chase) = self.flush_and_chase(t, slack);
@@ -153,7 +153,7 @@ impl Work<'_> {
         for kind in t.live.drain(..) {
             t.events.push(Event { frame: 0, kind });
         }
-        // A track that records its audio input hears that input, not what
+        // A part that records its audio input hears that input, not what
         // its clips already hold under the take.
         let replaced = self.block.capturing && t.armed && t.input_channels > 0;
         if playing && !t.launcher.follows_arrangement() {
@@ -174,28 +174,28 @@ impl Work<'_> {
         }
     }
 
-    /// Whether the track stops its notes, and whether it chases those held
-    /// at the block's start: for the whole engine, or for the track alone.
-    fn flush_and_chase(&self, t: &mut TrackRt, slack: f64) -> (bool, bool) {
+    /// Whether the part stops its notes, and whether it chases those held
+    /// at the block's start: for the whole engine, or for the part alone.
+    fn flush_and_chase(&self, t: &mut PartRt, slack: f64) -> (bool, bool) {
         // A launch due now: what played stops, and what plays from here
         // starts with its held notes.
         if let Some(change) = t.launcher.commit(self.block.start, slack) {
             t.flush = true;
             t.chase |= change.chase;
         }
-        // The track's own flags are used up here even when the whole
+        // The part's own flags are used up here even when the whole
         // engine is flushing or chasing anyway; left set, they would
-        // stop and restart the track's notes again one block later.
-        let track_flush = std::mem::take(&mut t.flush);
-        let flush = self.block.flush || track_flush;
+        // stop and restart the part's notes again one block later.
+        let part_flush = std::mem::take(&mut t.flush);
+        let flush = self.block.flush || part_flush;
         // Chasing waits for playback, as it does for the whole engine.
-        let track_chase = self.block.ctx.playing && std::mem::take(&mut t.chase);
-        let chase = self.block.chase || track_chase;
+        let part_chase = self.block.ctx.playing && std::mem::take(&mut t.chase);
+        let chase = self.block.chase || part_chase;
         (flush, chase)
     }
 
     /// A slot plays instead of the timeline, or nothing does.
-    fn play_slot(&self, t: &mut TrackRt) {
+    fn play_slot(&self, t: &mut PartRt) {
         let Block {
             ref ctx,
             n,
@@ -219,9 +219,9 @@ impl Work<'_> {
         t.launcher.advance(end - start);
     }
 
-    /// The timeline plays: the events of the track's clips in the block,
+    /// The timeline plays: the events of the part's clips in the block,
     /// each on its frame, and the sound of its audio clips.
-    fn play_clips(&self, t: &mut TrackRt) {
+    fn play_clips(&self, t: &mut PartRt) {
         let Block {
             ref ctx,
             n,
@@ -254,9 +254,9 @@ impl Work<'_> {
         );
     }
 
-    /// While playing, the automation lanes set the track's fader and pan
+    /// While playing, the automation lanes set the part's fader and pan
     /// and its devices' parameters, as they are at the block's start.
-    fn automate(&self, t: &mut TrackRt) {
+    fn automate(&self, t: &mut PartRt) {
         let start = self.block.start;
         for lane in t.automation.lanes.iter_mut() {
             let Some(value) = value_at(&lane.points, start) else {
@@ -289,7 +289,7 @@ impl Work<'_> {
     /// point at this block's end is handed on its last frame: a plugin that
     /// finishes it after the block (an LV2 worker, at once in a render)
     /// then plays it from the point's frame.
-    fn give_states(&self, t: &mut TrackRt, slack: f64, programs: &mut Programs) {
+    fn give_states(&self, t: &mut PartRt, slack: f64, programs: &mut Programs) {
         let Block { n, start, end, .. } = *self.block;
         for lane in t.automation.states.iter_mut() {
             let Some(index) = state_at(&lane.points, start + slack) else {
@@ -342,9 +342,9 @@ impl Work<'_> {
     }
 }
 
-/// Apply a track's fader, pan and mute to its block, moving smoothly from
+/// Apply a part's fader, pan and mute to its block, moving smoothly from
 /// where the last block left them, and measure what comes out.
-pub(super) fn fader(t: &mut TrackRt, slot: TrackSlot, block: &Block, shared: &Shared) {
+pub(super) fn fader(t: &mut PartRt, slot: PartSlot, block: &Block, shared: &Shared) {
     let n = block.n;
     let target = t.target_gains();
     if !t.started {
@@ -366,7 +366,7 @@ pub(super) fn fader(t: &mut TrackRt, slot: TrackSlot, block: &Block, shared: &Sh
         }
         let peak = peak_of(buf);
         t.applied[ch] = target[ch];
-        // A track silenced by a solo shows nothing, as it is heard.
+        // A part silenced by a solo shows nothing, as it is heard.
         let peak = if t.quiet { 0.0 } else { peak };
         t.peak[ch] = peak.max(t.peak[ch] * block.meter_fall);
         if let Some(meter) = shared.meters.get(slot.index()) {
@@ -397,9 +397,9 @@ pub(super) fn peak_of(buf: &[f32]) -> f32 {
         .fold(0.0, |peak, v| if v > peak { v } else { peak })
 }
 
-/// Add a track's input into its buffer, ahead of its devices. A mono input
+/// Add a part's input into its buffer, ahead of its devices. A mono input
 /// goes to both sides.
-pub(super) fn add_input(inputs: &[Vec<f32>], t: &mut TrackRt, n: usize) {
+pub(super) fn add_input(inputs: &[Vec<f32>], t: &mut PartRt, n: usize) {
     let Some(first) = inputs.get(t.input_first).filter(|_| t.input_channels > 0) else {
         return;
     };
@@ -416,10 +416,10 @@ pub(super) fn add_input(inputs: &[Vec<f32>], t: &mut TrackRt, n: usize) {
     }
 }
 
-/// Stop what the track plays: its notes, and a pedal held down or a wheel
+/// Stop what the part plays: its notes, and a pedal held down or a wheel
 /// left bent when playback stopped, which would stay that way for whatever
 /// is played next.
-fn stop_notes(t: &mut TrackRt) {
+fn stop_notes(t: &mut PartRt) {
     t.events.push(Event {
         frame: 0,
         kind: EventKind::AllNotesOff,

@@ -1,5 +1,5 @@
 -- `paw.harmony`: which chords and which key sound at each moment of the song,
--- over every pitched track, and the theory to work with them (keys, scales,
+-- over every pitched part, and the theory to work with them (keys, scales,
 -- chord names, Roman numerals, voicings, an instrument's range).
 --
 --   paw.harmony.chords(0, 16)     --> { { at = 0, length = 4, root = 9, quality = "min", name = "Am", roman = "i", ... }, ... }
@@ -103,10 +103,10 @@ local record Provider
   priority: number
 end
 
---- A note of the song, in project beats, with its track and its clip.
+--- A note of the song, in project beats, with its part and its clip.
 local type SongNote = song.Note
 
---- An instrument's range: the words in a track's name or its devices'
+--- An instrument's range: the words in a part's name or its devices'
 --- names that tell it, and the pitches of a part for it.
 local record Range
   words: {string}
@@ -115,15 +115,15 @@ local record Range
   name: string
 end
 
---- The range that a track names in its `meta`.
+--- The range that a part names in its `meta`.
 local record OwnRange
   low: integer
   high: integer
 end
 
---- What this module reads of a track's `meta`: `range`, and `drums`, the
+--- What this module reads of a part's `meta`: `range`, and `drums`, the
 --- drum map that the drums extension keeps.
-local record TrackMarks
+local record PartMarks
   range: OwnRange
   drums: types.Meta
 end
@@ -184,7 +184,7 @@ local record M
   voice: VoiceModule
   --- Every scale known by name, as semitones above the root.
   scales: {string: {integer}}
-  --- Words in a track's name, or its devices', and the range a part for it is written in.
+  --- Words in a part's name, or its devices', and the range music for it is written in.
   ranges: {Range}
   default_range: Range
   --- The event `harmony.changed`: the chords that paw hears changed.
@@ -541,7 +541,7 @@ end
 
 -- Instruments' ranges --------------------------------------------------------------
 
--- Words in a track's name, or its devices', and the range a part for it is
+-- Words in a part's name, or its devices', and the range a part for it is
 -- written in: comfortable rather than the instrument's whole compass, so
 -- that chords written for it sit where it sounds well. As MIDI LSP guesses.
 M.ranges = {
@@ -570,32 +570,32 @@ M.ranges = {
 }
 M.default_range = {low = 48, high = 84} -- C3 to C6
 
---- A track as `range` and `is_drums` take it: its id or its table. In Lua,
---- a track (`paw.track`) too.
-local function track_of(track: integer | types.Track): types.Track
-  if track is types.Track then
-    local handle = track as contracts.TrackHandle
+--- A part as `range` and `is_drums` take it: its id or its table. In Lua,
+--- a part (`paw.part`) too.
+local function part_of(part: integer | types.Part): types.Part
+  if part is types.Part then
+    local handle = part as contracts.PartHandle
     if handle.get then
       return handle:get()
     end
-    return track
+    return part
   end
-  if track == nil then
+  if part == nil then
     return nil
   end
-  return api.track_get(track)
+  return api.part_get(part)
 end
 
---- The range of a part for a track, `{ low, high, name }`. This is the
---- range of the track (`track.meta.range = { low, high }`). If not, paw
+--- The range of the music for a part, `{ low, high, name }`. This is the
+--- range of the part (`part.meta.range = { low, high }`). If not, paw
 --- guesses it from the words of its name and the names of its devices. If
 --- not, it is C3 to C6.
-function M.range(track: integer | types.Track): Range
-  local t = track_of(track)
+function M.range(part: integer | types.Part): Range
+  local t = part_of(part)
   if not t then
     return M.default_range
   end
-  local own = type(t.meta) == "table" and (t.meta as TrackMarks).range
+  local own = type(t.meta) == "table" and (t.meta as PartMarks).range
   if type(own) == "table" and own.low and own.high then
     return {low = own.low, high = own.high, name = "set"}
   end
@@ -633,16 +633,16 @@ local function device_kind(id: integer): string
   return kind
 end
 
---- True if the harmony does not use a track: a drum track (a drum map in
+--- True if the harmony does not use a part: a drum part (a drum map in
 --- its meta, as the drums extension keeps it, or a drum device or name).
-function M.is_drums(track: integer | types.Track): boolean
-  local t: types.Track
-  if track is types.Track then
-    t = track
+function M.is_drums(part: integer | types.Part): boolean
+  local t: types.Part
+  if part is types.Part then
+    t = part
   else
-    t = api.track_get(track)
+    t = api.part_get(part)
   end
-  if type(t.meta) == "table" and (t.meta as TrackMarks).drums then
+  if type(t.meta) == "table" and (t.meta as PartMarks).drums then
     return true
   end
   local name = (t.name or ""):lower()
@@ -666,8 +666,8 @@ local project_edits = api.project_get as function(string): integer
 local project_field = api.project_get as function(string): string
 
 -- The edit count when the kernel last told what changed (`changed` comes
--- after the events of the tracks and clips): a count past it means edits
--- whose events have not come yet, so every track is looked at.
+-- after the events of the parts and clips): a count past it means edits
+-- whose events have not come yet, so every part is looked at.
 local edits_seen: integer
 
 --- The key changes that the user writes (`mk`, `:key D minor at 17`): the
@@ -748,12 +748,12 @@ local function catch_up(budget?: number): boolean
 end
 song.setup(song_options)
 
---- Each note of the pitched tracks, in project beats, each with `track` and
---- `clip`. The list does not contain muted clips and tracks, or notes that a
+--- Each note of the pitched parts, in project beats, each with `part` and
+--- `clip`. The list does not contain muted clips and parts, or notes that a
 --- trim of the edges of the clip hides. paw keeps the list until the project
 --- changes. This is what sounds, for the reading and for snippets. The
 --- context notes of the piano roll, `paw.roll_clips.context`, are what the
---- roll shows, in its own beats, and only of the tracks selected to show.
+--- roll shows, in its own beats, and only of the parts selected to show.
 function M.notes(): {SongNote}
   catch_up()
   return song.notes()

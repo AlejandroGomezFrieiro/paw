@@ -3,7 +3,7 @@
 Mix diagnostics. paw measures the mix and reports the problems as a list
 of findings, in the same way that a language server reports problems in
 code. Each finding has a severity, a message with the number that caused
-it, a fix, and a place (a track and a beat) that `]d` and `[d` go to.
+it, a fix, and a place (a part and a beat) that `]d` and `[d` go to.
 
 ```lua
 paw.ext.load("extensions/mixdiag")      -- or put it in ~/.config/paw/extensions
@@ -34,11 +34,11 @@ paw.ext.load("extensions/mixdiag")      -- or put it in ~/.config/paw/extensions
 4. Correct the mix, then press `<Space>ma` again. The marks show `(old)` until you
    measure again.
 
-### How to find the track that clips
+### How to find the part that clips
 
-1. Press `<Space>ma`. If a track output is over full scale, the finding
-   `track_over` names it.
-2. To measure what one track adds to the mix, put the cursor on the track
+1. Press `<Space>ma`. If a part output is over full scale, the finding
+   `part_over` names it.
+2. To measure what one part adds to the mix, put the cursor on the part
    and press `<Space>mk`.
 
 ### How to measure a file
@@ -56,7 +56,7 @@ mixdiag.rules.too_wide = {
   check = function(ctx, add, rule)
     if ctx.result.side > 0 then
       add({ severity = "info", message = string.format("side %.1f dB over mid", ctx.result.side),
-            fix = "narrow the widest parts", beat = ctx.range.start, track = 0 })
+            fix = "narrow the widest parts", beat = ctx.range.start, part = 0 })
     end
   end,
 }
@@ -78,15 +78,15 @@ mixdiag.targets.album = { name = "my album", kind = "deliver", integrated = -16,
 | --- | --- | --- |
 | `<leader>ma` | `mix.analyze` | measures the song. In visual mode, the selection |
 | `<leader>ml` | `mix.analyze loop` | measures the loop |
-| `<leader>mk` | `mix.analyze track` | measures what the cursor track adds: the song with that track as if it is soloed |
+| `<leader>mk` | `mix.analyze part` | measures what the cursor part adds: the song with that part as if it is soloed |
 | `<leader>mx` | `mix.list` | the findings, in `paw.pick`, or in the report |
-| `<leader>mr` | `mix.report` | the report: what paw measured (or the progress), the numbers, the findings by severity, the target. `j` `k` choose a finding, Enter goes to it, `a` measures the song, `l` the loop, `t` the cursor track, `T` selects the next target, `q` closes |
+| `<leader>mr` | `mix.report` | the report: what paw measured (or the progress), the numbers, the findings by severity, the target. `j` `k` choose a finding, Enter goes to it, `a` measures the song, `l` the loop, `t` the cursor part, `T` selects the next target, `q` closes |
 | `<leader>mp` | `view.open mixdiag_paint` | the painted report, in pixels where the terminal shows them (`paw.opt.graphics`). Otherwise, the report in cells |
 | `<leader>ms` | `mix.summary` | LUFS, true peak, LRA, short-term maximum and mono loss of the last measurement |
 | `<leader>mt` | `mix.target [name]` | the next delivery target, or the target with that name |
 | `<leader>mc` | `mix.clear` | removes the findings |
 | `<leader>mq` | `mix.cancel` | stops a measurement |
-| `]d` `[d` | | the next and the previous diagnostic, as in every view: the findings are diagnostics, with the other diagnostics of the project. A finding about the master leaves the cursor on its track |
+| `]d` `[d` | | the next and the previous diagnostic, as in every view: the findings are diagnostics, with the other diagnostics of the project. A finding about the master leaves the cursor on its part |
 | | `mix.next` `mix.prev` | the next and the previous finding only, with its message. A count goes further. They wrap. `<C-o>` returns |
 | | `mix.file path` | measures an audio file |
 
@@ -97,7 +97,7 @@ mixdiag.targets.album = { name = "my album", kind = "deliver", integrated = -16,
 - The painted report in the graphical window has the following parts:
   - the loudness, true peak, sample peak and RMS of the mix, as bars with
     the target
-  - the peak of each track, as a meter
+  - the peak of each part, as a meter
   - the spectrum by octave band, on a log axis
   - the findings, each with a dot in the color of its severity
   `:view.window mixdiag` opens the list of the terminal in cells.
@@ -125,18 +125,18 @@ change.
 | `clip` | the master over full scale: where, how many runs and samples, and how much to lower it | a run (see below). Runs within `merge` = 4 beats are one finding. At most `max` = 20 | error |
 | `true_peak` | the true peak is over the ceiling of the target (Spotify: -1, or -2 when louder than -14 LUFS. EBU: -1). With no target: over 0 dBTP when no sample clips | | error for a delivery target, else warn |
 | `loudness` | EBU R 128: the integrated loudness is more than `tolerance` (1 LU) from -23 LUFS. Streaming: louder than -14 by more than `slack` (0.5 LU), with how much the service turns it down. Or quieter, when the true peak stops the service from a full increase, with how much quieter it plays | | error (EBU, full song), info (streaming, or a part) |
-| `track_over` | the post-fader output of a track is over full scale, and where it first went over | 0 dBFS | warn when the master clips too, else info |
+| `part_over` | the post-fader output of a part is over full scale, and where it first went over | 0 dBFS | warn when the master clips too, else info |
 | `phase` | a passage with a correlation under `floor` for at least `seconds`, while louder than `audible` | -0.2, 2 s, -50 LUFS | warn |
 | `mono` | the measured part loses more than `limit` in mono, or cancels fully | 4 dB (unrelated sides lose 3.0) | warn. error when it cancels |
 | `dc` | a DC offset over the full render, or in a passage of `seconds` whole seconds whose means are over `limit` on one side of zero | 0.01 (-40 dBFS), 2 s | warn |
 | `silence` | silence at the start of the render, or before its end (not the tail added for releases) | `start` 1 s, `ending` 2 s | info |
 | `infrasonic` | the energy below the 31.5 Hz octave band (22 Hz) is over `limit` of the total | -20 dB (1 %) | info |
-| `forgotten` | a soloed track (the measurement heard only solos), a muted track with clips in the part, muted clips, bypassed devices, automation lanes with points that are off | | warn for solo, else hint |
-| `no_sound` | an unmuted track with clips in the part whose output never went above `floor` (no instrument, or a bypassed one) | -100 dBFS | hint |
+| `forgotten` | a soloed part (the measurement heard only solos), a muted part with clips in the range, muted clips, bypassed devices, automation lanes with points that are off | | warn for solo, else hint |
+| `no_sound` | an unmuted part with clips in the range whose output never went above `floor` (no instrument, or a bypassed one) | -100 dBFS | hint |
 
 The rules about delivery (`loudness`, `true_peak`) apply only for the
 chosen target. With the target `none`, the report gives the loudness as
-numbers and not as findings, and when paw measures what one track adds, it
+numbers and not as findings, and when paw measures what one part adds, it
 does not apply these rules.
 
 ### Measurements
@@ -160,7 +160,7 @@ measures the audio during the render.
 | Mono-sum loss | K-weighted loudness of (L+R)/2 on both sides, over the blocks that the stereo measurement kept | arithmetic on BS.1770 |
 | Spectral balance | Hann-windowed FFT of the mid signal, frames of about 1/6 s. The share of energy in each octave band, IEC 61260-1 base-ten mid frequencies 31.5 Hz to 16 kHz, with `sub` below and `air` above | the bands of IEC. No target curve |
 | Spectral centroid | the mean frequency of the same spectrum, weighted by power | arithmetic |
-| Peaks of each track | the post-fader meter of each track, read every engine block (1024 samples) | |
+| Peaks of each part | the post-fader meter of each part, read every engine block (1024 samples) | |
 | Series every 100 ms | momentary and short-term loudness, correlation (400 ms and for each 100 ms), mono loss, sample and true peak. DC for each second | |
 
 #### Accuracy
@@ -194,7 +194,7 @@ through `paw.api.measure`, as -23 LUFS.
 
 #### Speed
 
-Take a song of 5 minutes, with 9 tracks of built-in synths, drums and delays.
+Take a song of 5 minutes, with 9 parts of built-in synths, drums and delays.
 Its diagnostics take about 3 s in a debug build (the dev profile of the
 workspace), and `paw.render` of the same song takes most of that time.
 
@@ -212,28 +212,28 @@ workspace), and `paw.render` of the same song takes most of that time.
 ```lua
 local mixdiag = require("mixdiag")
 
-mixdiag.analyze("song")                     -- or "loop", "selection", "track",
-                                            -- { start = 0, ["end"] = 32, track = id }, { file = "x.wav" }
+mixdiag.analyze("song")                     -- or "loop", "selection", "part",
+                                            -- { start = 0, ["end"] = 32, part = id }, { file = "x.wav" }
 mixdiag.analyze("loop", { done = function(findings) end })
 local findings = mixdiag.analyze("song", { wait = true })   -- waits for the measurement
-mixdiag.findings      -- { severity, message, fix, beat, track, seconds, rule }
+mixdiag.findings      -- { severity, message, fix, beat, part, seconds, rule }
 mixdiag.result        -- the measurement (below)
 mixdiag.summary()     -- "LUFS -14.2  TP -1.3 dBTP  LRA 6.1 LU  …"
-mixdiag.marks()       -- { beat, severity, text, track } for a ruler
+mixdiag.marks()       -- { beat, severity, text, part } for a ruler
 mixdiag.step(1)       -- what :mix.next does
 mixdiag.list()  mixdiag.clear()  mixdiag.cancel()  mixdiag.stale()
 ```
 
 - The `ctx` of a rule has `result`, `range` (`start`, `end`, `label`,
-  `track`), `kind` (`mix`, `track` or `file`), `whole` (the full song or
+  `part`), `kind` (`mix`, `part` or `file`), `whole` (the full song or
   file) and `target`, and the helpers `beat(seconds)` (through the tempo
-  map), `where(beat, seconds)` and `track_name(id)`.
+  map), `where(beat, seconds)` and `part_name(id)`.
 - paw sends `mixdiag.done` when the findings are ready.
 
 ### `paw.api.measure`
 
 ```lua
-paw.api.measure({ start = 0, ["end"] = 64, tail = 1, sample_rate = 48000, track = id })  -- waits
+paw.api.measure({ start = 0, ["end"] = 64, tail = 1, sample_rate = 48000, part = id })  -- waits
 paw.api.measure({ file = "master.wav" })
 local id = paw.api.measure_start(opts)          -- on a worker thread
 paw.api.measure_poll(id)    -- { done = false, progress = 0.4, elapsed } or { done = true, result | error }
@@ -253,23 +253,23 @@ The fields of the result:
 | `sound_start`, `sound_end` | where sound starts and stops |
 | `bands` | `{ name, low, high, share }` |
 | `centroid` | Hz, the spectral centroid. 0 for silence |
-| `tracks` | `{ id, peak, peak_at, over_at }` |
+| `parts` | `{ id, peak, peak_at, over_at }` |
 | `series` | `hop`, `momentary`, `short_term`, `correlation`, `correlation_hop`, `mono_loss`, `sample_peak`, `true_peak`, `dc_left`, `dc_right`. Point `i` is the window that ends at `(i + 1) * hop` seconds. `-150` is silence |
 | `sample_rate`, `frames`, `seconds`, `elapsed` | the measurement |
-| `start` (beat), `end`, `tail`, `tempo`, `track`, `edits` | for a project |
+| `start` (beat), `end`, `tail`, `tempo`, `part`, `edits` | for a project |
 
 Times are seconds from the start of the measurement.
 
 ### Limits
 
-- Tracks give only their peak, not their loudness, correlation or
-  spectrum. To get the numbers of one track, measure what it adds
-  (`<Space>mk`), which costs one render for each track.
+- Parts give only their peak, not their loudness, correlation or
+  spectrum. To get the numbers of one part, measure what it adds
+  (`<Space>mk`), which costs one render for each part.
 - paw measures the mix, so a DC offset, a phase problem or infrasonic
-  energy points at a time, not at a track.
-- What a track adds includes its solo path to the master. It does not
+  energy points at a time, not at a part.
+- What a part adds includes its solo path to the master. It does not
   include effect returns that its sends feed.
-- paw does not compare the spectrum with reference tracks. It has no
+- paw does not compare the spectrum with reference parts. It has no
   target curves, on purpose.
 - paw measures the mix as floating point numbers, before dither. It does not
   apply the settings of an integer render.

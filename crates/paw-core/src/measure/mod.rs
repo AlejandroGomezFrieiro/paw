@@ -1,11 +1,11 @@
 //! Measuring the mix: `paw.api.measure*`.
 //!
-//! The project (or a stretch of it, or one track's part in it) is rendered by
+//! The project (or a stretch of it, or one part's share of it) is rendered by
 //! a private engine on a worker thread and measured as it is rendered, so the
 //! interface keeps running; an audio file is decoded and measured the same
 //! way, by the analyzer of the `paw-measure` crate, which `paw-mcp` shares.
 //! What comes back is plain data: see [`paw_measure::Analysis`] and the
-//! per-track peaks added here.
+//! per-part peaks added here.
 //!
 //!   measure_start(opts) -> id      start measuring
 //!   measure_poll(id) -> status     { done, progress, elapsed, result | error }
@@ -13,7 +13,7 @@
 //!   measure(opts) -> result        the same, waiting for the answer
 //!
 //! Options: `start`, `end` (beats), `tail` (seconds, default 1), `sample_rate`,
-//! `track` (measure only this track's contribution), `file` (measure an audio
+//! `part` (measure only this part's contribution), `file` (measure an audio
 //! file instead of the project).
 
 use std::cell::RefCell;
@@ -44,25 +44,25 @@ struct MeasureOpts {
     end: Option<f64>,
     tail: Option<f64>,
     sample_rate: Option<u32>,
-    track: Option<Id>,
+    part: Option<Id>,
     file: Option<PathBuf>,
 }
 
-/// Peak of one track's output, after its fader, from the engine's meters.
+/// Peak of one part's output, after its fader, from the engine's meters.
 #[derive(Clone, Debug, Serialize)]
-pub(crate) struct TrackPeak {
+pub(crate) struct PartPeak {
     pub id: Id,
     /// dBFS, and where, in seconds from the start of the render: the end of
     /// the engine block (about 21 ms at 48 kHz) it happened in.
     pub peak: f64,
     pub peak_at: f64,
-    /// Where the track first went over full scale, if it did.
+    /// Where the part first went over full scale, if it did.
     pub over_at: Option<f64>,
 }
 
 /// What the worker thread hands back: the engine, to be dropped on the main
 /// thread after its controllers, and the measurements.
-type Outcome = Result<(Option<(Engine, EngineHandle)>, Analysis, Vec<TrackPeak>)>;
+type Outcome = Result<(Option<(Engine, EngineHandle)>, Analysis, Vec<PartPeak>)>;
 
 struct Job {
     done: Arc<AtomicU64>,
@@ -83,8 +83,8 @@ impl Job {
             .join()
             .map_err(|_| anyhow!("the measuring thread panicked"))?;
         let elapsed = self.started.elapsed().as_secs_f64();
-        let (engine, analysis, tracks) = match outcome {
-            Ok(parts) => parts,
+        let (engine, analysis, parts) = match outcome {
+            Ok(done) => done,
             Err(err) => {
                 drop(self.live.take());
                 return Err(err);
@@ -94,7 +94,7 @@ impl Job {
         drop(self.live.take());
         drop(engine);
         let mut value = serde_json::to_value(&analysis)?;
-        value["tracks"] = serde_json::to_value(&tracks)?;
+        value["parts"] = serde_json::to_value(&parts)?;
         value["elapsed"] = json!(elapsed);
         value["floor"] = json!(FLOOR_DB);
         if let (Value::Object(out), Value::Object(context)) = (&mut value, &self.context) {
@@ -154,8 +154,8 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
     let started = Instant::now();
 
     if let Some(path) = opts.file {
-        if opts.track.is_some() {
-            bail!("`file` and `track` cannot be measured together");
+        if opts.part.is_some() {
+            bail!("`file` and `part` cannot be measured together");
         }
         let data = AudioData::load(&path)?;
         let total = data.frames() as u64;
@@ -195,7 +195,7 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
         bits: 32,
         ..RenderOpts::default()
     };
-    let solo = opts.track.filter(|id| *id != MASTER_ID);
+    let solo = opts.part.filter(|id| *id != MASTER_ID);
     let offline = shared.session.borrow_mut().offline(&render, solo)?;
     let crate::session::offline::Offline {
         mut engine,
@@ -251,7 +251,7 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
                 }
                 // One engine block per call, so each meter reading is this
                 // block's peak or the falling hold of an earlier, higher one:
-                // the largest reading is the track's peak, in its own block.
+                // the largest reading is the part's peak, in its own block.
                 // A block is placed by its end, so that an over just after a
                 // bar line is not put in the bar before.
                 for ((_, slot), peak) in slots.iter().zip(peaks.iter_mut()) {
@@ -273,17 +273,17 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
             let analysis = analysis
                 .join()
                 .map_err(|_| anyhow!("the analysis thread panicked"))?;
-            let tracks = slots
+            let parts = slots
                 .iter()
                 .zip(peaks)
-                .map(|((id, _), (peak, peak_at, over))| TrackPeak {
+                .map(|((id, _), (peak, peak_at, over))| PartPeak {
                     id: *id,
                     peak: analysis_db(peak),
                     peak_at: peak_at as f64 / rate,
                     over_at: over.map(|f| f as f64 / rate),
                 })
                 .collect();
-            Ok((Some((engine, handle)), analysis, tracks))
+            Ok((Some((engine, handle)), analysis, parts))
         })?;
     Ok(Job {
         done,
@@ -294,7 +294,7 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
         started,
         context: json!({
             "start": start, "tempo": tempo, "end": render.end, "tail": render.tail,
-            "track": solo, "edits": shared.session.borrow().project_view()["edits"],
+            "part": solo, "edits": shared.session.borrow().project_view()["edits"],
         }),
     })
 }

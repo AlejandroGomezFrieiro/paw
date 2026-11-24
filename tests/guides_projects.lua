@@ -1,6 +1,6 @@
 -- The how-to guides of the user guide about projects and files, each driven
 -- with the keys and commands that it gives (docs/how-to/save-and-open-projects.md,
--- import-audio-and-midi-files.md, use-track-templates.md). Loaded by
+-- import-audio-and-midi-files.md, use-part-templates.md). Loaded by
 -- tests/suite.lua with its helpers.
 local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
@@ -44,7 +44,7 @@ test("guide: save, back up and open projects", function()
   keys(":w<CR>")
   eq(paw.project.unsaved(), false, ":w saves the edit")
   keys(":new<CR>")
-  eq(#paw.tracks() .. " " .. tostring(paw.project.path), "0 nil", ":new starts an empty project")
+  eq(#paw.parts() .. " " .. tostring(paw.project.path), "0 nil", ":new starts an empty project")
   T.tone("Bass", 4)
   keys(":w " .. d .. "/second<CR>")
   keys("<Space>pr")
@@ -160,38 +160,34 @@ test("guide: import audio and MIDI files", function()
   local d = dir("importing")
   paw.project.save(d .. "/song")
   keys(":import " .. lib .. "/loop.wav<CR>")
-  eq(#paw.tracks(), 1, ":import puts a sound file on a new track")
-  eq(paw.tracks()[1]:clips()[1].kind, "audio", "as an audio clip")
-  eq(paw.tracks()[1].name, "loop", "named after the file")
+  eq(#paw.parts(), 1, ":import puts a sound file on a new part")
+  eq(paw.parts()[1]:clips()[1].kind, "audio", "as an audio clip")
+  eq(paw.parts()[1].name, "loop", "named after the file")
   keys("3|")
   keys(":import " .. lib .. "/loop.wav<CR>")
-  eq(paw.tracks()[2]:clips()[1].start, 8, "a clip that starts at the cursor")
+  eq(paw.parts()[2]:clips()[1].start, 8, "a clip that starts at the cursor")
   keys("u")
   keys("o")
   keys("5|")
   keys(":clip.import " .. lib .. "/loop.wav<CR>")
-  local t2 = paw.tracks()[2]
-  eq(
-    #t2:clips() .. "@" .. t2:clips()[1].start,
-    "1@16",
-    ":clip.import puts it on the track of the cursor, at the cursor"
-  )
+  local t2 = paw.parts()[2]
+  eq(#t2:clips() .. "@" .. t2:clips()[1].start, "1@16", ":clip.import puts it on the part of the cursor, at the cursor")
   keys(":import " .. lib .. "/riff.mid<CR>")
-  eq(#paw.tracks(), 3, ":import adds the tracks of a MIDI file")
-  eq(paw.tracks()[3]:clips()[1].kind, "midi", "with their notes")
+  eq(#paw.parts(), 3, ":import adds the parts of a MIDI file")
+  eq(paw.parts()[3]:clips()[1].kind, "midi", "with their notes")
   keys(":files " .. lib .. "<CR>")
   eq(table.concat(api.ui_snapshot(100, 30), "\n"):find("loop.wav", 1, true) ~= nil, true, ":files shows the folder")
   keys("/loop<CR>")
   keys("go")
-  eq(#paw.tracks(), 4, "go puts the file on a new track")
+  eq(#paw.parts(), 4, "go puts the file on a new part")
   keys(":files " .. lib .. "<CR>")
   keys("/loop<CR>")
   keys("<CR>")
-  eq(#paw.tracks(), 4, "Enter puts it on the track of the cursor")
-  eq(#paw.tracks()[4]:clips(), 2, "beside the other clip")
+  eq(#paw.parts(), 4, "Enter puts it on the part of the cursor")
+  eq(#paw.parts()[4]:clips(), 2, "beside the other clip")
   paw.ui.focus("arrange")
   keys(":media.collect<CR>")
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     for _, c in ipairs(t:clips()) do
       if c.kind == "audio" then
         eq(c:get().file, d .. "/song/media/loop.wav", ":media.collect copies the files into media")
@@ -200,35 +196,35 @@ test("guide: import audio and MIDI files", function()
   end
 end)
 
-T.last("guide: make and use track templates", function()
+T.last("guide: make and use part templates", function()
   start()
   paw.opt.templates_dir = T.scratch .. "/guide-templates"
   T.after(function() paw.opt.templates_dir = T.scratch .. "/templates" end)
   keys(":ext.load templates<CR>")
-  local vocal = paw.add_track({ name = "Vocal" })
+  local vocal = paw.add_part({ name = "Vocal" })
   vocal:add_device("eq")
   vocal:add_device("compressor")
   vocal.volume = -4
   paw.flush()
   paw.ui.focus("arrange")
-  paw.cursor.set_track(vocal)
+  paw.cursor.set_part(vocal)
   keys("<localleader>TsLead vocal<CR>")
-  eq(require("templates").list("track")[1].name, "Lead vocal", "\\Ts saves the track as a template")
+  eq(require("templates").list("part")[1].name, "Lead vocal", "\\Ts saves the part as a template")
   keys("<localleader>TfVocal chain<CR>")
   eq(require("templates").list("fx")[1] ~= nil, true, "\\Tf saves the devices as a chain")
   start()
-  paw.add_track({ name = "Guitar" })
+  paw.add_part({ name = "Guitar" })
   paw.flush()
   paw.ui.focus("arrange")
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   keys("<localleader>Tllead<CR>")
-  eq(#paw.tracks(), 2, "\\Tl makes the track again")
-  local made = paw.tracks()[2]
-  eq(made.name .. " " .. made.volume, "Vocal -4", "below the cursor track, with its level")
+  eq(#paw.parts(), 2, "\\Tl makes the part again")
+  local made = paw.parts()[2]
+  eq(made.name .. " " .. made.volume, "Vocal -4", "below the cursor part, with its level")
   eq(made:devices()[1].kind .. " " .. made:devices()[2].kind, "eq compressor", "and its devices")
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   keys("<localleader>Tlvocal chain<CR>")
-  eq(#paw.tracks()[1]:devices(), 2, "a chain goes onto the devices of the cursor track")
+  eq(#paw.parts()[1]:devices(), 2, "a chain goes onto the devices of the cursor part")
   keys(":templates<CR>")
   eq(table.concat(api.ui_snapshot(100, 20), "\n"):find("Lead vocal", 1, true) ~= nil, true, ":templates lists them")
 end)

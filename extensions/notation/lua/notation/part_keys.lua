@@ -2,7 +2,7 @@
 --
 --   :part.score            -- the full score in the notation view, to edit (`notation.staves`)
 --   :part.condense         -- two players of an instrument on one staff, or not
---   :part Flute 1          -- an instrument's part (by name or place); alone, the open clip's track's
+--   :part Flute 1          -- an instrument's part (by name or place); alone, the open clip's part's
 --   :part.next, :part.prev -- the next, previous part
 --   :part off              -- the clip alone again
 --   :part.transpose Bb     -- the part written for an instrument in B flat (`Eb up`, `Bb octave`, `off`)
@@ -12,7 +12,7 @@
 --   :part.export parts.pdf all   -- a PDF of each part; `score`, the full score; .musicxml / .mxl, every part
 --
 -- Keys on `<localleader>P` in the notation view: `s` score, `c` condensed,
--- `p` this track's part, `n` `N` next and previous part, `o` back to the
+-- `p` this part's part, `n` `N` next and previous part, `o` back to the
 -- clip, `b` `j` a break in the part, `e` export.
 local api = paw.api
 local view = require("notation")
@@ -40,10 +40,10 @@ local function show(parts)
   if not opened() then return end
   -- The cursor at the start, on the middle line of the first staff.
   view.parts, view.cache, view.first = parts, nil, 1
-  -- The part's track is the active staff; in the score, the open clip's.
-  if parts.track then
+  -- The shown part is the active staff; in the score, the open clip's.
+  if parts.part then
     for _, e in ipairs(P.instruments()) do
-      if e.id == parts.track then view:activate(e.clip.id) end
+      if e.id == parts.part then view:activate(e.clip.id) end
     end
   end
   local F = view:frame()
@@ -58,11 +58,11 @@ local function show(parts)
   return layout
 end
 
---- The track whose part is meant: the part shown, else the open clip's.
-local function part_track()
-  if view.parts and view.parts.kind == "part" then return view.parts.track end
+--- The part whose printed part is meant: the part shown, else the open clip's.
+local function shown_part()
+  if view.parts and view.parts.kind == "part" then return view.parts.part end
   local clip = view:clip() or view.target()
-  return clip and clip:get().track
+  return clip and clip:get().part
 end
 
 --- An instrument by its name (or the start of it, any case) or its place
@@ -97,11 +97,11 @@ command("part.score", function()
     paw.notify(
       "the full score at concert pitch"
         .. (condensed and ", condensed" or "")
-        .. ": the cursor's staff is the track edited; :part off for the clip alone"
+        .. ": the cursor's staff is the part edited; :part off for the clip alone"
     )
   end
 end, {
-  desc = "Show the full score to edit: every track with MIDI as an instrument, in orchestral order, the cursor's staff the track edited",
+  desc = "Show the full score to edit: every part with MIDI as an instrument, in orchestral order, the cursor's staff the part edited",
 })
 
 command("part.condense", function(ctx)
@@ -120,7 +120,7 @@ end, {
 })
 
 local function show_part(e)
-  if show({ kind = "part", track = e.id }) then
+  if show({ kind = "part", part = e.id }) then
     paw.notify(
       "part: "
         .. e.name
@@ -138,27 +138,27 @@ command("part", function(ctx)
     return paw.notify("notation: the clip alone, to edit")
   end
   if not words or words == "" then
-    local id = part_track()
+    local id = shown_part()
     local list = P.instruments()
     for _, e in ipairs(list) do
       if e.id == id then return show_part(e) end
     end
     if list[1] then return show_part(list[1]) end
-    return paw.notify("no track has MIDI to make a part of", "warn")
+    return paw.notify("no part has MIDI to print", "warn")
   end
   local e, list = instrument(words)
   if not e then return paw.notify("no part '" .. words .. "': " .. table.concat(names(list), ", "), "warn") end
   show_part(e)
 end, {
   raw = true,
-  desc = "Show a part to play from, to edit as it is written: `part Flute 1` (by name or place in the score), alone the open clip's track's, `part off` the clip alone again",
+  desc = "Show a part to play from, to edit as it is written: `part Flute 1` (by name or place in the score), alone the open clip's part, `part off` the clip alone again",
   complete = complete_names,
 })
 
 local function step(by)
   local list = P.instruments()
-  if #list == 0 then return paw.notify("no track has MIDI to make a part of", "warn") end
-  local id = part_track()
+  if #list == 0 then return paw.notify("no part has MIDI to print", "warn") end
+  local id = shown_part()
   local at = 0
   for i, e in ipairs(list) do
     if e.id == id then at = i end
@@ -170,8 +170,8 @@ command("part.next", function() step(1) end, { desc = "Show the next instrument'
 command("part.prev", function() step(-1) end, { desc = "Show the previous instrument's part, in score order" })
 
 command("part.transpose", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
+  local id = shown_part()
+  if not id then return paw.notify("no part", "warn") end
   local spec = ctx.args[1]
   if not spec or spec == "" then
     local iv = P.transposition(id)
@@ -194,7 +194,7 @@ command("part.transpose", function(ctx)
   )
 end, {
   raw = true,
-  desc = 'How a track\'s part is written: `part.transpose Bb` (clarinet, trumpet), `F` (horn), `Eb` (alto sax), `Eb up` (E flat clarinet), `Bb octave` (tenor sax), `off`, `default` (from "in Bb" in its name)',
+  desc = 'How a part is written in its printed part: `part.transpose Bb` (clarinet, trumpet), `F` (horn), `Eb` (alto sax), `Eb up` (E flat clarinet), `Bb octave` (tenor sax), `off`, `default` (from "in Bb" in its name)',
   complete = function()
     return {
       "Bb",
@@ -227,8 +227,8 @@ local function stretch(ctx)
 end
 
 command("part.cue", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
+  local id = shown_part()
+  if not id then return paw.notify("no part", "warn") end
   local words = ctx.args[1]
   local from, to = stretch(ctx)
   if words == "off" then
@@ -276,7 +276,7 @@ local function toggle(list_name, other)
     local bar = cursor_bar()
     if not bar then return end
     local on
-    P.keep(view.parts.track, function(part)
+    P.keep(view.parts.part, function(part)
       local list, kept = part[list_name] or {}, {}
       on = true
       for _, b in ipairs(list) do
@@ -320,15 +320,15 @@ command(
 command("part.bars-per-system", function(ctx)
   if not (view.parts and view.parts.kind == "part") then return paw.notify("show a part first (`:part`)", "warn") end
   local n = tonumber(ctx.args[1])
-  P.keep(view.parts.track, function(part) part.per_system = n end)
+  P.keep(view.parts.part, function(part) part.per_system = n end)
   view.cache = nil
   api.ui_redraw()
   paw.notify(n and (n .. " bars to a system in this part") or "as many bars to a system as fit, in this part")
 end, { desc = "In the part shown: that many bars to every system, or without a number as they fit" })
 
 command("part.name", function(ctx)
-  local id = part_track()
-  if not id then return paw.notify("no track", "warn") end
+  local id = shown_part()
+  if not id then return paw.notify("no part", "warn") end
   local full, short = tostring(ctx.args[1] or ""):match("^%s*(.-)%s*|%s*(.-)%s*$")
   full = full or tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")
   P.keep(id, function(part)
@@ -337,11 +337,11 @@ command("part.name", function(ctx)
   end)
   view.cache = nil
   paw.notify(
-    full ~= "" and ("named " .. full .. (short and short ~= "" and (", " .. short) or "")) or "named as the track"
+    full ~= "" and ("named " .. full .. (short and short ~= "" and (", " .. short) or "")) or "named as the part"
   )
 end, {
   raw = true,
-  desc = "The names a track's instrument has in the score and its part: `part.name Flute 1 | Fl. 1` (full, short), alone the track's name",
+  desc = "The names a part's instrument has in the score and its printed part: `part.name Flute 1 | Fl. 1` (full, short), alone the part's name",
 })
 
 -- Export ----------------------------------------------------------------------------------------
@@ -358,8 +358,8 @@ end
 function P.musicxml(path)
   local mx = require("notation.musicxml")
   local list = P.instruments()
-  if #list == 0 then error("no track has MIDI", 0) end
-  -- Each made of every clip of its track.
+  if #list == 0 then error("no part has MIDI", 0) end
+  -- Each made of every clip of its part.
   local parts = P.scores(list)
   local groups = 0
   for i, p in ipairs(parts) do
@@ -400,12 +400,12 @@ command("part.export", function(ctx)
   local jobs = {}
   if what == "all" then
     for _, e in ipairs(P.instruments()) do
-      jobs[#jobs + 1] = { track = e.id, path = path:gsub("%.(%w+)$", "-" .. safe(e.name) .. ".%1") }
+      jobs[#jobs + 1] = { part = e.id, path = path:gsub("%.(%w+)$", "-" .. safe(e.name) .. ".%1") }
     end
   elseif what == "score" or (shown == "score" and what ~= "part") then
     jobs[1] = { score = true, path = path }
   else
-    jobs[1] = { track = part_track(), path = path }
+    jobs[1] = { part = shown_part(), path = path }
   end
   local wrote, pages = {}, 0
   for _, job in ipairs(jobs) do
@@ -413,7 +413,7 @@ command("part.export", function(ctx)
     if job.score then
       layout, err = P.score_layout({ condensed = view.parts and view.parts.condensed })
     else
-      layout, err = P.part_layout(job.track)
+      layout, err = P.part_layout(job.part)
     end
     if not layout then return paw.notify(err or "nothing to write", "warn") end
     local ok, files, n = pcall(page.export, layout, job.path, ext, heading(layout.part_name))
@@ -444,7 +444,7 @@ local function key(lhs, rhs, desc) keymap.set("<localleader>P" .. lhs, rhs, { vi
 keymap.group("<localleader>P", "score and parts", { view = "notation" })
 key("s", "part.score", "The full score, to edit")
 key("c", "part.condense", "The full score condensed, or not")
-key("p", "part", "This track's part")
+key("p", "part", "The printed part of this part")
 key("n", "part.next", "The next part")
 key("N", "part.prev", "The previous part")
 key("o", "part off", "Back to the clip alone")

@@ -81,7 +81,7 @@ test(
 
 test("panes: :vs paw://lane/N is a pane drawn in cells beside the arrange view, and has the keyboard", function()
   start()
-  local t = paw.add_track({ name = "Pad" })
+  local t = paw.add_part({ name = "Pad" })
   local lane = t:automate("volume")
   lane:set_points({ { 0, -12 }, { 4, 0 } })
   ex("vs " .. paw.address.lane(lane.id))
@@ -101,10 +101,10 @@ end)
 
 test("panes: Enter on a lane row opens its curve in a pane", function()
   start()
-  local t = paw.add_track({ name = "Pad" })
+  local t = paw.add_part({ name = "Pad" })
   local lane = t:automate("volume")
   paw.lanes.open(t)
-  paw.cursor.set_track(t.id, lane.id)
+  paw.cursor.set_part(t.id, lane.id)
   paw.keymap.feed("<CR>")
   local by, focused = panes()
   eq(focused and focused.view, "curve", "the curve pane has the keyboard")
@@ -238,18 +238,18 @@ end)
 
 test("panes: every kind of buffer paints in a pane without failing", function()
   start()
-  local t = paw.add_track({ name = "Pad" })
+  local t = paw.add_part({ name = "Pad" })
   local lane = t:automate("volume")
   local clip = t:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   local names = {
     paw.address.lane(lane.id),
     "paw://tempo",
     "quickfix",
-    "paw://tracks",
+    "paw://parts",
     "paw://sends",
     "paw://markers",
-    "paw://track/" .. t.id .. "/devices",
+    "paw://part/" .. t.id .. "/devices",
   }
   -- The views of the runtime and of the extensions loaded, as far as these
   -- tests have loaded them.
@@ -268,7 +268,7 @@ test("panes: every kind of buffer paints in a pane without failing", function()
     "mixdiag_paint",
     "sections",
     "tutor",
-    "tracklist",
+    "partlist",
   }) do
     if paw.ui.views:get(name) then names[#names + 1] = name end
   end
@@ -294,11 +294,11 @@ end)
 
 test("panes: the window is told the mixer's cursor row, which the keys move", function()
   start()
-  local t = paw.add_track({ name = "Pad" })
-  paw.cursor.set_track(t)
+  local t = paw.add_part({ name = "Pad" })
+  paw.cursor.set_part(t)
   paw.ui.focus("mixer")
   local row = paw.frontend.state(-1).modal.mixer_row
-  eq(row and row.track, t.id, "the strip under the cursor")
+  eq(row and row.part, t.id, "the strip under the cursor")
   local function key(r) return r.kind .. r.index .. r.field end
   local before = key(row)
   paw.keymap.feed("j")

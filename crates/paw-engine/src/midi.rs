@@ -565,8 +565,8 @@ mod imp {
                         continue;
                     }
                     let client_name = text(snd_seq_client_info_get_name(client));
-                    // What tracks send out (`midi_out`) would come straight
-                    // back in to the tracks that sent it.
+                    // What parts send out (`midi_out`) would come straight
+                    // back in to the parts that sent it.
                     if client_name == crate::midi_out::CLIENT {
                         continue;
                     }

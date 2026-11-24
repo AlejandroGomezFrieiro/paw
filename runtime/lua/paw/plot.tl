@@ -8,7 +8,7 @@
 --   plot:strip(0, 0, plot.width, plot.height, { key = "lane:" .. win.id, under = true,
 --     draw = function(g, px)
 --       paw.plot.curve(g, px, { points = points, from = left, pixels_per_beat = zoom * px.cell.w,
---         lo = 0, hi = 1, color = paw.draw.track_colour(track) })
+--         lo = 0, hi = 1, color = paw.draw.part_colour(part) })
 --     end })
 --
 -- `M.bars` and `M.wave` draw bars and a waveform the same way, and each
@@ -166,7 +166,7 @@ end
 ---   frac              `frac(value)` from 0 (bottom) to 1 (top); else `lo` and `hi`
 ---   flat              the value shown when there are no points (else nothing is)
 ---   color             the line's colour, `#rrggbb` (the theme's `dim` by default):
----                     a track's own is `paw.draw.track_colour(track)`
+---                     a part's own is `paw.draw.part_colour(part)`
 ---   fill              how opaque the area under the line is, 0 to 1 (0.16); false for none
 ---   width             the line's width in pixels (1.5)
 ---   top, bottom       pixels kept clear above 1 and below 0 (2 each)

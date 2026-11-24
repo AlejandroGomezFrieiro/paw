@@ -211,17 +211,17 @@ end)
 
 -- Clips ----------------------------------------------------------------------
 
-local function drum_track()
-  local track = paw.add_track({ name = "Drums" })
-  track:add_device("drums")
-  return track
+local function drum_part()
+  local part = paw.add_part({ name = "Drums" })
+  part:add_device("drums")
+  return part
 end
 
 test("pattern: a clip follows its text through edits", function()
   fresh()
   local p = load()
-  local track = drum_track()
-  local clip = track:add_clip({ start = 0, length = 4 })
+  local part = drum_part()
+  local clip = part:add_clip({ start = 0, length = 4 })
   local notes = assert(p.set(clip, "bd sn"))
   eq(#notes, 2, "notes returned")
   paw.flush()
@@ -273,11 +273,11 @@ end)
 test("pattern: splitting a clip keeps the left part linked", function()
   fresh()
   local p = load()
-  local track = drum_track()
-  local clip = track:add_clip({ start = 0, length = 8 })
+  local part = drum_part()
+  local clip = part:add_clip({ start = 0, length = 8 })
   p.set(clip, "bd hh sn hh")
   paw.flush()
-  paw.cursor.set_track(track)
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(4)
   paw.cmd("clip.split")
   paw.flush()
@@ -288,8 +288,8 @@ end)
 test("pattern: undo and redo bring text and notes back together", function()
   fresh()
   local p = load()
-  local track = drum_track()
-  local clip = track:add_clip({ start = 0, length = 4 })
+  local part = drum_part()
+  local clip = part:add_clip({ start = 0, length = 4 })
   api.undo_checkpoint()
   p.set(clip, "bd*2")
   paw.flush()
@@ -327,8 +327,8 @@ end)
 test("pattern: saved and loaded with the project", function()
   fresh()
   local p = load()
-  local track = drum_track()
-  local clip = track:add_clip({ start = 0, length = 4 })
+  local part = drum_part()
+  local clip = part:add_clip({ start = 0, length = 4 })
   p.set(clip, "bd? sn*2 hh*4?", { seed = 3 })
   paw.flush()
   local before = notes_of(clip)
@@ -336,7 +336,7 @@ test("pattern: saved and loaded with the project", function()
   fresh()
   paw.project.load(path)
   paw.flush()
-  local loaded = paw.tracks()[1]:clips()[1]
+  local loaded = paw.parts()[1]:clips()[1]
   local count = #loaded:notes()
   eq(p.get(loaded).text, "bd? sn*2 hh*4?", "the text is back")
   eq(p.get(loaded).seed, 3, "and the seed")
@@ -352,18 +352,18 @@ test("pattern: commands and keys on the clip under the cursor", function()
   load()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local track = drum_track()
-  paw.cursor.set_track(track)
+  local part = drum_part()
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(4)
   paw.cmd("pattern.set", { "bd*2 sn" })
   paw.flush()
-  local clip = track:clips()[1]
+  local clip = part:clips()[1]
   eq(clip.start, 4, "a new clip at the cursor")
   eq(clip.length, 4 * paw.opt.pattern_cycles, "four cycles long")
   eq(#clip:notes(), 12, "with the notes")
   paw.commands.exec("pattern.set hh*4")
   paw.flush()
-  eq(#track:clips(), 1, "the clip under the cursor is changed, no new one")
+  eq(#part:clips(), 1, "the clip under the cursor is changed, no new one")
   eq(#clip:notes(), 16, "to the new text")
   -- Errors leave everything alone and say where.
   paw.commands.exec("pattern.set hh [")
@@ -426,17 +426,17 @@ test("pattern: commands and keys on the clip under the cursor", function()
   -- A new clip after this one.
   paw.keymap.feed("<localleader>tnc e g<CR>")
   paw.flush()
-  eq(#track:clips(), 2, "a second clip")
-  eq(track:clips()[2].start, clip.start + clip.length, "right after the first")
+  eq(#part:clips(), 2, "a second clip")
+  eq(part:clips()[2].start, clip.start + clip.length, "right after the first")
 end)
 
 test("pattern: a render sounds where the pattern has notes and is silent where it rests", function()
   fresh()
   local p = load()
   paw.project.tempo = 120
-  local track = paw.add_track({ name = "Tone" })
-  track:add_device("synth", { attack = 0.001, release = 0.01 })
-  local clip = track:add_clip({ start = 0, length = 4 })
+  local part = paw.add_part({ name = "Tone" })
+  part:add_device("synth", { attack = 0.001, release = 0.01 })
+  local clip = part:add_clip({ start = 0, length = 4 })
   p.set(clip, "a3 ~ [~ a3] ~")
   paw.flush()
   local info = T.render({ bits = 16, tail = 0 })
@@ -453,15 +453,15 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   fresh()
   local p = load()
   paw.project.tempo = 240
-  local track = paw.add_track({ name = "Tone" })
-  track:add_device("synth", { attack = 0.001, release = 0.01 })
-  local clip = track:add_clip({ start = 0, length = 8 })
+  local part = paw.add_part({ name = "Tone" })
+  part:add_device("synth", { attack = 0.001, release = 0.01 })
+  local clip = part:add_clip({ start = 0, length = 8 })
   p.set(clip, "a3 ~ ~ ~ ~ ~ ~ ~", { beats = 8 })
   paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   paw.flush()
   paw.transport.seek(0)
   paw.transport.play()
-  -- The loudest the track gets in two windows of each pass: around beat 0 and beat 4.
+  -- The loudest the part gets in two windows of each pass: around beat 0 and beat 4.
   local passes, pass, last, changed, stopped = { { 0, 0 } }, 1, 0, false, false
   T.until_(function()
     local pos = paw.transport.position
@@ -471,7 +471,7 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
     end
     last = pos
     if pass > 3 then return true end
-    local level = math.max(track:meter())
+    local level = math.max(part:meter())
     if pos >= 0.2 and pos < 0.9 then passes[pass][1] = math.max(passes[pass][1], level) end
     if pos >= 4.2 and pos < 4.9 then passes[pass][2] = math.max(passes[pass][2], level) end
     if pass == 2 and not changed and pos >= 1.5 and pos < 3 then
@@ -492,4 +492,4 @@ test("pattern: a changed pattern is heard on the next pass of the loop, without 
   eq(passes[3][1] < loud * 0.25, true, "after the change: nothing at beat 0 (" .. passes[3][1] .. ")")
   -- And what the engine was given is what the clip holds.
   eq(notes_of(clip), "57@4+1v100", "the clip's notes")
-end, { live = "the meter of the track is read while the engine plays the loop in real time" })
+end, { live = "the meter of the part is read while the engine plays the loop in real time" })

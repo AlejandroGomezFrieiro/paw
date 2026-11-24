@@ -48,7 +48,7 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     local path = paw.project.save(scratch .. "/" .. format .. ".json")
     fresh()
     paw.project.load(path)
-    local loaded = paw.tracks()[1]:devices()[2]
+    local loaded = paw.parts()[1]:devices()[2]
     eq(loaded.kind, kind, "the plugin is back after loading")
     eq(loaded.params[gain.key], gain.min, "with its parameter")
     eq(render({ tail = 0.2 }).peak < dry * 0.05, true, "and it still takes effect")
@@ -59,8 +59,8 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     loaded:remove()
     next_block(10)
     paw.transport.stop()
-    eq(#paw.tracks()[1]:devices(), 1, "removed while playing")
-    fails(function() paw.tracks()[1]:add_device(format .. ":no-such-plugin") end, "no%-such%-plugin", "unknown plugin")
+    eq(#paw.parts()[1]:devices(), 1, "removed while playing")
+    fails(function() paw.parts()[1]:add_device(format .. ":no-such-plugin") end, "no%-such%-plugin", "unknown plugin")
   end)
 
   test(format .. " plugins run in a process of their own, and one that dies is lost alone", function()
@@ -125,7 +125,7 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     local kind = plugin_kind(format, "^Surge XT$")
     if not kind then return "skipped: test plugins not found" end
     fresh()
-    local t = paw.add_track({ name = "surge" })
+    local t = paw.add_part({ name = "surge" })
     local synth = t:add_device(kind)
     eq(synth.format, format, "format")
     local clip = t:add_clip({ start = 0, length = 2, notes = { { pitch = "A3", start = 0, length = 1 } } })

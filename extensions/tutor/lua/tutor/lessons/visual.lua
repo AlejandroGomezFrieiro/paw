@@ -3,7 +3,7 @@ return {
   id = "visual",
   title = "Visual mode: select, then act",
   intro = [[
-In this lesson, we select clips and tracks first, and then we delete, copy,
+In this lesson, we select clips and parts first, and then we delete, copy,
 mute and transpose them.
 
 Visual mode lets you see the items before you change them, because it
@@ -11,9 +11,9 @@ changes the order of the keys. First, you select with the motions that you
 know. Second, you press an operator, and it does its action on the
 selection.
 
-`v` selects a range of time, and `j` and `k` extend it across tracks. `V`
-selects whole tracks. In the piano roll, `<C-v>` selects a rectangle of
-pitches and time. In the practice project, each of the three tracks has
+`v` selects a range of time, and `j` and `k` extend it across parts. `V`
+selects whole parts. In the piano roll, `<C-v>` selects a rectangle of
+pitches and time. In the practice project, each of the three parts has
 four clips of one bar.]],
   idea = [[
 In visual mode, the motions extend the selection, and `o` goes to its other
@@ -29,21 +29,21 @@ does nothing.]],
 `v` `V` `<C-v>`, `o`, `gv` and operators on a selection come from Vim. In
 visual mode, a count before `>` `<` or `<C-a>` is the amount, as in Vim. In
 the arrange view, `v` with `j` and `k` already selects a block of time on
-some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
+some parts, and `V` selects whole parts, as Vim selects whole lines.]],
   setup = function(look)
     paw.project.tempo = 100
-    local function track(name, device, params, make)
-      local t = paw.add_track({ name = name, volume = name == "Keys" and -10 or -4 })
+    local function part(name, device, params, make)
+      local t = paw.add_part({ name = name, volume = name == "Keys" and -10 or -4 })
       t:add_device(device, params)
       for i = 1, 4 do
         t:add_clip({ name = name:sub(1, 1):lower() .. i, start = (i - 1) * 4, length = 4, notes = make(i) })
       end
     end
-    track("Drums", "drums", {}, function() return look.drums(look.beat) end)
+    part("Drums", "drums", {}, function() return look.drums(look.beat) end)
     local roots = { "A1", "F1", "C2", "G1" }
-    track("Bass", "synth", { wave = 2, cutoff = 600, release = 0.05 }, function(i) return look.pulse(roots[i], 4) end)
+    part("Bass", "synth", { wave = 2, cutoff = 600, release = 0.05 }, function(i) return look.pulse(roots[i], 4) end)
     local chords = { { "A3", "C4", "E4" }, { "F3", "A3", "C4" }, { "G3", "C4", "E4" }, { "G3", "B3", "D4" } }
-    track(
+    part(
       "Keys",
       "synth",
       { wave = 3, attack = 0.05, release = 0.4, cutoff = 1800 },
@@ -51,7 +51,7 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
     )
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
   end,
-  at = function() paw.cursor.set_track(paw.track("Drums")) end,
+  at = function() paw.cursor.set_part(paw.part("Drums")) end,
   steps = {
     {
       say = "Press `v` to start a selection, and the status line shows VISUAL. Then press `W` to extend the selection over the first bar.",
@@ -63,7 +63,7 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
       done = "The first bar of Drums is selected.",
     },
     {
-      say = "`j` extends the selection down to the next track. Press `j`.",
+      say = "`j` extends the selection down to the next part. Press `j`.",
       keys = { "j" },
       check = function()
         local s = paw.keymap.selection()
@@ -75,7 +75,7 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
       say = "Now do an action on the selection. `x` deletes the selection, so press `x`.",
       keys = { "x" },
       check = function(_, look) return look.names("Drums") == "d2 d3 d4" and look.names("Bass") == "b2 b3 b4" end,
-      done = "paw deleted the clips from the two tracks, and the mode is NORMAL again.",
+      done = "paw deleted the clips from the two parts, and the mode is NORMAL again.",
     },
     {
       say = "Press `u` to undo the delete.",
@@ -86,41 +86,41 @@ some tracks, and `V` selects whole tracks, as Vim selects whole lines.]],
       done = "The clips are back.",
     },
     {
-      say = "`V` selects whole tracks. Press `V`, and press `j` to select Drums and Bass. Then press `y` to yank (copy) them.",
+      say = "`V` selects whole parts. Press `V`, and press `j` to select Drums and Bass. Then press `y` to yank (copy) them.",
       keys = { "V", "j", "y" },
-      -- The register can hold two tracks from before the lesson: only a
+      -- The register can hold two parts from before the lesson: only a
       -- new yank does the step.
       start = function(ctx) ctx.before = paw.keymap.getreg() end,
       check = function(ctx)
         local r = paw.keymap.getreg()
-        return r and r ~= ctx.before and r.kind == "tracks" and #r.tracks == 2 and paw.keymap.mode == "n"
+        return r and r ~= ctx.before and r.kind == "parts" and #r.parts == 2 and paw.keymap.mode == "n"
       end,
-      done = "The register contains two tracks.",
+      done = "The register contains two parts.",
       hint = "If the selection is wrong, press `<Esc>` to leave visual mode, and then press `gg` and start again.",
     },
     {
-      say = "`G` goes to the last track, and `p` pastes the tracks below it. Press `G`, then `p`.",
+      say = "`G` goes to the last part, and `p` pastes the parts below it. Press `G`, then `p`.",
       keys = { "G", "p" },
-      check = function() return #paw.tracks() == 5 end,
-      done = "The song now has five tracks, with the copies of Drums and Bass at the bottom.",
+      check = function() return #paw.parts() == 5 end,
+      done = "The song now has five parts, with the copies of Drums and Bass at the bottom.",
     },
     {
       say = "Press `u` to remove the copies.",
       keys = { "u" },
-      check = function(ctx, look) return look.ran(ctx, "undo") and #paw.tracks() == 3 end,
-      done = "The song has three tracks again.",
+      check = function(ctx, look) return look.ran(ctx, "undo") and #paw.parts() == 3 end,
+      done = "The song has three parts again.",
     },
     {
-      say = "`gv` selects the last selection again, which is the two tracks. Press `gv`, then `~` to mute them.",
+      say = "`gv` selects the last selection again, which is the two parts. Press `gv`, then `~` to mute them.",
       keys = { "gv", "~" },
-      check = function(_, look) return look.track("Drums").mute and look.track("Bass").mute end,
-      done = "Drums and Bass are muted, and their `M` flags are lit. On whole tracks, `~` mutes the tracks, and on a range of time, it mutes the clips in the range.",
+      check = function(_, look) return look.part("Drums").mute and look.part("Bass").mute end,
+      done = "Drums and Bass are muted, and their `M` flags are lit. On whole parts, `~` mutes the parts, and on a range of time, it mutes the clips in the range.",
     },
     {
       say = "Press `gv` and `~` again to unmute them.",
       keys = { "gv", "~" },
       check = function(ctx, look)
-        return look.became(ctx, "unmuted", not look.track("Drums").mute and not look.track("Bass").mute)
+        return look.became(ctx, "unmuted", not look.part("Drums").mute and not look.part("Bass").mute)
       end,
       done = "`~` mutes and unmutes.",
     },

@@ -57,12 +57,12 @@ end
 --- Two voices moving in parallel fifths, C5 over F4 then D5 over G4, with
 --- the upper one open in the piano roll.
 local function fifths()
-  local upper = paw.add_track({ name = "Upper" }):add_clip({
+  local upper = paw.add_part({ name = "Upper" }):add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = 72, start = 0, length = 1 }, { pitch = 74, start = 1, length = 1 } },
   })
-  paw.add_track({ name = "Lower" }):add_clip({
+  paw.add_part({ name = "Lower" }):add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = 65, start = 0, length = 1 }, { pitch = 67, start = 1, length = 1 } },
@@ -108,7 +108,7 @@ end)
 test("midilsp: Problems lists every namespace's diagnostics with their fixes, and applies one", function()
   start()
   local clip = paw
-    .add_track({ name = "Oboe" })
+    .add_part({ name = "Oboe" })
     :add_clip({ start = 0, length = 4, notes = { { pitch = 100, start = 0, length = 1 } } })
   paw.diagnostic.set("lint", clip, {
     {
@@ -130,7 +130,7 @@ test("midilsp: any server speaking MIDI LSP's dialect works through its adapter"
   local python = io.popen("command -v python3 2>/dev/null"):read("*l")
   if not python or python == "" then return "no python3" end
   start()
-  local clip = paw.add_track({ name = "Flute" }):add_clip({
+  local clip = paw.add_part({ name = "Flute" }):add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 96, start = 1, length = 1 } },

@@ -172,16 +172,16 @@ local function envelope(name: string, lane: types.Lane, ctx: Ctx, label?: string
   return env
 end
 
---- An entry of an FX chain: a device of the track, or a plugin kept from
+--- An entry of an FX chain: a device of the part, or a plugin kept from
 --- an imported REAPER project.
 local record Entry
   device: integer
   holder: rpp_import.Placeholder
 end
 
---- The devices of a track with the plugins kept from an imported REAPER
+--- The devices of a part with the plugins kept from an imported REAPER
 --- project at their places in the chain.
-local function chain_entries(t: types.Track): {Entry}
+local function chain_entries(t: types.Part): {Entry}
   local entries: {Entry} = {}
   for _, device in ipairs(t.devices) do
     entries[#entries + 1] = {device = device}
@@ -205,7 +205,7 @@ local function chain_entries(t: types.Track): {Entry}
   return entries
 end
 
---- The FX chain of a track as it is written: the chain block, the
+--- The FX chain of a part as it is written: the chain block, the
 --- parameter lanes of each device, and the kinds of device.
 local record Chain
   block: Node
@@ -276,8 +276,8 @@ local function add_device(chain: Chain, device: integer)
   end
 end
 
---- The FX chain of a track, or nil when it has no plugin.
-local function fx_chain(name: string, track: integer, t: types.Track, ctx: Ctx, label: string): Node
+--- The FX chain of a part, or nil when it has no plugin.
+local function fx_chain(name: string, part: integer, t: types.Part, ctx: Ctx, label: string): Node
   local chain: Chain = {
     block = fmt.block(name),
     lanes_of = {},
@@ -287,7 +287,7 @@ local function fx_chain(name: string, track: integer, t: types.Track, ctx: Ctx, 
     ctx = ctx,
     label = label,
   }
-  for _, lane in ipairs(api.lane_list(track)) do
+  for _, lane in ipairs(api.lane_list(part)) do
     if lane.target == "param" then
       chain.lanes_of[lane.device] = chain.lanes_of[lane.device] or {}
       table.insert(chain.lanes_of[lane.device], lane)
@@ -503,13 +503,13 @@ local function midi_item(clip: types.Clip, ctx: Ctx, label: string): Node
   return item
 end
 
--- Tracks and folders -----------------------------------------------------------------
+-- Parts and folders -----------------------------------------------------------------
 
---- Folder depth changes for REAPER (`ISBUS`), and which tracks' outputs a
---- folder cannot express (they become sends from a track whose parent send
---- is off). A track is in a folder when it follows its output track
+--- Folder depth changes for REAPER (`ISBUS`), and which parts' outputs a
+--- folder cannot express (they become sends from a part whose parent send
+--- is off). A part is in a folder when it follows its output part
 --- directly, or follows a sibling in that folder.
-local function layout(list: {types.Track}): {integer}, {integer: boolean}, {integer: integer}
+local function layout(list: {types.Part}): {integer}, {integer: boolean}, {integer: integer}
   local index: {integer: integer} = {}
   for i, t in ipairs(list) do
     index[t.id] = i
@@ -550,14 +550,14 @@ local function layout(list: {types.Track}): {integer}, {integer: boolean}, {inte
   return depth, unfoldered, index
 end
 
---- A send to write as a receive (`AUXRECV`) of the track it goes to.
+--- A send to write as a receive (`AUXRECV`) of the part it goes to.
 local record Receive
   from: integer
   level: number
   pre: boolean
 end
 
---- Where the tracks are: their folder depths, the tracks whose output is
+--- Where the parts are: their folder depths, the parts whose output is
 --- not their folder, their places, and the receives of each.
 local record Layout
   depth: {integer}
@@ -566,9 +566,9 @@ local record Layout
   receives: {integer: {Receive}}
 end
 
---- REAPER's record input of a track: an audio input (from 0) or a pair
+--- REAPER's record input of a part: an audio input (from 0) or a pair
 --- (1024 and up), or none (-1).
-local function rec_input(t: types.Track): integer
+local function rec_input(t: types.Part): integer
   if not t.input then
     return -1
   end
@@ -579,7 +579,7 @@ local function rec_input(t: types.Track): integer
   return math.floor(tonumber(t.input) or 1) - 1
 end
 
-local function track_block(t: types.Track, i: integer, ctx: Ctx, at: Layout): Node
+local function part_block(t: types.Part, i: integer, ctx: Ctx, at: Layout): Node
   local guid = ctx.guid()
   local block = fmt.block("TRACK", guid)
   block:add(fmt.line("NAME", t.name or "")):quoted(1)
@@ -681,7 +681,7 @@ function M.tempo_envelope(ctx: Ctx): Node
   return env
 end
 
---- The lines of the project's settings before the master track, as
+--- The lines of the project's settings before the master part, as
 --- REAPER 7 writes them.
 local function project_head(root: Node, p: types.Project, tr: types.Transport, ctx: Ctx)
   local function line(...: fmt.Token): Node
@@ -722,15 +722,15 @@ local function project_head(root: Node, p: types.Project, tr: types.Transport, c
   line("SELECTION2", a, b)
 end
 
---- The master track: its settings, plugins and envelopes.
-local function master_track(root: Node, ctx: Ctx)
+--- The master part: its settings, plugins and envelopes.
+local function master_part(root: Node, ctx: Ctx)
   local function line(...: fmt.Token): Node
     return root:add(fmt.line(...))
   end
   line("MASTERAUTOMODE", 0)
   line("MASTERTRACKHEIGHT", 0, 0)
   line("MASTERPEAKCOL", 16576)
-  local master = api.track_get(0)
+  local master = api.part_get(0)
   line("MASTERMUTESOLO", master.mute and 1 or 0)
   line("MASTERHWOUT", 0, 0, 1, 0, 0, 0, 0, -1)
   line("MASTER_NCH", 2, 2)
@@ -799,8 +799,8 @@ local function markers(root: Node, p: types.Project, ctx: Ctx)
   end
 end
 
---- Where the tracks go: folders, and the outputs and sends as receives.
-local function track_layout(list: {types.Track}, ctx: Ctx): Layout
+--- Where the parts go: folders, and the outputs and sends as receives.
+local function part_layout(list: {types.Part}, ctx: Ctx): Layout
   local depth, unfoldered, index = layout(list)
   local at: Layout = {depth = depth, unfoldered = unfoldered, index = index, receives = {}}
   local receives = at.receives
@@ -810,7 +810,7 @@ local function track_layout(list: {types.Track}, ctx: Ctx): Layout
       table.insert(receives[t.output], {from = t.id, level = 0})
       ctx.report:add(
         "Routing written as a send (REAPER folders need the child right after its parent)",
-        t.name .. " -> " .. api.track_get(t.output).name
+        t.name .. " -> " .. api.part_get(t.output).name
       )
     end
     for _, s in ipairs(t.sends or {}) do
@@ -821,15 +821,15 @@ local function track_layout(list: {types.Track}, ctx: Ctx): Layout
   return at
 end
 
---- The tracks: each with its envelopes, plugins and items.
-local function tracks(root: Node, ctx: Ctx)
-  local list: {types.Track} = {}
-  for i, id in ipairs(api.track_list()) do
-    list[i] = api.track_get(id)
+--- The parts: each with its envelopes, plugins and items.
+local function parts(root: Node, ctx: Ctx)
+  local list: {types.Part} = {}
+  for i, id in ipairs(api.part_list()) do
+    list[i] = api.part_get(id)
   end
-  local at = track_layout(list, ctx)
+  local at = part_layout(list, ctx)
   for i, t in ipairs(list) do
-    local block = root:add(track_block(t, i, ctx, at))
+    local block = root:add(part_block(t, i, ctx, at))
     for _, lane in ipairs(api.lane_list(t.id)) do
       if lane.target == "volume" or lane.target == "pan" then
         block:add(envelope(lane.target == "volume" and "VOLENV2" or "PANENV2", lane, ctx, t.name .. " " .. lane.target))
@@ -870,14 +870,14 @@ function M.doc(opts?: interop.Options): Node, Report
   local doc = fmt.document("\r\n")
   local root = doc:add(fmt.block("REAPER_PROJECT", 0.1, "7.0/paw-rpp", opts.timestamp or os.time(), 0)):quoted(2)
   project_head(root, p, tr, ctx)
-  master_track(root, ctx)
+  master_part(root, ctx)
   markers(root, p, ctx)
   local tempo_env = M.tempo_envelope(ctx)
   if tempo_env then
     root:add(tempo_env)
   end
   root:add(fmt.block("PROJBAY"))
-  tracks(root, ctx)
+  parts(root, ctx)
   return doc, ctx.report
 end
 

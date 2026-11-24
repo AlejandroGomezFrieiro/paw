@@ -48,7 +48,7 @@ NOTATION="$DEMO paw.ext.load('extensions/notation')"
 TUI_DEMO="$DEMO paw.opt.zoom = 2.75"
 TUI_NOTATION="$TUI_DEMO paw.ext.load('extensions/notation') require('notation').space = 14"
 # The window starts with the eight bars across, beside the device panel:
-# x = 241 + 22 a beat; the tracks' rows 90 high.
+# x = 241 + 22 a beat; the parts' rows 90 high.
 GUI_DEMO="$DEMO paw.frontend.layout_set({ zoom = 22, row_height = 90 })"
 
 rig_start() {

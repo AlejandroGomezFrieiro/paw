@@ -1,0 +1,534 @@
+//! Parts: their fields, order, routing, sends and folders.
+
+use std::collections::BTreeSet;
+use std::sync::Arc;
+
+use anyhow::{Context, Result, bail};
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+use super::Document;
+use super::values::{de, de_meta, finite, holds};
+use crate::model::{
+    DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, Project, Send, Target, Part,
+};
+
+/// What `paw.api.part_add` takes for a new part.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct PartOpts {
+    pub name: Option<String>,
+    /// Position among the parts of its place (the song, or its
+    /// subproject), counting from 1. Appended when absent.
+    pub index: Option<usize>,
+    pub volume: Option<f64>,
+    pub pan: Option<f64>,
+    pub output: Option<Id>,
+    pub color: Option<String>,
+    /// The nest (subproject) the part is made in; the song when absent.
+    pub nest: Option<NestId>,
+}
+
+/// What `paw.api.part_list` takes: the parts of the song when empty.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct PartListOpts {
+    /// The parts of this subproject, without its master.
+    pub nest: Option<NestId>,
+    /// Every part: the song's and those of each subproject.
+    pub all: bool,
+}
+
+/// A fader or pan knob that [`Document::part_set`] moved: where it was and
+/// where it went.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ControlMove {
+    pub target: Target,
+    pub before: f64,
+    pub to: f64,
+}
+
+impl Document {
+    pub(crate) fn part_view(&self, id: Id) -> Result<Value> {
+        let t = self
+            .project
+            .part(id)
+            .with_context(|| format!("no part {id}"))?;
+        let index = self.project.parts.iter().position(|x| x.id == id);
+        Ok(json!({
+            "id": t.id, "name": t.name, "volume": t.volume, "pan": t.pan, "mute": t.mute,
+            "solo": t.solo, "armed": t.armed, "output": t.output, "sends": t.sends,
+            "devices": t.devices.iter().map(|d| d.id).collect::<Vec<_>>(),
+            "clips": t.clips.iter().map(|c| c.id).collect::<Vec<_>>(),
+            "color": t.color, "meta": t.meta, "index": index.map(|i| i + 1),
+            "master": id == MASTER_ID, "input": t.input, "monitor": t.monitor,
+            "midi_input": t.midi_input, "midi_output": t.midi_output, "height": t.height,
+            "automation": t.automation.name(), "attr_map": t.attr_map,
+            // The parts that devices on this one listen to as side-chains.
+            "listens": t.devices.iter().filter_map(|d| d.sidechain).collect::<BTreeSet<_>>(),
+            // The parts that further output pairs of its devices play into.
+            "pairs_into": t.devices.iter().flat_map(|d| d.outputs.values()).collect::<BTreeSet<_>>(),
+            // A part or a chain read from outside the project's folder, or copied from there.
+            "source": t.source, "origin": t.origin,
+            "chain_source": t.chain_source, "chain_origin": t.chain_origin,
+            // The subproject the part belongs to; nil for the song's.
+            "nest": t.nest,
+        }))
+    }
+
+    /// One entry of [`part_view`](Self::part_view), made alone: the
+    /// handlers of each edit ask for a part's volume or meta, and the whole
+    /// view lists every clip of the part.
+    pub(crate) fn part_field(&self, id: Id, key: &str) -> Result<Value> {
+        let t = self
+            .project
+            .part(id)
+            .with_context(|| format!("no part {id}"))?;
+        Ok(match key {
+            "id" => json!(t.id),
+            "name" => json!(t.name),
+            "volume" => json!(t.volume),
+            "pan" => json!(t.pan),
+            "mute" => json!(t.mute),
+            "solo" => json!(t.solo),
+            "armed" => json!(t.armed),
+            "output" => json!(t.output),
+            "color" => json!(t.color),
+            "meta" => json!(t.meta),
+            "master" => json!(id == MASTER_ID),
+            "nest" => json!(t.nest),
+            "input" => json!(t.input),
+            "monitor" => json!(t.monitor),
+            "midi_input" => json!(t.midi_input),
+            "midi_output" => json!(t.midi_output),
+            "height" => json!(t.height),
+            _ => self.part_view(id)?.get(key).cloned().unwrap_or(Value::Null),
+        })
+    }
+
+    pub(crate) fn part_add(&mut self, opts: PartOpts) -> Result<Id> {
+        let volume = finite("volume", opts.volume.unwrap_or(0.0))?.clamp(-120.0, 24.0);
+        let pan = finite("pan", opts.pan.unwrap_or(0.0))?.clamp(-1.0, 1.0);
+        let id = self.new_id();
+        self.edit(|p| {
+            if let Some(nest) = opts.nest
+                && p.nest(nest).is_none()
+            {
+                bail!("no subproject {nest} to add a part to");
+            }
+            if let Some(output) = opts.output.filter(|o| *o != MASTER_ID) {
+                let Some(to) = p.part(output) else {
+                    bail!("no part {output} to output to");
+                };
+                if to.nest != opts.nest {
+                    bail!("part {output} ({}) is not in the same subproject: the parts of a subproject route only to each other", to.name);
+                }
+            }
+            let mut part = Part::new(id);
+            part.nest = opts.nest;
+            // Numbered among the parts of the song, or of its nest.
+            let masters: BTreeSet<Id> = p.nests.values().map(|n| n.master).collect();
+            let count = p
+                .parts
+                .iter()
+                .filter(|t| t.nest == opts.nest && !masters.contains(&t.id))
+                .count();
+            part.name = opts.name.unwrap_or_else(|| format!("Part {}", count + 1));
+            part.volume = volume;
+            part.pan = pan;
+            part.output = opts.output.filter(|o| *o != MASTER_ID);
+            part.color = opts.color;
+            let index = opts.index.map_or(usize::MAX, |i| i.saturating_sub(1));
+            let at = p.place_position(opts.nest, index);
+            p.parts.insert(at, Arc::new(part));
+            Ok(id)
+        })
+    }
+
+    pub(crate) fn part_remove(&mut self, id: Id) -> Result<()> {
+        self.edit(|p| {
+            if id == MASTER_ID {
+                bail!("the master part cannot be removed");
+            }
+            if let Some(nest) = p.nests.values().find(|n| n.master == id) {
+                bail!("part {id} is the master of the subproject {}: it cannot be removed", nest.name);
+            }
+            let index = p
+                .parts
+                .iter()
+                .position(|t| t.id == id)
+                .with_context(|| format!("no part {id}"))?;
+            p.parts.remove(index);
+            // Anything that was routed into the removed part falls back to the master.
+            for part in &mut p.parts {
+                if part.output == Some(id) || part.sends.iter().any(|s| s.target == id) {
+                    let part = Arc::make_mut(part);
+                    part.output = part.output.filter(|o| *o != id);
+                    part.sends.retain(|s| s.target != id);
+                }
+            }
+            // Devices that listened to it listen to their own input again,
+            // and output pairs that played into it are no longer heard.
+            let routed = |d: &DeviceInst| {
+                d.sidechain == Some(id) || d.outputs.values().any(|to| *to == id)
+            };
+            for part in std::iter::once(&mut p.master).chain(&mut p.parts) {
+                if part.devices.iter().any(|d| routed(d)) {
+                    for device in &mut Arc::make_mut(part).devices {
+                        if routed(device) {
+                            let device = Arc::make_mut(device);
+                            if device.sidechain == Some(id) {
+                                device.sidechain = None;
+                                device.sidechain_pre = false;
+                            }
+                            device.outputs.retain(|_, to| *to != id);
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    /// The ids of the parts of the song, of one subproject (`nest`), or
+    /// of both (`all`), in their order.
+    pub(crate) fn part_ids(&self, opts: &PartListOpts) -> Vec<Id> {
+        if opts.all {
+            return self.project.parts.iter().map(|t| t.id).collect();
+        }
+        self.project.place_parts(opts.nest).map(|t| t.id).collect()
+    }
+
+    /// Move a part to `index` (from 0) among the parts of its place: the
+    /// song, or its subproject.
+    pub(crate) fn part_move(&mut self, id: Id, index: usize) -> Result<()> {
+        self.edit(|p| {
+            let from = p
+                .parts
+                .iter()
+                .position(|t| t.id == id)
+                .with_context(|| format!("no part {id}"))?;
+            let part = p.parts.remove(from);
+            let at = p.place_position(part.nest, index);
+            p.parts.insert(at, part);
+            Ok(())
+        })
+    }
+
+    /// Set `key` of part `id` to `value`. A value that the part already
+    /// holds is no change. Gives the fader or pan knob that the edit moved,
+    /// for the session to write as automation while the song plays.
+    pub(crate) fn part_set(&mut self, id: Id, key: &str, value: Value) -> Result<Option<ControlMove>> {
+        if holds(&self.part_view(id), key, &value) {
+            return Ok(None);
+        }
+        // An unknown key fails inside the edit, after a missing part does.
+        let field = key.parse::<PartField>();
+        let moved = matches!(field, Ok(PartField::Volume | PartField::Pan));
+        let control = match (moved, self.project.part(id), value.as_f64()) {
+            (true, Some(part), Some(to)) => Some(match field {
+                Ok(PartField::Volume) => ControlMove { target: Target::Volume, before: part.volume, to },
+                _ => ControlMove { target: Target::Pan, before: part.pan, to },
+            }),
+            _ => None,
+        };
+        self.edit(|p| {
+            if p.part(id).is_none() {
+                bail!("no part {id}");
+            }
+            field?.set(p, id, key, value)
+        })?;
+        if moved {
+            self.swept(format!("part {id} {key}"));
+        }
+        Ok(control)
+    }
+
+    /// Make every part read from a folder outside the project, and every
+    /// chain read from a file outside it, the project's own (`:collect`):
+    /// the next save writes them into its folder. Returns how many parts
+    /// and how many chains. Run before `clip_collect`, which then takes
+    /// such a part's clips.
+    pub(crate) fn part_collect(&mut self) -> (usize, usize) {
+        let (mut parts, mut chains) = (0, 0);
+        for part in &mut self.project.parts {
+            if part.source.is_none() && part.chain_source.is_none() {
+                continue;
+            }
+            let part = Arc::make_mut(part);
+            if part.source.is_some() {
+                part.origin = part.source.take();
+                parts += 1;
+            }
+            if part.chain_source.is_some() {
+                part.chain_origin = part.chain_source.take();
+                chains += 1;
+            }
+        }
+        if parts + chains > 0 {
+            self.undo.touched = true;
+            self.dirty = true;
+        }
+        (parts, chains)
+    }
+
+    /// The milliseconds a note with `attr` is moved by the part's attribute map.
+    pub(crate) fn attr_delay(&self, part: Id, attr: paw_types::Attr) -> Result<f64> {
+        let part = self
+            .project
+            .part(part)
+            .with_context(|| format!("no part {part}"))?;
+        Ok(match &part.attr_map {
+            Some(map) => map.plan()?.delay_of(attr),
+            None => 0.0,
+        })
+    }
+}
+
+/// A field of a part that [`Document::part_set`] changes: the key that Lua
+/// gives, parsed once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PartField {
+    Name,
+    Volume,
+    Pan,
+    Mute,
+    Solo,
+    Armed,
+    Monitor,
+    Color,
+    Meta,
+    Automation,
+    Height,
+    Output,
+    Sends,
+    Input,
+    MidiInput,
+    MidiOutput,
+    AttrMap,
+}
+
+impl PartField {
+    /// Set this field of part `id`, which is in `p`. `key` is the field's
+    /// key in Lua, for the error texts.
+    fn set(self, p: &mut Project, id: Id, key: &str, value: Value) -> Result<()> {
+        match self {
+            // Routing looks at the other parts before it changes this one.
+            Self::Output => {
+                let output = checked_output(p, id, de(key, value)?)?;
+                part_in(p, id)?.output = output;
+            }
+            Self::Sends => {
+                let sends = checked_sends(p, id, de(key, value)?)?;
+                part_in(p, id)?.sends = sends;
+            }
+            own => own.set_own(part_in(p, id)?, id, key, value)?,
+        }
+        Ok(())
+    }
+
+    /// Set a field that only the part's own state decides.
+    fn set_own(self, t: &mut Part, id: Id, key: &str, value: Value) -> Result<()> {
+        match self {
+            Self::Name => t.name = de(key, value)?,
+            Self::Volume => t.volume = de::<f64>(key, value)?.clamp(-120.0, 24.0),
+            Self::Pan => t.pan = de::<f64>(key, value)?.clamp(-1.0, 1.0),
+            Self::Mute => t.mute = de(key, value)?,
+            Self::Solo => t.solo = de(key, value)?,
+            Self::Armed | Self::Monitor => {
+                let on: bool = de(key, value)?;
+                if on && id == MASTER_ID {
+                    bail!("the master part records nothing: arm a part");
+                }
+                if self == Self::Armed {
+                    t.armed = on;
+                } else {
+                    t.monitor = on;
+                }
+            }
+            Self::Color => t.color = de(key, value)?,
+            Self::Meta => t.meta = de_meta(key, value)?,
+            Self::Automation => t.automation = de(key, value)?,
+            // A share of the zoom's height, a quarter to eight times; 1 or
+            // nothing is that height.
+            Self::Height => {
+                t.height = de::<Option<f64>>(key, value)?
+                    .filter(|h| h.is_finite() && (h - 1.0).abs() > 1e-9)
+                    .map(|h| h.clamp(0.25, 8.0));
+            }
+            Self::Input => {
+                if id == MASTER_ID {
+                    bail!("the master part has no input");
+                }
+                t.input = input_of(value)?;
+            }
+            Self::MidiInput => {
+                if id == MASTER_ID {
+                    bail!("the master part has no input");
+                }
+                t.midi_input = midi_input_of(value)?;
+            }
+            Self::MidiOutput => t.midi_output = parse_midi_output(value)?,
+            Self::AttrMap => t.attr_map = crate::attr_map::parse(value)?,
+            Self::Output | Self::Sends => unreachable!("`set` sets the routing"),
+        }
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for PartField {
+    type Err = anyhow::Error;
+
+    fn from_str(key: &str) -> Result<Self> {
+        Ok(match key {
+            "name" => Self::Name,
+            "volume" => Self::Volume,
+            "pan" => Self::Pan,
+            "mute" => Self::Mute,
+            "solo" => Self::Solo,
+            "armed" => Self::Armed,
+            "monitor" => Self::Monitor,
+            "color" => Self::Color,
+            "meta" => Self::Meta,
+            "automation" => Self::Automation,
+            "height" => Self::Height,
+            "output" => Self::Output,
+            "sends" => Self::Sends,
+            "input" => Self::Input,
+            "midi_input" => Self::MidiInput,
+            "midi_output" => Self::MidiOutput,
+            "attr_map" => Self::AttrMap,
+            _ => bail!("parts have no settable field `{key}`"),
+        })
+    }
+}
+
+fn part_in(p: &mut Project, id: Id) -> Result<&mut Part> {
+    p.part_mut(id).with_context(|| format!("no part {id}"))
+}
+
+/// Where part `id` may output to: `None` is the master.
+fn checked_output(p: &Project, id: Id, output: Option<Id>) -> Result<Option<Id>> {
+    let output = output.filter(|o| *o != MASTER_ID);
+    if id == MASTER_ID {
+        bail!("the master part has no output");
+    }
+    if let Some(to) = output {
+        if p.part(to).is_none() {
+            bail!("no part {to} to output to");
+        }
+        if p.would_cycle(id, to) {
+            bail!("routing part {id} into part {to} would make a loop");
+        }
+        p.check_route(id, to, crate::model::Route::Output)?;
+    }
+    Ok(output)
+}
+
+/// The sends that part `id` may have, their levels clamped.
+fn checked_sends(p: &Project, id: Id, mut sends: Vec<Send>) -> Result<Vec<Send>> {
+    for send in &mut sends {
+        send.level = send.level.clamp(-120.0, 24.0);
+    }
+    for send in &sends {
+        if id == MASTER_ID || p.part(send.target).is_none() {
+            bail!("cannot send from part {id} to part {}", send.target);
+        }
+        if p.would_cycle(id, send.target) {
+            bail!("sending part {id} to part {} would make a loop", send.target);
+        }
+        p.check_route(id, send.target, crate::model::Route::Send)?;
+    }
+    Ok(sends)
+}
+
+/// An audio input from Lua: a channel like "1", a pair like "1/2", or none.
+fn input_of(value: Value) -> Result<Option<InputChannels>> {
+    let spec = match value {
+        Value::Null => return Ok(None),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
+        Value::String(s) => s,
+        _ => bail!("an input is a channel like \"1\" or a pair like \"1/2\""),
+    };
+    spec.parse().map(Some).map_err(|e: String| anyhow::anyhow!(e))
+}
+
+/// A MIDI input from Lua: a port's name, a `{port, channel}` table, or all.
+fn midi_input_of(value: Value) -> Result<Option<MidiInput>> {
+    Ok(match value {
+        Value::Null => None,
+        Value::String(s) if s == "all" || s.is_empty() => None,
+        Value::String(s) => Some(MidiInput {
+            port: Some(s),
+            channel: None,
+        }),
+        // An empty Lua table arrives as an empty list.
+        Value::Array(a) if a.is_empty() => None,
+        value => {
+            let mut midi: MidiInput = de("midi_input", value)?;
+            if midi.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
+                bail!("a MIDI channel is from 1 to 16");
+            }
+            if midi.port.as_deref().is_some_and(|p| p.is_empty() || p == "all") {
+                midi.port = None;
+            }
+            (midi != MidiInput::default()).then_some(midi)
+        }
+    })
+}
+
+/// A part's MIDI output from what a script gives: a port's name, a table
+/// `{ port, channel, form, members }`, or nil (or "none") for none.
+fn parse_midi_output(value: Value) -> Result<Option<MidiOutput>> {
+    let out = match value {
+        Value::Null => return Ok(None),
+        Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
+        Value::String(port) => MidiOutput {
+            port,
+            channel: None,
+            form: Default::default(),
+            members: None,
+        },
+        // An empty Lua table arrives as an empty list.
+        Value::Array(a) if a.is_empty() => return Ok(None),
+        value => de::<MidiOutput>("midi_output", value)?,
+    };
+    if out.port.is_empty() {
+        bail!("a MIDI output needs a port: one of paw.midi.outputs()");
+    }
+    if out.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
+        bail!("a MIDI channel is from 1 to 16");
+    }
+    if out.members.is_some_and(|n| !(1..=15).contains(&n)) {
+        bail!("an MPE zone has 1 to 15 member channels");
+    }
+    Ok(Some(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A document with one part, at volume 0 dB.
+    fn one_part() -> (Document, Id) {
+        let mut doc = Document::default();
+        let id = doc.part_add(PartOpts::default()).unwrap();
+        (doc, id)
+    }
+
+    #[test]
+    fn a_set_gives_the_fader_or_pan_knob_it_moved() {
+        let cases = [
+            ("volume", json!(-6.0), Some(ControlMove { target: Target::Volume, before: 0.0, to: -6.0 })),
+            ("pan", json!(0.5), Some(ControlMove { target: Target::Pan, before: 0.0, to: 0.5 })),
+            ("volume", json!(0), None),
+            ("name", json!("Bass"), None),
+        ];
+        for (key, value, want) in cases {
+            let (mut doc, id) = one_part();
+            let moved = doc.part_set(id, key, value.clone()).unwrap();
+            assert_eq!(moved, want, "{key} set to {value}");
+        }
+    }
+}

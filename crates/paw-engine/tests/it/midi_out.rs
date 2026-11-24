@@ -1,5 +1,5 @@
-//! MIDI output: what an engine's tracks send is stamped with when it is
-//! heard, on their port and channel, and a track that stops ends its notes.
+//! MIDI output: what an engine's parts send is stamped with when it is
+//! heard, on their port and channel, and a part that stops ends its notes.
 //!
 //! No test here opens the ALSA sequencer: it is shared by every process of
 //! the machine, and a test that listens there hears the notes of others.
@@ -12,13 +12,13 @@
 use paw_engine::midi::port_key;
 use paw_engine::midi_out::MidiOut;
 use paw_engine::{
-    ClipSet, Engine, EngineHandle, MidiEv, Msg, SchedEntry, Schedule, TrackRt, TrackSlot,
+    ClipSet, Engine, EngineHandle, MidiEv, Msg, SchedEntry, Schedule, PartRt, PartSlot,
 };
 use paw_types::{Attr, Ctl, EventKind, midi_form::Form};
 
 const RATE: f64 = 48_000.0;
 
-/// What a track sends to end what it plays, on channel 10: its notes, the
+/// What a part sends to end what it plays, on channel 10: its notes, the
 /// pedal and the wheel.
 const RESET: [EventKind; 3] = [
     EventKind::AllNotesOff,
@@ -26,7 +26,7 @@ const RESET: [EventKind; 3] = [
     EventKind::Control { ctl: Ctl::Bend, value: 0.0, ch: 9 },
 ];
 
-/// A track that sends to `port` on channel 10 a note held from the first
+/// A part that sends to `port` on channel 10 a note held from the first
 /// beat and another from the second, at 120 BPM; and what the engine
 /// sends out, read where the MIDI output thread reads it.
 fn engine_sending_to(port: u32) -> (Engine, EngineHandle, rtrb::Consumer<MidiOut>) {
@@ -38,13 +38,13 @@ fn engine_sending_to(port: u32) -> (Engine, EngineHandle, rtrb::Consumer<MidiOut
         MidiEv { beat: 1.0, kind: EventKind::NoteOn { key: 52, vel: 0.5, ch: 0, attr: Attr::NONE } },
     ];
     let entries = vec![
-        SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
-        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+        SchedEntry::new(PartSlot(1), PartSlot::MASTER),
+        SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
     ];
     for msg in [
-        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
-        Msg::SetClips { track: TrackSlot(1), clips: Box::new(clips) },
-        Msg::SetMidiOutput { track: TrackSlot(1), port, channel: 10, form: Form::Auto },
+        Msg::InsertPart { slot: PartSlot(1), part: PartRt::new() },
+        Msg::SetClips { part: PartSlot(1), clips: Box::new(clips) },
+        Msg::SetMidiOutput { part: PartSlot(1), port, channel: 10, form: Form::Auto },
         Msg::SetSchedule(Box::new(Schedule::new(entries, 0))),
         Msg::SetTempo(120.0),
     ] {
@@ -65,7 +65,7 @@ fn drain(sent: &mut rtrb::Consumer<MidiOut>) -> Vec<MidiOut> {
 }
 
 #[test]
-fn an_engine_stamps_what_a_track_plays_and_ends_it_when_stopped() {
+fn an_engine_stamps_what_a_part_plays_and_ends_it_when_stopped() {
     let port = port_key("paw: Synth");
     let (mut engine, mut handle, mut sent) = engine_sending_to(port);
 
@@ -80,17 +80,17 @@ fn an_engine_stamps_what_a_track_plays_and_ends_it_when_stopped() {
 
     assert!(
         played.iter().chain(&stopped).all(|m| m.port == port && m.form == Form::Auto),
-        "all to the track's port, in its form"
+        "all to the part's port, in its form"
     );
-    // New clips reset what the track plays first: its first block sends
-    // the reset, then both notes on the track's channel.
+    // New clips reset what the part plays first: its first block sends
+    // the reset, then both notes on the part's channel.
     let kinds: Vec<EventKind> = played.iter().map(|m| m.kind).collect();
     let mut want = RESET.to_vec();
     want.extend([
         EventKind::NoteOn { key: 50, vel: 0.5, ch: 9, attr: Attr::NONE },
         EventKind::NoteOn { key: 52, vel: 0.5, ch: 9, attr: Attr::NONE },
     ]);
-    assert_eq!(kinds, want, "the reset, then both notes on the track's channel");
+    assert_eq!(kinds, want, "the reset, then both notes on the part's channel");
     // A beat at 120 BPM is 500 ms. A frame turned into nanoseconds is
     // rounded down, so the stamps may be some nanoseconds off, never a
     // frame (20 833 ns at 48 kHz).
@@ -98,5 +98,5 @@ fn an_engine_stamps_what_a_track_plays_and_ends_it_when_stopped() {
     assert!(apart.abs_diff(500_000_000) < 1_000, "a beat apart: {apart} ns");
     // Stopped: the held notes end, and the pedal and the wheel go back.
     let kinds: Vec<EventKind> = stopped.iter().map(|m| m.kind).collect();
-    assert_eq!(kinds, RESET, "the notes ended when the track stopped");
+    assert_eq!(kinds, RESET, "the notes ended when the part stopped");
 }

@@ -5,18 +5,18 @@ metronome can also count one bar before the take. The steps assume that
 your microphone is plugged into the audio interface, and the rules are in
 [Recording](../reference/recording.md).
 
-## Prepare the track
+## Prepare the part
 
 1. Prepare the interface:
    - If the microphone is a condenser microphone, switch on the phantom
      power (+48V) of the interface.
    - Sing the loudest part, and turn the gain knob of the interface until
      the level light does not show red.
-2. In paw, press `o` to add a track. Press `grn`, type `Vocal` and press
+2. In paw, press `o` to add a part. Press `grn`, type `Vocal` and press
    `Enter`.
 3. Press `I`, type a part of the name of the microphone input, for example
    `UR22 1`, and press `Enter`.
-4. Press `r` to arm the track, and sing. The track header shows the level
+4. Press `r` to arm the part, and sing. The part header shows the level
    at the input.
 
 Use closed headphones and not loudspeakers, so that the microphone does

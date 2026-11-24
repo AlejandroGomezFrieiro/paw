@@ -1,7 +1,7 @@
 -- `paw.pick`: choose one of many things by typing a few letters of it.
 --
 --   paw.pick({
---     title = "Tracks",
+--     title = "Parts",
 --     items = { { text = "Bass", id = 3 }, "Drums" },   -- or a function returning the list
 --     format = function(item) return item.text end,    -- optional: the line shown and matched
 --     on_choose = function(item) end,                  -- Enter
@@ -48,7 +48,7 @@
 -- `audition_delay(item, ms)` may return a longer rest for an item that is
 -- slow to make ready.
 --
--- `paw.pick("tracks")` opens a source by name. `paw.pick.sources` holds them
+-- `paw.pick("parts")` opens a source by name. `paw.pick.sources` holds them
 -- (a paw.registry): `paw.pick.sources:put(name, source)` adds a table of the
 -- same fields with a `desc`, or a function returning one.
 -- The picker of pickers (`paw.pick("pickers")`) lists every source.
@@ -638,7 +638,7 @@ end
 local PRIMARY_BONUS = 1000
 
 -- A line holding every term as the start of a word ("send" in "Send the
--- track"), a primary part that starts with the term or is it: worth more
+-- part"), a primary part that starts with the term or is it: worth more
 -- than the same letters scattered, and less than a match in the primary.
 local WORD_BONUS, PREFIX_BONUS, EXACT_BONUS = 200, 300, 600
 

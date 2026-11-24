@@ -122,14 +122,14 @@ run:
 - the audio engine, with its backend, sample rate and buffer size
 - the MIDI test ports that `api.midi_test_ports` lists
 - the step input controls that Lua code bound and no file saved
-- the tracks that the engine plays from a file (`api.engine_hold`)
+- the parts that the engine plays from a file (`api.engine_hold`)
 - the plugin folders that Lua code added, and the kinds of plugin devices
 
 If a handler, timer or key mapping of the test code was still there, or
 an extension can't be unloaded, the runner fails a test named
 `tests/<file>.lua leaves no state behind` or
 `extensions/<name>/ leaves no state behind`. A change of the engine, the
-MIDI test ports, the step input controls, the held tracks or the plugins
+MIDI test ports, the step input controls, the held parts or the plugins
 fails the same test, whatever code made the change. The `changed:` line
 names what changed, and for all of them except the plugins it also names
 the first test that left the change, for example
@@ -172,7 +172,7 @@ below keep a test independent of the tests that ran before it:
   test needs.
 - Paint a view before a click in it, because a pointer handler can use
   the size and place of the last paint, which an earlier test made.
-- Take the id of a track, a device, a clip or a lane from the value that
+- Take the id of a part, a device, a clip or a lane from the value that
   the kernel returns, and don't write a number. The kernel counts ids
   across the tests, so a number in a test can be the id of another thing.
 - Make each file and folder that the test reads under `T.scratch` in the
@@ -249,7 +249,7 @@ tests. Follow these rules when you write a test:
 - Check sound in an offline render with `T.render`. To check a meter,
   play some blocks with `T.next_block` and read the meter with
   `T.meter`, not with `:meter()` after a wait. To wait for a level, use
-  `T.level(track)`, which reads the meter after the engine plays one more
+  `T.level(part)`, which reads the meter after the engine plays one more
   block, for example in `T.until_`.
 - To check that a device plays while you type keys or send notes, use
   `T.wakes`. A device sleeps through silence and wakes when it makes
@@ -286,8 +286,8 @@ example a bake, the loading of a plugin or a render.
 | `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads, renders and measurements of the mix have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. Work that paw does when it has nothing else to do, such as the collector of garbage, doesn't count as work. A job that looks again and again at no delay doesn't count either. |
 | `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, the audio engine plays the blocks of that time, and then the kernel settles. |
 | `T.next_block(n)` | Plays `n` blocks of sound, so that a change that the test made is heard. The clock moves by the time of the blocks. |
-| `T.meter(track)` | Gives the left and right levels of the meter of a track after the blocks that played last. |
-| `T.level(track)` | Plays one more block and gives the left level of the meter of a track. Use it to wait for a level in `T.until_`. |
+| `T.meter(part)` | Gives the left and right levels of the meter of a part after the blocks that played last. |
+| `T.level(part)` | Plays one more block and gives the left level of the meter of a part. Use it to wait for a level in `T.until_`. |
 | `T.until_(cond, what)` | Settles, and then checks `cond`. When nothing is left to do and `cond` is still false, it fails with `nothing is left to do, and <what> is false`. A timer that waits for the clock isn't work that is left. Before it fails, the audio engine plays about two seconds of blocks, so a meter can fall. The clock moves with these blocks. |
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program owes an answer, or works until it ends, the clock doesn't move: the wait is for the program. It fails when `ms` milliseconds have passed on the clock. |
 | `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |

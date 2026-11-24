@@ -110,8 +110,8 @@ local record Ctx
   view: string
   clip: objects.Clip
   clip_id: integer
-  track: objects.Track
-  track_id: integer
+  part: objects.Part
+  part_id: integer
   at: number
   pitch: integer
   start: number
@@ -464,7 +464,7 @@ function Ctx:after(beat?: number): {number}
   return out
 end
 
---- The pitches other pitched tracks play inside this track's range at
+--- The pitches other pitched parts play inside this part's range at
 --- `beat` (sounding just before it with `before`), or nil: what to lead
 --- from or into when this clip has nothing there.
 function Ctx:around(beat: number, before?: boolean): {number}
@@ -481,10 +481,10 @@ function Ctx:around(beat: number, before?: boolean): {number}
   return #out > 0 and out or nil
 end
 
---- Pitches for a chord (pitch classes, root first) in the track's range,
+--- Pitches for a chord (pitch classes, root first) in the part's range,
 --- led from what this clip plays before `opts.from` (the cursor) and into
 --- what it plays at `opts.to`; where it plays nothing, from and into what
---- the other tracks play in its range. Options as
+--- the other parts play in its range. Options as
 --- `paw.harmony.voice.voice`; the style is the `voicing` choice when there
 --- is one.
 function Ctx:voice(tones: {integer}, opts?: VoiceOptions): {integer}
@@ -568,8 +568,8 @@ function M.context(opts?: ContextOptions): Ctx, string
       view = "pianoroll",
       clip = clip,
       clip_id = c.id,
-      track = clip:track(),
-      track_id = c.track,
+      part = clip:part(),
+      part_id = c.part,
       at = opts.at or (c.start + roll.beat),
       pitch = roll.pitch,
       start = c.start,
@@ -577,7 +577,7 @@ function M.context(opts?: ContextOptions): Ctx, string
       grid = timegrid.step("note"),
       count = opts.count or 1,
       opt = opt,
-      range = harmony.range(c.track),
+      range = harmony.range(c.part),
       velocity = opt.velocity,
       values = opts.values or {},
       notes = notes,
@@ -1089,8 +1089,8 @@ function M.pick(opts?: PickOptions): Picker
       local found = M.previewing and previewed(s.name)
       return (M.describe_preview(s, run_opts, found and found.result or nil, found and found.why or nil))
     end,
-    -- Its notes through the clip's track, with what every other pitched
-    -- track plays over the same beats (the harmony it was written for),
+    -- Its notes through the clip's part, with what every other pitched
+    -- part plays over the same beats (the harmony it was written for),
     -- once; nothing is written until it is chosen.
     audition_key = "snippets",
     audition = function(s: Spec): string
@@ -1118,7 +1118,7 @@ function M.pick(opts?: PickOptions): Picker
           start = (n.start or n.at) - from,
           length = n.length,
           velocity = n.velocity or ctx.velocity,
-          track = ctx.track_id,
+          part = ctx.part_id,
         }
       end
       for _, n in ipairs(harmony.notes()) do
@@ -1133,12 +1133,12 @@ function M.pick(opts?: PickOptions): Picker
           end
           if not (place and gone[n.clip .. ":" .. place]) then
             notes[#notes + 1] = {
-              pitch = n.pitch, start = n.start - from, length = n.length, velocity = n.velocity, track = n.track
+              pitch = n.pitch, start = n.start - from, length = n.length, velocity = n.velocity, part = n.part
             }
           end
         end
       end
-      paw.audition.phrase(ctx.track_id, notes, {length = to - from, at = from, loop = false})
+      paw.audition.phrase(ctx.part_id, notes, {length = to - from, at = from, loop = false})
       return s.name .. " · " .. paw.time.format(from)
     end,
     on_choose = function(s: Spec)

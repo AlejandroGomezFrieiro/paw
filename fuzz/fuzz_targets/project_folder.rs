@@ -1,5 +1,5 @@
 //! A project folder, as paw opens it (`session::folder::read_from`):
-//! `project.toml`, the track folders with their JSON and clip files, and
+//! `project.toml`, the part folders with their JSON and clip files, and
 //! the nests. An error, or a project with its problems listed, never a
 //! panic.
 //!
@@ -7,8 +7,8 @@
 //!
 //! ```text
 //! === project.toml
-//! tracks = ["Bass"]
-//! === tracks/Bass/track.json
+//! parts = ["Bass"]
+//! === parts/Bass/part.json
 //! {"id": 1, "name": "Bass", "clips": []}
 //! ```
 //!

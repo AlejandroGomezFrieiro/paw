@@ -42,20 +42,20 @@ local function start()
   end
   paw.ui.focus("arrange")
   arrange.scroll, arrange.top = 0, 1
-  paw.opt.mouse, paw.opt.zoom, paw.opt.grid, paw.opt.track_height = true, 4, 1, 3
+  paw.opt.mouse, paw.opt.zoom, paw.opt.grid, paw.opt.part_height = true, 4, 1, 3
   paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = 8, 0.25, true
   paw.tempolane.show(false)
   apart()
 end
 
---- The arrange view's column of a beat, and the line a track's row starts on.
+--- The arrange view's column of a beat, and the line a part's row starts on.
 local function x_of(beat)
   local g = arrange.geometry
   return g.hw + math.floor((beat - arrange.scroll) * g.zoom + 0.5)
 end
 local function row_y(id, kind)
   for _, row in ipairs(arrange.geometry.layout.rows) do
-    if row.id == id and row.kind == (kind or "track") then return row.y end
+    if row.id == id and row.kind == (kind or "part") then return row.y end
   end
 end
 
@@ -84,14 +84,14 @@ local function clips(t)
   return table.concat(out, " ")
 end
 
---- Two tracks with two clips of four beats on the first, at 0 and 8.
-local function two_tracks()
+--- Two parts with two clips of four beats on the first, at 0 and 8.
+local function two_parts()
   start()
-  local a = paw.add_track({ name = "A" })
-  local b = paw.add_track({ name = "B" })
+  local a = paw.add_part({ name = "A" })
+  local b = paw.add_part({ name = "B" })
   a:add_clip({ name = "x", start = 0, length = 4 })
   a:add_clip({ name = "y", start = 8, length = 4 })
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.cursor.set_beat(0)
   api.undo_checkpoint()
   shot()
@@ -100,19 +100,19 @@ end
 
 -- The arrange view -------------------------------------------------------------------------
 
-test("a click on an empty lane puts the cursor on that track at that beat and lets go of the chosen clips", function()
-  local a, b = two_tracks()
+test("a click on an empty lane puts the cursor on that part at that beat and lets go of the chosen clips", function()
+  local a, b = two_parts()
   click(x_of(1), row_y(a.id))
   eq(#paw.frontend.chosen_clips(), 1, "a click on a clip chooses it")
   click(x_of(5) + 1, row_y(b.id) + 1)
-  eq(paw.cursor.track_id(), b.id, "the cursor is on the track clicked")
+  eq(paw.cursor.part_id(), b.id, "the cursor is on the part clicked")
   eq(paw.cursor.beat, 5, "at the grid step the cell is in")
   eq(#paw.frontend.chosen_clips(), 0, "and the chosen clip is let go")
   eq(paw.ui.focused, "arrange", "the arrange view has the keyboard")
 end)
 
 test("a click two bars after a time fold puts the cursor on the beat drawn there", function()
-  local _, b = two_tracks()
+  local _, b = two_parts()
   T.after(function() paw.folds.clear() end)
   paw.folds.make({ kind = "range", from = 4, to = 20 })
   shot()
@@ -127,7 +127,7 @@ test("a click two bars after a time fold puts the cursor on the beat drawn there
 end)
 
 test("a click on a clip chooses it, Ctrl and a click adds another, Shift takes in those between", function()
-  local a = two_tracks()
+  local a = two_parts()
   a:add_clip({ name = "z", start = 16, length = 4 })
   shot()
   click(x_of(1), row_y(a.id))
@@ -142,8 +142,8 @@ test("a click on a clip chooses it, Ctrl and a click adds another, Shift takes i
   eq(#paw.frontend.chosen_clips(), 3, "Shift takes in the clips from the first to the third")
 end)
 
-test("dragging a clip moves it by whole grid steps, onto another track, as one undo step", function()
-  local a, b = two_tracks()
+test("dragging a clip moves it by whole grid steps, onto another part, as one undo step", function()
+  local a, b = two_parts()
   m("down", x_of(1), row_y(a.id))
   m("drag", x_of(2), row_y(a.id))
   m("drag", x_of(3), row_y(b.id))
@@ -151,20 +151,20 @@ test("dragging a clip moves it by whole grid steps, onto another track, as one u
   eq(clips(a), "x@0+4 y@8+4", "nothing moves until the button is let go")
   m("up", x_of(3), row_y(b.id))
   api.undo_checkpoint()
-  eq(clips(b), "x@2+4", "the clip lands two beats on, on the track below")
-  eq(clips(a), "y@8+4", "and leaves its own track")
+  eq(clips(b), "x@2+4", "the clip lands two beats on, on the part below")
+  eq(clips(a), "y@8+4", "and leaves its own part")
   paw.undo()
   eq(clips(a), "x@0+4 y@8+4", "one undo takes the whole drag back")
 end)
 
 test("Ctrl and a drag drops a copy of the clip and leaves it where it was", function()
-  local a = two_tracks()
+  local a = two_parts()
   drag(x_of(1), row_y(a.id), x_of(13), row_y(a.id), "left", "C")
   eq(clips(a), "x@0+4 y@8+4 x@12+4", "a copy at beat 12, the clip where it was")
 end)
 
 test("dragging the last cell of a clip trims its end, and its first cell its start", function()
-  local a = two_tracks()
+  local a = two_parts()
   local last = x_of(4) - 1
   drag(last, row_y(a.id), last + 8, row_y(a.id))
   eq(clips(a), "x@0+6 y@8+4", "the end follows the pointer, onto the grid")
@@ -173,16 +173,16 @@ test("dragging the last cell of a clip trims its end, and its first cell its sta
   eq(clips(a), "x@1+5 y@8+4", "the start moves in, the end stays")
 end)
 
-test("a drag across empty lanes selects that stretch of time on the tracks it crosses", function()
-  local a, b = two_tracks()
+test("a drag across empty lanes selects that stretch of time on the parts it crosses", function()
+  local a, b = two_parts()
   drag(x_of(4), row_y(a.id) + 1, x_of(8) - 1, row_y(b.id) + 1)
   local sel = paw.keymap.selection()
   eq(paw.keymap.mode, "x", "visual mode")
-  eq(sel and (sel.r0 .. "-" .. sel.r1 .. " " .. sel.c0 .. "-" .. sel.c1), "1-2 4-8", "two tracks, beats 4 to 8")
+  eq(sel and (sel.r0 .. "-" .. sel.r1 .. " " .. sel.c0 .. "-" .. sel.c1), "1-2 4-8", "two parts, beats 4 to 8")
 end)
 
 test("a drag with the right button draws a box that chooses the clips it touches", function()
-  local a, b = two_tracks()
+  local a, b = two_parts()
   b:add_clip({ name = "w", start = 4, length = 4 })
   shot()
   m("down", x_of(2), row_y(a.id) + 1, "right")
@@ -193,7 +193,7 @@ test("a drag with the right button draws a box that chooses the clips it touches
 end)
 
 test("a double click on a clip opens it in the piano roll, and on an empty lane makes a clip of a bar", function()
-  local a, b = two_tracks()
+  local a, b = two_parts()
   click(x_of(1), row_y(a.id))
   click(x_of(1), row_y(a.id))
   eq(paw.ui.focused, "pianoroll", "the piano roll has the clip")
@@ -208,7 +208,7 @@ test("a double click on a clip opens it in the piano roll, and on an empty lane 
 end)
 
 test("a right click on a clip opens its menu at the pointer, and its entries do what the window's do", function()
-  local a = two_tracks()
+  local a = two_parts()
   click(x_of(9), row_y(a.id), "right")
   local text = screen()
   eq(text:find("Split at the pointer", 1, true) ~= nil, true, "the clip's menu is open")
@@ -220,9 +220,9 @@ test("a right click on a clip opens its menu at the pointer, and its entries do 
 end)
 
 test("a menu answers the keys: j and k move, l opens a submenu, Enter chooses, Esc lets go", function()
-  local a, b = two_tracks()
+  local a, b = two_parts()
   click(3, row_y(a.id) + 1, "right")
-  eq(screen():find("Bounce to audio", 1, true) ~= nil, true, "the track's menu")
+  eq(screen():find("Bounce to audio", 1, true) ~= nil, true, "the part's menu")
   paw.keymap.feed("jl")
   eq(screen():find("Coral", 1, true) ~= nil, true, "the colours open beside it")
   paw.keymap.feed("<CR>")
@@ -231,20 +231,20 @@ test("a menu answers the keys: j and k move, l opens a submenu, Enter chooses, E
   paw.keymap.feed("<Esc>")
   eq(screen():find("Bounce to audio", 1, true), nil, "Esc lets the menu go")
   paw.keymap.feed("j")
-  eq(paw.cursor.track_id(), b.id, "and the keys are the view's again")
+  eq(paw.cursor.part_id(), b.id, "and the keys are the view's again")
 end)
 
 test("a click outside a menu lets it go without doing anything else", function()
-  local a, b = two_tracks()
+  local a, b = two_parts()
   click(x_of(1), row_y(a.id), "right")
   click(x_of(20), row_y(b.id) + 1)
   eq(screen():find("Split at the pointer", 1, true), nil, "the menu is gone")
-  eq(paw.cursor.track_id(), a.id, "the click did not reach the lane")
+  eq(paw.cursor.part_id(), a.id, "the click did not reach the lane")
 end)
 
-test("a header's M, S, R and I switch, and a press on M swept down mutes the tracks it crosses", function()
-  local a, b = two_tracks()
-  local c = paw.add_track({ name = "C" })
+test("a header's M, S, R and I switch, and a press on M swept down mutes the parts it crosses", function()
+  local a, b = two_parts()
+  local c = paw.add_part({ name = "C" })
   shot()
   local flags = arrange.flags
   click(flags.solo, row_y(a.id))
@@ -256,7 +256,7 @@ test("a header's M, S, R and I switch, and a press on M swept down mutes the tra
 end)
 
 test("the volume on a header drags sideways a decibel a cell, and a double click puts it at 0 dB", function()
-  local a = two_tracks()
+  local a = two_parts()
   local y = row_y(a.id) + 1
   drag(10, y, 16, y)
   near(a:get().volume, 6, 1e-6, "six cells right is +6 dB")
@@ -269,7 +269,7 @@ test("the volume on a header drags sideways a decibel a cell, and a double click
 end)
 
 test("two clicks are a double click only when the second comes within the double click time", function()
-  local a = two_tracks()
+  local a = two_parts()
   local y = row_y(a.id) + 1
   drag(10, y, 16, y)
   apart()
@@ -284,17 +284,17 @@ test("two clicks are a double click only when the second comes within the double
   near(a:get().volume, 0, 1e-6, "a second click at the end of the double click time: 0 dB")
 end)
 
-test("dragging a track's header down puts the track in another place", function()
-  local a, b = two_tracks()
+test("dragging a part's header down puts the part in another place", function()
+  local a, b = two_parts()
   drag(6, row_y(a.id), 6, row_y(b.id) + 1)
-  eq(api.track_list()[1], b.id, "B is first")
-  eq(api.track_list()[2], a.id, "A after it")
+  eq(api.part_list()[1], b.id, "B is first")
+  eq(api.part_list()[2], a.id, "A after it")
 end)
 
 test(
   "the ruler: a click moves the playhead, a drag loops what it crosses, a double click turns the loop off",
   function()
-    two_tracks()
+    two_parts()
     click(x_of(6), 0)
     eq(api.transport_get().position, 6, "the playhead at beat 6")
     apart()
@@ -310,7 +310,7 @@ test(
 )
 
 test("the loop's edges drag on the ruler", function()
-  two_tracks()
+  two_parts()
   paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 4, 8, true
   shot()
   drag(x_of(8) - 1, 0, x_of(12) - 1, 0)
@@ -321,7 +321,7 @@ test("the loop's edges drag on the ruler", function()
 end)
 
 test("a tempo flag on the ruler drags to another beat, a right click on it offers to remove it", function()
-  two_tracks()
+  two_parts()
   api.tempo_set(8, 90)
   shot()
   local x = find("▾90")
@@ -337,7 +337,7 @@ test("a tempo flag on the ruler drags to another beat, a right click on it offer
 end)
 
 test("the tempo lane: a click adds a change, a drag on one moves it, a right click on one removes it", function()
-  two_tracks()
+  two_parts()
   paw.tempolane.show(true)
   shot()
   local y0 = arrange.geometry.layout.ruler_rows - 2
@@ -374,13 +374,13 @@ end
 --- tempo lane shown and painted from the subproject's start.
 local function in_cue(time)
   start()
-  local row = paw.add_track({ name = "Cue" })
+  local row = paw.add_part({ name = "Cue" })
   local nest = api.nest_add({ name = "Cue", length = 16 })
-  api.track_add({ name = "Synth", nest = nest })
+  api.part_add({ name = "Synth", nest = nest })
   api.clip_add(row.id, { nest = nest, start = 16 })
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(row.id)
+  paw.cursor.set_part(row.id)
   paw.cursor.set_beat(17)
   -- A new subproject follows the song's time already.
   if time ~= "follow" then paw.keymap.feed(":nest.time " .. time .. "<CR>") end
@@ -489,7 +489,7 @@ test("inside a subproject, the flags on the ruler move and remove the changes of
 end)
 
 test("a marker drags in its band under the ruler, and a click on it goes there", function()
-  two_tracks()
+  two_parts()
   local mk = paw.markers.add(8, "Chorus")
   shot()
   local x, y = find("Chorus")
@@ -506,7 +506,7 @@ end)
 test(
   "the regions' lane has a row for each level: a click on a row takes its region, a drag takes the regions inside",
   function()
-    two_tracks()
+    two_parts()
     paw.markers.add(16, "Chorus 2", { length = 16 })
     paw.markers.add(20, "Verse A", { length = 8 })
     paw.markers.add(20, "Riff", { length = 4 })
@@ -535,7 +535,7 @@ test(
 )
 
 test("automation lanes shown as rows: a click adds a point, a right click on it removes it, a drag draws", function()
-  local a = two_tracks()
+  local a = two_parts()
   paw.frontend.act.lane_rows(a.id)
   shot()
   local lane = api.lane_list(a.id)[1].id
@@ -557,7 +557,7 @@ test("a warp marker of an audio clip drags along it", function()
   local source = T.tone("source", 8)
   local wav = T.render({ tail = 0, bits = 32 })
   source:remove()
-  local t = paw.add_track({ name = "audio" })
+  local t = paw.add_part({ name = "audio" })
   local clip = t:add_clip({ file = wav.path, start = 0, length = 8 })
   paw.frontend.act.warp_add(clip.id, 4)
   shot()
@@ -568,8 +568,8 @@ test("a warp marker of an audio clip drags along it", function()
   near(off, 0, 1e-6, "it plays a beat later")
 end)
 
-test("the wheel scrolls the tracks, with Shift sideways, and with Ctrl zooms in time where the pointer is", function()
-  local a = two_tracks()
+test("the wheel scrolls the parts, with Shift sideways, and with Ctrl zooms in time where the pointer is", function()
+  local a = two_parts()
   m("scroll_down", x_of(2), row_y(a.id), "", "S")
   eq(arrange.scroll, paw.time.bar(), "a bar sideways")
   m("scroll_up", x_of(2), row_y(a.id), "", "S")
@@ -582,7 +582,7 @@ test("the wheel scrolls the tracks, with Shift sideways, and with Ctrl zooms in 
 end)
 
 test("the pointer going over a clip says on the status line what it is and what a click does", function()
-  local a = two_tracks()
+  local a = two_parts()
   m("move", x_of(9), row_y(a.id), "")
   local text = screen()
   eq(text:find("click chooses", 1, true) ~= nil, true, "the status line says what a click does")
@@ -591,7 +591,7 @@ test("the pointer going over a clip says on the status line what it is and what 
 end)
 
 test("with paw.opt.mouse off the pointer reaches nothing, and the terminal is asked to keep it", function()
-  local a = two_tracks()
+  local a = two_parts()
   paw.opt.mouse = false
   click(x_of(9), row_y(a.id))
   eq(#paw.frontend.chosen_clips(), 0, "the click was not taken")
@@ -606,7 +606,7 @@ end)
 --- a pitch and a beat are on the screen.
 local function rolled(notes)
   start()
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   local clip = t:add_clip({ name = "riff", start = 0, length = 8, notes = notes or {} })
   roll:edit(clip)
   roll.top, roll.scroll, roll.pitch, roll.beat = 72, 0, 60, 0
@@ -670,7 +670,7 @@ end)
 
 test("a clip opened by keys after one the pointer opened keeps the zoom", function()
   start()
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   local short = t:add_clip({ name = "short", start = 0, length = 1, notes = {} })
   t:add_clip({ name = "long", start = 4, length = 8, notes = {} })
   paw.frontend.act.open_clip(short.id)
@@ -835,11 +835,11 @@ end
 
 local function mixed()
   start()
-  local a = paw.add_track({ name = "A" })
-  local b = paw.add_track({ name = "B" })
+  local a = paw.add_part({ name = "A" })
+  local b = paw.add_part({ name = "B" })
   a:add_device("synth")
-  api.track_set(a.id, "sends", { { target = b.id, level = -6 } })
-  paw.cursor.set_track(a)
+  api.part_set(a.id, "sends", { { target = b.id, level = -6 } })
+  paw.cursor.set_part(a)
   paw.ui.show("mixer")
   -- Tall enough for the strips to show their devices and sends, until
   -- the test ends.
@@ -897,11 +897,11 @@ test("a send in a mixer strip drags sideways, and a click on a device picks it i
   eq(paw.ui.focused, "devices", "the device panel has the keyboard")
 end)
 
-test("a right click on a mixer strip opens the track's menu", function()
+test("a right click on a mixer strip opens the part's menu", function()
   local _, _, s, at = mixed()
   local x, y = at(s.x + 2, 0)
   click(x, y, "right")
-  eq(screen():find("Bounce to audio", 1, true) ~= nil, true, "the track's menu")
+  eq(screen():find("Bounce to audio", 1, true) ~= nil, true, "the part's menu")
   paw.keymap.feed("<Esc>")
 end)
 
@@ -909,9 +909,9 @@ test(
   "a parameter's slider in the device panel follows the pointer, a double click puts it back, on and off bypass",
   function()
     start()
-    local t = paw.add_track({ name = "S" })
+    local t = paw.add_part({ name = "S" })
     local d = t:add_device("synth")
-    paw.cursor.set_track(t)
+    paw.cursor.set_part(t)
     paw.ui.show("devices")
     shot()
     local rect
@@ -948,7 +948,7 @@ test(
   "in the piano roll a note of another clip edited with the active one is chosen and dragged in its own clip",
   function()
     start()
-    local t = paw.add_track({ name = "keys" })
+    local t = paw.add_part({ name = "keys" })
     local first = t:add_clip({ name = "a", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
     local second = t:add_clip({ name = "b", start = 4, length = 4, notes = { { pitch = 62, start = 1, length = 1 } } })
     roll:edit(first)

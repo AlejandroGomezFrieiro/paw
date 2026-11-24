@@ -65,7 +65,7 @@ enum {
 
 /* The methods that paw itself calls:
  *
- *   paw.clips       The audio clips of the device's track, as JSON (see
+ *   paw.clips       The audio clips of the device's part, as JSON (see
  *                   docs/reference/attachments.md). Only for an attachment
  *                   that answered PAW_CALL_DONE to the first one: paw calls it
  *                   again each time the clips or the tempo change.

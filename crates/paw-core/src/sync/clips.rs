@@ -1,5 +1,5 @@
 //! Clips as the engine plays them: MIDI compiled to events, audio as
-//! regions, sent whole or as the parts an edit changed; and the clips off
+//! regions, sent whole or as the pieces an edit changed; and the clips off
 //! the timeline, in their rows.
 
 use std::collections::HashMap;
@@ -10,16 +10,16 @@ use std::path::Path;
 use std::sync::Arc;
 
 use paw_engine::launch::{SlotClip, Slots};
-use paw_engine::{AudioData, AudioRegion, ClipSet, MidiEv, Part, PartEdit, db_to_gain};
+use paw_engine::{AudioData, AudioRegion, ClipSet, MidiEv, Piece, PieceEdit, db_to_gain};
 
 use super::SyncCtx;
 use super::mapper::{CueEvents, Mapper};
-use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Overrides, Track};
+use crate::model::{Clip, ClipContent, Control, Id, Note, Notes, Overrides, Part};
 
 /// What a piece of a MIDI clip's events is compiled from, and all that
 /// they depend on: runs of its notes, its controllers, its length, its
 /// loop and its overrides. Not where the clip starts: events are compiled from the clip's
-/// start, and its parts play them from there (see [`Part::with_offset`]),
+/// start, and its pieces play them from there (see [`Piece::with_offset`]),
 /// so that copies of a clip at many places share one list.
 #[derive(Clone, Copy)]
 pub(super) struct Source<'a> {
@@ -68,7 +68,7 @@ impl<'a> Source<'a> {
     }
 
     /// Its notes and controller moves as engine events, sorted, from
-    /// `origin` (0 for a part, which plays them from its clip's start). A
+    /// `origin` (0 for a piece, which plays them from its clip's start). A
     /// looped clip plays what lies in its repeated stretch over and over,
     /// each note cut at the end of its repeat.
     pub(super) fn compile(&self, origin: f64) -> Arc<[MidiEv]> {
@@ -126,7 +126,7 @@ thread_local! {
 
 /// Events compiled, by what they were compiled from: every clip of the
 /// same notes, controllers, length and loop shares one list, wherever it
-/// starts and on whichever track. Shared by all the tracks of a [`Mapper`].
+/// starts and on whichever part. Shared by all the parts of a [`Mapper`].
 #[derive(Default)]
 pub(super) struct Compiled {
     entries: FxHashMap<u64, Entry>,
@@ -248,7 +248,7 @@ fn joins_itself(data: &AudioData, from: f64, seconds: f64) -> bool {
     })
 }
 
-/// The regions an audio clip plays: the part of `data` from `offset`
+/// The regions an audio clip plays: the piece of `data` from `offset`
 /// seconds, or, looped, its repeated stretch again and again. A fade in
 /// belongs to the first repeat and a fade out to the last, each as long
 /// as that repeat at most.
@@ -333,18 +333,18 @@ fn audio_regions(
     }
 }
 
-/// What the engine has of a track's clips, sent as parts: one for each
+/// What the engine has of a part's clips, sent as pieces: one for each
 /// clip, or for a long MIDI clip one for its controllers and one for each
 /// few runs of its notes (see [`Notes`]), so that a note edited compiles
 /// again only the notes beside it.
 #[derive(Default)]
-pub(super) struct Parts {
+pub(super) struct Pieces {
     /// Each clip by id, as compiled and sent.
     pub clips: FxHashMap<Id, SentClip>,
-    /// How many parts the engine has, and room for.
+    /// How many pieces the engine has, and room for.
     len: usize,
     room: usize,
-    /// The clips were sent as one list, through the track's attribute map:
+    /// The clips were sent as one list, through the part's attribute map:
     /// only their events are kept, to compile only what changed.
     flat: bool,
 }
@@ -352,18 +352,18 @@ pub(super) struct Parts {
 /// One clip as the engine was sent it.
 pub(super) struct SentClip {
     clip: Arc<Clip>,
-    /// Its order (see [`paw_engine::Part::order`]); its parts have this
+    /// Its order (see [`paw_engine::Piece::order`]); its pieces have this
     /// order and those after it, one each.
     order: u64,
     /// Its events in pieces (see [`pieces_of`]), each counted from the
     /// clip's start; none for an audio clip.
     pub pieces: Vec<Arc<[MidiEv]>>,
-    /// It has a part of sound, of its order.
+    /// It has a piece of sound, of its order.
     sounds: bool,
 }
 
 impl SentClip {
-    /// The orders of the parts the engine has of it: those not empty.
+    /// The orders of the pieces the engine has of it: those not empty.
     fn orders(&self) -> impl Iterator<Item = u64> + '_ {
         let sound = self.sounds.then_some(self.order);
         let pieces = self.pieces.iter().enumerate().filter(|(_, e)| !e.is_empty());
@@ -371,10 +371,10 @@ impl SentClip {
     }
 }
 
-/// The space between the orders of two clips side by side when a track's
-/// parts are sent whole: clips put in between later take orders between.
+/// The space between the orders of two clips side by side when a part's
+/// pieces are sent whole: clips put in between later take orders between.
 const ORDER_GAP: u64 = 1 << 32;
-/// An edit of more clips than this sends the track's clips whole.
+/// An edit of more clips than this sends the part's clips whole.
 const MAX_EDIT: usize = 512;
 
 /// Notes in a piece of a clip's events: runs side by side go in one piece
@@ -421,16 +421,16 @@ fn pieces_of(
     out
 }
 
-/// A clip's parts from `order` on, put in `out`, compiling only what no
+/// A clip's pieces from `order` on, put in `out`, compiling only what no
 /// clip sent has; and the clip as sent.
-fn parts_of(
+fn send_pieces(
     clip: &Arc<Clip>,
     order: u64,
     before: Option<&SentClip>,
     tempo: &paw_types::TempoMap,
     compiled: &mut Compiled,
     ctx: &mut SyncCtx,
-    out: &mut Vec<Part>,
+    out: &mut Vec<Piece>,
 ) -> SentClip {
     let mut audio = Vec::new();
     let mut pieces = Vec::new();
@@ -446,7 +446,7 @@ fn parts_of(
     }
     let sounds = !audio.is_empty();
     if sounds {
-        out.push(Part::new(clip.id, order, Arc::from([]), audio));
+        out.push(Piece::new(clip.id, order, Arc::from([]), audio));
     }
     let sent = SentClip {
         clip: clip.clone(),
@@ -455,13 +455,13 @@ fn parts_of(
         sounds,
     };
     for (k, events) in sent.pieces.iter().enumerate().filter(|(_, e)| !e.is_empty()) {
-        let part = Part::new(clip.id, order + k as u64, events.clone(), Vec::new());
-        out.push(part.with_offset(clip.start));
+        let piece = Piece::new(clip.id, order + k as u64, events.clone(), Vec::new());
+        out.push(piece.with_offset(clip.start));
     }
     sent
 }
 
-/// How many orders a clip's parts take.
+/// How many orders a clip's pieces take.
 fn orders_taken(clip: &Clip) -> u64 {
     match clip.playable() {
         Some(ClipContent::Midi { notes, .. }) => notes.runs().len() as u64 + 1,
@@ -469,106 +469,106 @@ fn orders_taken(clip: &Clip) -> u64 {
     }
 }
 
-/// Whether a track's events go through its attribute map: then its clips
+/// Whether a part's events go through its attribute map: then its clips
 /// are sent as one list, which the map changes as a whole.
-fn mapped(track: &Track) -> bool {
-    track.attr_map.as_ref().is_some_and(|m| m.plan().is_ok())
+fn mapped(part: &Part) -> bool {
+    part.attr_map.as_ref().is_some_and(|m| m.plan().is_ok())
 }
 
-/// Everything a track plays. A MIDI clip that is the very same as at the
-/// last sync reuses its events; the track's events are those of its clips in
+/// Everything a part plays. A MIDI clip that is the very same as at the
+/// last sync reuses its events; the part's events are those of its clips in
 /// order, sorted again (stably, so the result is what sorting all the notes at
 /// once gives, and nearly free when the clips follow each other in time).
 pub(super) fn build_clips(
-    track: &Track,
+    part: &Part,
     tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> ClipSet {
-    let cached = map.parts.remove(&track.id).unwrap_or_default();
-    let mut kept = Parts {
-        clips: FxHashMap::with_capacity_and_hasher(track.clips.len(), Default::default()),
-        flat: mapped(track),
-        ..Parts::default()
+    let cached = map.pieces.remove(&part.id).unwrap_or_default();
+    let mut kept = Pieces {
+        clips: FxHashMap::with_capacity_and_hasher(part.clips.len(), Default::default()),
+        flat: mapped(part),
+        ..Pieces::default()
     };
     if kept.flat {
         // In the order a clip's events are compiled in, which the sort keeps
         // on the same beat.
         let mut set = ClipSet::default();
-        let mut parts = Vec::new();
-        for clip in track.clips.iter() {
+        let mut pieces = Vec::new();
+        for clip in part.clips.iter() {
             let before = cached.clips.get(&clip.id);
-            let sent = parts_of(clip, 0, before, tempo, &mut map.compiled, ctx, &mut parts);
-            for part in parts.drain(..) {
-                set.midi.extend(part.events());
-                set.audio.extend(part.into_audio());
+            let sent = send_pieces(clip, 0, before, tempo, &mut map.compiled, ctx, &mut pieces);
+            for piece in pieces.drain(..) {
+                set.midi.extend(piece.events());
+                set.audio.extend(piece.into_audio());
             }
             kept.clips.insert(clip.id, sent);
         }
         set.finish();
-        downgrade(track, &mut set, tempo);
-        map.parts.insert(track.id, kept);
+        downgrade(part, &mut set, tempo);
+        map.pieces.insert(part.id, kept);
         drop(cached);
         map.compiled.sweep();
         return set;
     }
-    let mut parts = Vec::with_capacity(track.clips.len());
-    for (i, clip) in track.clips.iter().enumerate() {
+    let mut pieces = Vec::with_capacity(part.clips.len());
+    for (i, clip) in part.clips.iter().enumerate() {
         let order = (i as u64 + 1) * ORDER_GAP;
         let before = cached.clips.get(&clip.id);
-        let sent = parts_of(clip, order, before, tempo, &mut map.compiled, ctx, &mut parts);
+        let sent = send_pieces(clip, order, before, tempo, &mut map.compiled, ctx, &mut pieces);
         kept.clips.insert(clip.id, sent);
     }
-    kept.len = parts.len();
-    kept.room = 2 * parts.len() + 64;
-    let set = ClipSet::default().with_parts(parts, kept.room);
-    map.parts.insert(track.id, kept);
+    kept.len = pieces.len();
+    kept.room = 2 * pieces.len() + 64;
+    let set = ClipSet::default().with_pieces(pieces, kept.room);
+    map.pieces.insert(part.id, kept);
     drop(cached);
     map.compiled.sweep();
     set
 }
 
-/// The parts of the clips an edit changed, to take out of the engine and
-/// put in again, from the clips of `track` that differ from those of
-/// `prev` (the same track as the engine has it). `None` when the track's
+/// The pieces of the clips an edit changed, to take out of the engine and
+/// put in again, from the clips of `part` that differ from those of
+/// `prev` (the same part as the engine has it). `None` when the part's
 /// clips are to be sent whole: they are sent as one list, or the edit
-/// changed many, or the parts would not fit in the room the engine has.
-pub(super) fn edit_parts(
-    prev: &Track,
-    track: &Track,
+/// changed many, or the pieces would not fit in the room the engine has.
+pub(super) fn edit_pieces(
+    prev: &Part,
+    part: &Part,
     tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
-) -> Option<PartEdit> {
-    let kept = map.parts.get_mut(&track.id)?;
-    if kept.flat || mapped(track) {
+) -> Option<PieceEdit> {
+    let kept = map.pieces.get_mut(&part.id)?;
+    if kept.flat || mapped(part) {
         return None;
     }
-    let (old, new) = track.clips.changed(&prev.clips);
+    let (old, new) = part.clips.changed(&prev.clips);
     if old.len() + new.len() > MAX_EDIT {
         return None;
     }
     // The orders on each side of the stretch, which the clips put in again
-    // take orders between, each as many as it has parts.
+    // take orders between, each as many as it has pieces.
     let low = match new.start {
         0 => 0,
         at => {
-            let c = track.clips.get(at - 1)?;
+            let c = part.clips.get(at - 1)?;
             kept.clips.get(&c.id)?.order + orders_taken(c)
         }
     };
     let count = new.len() as u64;
-    let step = match track.clips.get(new.end) {
+    let step = match part.clips.get(new.end) {
         Some(c) => (kept.clips.get(&c.id)?.order.checked_sub(low)?) / (count + 1),
         None => ORDER_GAP,
     };
-    if track.clips.range(new.clone()).any(|c| orders_taken(c) >= step) {
+    if part.clips.range(new.clone()).any(|c| orders_taken(c) >= step) {
         return None;
     }
-    let mut edit = PartEdit {
+    let mut edit = PieceEdit {
         remove: Vec::with_capacity(old.len()),
         add: Vec::with_capacity(new.len()),
-        ..PartEdit::default()
+        ..PieceEdit::default()
     };
     let mut gone = FxHashMap::with_capacity_and_hasher(old.len(), Default::default());
     for clip in prev.clips.range(old) {
@@ -578,15 +578,15 @@ pub(super) fn edit_parts(
         }
     }
     let mut sent = Vec::with_capacity(new.len());
-    for (k, clip) in track.clips.range(new).enumerate() {
+    for (k, clip) in part.clips.range(new).enumerate() {
         let order = low + (k as u64 + 1) * step;
         let before = gone.get(&clip.id);
-        sent.push(parts_of(clip, order, before, tempo, &mut map.compiled, ctx, &mut edit.add));
+        sent.push(send_pieces(clip, order, before, tempo, &mut map.compiled, ctx, &mut edit.add));
     }
     let len = kept.len - edit.remove.len() + edit.add.len();
     if len > kept.room {
         // Sent whole, with more room.
-        map.parts.remove(&track.id);
+        map.pieces.remove(&part.id);
         return None;
     }
     kept.len = len;
@@ -599,11 +599,11 @@ pub(super) fn edit_parts(
     Some(edit)
 }
 
-/// What the track's attribute map sends, put among its events.
-fn downgrade(track: &Track, set: &mut ClipSet, tempo: &paw_types::TempoMap) {
+/// What the part's attribute map sends, put among its events.
+fn downgrade(part: &Part, set: &mut ClipSet, tempo: &paw_types::TempoMap) {
     // A map is checked when it is set; one that no longer reads (from a
     // file edited by hand) plays as if there were none.
-    if let Some(plan) = track.attr_map.as_ref().and_then(|m| m.plan().ok()) {
+    if let Some(plan) = part.attr_map.as_ref().and_then(|m| m.plan().ok()) {
         crate::attr_map::downgrade(set, &plan, tempo);
     }
 }
@@ -641,7 +641,7 @@ fn clip_audio(
     }
 }
 
-/// What a frozen track plays: its file from the start of the song, as it
+/// What a frozen part plays: its file from the start of the song, as it
 /// was rendered, at unity gain and without fades.
 pub(super) fn frozen_clips(file: &Path, tempo: &paw_types::TempoMap, ctx: &mut SyncCtx) -> ClipSet {
     let mut set = ClipSet::default();
@@ -665,16 +665,16 @@ pub(super) fn frozen_clips(file: &Path, tempo: &paw_types::TempoMap, ctx: &mut S
     set
 }
 
-/// The engine's rows for a track's clips off the timeline: a clip keeps
+/// The engine's rows for a part's clips off the timeline: a clip keeps
 /// the row it had, a clip gone frees its row, and a new clip takes the
 /// first free row.
-pub(super) fn cue_rows(mut rows: Vec<Option<Id>>, track: &Track) -> Vec<Option<Id>> {
+pub(super) fn cue_rows(mut rows: Vec<Option<Id>>, part: &Part) -> Vec<Option<Id>> {
     for row in rows.iter_mut() {
-        if row.is_some_and(|id| !track.cues.iter().any(|c| c.id == id)) {
+        if row.is_some_and(|id| !part.cues.iter().any(|c| c.id == id)) {
             *row = None;
         }
     }
-    for clip in &track.cues {
+    for clip in &part.cues {
         if rows.contains(&Some(clip.id)) {
             continue;
         }
@@ -689,22 +689,22 @@ pub(super) fn cue_rows(mut rows: Vec<Option<Id>>, track: &Track) -> Vec<Option<I
     rows
 }
 
-/// What a track's clips off the timeline play, each laid out from its own
+/// What a part's clips off the timeline play, each laid out from its own
 /// start, in its row (`rows`).
 pub(super) fn build_cues(
-    track: &Track,
+    part: &Part,
     rows: &[Option<Id>],
     tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> Slots {
     // A clip that did not change is not compiled again.
-    let cached = map.cue_events.remove(&track.id).unwrap_or_default();
+    let cached = map.cue_events.remove(&part.id).unwrap_or_default();
     let mut kept = HashMap::with_capacity(cached.len() + 1);
     let mut out: Vec<Option<SlotClip>> = Vec::new();
     out.resize_with(rows.len(), || None);
     for (row, id) in rows.iter().enumerate() {
-        let Some(clip) = id.and_then(|id| track.cues.iter().find(|c| c.id == id)) else {
+        let Some(clip) = id.and_then(|id| part.cues.iter().find(|c| c.id == id)) else {
             continue;
         };
         if clip.muted {
@@ -719,7 +719,7 @@ pub(super) fn build_cues(
                 };
                 clips.midi = events.to_vec();
                 kept.insert(clip.id, CueEvents { clip: clip.clone(), events });
-                downgrade(track, &mut clips, tempo);
+                downgrade(part, &mut clips, tempo);
             }
             Some(ClipContent::Audio { file, offset, gain, .. }) => {
                 clip_audio(clip, (file, *offset, *gain), tempo, ctx, &mut clips.audio)
@@ -732,7 +732,7 @@ pub(super) fn build_cues(
         });
     }
     if !kept.is_empty() {
-        map.cue_events.insert(track.id, kept);
+        map.cue_events.insert(part.id, kept);
     }
     Slots { rows: out }
 }

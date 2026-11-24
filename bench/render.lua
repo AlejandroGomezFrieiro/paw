@@ -1,19 +1,19 @@
 -- Offline render throughput.
---   paw --clean --no-plugins -l bench/render.lua <tracks> <audio|midi> <fx 0|1> <automation 0|1> [bars] [threads]
+--   paw --clean --no-plugins -l bench/render.lua <parts> <audio|midi> <fx 0|1> <automation 0|1> [bars] [threads]
 -- `threads` 0 or left out renders on one thread per core.
 local paw = require("paw")
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
 
-local tracks = tonumber(arg and arg[1] or select(1, ...)) or 10
+local parts = tonumber(arg and arg[1] or select(1, ...)) or 10
 local args = { ... }
-tracks = tonumber(args[1]) or tracks
+parts = tonumber(args[1]) or parts
 local kind = args[2] or "midi"
 local fx = args[3] == "1"
 local automation = args[4] == "1"
 local bars = tonumber(args[5]) or 16
 local threads = tonumber(args[6]) or 0
 
-local build_ms = B.time(B.build, { tracks = tracks, kind = kind, fx = fx, automation = automation, bars = bars })
+local build_ms = B.time(B.build, { parts = parts, kind = kind, fx = fx, automation = automation, bars = bars })
 local out = B.tmp .. "/render.wav"
 local opts = { start = 0, ["end"] = bars * 4, tail = 0 }
 -- Builds from before renders used several threads take no such option.
@@ -25,7 +25,7 @@ info.elapsed = info.elapsed or wall
 info.blocks = info.blocks or {}
 B.emit({
   workload = "render",
-  tracks = tracks,
+  parts = parts,
   kind = kind,
   fx = fx and 1 or 0,
   automation = automation and 1 or 0,

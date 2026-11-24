@@ -1,8 +1,8 @@
 -- Three-way merge of project files, by what is in them rather than by lines.
 --
--- Two people who changed different tracks, different clips, different notes
+-- Two people who changed different parts, different clips, different notes
 -- or different parameters have not conflicted, whatever the order of the
--- lines in the file: lists of things with ids (tracks, devices, clips,
+-- lines in the file: lists of things with ids (parts, devices, clips,
 -- lanes, notes, markers) are merged item by item, lists of sends, tempo
 -- changes and automation points by what names each, and lists with nothing
 -- to name their items (controllers) as sets. What is left is a real
@@ -250,7 +250,7 @@ function merge(base, ours, theirs, path, ctx)
   return conflict(ctx, path, base, ours, theirs)
 end
 
--- Ids that are the project's, one number for each subproject, track,
+-- Ids that are the project's, one number for each subproject, part,
 -- device, clip and lane, so that two sides adding different things may have
 -- used the same one.
 
@@ -279,13 +279,13 @@ local function remap_device(d, map)
   end
 end
 
---- A clip, and the subproject that it places with the track that it plays.
+--- A clip, and the subproject that it places with the part that it plays.
 local function remap_clip(c, map)
   remap(c, "id", map)
   local content = c.content
   if type(content) == "table" and content.kind == "nest" then
     remap(content, "nest", map)
-    if type(content.play) == "table" then remap(content.play, "track", map) end
+    if type(content.play) == "table" then remap(content.play, "part", map) end
   end
 end
 
@@ -294,7 +294,7 @@ local function remap_lane(l, map)
   if l.target then remap(l.target, "device", map) end
 end
 
-local function remap_track(t, map)
+local function remap_part(t, map)
   remap(t, "id", map)
   remap(t, "nest", map)
   remap(t, "output", map)
@@ -321,17 +321,17 @@ local function remap_nest(n, map)
 end
 
 --- Each thing of a project with an id, by id: `{ holder, whole, remap }`.
---- `holder` is the id of what holds it (the track of a device, the
---- subproject of a track), `whole` is what tells it from another thing (the
---- thing, or a subproject with its tracks), and `remap(whole, map)` changes
+--- `holder` is the id of what holds it (the part of a device, the
+--- subproject of a part), `whole` is what tells it from another thing (the
+--- thing, or a subproject with its parts), and `remap(whole, map)` changes
 --- the ids in a copy of `whole`.
 local function things(project)
   local by = {}
   local function add(item, holder, remap_fn, whole)
     if type(item.id) == "number" then by[item.id] = { holder = holder, whole = whole or item, remap = remap_fn } end
   end
-  local function track(t)
-    add(t, t.nest, remap_track)
+  local function part(t)
+    add(t, t.nest, remap_part)
     for _, d in ipairs(t.devices or {}) do
       add(d, t.id, remap_device)
     end
@@ -346,22 +346,22 @@ local function things(project)
     end
   end
   project = project or {}
-  if project.master then track(project.master) end
-  for _, t in ipairs(project.tracks or {}) do
-    track(t)
+  if project.master then part(project.master) end
+  for _, t in ipairs(project.parts or {}) do
+    part(t)
   end
-  -- Two subprojects are the same only when their tracks are the same too.
+  -- Two subprojects are the same only when their parts are the same too.
   for _, n in ipairs(project.nests or {}) do
-    local tracks = {}
-    for _, t in ipairs(project.tracks or {}) do
-      if t.nest == n.id then tracks[#tracks + 1] = t end
+    local parts = {}
+    for _, t in ipairs(project.parts or {}) do
+      if t.nest == n.id then parts[#parts + 1] = t end
     end
     add(n, nil, function(whole, map)
       remap_nest(whole.nest, map)
-      for _, t in ipairs(whole.tracks) do
-        remap_track(t, map)
+      for _, t in ipairs(whole.parts) do
+        remap_part(t, map)
       end
-    end, { nest = n, tracks = tracks })
+    end, { nest = n, parts = parts })
   end
   return by
 end
@@ -369,7 +369,7 @@ end
 --- The ids of theirs that ours also made, for another thing: by id, a
 --- stand-in for the new id. A thing of theirs is another thing when it differs from ours with the
 --- ids found so far changed, or when what holds it got another id. So a
---- subproject that gets another id gives its tracks, their devices and
+--- subproject that gets another id gives its parts, their devices and
 --- clips, and the clips that place it other ids too.
 local function clashes(B, O, T)
   -- A stand-in for a new id while the ids are found: no thing has it.
@@ -420,9 +420,9 @@ local function renumber(base, ours, theirs)
   end
   local out = copy(theirs)
   local project = out.project
-  if project.master then remap_track(project.master, map) end
-  for _, t in ipairs(project.tracks or {}) do
-    remap_track(t, map)
+  if project.master then remap_part(project.master, map) end
+  for _, t in ipairs(project.parts or {}) do
+    remap_part(t, map)
   end
   for _, n in ipairs(project.nests or {}) do
     remap_nest(n, map)
@@ -556,7 +556,7 @@ end
 
 -- The word for an item of each list of things with ids, as the diff names them.
 local ITEM_WORDS = {
-  tracks = "track",
+  parts = "part",
   devices = "device",
   clips = "clip",
   lanes = "lane",
@@ -566,13 +566,13 @@ local ITEM_WORDS = {
   nests = "subproject",
 }
 
---- A path in words for a file: `track 3 "Lead" › device 5 "synth" › params › cutoff`.
+--- A path in words for a file: `part 3 "Lead" › device 5 "synth" › params › cutoff`.
 function M.describe(doc, path)
   local parts, here = {}, doc
   for i, seg in ipairs(path) do
     if type(seg) == "string" then
       here = type(here) == "table" and here[seg] or nil
-      -- A list of things with ids is named by its item: `track 3`.
+      -- A list of things with ids is named by its item: `part 3`.
       local next_seg = path[i + 1]
       local by_id = type(next_seg) == "table" and next_seg.id ~= nil and ITEM_WORDS[seg]
       if seg ~= "project" and not by_id then parts[#parts + 1] = seg end

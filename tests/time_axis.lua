@@ -92,7 +92,7 @@ local function scenario()
   paw.ui.focus("arrange")
   paw.project.tempo = 120
   paw.opt.grid = 0.25
-  local vox = paw.add_track({ name = "Vox" })
+  local vox = paw.add_part({ name = "Vox" })
   local notes = {}
   for i, at in ipairs({ 1.5, 3.125, 5 }) do
     notes[i] = { pitch = 60 + i * 3, start = at, length = 0.75 }
@@ -100,7 +100,7 @@ local function scenario()
   local take = vox:add_clip({ name = "vox", start = 4.375, length = 7.25, notes = notes })
   paw.takes.new(take.id, "b")
   paw.takes.show_lanes(vox.id, true)
-  local keys = paw.add_track({ name = "Keys" })
+  local keys = paw.add_part({ name = "Keys" })
   keys:add_clip({ name = "k2", start = 9.5, length = 4, notes = { { pitch = 64, start = 0, length = 1 } } })
   api.lane_add(keys.id, { target = "volume", points = { { 2, -6 }, { 7.375, 0 }, { 13, -12 } } })
   paw.lanes.open(keys.id, true)
@@ -108,7 +108,7 @@ local function scenario()
   paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 5.5, 10.25, true
   paw.markers.add(4.375, "verse")
   paw.transport.seek(11.125)
-  paw.cursor.set_track(vox.id)
+  paw.cursor.set_part(vox.id)
   paw.cursor.set_beat(0)
   paw.opt.zoom = 1
   T.after(function()
@@ -280,7 +280,7 @@ test("the cursor keeps its exact beat and the ruler's column over a long run of 
   paw.project.tempo = 120
   paw.opt.grid = 0.25
   -- A take punched in and out between two grid lines, as a recording leaves it.
-  local mic = paw.add_track({ name = "mic" })
+  local mic = paw.add_part({ name = "mic" })
   mic.input, mic.armed = "1", true
   paw.transport.punch_start, paw.transport.punch_end, paw.transport.punch_enabled = 4.375, 6.625, true
   T.after(function() paw.transport.punch_enabled = false end)
@@ -291,7 +291,7 @@ test("the cursor keeps its exact beat and the ruler's column over a long run of 
   paw.flush()
   local take = mic:clips()[1]:get()
   eq(take.start .. "+" .. take.length, "4.375+2.25", "the take, off the grid at both ends")
-  paw.cursor.set_track(mic.id)
+  paw.cursor.set_part(mic.id)
   paw.cursor.set_beat(0)
   local view = paw.ui.views:get("arrange")
   local function at(keys, beat)

@@ -58,7 +58,7 @@ the client, do one of the following:
 - Type `:upload ~/take.wav` in a connected terminal.
 
 paw sends the file to the `media` folder of the project on `studio`, and
-it imports the file on a new track. If the project has no file yet, paw
+it imports the file on a new part. If the project has no file yet, paw
 uses a scratch folder.
 
 ## Hear the sound on the client

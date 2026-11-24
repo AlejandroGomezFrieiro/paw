@@ -1,0 +1,44 @@
+# The files that keep the word "track" in a sense that is not the
+# container, each with its reason (tools/partlint.lua). The list only
+# gets shorter: `<file> <count> <reason>`.
+AGENTS.md 7 the rule of the word names the other senses of track
+bench/daws/ardour_init.lua 8 a script of Ardour, in its own API
+bench/DAWS.md 6 the benchmark of other programs (Ardour, LMMS, REAPER) uses their word
+bench/daws/mid2json.py 9 reads the tracks of a MIDI file
+bench/daws/mk_lmms.py 12 writes a project of LMMS, in its own format
+bench/daws/mk_reaper.py 21 writes a project of REAPER, in its own format
+bench/daws/song.json 1 the tracks of the MIDI file of the demo song
+.claude/skills/diataxis-docs/SKILL.md 3 the glossary names the other senses of track
+.claude/skills/untangle-codebase/SKILL.md 2 an example of other code: a function track() that records an action
+crates/paw-core/src/session/tags.rs 16 the number of a track on an album (TRACKNUMBER, the ID3 TRCK frame)
+crates/paw-engine/src/clip.rs 4 the API of symphonia: a track of a sound file
+crates/paw-engine/src/envelope.rs 4 the API of symphonia: a track of a sound file
+crates/paw-engine/src/probe.rs 3 the API of symphonia: a track of a sound file
+docs/reference/key-rule.md 1 tells that earlier versions called a part a track
+extensions/interop/lua/interop/dawproject/export.tl 5 the Track element and the track attribute of DAWproject
+extensions/interop/lua/interop/dawproject/import.tl 8 the Track element and the track attribute of DAWproject
+extensions/interop/lua/interop/rpp/export.tl 4 the TRACK block and its keys in a REAPER project
+extensions/interop/lua/interop/rpp/format.tl 1 the TRACK block of a REAPER project
+extensions/interop/lua/interop/rpp/import.tl 5 the TRACK block and its keys in a REAPER project
+extensions/interop/lua/interop/rpp/midi.tl 6 the tracks of a MIDI file
+extensions/interop/README.md 2 the TRACK block of a REAPER project
+extensions/interop/tests_dawproject.lua 2 the Track element of DAWproject
+extensions/interop/tests_rpp.lua 28 the TRACK block of REAPER and the words of REAPER's report
+extensions/interop/tools/reaper-build.lua 22 a script of REAPER, in its own API
+extensions/interop/tools/reaper-dump.lua 44 a script of REAPER, in its own API
+extensions/plugstate/tests_frameworks.lua 1 the GUITARTRACK path of a plugin's state
+extensions/utau/lua/utau/export.lua 3 the tracks of an OpenUtau project
+extensions/utau/lua/utau/import.lua 1 the tracks of an OpenUtau project
+extensions/utau/lua/utau/init.lua 1 the verb: to lose track
+extensions/utau/lua/utau/singer_presets.lua 1 the bridgetrack option of a singer
+extensions/utau/tests.lua 1 the tracks of an OpenUtau project
+runtime/lua/paw/audition.tl 3 the tracks of a MIDI file
+runtime/lua/paw/midifile.tl 122 the tracks of a MIDI file
+tests/attr.lua 1 the tracks of a MIDI file
+tests/clip_overrides.lua 1 the tracks of a MIDI file
+tests/e2e/model.lua 4 the tracks of a MIDI file
+tests/midifile.lua 43 the tracks of a MIDI file
+tests/tags.lua 1 the number of a track on an album (TRACKNUMBER)
+tests/partlint.lua 5 the test of the check writes the word that it looks for
+docs/reference/api.md 7 generated: the reference of paw.midifile, the tracks of a MIDI file
+runtime/types/paw.lua 7 generated: the declarations of paw.midifile, the tracks of a MIDI file

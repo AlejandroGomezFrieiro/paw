@@ -120,7 +120,7 @@ command("vinput.add", function(ctx)
   paw.notify(
     "virtual input “"
       .. input.name
-      .. "”: a track takes it as its MIDI input"
+      .. "”: a part takes it as its MIDI input"
       .. (input.source == "" and "; choose its source" or "")
   )
 end, { desc = "A new guitar-to-MIDI input: `vinput.add Guitar source=Input_2 gain=1.2`" })
@@ -177,12 +177,12 @@ command("vinput.restart", function(ctx)
   if input then run.restart(input.name) end
 end, { desc = "Start a virtual input's tracker again", complete = names })
 
-command("vinput.track", function(ctx)
+command("vinput.part", function(ctx)
   local input = M.target(ctx.args[1])
   if not input then return end
-  local track = vinput.make_track(input.name, ctx.args[2])
-  paw.notify("track “" .. track.name .. "” plays what “" .. input.name .. "” hears; record with it armed")
-end, { desc = "A track that takes a virtual input: `vinput.track Guitar [instrument]`", complete = names })
+  local part = vinput.make_part(input.name, ctx.args[2])
+  paw.notify("part “" .. part.name .. "” plays what “" .. input.name .. "” hears; record with it armed")
+end, { desc = "A part that takes a virtual input: `vinput.part Guitar [instrument]`", complete = names })
 
 command("vinput.gain", function(ctx)
   local input = M.target(ctx.args[1])
@@ -268,7 +268,7 @@ pmap("gR", function()
   paw.notify("looking for audio ports")
 end, "Look for audio ports again")
 pmap("s", "vinput.source", "Choose the source")
-pmap("t", "vinput.track", "A track that takes the input")
+pmap("t", "vinput.part", "A part that takes the input")
 pmap("ga", "vinput.gain", "Take the gain the tracker asked for")
 -- Escape stays, as in every view; `<C-w>p` goes back to the window before.
 pmap("<Esc>", function() paw.keymap.escape_hint() end, "Stay in the panel (Ctrl-w p leaves)", { repeatable = false })
@@ -282,7 +282,7 @@ if paw.ui.keybar then
     { "o", "on/off" },
     { "s", "source" },
     { "a", "add" },
-    { "t", "track" },
+    { "t", "part" },
     { "ga", "take gain" },
     { "r", "restart" },
     { "D", "remove" },
@@ -293,11 +293,11 @@ end
 -- In the window's menus ----------------------------------------------------------
 
 table.insert(paw.frontend.menus.timeline, {
-  label = "New track from a virtual input",
+  label = "New part from a virtual input",
   run = function()
     -- The first input, made if there is none; its window, to choose the source in.
     local input = vinput.inputs[1] or vinput.add({})
-    vinput.make_track(input.name)
+    vinput.make_part(input.name)
     M.open(input.name)
   end,
 })

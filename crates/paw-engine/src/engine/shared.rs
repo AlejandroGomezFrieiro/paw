@@ -6,10 +6,10 @@ use atomic_float::{AtomicF32, AtomicF64};
 
 use crate::guard::Fault;
 use crate::launch::{self, LaunchState};
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::slot::{DeviceSlot, PartSlot};
 
 use super::stats::BlockStats;
-use super::{MAX_DEVICES, MAX_INPUTS, MAX_TRACKS};
+use super::{MAX_DEVICES, MAX_INPUTS, MAX_PARTS};
 
 /// State the audio thread publishes for everyone else to read.
 pub struct Shared {
@@ -24,7 +24,7 @@ pub struct Shared {
     pub(super) output_latency: AtomicF32,
     /// Frames the backend asked for in its last callback.
     pub(super) period: AtomicU32,
-    /// Peak level of each input channel, falling as track meters do.
+    /// Peak level of each input channel, falling as part meters do.
     pub(super) input_meters: [AtomicF32; MAX_INPUTS],
     pub(super) latency: AtomicU32,
     pub(super) threads: AtomicU32,
@@ -36,7 +36,7 @@ pub struct Shared {
     /// What has gone wrong with each device slot: [`Fault::PANICKED`](crate::guard::Fault::PANICKED),
     /// [`Fault::NOT_FINITE`](crate::guard::Fault::NOT_FINITE). Cleared when a device is put in the slot.
     pub(super) faults: Vec<AtomicU8>,
-    /// Each track's clip launcher.
+    /// Each part's clip launcher.
     pub(super) launch: Vec<LaunchState>,
     /// The sound file being heard on its own: its id (0 for none) and
     /// where it has got to, in seconds of the file.
@@ -48,20 +48,20 @@ pub struct Shared {
     pub(super) device_sleeps: AtomicU64,
     /// Blocks in which the whole engine rested, since it was made.
     pub(super) engine_rests: AtomicU64,
-    /// Groups of tracks shared out between threads, since the engine was made.
+    /// Groups of parts shared out between threads, since the engine was made.
     pub(super) shared_groups: AtomicU64,
     /// Callbacks the engine has finished since it was made. Unlike
     /// [`BlockStats`], never reset: tests and tools wait on it for a state
     /// to reach the audio thread.
     pub(super) processed: AtomicU64,
     /// Blocks each device slot has run (not slept through) since the engine
-    /// was made. Only the thread that runs the slot's track writes it.
+    /// was made. Only the thread that runs the slot's part writes it.
     pub(super) device_ran: Vec<AtomicU64>,
-    /// The peak of each device slot's output, falling as a track's meter
-    /// does. Only the thread that runs the slot's track writes it.
+    /// The peak of each device slot's output, falling as a part's meter
+    /// does. Only the thread that runs the slot's part writes it.
     pub(super) device_peaks: Vec<AtomicF32>,
     /// Nanoseconds each device slot has run since the engine was made.
-    /// Only the thread that runs the slot's track writes it.
+    /// Only the thread that runs the slot's part writes it.
     pub(super) device_ns: Vec<AtomicU64>,
 }
 
@@ -71,7 +71,7 @@ impl Shared {
         Self {
             position: AtomicF64::new(0.0),
             playing: AtomicBool::new(false),
-            meters: (0..MAX_TRACKS)
+            meters: (0..MAX_PARTS)
                 .map(|_| [AtomicF32::new(0.0), AtomicF32::new(0.0)])
                 .collect(),
             cpu: AtomicF32::new(0.0),
@@ -87,7 +87,7 @@ impl Shared {
             counting: AtomicU32::new(0),
             blocks: BlockStats::new(),
             faults: (0..MAX_DEVICES).map(|_| AtomicU8::new(0)).collect(),
-            launch: (0..MAX_TRACKS).map(|_| LaunchState::default()).collect(),
+            launch: (0..MAX_PARTS).map(|_| LaunchState::default()).collect(),
             preview_id: AtomicU32::new(0),
             preview_seconds: AtomicF64::new(0.0),
             device_runs: AtomicU64::new(0),
@@ -116,7 +116,7 @@ impl Shared {
         self.engine_rests.load(Relaxed)
     }
 
-    /// Groups of tracks shared out between threads since the engine was
+    /// Groups of parts shared out between threads since the engine was
     /// made: a group with little work is done on the audio thread alone.
     pub fn shared_groups(&self) -> u64 {
         self.shared_groups.load(Relaxed)
@@ -137,7 +137,7 @@ impl Shared {
     }
 
     /// The peak of the output of the device in `slot`, linear, the larger
-    /// of its two channels: falling as a track's meter falls.
+    /// of its two channels: falling as a part's meter falls.
     pub fn device_peak(&self, slot: DeviceSlot) -> f32 {
         self.device_peaks.get(slot.index()).map_or(0.0, |p| p.load(Relaxed))
     }
@@ -185,13 +185,13 @@ impl Shared {
         }
     }
 
-    /// What a track's clip launcher plays and has queued.
-    pub fn launch(&self, slot: TrackSlot) -> Option<launch::LaunchView> {
+    /// What a part's clip launcher plays and has queued.
+    pub fn launch(&self, slot: PartSlot) -> Option<launch::LaunchView> {
         self.launch.get(slot.index()).map(LaunchState::view)
     }
 
-    /// Post-fader peak level of a track as linear `(left, right)`.
-    pub fn meter(&self, slot: TrackSlot) -> (f32, f32) {
+    /// Post-fader peak level of a part as linear `(left, right)`.
+    pub fn meter(&self, slot: PartSlot) -> (f32, f32) {
         match self.meters.get(slot.index()) {
             Some(m) => (m[0].load(Relaxed), m[1].load(Relaxed)),
             None => (0.0, 0.0),
@@ -236,7 +236,7 @@ impl Shared {
         self.latency.load(Relaxed)
     }
 
-    /// Threads the engine processes tracks on, counting the audio thread.
+    /// Threads the engine processes parts on, counting the audio thread.
     pub fn threads(&self) -> u32 {
         self.threads.load(Relaxed)
     }
@@ -270,7 +270,7 @@ impl Shared {
     }
 
     /// Peak level of input channel `channel` (from 0) as linear gain,
-    /// whether or not any track takes it.
+    /// whether or not any part takes it.
     pub fn input_meter(&self, channel: usize) -> f32 {
         self.input_meters
             .get(channel)

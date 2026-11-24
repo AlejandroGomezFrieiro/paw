@@ -17,14 +17,14 @@ end
 for _, n in ipairs({ note(36, 0, 0.25), note(38, 1, 0.25), note(36, 2, 0.25), note(38, 3, 0.25) }) do
   beat[#beat + 1] = n
 end
-local drums = paw.add_track({ name = "Drums" })
+local drums = paw.add_part({ name = "Drums" })
 drums:add_device("drums")
 for bar = 0, 3 do
   drums:add_clip({ name = "beat", start = bar * 4, length = 4, notes = beat })
 end
 
 -- A whole note on each root: A, F, C, G.
-local bass = paw.add_track({ name = "Bass" })
+local bass = paw.add_part({ name = "Bass" })
 bass:add_device("synth")
 bass:add_clip({
   name = "bass",
@@ -39,7 +39,7 @@ bass:add_clip({
 })
 
 -- The chords Am, F, C and G, one in each bar.
-local keys = paw.add_track({ name = "Keys" })
+local keys = paw.add_part({ name = "Keys" })
 keys:add_device("synth")
 local chords = {}
 for bar, chord in ipairs({ { "A3", "C4", "E4" }, { "A3", "C4", "F4" }, { "G3", "C4", "E4" }, { "G3", "B3", "D4" } }) do
@@ -50,4 +50,4 @@ end
 keys:add_clip({ name = "chords", start = 0, length = 16, notes = chords })
 
 paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
-paw.cursor.set_track(drums)
+paw.cursor.set_part(drums)

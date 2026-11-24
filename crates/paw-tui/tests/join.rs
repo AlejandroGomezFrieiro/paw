@@ -102,7 +102,7 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
     let song = dir.join("song");
     c.call(
         "eval",
-        json!(["paw.add_track({ name = 'Bass' }); paw.project.save(...)", song.to_string_lossy()]),
+        json!(["paw.add_part({ name = 'Bass' }); paw.project.save(...)", song.to_string_lossy()]),
     )
     .unwrap();
     let seats = |c: &mut Connection| c.call("eval", json!(["return #paw.seats.list()"])).unwrap();
@@ -155,18 +155,18 @@ fn a_second_paw_on_an_open_project_joins_it_as_a_seat_and_acts_on_changes_when_i
     );
 
     // Keys typed in the second terminal edit the one project.
-    master.write_all(b":track.add\r").unwrap();
-    wait_for(&mut c, "the track typed in the second terminal", "return #paw.tracks()", |v| *v == json!(2));
+    master.write_all(b":part.add\r").unwrap();
+    wait_for(&mut c, "the part typed in the second terminal", "return #paw.parts()", |v| *v == json!(2));
 
     // A change to a file of the project, made outside paw.
-    let file = song.join("tracks/Bass/track.json");
+    let file = song.join("parts/Bass/part.json");
     let text = std::fs::read_to_string(&file).unwrap();
     let at = text.find("\"volume\": ").unwrap() + "\"volume\": ".len();
     let end = at + text[at..].find([',', '\n']).unwrap();
-    std::fs::write(dir.join("track.swp"), format!("{}-12.0{}", &text[..at], &text[end..])).unwrap();
-    std::fs::rename(dir.join("track.swp"), &file).unwrap();
+    std::fs::write(dir.join("part.swp"), format!("{}-12.0{}", &text[..at], &text[end..])).unwrap();
+    std::fs::rename(dir.join("part.swp"), &file).unwrap();
     wait_for(&mut c, "the change seen", "return #paw.api.project_changed_files()", |v| *v == json!(1));
-    let read = "return paw.track('Bass').volume == -12";
+    let read = "return paw.part('Bass').volume == -12";
     assert_eq!(c.call("eval", json!([read])).unwrap(), json!(false), "nothing read before coming back");
 
     // Coming back to the terminal asks at once: `y` answers, it does not

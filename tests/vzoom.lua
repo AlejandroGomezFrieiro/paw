@@ -18,43 +18,43 @@ local function reset()
   paw.ui.focus("arrange")
 end
 
---- Four tracks, the cursor on the first, the arrange view drawn.
+--- Four parts, the cursor on the first, the arrange view drawn.
 local function band()
   fresh()
   reset()
   T.after(reset)
   local out = {}
   for i, name in ipairs({ "Drums", "Bass", "Keys", "Pad" }) do
-    out[i] = paw.add_track({ name = name }).id
+    out[i] = paw.add_part({ name = name }).id
   end
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(out[1])
+  paw.cursor.set_part(out[1])
   return out
 end
 
---- The rows each track takes in the arrange view, by id, drawn again.
+--- The rows each part takes in the arrange view, by id, drawn again.
 local function heights()
   api.ui_snapshot(W, H)
   local out = {}
   for _, row in ipairs(paw.ui.views:get("arrange").geometry.layout.rows) do
-    if row.kind == "track" then out[row.id] = row.h end
+    if row.kind == "part" then out[row.id] = row.h end
   end
   return out
 end
 
-test("Ctrl-= makes every track taller and Ctrl-0 fits them again; on a selection only those tracks", function()
+test("Ctrl-= makes every part taller and Ctrl-0 fits them again; on a selection only those parts", function()
   local ids = band()
   local edits = api.project_get().edits
   local th = heights()[ids[1]]
   keys("<C-=>")
   local h = heights()
   for _, id in ipairs(ids) do
-    eq(h[id], th + 1, "every track a row taller")
+    eq(h[id], th + 1, "every part a row taller")
   end
-  eq(paw.opt.track_height, "auto", "the option is as it was: the window has the zoom")
+  eq(paw.opt.part_height, "auto", "the option is as it was: the window has the zoom")
   keys("<C-0>")
-  eq(heights()[ids[1]], th, "Ctrl-0: the tracks fit the window again")
+  eq(heights()[ids[1]], th, "Ctrl-0: the parts fit the window again")
   keys("jVj<C-=>")
   h = heights()
   eq(
@@ -82,16 +82,16 @@ test("the zoom is the window's: a split starts with it, and the project's screen
   local th = heights()[ids[1]]
   keys("<C-=><C-=>")
   keys(":vs<CR>")
-  eq(L.current().vzoom.track_rows, th + 2, "the split has it")
+  eq(L.current().vzoom.part_rows, th + 2, "the split has it")
   keys("<C-->")
-  eq(L.current().vzoom.track_rows, th + 1, "and changes its own")
+  eq(L.current().vzoom.part_rows, th + 1, "and changes its own")
   local path = T.scratch .. "/vzoom-project"
   keys(":w " .. path .. "<CR>")
   L.restore(initial)
   keys(":e " .. path .. "<CR>")
   local rows = {}
   for _, win in ipairs(L.windows(paw.ui.layout)) do
-    if win.view == "arrange" then rows[#rows + 1] = win.vzoom and win.vzoom.track_rows end
+    if win.view == "arrange" then rows[#rows + 1] = win.vzoom and win.vzoom.part_rows end
   end
   table.sort(rows)
   eq(table.concat(rows, " "), (th + 1) .. " " .. (th + 2), "each window's zoom comes back with the project")
@@ -104,7 +104,7 @@ test("in the piano roll Ctrl-= gives two rows to a key: the note fills both, the
     paw.ui.hide("pianoroll")
     reset()
   end)
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   local clip = t:add_clip({ name = "riff", start = 0, length = 8, notes = { { pitch = 60, start = 0, length = 2 } } })
   roll:edit(clip)
   roll.top, roll.scroll, roll.pitch, roll.beat = 72, 0, 60, 0

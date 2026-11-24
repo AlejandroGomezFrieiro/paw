@@ -35,16 +35,16 @@ wav="$BENCH_TMP/bench-2s.wav"
 [ -f "$wav" ] || { echo "cannot make $wav" >&2; exit 1; }
 
 if [ -n "$quick" ]; then
-  tracks_list="1 10 100"; edits_list="100 1000"
+  parts_list="1 10 100"; edits_list="100 1000"
 else
-  tracks_list="1 10 100 500"; edits_list="100 1000 5000"
+  parts_list="1 10 100 500"; edits_list="100 1000 5000"
 fi
 
 echo "render" >&2
 for r in $(seq "$reps"); do
-  for n in $tracks_list; do
+  for n in $parts_list; do
     for spec in "audio 0 0" "audio 1 1" "midi 0 0" "midi 1 0" "midi 1 1"; do
-      # Tracktion's 4OSC is slow enough single-threaded that 500 tracks of it
+      # Tracktion's 4OSC is slow enough single-threaded that 500 parts of it
       # take minutes; it is run with all cores only.
       d render.lua "$n" ${spec} 16
       if ! { [ "$n" = 500 ] && [[ "$spec" == midi* ]]; }; then t render "$n" ${spec} 1 16 "$wav"; fi

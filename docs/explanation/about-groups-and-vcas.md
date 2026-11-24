@@ -1,17 +1,17 @@
 # About groups and VCAs
 
-paw builds the structure of a large mix from usual tracks with data in
+paw builds the structure of a large mix from usual parts with data in
 their `meta`, and it adds no new kinds of objects for it. A mix of many
-tracks needs structure, e.g., a bus for the drums, one fader for all the
+parts needs structure, e.g., a bus for the drums, one fader for all the
 strings, and a way to work on one part alone. The page explains why paw
-does it with usual tracks. For the commands, see
+does it with usual parts. For the commands, see
 [Routing](../reference/routing.md), [Scopes](../reference/narrowing.md) and [Frozen
-tracks](../reference/freezing.md).
+parts](../reference/freezing.md).
 
-## A group is a track
+## A group is a part
 
-A group is a track that other tracks play into, with a mark in its
-`meta`. A group therefore has a fader, a mute and devices like any track,
+A group is a part that other parts play into, with a mark in its
+`meta`. A group therefore has a fader, a mute and devices like any part,
 and save, copy, undo and the views need nothing new for groups. The views
 only fold the members into the group and indent them below it.
 
@@ -20,14 +20,14 @@ folds are in Vim. Two windows can show the same group folded and open,
 and a fold is not an undo step, so `u` never opens a group that you
 folded. The project still keeps the folds of each window with its
 windows, so they come back when you open it. The same reason makes any
-set of tracks a fold, with `zf`, because a fold is a way to show the
-tracks and not a part of them. See [Folds](../reference/narrowing.md#folds).
+set of parts a fold, with `zf`, because a fold is a way to show the
+parts and not one of them. See [Folds](../reference/narrowing.md#folds).
 
 ## A VCA is a fader without sound
 
 A group sums the sound of its members, but sometimes you want to control
-the level of tracks that play to different places. A VCA does that. A VCA
-is also a usual track with a mark, but it has no devices and plays
+the level of parts that play to different places. A VCA does that. A VCA
+is also a usual part with a mark, but it has no devices and plays
 nothing.
 
 The engine does not know about VCAs. When paw syncs the project to the
@@ -56,7 +56,7 @@ can rest.
 
 ## A freeze before the fader
 
-A frozen track plays a rendered file instead of its devices. paw takes the
+A frozen part plays a rendered file instead of its devices. paw takes the
 freeze before the fader, so the fader, pan, mute and sends stay live and
-the mix continues around the frozen track. A freeze of a group holds all
+the mix continues around the frozen part. A freeze of a group holds all
 its members, because the file of the group already holds their sound.

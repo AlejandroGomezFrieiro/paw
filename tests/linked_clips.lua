@@ -5,7 +5,7 @@ local T = ...
 local test, eq, keys = T.test, T.eq, T.keys
 local api = paw.api
 
---- A track with a synth and one clip `riff` of four beats, a note on every
+--- A part with a synth and one clip `riff` of four beats, a note on every
 --- beat; the cursor on it in the arrange view.
 local function song()
   T.fresh()
@@ -17,14 +17,14 @@ local function song()
     paw.ui.hide("pianoroll")
     paw.ui.focus("arrange")
   end)
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   t:add_device("synth")
   local notes = {}
   for beat = 0, 3 do
     notes[#notes + 1] = { pitch = 60 + beat, start = beat, length = 1 }
   end
   local riff = t:add_clip({ name = "riff", start = 0, length = 4, notes = notes })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.opt.grid, paw.opt.note_grid = 1, 0.25
   api.undo_checkpoint()
@@ -33,7 +33,7 @@ end
 
 local function states() return #api.undo_tree().states end
 
---- The clips of track `t` as `name@start:link`, in timeline order.
+--- The clips of part `t` as `name@start:link`, in timeline order.
 local function layout(t)
   local out = {}
   for _, c in ipairs(api.clip_list(t.id)) do
@@ -74,15 +74,15 @@ test(":w writes the notes of a link to one file in linked/, and the link holds a
   local dir = T.scratch .. "/linked-song"
   keys(":w " .. dir .. "<CR>")
   eq(T.read_file(dir .. "/linked/riff.midi2"):sub(1, 8), "SMF2CLIP", "the link's MIDI 2.0 clip file")
-  eq(io.open(dir .. "/tracks/T/clips/riff.midi2") == nil, true, "no file of the clip's own")
-  local entries = api.json_decode(T.read_file(dir .. "/tracks/T/track.json")).clips
+  eq(io.open(dir .. "/parts/T/clips/riff.midi2") == nil, true, "no file of the clip's own")
+  local entries = api.json_decode(T.read_file(dir .. "/parts/T/part.json")).clips
   eq(#entries, 2, "two clip entries")
   for i, entry in ipairs(entries) do
     eq(entry.link .. " " .. entry.content.file, "riff linked/riff.midi2", "entry " .. i)
   end
   api.project_load(dir)
   paw.flush()
-  t = paw.track(api.track_list()[1])
+  t = paw.part(api.part_list()[1])
   eq(layout(t), "riff@0:riff riff@4:riff", "both clips linked after the reopen")
   local first, second = api.clip_list(t.id)[1].id, api.clip_list(t.id)[2].id
   api.clip_note_add(first, { pitch = 72, start = 2, length = 1 })

@@ -1,9 +1,9 @@
--- What edit quality saves while paw plays: N audio tracks, each with a
+-- What edit quality saves while paw plays: N audio parts, each with a
 -- saturation at 4x, played live on the null backend on one thread, with
 -- `paw.opt.quality` at "full" and at "edit" in turn, for `rounds` pairs.
---   paw --clean --no-plugins -l bench/quality.lua [tracks] [seconds] [rounds] [kind]
--- `kind` (default saturation) is the device on each track, with the
--- settings of `settings` below; `none` measures the tracks alone. A build
+--   paw --clean --no-plugins -l bench/quality.lua [parts] [seconds] [rounds] [kind]
+-- `kind` (default saturation) is the device on each part, with the
+-- settings of `settings` below; `none` measures the parts alone. A build
 -- without edit quality measures "full" only.
 -- Each line gives the processor time of the audio thread (from
 -- /proc/self/task/*/schedstat: it does not count the time that other
@@ -12,8 +12,8 @@ local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
 
-local tracks, seconds, rounds, kind = ...
-tracks, seconds, rounds = tonumber(tracks) or 16, tonumber(seconds) or 5, tonumber(rounds) or 5
+local parts, seconds, rounds, kind = ...
+parts, seconds, rounds = tonumber(parts) or 16, tonumber(seconds) or 5, tonumber(rounds) or 5
 kind = kind or "saturation"
 
 -- Settings that keep each device busy, and the saturation at 4x.
@@ -44,7 +44,7 @@ end
 
 api.engine_restart({ backend = "null", buffer_size = 256, sample_rate = 48000 })
 api.engine_set_threads(1)
-local ids = B.build({ tracks = tracks, kind = "audio", bars = 16 })
+local ids = B.build({ parts = parts, kind = "audio", bars = 16 })
 for _, id in ipairs(ids) do
   if kind ~= "none" then api.device_add(id, kind, { params = settings[kind] or {} }) end
 end
@@ -74,7 +74,7 @@ for round = 1, rounds do
       kind = kind,
       quality = quality,
       round = round,
-      tracks = tracks,
+      parts = parts,
       seconds = seconds,
       audio_core_percent = busiest / (seconds * 1e9) * 100,
       blocks = blocks.count,

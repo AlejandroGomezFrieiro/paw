@@ -49,22 +49,22 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow_mut().seek(beats);
             Ok(())
         }
-        // Play a note on a track, with a MIDI 2.0 attribute if one is given.
+        // Play a note on a part, with a MIDI 2.0 attribute if one is given.
         // @param attr? types.NoteAttr
         // @return nil
-        fn note_on(lua, sh, (track, pitch, velocity, attr) => (Id, u8, Option<f64>, LuaValue)) {
+        fn note_on(lua, sh, (part, pitch, velocity, attr) => (Id, u8, Option<f64>, LuaValue)) {
             let vel = live_velocity(velocity)?;
             if pitch > 127 {
                 return Err(mlua::Error::runtime(format!("a pitch goes up to 127, not {pitch}")));
             }
             let attr = attr_from_lua(lua, attr)?.map_or(paw_types::Attr::NONE, Into::into);
-            sh.session.borrow_mut().live_note(track, pitch, vel, attr).lua()
+            sh.session.borrow_mut().live_note(part, pitch, vel, attr).lua()
         }
         // @return nil
-        fn note_off(_, sh, (track, pitch) => (Id, Option<u8>)) {
+        fn note_off(_, sh, (part, pitch) => (Id, Option<u8>)) {
             match pitch {
-                Some(key) => sh.session.borrow_mut().live_note_off(track, key).lua(),
-                None => sh.session.borrow_mut().live(track, EventKind::AllNotesOff).lua(),
+                Some(key) => sh.session.borrow_mut().live_note_off(part, key).lua(),
+                None => sh.session.borrow_mut().live(part, EventKind::AllNotesOff).lua(),
             }
         }
         // @return nil

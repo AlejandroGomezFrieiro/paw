@@ -1,26 +1,26 @@
-//! The order tracks are processed in, and how it is shared between threads.
+//! The order parts are processed in, and how it is shared between threads.
 
 use std::collections::HashMap;
 
-use crate::slot::TrackSlot;
+use crate::slot::PartSlot;
 
-use super::track::{Delay, KeyRt, OutRt, SendRt};
+use super::part::{Delay, KeyRt, OutRt, SendRt};
 
 pub struct SchedEntry {
-    pub slot: TrackSlot,
-    /// Where the track's output goes. [`TrackSlot::NONE`] for the master track.
-    pub output: TrackSlot,
-    /// How long the output waits for slower tracks that feed the same place.
+    pub slot: PartSlot,
+    /// Where the part's output goes. [`PartSlot::NONE`] for the master part.
+    pub output: PartSlot,
+    /// How long the output waits for slower parts that feed the same place.
     pub delay: Delay,
     pub sends: Vec<SendRt>,
-    /// Devices elsewhere that listen to this track.
+    /// Devices elsewhere that listen to this part.
     pub keys: Vec<KeyRt>,
-    /// Further output pairs of the track's devices, and where they go.
+    /// Further output pairs of the part's devices, and where they go.
     pub outs: Vec<OutRt>,
 }
 
 impl SchedEntry {
-    pub fn new(slot: TrackSlot, output: TrackSlot) -> Self {
+    pub fn new(slot: PartSlot, output: PartSlot) -> Self {
         Self {
             slot,
             output,
@@ -31,18 +31,18 @@ impl SchedEntry {
         }
     }
 
-    /// Whether something is taken from the track before its fader, which
+    /// Whether something is taken from the part before its fader, which
     /// then waits until that has been done.
     pub(super) fn taps_pre(&self) -> bool {
         self.sends.iter().any(|send| send.pre) || self.keys.iter().any(|key| key.pre)
     }
 }
 
-/// Processing order: every track appears after all tracks that feed it, and
-/// the master track is last.
+/// Processing order: every part appears after all parts that feed it, and
+/// the master part is last.
 ///
-/// The entries are kept in groups: the tracks nothing feeds, then those fed
-/// only by the first group, and so on. The tracks of a group do not depend on
+/// The entries are kept in groups: the parts nothing feeds, then those fed
+/// only by the first group, and so on. The parts of a group do not depend on
 /// each other, so they can be processed side by side; what they send on is
 /// then added up in the order of the entries, on one thread, so that the
 /// sums, and with them the output, do not depend on how many threads ran.
@@ -66,17 +66,17 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    /// `entries` in an order where every track comes after all that feed it.
+    /// `entries` in an order where every part comes after all that feed it.
     pub fn new(entries: Vec<SchedEntry>, latency: u32) -> Self {
-        // How many groups each track has to wait for.
-        let mut waits: HashMap<TrackSlot, usize> = HashMap::new();
+        // How many groups each part has to wait for.
+        let mut waits: HashMap<PartSlot, usize> = HashMap::new();
         let mut keyed: Vec<(usize, SchedEntry)> = entries
             .into_iter()
             .map(|entry| {
                 let group = waits.get(&entry.slot).copied().unwrap_or(0);
                 let targets = std::iter::once(entry.output)
                     .chain(entry.sends.iter().map(|s| s.target))
-                    .chain(entry.keys.iter().map(|k| k.track))
+                    .chain(entry.keys.iter().map(|k| k.part))
                     .chain(entry.outs.iter().map(|o| o.target));
                 for target in targets {
                     let wait = waits.entry(target).or_default();
@@ -84,7 +84,7 @@ impl Schedule {
                 }
                 // The master is last whatever feeds it.
                 (
-                    if entry.slot == TrackSlot::MASTER {
+                    if entry.slot == PartSlot::MASTER {
                         usize::MAX
                     } else {
                         group
@@ -143,7 +143,7 @@ impl Schedule {
         self.costs.iter().map(|c| c.0).sum()
     }
 
-    /// Keep what a group's tracks took, whichever threads did them, without
+    /// Keep what a group's parts took, whichever threads did them, without
     /// the waiting: smoothed, so that one block the thread was held up in
     /// does not change how the next is done.
     pub(super) fn note_cost(&mut self, group: usize, spent: u64, shared: bool) {
@@ -169,7 +169,7 @@ impl Schedule {
     }
 }
 
-/// Nanoseconds of work in a group of tracks, on one thread, above which it
+/// Nanoseconds of work in a group of parts, on one thread, above which it
 /// is shared between threads: less is done sooner on one than it takes to
 /// wake the others.
 pub(super) const SHARE_NS: u64 = 60_000;

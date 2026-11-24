@@ -45,7 +45,7 @@ local function head(mixdiag)
     lines[1] = { "nothing measured yet", "Dim" }
   end
   lines[2] = {
-    mixdiag.result and mixdiag.summary(mixdiag.result) or "a measures the song, l the loop, t the cursor's track",
+    mixdiag.result and mixdiag.summary(mixdiag.result) or "a measures the song, l the loop, t the cursor's part",
     mixdiag.result and "Normal" or "Dim",
   }
   local counts = {}
@@ -87,7 +87,7 @@ function list:render(buf)
     1,
     buf.height - 1,
     paw.util.fit(
-      "j/k move  Enter go there  a measure the song  l the loop  t the track  T target  q close",
+      "j/k move  Enter go there  a measure the song  l the loop  t the part  T target  q close",
       buf.width - 2
     ),
     "Dim"
@@ -119,7 +119,7 @@ local actions = {
   ["<CR>"] = go,
   a = measure("song"),
   l = measure("loop"),
-  t = measure("track"),
+  t = measure("part"),
   T = function() paw.cmd("mix.target") end,
   q = function() paw.ui.close() end,
   -- Escape closes the report only while it floats, as a prompt does; in a

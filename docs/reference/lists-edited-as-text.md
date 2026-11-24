@@ -8,12 +8,12 @@ paw shows some parts of the project as plain text, in a buffer that lists the th
 
 | Buffer | Example line | A line is |
 | --- | --- | --- |
-| `paw://tracks` | `Bass  vol -6.0  pan L10  M--  out Bus A  group  in Strings  color #ff9e64  ▸ Synth, EQ` | a track: its name, volume in dB, pan, flags (`M` muted, `S` soloed, `R` armed, `-` not), the track that it plays into (the master without `out`), `group` on a group, the group that it is in, its color, its devices |
-| `paw://sends` | `Drums  → Verb  -12.0 dB  post` | a send: the track that it comes from, the track that it goes to, its level, `pre` or `post` the fader |
-| `paw://track/2/devices` | `Comp  on  wet 80%  preset Glue` | a device of the second track (`master` for the master track): the device, `on` or `off` (bypassed), its wet share, its preset |
+| `paw://parts` | `Bass  vol -6.0  pan L10  M--  out Bus A  group  in Strings  color #ff9e64  ▸ Synth, EQ` | a part: its name, volume in dB, pan, flags (`M` muted, `S` soloed, `R` armed, `-` not), the part that it plays into (the master without `out`), `group` on a group, the group that it is in, its color, its devices |
+| `paw://sends` | `Drums  → Verb  -12.0 dB  post` | a send: the part that it comes from, the part that it goes to, its level, `pre` or `post` the fader |
+| `paw://part/2/devices` | `Comp  on  wet 80%  preset Glue` | a device of the second part (`master` for the master part): the device, `on` or `off` (bypassed), its wet share, its preset |
 | `paw://markers` | `9.1  Chorus  to 13.1  color #9ece6a` | a marker at bar 9, beat 1. With `to`, a region that ends at bar 13. |
 
-`:e paw://tracks` shows a buffer in this window, `:vs paw://sends` next to
+`:e paw://parts` shows a buffer in this window, `:vs paw://sends` next to
 it, and `:textbuf.open markers` below it.
 
 Two spaces separate the fields, and every field after the first starts with its word, so the fields can be in any order. A field that is missing has its default value, which is 0 dB, the center, not muted, the master, no group and no color. A name that has two spaces in it goes in quotes.
@@ -39,18 +39,18 @@ All keys of the text work as in Vim, and the list below names the main groups.
 | `:sort` | Sorts the lines. `!` reverses, `n` sorts by number, `i` ignores case. |
 | `:d`, `:y`, `:m 0`, `:normal` | Take ranges of lines, e.g., `:%s`, `:2,4d` and `:.,$sort`, and `:'<,'>` after `:` in a selection. |
 | `:5` | Goes to line 5. |
-| `Enter` | On a track: opens its devices (`paw://track/N/devices`). On a device: shows it in the device panel. On a marker: puts the cursor there. |
-| `-` | In a list of devices: returns up to the tracks. |
+| `Enter` | On a part: opens its devices (`paw://part/N/devices`). On a device: shows it in the device panel. On a marker: puts the cursor there. |
+| `-` | In a list of devices: returns up to the parts. |
 
 ## What an edit does
 
 | Edit | What `:w` does |
 | --- | --- |
 | a field changed (`cw` on a name, `Ctrl-a` on a volume, `rM` on the flags) | changes that field of that thing, and only that field |
-| `dd` | deletes the track, send, device or marker |
-| `yyp`, `yyP` | copies it: a track with its devices, clips and automation, a device with its state |
-| `ddp`, `:m`, `:sort` | moves it. Tracks and devices go in the order of the lines. |
-| a new line (`o`) | makes a new thing: `Lead  vol -12  ▸ synth` a track with a synth, `reverb` a device, `17.1  Bridge` a marker |
+| `dd` | deletes the part, send, device or marker |
+| `yyp`, `yyP` | copies it: a part with its devices, clips and automation, a device with its state |
+| `ddp`, `:m`, `:sort` | moves it. Parts and devices go in the order of the lines. |
+| a new line (`o`) | makes a new thing: `Lead  vol -12  ▸ synth` a part with a synth, `reverb` a device, `17.1  Bridge` a marker |
 
 Each line has the id of its thing, which does not show, so a renamed line is a rename and a moved line is a move, not a delete and a new thing. The gutter shows the place of the line when paw read it, with `~` on a changed line, `+` on a new line or a copy, and `!` on a line that paw cannot read, and the bottom line gives the reason for that last case. The title shows `[+]` while the buffer has changes.
 
@@ -69,7 +69,7 @@ Each line has the id of its thing, which does not show, so a renamed line is a r
 
 A line that paw cannot read stops the write, and the cursor goes to it.
 
-A buffer without changes follows the project, so if you rename a track in the arrange view, its line changes. A buffer with changes shows `changed elsewhere` when the project changes, and `:w` then refuses. `:w!` applies your changes, but only the fields that your lines changed, so a volume moved elsewhere in the meantime keeps its new value.
+A buffer without changes follows the project, so if you rename a part in the arrange view, its line changes. A buffer with changes shows `changed elsewhere` when the project changes, and `:w` then refuses. `:w!` applies your changes, but only the fields that your lines changed, so a volume moved elsewhere in the meantime keeps its new value.
 
 In the graphical window, a text buffer shows in a pane, and `:textbuf.window` (`Ctrl-w f`) shows it in a window of its own with the same keys.
 

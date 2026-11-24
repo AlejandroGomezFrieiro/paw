@@ -20,7 +20,7 @@ local global = (_G as {string: Table}).paw
 
 --- The modules of the runtime as they are reached from `paw`: each a table
 --- that `require("paw...")` gives, by its shortest name, and the classes
---- (`paw.Track`), sorted by name.
+--- (`paw.Part`), sorted by name.
 function lua.modules(): {Module}
   -- The runtime's own: a name under `paw.` that has a file in runtime/lua.
   -- A module of an extension has its own name and its own README.

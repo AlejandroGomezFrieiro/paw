@@ -7,7 +7,7 @@
 -- What a curve can be, and its address (see `paw.address`):
 --
 --   paw://lane/9                               an automation lane
---   paw://track/3/device/5/param/cutoff        a device parameter (its lane,
+--   paw://part/3/device/5/param/cutoff        a device parameter (its lane,
 --                                              made at the first edit)
 --   paw://clip/7/control/cc/74                 a MIDI clip's controller moves;
 --   paw://clip/7/control/bend                  `bend` and `pressure` too, and
@@ -61,7 +61,7 @@ local interface Target
   uri: string
   kind: string
   lane: integer
-  track: integer
+  part: integer
   clip: integer
   key: integer
   param: types.ParamInfo
@@ -149,7 +149,7 @@ local function lane_target(lane_id: integer, uri: string): Target
     uri = uri,
     kind = "lane",
     lane = lane_id,
-    track = l.track,
+    part = l.part,
     shapes = {linear = true, hold = true, smooth = true},
     min = l.min,
     max = l.max,
@@ -218,7 +218,7 @@ local function param_target(parts: Parts, uri: string): Target, string
   local t: Target = {
     uri = uri,
     kind = "param",
-    track = parts.track,
+    part = parts.part,
     shapes = {linear = true, hold = true, smooth = true},
     min = p.min,
     max = p.max,
@@ -259,7 +259,7 @@ local function control_target(parts: Parts, uri: string): Target, string
     uri = uri,
     kind = "control",
     clip = parts.clip,
-    track = clip.track,
+    part = clip.part,
     key = key,
     shapes = {hold = true},
     min = bend and -1 or 0,

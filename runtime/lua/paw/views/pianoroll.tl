@@ -1,5 +1,5 @@
 -- The piano roll: edit the notes of a MIDI clip, or of several at once (see
--- `paw.roll_clips`), with other tracks' notes shown behind them.
+-- `paw.roll_clips`), with other parts' notes shown behind them.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua. The module
 -- gives the view's type, the record `PianoRoll`, and its other types: a
@@ -35,7 +35,7 @@ local type UiModule = require("paw.ui")
 local type VzoomModule = require("paw.vzoom")
 
 local type Buf = contracts.Buf
-local type Part = clips.Part
+local type Portion = clips.Portion
 local opt = options.opt
 local project_edits = api.project_get as function(key: string): integer
 
@@ -67,14 +67,14 @@ end
 --- `parts` every clip edited (paw/roll_clips.tl), `x(beat)` a column of the
 --- roll, `row(pitch)` its first row (nil when off screen), `from` and `to`
 --- the beats that show, `rows` the pitches shown, `per` the rows of a
---- pitch, and the note under the cursor (`under_place` in `under_part`).
+--- pitch, and the note under the cursor (`under_place` in `under_portion`).
 local record Layer
   roll: Buf
   ruler: Buf
   plane: contracts.Plane
   clip: objects.Clip
   data: types.Clip
-  parts: {Part}
+  portions: {Portion}
   scroll: number
   from: number
   to: number
@@ -87,7 +87,7 @@ local record Layer
   focused: boolean
   hue: DrawModule.Hue
   under_place: integer
-  under_part: Part
+  under_portion: Portion
   x: function(beat: number): integer
   row: function(pitch: integer): integer
 end
@@ -148,7 +148,7 @@ local record RowLook
   shade: string
 end
 local record RowProvider is Provided
-  fn: function(pitch: integer, track: integer): RowLook
+  fn: function(pitch: integer, part: integer): RowLook
 end
 
 --- What a band's `paint` gets besides its row: the clip and its fields,
@@ -179,7 +179,7 @@ local record Described is {string | contracts.PageLine}
   articulation: boolean
 end
 local record Describer is Provided
-  fn: function(note: types.Note, part: Part): Described
+  fn: function(note: types.Note, portion: Portion): Described
 end
 
 --- A change of a note the roll is about to enter (`view.entering`).
@@ -309,8 +309,8 @@ local record PianoRoll is contracts.View, clips.Window
 
   clip: function(self: PianoRoll): objects.Clip
   play_beat: function(self: PianoRoll): number
-  parts: function(self: PianoRoll): {Part}
-  note_at: function(self: PianoRoll, pitch: integer, beat: number): types.Note, integer, Part
+  portions: function(self: PianoRoll): {Portion}
+  note_at: function(self: PianoRoll, pitch: integer, beat: number): types.Note, integer, Portion
   toolbar_rows: function(h: integer, w: integer): integer
   tools_in_title: function(w: integer): boolean
   keys_width: function(w: integer): integer
@@ -319,11 +319,11 @@ local record PianoRoll is contracts.View, clips.Window
   toolbar: function(self: PianoRoll): {Tool}
   key_scope: function(self: PianoRoll, name: string, order: number, active: function(): boolean)
   layer: function(name: string, order: number, paint: function(layer: Layer))
-  rows: function(name: string, fn: function(pitch: integer, track: integer): RowLook)
+  rows: function(name: string, fn: function(pitch: integer, part: integer): RowLook)
   band: function(name: string, order: number, spec: Band)
-  describer: function(name: string, fn: function(note: types.Note, part: Part): Described)
+  describer: function(name: string, fn: function(note: types.Note, portion: Portion): Described)
   entering: function(name: string, fn: function(note: objects.NoteInput, clip: objects.Clip))
-  row_look: function(pitch: integer, track: integer): RowLook
+  row_look: function(pitch: integer, part: integer): RowLook
   active_bands: function(clip: objects.Clip): {Band}
   new_note: function(clip: objects.Clip, note: objects.NoteInput): objects.NoteInput
   draw_tools: function(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: contracts.RenderContext)
@@ -418,7 +418,7 @@ local view: PianoRoll = {
   -- windows show two clips, or one clip twice. Each window has an instance
   -- that holds them (paw/layout.tl), and each seat its own instances.
   -- `edited` and `context_shown` are the state of paw/roll_clips.tl: the
-  -- clips edited with the active one, and the toggles of the tracks shown
+  -- clips edited with the active one, and the toggles of the parts shown
   -- behind them.
   window_state = {
     "clip_id",
@@ -459,9 +459,9 @@ function view:play_beat(): number
 end
 
 --- The clips being edited, the active one first: `{ id, clip, offset, ... }`
---- each (see `paw.roll_clips.parts`).
-function view:parts(): {Part}
-  return clips.parts()
+--- each (see `paw.roll_clips.portions`).
+function view:portions(): {Portion}
+  return clips.portions()
 end
 
 --- Open `clip` in this window: the cursor at its start, on its first note.
@@ -552,7 +552,7 @@ end
 --- The note under the cursor in any of the clips edited, the active one's
 --- first: the note (its start in the roll's beats), its place among its
 --- clip's notes, and its part.
-function view:note_at(pitch: integer, beat: number): types.Note, integer, Part
+function view:note_at(pitch: integer, beat: number): types.Note, integer, Portion
   if not self:clip() or pitch < 0 or pitch > 127 then
     return
   end
@@ -714,7 +714,7 @@ local function provide<T is Provided>(list: {T}, name: string, entry: T)
 end
 
 -- Layers that modules draw over the roll, from back to front by `order`:
--- other tracks' notes ("context", 10), the notes of the clips edited
+-- other parts' notes ("context", 10), the notes of the clips edited
 -- ("notes", 20), diagnostics 30, the notes insert mode is drawing
 -- ("draw", 35), a snippet's marks 40, suggestions 50; the
 -- selection and the cursor last of all.
@@ -752,7 +752,7 @@ end
 -- What modules say about rows and notes, for an instrument whose keys mean
 -- more than pitches (keyswitches, a playable range, drum pieces):
 --
---   view.rows(name, fn)      fn(pitch, track) -> { label, style, shade } or nil:
+--   view.rows(name, fn)      fn(pitch, part) -> { label, style, shade } or nil:
 --                            `label` (and its `style`) on the keyboard edge
 --                            instead of the pitch, `shade` the row's style
 --   view.band(name, order, spec)  a row of its own above the ruler while
@@ -768,7 +768,7 @@ view.row_providers, view.bands, view.describers, view.enterers = {}, {}, {}, {}
 lists.rows, lists.bands = view.row_providers as {Provided}, view.bands as {Provided}
 lists.describers, lists.enterers = view.describers as {Provided}, view.enterers as {Provided}
 
-function view.rows(name: string, fn: function(pitch: integer, track: integer): RowLook)
+function view.rows(name: string, fn: function(pitch: integer, part: integer): RowLook)
   provide(view.row_providers, name, fn and {fn = fn} as RowProvider)
 end
 
@@ -778,7 +778,7 @@ function view.band(name: string, order: number, spec: Band)
   provide(view.bands, name, band)
 end
 
-function view.describer(name: string, fn: function(note: types.Note, part: Part): Described)
+function view.describer(name: string, fn: function(note: types.Note, portion: Portion): Described)
   provide(view.describers, name, fn and {fn = fn} as Describer)
 end
 
@@ -786,10 +786,10 @@ function view.entering(name: string, fn: function(note: objects.NoteInput, clip:
   provide(view.enterers, name, fn and {fn = fn} as Enterer)
 end
 
---- What the modules say about a row of a track, or nil.
-function view.row_look(pitch: integer, track: integer): RowLook
+--- What the modules say about a row of a part, or nil.
+function view.row_look(pitch: integer, part: integer): RowLook
   for _, p in ipairs(view.row_providers) do
-    local ok, look = pcall(p.fn, pitch, track) as (boolean, RowLook)
+    local ok, look = pcall(p.fn, pitch, part) as (boolean, RowLook)
     if ok and look then
       return look
     end
@@ -821,8 +821,8 @@ end
 
 -- The layers of the roll's own ---------------------------------------------------------
 
--- Other tracks' notes, behind the clips' own: each a dashed line on a
--- faint shade of its track's colour, without a name; the clips' own notes
+-- Other parts' notes, behind the clips' own: each a dashed line on a
+-- faint shade of its part's colour, without a name; the clips' own notes
 -- are solid and named.
 view.layer(
   "context",
@@ -848,25 +848,30 @@ view.layer(
     -- A selection that names its notes (`viv`) shows on them.
     local selection = paw.ui.focused == "pianoroll" and paw.keymap.selection()
     local named = selection and selection.notes
-    for i, part in ipairs(L.parts) do
-      local colour = paw.draw.track_colour(api.track_get(part.track))
+    for i, portion in ipairs(L.portions) do
+      local colour = paw.draw.part_colour(api.part_get(portion.part))
       local hue = i == 1 and L.hue or paw.draw.hue(colour)
       local chosen: {integer: boolean} = {}
-      for _, place in ipairs(paw.frontend.chosen_notes(part.id)) do
+      for _, place in ipairs(paw.frontend.chosen_notes(portion.id)) do
         chosen[place] = true
       end
-      local shown, places = part.clip:notes(
-        {from = L.from - part.offset, to = L.to - part.offset, low = math.max(0, L.top - L.rows + 1), high = L.top}
+      local shown, places = portion.clip:notes(
+        {
+          from = L.from - portion.offset,
+          to = L.to - portion.offset,
+          low = math.max(0, L.top - L.rows + 1),
+          high = L.top,
+        }
       )
       -- The notes insert mode's pencil holds show where it has them; each
       -- note's own bend shows on it.
-      local held = paw.roll_draw.hidden(part.id) or {}
-      local controls = #shown > 0 and paw.roll_draw.controls_of(part.clip) or {}
-      local ids: {integer: boolean} = named and named[part.id] or {}
+      local held = paw.roll_draw.hidden(portion.id) or {}
+      local controls = #shown > 0 and paw.roll_draw.controls_of(portion.clip) or {}
+      local ids: {integer: boolean} = named and named[portion.id] or {}
       for k, note in ipairs(shown) do
         if not held[note.id] then
-          local place, start = places[k], note.start + part.offset
-          local at_cursor = L.under_part and L.under_part.id == part.id and place == L.under_place
+          local place, start = places[k], note.start + portion.offset
+          local at_cursor = L.under_portion and L.under_portion.id == portion.id and place == L.under_place
           if ids[note.id] then
             chosen[place] = true
           end
@@ -880,7 +885,7 @@ view.layer(
           local bend, bend_at = paw.roll_draw.bend_of(controls, note)
           local hit: NoteHit = {
             kind = "note",
-            clip = part.id,
+            clip = portion.id,
             place = place,
             pitch = note.pitch,
             start = start,
@@ -893,7 +898,7 @@ view.layer(
             velocity = note.velocity,
             selected = chosen[place] or nil,
             cursor = at_cursor or nil,
-            key = "note:" .. part.id .. ":" .. place,
+            key = "note:" .. portion.id .. ":" .. place,
             bend = bend,
             bend_at = bend_at,
             hit = hit,
@@ -925,9 +930,9 @@ local function tool_list(self: PianoRoll, titled: boolean): {ToolButton}
   local grid_text = statusline.grid_text
   local list: {ToolButton} = {
     {
-      name = "tracks",
-      text = "Tracks",
-      tip = "the tracks whose notes show behind these, and the clips edited together (also :roll.tracks)",
+      name = "parts",
+      text = "Parts",
+      tip = "the parts whose notes show behind these, and the clips edited together (also :roll.parts)",
     },
     {
       name = "grid",
@@ -1000,7 +1005,7 @@ local function place_tools(buf: Buf, list: {ToolButton}, x: integer, measure?: b
         text = text,
         on = t.on or nil,
         menu = t.menu or nil,
-        style = "TrackInfo",
+        style = "PartInfo",
         on_style = "TitleBarFocus",
         label = t.text,
         hit = hit,
@@ -1148,7 +1153,7 @@ local function keep_cursor(self: PianoRoll, f: Frame, ctx: contracts.RenderConte
   self.scroll = math.max(math.min(0, math.floor(f.lo)), self.scroll)
 end
 
---- Title: the active clip in its track's colour, the track and how many
+--- Title: the active clip in its part's colour, the part and how many
 --- clips are edited, where the cursor is and the chord sounding there; on
 --- the right what the keys will enter. A wide panel has its tools at the
 --- right of the title row, and says there what is chosen or what insert
@@ -1157,8 +1162,8 @@ local function draw_title(
   self: PianoRoll, buf: Buf, f: Frame, clip: objects.Clip, c: types.Clip, ctx: contracts.RenderContext, chord: string
 )
   local w = f.w
-  local track = api.track_get(c.track)
-  local parts = #clips.ids()
+  local part = api.part_get(c.part)
+  local portions = #clips.ids()
   local grid_text = statusline.grid_text
   local right = string.format("grid %s  len %s  vel %d", grid_text(f.grid), grid_text(self:step_length()), opt.velocity)
   local place = music.name(self.pitch) .. "  " .. paw.time.format(c.start + self.beat)
@@ -1170,10 +1175,10 @@ local function draw_title(
   paw.ui.titlebar(
     buf,
     {
-      pill = {c.name, paw.draw.track_hue(track).pill},
+      pill = {c.name, paw.draw.part_hue(part).pill},
       focused = ctx.focused,
-      name = parts > 1 and string.format("%s  +%d clip%s", track.name, parts - 1, parts == 2 and "" or "s")
-        or track.name,
+      name = portions > 1 and string.format("%s  +%d clip%s", part.name, portions - 1, portions == 2 and "" or "s")
+        or part.name,
       context = chord and place .. "  " .. chord or place,
       right = (f.titled or w >= 90) and right ~= "" and right or nil,
       reserve = reserve,
@@ -1193,7 +1198,7 @@ end
 
 --- The rows over the grid: the ruler (bars as the project counts them,
 --- beats in between) and above it the chords that sound, read over every
---- pitched track, with the key, and the bands. Returns the lines of the
+--- pitched part, with the key, and the bands. Returns the lines of the
 --- ruler.
 local function draw_ruler(
   self: PianoRoll, buf: Buf, f: Frame, clip: objects.Clip, c: types.Clip
@@ -1261,7 +1266,7 @@ local function steps_line(f: Frame, lines: {DrawModule.RulerLine}): string
 end
 
 --- The grid's rows, the lines of the beats and bars on them, and the
---- keyboard down the left: what the track's instrument calls its keys (a
+--- keyboard down the left: what the part's instrument calls its keys (a
 --- drum, a keyswitch) is written on them, and the pitches `sounding` at the
 --- cursor are lit.
 local function draw_rows(
@@ -1271,13 +1276,13 @@ local function draw_rows(
   local tw, per = f.tw, g.per
   local glyphs = paw.draw.g
   local steps = steps_line(f, lines)
-  local key_names = paw.plugins.key_names(c.track)
+  local key_names = paw.plugins.key_names(c.part)
   local start_x, end_x = g.axis:x_of(f.lo), g.axis:x_of(f.hi)
   local names, labels: {{integer | string}}, {{integer | string}} = {}, {}
   for row = 0, g.rows * per - 1 do
     local pitch = self.top - math.floor(row / per)
     local black = music.is_black(pitch)
-    local look = view.row_look(pitch, c.track) or {}
+    local look = view.row_look(pitch, c.part) or {}
     if row % per == 0 and key_names[pitch] then
       names[#names + 1] = {pitch, key_names[pitch]}
     end
@@ -1352,13 +1357,15 @@ local function draw_velocities(self: PianoRoll, buf: Buf, f: Frame, L: Layer, li
       lane:fill(line.x, 0, 1, vel, glyphs.bar, "RollBar")
     end
   end
-  for i, part in ipairs(L.parts) do
-    local fg = i == 1 and L.hue.fg or paw.draw.track_hue(api.track_get(part.track)).fg
-    local all, places = part.clip:notes({from = self.scroll - part.offset, to = self.scroll + g.span - part.offset})
+  for i, portion in ipairs(L.portions) do
+    local fg = i == 1 and L.hue.fg or paw.draw.part_hue(api.part_get(portion.part)).fg
+    local all, places = portion.clip:notes(
+      {from = self.scroll - portion.offset, to = self.scroll + g.span - portion.offset}
+    )
     for k, note in ipairs(all) do
-      local x0 = g.axis:x_of(note.start + part.offset)
+      local x0 = g.axis:x_of(note.start + portion.offset)
       local level = note.velocity / 127 * vel * 8
-      local at_cursor = L.under_part and L.under_part.id == part.id and places[k] == L.under_place
+      local at_cursor = L.under_portion and L.under_portion.id == portion.id and places[k] == L.under_place
       for row = 0, vel - 1 do
         local amount = level - (vel - 1 - row) * 8
         if amount >= 1 then
@@ -1457,7 +1464,7 @@ local function draw_roll(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: con
   )
 
   -- The layers, back to front. Only what is on screen crosses over from the core.
-  local _, under_place, under_part = self:note_at(self.pitch, self.beat)
+  local _, under_place, under_portion = self:note_at(self.pitch, self.beat)
   local scroll, top, rows, per = self.scroll, self.top, g.rows, g.per
   local ax = g.axis
   local L: Layer = {
@@ -1476,10 +1483,10 @@ local function draw_roll(self: PianoRoll, buf: Buf, clip: objects.Clip, ctx: con
     axis = ax,
     width = f.tw,
     focused = ctx.focused,
-    parts = clips.parts(),
-    hue = paw.draw.track_hue(api.track_get(c.track)),
+    portions = clips.portions(),
+    hue = paw.draw.part_hue(api.part_get(c.part)),
     under_place = under_place,
-    under_part = under_part,
+    under_portion = under_portion,
     x = function(beat: number): integer return ax:x_of(beat) end,
     row = function(pitch: integer): integer
       local row = top - pitch
@@ -1535,11 +1542,11 @@ end
 
 -- The cursor ---------------------------------------------------------------------------
 
---- Play the pitch under the cursor on the track of the clip it is in.
+--- Play the pitch under the cursor on the part of the clip it is in.
 function view:audition(pitch?: integer)
-  local part = clips.target(self.beat)
-  if part then
-    part.clip:track():play_note(pitch or self.pitch, opt.velocity, 180)
+  local portion = clips.target(self.beat)
+  if portion then
+    portion.clip:part():play_note(pitch or self.pitch, opt.velocity, 180)
   end
 end
 
@@ -1725,10 +1732,10 @@ function view:paste(value: EditModule.Yanked, before?: boolean, count?: integer)
   local start = at
   for _ = 1, count or 1 do
     start = at
-    local parts = clips.parts()
+    local portions = clips.portions()
     -- Several clips go as their list, one as the clip itself.
-    local target = #parts > 1 and parts as EditModule.Target or clip as EditModule.Target
-    local finish = paw.edit.roll.paste(target, value, self.pitch, at, clips.target(at, parts) as EditModule.Part)
+    local target = #portions > 1 and portions as EditModule.Target or clip as EditModule.Target
+    local finish = paw.edit.roll.paste(target, value, self.pitch, at, clips.target(at, portions) as EditModule.Portion)
     if not finish then
       return
     end
@@ -1783,14 +1790,15 @@ function view:toggle_note()
   if not self:clip() then
     return
   end
-  local _, place, part = self:note_at(self.pitch, self.beat)
+  local _, place, portion = self:note_at(self.pitch, self.beat)
   if place then
-    part.clip:remove_note(place)
+    portion.clip:remove_note(place)
   else
-    part = clips.target(self.beat)
-    part.clip:add_note(
+    portion = clips.target(self.beat)
+    portion.clip:add_note(
       view.new_note(
-        part.clip, {pitch = self.pitch, start = self.beat - part.offset, length = self.length or timegrid.step("note")}
+        portion.clip,
+        {pitch = self.pitch, start = self.beat - portion.offset, length = self.length or timegrid.step("note")}
       )
     )
     self:audition()
@@ -1799,12 +1807,12 @@ end
 
 --- The lines that `K` says of a note's own bend, the key's name and the
 --- chord that the note starts in.
-local function describe_more(lines: contracts.Description, note: types.Note, part: Part)
+local function describe_more(lines: contracts.Description, note: types.Note, portion: Portion)
   -- The note as its own clip has it: its start in that clip's beats.
   local own = note
-  if part.offset ~= 0 then
+  if portion.offset ~= 0 then
     own = {
-      start = note.start - part.offset,
+      start = note.start - portion.offset,
       length = note.length,
       pitch = note.pitch,
       velocity = note.velocity,
@@ -1813,7 +1821,7 @@ local function describe_more(lines: contracts.Description, note: types.Note, par
       attr = note.attr,
     }
   end
-  local bend, bend_at = paw.roll_draw.bend_of(paw.roll_draw.controls_of(part.clip), own)
+  local bend, bend_at = paw.roll_draw.bend_of(paw.roll_draw.controls_of(portion.clip), own)
   if bend then
     lines[#lines + 1] = string.format(
       "  bends %s %g semitone%s by its end, from %d%% of it (its own pitch bend)",
@@ -1823,7 +1831,7 @@ local function describe_more(lines: contracts.Description, note: types.Note, par
       math.floor(bend_at * 100 + 0.5)
     )
   end
-  local key = paw.plugins.key_names(part.track)[note.pitch]
+  local key = paw.plugins.key_names(portion.part)[note.pitch]
   if key then
     lines[#lines + 1] = "  the instrument calls this key " .. key
   end
@@ -1832,17 +1840,17 @@ local function describe_more(lines: contracts.Description, note: types.Note, par
   if not paw.harmony.fresh() then
     lines[#lines + 1] = "  the chord here: reading"
   else
-    local chord = paw.harmony.at(part.clip:get().start + own.start, true)
+    local chord = paw.harmony.at(portion.clip:get().start + own.start, true)
     if chord then
       lines[#lines + 1] = "  the chord here: " .. chord.name
     end
   end
 end
 
---- What `K` shows before the track: the note under the cursor.
+--- What `K` shows before the part: the note under the cursor.
 function view:describe(): contracts.Description
   local self = self as PianoRoll
-  local note, _, part = self:note_at(self.pitch, self.beat)
+  local note, _, portion = self:note_at(self.pitch, self.beat)
   if not note then
     return nil
   end
@@ -1855,7 +1863,7 @@ function view:describe(): contracts.Description
   local more: {string | contracts.PageLine} = {}
   local said = false
   for _, d in ipairs(view.describers) do
-    local ok, got = pcall(d.fn, note, part) as (boolean, Described)
+    local ok, got = pcall(d.fn, note, portion) as (boolean, Described)
     if ok and got is Described then
       said = said or got.articulation == true
       for _, line in ipairs(got) do
@@ -1867,7 +1875,7 @@ function view:describe(): contracts.Description
   if attr then
     lines[#lines + 1] = "  articulation: " .. attr.text
   end
-  describe_more(lines, note, part)
+  describe_more(lines, note, portion)
   for _, line in ipairs(more) do
     lines[#lines + 1] = line
   end
@@ -1878,13 +1886,13 @@ end
 --- Change the note under the cursor with `fn(note)`, the note's start in
 --- its own clip's beats, which it does not leave. Returns whether there was one.
 function view:change(fn: function(note: types.Note)): boolean
-  local _, place, part = self:note_at(self.pitch, self.beat)
+  local _, place, portion = self:note_at(self.pitch, self.beat)
   if not place then
     return false
   end
-  local note = part.clip:note(place)
+  local note = portion.clip:note(place)
   fn(note)
-  part.clip:set_note(
+  portion.clip:set_note(
     place,
     {
       start = note.start,

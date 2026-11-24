@@ -133,7 +133,7 @@ answer.
 | 4. Round trip latency | connect an output to an input with a cable, or let a microphone hear the speakers. Answer yes. The doctor plays and records three clicks, measures the median delay, and offers the recording offset (`paw.transport.record_offset`) | does not run |
 | 5. Dropouts | nothing. A song of many synth voices plays for twenty seconds (`paw.opt.doctor_seconds`). Then it plays again while paw reads a long sound file from the disk. The report gives xruns, late plugin blocks, the CPU load and the time of a block for both | runs |
 | 6. MIDI input | press a key, then move a knob or a fader, within twenty seconds each. The doctor records the port, the channel, the note and the controller | lists the ports |
-| 7. Recording | play or speak for four seconds while a track records from the first input (the first pair, if there are two). The doctor plays the take back and shows its peak. Tell if you heard it | records, and tells if the take is silent |
+| 7. Recording | play or speak for four seconds while a part records from the first input (the first pair, if there are two). The doctor plays the take back and shows its peak. Tell if you heard it | records, and tells if the take is silent |
 | 8. Plugins | nothing, unless a plugin that you named is silent. Then the doctor offers to open its editor | runs |
 | 9. The environment | nothing | runs |
 
@@ -154,11 +154,11 @@ answer.
    - a block over 25 ms
    - no open input
    - the null backend
-2. Output plays a tone made for the check, from a track of its own.
+2. Output plays a tone made for the check, from a part of its own.
 3. Input levels reads `paw.audio.levels()`, sampled every few hundredths of a
    second. Below -60 dBFS is silent, and a channel that reached full scale
    gets a warning.
-4. Round trip latency plays a click from a track, and a muted track armed
+4. Round trip latency plays a click from a part, and a muted part armed
    on the first input records. The doctor finds the click in the take. It
    subtracts what paw already removes from a take (the latency that the
    audio system reports, plus the offset), and if you accept, it adds the
@@ -177,13 +177,13 @@ answer.
 8. Plugins counts the plugins of each format, and lists the files that
    the scan could not use (the log lines "plugin scan: …"). For each part
    of a name in `paw.opt.doctor_plugins` (`{ "MT-PowerDrumKit", "Ugritone"
-   }`), the doctor loads a plugin with that name on a track and sends it
+   }`), the doctor loads a plugin with that name on a part and sends it
    five notes. A drum plugin plays kick, snare, hat and more. The meter of
-   the track tells if sound came out.
+   the part tells if sound came out.
 
    You name Windows plugins through yabridge in the same way. The report
    names a plugin that does not start, is not installed or is silent. Some
-   plugins need their editor opened once (`ge` on the track).
+   plugins need their editor opened once (`ge` on the part).
 9. The environment reads the following:
    - `DISPLAY`, `WAYLAND_DISPLAY` and `XAUTHORITY` as paw sees them, after
      it corrects an old display name
@@ -195,7 +195,7 @@ answer.
 
 ### Your project during a run
 
-- When a check first needs tracks, the doctor puts your project aside as a
+- When a check first needs parts, the doctor puts your project aside as a
   whole (`paw.api.project_shelve`). This includes its undo tree, its
   transport and its changed flag. An empty scratch project opens.
 - When the run ends, the scratch project closes. Your project returns as
@@ -206,10 +206,10 @@ answer.
   the state directory. paw removes it when your project returns. If paw
   stops in that time, that file is your project: open it with `:edit`.
 - Autosave is off during the run, and on again after it.
-- Plugins on your tracks stop while the project is aside, and start again
+- Plugins on your parts stop while the project is aside, and start again
   when it returns.
 - A check removes all that it added when it ends, also when you cancel it
-  or when it fails: its tracks, its files, its take.
+  or when it fails: its parts, its files, its take.
 
 ### The report
 
@@ -254,7 +254,7 @@ It runs in a coroutine that a timer wakes.
 | `sleep(ms)` | waits |
 | `wait_for(fn, ms)` | waits until `fn()` is true. Returns true or false |
 | `ask(question, choices, opts)` | asks for a key: `{ { "y", "yes" }, ... }`. Returns the key, `"skip"` when there is no person, `opts.default` at the timeout, or `"done"` when `opts.done()` is true. paw calls `opts.each()` while it waits |
-| `track(opts)` | a track in the scratch project. paw removes it when the check ends |
+| `part(opts)` | a part in the scratch project. paw removes it when the check ends |
 | `file(path)`, `dir()` | a file to delete, a directory of the run |
 | `cleanup(fn)` | runs `fn` when the check ends, in all cases |
 | `play(beat, seconds)`, `stop()` | plays the scratch project, stops it |
@@ -284,7 +284,7 @@ Most of paw was tried against substitutes: the null audio backend, MIDI
 that a test sends, plugins in a test set. The doctor is for the real
 hardware, where a person must listen.
 
-A check needs tracks, clips and recordings of its own. The doctor does not
+A check needs parts, clips and recordings of its own. The doctor does not
 add them to your project and remove them after, because that would leave
 steps in the undo history and move things. Instead, it puts your project
 aside as a whole. Autosave is off for the run, because a safety copy of the

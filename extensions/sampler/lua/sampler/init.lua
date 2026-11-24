@@ -1,5 +1,5 @@
 -- The sampler extension's state: where its plugin is, the sampler device
--- of a track, loading an instrument into it, what the instrument says of
+-- of a part, loading an instrument into it, what the instrument says of
 -- itself (`describe`), and the instruments found in the library folders.
 local api = paw.api
 
@@ -25,11 +25,11 @@ end
 --- Whether the plugin can be made: it is among the device types.
 function M.available() return api.device_find({ kind = M.KIND }) ~= nil end
 
---- The track's sampler device, or nil.
-function M.device_of(track_id)
-  local ok, track = pcall(api.track_get, track_id)
+--- The part's sampler device, or nil.
+function M.device_of(part_id)
+  local ok, part = pcall(api.part_get, part_id)
   if not ok then return nil end
-  for _, id in ipairs(track.devices) do
+  for _, id in ipairs(part.devices) do
     if api.device_get(id).kind == M.KIND then return id end
   end
 end

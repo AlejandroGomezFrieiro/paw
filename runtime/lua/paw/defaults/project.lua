@@ -6,7 +6,7 @@ local cursor, transport = paw.cursor, paw.transport
 local keymap = paw.keymap
 local roll = paw.ui.views:get("pianoroll")
 local common = require("paw.defaults.common")
-local need_track, plain_folder = common.need_track, common.plain_folder
+local need_part, plain_folder = common.need_part, common.plain_folder
 
 -- The status line: the subprojects with a frozen block that is stale. It
 -- looks again only after a change to the project.
@@ -56,7 +56,7 @@ end, { desc = "Redo, saying what was redone" })
 --- The files of a project kept in a folder that the buffer of the current
 --- window shows: a clip's file in the piano roll, a chain's files in the
 --- device panel; nil for the whole project. With each, the files that it
---- needs to be found: its track's `track.json` and `project.toml`.
+--- needs to be found: its part's `part.json` and `project.toml`.
 local function buffer_files()
   local win = paw.layout.current()
   local files = api.project_files()
@@ -65,21 +65,21 @@ local function buffer_files()
   if win.view == "pianoroll" and roll:clip() then
     local id = roll:clip().id
     want = function(f) return f.clip == id end
-  elseif win.view == "devices" and cursor.track_id() then
-    local id = cursor.track_id()
-    want = function(f) return f.track == id and (f.what == "devices" or f.what == "state") end
+  elseif win.view == "devices" and cursor.part_id() then
+    local id = cursor.part_id()
+    want = function(f) return f.part == id and (f.what == "devices" or f.what == "state") end
   else
     return nil
   end
-  local out, tracks = {}, {}
+  local out, parts = {}, {}
   for _, f in ipairs(files) do
     if want(f) then
       out[#out + 1] = f.path
-      if f.track then tracks[f.track] = true end
+      if f.part then parts[f.part] = true end
     end
   end
   for _, f in ipairs(files) do
-    if (f.what == "track" and tracks[f.track]) or f.what == "project" then out[#out + 1] = f.path end
+    if (f.what == "part" and parts[f.part]) or f.what == "project" then out[#out + 1] = f.path end
   end
   return out
 end
@@ -108,7 +108,7 @@ command("write", function(ctx)
   end
   if not path and not api.project_get("path") and paw.chain_document then
     local doc = paw.chain_document
-    local ok, err = pcall(api.chain_write, doc.track, doc.path)
+    local ok, err = pcall(api.chain_write, doc.part, doc.path)
     if not ok then return paw.notify(tostring(err):gsub("^[^:]*:%d+: ", ""), "error") end
     api.project_mark_saved()
     return paw.notify("wrote " .. doc.path)
@@ -186,7 +186,7 @@ command("edit", function(ctx)
   local path = tostring(ctx.args[1])
   -- A folder is listed as a buffer to edit (`paw.files`), unless it is a project.
   if plain_folder(path) then return paw.files.open(path, { here = true }) end
-  -- A buffer's name, a view's or an address (`paw://tracks`) shows it here;
+  -- A buffer's name, a view's or an address (`paw://parts`) shows it here;
   -- only a file's path asks about the project.
   local view, buf, target = paw.layout.resolve(path)
   local win = view and not how and paw.layout.current()
@@ -284,24 +284,24 @@ end, {
   end,
 })
 -- `:export`, `:export.cancel` and `:export.tags` are in paw/export.tl.
--- `:bounce` renders tracks into the project as a new audio track
--- (paw/bounce.tl): the tracks of a range (`:t2,t4bounce`), else of the
+-- `:bounce` renders parts into the project as a new audio part
+-- (paw/bounce.tl): the parts of a range (`:t2,t4bounce`), else of the
 -- selection, else of the cursor. A range of time (`:5,8bounce`,
 -- `:'<,'>bounce`) bounces that time only.
 command("bounce", function(ctx)
   local range = ctx.range or {}
-  local tracks = range.tracks or common.chosen_tracks()
-  if #tracks == 0 then return paw.notify("no track to bounce", "warn") end
-  local bounced = paw.bounce.tracks(tracks, {
+  local parts = range.parts or common.chosen_parts()
+  if #parts == 0 then return paw.notify("no part to bounce", "warn") end
+  local bounced = paw.bounce.parts(parts, {
     tap = ctx.args.tap,
     tail = tonumber(ctx.args.tail),
     start = range.from,
     ["end"] = range.to,
   })
-  if not bounced then return paw.notify("nothing on the track to bounce", "warn") end
+  if not bounced then return paw.notify("nothing on the part to bounce", "warn") end
   if keymap.mode == "x" then keymap.set_mode("n") end
-  cursor.set_track(bounced)
-  local who = #tracks == 1 and api.track_get(tracks[1], "name") or (#tracks .. " tracks")
+  cursor.set_part(bounced)
+  local who = #parts == 1 and api.part_get(parts[1], "name") or (#parts .. " parts")
   if not range.from then
     return paw.notify(string.format("bounced to “%s”; %s muted · u undoes it", bounced.name, who))
   end
@@ -314,55 +314,49 @@ command("bounce", function(ctx)
 end, {
   range = true,
   label = "Bounce to audio",
-  desc = "Render the track, or the tracks of a range or the selection, to a new audio track below, and mute them: "
+  desc = "Render the part, or the parts of a range or the selection, to a new audio part below, and mute them: "
     .. "`:bounce`, `:t2,t4bounce`, `:5,8bounce` (mutes only bars 5 to 8), `:bounce tap=pre` (the fader stays live)",
   complete = function() return { "tap=post", "tap=pre", "tail=" } end,
 })
-command(
-  "lane.write",
-  function(ctx)
-    local on = ctx.args[1]
-    if on == nil then
-      on = not transport.write
-    else
-      on = on == true or on == "on"
-    end
-    transport.write = on
-    paw.notify(
-      on and "moving a fader or a parameter while playing now writes automation" or "automation writing is off"
-    )
-  end,
-  { desc = "Write automation by moving things while the song plays, on every track: `lane.write`, `lane.write off`" }
-)
--- How a track treats its automation: see `paw.lanes.modes`.
+command("lane.write", function(ctx)
+  local on = ctx.args[1]
+  if on == nil then
+    on = not transport.write
+  else
+    on = on == true or on == "on"
+  end
+  transport.write = on
+  paw.notify(on and "moving a fader or a parameter while playing now writes automation" or "automation writing is off")
+end, { desc = "Write automation by moving things while the song plays, on every part: `lane.write`, `lane.write off`" })
+-- How a part treats its automation: see `paw.lanes.modes`.
 command("automation", function(ctx)
-  local track = need_track()
-  if not track then return end
+  local part = need_part()
+  if not part then return end
   local mode = ctx.args[1] and tostring(ctx.args[1]):lower()
   if not mode then
     -- Without a word: the next mode in turn.
     local modes = paw.lanes.modes
     for i, name in ipairs(modes) do
-      if name == track.automation then mode = modes[i % #modes + 1] end
+      if name == part.automation then mode = modes[i % #modes + 1] end
     end
   end
   if not paw.lanes.mode_text[mode] then
     return paw.notify("automation: " .. table.concat(paw.lanes.modes, ", "), "warn")
   end
-  local ids = ctx.args[2] == "all" and api.track_list() or { track.id }
+  local ids = ctx.args[2] == "all" and api.part_list() or { part.id }
   for _, id in ipairs(ids) do
-    api.track_set(id, "automation", mode)
+    api.part_set(id, "automation", mode)
   end
   paw.notify(
     string.format(
       "%s: automation %s (%s)",
-      ctx.args[2] == "all" and "every track" or track.name,
+      ctx.args[2] == "all" and "every part" or part.name,
       mode,
       paw.lanes.mode_text[mode]
     )
   )
 end, {
-  desc = "How the track treats automation: `automation touch`, `automation read all`; read, touch, latch, write or off",
+  desc = "How the part treats automation: `automation touch`, `automation read all`; read, touch, latch, write or off",
   complete = function() return paw.lanes.modes end,
 })
 command("engine", function(ctx)
@@ -469,7 +463,7 @@ end, {
   desc = "The sound system, as `:audio` lists them: `audio.system pipewire`, `audio.system auto`",
   complete = function() return (paw.audio.devices().backends or {}) end,
 })
--- Tracks that do not feed each other are processed side by side.
+-- Parts that do not feed each other are processed side by side.
 paw.on("option.changed", function(e)
   if e.name == "threads" then api.engine_set_threads(e.value) end
   if e.name == "device_sleep" then api.engine_set_sleep(e.value) end
@@ -502,7 +496,7 @@ command("lua", function(ctx)
     end
     paw.notify(table.concat(results, ", "))
   end
-end, { desc = "Run Lua: `lua paw.project.tempo = 90`, `lua paw.tracks()`", raw = true })
+end, { desc = "Run Lua: `lua paw.project.tempo = 90`, `lua paw.parts()`", raw = true })
 command("messages", function()
   local styles = { info = "Normal", warn = "Warn", error = "Error" }
   local lines = {}
@@ -560,11 +554,11 @@ local function unload(ctx, force)
   paw.notify(name .. " unloaded: what it registered is gone" .. (type(ok) == "string" and "; " .. ok or ""))
 end
 command("ext.unload", function(ctx) unload(ctx, false) end, {
-  desc = "Take a loaded extension away, with everything it registered: `ext.unload notation`; refused while its devices are on tracks",
+  desc = "Take a loaded extension away, with everything it registered: `ext.unload notation`; refused while its devices are on parts",
   complete = loaded_names,
 })
 command("ext.unload!", function(ctx) unload(ctx, true) end, {
-  desc = "Take a loaded extension away even while its devices are on tracks, where they stay until removed",
+  desc = "Take a loaded extension away even while its devices are on parts, where they stay until removed",
   complete = loaded_names,
 })
 command("extensions", function()

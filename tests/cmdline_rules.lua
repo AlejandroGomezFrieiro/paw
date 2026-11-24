@@ -72,12 +72,12 @@ end)
 test(":e! goes back to the saved project, and the unsaved-work message names commands that exist", function()
   start()
   local path = T.scratch .. "/edit-bang"
-  paw.add_track({ name = "Kept" })
+  paw.add_part({ name = "Kept" })
   keys(":w " .. path .. "<CR>")
-  paw.add_track({ name = "Thrown away" })
+  paw.add_part({ name = "Thrown away" })
   api.undo_checkpoint()
   keys(":e<CR>")
-  eq(#paw.tracks(), 2, ":e alone keeps unsaved work")
+  eq(#paw.parts(), 2, ":e alone keeps unsaved work")
   local said = message()
   eq(said:find("unsaved work", 1, true) ~= nil, true, "says why: " .. said)
   for name in said:gmatch("`:([^`%s]+)") do
@@ -85,14 +85,14 @@ test(":e! goes back to the saved project, and the unsaved-work message names com
   end
   keys(":e!<CR>")
   no_trace(":e!")
-  eq(#paw.tracks(), 1, ":e! opens the saved project again")
-  eq(paw.tracks()[1].name, "Kept", "as it was saved")
+  eq(#paw.parts(), 1, ":e! opens the saved project again")
+  eq(paw.parts()[1].name, "Kept", "as it was saved")
   eq(api.project_get().modified, false, "with nothing unsaved")
   -- `:e! other` opens another project without asking.
-  paw.add_track({ name = "Again" })
+  paw.add_part({ name = "Again" })
   api.undo_checkpoint()
   keys(":e! " .. path .. "<CR>")
-  eq(#paw.tracks(), 1, ":e! with a name opens it, the changes thrown away")
+  eq(#paw.parts(), 1, ":e! with a name opens it, the changes thrown away")
   start()
   keys(":e!<CR>")
   no_trace(":e! without a file")
@@ -169,17 +169,17 @@ test(":example opens an example or a practice project that comes with paw, with 
   eq(all:find("demo-song", 1, true) ~= nil, true, "the names complete: " .. all)
   eq(all:find("make-music/2-midi-keyboard", 1, true) ~= nil, true, "the practice projects too: " .. all)
   keys(":example demo-song<CR>")
-  eq(#paw.tracks() > 0, true, ":example demo-song opens it")
+  eq(#paw.parts() > 0, true, ":example demo-song opens it")
   eq(paw.project.path, nil, "with no file of its own")
   eq(message():find("opened the example demo-song", 1, true) ~= nil, true, "it says so: " .. message())
   keys("u")
-  eq(#paw.tracks() > 0, true, "u does not take the example apart")
-  local before = #paw.tracks()
+  eq(#paw.parts() > 0, true, "u does not take the example apart")
+  local before = #paw.parts()
   keys(":example 2-midi<CR>")
-  eq(#paw.tracks(), before, "the example is unsaved work: another does not replace it")
+  eq(#paw.parts(), before, "the example is unsaved work: another does not replace it")
   keys(":example! 2-midi<CR>")
   eq(
-    paw.track("Lead") ~= nil or #paw.tracks() ~= before,
+    paw.part("Lead") ~= nil or #paw.parts() ~= before,
     true,
     ":example! opens the other one, a part of its name enough"
   )
@@ -189,7 +189,7 @@ end)
 
 test("a key typed in the : line asks for no whole frame, unless a range is on the views", function()
   start()
-  paw.add_track({ name = "Lead" })
+  paw.add_part({ name = "Lead" })
   keys(":")
   local function whole() return api.ui_redraws() - api.ui_line_redraws() end
   local before = whole()

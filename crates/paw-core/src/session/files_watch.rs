@@ -27,7 +27,7 @@ use rustix::fs::inotify;
 use super::folder::{self, PROJECT_FILE};
 use crate::clock::ScheduleTime;
 use crate::doorbell::{Doorbell, Woken};
-use crate::model::{ClipContent, Project, Track};
+use crate::model::{ClipContent, Project, Part};
 
 /// Changes that come closer together than this are one burst.
 const SETTLE: Duration = Duration::from_millis(300);
@@ -240,20 +240,20 @@ fn folders(root: &Path, out: &mut BTreeSet<PathBuf>) {
 /// engine keeps what it runs for them (a plugin keeps its state).
 fn keep_same(old: &Project, new: &mut Project) {
     let same = |a: &dyn erased::Json, b: &dyn erased::Json| a.json() == b.json();
-    let old_tracks: HashMap<u64, &Arc<Track>> = old.all_tracks().map(|t| (t.id, t)).collect();
-    for track in new
-        .tracks
+    let old_parts: HashMap<u64, &Arc<Part>> = old.all_parts().map(|t| (t.id, t)).collect();
+    for part in new
+        .parts
         .iter_mut()
         .chain(std::iter::once(&mut new.master))
     {
-        let Some(was) = old_tracks.get(&track.id) else {
+        let Some(was) = old_parts.get(&part.id) else {
             continue;
         };
-        if same(&***was, &**track) {
-            *track = Arc::clone(was);
+        if same(&***was, &**part) {
+            *part = Arc::clone(was);
             continue;
         }
-        let t = Arc::make_mut(track);
+        let t = Arc::make_mut(part);
         for d in &mut t.devices {
             if let Some(o) = was.devices.iter().find(|o| o.id == d.id)
                 && same(&**o, &**d)
@@ -304,20 +304,20 @@ impl super::Session {
         }
         // Clip files and sound files outside the folder.
         let mut outside = BTreeSet::new();
-        // Track folders and chain files outside the folder.
-        for track in self.doc.project.all_tracks() {
-            if let Some(folder) = &track.source {
+        // Part folders and chain files outside the folder.
+        for part in self.doc.project.all_parts() {
+            if let Some(folder) = &part.source {
                 dirs.insert(folder.clone());
-                outside.insert(folder.join("track.json"));
+                outside.insert(folder.join("part.json"));
                 outside.insert(folder.join("devices.json"));
             }
-            if let Some(chain) = &track.chain_source {
+            if let Some(chain) = &part.chain_source {
                 dirs.extend(chain.parent().map(Path::to_path_buf));
                 outside.insert(chain.clone());
             }
         }
-        for track in self.doc.project.all_tracks() {
-            for clip in track.clips.iter().chain(&track.cues) {
+        for part in self.doc.project.all_parts() {
+            for clip in part.clips.iter().chain(&part.cues) {
                 let file = match (&clip.source, clip.playable()) {
                     (Some(source), _) => Some(source.clone()),
                     (None, Some(ClipContent::Audio { file, .. })) => Some(file.clone()),

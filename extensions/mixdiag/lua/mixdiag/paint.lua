@@ -1,5 +1,5 @@
 -- The mix report in a window of a graphical frontend, painted: the loudness
--- and peaks of the mix as bars (with the target marked), each track's peak
+-- and peaks of the mix as bars (with the target marked), each part's peak
 -- as a meter, the spectrum as a shape, and the findings to go to. It works
 -- on the terminal report's selection (`list_view`), so its keys work here.
 local mixdiag = require("mixdiag")
@@ -91,23 +91,23 @@ local function draw_loudness(g, result, target, y)
   return y + 28
 end
 
---- Each track's peak after its fader, as a meter, over what height is left.
-local function draw_tracks(g, result, y, context)
-  g:text(0, y, "Tracks (peak)", { color = c.text, size = 13, bold = true })
+--- Each part's peak after its fader, as a meter, over what height is left.
+local function draw_parts(g, result, y, context)
+  g:text(0, y, "Parts (peak)", { color = c.text, size = 13, bold = true })
   y = y + 26
   local room = math.floor((g.height - y) / ROW)
   local shown = 0
-  for _, t in ipairs(result.tracks or {}) do
+  for _, t in ipairs(result.parts or {}) do
     if shown >= room then
       g:text(0, y + 3, "…", { color = c.text_3 })
       break
     end
     local db = t.peak and t.peak > -150 and t.peak or nil
-    bar(g, y, context.track_name(t.id), db, -60, 6, db and (number(db) .. " dB") or "silent")
+    bar(g, y, context.part_name(t.id), db, -60, 6, db and (number(db) .. " dB") or "silent")
     y = y + ROW
     shown = shown + 1
   end
-  if shown == 0 then g:text(0, y + 3, "no tracks measured", { color = c.text_3 }) end
+  if shown == 0 then g:text(0, y + 3, "no parts measured", { color = c.text_3 }) end
 end
 
 --- Where the energy of the mix lies, by frequency on a log axis: a shape
@@ -229,7 +229,7 @@ local function draw_head(g, width)
     g:text(14, 29, mixdiag.summary(mixdiag.result), { color = c.text_2, size = 11 })
   else
     g:text(110, 10, "nothing measured yet", { color = c.text_3 })
-    g:text(14, 29, "a measures the song, l the loop, t the cursor's track", { color = c.text_3, size = 11 })
+    g:text(14, 29, "a measures the song, l the loop, t the cursor's part", { color = c.text_3, size = 11 })
   end
   local target = mixdiag.target()
   local aim = target.integrated
@@ -245,7 +245,7 @@ local function draw_foot(g, width, height)
   g:text(
     12,
     y + 6,
-    "click a finding to choose it, again to go there   j k move   Enter go   a measure the song   l the loop   t the track   T target   q close",
+    "click a finding to choose it, again to go there   j k move   Enter go   a measure the song   l the loop   t the part   T target   q close",
     { color = c.text_3, size = 11, width = width - 24 }
   )
 end
@@ -264,7 +264,7 @@ function paint:paint(g, ctx)
   if mixdiag.result then
     local side = g:sub(14, HEAD + 12, left_w - 14, body - 12)
     local y = draw_loudness(side, mixdiag.result, mixdiag.target(), 0)
-    draw_tracks(side, mixdiag.result, y, mixdiag.context(mixdiag.result, mixdiag.range_measured or { kind = "mix" }))
+    draw_parts(side, mixdiag.result, y, mixdiag.context(mixdiag.result, mixdiag.range_measured or { kind = "mix" }))
     local spectrum = math.floor((body - 24) * 0.45)
     draw_spectrum(g:sub(right_x, HEAD + 12, right_w, spectrum), mixdiag.result)
     self.findings_top = HEAD + 12 + spectrum + 16

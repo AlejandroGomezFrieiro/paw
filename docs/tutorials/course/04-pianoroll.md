@@ -70,6 +70,6 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 
 We moved by pitch and by time, and changed a note in normal mode. Then we drew a line and a chord in insert mode, and met step input from a MIDI keyboard.
 
-- Previous: [Tracks, clips and notes](03-making.md)
+- Previous: [Parts, clips and notes](03-making.md)
 - Next: [The grammar: operators, motions, text objects](05-grammar.md)
 - [All lessons](README.md)

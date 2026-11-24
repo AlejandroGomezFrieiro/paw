@@ -1,19 +1,19 @@
-//! A track that plays clips of its own can also be the output of other
-//! tracks: what they send in is summed with its clips before its devices.
-//! (A nest's "chain mode" places a nest track's sound into its host track,
+//! A part that plays clips of its own can also be the output of other
+//! parts: what they send in is summed with its clips before its devices.
+//! (A nest's "chain mode" places a nest part's sound into its host part,
 //! which has clips of its own: it depends on this.)
 
 use paw_engine::GraphPlan;
 use paw_engine::{
-    ClipSet, DeviceSlot, Engine, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule, TrackRt, TrackSlot,
+    ClipSet, DeviceSlot, Engine, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule, PartRt, PartSlot,
 };
 
 use crate::common::{SR, send};
 
 const BLOCKS: usize = 200;
 
-/// Track 1 (a synth) goes into track 2, and track 2 (a synth, then a
-/// utility at `gain` dB) into the master. Each track holds one note when
+/// Part 1 (a synth) goes into part 2, and part 2 (a synth, then a
+/// utility at `gain` dB) into the master. Each part holds one note when
 /// asked, at different keys. Returns the master's left channel.
 fn render(feed_note: bool, host_note: bool, gain: f32) -> Vec<f32> {
     let (mut engine, mut handle) = Engine::new(SR);
@@ -37,21 +37,21 @@ fn render(feed_note: bool, host_note: bool, gain: f32) -> Vec<f32> {
     let feed = clips_of(feed_note.then_some(60));
     let host = clips_of(host_note.then_some(67));
     for msg in [
-        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
-        Msg::InsertTrack { slot: TrackSlot(2), track: TrackRt::new() },
+        Msg::InsertPart { slot: PartSlot(1), part: PartRt::new() },
+        Msg::InsertPart { slot: PartSlot(2), part: PartRt::new() },
         Msg::InsertDevice { slot: DeviceSlot(0), device: make("synth") },
         Msg::InsertDevice { slot: DeviceSlot(1), device: make("synth") },
         Msg::InsertDevice { slot: DeviceSlot(2), device: make("utility") },
         Msg::SetParam { device: DeviceSlot(2), param: 0, value: gain },
-        Msg::SetGraph { slot: TrackSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
-        Msg::SetGraph { slot: TrackSlot(2).into(), plan: GraphPlan::serial(&[DeviceSlot(1), DeviceSlot(2)]) },
-        Msg::SetClips { track: TrackSlot(1), clips: feed },
-        Msg::SetClips { track: TrackSlot(2), clips: host },
+        Msg::SetGraph { slot: PartSlot(1).into(), plan: GraphPlan::serial(&[DeviceSlot(0)]) },
+        Msg::SetGraph { slot: PartSlot(2).into(), plan: GraphPlan::serial(&[DeviceSlot(1), DeviceSlot(2)]) },
+        Msg::SetClips { part: PartSlot(1), clips: feed },
+        Msg::SetClips { part: PartSlot(2), clips: host },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![
-                SchedEntry::new(TrackSlot(1), TrackSlot(2)),
-                SchedEntry::new(TrackSlot(2), TrackSlot::MASTER),
-                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                SchedEntry::new(PartSlot(1), PartSlot(2)),
+                SchedEntry::new(PartSlot(2), PartSlot::MASTER),
+                SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
             ],
             0,
         ))),

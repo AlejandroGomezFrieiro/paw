@@ -9,22 +9,22 @@ test("a project saved before the safety work still opens", function()
   fresh()
   paw.project.load("tests/fixtures/demo-song.json")
   local names = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     names[#names + 1] = t.name
   end
-  eq(table.concat(names, ","), "Drums,Bass,Keys,Lead,Reverb", "its tracks")
+  eq(table.concat(names, ","), "Drums,Bass,Keys,Lead,Reverb", "its parts")
   eq(paw.project.tempo, 112, "its tempo")
-  eq(#paw.tracks()[1]:clips(), 8, "its clips")
+  eq(#paw.parts()[1]:clips(), 8, "its clips")
   eq(paw.project.modified, false, "and nothing is changed by opening it")
 end)
 
 test("saving keeps the previous file as .bak and leaves no temporary file", function()
   fresh()
   local path = T.scratch .. "/bak-song.json"
-  paw.add_track({ name = "First" })
+  paw.add_part({ name = "First" })
   paw.project.save(path)
   eq(io.open(path .. ".bak"), nil, "a first save has nothing to keep")
-  paw.add_track({ name = "Second" })
+  paw.add_part({ name = "Second" })
   paw.project.save(path)
   local bak = T.read_file(path .. ".bak")
   eq(
@@ -43,12 +43,12 @@ test("a project that will not parse offers its .bak and its newest safety copy",
   local old_dir = autosave.dir
   autosave.dir = dir
   local path = T.scratch .. "/damaged.json"
-  paw.add_track({ name = "Saved once" })
+  paw.add_part({ name = "Saved once" })
   paw.project.save(path)
-  paw.add_track({ name = "Saved twice" })
+  paw.add_part({ name = "Saved twice" })
   paw.project.save(path)
   -- A safety copy of later work, from a session that ended badly.
-  paw.add_track({ name = "Never saved" })
+  paw.add_part({ name = "Never saved" })
   api.project_backup(dir .. "/damaged-copy.json", { path = path, name = "damaged", time = os.time(), pid = 999999999 })
   -- The file is cut short, as a full disk or a bad copy would leave it.
   local text = T.read_file(path)
@@ -72,7 +72,7 @@ test("a project that will not parse offers its .bak and its newest safety copy",
 
   paw.commands.exec("recover 2")
   local names = {}
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     names[#names + 1] = t.name
   end
   eq(table.concat(names, ","), "Saved once", "the backup is the file before the last save")
@@ -81,7 +81,7 @@ test("a project that will not parse offers its .bak and its newest safety copy",
 
   pcall(paw.project.load, path)
   paw.commands.exec("recover! 1")
-  eq(#paw.tracks(), 3, "the safety copy has the later work")
+  eq(#paw.parts(), 3, "the safety copy has the later work")
   paw.project.save()
   eq(pcall(paw.project.load, path), true, "and once saved, the project opens again")
   autosave.dir = old_dir
@@ -96,11 +96,11 @@ test(
     autosave.dir = T.scratch .. "/recovery-damaged-folder"
     T.after(function() autosave.dir = old_dir end)
     local dir = T.scratch .. "/damaged-folder"
-    local first = paw.add_track({ name = "First" })
+    local first = paw.add_part({ name = "First" })
     first:add_clip({ start = 0, length = 4, notes = { { start = 0, length = 1, pitch = 60 } } })
     paw.project.save(dir)
     eq(io.open(dir .. "/project.toml.bak"), nil, "a first save has nothing to keep")
-    paw.add_track({ name = "Second" })
+    paw.add_part({ name = "Second" })
     api.undo_checkpoint()
     T.keys(":w<CR>")
     local bak = T.read_file(dir .. "/project.toml.bak")
@@ -127,16 +127,16 @@ test(
     eq(paw.autosave.choices()[1].name, "backup (before the last save)", ":recover lists project.toml.bak first")
     T.keys(":recover 1<CR>")
     local names = {}
-    for _, t in ipairs(paw.tracks()) do
+    for _, t in ipairs(paw.parts()) do
       names[#names + 1] = t.name
     end
-    eq(table.concat(names, ","), "First", "the tracks of the project file before the last save")
-    eq(#paw.tracks()[1]:clips()[1]:notes(), 1, "with the clip read from its file")
+    eq(table.concat(names, ","), "First", "the parts of the project file before the last save")
+    eq(#paw.parts()[1]:clips()[1]:notes(), 1, "with the clip read from its file")
     eq(paw.project.path, dir .. "/project.toml", "it opens as the damaged project")
     eq(paw.project.modified, true, "unsaved until saved over it")
     T.keys(":w<CR>")
     eq(pcall(paw.project.load, dir), true, "and once saved, the project opens again")
-    eq(#paw.tracks(), 1, "as it was recovered")
+    eq(#paw.parts(), 1, "as it was recovered")
   end
 )
 
@@ -162,7 +162,7 @@ test("a take's file is a valid WAV while it is recorded, and is in the safety co
     local dir = T.scratch .. "/take-progress"
     os.execute("mkdir -p '" .. dir .. "'")
     paw.project.save(dir .. "/song.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     api.undo_checkpoint()
     local files
@@ -187,7 +187,7 @@ test("a take's file is a valid WAV while it is recorded, and is in the safety co
     eq(#mic:clips(), 1, "stopping makes the clip")
     paw.project.new()
     api.project_recover(copy)
-    local back = paw.tracks()[1]:clips()
+    local back = paw.parts()[1]:clips()
     eq(#back, 1, "recovering the copy puts the take back as a clip")
     eq(back[1].file, files[1], "from its file")
     eq(back[1].length > 4, true, "with what the file holds: " .. back[1].length .. " beats")
@@ -199,7 +199,7 @@ test("starting to record with little room on the disk says how many minutes are 
     fresh()
     os.execute("mkdir -p '" .. T.scratch .. "/take-disk'")
     paw.project.save(T.scratch .. "/take-disk/song.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1/2", true
     paw.opt.record_warn_minutes = 1e12
     paw.transport.record()
@@ -217,7 +217,7 @@ end)
 test("takes in media/ that no clip refers to are offered on open", function()
   fresh()
   local dir = T.scratch .. "/take-orphans"
-  paw.add_track({ name = "Guitar" })
+  paw.add_part({ name = "Guitar" })
   os.execute("mkdir -p '" .. dir .. "/media'")
   -- A take recorded and then undone before the last save is not offered.
   T.write_file(dir .. "/media/Guitar-take1.wav", T.read_file("tests/fixtures/shape.wav"))
@@ -243,8 +243,8 @@ test("takes in media/ that no clip refers to are offered on open", function()
     if c.take then n = i end
   end
   paw.commands.exec("recover " .. n)
-  eq(#paw.tracks(), 1, "it is brought in on the track it was recorded for")
-  eq(#paw.tracks()[1]:clips(), 1, "as a clip")
+  eq(#paw.parts(), 1, "it is brought in on the part it was recorded for")
+  eq(#paw.parts()[1]:clips(), 1, "as a clip")
   eq(#paw.autosave.orphan_takes(), 0, "and is no longer offered")
 end)
 
@@ -269,7 +269,7 @@ test("a device that panics is bypassed and reported, and the rest plays on", fun
   bad:set("fail", 1)
   local after = render({ ["end"] = 2, tail = 0 })
   eq(after.nonfinite or 0, 0, "the render is finite")
-  -- The block it panicked in is silent on its track; after that it is passed over.
+  -- The block it panicked in is silent on its part; after that it is passed over.
   local a, b = T.samples(before), T.samples(after)
   eq(#a, #b, "the same length")
   eq(largest_difference(a, b, 4097) < 1e-3, true, "everything else is as it was: " .. largest_difference(a, b, 4097))
@@ -302,7 +302,7 @@ test("a device that puts out NaN is silenced at its output and reported once", f
   other:add_device("test.nan", { fail = 1 })
   local info = render({ ["end"] = 2, tail = 0 })
   eq(info.nonfinite or 0, 0, "nothing invalid reaches the master")
-  eq(largest_difference(T.samples(alone), T.samples(info)) < 1e-3, true, "and the mix is the other track alone")
+  eq(largest_difference(T.samples(alone), T.samples(info)) < 1e-3, true, "and the mix is the other part alone")
 
   local said = 0
   local handle = paw.on("device.invalid", function() said = said + 1 end)
@@ -353,11 +353,11 @@ test(
     T.stop()
 
     -- A render makes instances of its own, which hang too: it goes on
-    -- without them. Its own track plays on, the effect passed through.
+    -- without them. Its own part plays on, the effect passed through.
     steady.mute = true
     local last = paw.ui.messages[#paw.ui.messages]
     local info = render({ ["end"] = 8, tail = 0 })
-    eq(info.peak > 0.05, true, "the render has the track of the plugin that hangs")
+    eq(info.peak > 0.05, true, "the render has the part of the plugin that hangs")
     paw.flush()
     -- The messages after the last one before the render: the list holds
     -- 500 messages at most, so a count would not do.
@@ -386,13 +386,13 @@ test(
 test("decoded audio no clip or undo step refers to is let go", function()
   fresh()
   local file = T.write_wav(T.scratch .. "/keep-me.wav", { 0.1, 0.2, 0.3, 0.4 })
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = file, start = 0 })
   api.undo_checkpoint()
   eq(api.engine_get().audio_files, 1, "a file in use is held")
   paw.project.new()
   eq(api.engine_get().audio_files, 0, "a new project lets it go")
-  t = paw.add_track()
+  t = paw.add_part()
   local clip = t:add_clip({ file = file, start = 0 })
   api.undo_checkpoint()
   clip:remove()
@@ -424,10 +424,10 @@ test("a .bak names its media relative to the project and opens with them", funct
   local dir = T.scratch .. "/bak-relative"
   os.execute("mkdir -p '" .. dir .. "/media'")
   local file = T.write_wav(dir .. "/media/riff.wav", { 0.1, 0.2, 0.3, 0.4 })
-  paw.add_track({ name = "Gtr" }):add_clip({ file = file, start = 0 })
+  paw.add_part({ name = "Gtr" }):add_clip({ file = file, start = 0 })
   local path = dir .. "/song.json"
   paw.project.save(path)
-  paw.tracks()[1].volume = -3
+  paw.parts()[1].volume = -3
   paw.project.save(path)
   eq(T.read_file(path .. ".bak"):find('"media/riff.wav"', 1, true) ~= nil, true, "the .bak holds the relative path")
   T.write_file(path, "{ broken")
@@ -438,7 +438,7 @@ test("a .bak names its media relative to the project and opens with them", funct
     if c.as_path then n = i end
   end
   paw.commands.exec("recover " .. n)
-  local clip = paw.tracks()[1]:clips()[1]
+  local clip = paw.parts()[1]:clips()[1]
   eq(clip.file, file, "its clip is the file beside the project")
   eq(#api.media_missing(), 0, "and nothing is missing")
 end)
@@ -449,7 +449,7 @@ test("takes of a project whose folder moved are not offered when the project use
     local dir = T.scratch .. "/take-moved"
     os.execute("mkdir -p '" .. dir .. "'")
     paw.project.save(dir .. "/song.json")
-    local mic = paw.add_track({ name = "mic" })
+    local mic = paw.add_part({ name = "mic" })
     mic.input, mic.armed = "1", true
     paw.transport.record()
     T.until_beat(1)
@@ -460,7 +460,7 @@ test("takes of a project whose folder moved are not offered when the project use
     paw.project.load(dir .. "-moved/song.json")
     paw.flush()
     eq(#paw.autosave.orphan_takes(), 0, "the take the project uses is not offered")
-    local clip = paw.tracks()[1]:clips()[1]
+    local clip = paw.parts()[1]:clips()[1]
     eq(clip.file:find(dir .. "-moved/media/", 1, true) == 1, true, "and plays from the moved folder: " .. clip.file)
   end)
 end)

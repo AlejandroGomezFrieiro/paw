@@ -1,12 +1,12 @@
--- The clip launcher: every track has slots, a column of clips kept off the
--- timeline, and a row of slots across the tracks is a scene. Launching a
--- slot cues its clip on its track at the next boundary of its quantize (a
--- bar by default), to the frame (`paw.api.cue`); while a track plays a
+-- The clip launcher: every part has slots, a column of clips kept off the
+-- timeline, and a row of slots across the parts is a scene. Launching a
+-- slot cues its clip on its part at the next boundary of its quantize (a
+-- bar by default), to the frame (`paw.api.cue`); while a part plays a
 -- slot, or has been stopped, its clips on the timeline are silent until it
--- goes back to the timeline. Stopping the song sends every track back. A
+-- goes back to the timeline. Stopping the song sends every part back. A
 -- render plays the timeline: `capture` writes a performance into it.
 --
--- The clips are the core's clips off the timeline (`paw.api.clip_add(track,
+-- The clips are the core's clips off the timeline (`paw.api.clip_add(part,
 -- { cue = true })`), saved with the project and undone like any edit. What
 -- is the launcher's own is kept in `meta.launcher`: on each clip its `row`
 -- (from 0), `quantize`, `mode` and `legato`; on the project the `quantize`
@@ -16,7 +16,7 @@
 -- Rows count from 0 here and in `paw.api`, from 1 in commands and on screen.
 local api = paw.api
 local M = {
-  -- The slot the session view's cursor is on, as a row from 0; the track
+  -- The slot the session view's cursor is on, as a row from 0; the part
   -- is the cursor's.
   row = 0,
   quantizes = { "off", "1/16", "1/8", "1/4", "beat", "bar", "2bars", "4bars" },
@@ -49,10 +49,10 @@ local function as_slot(clip, m)
   return clip
 end
 
---- The clips in a track's slots, by row: `{ [row] = clip view }`.
-function M.slots(track)
+--- The clips in a part's slots, by row: `{ [row] = clip view }`.
+function M.slots(part)
   local out = {}
-  for _, clip in ipairs(api.cue_list(track)) do
+  for _, clip in ipairs(api.cue_list(part)) do
     local m = slot_meta(clip)
     if m and not out[m.row] then out[m.row] = as_slot(clip, m) end
   end
@@ -60,7 +60,7 @@ function M.slots(track)
 end
 
 --- The clip in a slot, or nil.
-function M.clip(track, row) return M.slots(track)[row] end
+function M.clip(part, row) return M.slots(part)[row] end
 
 --- A clip's view as a slot's, by its id, or nil if it is in no slot.
 function M.slot_of(id)
@@ -132,15 +132,15 @@ function M.set(id, key, value)
   end
 end
 
---- Put a slot's clip in another slot: `row` on `track` (its own when nil),
+--- Put a slot's clip in another slot: `row` on `part` (its own when nil),
 --- in place of what was there.
-function M.move(id, track, row)
+function M.move(id, part, row)
   local c = M.slot_of(id)
   if not c then error("clip " .. tostring(id) .. " is in no slot", 2) end
-  track = track or c.track
-  local there = M.clip(track, row)
+  part = part or c.part
+  local there = M.clip(part, row)
   if there and there.id ~= id then api.clip_remove(there.id) end
-  if c.track ~= track then api.clip_set(id, "track", track) end
+  if c.part ~= part then api.clip_set(id, "part", part) end
   set_meta(id, { row = row })
 end
 
@@ -173,7 +173,7 @@ end
 --- and at least `paw.opt.launch_rows`.
 function M.rows()
   local last = #M.scenes()
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     for row in pairs(M.slots(id)) do
       last = math.max(last, row + 1)
     end
@@ -183,10 +183,10 @@ end
 
 -- What plays --------------------------------------------------------------------------
 
---- What each track plays and has in its queue, by track id, from
+--- What each part plays and has in its queue, by part id, from
 --- `paw.api.cue_state`: `slot` (a row) or `stopped`, `phase`, `length`,
 --- `since`, and `queued` (a row, "stop" or "arrangement") with `at`. A
---- track that plays its timeline with nothing queued is not in the table.
+--- part that plays its timeline with nothing queued is not in the table.
 function M.state()
   local out = {}
   for _, s in ipairs(api.cue_state()) do
@@ -196,8 +196,8 @@ function M.state()
         return c and c.slot
       end
       local q = s.queued
-      out[s.track] = {
-        track = s.track,
+      out[s.part] = {
+        part = s.part,
         since = s.since,
         phase = s.phase,
         length = s.length,
@@ -212,10 +212,10 @@ function M.state()
   return out
 end
 
---- What one track plays: "arrangement", "stopped" or a row. The second
+--- What one part plays: "arrangement", "stopped" or a row. The second
 --- value is what it has in its queue, if anything.
-function M.playing(track)
-  local s = M.state()[track]
+function M.playing(part)
+  local s = M.state()[part]
   if not s then return "arrangement" end
   return s.slot or (s.stopped and "stopped" or "arrangement"), s.queued
 end
@@ -231,76 +231,74 @@ local function send(list, start)
   api.ui_redraw()
 end
 
---- The cue of a track's slot: its clip, or a stop for an empty slot.
-local function cue_of(track, row, opts)
+--- The cue of a part's slot: its clip, or a stop for an empty slot.
+local function cue_of(part, row, opts)
   opts = opts or {}
-  local clip = M.clip(track, row)
-  if not clip then return { track = track, stop = true, quantize = opts.quantize or M.quantize() } end
+  local clip = M.clip(part, row)
+  if not clip then return { part = part, stop = true, quantize = opts.quantize or M.quantize() } end
   local legato = opts.legato
   if legato == nil then legato = clip.legato end
-  return { track = track, clip = clip.id, quantize = opts.quantize or clip.quantize or M.quantize(), legato = legato }
+  return { part = part, clip = clip.id, quantize = opts.quantize or clip.quantize or M.quantize(), legato = legato }
 end
 
 --- Launch the clip in a slot on its next boundary. An empty slot stops the
---- track. `opts.quantize` and `opts.legato` replace the values of the slot.
-function M.launch(track, row, opts) send({ cue_of(track, row, opts) }, true) end
+--- part. `opts.quantize` and `opts.legato` replace the values of the slot.
+function M.launch(part, row, opts) send({ cue_of(part, row, opts) }, true) end
 
 --- A slot's button pressed, from a key, the mouse or a controller: what that
 --- does is the clip's mode. A toggle stops a clip that plays or is queued.
-function M.press(track, row)
-  local clip = M.clip(track, row)
-  local now, queued = M.playing(track)
-  if clip and clip.mode == "toggle" and (now == row or queued == row) then return M.stop(track) end
-  M.launch(track, row)
+function M.press(part, row)
+  local clip = M.clip(part, row)
+  local now, queued = M.playing(part)
+  if clip and clip.mode == "toggle" and (now == row or queued == row) then return M.stop(part) end
+  M.launch(part, row)
 end
 
 --- A slot's button let go: a gate clip stops.
-function M.release(track, row)
-  local clip = M.clip(track, row)
-  local now, queued = M.playing(track)
-  if clip and clip.mode == "gate" and (now == row or queued == row) then M.stop(track) end
+function M.release(part, row)
+  local clip = M.clip(part, row)
+  local now, queued = M.playing(part)
+  if clip and clip.mode == "gate" and (now == row or queued == row) then M.stop(part) end
 end
 
---- Stop the clip of a track on the next boundary. With no track, stop the
---- clips of all tracks. A stopped track makes no sound until you launch it
+--- Stop the clip of a part on the next boundary. With no part, stop the
+--- clips of all parts. A stopped part makes no sound until you launch it
 --- again or send it back to its timeline.
-function M.stop(track)
+function M.stop(part)
   local list, q = {}, M.quantize()
-  if track then
-    list[1] = { track = track, stop = true, quantize = q }
+  if part then
+    list[1] = { part = part, stop = true, quantize = q }
   else
     for id, s in pairs(M.state()) do
-      if s.slot or (s.queued and s.queued ~= "stop") then
-        list[#list + 1] = { track = id, stop = true, quantize = q }
-      end
+      if s.slot or (s.queued and s.queued ~= "stop") then list[#list + 1] = { part = id, stop = true, quantize = q } end
     end
   end
   send(list)
 end
 
---- Send a track back to its timeline. With no track, send back each track
+--- Send a part back to its timeline. With no part, send back each part
 --- that left its timeline.
-function M.back(track)
+function M.back(part)
   local list, q = {}, M.quantize()
-  if track then
-    list[1] = { track = track, timeline = true, quantize = q }
+  if part then
+    list[1] = { part = part, timeline = true, quantize = q }
   else
     for id in pairs(M.state()) do
-      list[#list + 1] = { track = id, timeline = true, quantize = q }
+      list[#list + 1] = { part = id, timeline = true, quantize = q }
     end
   end
   send(list)
 end
 
---- Launch a scene: the clip in that row on every track that has one, all
---- on the same boundary. Tracks without one stop what they play from a slot.
+--- Launch a scene: the clip in that row on every part that has one, all
+--- on the same boundary. Parts without one stop what they play from a slot.
 function M.scene(row)
   local list, state = {}, M.state()
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     if M.clip(id, row) then
       list[#list + 1] = cue_of(id, row)
     elseif state[id] and state[id].slot then
-      list[#list + 1] = { track = id, stop = true, quantize = M.quantize() }
+      list[#list + 1] = { part = id, stop = true, quantize = M.quantize() }
     end
   end
   send(list, true)
@@ -310,8 +308,8 @@ end
 
 --- Add a clip off the timeline in a slot, from `opts` as `paw.api.clip_add`
 --- takes them, in place of what was there. Returns its id.
-function M.add(track, row, opts)
-  local there = M.clip(track, row)
+function M.add(part, row, opts)
+  local there = M.clip(part, row)
   if there then api.clip_remove(there.id) end
   opts = paw.util.merge(opts, { cue = true })
   local meta = type(opts.meta) == "table" and paw.util.merge(opts.meta, {}) or {}
@@ -319,44 +317,44 @@ function M.add(track, row, opts)
   m.row = row
   meta.launcher = m
   opts.meta = meta
-  return api.clip_add(track, opts)
+  return api.clip_add(part, opts)
 end
 
 --- An empty MIDI clip of `bars` bars (1) in a slot. Returns its id.
-function M.new_clip(track, row, bars)
+function M.new_clip(part, row, bars)
   local length = paw.time.bar(0) * (bars or 1)
-  return M.add(track, row, { length = length, name = "clip " .. (row + 1) })
+  return M.add(part, row, { length = length, name = "clip " .. (row + 1) })
 end
 
 --- Copy a clip from the timeline (or another slot) into a slot. Returns the copy's id.
-function M.copy(clip, track, row)
-  local there = M.clip(track, row)
+function M.copy(clip, part, row)
+  local there = M.clip(part, row)
   if there and there.id ~= clip then api.clip_remove(there.id) end
-  local id = api.clip_to_cues(clip, track)
+  local id = api.clip_to_cues(clip, part)
   set_meta(id, { row = row })
   return id
 end
 
 --- Put a clip from a snapshot (`paw.restore_clip`) in a slot.
-function M.paste(snap, track, row)
-  local there = M.clip(track, row)
+function M.paste(snap, part, row)
+  local there = M.clip(part, row)
   if there then api.clip_remove(there.id) end
   local meta = type(snap.meta) == "table" and paw.util.merge(snap.meta, {}) or {}
   meta.launcher = paw.util.merge(type(meta.launcher) == "table" and meta.launcher or {}, { row = row })
-  return paw.restore_clip(paw.util.merge(snap, { cue = true, start = 0, meta = meta }), track)
+  return paw.restore_clip(paw.util.merge(snap, { cue = true, start = 0, meta = meta }), part)
 end
 
 -- Recording into a slot ----------------------------------------------------------
 --
--- An empty slot of a track records `bars` bars from the next boundary. The
+-- An empty slot of a part records `bars` bars from the next boundary. The
 -- take is made by the transport's recording, as any take is; when the bars
 -- are done the take ends. When it is clips (`transport.recorded`), the part
 -- of it between the two boundaries becomes the slot's clip, the take leaves
 -- the timeline, and the clip plays on in step, as if it had been playing
 -- since the first boundary.
 
--- The slot being recorded: { track, row, from, to, before = clip ids on the
--- track before, take = the number of the take }, or nil.
+-- The slot being recorded: { part, row, from, to, before = clip ids on the
+-- part before, take = the number of the take }, or nil.
 M.recording = nil
 local rec_timer
 
@@ -427,10 +425,10 @@ local function take_into_slot(r)
   if M.recording == r then finish_recording() end
   local stopped_at = r.stopped_at
   local made
-  for _, c in ipairs(api.clip_list(r.track)) do
+  for _, c in ipairs(api.clip_list(r.part)) do
     if not r.before[c.id] then
       if not made and c.start <= r.from + 1e-9 and c.start + c.length > r.from then
-        made = M.add(r.track, r.row, piece(c, r.from, r.to))
+        made = M.add(r.part, r.row, piece(c, r.from, r.to))
       end
       api.clip_remove(c.id)
     end
@@ -443,20 +441,20 @@ local function take_into_slot(r)
   paw.notify("recorded into slot " .. (r.row + 1))
   -- Going on in step: the loop counts from where the recording began.
   if paw.transport.playing and stopped_at >= r.to - 1e-9 then
-    api.cue({ { track = r.track, clip = made, quantize = "off", from = r.from } })
+    api.cue({ { part = r.part, clip = made, quantize = "off", from = r.from } })
   end
 end
 
---- Record `bars` bars (1) into an empty slot of a track, from the next
---- boundary of the quantize of the project. paw arms the track if it is not
---- armed. The track stops what it plays at that boundary. If the song is
+--- Record `bars` bars (1) into an empty slot of a part, from the next
+--- boundary of the quantize of the project. paw arms the part if it is not
+--- armed. The part stops what it plays at that boundary. If the song is
 --- stopped, it starts. If you stop the song early, paw keeps the recording.
-function M.record(track, row, bars)
-  if M.clip(track, row) then error("the slot holds a clip already", 2) end
+function M.record(part, row, bars)
+  if M.clip(part, row) then error("the slot holds a clip already", 2) end
   if M.recording then error("a slot is being recorded already", 2) end
-  if not api.track_get(track, "armed") then api.track_set(track, "armed", true) end
+  if not api.part_get(part, "armed") then api.part_set(part, "armed", true) end
   local before = {}
-  for _, c in ipairs(api.clip_list(track)) do
+  for _, c in ipairs(api.clip_list(part)) do
     before[c.id] = true
   end
   -- The slot's bars are the take: punching (and with it the pre-roll) is
@@ -470,7 +468,7 @@ function M.record(track, row, bars)
   end
   local from = M.boundary(paw.transport.position)
   M.recording = {
-    track = track,
+    part = part,
     row = row,
     from = from,
     to = from + (bars or 1) * paw.time.bar(from),
@@ -485,7 +483,7 @@ function M.record(track, row, bars)
     paw.off(listener)
     take_into_slot(r)
   end)
-  api.cue({ { track = track, stop = true, quantize = M.quantize() } })
+  api.cue({ { part = part, stop = true, quantize = M.quantize() } })
   rec_timer = paw.every(10, function()
     local current = M.recording
     if current and (not paw.transport.playing or paw.transport.position >= current.to) then finish_recording() end
@@ -499,17 +497,17 @@ M.finish_recording = finish_recording
 
 -- Capturing a performance ------------------------------------------------------
 --
--- While capturing and playing, what each track plays is read from the engine
+-- While capturing and playing, what each part plays is read from the engine
 -- every few milliseconds; the engine says on which beat each cue began, so
 -- the timeline gets them exactly. When the song stops, every stretch a
--- track played a clip becomes a looped copy of the clip there, and every
+-- part played a clip becomes a looped copy of the clip there, and every
 -- stretch it was stopped is cleared, in one undo step.
 
 local log, last, timer = {}, {}, nil
 
---- Begin or end a stretch for a track, from what the engine says of it.
+--- Begin or end a stretch for a part, from what the engine says of it.
 local function note(s, position)
-  local was = last[s.track]
+  local was = last[s.part]
   local key = string.format("%s|%.9f", tostring(s.clip or s.stopped or "timeline"), s.since)
   if was and was.key == key then return end
   if was and was.kind then was.to = s.since end
@@ -517,10 +515,10 @@ local function note(s, position)
     -- How far into its loop the clip was where it began (a legato launch).
     local phase = s.clip and s.length and ((s.phase or 0) - (position - s.since)) % s.length or 0
     local entry = { kind = s.clip and "clip" or "stop", clip = s.clip, from = s.since, phase = phase, key = key }
-    log[#log + 1] = { track = s.track, entry = entry }
-    last[s.track] = entry
+    log[#log + 1] = { part = s.part, entry = entry }
+    last[s.part] = entry
   else
-    last[s.track] = { key = key }
+    last[s.part] = { key = key }
   end
 end
 
@@ -534,15 +532,15 @@ end
 
 --- Write what was captured into the timeline.
 local function write(position)
-  for track, entry in pairs(last) do
+  for part, entry in pairs(last) do
     if entry.kind and not entry.to then entry.to = position end
-    last[track] = nil
+    last[part] = nil
   end
   local wrote = 0
   for _, item in ipairs(log) do
-    local e, track = item.entry, item.track
-    if e.to and e.to - e.from > 1e-9 and pcall(api.track_get, track) then
-      paw.edit.arrange.clear(track, e.from, e.to)
+    local e, part = item.entry, item.part
+    if e.to and e.to - e.from > 1e-9 and pcall(api.part_get, part) then
+      paw.edit.arrange.clear(part, e.from, e.to)
       local ok, clip = pcall(api.clip_get, e.clip)
       if e.kind == "clip" and ok then
         local snap = paw.clip(clip.id):snapshot()
@@ -563,7 +561,7 @@ local function write(position)
             c.start = c.start - e.phase
           end
         end
-        paw.restore_clip(snap, track)
+        paw.restore_clip(snap, part)
       end
       wrote = wrote + 1
     end

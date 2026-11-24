@@ -20,7 +20,7 @@ for word in (
   names.KEYWORDS[word] = true
 end
 
---- A record's name for a module: `paw.track_kinds` is `TrackKinds`.
+--- A record's name for a module: `paw.part_kinds` is `PartKinds`.
 function names.record(name: string): string
   return (name:gsub("^paw%.", ""):gsub("[._](%l)", string.upper):gsub("^%l", string.upper))
 end

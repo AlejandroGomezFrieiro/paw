@@ -19,7 +19,7 @@ local LOSSES = {
 --- The model as a file of `format` should give it back.
 local function carried(E, format)
   local want = E.Model.copy(E.model)
-  for _, t in ipairs(want.tracks) do
+  for _, t in ipairs(want.parts) do
     for field in pairs(LOSSES[format]) do
       t[field] = E.ANY
     end

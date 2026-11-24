@@ -17,19 +17,19 @@ end
 
 local keys = T.keys
 
---- A track with a clip open as notation.
+--- A part with a clip open as notation.
 local function song(notes, length)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = length or 8, name = "tune", notes = notes or {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)
   view.value, view.dot, view.voice, view.triplets, view.tuplet = 1, false, 1, false, nil
   api.undo_checkpoint()
-  return view, clip, track
+  return view, clip, part
 end
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 160, h or 50), "\n") end
@@ -151,7 +151,7 @@ test("notation: K on a note says how it is written and what MIDI note it is", fu
     true,
     "the MIDI note:\n" .. text
   )
-  eq(text:find("Clip  tune", 1, true) ~= nil, true, "then the clip and track, as everywhere")
+  eq(text:find("Clip  tune", 1, true) ~= nil, true, "then the clip and part, as everywhere")
 end)
 
 test("notation: in insert mode the title keeps the key and metre beside the INS badge", function()

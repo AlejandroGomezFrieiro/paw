@@ -8,7 +8,7 @@ local fake = T.scratch .. "/fake-gdi2m"
 local kept = T.scratch .. "/vinput/inputs.json"
 local vinput, run, panel
 
---- A stand-in for gdi2m: lists ports, and "tracks" until it is asked to
+--- A stand-in for gdi2m: lists ports, and "parts" until it is asked to
 --- finish, saying each fifth of a second what gdi2m says each second.
 local function write_fake()
   local file = assert(io.open(fake, "w"))
@@ -115,34 +115,34 @@ test("vinput: an input is a MIDI port of the program's own, with a chain of sett
   eq(own_ports(), "Guitar", "with its port")
 end)
 
-test("vinput: a track takes the input by name, and follows when it is renamed", function()
+test("vinput: a part takes the input by name, and follows when it is renamed", function()
   fresh()
   load()
   vinput.add({ name = "Guitar" })
-  local track = vinput.make_track("Guitar")
+  local part = vinput.make_part("Guitar")
   eq(
-    track.name .. " " .. track.midi_input.port .. " " .. tostring(track.armed),
+    part.name .. " " .. part.midi_input.port .. " " .. tostring(part.armed),
     "Guitar Guitar true",
-    "a track made for the input takes it, armed"
+    "a part made for the input takes it, armed"
   )
-  eq(#track:devices(), 1, "with an instrument to hear it through")
-  local other = paw.add_track({ name = "Keys" })
+  eq(#part:devices(), 1, "with an instrument to hear it through")
+  local other = paw.add_part({ name = "Keys" })
   local keys_synth = other:add_device("synth")
   other.midi_input = { port = "Keys A" }
   other.armed = true
   paw.flush()
   local heard, heard_on_other = T.wakes(
     function() paw.midi.inject({ type = "note_on", pitch = 52, velocity = 100, port = "Guitar" }) end,
-    track:devices()[1],
+    part:devices()[1],
     keys_synth
   )
-  eq(heard, true, "what arrives at the input's port is heard on its track")
-  eq(heard_on_other, false, "and not on a track that takes another port")
+  eq(heard, true, "what arrives at the input's port is heard on its part")
+  eq(heard_on_other, false, "and not on a part that takes another port")
   paw.midi.inject({ type = "note_off", pitch = 52, port = "Guitar" })
   vinput.set("Guitar", "name", "Strat")
   eq(own_ports(), "Strat", "a renamed input has a port by the new name")
-  eq(track.midi_input.port, "Strat", "and its track goes with it")
-  eq(other.midi_input.port, "Keys A", "other tracks stay as they were")
+  eq(part.midi_input.port, "Strat", "and its part goes with it")
+  eq(other.midi_input.port, "Keys A", "other parts stay as they were")
   T.fails(function() vinput.set("Strat", "name", "") end, "needs a name", "an input with no name")
 end)
 
@@ -314,7 +314,7 @@ test("vinput: the panel shows each input's chain and is worked with the keys", f
   keys("kk<CR>")
   eq(vinput.get("Guitar").attack_velocity, true, "Enter flips a switch")
   keys("t")
-  eq(paw.tracks()[1].midi_input.port, "Guitar", "t makes a track that takes the input")
+  eq(paw.parts()[1].midi_input.port, "Guitar", "t makes a part that takes the input")
   paw.ui.focus("vinput")
   keys("gR")
   eq(paw.ui.message.text, "looking for audio ports", "gR looks for the ports again")
@@ -381,9 +381,9 @@ test("vinput: the window is worked with the pointer", function()
   local add = find(paint(), "+ Add")
   click(add[2] + 20, add[3] + 4)
   eq(#vinput.inputs, 2, "+ Add makes another")
-  local track = find(paint(), "New track from this input")
-  click(track[2] + 60, track[3] + 4)
-  eq(paw.tracks()[1].midi_input.port, "Guitar 2", "and a track is made for the input that is shown")
+  local part = find(paint(), "New part from this input")
+  click(part[2] + 60, part[3] + 4)
+  eq(paw.parts()[1].midi_input.port, "Guitar 2", "and a part is made for the input that is shown")
   paw.canvas.close("vinput")
 end)
 
@@ -395,15 +395,15 @@ test("vinput: the window's menus offer the inputs", function()
     labels[entry.label] = index
   end
   eq(
-    labels["Virtual inputs…"] ~= nil and labels["New track from a virtual input"] ~= nil,
+    labels["Virtual inputs…"] ~= nil and labels["New part from a virtual input"] ~= nil,
     true,
     "the timeline's menu has both entries"
   )
-  paw.frontend.act.menu("timeline", labels["New track from a virtual input"], -1, -1)
+  paw.frontend.act.menu("timeline", labels["New part from a virtual input"], -1, -1)
   eq(
-    #vinput.inputs .. " " .. paw.tracks()[1].midi_input.port,
+    #vinput.inputs .. " " .. paw.parts()[1].midi_input.port,
     "1 Guitar",
-    "with no input yet one is made, and a track that takes it"
+    "with no input yet one is made, and a part that takes it"
   )
   eq(paw.ui.focused, "vinput", "and the inputs are shown, for the source to be chosen")
   paw.canvas.close("vinput")

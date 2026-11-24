@@ -64,8 +64,8 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.advance(ms)` | Move the clock `ms`: each timer and settle delay fires in its order, the engine plays the blocks of that time, then the kernel settles. |
 | `T.advance_until(cond, what, ms)` | Move the clock from one due time to the next until `cond` holds. With no timer, or while a helper or the engine plays, a step is one audio block. While a helper owes an answer (`helpers_busy` of `api.pending()`), the clock does not move: the wait is for the helper, up to the stall guard. Fails after `ms` of schedule time. |
 | `T.next_block(n, device)` | Play exactly `n` blocks (1 if not given), so that a change sent before is in effect. The clock moves by their time. With `device`, play until that device ran `n` blocks: a device that sleeps does not count them. |
-| `T.meter(track)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
-| `T.level(track, side)` | The peak level of the track after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
+| `T.meter(part)` | The left and right peaks of a meter after the blocks that played last. It fails on the manual clock when the engine is not on the stepped backend. Use it, not `:meter()`. |
+| `T.level(part, side)` | The peak level of the part after one more block: the left side, or the right with `side` 2. Read a level only with it, for example in `T.until_`. |
 | `T.stepped()` | True when the engine plays on the stepped backend. |
 | `T.until_beat(beat, rounds, ms)` | Play until the playhead is at `beat`, after `rounds` times round the loop. Fails after `ms` of the song (30 s if not given). |
 | `T.wakes(fn, device, ...)` | Run `fn`, and give `true` or `false` for each device: did it make sound then? Each device sleeps through silence first, and a device that wakes runs blocks. It reads no meter. |
@@ -89,13 +89,13 @@ A test makes all the state that it reads.
   runner unloads the extensions that the tests loaded and removes the
   hooks, timers and key mappings that test code made. It also puts back
   the audio engine, the MIDI test ports, the step input controls that
-  Lua bound, the tracks that the engine plays from a file, and the plugin
+  Lua bound, the parts that the engine plays from a file, and the plugin
   folders and plugin kinds. The leak check names the first test that
   changed them (not for the plugins: it reads them once for each file). A test file that
   leaves one fails "`<part>` leaves no state behind". Do not add a line to
   `tests/leaks-allowed.txt`.
 - Take ids from the kernel (the value that a call returns). Never write
-  a literal id of a track, a device, a clip or a lane.
+  a literal id of a part, a device, a clip or a lane.
 - Write files under `T.scratch`. Never write in the checkout or in the
   owner's folders.
 - Put back what you change with `T.after`: options, keys, hooks, timers,
@@ -165,7 +165,7 @@ the owner's computer or folders. Mock what it needs.
   error in the tests. To test a rule of the grid on many positions, use
   `paw.timegrid.new(spec)` with positions from a fixed seed, as
   `tests/timegrid.lua` does. Do not use `math.random` without a seed.
-- For a key test of tracks, clips and notes, use one check helper:
+- For a key test of parts, clips and notes, use one check helper:
   `T.check_keys(fixture, keys, expected, what)`. The fixture is a small
   project in a Lua string. Its format has a reference comment in
   `tests/suite.lua` ("Text fixtures"). A failure prints the project as a
@@ -174,9 +174,9 @@ the owner's computer or folders. Mock what it needs.
 
 ```lua
 T.check_keys(
-  "track T\n clip a 0+4\n 60 0+0.5\n 64 0.5+0.5\n cursor 60@0",
+  "part T\n clip a 0+4\n 60 0+0.5\n 64 0.5+0.5\n cursor 60@0",
   "dw",
-  "track T\n clip a 0+4\n 64 0.5+0.5\n cursor 60@0",
+  "part T\n clip a 0+4\n 64 0.5+0.5\n cursor 60@0",
   "dw deletes up to the next note"
 )
 ```
@@ -192,7 +192,7 @@ T.check_keys(
   engine plays a block only when the clock gets to its end, so a meter
   is the same in each run, to the bit. Play with `T.next_block(n)`,
   `T.advance(ms)` or `T.until_beat`, then read the meter with
-  `T.meter(track)`, or wait for a level with `T.level(track)` in
+  `T.meter(part)`, or wait for a level with `T.level(part)` in
   `T.until_`. The lint counts each `:meter(` in a test: a live test only
   reads one. To check that a device sounds, or does not sound, use
   `T.wakes`: it reads no meter.

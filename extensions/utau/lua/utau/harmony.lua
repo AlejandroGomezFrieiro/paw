@@ -1,6 +1,6 @@
--- Harmony and double tracks: a second vocal track made from the first.
+-- Harmony and double parts: a second vocal part made from the first.
 --
--- The new track goes right under the source, as a copy of it (the voice,
+-- The new part goes right under the source, as a copy of it (the voice,
 -- every curve, the lyrics and note properties), a little quieter and panned
 -- to one side. For a harmony its notes move a diatonic interval in a key:
 -- the project's key when one is set (`paw.harmony.project_key`), else the key the melody is in, found with the
@@ -134,10 +134,10 @@ function M.project_key()
   if ok then return mine end
 end
 
---- The notes of a track as `{ pitch, length }`, rests left out.
-local function melody(track_id)
+--- The notes of a part as `{ pitch, length }`, rests left out.
+local function melody(part_id)
   local list = {}
-  for _, c in ipairs(api.clip_list(track_id)) do
+  for _, c in ipairs(api.clip_list(part_id)) do
     if c.kind == "midi" then
       for _, n in ipairs(api.clip_notes(c.id)) do
         local lyric = n.meta and n.meta.lyric
@@ -148,11 +148,11 @@ local function melody(track_id)
   return list
 end
 
---- The key a harmony of a track is in: the project's, else the melody's.
-function M.key_of(track_id)
+--- The key a harmony of a part is in: the project's, else the melody's.
+function M.key_of(part_id)
   local key = M.project_key()
   if key then return key, "project" end
-  local list = melody(track_id)
+  local list = melody(part_id)
   if #list == 0 then return { tonic = 0, scale = "major" }, "default" end
   return M.detect_key(list), "detected"
 end
@@ -169,26 +169,26 @@ M.wobble = wobble
 M.TIMING_RANGE = 18 -- ticks either way
 M.TUNING_RANGE = 8 -- cents either way
 
---- Make a harmony or double track of a vocal track. `opts`: `interval`
+--- Make a harmony or double part of a vocal part. `opts`: `interval`
 --- (an id of M.INTERVALS, "3up" by default), `key` (a name; the project's or
---- the melody's when absent), `preset` (a singer preset for the new track),
+--- the melody's when absent), `preset` (a singer preset for the new part),
 --- `gain` (dB, -3), `pan` (±0.3), `take` (which variation a double sings, 1).
---- Returns the new track and what was done.
-function M.create(track_id, opts)
+--- Returns the new part and what was done.
+function M.create(part_id, opts)
   opts = opts or {}
-  if not utau.device_of(track_id) then error("not a vocal track", 0) end
+  if not utau.device_of(part_id) then error("not a vocal part", 0) end
   local iv = M.INTERVAL[opts.interval or "3up"] or error("no interval `" .. tostring(opts.interval) .. "`", 0)
   local key, source
   if opts.key then
     key, source = M.parse_key(opts.key), "given"
   else
-    key, source = M.key_of(track_id)
+    key, source = M.key_of(part_id)
   end
   local index = 0
-  for i, id in ipairs(api.track_list()) do
-    if id == track_id then index = i end
+  for i, id in ipairs(api.part_list()) do
+    if id == part_id then index = i end
   end
-  local src = paw.track(track_id)
+  local src = paw.part(part_id)
   local snap = src:snapshot()
   snap.name = string.format("%s (%s)", src.name, iv.name)
   snap.volume = (snap.volume or 0) + (opts.gain or -3)
@@ -220,10 +220,10 @@ function M.create(track_id, opts)
       count = count + 1
     end
   end
-  local track = paw.restore_track(snap, index + 1)
-  if opts.preset then require("utau.singer_presets").apply(track.id, opts.preset) end
+  local part = paw.restore_part(snap, index + 1)
+  if opts.preset then require("utau.singer_presets").apply(part.id, opts.preset) end
   utau.schedule()
-  return track, { notes = count, key = key, key_source = source, interval = iv }
+  return part, { notes = count, key = key, key_source = source, interval = iv }
 end
 
 return M

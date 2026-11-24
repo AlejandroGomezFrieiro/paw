@@ -7,7 +7,7 @@ local role = paw.roles.define
 
 --- A note: a bar of `style` (the terminal's) with a mark at its start and,
 --- when it is four cells or longer, its `label` (its name, or the
---- articulation it carries). A window paints it in `color` (its track's),
+--- articulation it carries). A window paints it in `color` (its part's),
 --- fainter the softer its `velocity`, lit when `selected`, outlined when
 --- the keyboard's cursor is on it (`cursor`); `pending` for a note being
 --- drawn in insert mode, not yet written; `ghost` for where a drag will

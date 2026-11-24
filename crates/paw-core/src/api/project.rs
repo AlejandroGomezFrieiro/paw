@@ -40,7 +40,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }
         // Put the open project aside, with its undo history, and open an empty
         // project. `project_unshelve` brings the first project back exactly as it
-        // was. For checks that need their own tracks (extensions/doctor).
+        // was. For checks that need their own parts (extensions/doctor).
         // @return nil
         fn project_shelve(_, sh, () => ()) { sh.session.borrow_mut().project_shelve().lua() }
         // @return nil
@@ -145,32 +145,32 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn clip_collect(_, sh, () => ()) {
             Ok(sh.session.borrow_mut().clip_collect())
         }
-        // Make every track read from a folder outside the project, and every
+        // Make every part read from a folder outside the project, and every
         // chain of devices read from a file outside it, the project's own.
-        // Returns how many tracks and how many chains.
+        // Returns how many parts and how many chains.
         // @return integer, integer
-        fn track_collect(_, sh, () => ()) {
-            Ok(sh.session.borrow_mut().doc.track_collect())
+        fn part_collect(_, sh, () => ()) {
+            Ok(sh.session.borrow_mut().doc.part_collect())
         }
-        // Add the track of a track folder outside the project (a folder with
-        // a `track.json`) at `index` (from 1; the end when nil). The project
-        // refers to the folder until the track's first edit. Returns its id.
+        // Add the part of a part folder outside the project (a folder with
+        // a `part.json`) at `index` (from 1; the end when nil). The project
+        // refers to the folder until the part's first edit. Returns its id.
         // @return integer
-        fn track_import_folder(_, sh, (folder, index) => (String, Option<usize>)) {
-            sh.session.borrow_mut().track_import_folder(Path::new(&folder), index).lua()
+        fn part_import_folder(_, sh, (folder, index) => (String, Option<usize>)) {
+            sh.session.borrow_mut().part_import_folder(Path::new(&folder), index).lua()
         }
-        // Give a track the devices of a chain file (a `devices.json`). With
-        // `refer`, the track refers to the file until the chain's first edit.
+        // Give a part the devices of a chain file (a `devices.json`). With
+        // `refer`, the part refers to the file until the chain's first edit.
         // Returns how many devices.
         // @return integer
-        fn track_chain_file(_, sh, (track, file, refer) => (Id, String, Option<bool>)) {
-            sh.session.borrow_mut().track_chain_file(track, Path::new(&file), refer.unwrap_or(true)).lua()
+        fn part_chain_file(_, sh, (part, file, refer) => (Id, String, Option<bool>)) {
+            sh.session.borrow_mut().part_chain_file(part, Path::new(&file), refer.unwrap_or(true)).lua()
         }
-        // Write a track's devices as a chain file: `file` (a `devices.json`)
+        // Write a part's devices as a chain file: `file` (a `devices.json`)
         // and the `.state` files of the plugins beside it. Returns the files.
         // @return {string}
-        fn chain_write(lua, sh, (track, file) => (Id, String)) {
-            let written = sh.session.borrow_mut().chain_write(track, Path::new(&file)).lua()?;
+        fn chain_write(lua, sh, (part, file) => (Id, String)) {
+            let written = sh.session.borrow_mut().chain_write(part, Path::new(&file)).lua()?;
             to_lua(lua, &written)
         }
         // The files of the open project that changed outside paw and are not

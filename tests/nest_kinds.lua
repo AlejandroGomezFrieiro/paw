@@ -28,7 +28,7 @@ end
 local function names(ids)
   local out = {}
   for i, id in ipairs(ids) do
-    out[i] = api.track_get(id, "name")
+    out[i] = api.part_get(id, "name")
   end
   return table.concat(out, " ")
 end
@@ -41,10 +41,10 @@ local function described()
   return said
 end
 
--- A fixture extension: the kind `beats.pattern` makes a track Kit with a
+-- A fixture extension: the kind `beats.pattern` makes a part Kit with a
 -- synth and a note, keeps 16 steps as its data, and opens its view
 -- `beatgrid` when a window goes inside. The kind `beats.broken` adds a
--- track, then fails.
+-- part, then fails.
 local EXTENSION = [[
 paw.ui.view("beatgrid", {
   title = "Beat grid",
@@ -54,9 +54,9 @@ paw.nest.define_kind("beats.pattern", {
   title = "Beat pattern",
   letter = "B",
   create = function(region)
-    local kit = paw.api.track_add({ nest = region.nest, name = "Kit" })
+    local kit = paw.api.part_add({ nest = region.nest, name = "Kit" })
     paw.api.clip_add(kit, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-    paw.track(kit):add_device("synth", { attack = 0.001, release = 0.01 })
+    paw.part(kit):add_device("synth", { attack = 0.001, release = 0.01 })
     return { steps = 16 }
   end,
   enter = function() paw.ui.focus("beatgrid") end,
@@ -65,7 +65,7 @@ paw.nest.define_kind("beats.pattern", {
 paw.nest.define_kind("beats.broken", {
   title = "Broken pattern",
   create = function(region)
-    paw.api.track_add({ nest = region.nest, name = "Half" })
+    paw.api.part_add({ nest = region.nest, name = "Half" })
     return nil, "no kit here"
   end,
 })
@@ -82,17 +82,17 @@ local function load_kind()
   end)
 end
 
---- A song with a Drums track, and `:nest.new Groove 2 kind=beats.pattern`
+--- A song with a Drums part, and `:nest.new Groove 2 kind=beats.pattern`
 --- typed on it at bar 3: the window is inside the new subproject.
 local function groove()
-  local drums = paw.add_track({ name = "Drums" })
-  paw.cursor.set_track(drums.id)
+  local drums = paw.add_part({ name = "Drums" })
+  paw.cursor.set_part(drums.id)
   paw.flush()
   api.undo_checkpoint()
   keys("3|")
   keys(":nest.new Groove 2 kind=beats.pattern<CR>")
   local nest = paw.scope.nest().id
-  local row = api.track_list()[2]
+  local row = api.part_list()[2]
   return { nest = nest, row = row, block = api.clip_list(row)[1].id }
 end
 
@@ -101,14 +101,14 @@ test("a kind of subproject: :nest.new kind= runs its create, and znn on its bloc
   load_kind()
   local g = groove()
   eq(paw.scope.breadcrumb(), "Song › ⧉Groove", "the window is inside the new subproject")
-  eq(names(api.track_list({ nest = g.nest })), "Kit", "the tracks of create, and no empty track")
+  eq(names(api.part_list({ nest = g.nest })), "Kit", "the parts of create, and no empty part")
   eq(paw.nest.data(g.nest).steps, 16, "the data of create")
   eq(paw.ui.focused, "beatgrid", ":nest.new opened the kind's view")
   eq(paw.ui.message.text:find("Groove (Beat pattern) over bars 3-4", 1, true) ~= nil, true, paw.ui.message.text)
 
   paw.ui.focus("arrange")
   keys("zw")
-  paw.cursor.set_track(g.row)
+  paw.cursor.set_part(g.row)
   paw.cursor.set_beat(9)
   eq(T.screen(120, 30):find("⧉B Groove", 1, true) ~= nil, true, "the block shows the kind's letter")
   eq(described():find("subproject Groove (Beat pattern: 16 steps)", 1, true) ~= nil, true, "K names the kind")
@@ -119,12 +119,12 @@ test("a kind of subproject: :nest.new kind= runs its create, and znn on its bloc
   T.expect_error("Broken pattern: no kit here")
   paw.ui.focus("arrange")
   keys("zw")
-  local nests, tracks = #api.nest_list(), #api.track_list({ all = true })
+  local nests, parts = #api.nest_list(), #api.part_list({ all = true })
   keys(":nest.new kind=drums.loop<CR>")
   keys(":nest.new kind=beats.broken<CR>")
   eq(
-    { #api.nest_list(), #api.track_list({ all = true }) },
-    { nests, tracks },
+    { #api.nest_list(), #api.part_list({ all = true }) },
+    { nests, parts },
     "an unknown kind and a create that fails leave the project as it was"
   )
 end)
@@ -148,8 +148,8 @@ test("without the extension, a kind's subproject opens, plays, and the arrange v
   eq(T.channel_peaks(info, 0, 3.9) < 1e-3, true, "nothing before bar 3")
   eq(T.channel_peaks(info, 4, 4.5) > 0.01, true, "its Kit plays at bar 3")
 
-  local row = api.track_list()[2]
-  paw.cursor.set_track(row)
+  local row = api.part_list()[2]
+  paw.cursor.set_part(row)
   paw.cursor.set_beat(9)
   eq(T.screen(120, 30):find("⧉ Groove", 1, true) ~= nil, true, "the block has no letter")
   eq(
@@ -161,14 +161,14 @@ test("without the extension, a kind's subproject opens, plays, and the arrange v
   eq(paw.scope.breadcrumb(), "Song › ⧉Groove", "znn enters it")
   eq(paw.ui.focused, "arrange", "in the arrange view")
   keys("o")
-  eq(names(api.track_list({ nest = nest })), "Kit Track 2", "o adds a track in it")
+  eq(names(api.part_list({ nest = nest })), "Kit Part 2", "o adds a part in it")
 end)
 
 test("nest.enter and nest.leave come once for each enter and leave; nest.changed once for each edit inside", function()
   start()
-  local row = paw.add_track({ name = "Ballad" })
+  local row = paw.add_part({ name = "Ballad" })
   local nest = api.nest_add({ name = "Ballad", length = 16 })
-  local piano = api.track_add({ name = "Piano", nest = nest })
+  local piano = api.part_add({ name = "Piano", nest = nest })
   api.clip_add(piano, { start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   api.clip_add(row.id, { nest = nest, start = 16 })
   paw.flush()
@@ -190,20 +190,20 @@ test("nest.enter and nest.leave come once for each enter and leave; nest.changed
     T.until_(function() return edits > was end, "the edit of " .. key .. " ends")
   end
 
-  paw.cursor.set_track(row.id)
+  paw.cursor.set_part(row.id)
   paw.cursor.set_beat(17)
   keys("znn")
-  paw.cursor.set_track(piano)
+  paw.cursor.set_part(piano)
   paw.cursor.set_beat(0)
   edit("x")
   edit("o")
-  edit(":track.remove<CR>")
+  edit(":part.remove<CR>")
   keys("zw")
   edit("o")
   keys("<C-o>")
   eq(
     table.concat(seen, ", "),
     "nest.enter Ballad, nest.changed Ballad, nest.changed Ballad, nest.changed Ballad, nest.leave Ballad, nest.enter Ballad",
-    "znn, x, o and :track.remove inside, zw, o in the song, <C-o>"
+    "znn, x, o and :part.remove inside, zw, o in the song, <C-o>"
   )
 end)

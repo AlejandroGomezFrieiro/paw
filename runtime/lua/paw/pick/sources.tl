@@ -42,7 +42,7 @@ local type Map = KeymapModule.Map
 --- A mapping with what kind of key it is, as `paw.keymap.all` gives it.
 local type KeyAll = KeymapModule.KeyAll
 
---- What a register holds: keys (a macro), tracks, a stretch of time,
+--- What a register holds: keys (a macro), parts, a stretch of time,
 --- notes or a device.
 local record Register is KeymapModule.Register
   record Named
@@ -52,16 +52,16 @@ local record Register is KeymapModule.Register
     kind: string
   end
   keys: string
-  tracks: {Named}
+  parts: {Named}
   rows: {{integer}}
   length: number
   notes: {types.Note}
   device: Device
 end
 
---- The tracks in scope (paw/scope.tl): what this module calls of it.
+--- The parts in scope (paw/scope.tl): what this module calls of it.
 local record Scope
-  tracks: function(): {integer}
+  parts: function(): {integer}
 end
 
 --- A device that can be added, as paw/fx.lua lists it: a device type,
@@ -78,19 +78,19 @@ local record DeviceInfo
   from: string
 end
 
---- What `paw.fx.add` and `added` take besides the track and the kind.
+--- What `paw.fx.add` and `added` take besides the part and the kind.
 local record AddOptions
   query: string
 end
 
 --- The devices (paw/fx.lua, in Lua): what this module calls of them.
 local record Fx
-  preferred: function(track_id: integer): string
+  preferred: function(part_id: integer): string
   device_list: function(wanted: string): {DeviceInfo}
   device_line: function(info: DeviceInfo): string
   rank: function(info: DeviceInfo, query: string, line: string, wanted: string): number
-  add: function(track: objects.Track, kind: string, opts?: AddOptions): objects.Device
-  place: function(track: objects.Track, kind: string): types.Device
+  add: function(part: objects.Part, kind: string, opts?: AddOptions): objects.Device
+  place: function(part: objects.Part, kind: string): types.Device
   added: function(device: types.Device, kind: string, opts?: AddOptions)
   toggle_favourite: function(kind: string)
 end
@@ -160,8 +160,8 @@ local record KeyLine
   humans: {string: boolean}
 end
 
---- A track of the tracks picker.
-local record TrackLine
+--- A part of the parts picker.
+local record PartLine
   id: integer
   index: integer
   name: string
@@ -170,15 +170,15 @@ end
 --- A clip of the clips picker.
 local record ClipLine
   id: integer
-  track: integer
-  track_name: string
+  part: integer
+  part_name: string
   name: string
   start: number
   length: number
   kind: types.ClipKind
 end
 
---- A device on the track.
+--- A device on the part.
 local record DeviceLine
   id: integer
   index: integer
@@ -220,7 +220,7 @@ local record M
   type DeviceInfo = DeviceInfo
   type PickerLine = PickerLine
   type KeyLine = KeyLine
-  type TrackLine = TrackLine
+  type PartLine = PartLine
   type ClipLine = ClipLine
   type DeviceLine = DeviceLine
   type MarkLine = MarkLine
@@ -232,12 +232,12 @@ local record M
   metamethod __call: function(self: M, pick: Pick): Sources
 end
 
-local function need_track(): objects.Track
-  local track = paw.cursor.track()
-  if not track then
-    paw.notify("no track selected", "warn")
+local function need_part(): objects.Part
+  local part = paw.cursor.part()
+  if not part then
+    paw.notify("no part selected", "warn")
   end
-  return track
+  return part
 end
 
 local function plural(n: integer, word: string): string
@@ -379,10 +379,10 @@ local function run_key(entry: KeyLine)
   keymap.normal(map.lhs)
 end
 
--- Tracks and clips ---------------------------------------------------------------
+-- Parts and clips ---------------------------------------------------------------
 
-local function track_name(id: integer): string
-  local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
+local function part_name(id: integer): string
+  local ok, t = pcall(api.part_get, id) as (boolean, types.Part)
   return ok and t.name or "?"
 end
 
@@ -401,21 +401,19 @@ local function describe(value: Register): string
   if value.kind == "keys" then
     return "macro   " .. value.keys
   end
-  if value.kind == "tracks" then
+  if value.kind == "parts" then
     local list: {string} = {}
-    for i, t in ipairs(value.tracks) do
+    for i, t in ipairs(value.parts) do
       list[i] = t.name
     end
-    return "tracks  " .. table.concat(list, ", ")
+    return "parts  " .. table.concat(list, ", ")
   end
   if value.kind == "range" then
     local clips = 0
     for _, row in ipairs(value.rows) do
       clips = clips + #row
     end
-    return string.format(
-      "time    %g beats on %s, %s", value.length, plural(#value.rows, "track"), plural(clips, "clip")
-    )
+    return string.format("time    %g beats on %s, %s", value.length, plural(#value.rows, "part"), plural(clips, "clip"))
   end
   if value.kind == "notes" then
     return string.format("notes   %d over %g beats", #value.notes, value.length)
@@ -786,35 +784,35 @@ local function make(pick: Pick): Sources
     return keys
   end
 
-  -- Tracks and clips ---------------------------------------------------------------
+  -- Parts and clips ---------------------------------------------------------------
 
-  local tracks: contracts.PickSource<TrackLine> = {
-    desc = "Go to a track",
-    title = "Tracks",
-    items = function(): {TrackLine}
-      local out: {TrackLine} = {}
-      for i, id in ipairs(paw.scope.tracks()) do
-        out[#out + 1] = {id = id, index = i, name = track_name(id)}
+  local parts: contracts.PickSource<PartLine> = {
+    desc = "Go to a part",
+    title = "Parts",
+    items = function(): {PartLine}
+      local out: {PartLine} = {}
+      for i, id in ipairs(paw.scope.parts()) do
+        out[#out + 1] = {id = id, index = i, name = part_name(id)}
       end
       return out
     end,
-    format = function(t: TrackLine): string return string.format("%2d  %s", t.index, t.name) end,
-    location = function(t: TrackLine): string return paw.address.track(t.id) end,
-    on_choose = function(t: TrackLine) keymap.push_jump(); paw.cursor.set_track(t.id); center() end,
-    delete = function(list: {TrackLine})
-      api.undo_label(#list == 1 and "Remove the track" or "Remove tracks")
+    format = function(t: PartLine): string return string.format("%2d  %s", t.index, t.name) end,
+    location = function(t: PartLine): string return paw.address.part(t.id) end,
+    on_choose = function(t: PartLine) keymap.push_jump(); paw.cursor.set_part(t.id); center() end,
+    delete = function(list: {PartLine})
+      api.undo_label(#list == 1 and "Remove the part" or "Remove parts")
       for _, t in ipairs(list) do
-        if pcall(api.track_get, t.id) then
-          api.track_remove(t.id)
+        if pcall(api.part_get, t.id) then
+          api.part_remove(t.id)
         end
       end
     end,
-    -- What the track plays around the cursor, heard when asked for.
-    audition_key = "tracks",
+    -- What the part plays around the cursor, heard when asked for.
+    audition_key = "parts",
     audition_default = false,
-    audition = function(t: TrackLine): string return t.name .. " · " .. paw.audition.through(t.id) end,
-    preview = function(t: TrackLine): {string | contracts.PageLine}
-      local info = api.track_get(t.id)
+    audition = function(t: PartLine): string return t.name .. " · " .. paw.audition.through(t.id) end,
+    preview = function(t: PartLine): {string | contracts.PageLine}
+      local info = api.part_get(t.id)
       local lines: {string | contracts.PageLine} = {{text = info.name, style = "Title"}, ""}
       lines[#lines + 1] = string.format(
         "volume %+.1f dB, pan %+.2f%s%s",
@@ -823,7 +821,7 @@ local function make(pick: Pick): Sources
         info.mute and ", muted" or "",
         info.solo and ", solo" or ""
       )
-      lines[#lines + 1] = "output  " .. (info.output and track_name(info.output) or "Master")
+      lines[#lines + 1] = "output  " .. (info.output and part_name(info.output) or "Master")
       for i, id in ipairs(info.devices) do
         lines[#lines + 1] = string.format("%d. %s", i, api.device_get(id).name)
       end
@@ -836,31 +834,31 @@ local function make(pick: Pick): Sources
       return lines
     end,
   }
-  S.tracks = tracks
+  S.parts = parts
 
   local clips: contracts.PickSource<ClipLine> = {
     desc = "Go to a clip",
     title = "Clips",
     items = function(): {ClipLine}
       local out: {ClipLine} = {}
-      for _, id in ipairs(paw.scope.tracks()) do
-        local name = track_name(id)
+      for _, id in ipairs(paw.scope.parts()) do
+        local name = part_name(id)
         for _, c in ipairs(api.clip_list(id)) do
           out[#out + 1] = {
-            id = c.id, track = id, track_name = name, name = c.name, start = c.start, length = c.length, kind = c.kind
+            id = c.id, part = id, part_name = name, name = c.name, start = c.start, length = c.length, kind = c.kind
           }
         end
       end
       return out
     end,
     format = function(c: ClipLine): string
-      return string.format("%-20s %-14s %s", c.name, c.track_name, paw.time.format(c.start))
+      return string.format("%-20s %-14s %s", c.name, c.part_name, paw.time.format(c.start))
     end,
     location = function(c: ClipLine): string return paw.address.clip(c.id) end,
     on_choose = function(c: ClipLine)
       keymap.push_jump()
       paw.ui.focus("arrange")
-      paw.cursor.set_track(c.track)
+      paw.cursor.set_part(c.part)
       paw.cursor.set_beat(c.start)
       local arrange = paw.ui.views:get("arrange") as contracts.ArrangeView
       arrange:center()
@@ -878,7 +876,7 @@ local function make(pick: Pick): Sources
       local info = api.clip_get(c.id)
       local lines: {string | contracts.PageLine} = {
         {text = info.name, style = "Title"},
-        "track   " .. c.track_name,
+        "part   " .. c.part_name,
         string.format(
           "from    %s to %s, %g beats%s",
           paw.time.format(info.start),
@@ -895,7 +893,7 @@ local function make(pick: Pick): Sources
       end
       return lines
     end,
-    -- Heard: an audio clip's file; a MIDI clip's first bars through its track.
+    -- Heard: an audio clip's file; a MIDI clip's first bars through its part.
     audition_key = "clips",
     audition = function(c: ClipLine): string
       local info = api.clip_get(c.id)
@@ -911,8 +909,8 @@ local function make(pick: Pick): Sources
           notes[#notes + 1] = {pitch = n.pitch, start = n.start, length = n.length, velocity = n.velocity}
         end
       end
-      paw.audition.phrase(c.track, notes, {length = length, label = info.name, key = "clip" .. c.id})
-      return string.format("%s · %g beats on %s", info.name, length, c.track_name)
+      paw.audition.phrase(c.part, notes, {length = length, label = info.name, key = "clip" .. c.id})
+      return string.format("%s · %g beats on %s", info.name, length, c.part_name)
     end,
   }
   S.clips = clips
@@ -920,14 +918,14 @@ local function make(pick: Pick): Sources
   -- Devices ------------------------------------------------------------------------
 
   local typed: string -- what was typed in the device picker, remembered with the choice
-  local wanted: string -- the kind of device the track most likely needs, listed first
+  local wanted: string -- the kind of device the part most likely needs, listed first
   local devices: contracts.PickSource<DeviceInfo> = {
-    desc = "Add a device or plugin to the track",
+    desc = "Add a device or plugin to the part",
     title = "Add a device",
     -- Favourites first, then the ones used last; `@instrument`, `@clap`,
     -- `@fav` or `@<vendor>` typed filter (see `paw.fx.rank`).
     items = function(): {DeviceInfo}
-      wanted = paw.fx.preferred(paw.cursor.track_id())
+      wanted = paw.fx.preferred(paw.cursor.part_id())
       return paw.fx.device_list(wanted)
     end,
     format = function(info: DeviceInfo): string return paw.fx.device_line(info) end,
@@ -936,33 +934,33 @@ local function make(pick: Pick): Sources
       return paw.fx.rank(info, query, line, wanted)
     end,
     on_choose = function(info: DeviceInfo)
-      local track = need_track()
-      if not track then
+      local part = need_part()
+      if not part then
         return
       end
-      api.undo_label("add " .. info.name .. " to " .. track.name)
-      paw.fx.add(track, info.kind, {query = typed})
-      paw.notify("added " .. info.name .. " to " .. track.name)
+      api.undo_label("add " .. info.name .. " to " .. part.name)
+      paw.fx.add(part, info.kind, {query = typed})
+      paw.notify("added " .. info.name .. " to " .. part.name)
     end,
-    -- Heard on the track, with what it plays around the cursor: added as a
+    -- Heard on the part, with what it plays around the cursor: added as a
     -- trial, taken away again unless chosen. A plugin is made apart, so
     -- the selection rests on it longer first.
     audition = function(info: DeviceInfo): string | contracts.Hearing<DeviceInfo>
-      local track = paw.cursor.track()
-      if not track then
-        return "no track to try it on"
+      local part = paw.cursor.part()
+      if not part then
+        return "no part to try it on"
       end
-      local device = paw.audition.try(function(): types.Device return paw.fx.place(track, info.kind) end)
+      local device = paw.audition.try(function(): types.Device return paw.fx.place(part, info.kind) end)
       local hearing: contracts.Hearing<DeviceInfo> = {
-        label = info.name .. " · " .. paw.audition.through(track.id),
+        label = info.name .. " · " .. paw.audition.through(part.id),
         loading = function(): boolean
           local ok, d = pcall(api.device_get, device.id) as (boolean, types.Device)
           return ok and d.status == "loading"
         end,
         keep = function()
-          api.undo_label("add " .. info.name .. " to " .. track.name)
+          api.undo_label("add " .. info.name .. " to " .. part.name)
           paw.fx.added(device, info.kind, {query = typed})
-          paw.notify("added " .. info.name .. " to " .. track.name)
+          paw.notify("added " .. info.name .. " to " .. part.name)
         end,
       }
       return hearing
@@ -1020,14 +1018,14 @@ local function make(pick: Pick): Sources
   }
   S.devices = devices
 
-  local track_devices: contracts.PickSource<DeviceLine> = {
-    desc = "Devices on the track: show one in the device panel",
-    title = "Devices on the track",
-    empty = "No devices on this track. `<leader>da` adds one.",
+  local part_devices: contracts.PickSource<DeviceLine> = {
+    desc = "Devices on the part: show one in the device panel",
+    title = "Devices on the part",
+    empty = "No devices on this part. `<leader>da` adds one.",
     items = function(): {DeviceLine}
-      local track = paw.cursor.track()
+      local part = paw.cursor.part()
       local out: {DeviceLine} = {}
-      for i, device in ipairs(track and track:devices() or {}) do
+      for i, device in ipairs(part and part:devices() or {}) do
         local d = device:get()
         out[#out + 1] = {id = d.id, index = i, name = d.name, kind = d.kind, bypass = d.bypass}
       end
@@ -1068,7 +1066,7 @@ local function make(pick: Pick): Sources
       return lines
     end,
   }
-  S.track_devices = track_devices
+  S.part_devices = part_devices
 
   -- Marks and registers ------------------------------------------------------------
 
@@ -1089,8 +1087,8 @@ local function make(pick: Pick): Sources
           local pos = list[name]
           local where: string
           if view == "arrange" then
-            local ok, t = pcall(api.track_get, pos.track) as (boolean, types.Track)
-            where = paw.time.format(pos.beat) .. "  " .. (ok and t.name or "(track gone)")
+            local ok, t = pcall(api.part_get, pos.part) as (boolean, types.Part)
+            where = paw.time.format(pos.beat) .. "  " .. (ok and t.name or "(part gone)")
           else
             where = paw.music.name(math.floor(pos[1] as number)) .. "  beat " .. (pos[2] as number) + 1
           end
@@ -1192,11 +1190,11 @@ local function make(pick: Pick): Sources
         paw.commands.run("import", {f.path})
         return
       end
-      local track = need_track()
-      if not track then
+      local part = need_part()
+      if not part then
         return
       end
-      track:add_clip({start = paw.cursor.beat, file = f.path})
+      part:add_clip({start = paw.cursor.beat, file = f.path})
     end,
     audition_key = "files",
     audition = function(f: FileLine): string return pick.hear_file(f.path) end,
@@ -1209,15 +1207,15 @@ local function make(pick: Pick): Sources
           {text = f.path, style = "Title"},
           "",
           "A MIDI file.",
-          "Enter brings its tracks in at " .. paw.time.format(paw.cursor.beat) .. "; `:open` opens it as a project.",
+          "Enter brings its parts in at " .. paw.time.format(paw.cursor.beat) .. "; `:open` opens it as a project.",
         }
       end
-      local track = paw.cursor.track()
+      local part = paw.cursor.part()
       return {
         {text = f.path, style = "Title"},
         "",
         "Audio.",
-        "Enter adds it at " .. paw.time.format(paw.cursor.beat) .. (track and " on " .. track.name or ""),
+        "Enter adds it at " .. paw.time.format(paw.cursor.beat) .. (part and " on " .. part.name or ""),
       }
     end,
   }

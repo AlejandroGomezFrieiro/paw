@@ -187,7 +187,7 @@ impl<T> LuaResult<T> for anyhow::Result<T> {
 }
 
 pub(crate) fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValue> {
-    // JSON null becomes nil, so that `if track.output then` reads naturally.
+    // JSON null becomes nil, so that `if part.output then` reads naturally.
     let options = SerializeOptions::new()
         .serialize_none_to_null(false)
         .serialize_unit_to_null(false);
@@ -272,7 +272,7 @@ fn attr_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Option<NoteAttr>> {
     Ok(from_lua::<Given>(lua, value)?.0)
 }
 
-/// What a setter (`track_set`, `clip_set` ...) is given: one `key` and its
+/// What a setter (`part_set`, `clip_set` ...) is given: one `key` and its
 /// `value`, or a table of changes by key (a patch), in the order of their
 /// names. A patch cannot clear a field: a table has no entry for nil.
 fn changes(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<Vec<(String, LuaValue)>> {
@@ -484,7 +484,7 @@ pub(crate) const API_VERSION: &str = "1.0.0";
 // its functions with `define!`. tools/apidoc.lua and paw-mcp's reference
 // read the comments over each `fn` of these files: keep the one-line form.
 mod project;
-mod tracks;
+mod parts;
 mod devices;
 mod clips;
 mod kind_data;
@@ -511,7 +511,7 @@ pub(crate) fn install(lua: &Lua, shared: &Rc<Shared>) -> mlua::Result<()> {
     api.set("version", API_VERSION)?;
 
     project::install(lua, &api, shared)?;
-    tracks::install(lua, &api, shared)?;
+    parts::install(lua, &api, shared)?;
     devices::install(lua, &api, shared)?;
     chain::install(lua, &api, shared)?;
     clips::install(lua, &api, shared)?;

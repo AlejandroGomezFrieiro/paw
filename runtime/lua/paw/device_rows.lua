@@ -1,5 +1,5 @@
 -- The device panel as a grid of rows, so that the grammar works on it: its
--- rows are the devices of the cursor track, each followed by its
+-- rows are the devices of the cursor part, each followed by its
 -- parameters. `j` `k` go from row to row, `w` `b` from device to device;
 -- `+` `-` (and `Ctrl-a` `Ctrl-x` with a count) change the parameter under
 -- the cursor, or a device's wet/dry mix on its own row; `d` `y` `p` cut,
@@ -12,7 +12,7 @@ local M = {}
 
 local function rows() return panel:rows() end
 
---- The row of the cursor. `rows()` first: on another track, or in another
+--- The row of the cursor. `rows()` first: on another part, or in another
 --- project, it starts again on the first device before a key moves it.
 local function here()
   rows()
@@ -159,11 +159,11 @@ dmap("<A-k>", function()
   local device = panel:selected()
   if device and device.index > 1 then device:move(device.index - 1) end
 end, "Move the device earlier in the chain")
--- `s` `M` `r` solo, mute and arm the track, as wherever there is a track.
-dmap("s", "track.solo", "Solo the track")
-dmap("M", "track.mute", "Mute the track")
-dmap("r", "track.armed", "Arm the track for recording")
-dmap("gS", "device.sidechain", "Choose the track the device listens to (side-chain)")
+-- `s` `M` `r` solo, mute and arm the part, as wherever there is a part.
+dmap("s", "part.solo", "Solo the part")
+dmap("M", "part.mute", "Mute the part")
+dmap("r", "part.armed", "Arm the part for recording")
+dmap("gS", "device.sidechain", "Choose the part the device listens to (side-chain)")
 
 --- What `K` shows: the device, or the parameter, under the cursor.
 function panel:describe()
@@ -277,8 +277,8 @@ vop("<C-x>", -1, "Lower the parameters selected by the count", "main-")
 
 local function paste(offset)
   return function(ctx)
-    local value, track = keymap.getreg(ctx.register), paw.cursor.track()
-    if not track then return paw.notify("no track selected", "warn") end
+    local value, part = keymap.getreg(ctx.register), paw.cursor.part()
+    if not part then return paw.notify("no part selected", "warn") end
     local device = panel:selected()
     -- Settings: onto the device under the cursor, by the parameters' keys.
     if value and value.kind == "params" then
@@ -294,15 +294,15 @@ local function paste(offset)
     local at = device and device.index + offset or nil
     -- Several devices, from a selection, go in in their order.
     for i, snap in ipairs(value.devices or { value.device }) do
-      paw.restore_device(snap, track, at and at + i - 1)
+      paw.restore_device(snap, part, at and at + i - 1)
     end
   end
 end
 dmap("p", paste(1), "Paste devices after this one, or settings onto it")
 dmap("P", paste(0), "Paste devices before this one, or settings onto it")
 
--- A window of the panel pinned to a track shows that track's devices
--- wherever the cursor goes: two panels show two tracks.
+-- A window of the panel pinned to a part shows that part's devices
+-- wherever the cursor goes: two panels show two parts.
 paw.command("devices.pin", function(ctx)
   local L = paw.layout
   local cur = L.current()
@@ -313,20 +313,20 @@ paw.command("devices.pin", function(ctx)
   local name = ctx.args[1] and table.concat(ctx.args, " ")
   L.within(win, function()
     if name then
-      local id = panel.track_named(name)
-      if not id then return paw.notify("no track `" .. name .. "`", "warn") end
+      local id = panel.part_named(name)
+      if not id then return paw.notify("no part `" .. name .. "`", "warn") end
       return panel:set_pin(id)
     end
     if panel.pin then return panel:set_pin(nil) end
-    local id = panel:track_id()
-    if not id then return paw.notify("no track to pin the panel to", "warn") end
+    local id = panel:part_id()
+    if not id then return paw.notify("no part to pin the panel to", "warn") end
     panel:set_pin(id)
   end)
 end, {
-  desc = "Keep the device panel on a track whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
-  complete = { "tracks" },
+  desc = "Keep the device panel on a part whatever the cursor is on, or follow the cursor again: `devices.pin`, `devices.pin Bass`",
+  complete = { "parts" },
 })
-dmap("<localleader>p", "devices.pin", "Pin the panel to its track, or follow the cursor again")
+dmap("<localleader>p", "devices.pin", "Pin the panel to its part, or follow the cursor again")
 
 -- The keys the panel had before the rule (`paw.opt.keys = "classic"`).
 local function classic(lhs, rhs, desc, opts)
@@ -344,7 +344,7 @@ classic(">", "preset.next", "Next preset")
 classic("<lt>", "preset.prev", "Previous preset")
 classic("w", "preset.save", "Save as a preset")
 classic("W", "preset.default", "New ones start from this preset")
-classic("K", "device.sidechain", "Choose the track the device listens to (side-chain)")
+classic("K", "device.sidechain", "Choose the part the device listens to (side-chain)")
 classic("x", "device.remove", "Remove the device")
 
 return M

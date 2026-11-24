@@ -1,23 +1,23 @@
--- The device panel: the cursor track's device chain and every parameter,
--- then where the track's sound goes. One view for both frontends: its
+-- The device panel: the cursor part's device chain and every parameter,
+-- then where the part's sound goes. One view for both frontends: its
 -- parts are roles (paw/roles/widgets.lua) and hit regions, which a window
 -- paints as widgets and the pointer works through `view.gestures`
 -- (paw/views/panels_mouse.lua) in a terminal and in a window alike.
 local api = paw.api
 local util = paw.util
 
--- `pin` is the track a window shows whatever the cursor is on, or nil to
+-- `pin` is the part a window shows whatever the cursor is on, or nil to
 -- follow the cursor. Each window of the panel has its own row, scroll and
--- pin: two panels show the devices of two tracks. `row_track` is the track
+-- pin: two panels show the devices of two parts. `row_part` is the part
 -- the row was chosen on.
 local view = {
   row = 1,
   scroll = 0,
   pin = nil,
-  window_state = { "row", "scroll", "geometry", "pin", "row_track" },
+  window_state = { "row", "scroll", "geometry", "pin", "row_part" },
   window_fresh = { "geometry" },
 }
-paw.seats.fields("devices", view, { "row", "scroll", "geometry", "pin", "row_track" }, { row = 1, scroll = 0 })
+paw.seats.fields("devices", view, { "row", "scroll", "geometry", "pin", "row_part" }, { row = 1, scroll = 0 })
 -- A parameter that a lane moves is drawn bound to its live value: a
 -- window moves it as the song plays with no new scene.
 view.live_roles = { "param" }
@@ -29,20 +29,20 @@ local pictures = require("paw.views.device_pictures")
 -- Reading a plugin with hundreds of parameters is not free, so the rows are
 -- kept until the project changes: an edit made by the key just typed counts
 -- at once, for the keys typed after it in the same breath (a macro, `ddj`).
--- Each track's rows are kept on their own: two windows on two tracks do not
+-- Each part's rows are kept on their own: two windows on two parts do not
 -- read each other's again.
-local cache = { revision = -1, tracks = {} }
+local cache = { revision = -1, parts = {} }
 
 --- The panel as a flat list of rows: a device heading, then its parameters.
-local function rows_for(track_id)
+local function rows_for(part_id)
   local edits = api.project_get("edits")
   if cache.revision ~= paw.frontend.revision or cache.edits ~= edits then
-    cache = { revision = paw.frontend.revision, edits = edits, tracks = {} }
+    cache = { revision = paw.frontend.revision, edits = edits, parts = {} }
   end
-  local kept = cache.tracks[track_id or false]
+  local kept = cache.parts[part_id or false]
   if kept then return kept end
   local rows = {}
-  for _, id in ipairs(track_id and api.track_get(track_id).devices or {}) do
+  for _, id in ipairs(part_id and api.part_get(part_id).devices or {}) do
     local device = api.device_get(id)
     rows[#rows + 1] = { device = device }
     local picture = device.format == "builtin" and pictures[device.kind]
@@ -57,86 +57,86 @@ local function rows_for(track_id)
         { device = device, param = param, value = device.params[param.key], host = paw.fx.host_params[param.key] }
     end
   end
-  cache.tracks[track_id or false] = rows
+  cache.parts[part_id or false] = rows
   return rows
 end
 
---- The pinned track of the window, if it is still in the project.
+--- The pinned part of the window, if it is still in the project.
 local function pinned(self)
   local id = self.pin
-  if id and id ~= 0 and pcall(api.track_get, id) then return id end
+  if id and id ~= 0 and pcall(api.part_get, id) then return id end
 end
 
---- The id of the track whose devices the window shows: its pinned track,
+--- The id of the part whose devices the window shows: its pinned part,
 --- else the cursor's.
-function view:track_id() return pinned(self) or paw.cursor.track_id() end
+function view:part_id() return pinned(self) or paw.cursor.part_id() end
 
---- The track the window shows, as a `paw.Track`, or nil.
-function view:track()
-  local id = self:track_id()
-  return id and paw.track(id) or nil
+--- The part the window shows, as a `paw.Part`, or nil.
+function view:part()
+  local id = self:part_id()
+  return id and paw.part(id) or nil
 end
 
 function view:rows()
-  local id = self:track_id()
-  -- Another track: the cursor starts again on its first device, not on
+  local id = self:part_id()
+  -- Another part: the cursor starts again on its first device, not on
   -- the row that it had in the chain before.
-  if self.row_track ~= id then
-    self.row_track, self.row, self.scroll = id, 1, 0
+  if self.row_part ~= id then
+    self.row_part, self.row, self.scroll = id, 1, 0
   end
   return rows_for(id)
 end
 
--- Another project can have a track with the same id: its cursor starts
+-- Another project can have a part with the same id: its cursor starts
 -- again on the first device too.
-paw.on("project.loaded", function() view.row_track = nil end)
+paw.on("project.loaded", function() view.row_part = nil end)
 
---- Its title where a window shows one over it: the track it shows.
+--- Its title where a window shows one over it: the part it shows.
 function view:title_of()
-  local track = self:track()
-  if not track then return "Devices" end
-  local n = #api.track_get(track.id).devices
+  local part = self:part()
+  if not part then return "Devices" end
+  local n = #api.part_get(part.id).devices
   return "Devices · "
-    .. track.name
+    .. part.name
     .. (pinned(self) and " (pinned)" or "")
     .. (n > 0 and " · " .. n .. (n == 1 and " device" or " devices") or "")
 end
 
---- The track that a name stands for: its number, `paw://track/3`, or its name.
-local function track_named(target)
-  local id = tonumber(target) or tonumber(tostring(target):match("^paw://track/(%d+)"))
-  if id then return id ~= 0 and pcall(api.track_get, id) and id or nil end
-  for _, other in ipairs(api.track_list()) do
-    if api.track_get(other, "name") == target then return other end
+--- The part that a name stands for: its number, `paw://part/3`, or its name.
+local function part_named(target)
+  local id = tonumber(target) or tonumber(tostring(target):match("^paw://part/(%d+)"))
+  if id then return id ~= 0 and pcall(api.part_get, id) and id or nil end
+  for _, other in ipairs(api.part_list()) do
+    if api.part_get(other, "name") == target then return other end
   end
 end
-view.track_named = track_named
+view.part_named = part_named
 
---- Pin the window to a track (`:e devices://Bass`, `:vs devices://3`).
+--- Pin the window to a part (`:e devices://Bass`, `:vs devices://3`).
 function view:open_target(target)
-  local id = track_named(target)
-  if not id then return false, "no track `" .. tostring(target) .. "`" end
+  local id = part_named(target)
+  if not id then return false, "no part `" .. tostring(target) .. "`" end
   self.pin, self.row, self.scroll = id, 1, 0
 end
 
---- What a saved layout keeps of the window: the number of its pinned track.
+--- What a saved layout keeps of the window: the number of its pinned part.
 function view:window_target() return pinned(self) end
 
---- Pin the window to `track` (an id), or with nil follow the cursor again.
+--- Pin the window to `part` (an id), or with nil follow the cursor again.
 --- It says what it did.
-function view:set_pin(track)
-  self.pin, self.row, self.scroll = track, 1, 0
-  if track then
+function view:set_pin(part)
+  self.pin, self.row, self.scroll = part, 1, 0
+  if part then
     paw.notify(
-      "the device panel stays on " .. api.track_get(track, "name") .. "; `:devices.pin` again follows the cursor"
+      "the device panel stays on " .. api.part_get(part, "name") .. "; `:devices.pin` again follows the cursor"
     )
   else
-    paw.notify("the device panel follows the cursor track")
+    paw.notify("the device panel follows the cursor part")
   end
   api.ui_redraw()
 end
 
---- Keys and commands typed in a pinned window act on its track: the track
+--- Keys and commands typed in a pinned window act on its part: the part
 --- of "the cursor" is the window's while that window has the keyboard, or
 --- while paw draws it.
 paw.cursor.lens = function()
@@ -155,11 +155,11 @@ end
 
 -- Automation ------------------------------------------------------------------------------
 
---- The lanes that play on a track, by device and parameter: `lanes[device][key]`.
-local function playing_lanes(track)
+--- The lanes that play on a part, by device and parameter: `lanes[device][key]`.
+local function playing_lanes(part)
   local out = {}
-  if not track or track.automation == "off" then return out end
-  for _, lane in ipairs(api.lane_list(track.id)) do
+  if not part or part.automation == "off" then return out end
+  for _, lane in ipairs(api.lane_list(part.id)) do
     if lane.target == "param" and lane.enabled and lane.point_count > 0 then
       out[lane.device] = out[lane.device] or {}
       out[lane.device][lane.param] = lane.id
@@ -335,7 +335,7 @@ local function heading(buf, y, w, index, d, devices, chosen)
         buf:mark("label", at, y, #text, 1, { text = text, style = "ParamValue", tone = "text_2" })
       end
     end
-    -- The track it listens to as its side-chain (`gS` chooses it), and how
+    -- The part it listens to as its side-chain (`gS` chooses it), and how
     -- many of its further output pairs play somewhere (`O`): a click on
     -- either chooses in a menu.
     local further = #(d.ports and d.ports.outputs or {}) - 1
@@ -425,12 +425,12 @@ local function param_row(buf, y, lay, index, row, chosen, lanes, binds)
   end
 end
 
---- Where the track's sound goes, from row `y`: the add line, then (not
---- for the master) the track it plays into and its sends. Returns how many
+--- Where the part's sound goes, from row `y`: the add line, then (not
+--- for the master) the part it plays into and its sends. Returns how many
 --- rows that takes, with `draw` false to only count them.
-local function footer(buf, y, w, track, draw)
+local function footer(buf, y, w, part, draw)
   local g = paw.draw.g
-  local routing = not track.master and paw.frontend.routing(track.id) or nil
+  local routing = not part.master and paw.frontend.routing(part.id) or nil
   local n = 1 + (routing and 1 + #routing.sends or 0)
   if not draw then return n end
   buf:mark("button", 1, y, math.min(w - 2, 16), 1, {
@@ -444,9 +444,9 @@ local function footer(buf, y, w, track, draw)
   local out = util.fit(g.out .. " " .. routing.output, math.max(1, w - 12)):gsub("%s+$", "")
   buf:mark("button", 1, y + 1, api.str_width(out) + 2, 1, {
     text = out .. " " .. g.open,
-    style = "TrackInfo",
+    style = "PartInfo",
     menu = true,
-    hit = { kind = "output", track = track.id },
+    hit = { kind = "output", part = part.id },
     label = "output",
   })
   if w >= 20 then
@@ -456,16 +456,16 @@ local function footer(buf, y, w, track, draw)
       y + 1,
       7,
       1,
-      { text = "+ send", style = "TrackInfo", icon = "plus", hit = { kind = "send_add", track = track.id } }
+      { text = "+ send", style = "PartInfo", icon = "plus", hit = { kind = "send_add", part = part.id } }
     )
   end
-  -- Each send: the track, its level on a slider, before the fader or not, and away.
+  -- Each send: the part, its level on a slider, before the fader or not, and away.
   local name_w = math.min(10, math.max(4, w - 26))
   for i, send in ipairs(routing.sends) do
     local sy = y + 1 + i
     buf:mark("label", 1, sy, name_w, 1, {
       text = util.fit(g.send .. " " .. send.name, name_w):gsub("%s+$", ""),
-      style = "TrackInfo",
+      style = "PartInfo",
       font = "sans",
       tone = "text_2",
     })
@@ -478,21 +478,21 @@ local function footer(buf, y, w, track, draw)
       style = "ParamBarDim",
       off_style = "ParamBarOff",
       value_style = "ParamValue",
-      hit = { kind = "send", track = track.id, index = i, bar = math.max(3, width - 9) },
+      hit = { kind = "send", part = part.id, index = i, bar = math.max(3, width - 9) },
       label = "send to " .. send.name,
     })
     buf:mark("button", w - 5, sy, 3, 1, {
       text = "pre",
       style = send.pre and "Bright" or "Faint",
       on = send.pre,
-      hit = { kind = "send_pre", track = track.id, index = i },
+      hit = { kind = "send_pre", part = part.id, index = i },
     })
     buf:mark("button", w - 2, sy, 2, 1, {
       text = g.remove,
       style = "Faint",
       icon = "remove",
       quiet = true,
-      hit = { kind = "send_remove", track = track.id, index = i },
+      hit = { kind = "send_remove", part = part.id, index = i },
     })
   end
   return n
@@ -500,7 +500,7 @@ end
 
 function view:render(buf, ctx)
   local g = paw.draw.g
-  local track = self:track()
+  local part = self:part()
   local rows = self:rows()
   local devices = 0
   for _, row in ipairs(rows) do
@@ -508,7 +508,7 @@ function view:render(buf, ctx)
   end
   local inner = paw.ui.titlebar(buf, {
     name = "Devices",
-    context = track and (track.name .. (pinned(self) and " · pinned" or "")) or nil,
+    context = part and (part.name .. (pinned(self) and " · pinned" or "")) or nil,
     focused = ctx.focused,
     right = devices > 0 and tostring(devices) or nil,
   })
@@ -521,16 +521,16 @@ function view:render(buf, ctx)
   end
   local binds = {}
   mine[ctx.win and ctx.win.id or 0] = binds
-  -- Where the track's sound goes, after the chain, when there is room for
+  -- Where the part's sound goes, after the chain, when there is room for
   -- it and three rows of the chain above.
-  local foot = track and footer(inner, 0, w, track, false) or 0
+  local foot = part and footer(inner, 0, w, part, false) or 0
   if foot > 0 and h - foot - 1 < 3 then foot = h >= 5 and 1 or 0 end
   if #rows == 0 then
     inner:text(2, 1, "No devices.", "Empty")
     inner:text(2, 3, "a", "EmptyKey")
     inner:text(5, 3, "add one", "Empty")
     self.geometry = { list = 0, foot = 5 }
-    if foot > 0 and h > 6 then footer(inner, 5, w, track, true) end
+    if foot > 0 and h > 6 then footer(inner, 5, w, part, true) end
     return
   end
   local list = math.max(1, h - (foot > 0 and foot + 1 or 0))
@@ -539,7 +539,7 @@ function view:render(buf, ctx)
   if self.row > self.scroll + list then self.scroll = self.row - list end
   self.scroll = util.clamp(self.scroll, 0, math.max(0, #rows - list))
   local lay = view.layout(w)
-  local lanes = playing_lanes(track)
+  local lanes = playing_lanes(part)
   local shown, drawn_pictures = 0, false
   for y = 0, list - 1 do
     local index = y + 1 + self.scroll
@@ -566,7 +566,7 @@ function view:render(buf, ctx)
     if chosen then inner:text(0, y, g.mark, "SelectedMark") end
   end
   self.geometry = { list = list, foot = foot > 0 and shown + 1 or nil, lay = lay, pictures = drawn_pictures }
-  if foot > 0 then footer(inner, shown + 1, w, track, true) end
+  if foot > 0 then footer(inner, shown + 1, w, part, true) end
 end
 
 --- Move the selected parameter by `steps` out of 100 across its range.

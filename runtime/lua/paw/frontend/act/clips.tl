@@ -79,7 +79,7 @@ function M.chosen_clips(): {integer}
   return out
 end
 
---- Where each drawn track is, by id: its row from 1.
+--- Where each drawn part is, by id: its row from 1.
 local function row_index(): {integer: integer}
   local rows: {integer: integer} = {}
   for i, id in ipairs(paw.groups.rows()) do
@@ -96,7 +96,7 @@ local function clip_region(): Region
   local r0, r1, c0, c1 = math.huge, -math.huge, math.huge, -math.huge
   for _, id in ipairs(M.chosen_clips()) do
     local c = api.clip_get(id)
-    local row = rows[c.track]
+    local row = rows[c.part]
     if row then
       set[id] = true
       r0, r1 = math.min(r0, row), math.max(r1, row)
@@ -166,13 +166,13 @@ function A.clear_clip_selection()
   end
 end
 
---- Put the cursor on a track at a beat: a click on a lane or a header. A
+--- Put the cursor on a part at a beat: a click on a lane or a header. A
 --- click on a lane (one with a beat) lets go of the chosen clips.
-function A.select(track: integer, beat?: number)
+function A.select(part: integer, beat?: number)
   pointing = true
   to_arrange()
-  if track ~= 0 then
-    paw.cursor.set_track(track)
+  if part ~= 0 then
+    paw.cursor.set_part(part)
   end
   if beat then
     paw.cursor.set_beat(snap(beat))
@@ -190,7 +190,7 @@ local function cursor_into(id: integer, beat?: number)
   local c = api.clip_get(id)
   pointing = true
   to_arrange()
-  paw.cursor.set_track(c.track)
+  paw.cursor.set_part(c.part)
   beat = snap(beat or c.start)
   if beat < c.start or beat >= c.start + c.length then
     beat = c.start
@@ -216,7 +216,7 @@ end
 --- A click on a clip: the cursor goes there, and `mode` says what happens
 --- to the chosen clips: "only" (or nil) the clip alone, "toggle" (Ctrl) in
 --- or out, "add" (Shift) the clips from the last one chosen to this one: on
---- one track those that start between them, across tracks those in the
+--- one part those that start between them, across parts those in the
 --- rectangle the two span.
 function A.select_clip(id: integer, beat?: number, mode?: string)
   cursor_into(id, beat)
@@ -248,15 +248,15 @@ function A.select_clip(id: integer, beat?: number, mode?: string)
   end
   local rows = row_index()
   local from, to = math.min(anchor.start, c.start), math.max(anchor.start, c.start)
-  if anchor.track == c.track then
-    for _, other in ipairs(api.clip_list(c.track)) do
+  if anchor.part == c.part then
+    for _, other in ipairs(api.clip_list(c.part)) do
       if other.start >= from - 1e-9 and other.start <= to + 1e-9 then
         set[other.id] = true
       end
     end
   else
     to = math.max(anchor.start + anchor.length, c.start + c.length)
-    for _, other in ipairs(clips_in(rows[anchor.track] or 1, rows[c.track] or 1, from, to)) do
+    for _, other in ipairs(clips_in(rows[anchor.part] or 1, rows[c.part] or 1, from, to)) do
       set[other] = true
     end
   end
@@ -265,7 +265,7 @@ function A.select_clip(id: integer, beat?: number, mode?: string)
 end
 
 --- A box drawn with the right button over the timeline, from row `row0`
---- at `beat0` to `row1` at `beat1` (rows of drawn tracks, from 1): the
+--- at `beat0` to `row1` at `beat1` (rows of drawn parts, from 1): the
 --- clips it touches are chosen. `mode` as for `select_clip`: "add" keeps
 --- those chosen already, "toggle" turns the ones it touches over.
 function A.select_clips_box(row0: integer, beat0: number, row1: integer, beat1: number, mode?: string): integer
@@ -300,8 +300,8 @@ end
 --- Every clip on the timeline, chosen.
 function A.select_all_clips()
   local set: {integer: boolean} = {}
-  for _, track in ipairs(paw.groups.rows()) do
-    for _, c in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(paw.groups.rows()) do
+    for _, c in ipairs(api.clip_list(part)) do
       set[c.id] = true
     end
   end
@@ -319,19 +319,19 @@ local function snapshot_at(clip: objects.Clip, start: number): objects.ClipSnaps
   return out
 end
 
---- Drop a clip somewhere else: at `start`, on `track` if given. With `copy`
+--- Drop a clip somewhere else: at `start`, on `part` if given. With `copy`
 --- the clip stays and a copy is dropped.
-function A.move_clip(id: integer, start: number, track?: integer, copy?: boolean): integer
+function A.move_clip(id: integer, start: number, part?: integer, copy?: boolean): integer
   local clip = paw.clip(id)
   start = snap(start)
-  track = track and track ~= 0 and track or clip:get().track
+  part = part and part ~= 0 and part or clip:get().part
   if copy then
-    local made = paw.restore_clip(snapshot_at(clip, start), track)
+    local made = paw.restore_clip(snapshot_at(clip, start), part)
     return made.id
   end
   api.clip_set(id, {start = start})
-  if track ~= api.clip_get(id).track then
-    api.clip_set(id, {track = track})
+  if part ~= api.clip_get(id).part then
+    api.clip_set(id, {part = part})
   end
   return id
 end
@@ -350,13 +350,13 @@ local function grabbed_clips(id: integer): {integer}
 end
 
 --- Drag clips: the one at `id` and, if it is chosen, the others chosen with
---- it, by `dbeat` beats and `drows` rows of drawn tracks, keeping their
+--- it, by `dbeat` beats and `drows` rows of drawn parts, keeping their
 --- places to one another. Snapping is relative: the clips move by whole
 --- grid steps, so the grabbed clip keeps its distance from the grid line
 --- before it, which is none if it started on one. `free` (Shift) moves them
 --- by exactly `dbeat`. With `copy` (Ctrl) they stay and copies are dropped,
 --- which are then the chosen clips. Nothing goes before the start or off
---- the tracks. One undo step, as one call. Returns the ids of what moved.
+--- the parts. One undo step, as one call. Returns the ids of what moved.
 function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean, free?: boolean): {integer}
   local ids = grabbed_clips(id)
   local by = free and dbeat or util.round(dbeat, timegrid.step())
@@ -367,7 +367,7 @@ function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean
     local c = api.clip_get(cid)
     clips[i] = c
     by = math.max(by, -c.start)
-    local row = rows[c.track]
+    local row = rows[c.part]
     if row then
       rows_by = util.clamp(rows_by, 1 - row, #list - row) as integer
     end
@@ -377,15 +377,15 @@ function A.drag_clips(id: integer, dbeat: number, drows?: number, copy?: boolean
   end
   local out: {integer} = {}
   for i, c in ipairs(clips) do
-    local row = rows[c.track]
-    local track = row and list[row + rows_by] or c.track
+    local row = rows[c.part]
+    local part = row and list[row + rows_by] or c.part
     if copy then
-      local made = paw.restore_clip(snapshot_at(paw.clip(c.id), c.start + by), track)
+      local made = paw.restore_clip(snapshot_at(paw.clip(c.id), c.start + by), part)
       out[i] = made.id
     else
       api.clip_set(c.id, {start = c.start + by})
-      if track ~= c.track then
-        api.clip_set(c.id, {track = track})
+      if part ~= c.part then
+        api.clip_set(c.id, {part = part})
       end
       out[i] = c.id
     end
@@ -623,10 +623,10 @@ function A.resize_clip(id: integer, length: number)
 end
 
 --- A double click on an empty lane: a clip of one bar in the bar clicked.
-function A.add_clip(track: integer, beat: number): integer
+function A.add_clip(part: integer, beat: number): integer
   local start = paw.time.bar_floor(math.max(0, beat))
-  local id = api.clip_add(track, {start = start, length = paw.time.bar(start)})
-  A.select(track, api.clip_get(id).start)
+  local id = api.clip_add(part, {start = start, length = paw.time.bar(start)})
+  A.select(part, api.clip_get(id).start)
   return id
 end
 
@@ -674,7 +674,7 @@ function A.open_clip(id: integer)
   host.roll().fit_next = true
 end
 
---- Run a command on a clip or a track that was not under the cursor: what
+--- Run a command on a clip or a part that was not under the cursor: what
 --- a context menu does. The cursor goes there first, as a click would put it.
 function A.clip_command(id: integer, beat: number, line: string)
   A.menu_target(id, beat)
@@ -706,7 +706,7 @@ function A.split_clips(): boolean
   if splitting or #ids == 0 then
     return false
   end
-  local beat, track, visual = paw.cursor.beat, paw.cursor.track_id(), paw.keymap.mode == "x"
+  local beat, part, visual = paw.cursor.beat, paw.cursor.part_id(), paw.keymap.mode == "x"
   local set: {integer: boolean} = {}
   splitting, pointing = true, true
   local ok, err = pcall(
@@ -715,9 +715,9 @@ function A.split_clips(): boolean
         set[id] = true
         local c = api.clip_get(id)
         if beat > c.start + 1e-9 and beat < c.start + c.length - 1e-9 then
-          paw.cursor.set_track(c.track)
+          paw.cursor.set_part(c.part)
           commands.exec("clip.split")
-          local right = paw.track(c.track):clip_at(beat)
+          local right = paw.part(c.part):clip_at(beat)
           if right then
             set[right.id] = true
           end
@@ -725,8 +725,8 @@ function A.split_clips(): boolean
       end
     end
   ) as (boolean, string)
-  if track then
-    paw.cursor.set_track(track)
+  if part then
+    paw.cursor.set_part(part)
   end
   splitting, pointing = false, false
   if not ok then
@@ -736,10 +736,10 @@ function A.split_clips(): boolean
   return true
 end
 
---- Glue the chosen clips on each track into one clip, the gaps between
+--- Glue the chosen clips on each part into one clip, the gaps between
 --- them included: what the clip menu's "Glue" and `J` on chosen clips do.
 --- MIDI clips are joined; audio clips are glued into a new file
---- (`paw.media.glue`). A track whose chosen clips are of both kinds is left
+--- (`paw.media.glue`). A part whose chosen clips are of both kinds is left
 --- as it is.
 function A.glue_clips()
   local region = clip_region()
@@ -747,10 +747,10 @@ function A.glue_clips()
     return paw.notify("no clips chosen to glue", "warn")
   end
   local glued = false
-  for _, track in ipairs(paw.edit.arrange.tracks(region)) do
+  for _, part in ipairs(paw.edit.arrange.parts(region)) do
     local audio: {integer} = {}
     local midi = 0
-    for _, c in ipairs(api.clip_list(track)) do
+    for _, c in ipairs(api.clip_list(part)) do
       if region.clips[c.id] then
         if c.kind == "audio" then
           audio[#audio + 1] = c.id
@@ -771,7 +771,7 @@ function A.glue_clips()
         why = tostring(result)
       end
     elseif midi >= 2 and #audio == 0 then
-      local fine, result = pcall(paw.edit.arrange.join, track, region.c0, region.c1, region.clips)
+      local fine, result = pcall(paw.edit.arrange.join, part, region.c0, region.c1, region.clips)
       ok = fine
       if fine then
         done = result as boolean
@@ -787,7 +787,7 @@ function A.glue_clips()
     glued = glued or done
   end
   if not glued then
-    paw.notify("glue takes two or more chosen clips of one kind on a track", "warn")
+    paw.notify("glue takes two or more chosen clips of one kind on a part", "warn")
   end
   local left: {integer: boolean} = {}
   for _, id in ipairs(M.chosen_clips()) do

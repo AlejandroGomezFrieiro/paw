@@ -21,28 +21,28 @@ pub(crate) type ParamRange<'a> = &'a dyn Fn(Id, &str) -> Option<(f64, f64)>;
 impl Document {
     /// A lane as a table, without its points.
     pub(crate) fn lane_view(&self, id: Id, param_range: ParamRange) -> Result<Value> {
-        let (track, _) = self
+        let (part, _) = self
             .project
             .find_lane(id)
             .with_context(|| format!("no lane {id}"))?;
-        Ok(lane_json(self.project.lane(id).unwrap(), track, param_range))
+        Ok(lane_json(self.project.lane(id).unwrap(), part, param_range))
     }
 
-    /// The automation lanes of a track, without their points.
-    pub(crate) fn lane_list(&self, track: Id, param_range: ParamRange) -> Result<Value> {
+    /// The automation lanes of a part, without their points.
+    pub(crate) fn lane_list(&self, part: Id, param_range: ParamRange) -> Result<Value> {
         let t = self
             .project
-            .track(track)
-            .with_context(|| format!("no track {track}"))?;
+            .part(part)
+            .with_context(|| format!("no part {part}"))?;
         Ok(Value::Array(
-            t.lanes.iter().map(|l| lane_json(l, track, param_range)).collect(),
+            t.lanes.iter().map(|l| lane_json(l, part, param_range)).collect(),
         ))
     }
 
     pub(crate) fn lane_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
-            let (track, index) = p.find_lane(id).with_context(|| format!("no lane {id}"))?;
-            p.track_mut(track).unwrap().lanes.remove(index);
+            let (part, index) = p.find_lane(id).with_context(|| format!("no lane {id}"))?;
+            p.part_mut(part).unwrap().lanes.remove(index);
             Ok(())
         })
     }
@@ -236,10 +236,10 @@ pub(crate) fn clean_points(
     Ok(points)
 }
 
-fn lane_json(l: &Lane, track: Id, param_range: ParamRange) -> Value {
+fn lane_json(l: &Lane, part: Id, param_range: ParamRange) -> Value {
     let (min, max) = target_range(&l.target, l.states.len(), param_range);
     let mut v = json!({
-        "id": l.id, "track": track, "enabled": l.enabled, "point_count": l.points.len(),
+        "id": l.id, "part": part, "enabled": l.enabled, "point_count": l.points.len(),
         "min": min, "max": max,
     });
     match &l.target {
@@ -298,12 +298,12 @@ pub(crate) fn check_lane_state(mut state: LaneState) -> Result<LaneState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::TrackOpts;
+    use super::super::PartOpts;
 
     #[test]
     fn a_lane_keeps_its_points_within_the_range_of_its_parameter() {
         let mut doc = Document::default();
-        let track = doc.track_add(TrackOpts::default()).unwrap();
+        let part = doc.part_add(PartOpts::default()).unwrap();
         let lane = Lane {
             id: doc.new_id(),
             target: Target::Param { device: 9, param: "cutoff".into() },
@@ -313,7 +313,7 @@ mod tests {
             states: Vec::new(),
         };
         let id = lane.id;
-        doc.project.track_mut(track).unwrap().lanes.push(Arc::new(lane));
+        doc.project.part_mut(part).unwrap().lanes.push(Arc::new(lane));
         let cutoff = |device: Id, param: &str| (device == 9 && param == "cutoff").then_some((0.0, 1.0));
         doc.lane_set_points(id, vec![(1.0, -5.0), (0.0, 5.0)], false, &cutoff).unwrap();
         assert_eq!(doc.lane_points(id).unwrap(), [(0.0, 1.0), (1.0, 0.0)], "sorted by beat, held to 0 to 1");

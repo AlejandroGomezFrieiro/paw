@@ -47,7 +47,7 @@ test(
       file,
       'local kernel = require("paw.events.kernel")\n'
         .. "paw.on(kernel.project_saved, function(p: kernel.Saved) print(p.path) end)\n"
-        .. "paw.on(kernel.project_saved, function(p: kernel.TrackId) print(p.id) end)\n"
+        .. "paw.on(kernel.project_saved, function(p: kernel.PartId) print(p.id) end)\n"
     )
     local found = paw.lang.check({ file })
     eq(#found, 1, "one error")

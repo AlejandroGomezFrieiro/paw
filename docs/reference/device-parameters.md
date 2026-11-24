@@ -21,7 +21,7 @@ paw describes the parameters of each device in the same way, for built-in device
 | `automatable` | The device lets the host automate the parameter. |
 | `read_only` | The device shows the value, but does not take new values. |
 | `per_note` | The format lets the parameter take a different value for each note (CLAP). |
-| `automated` | A lane of the track that is on moves the parameter. |
+| `automated` | A lane of the part that is on moves the parameter. |
 
 The last two parameters of each device are the wet/dry mix (`wet`) and the output gain (`gain`) of paw, which [Devices](devices.md) describes. Their `id` is their key.
 

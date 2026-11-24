@@ -136,7 +136,7 @@ local function in_span(q, from, to) return q.beat >= from - EPS and q.beat <= to
 --- each cell, as `paw.opt.curve_glyphs` sets them). So the points and the
 --- cursor, which paw draws in cells over it, are on the line.
 function M.picture(g, px, t, points, s)
-  local track = t.track and api.track_get(t.track) or { master = true }
+  local part = t.part and api.part_get(t.part) or { master = true }
   local dot = px.cell.h / (s.sub or 4)
   paw.plot.curve(g, px, {
     points = points,
@@ -144,7 +144,7 @@ function M.picture(g, px, t, points, s)
     pixels_per_beat = s.zoom * px.cell.w,
     frac = t.frac,
     flat = #points == 0 and t.flat and t.flat() or nil,
-    color = paw.draw.track_colour(track),
+    color = paw.draw.part_colour(part),
     top = dot / 2,
     bottom = dot / 2,
     beats = s.zoom >= 4,
@@ -239,7 +239,7 @@ local function render(win, canvas, ctx)
   canvas:fill(AXIS - 1, top, 1, rows, g.v, "Rule")
 
   -- The curve, two samples a cell across, joined into a line.
-  local hue = paw.draw.track_hue(t.track and api.track_get(t.track) or { master = true })
+  local hue = paw.draw.part_hue(t.part and api.part_get(t.part) or { master = true })
   local kind = paw.draw.curve_glyphs()
   local sub = kind == "braille" and 4 or 3
   local dots = rows * sub
@@ -1182,7 +1182,7 @@ end
 
 --- Automate a parameter of a device. paw makes its lane, with a first point
 --- at its current value at the beat of the arrange cursor. paw shows the
---- lanes of the track as rows, with the cursor on the new lane, and tells you.
+--- lanes of the part as rows, with the cursor on the new lane, and tells you.
 function M.automate(device_id, key)
   local d = api.device_get(device_id)
   local info
@@ -1208,8 +1208,8 @@ function M.automate(device_id, key)
       )
     )
   end
-  paw.lanes.open(d.track)
-  paw.cursor.set_track(d.track, lane.id)
+  paw.lanes.open(d.part)
+  paw.cursor.set_part(d.part, lane.id)
   return lane
 end
 

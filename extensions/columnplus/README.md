@@ -1,7 +1,7 @@
 # columnplus
 
-An example of how to personalize the track column, the narrow column at
-the left of the track headers. Use it as it is, or copy it and change it.
+An example of how to personalize the part column, the narrow column at
+the left of the part headers. Use it as it is, or copy it and change it.
 It is written in Teal, in one file: [init.tl](init.tl).
 
 ```lua
@@ -18,14 +18,14 @@ With columnplus, the column shows these parts, from the left:
 ▎  5 ≡1 ▌ Keys
 ```
 
-- A strip in the color of each track, down all of its lines, and the
+- A strip in the color of each part, down all of its lines, and the
   folds of the groups at the far left, with arrows.
-- The number of the track, as before. The number of the cursor's track
+- The number of the part, as before. The number of the cursor's part
   is in the color of the accent.
-- The signs: `≡` on a track with takes, `∗` on a frozen track and `∘` on
-  a track that plays through a frozen track.
-- How many clips the track has. The count is in a lighter color when a
-  clip of the track has takes.
+- The signs: `≡` on a part with takes, `∗` on a frozen part and `∘` on
+  a part that plays through a frozen part.
+- How many clips the part has. The count is in a lighter color when a
+  clip of the part has takes.
 
 ## Try it
 
@@ -33,8 +33,8 @@ With columnplus, the column shows these parts, from the left:
 2. Press `\z` two times. The folds change to plus and minus signs, then
    to the glyphs of paw.
 3. Press `\#`. The clip counts go. Press `\#` again to show them.
-4. Click the strip of a track. Choose a color for the track.
-5. Put the cursor on a track with takes and press `K`. The description
+4. Click the strip of a part. Choose a color for the part.
+5. Put the cursor on a part with takes and press `K`. The description
    tells how many clips have takes.
 6. Type `:ext.unload columnplus`. The column is as it was before.
 
@@ -69,7 +69,7 @@ With `paw.opt.ascii`, the parts use plain ASCII characters.
 
 | Name | Kind | Order | Glyphs | Styles |
 | --- | --- | --- | --- | --- |
-| `strip` | part | 1 | `strip` | the color of the track |
+| `strip` | part | 1 | `strip` | the color of the part |
 | `clips` | part | 40 | | `count`, `takes` |
 | `takes` | sign | priority 15 | `takes` | `takes` |
 | `frozen` | sign | priority 25 | `frozen`, `held` | `frozen` |
@@ -78,20 +78,20 @@ You change them the same way as the parts of paw, in your `init.lua` after
 the extension loads:
 
 ```lua
-paw.trackcolumn.set("clips", { styles = { count = "Faint" } })
-paw.trackcolumn.set_sign("takes", { glyphs = { takes = "T" } })
+paw.partcolumn.set("clips", { styles = { count = "Faint" } })
+paw.partcolumn.set_sign("takes", { glyphs = { takes = "T" } })
 ```
 
-To remove a part, take its name out of `paw.opt.trackcolumn`:
-`:set trackcolumn-=strip`.
+To remove a component, take its name out of `paw.opt.partcolumn`:
+`:set partcolumn-=strip`.
 
 ## How it works
 
-The extension calls only the functions of `paw.trackcolumn`, and paw records
+The extension calls only the functions of `paw.partcolumn`, and paw records
 each part, sign and change as the extension's. When the extension unloads,
 paw removes its parts and signs and puts back the parts of paw that it
-changed. [The track column and the bar
-labels](../../docs/reference/trackcolumn.md) describes each function. To
-write your own, read [How to personalize the track column and the
-ruler](../../docs/how-to/personalize-the-track-column-and-the-ruler.md). The
+changed. [The part column and the bar
+labels](../../docs/reference/partcolumn.md) describes each function. To
+write your own, read [How to personalize the part column and the
+ruler](../../docs/how-to/personalize-the-part-column-and-the-ruler.md). The
 extension [rulerplus](../rulerplus/README.md) is the example for the ruler.

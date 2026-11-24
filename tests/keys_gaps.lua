@@ -27,9 +27,9 @@ test("\\fi and \\fo fade the audio clip up to the cursor and from it; a count gi
     s[i] = 0.25
   end
   local file = T.write_wav(T.scratch .. "/fade-keys.wav", s)
-  local t = paw.add_track({ name = "Guitar" })
+  local t = paw.add_part({ name = "Guitar" })
   local clip = t:add_clip({ file = file, start = 0, length = 8 })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(2)
   keys("<localleader>fi")
   eq(clip.fade_in, 2, "\\fi fades in from the start of the clip to the cursor")
@@ -47,8 +47,8 @@ end)
 
 test("[ and ] act at once in the mixer and on velocity, also pressed fast, and ]x still works after them", function()
   start()
-  local t = paw.add_track({ name = "A" })
-  paw.cursor.set_track(t)
+  local t = paw.add_part({ name = "A" })
+  paw.cursor.set_part(t)
   paw.ui.focus("mixer")
   T.after(function()
     paw.ui.hide("mixer")
@@ -88,7 +88,7 @@ end)
 
 test("[ and ] on a selection of notes act at once, as in normal mode", function()
   start()
-  local t = paw.add_track({ name = "A" })
+  local t = paw.add_part({ name = "A" })
   local c = t:add_clip({ start = 0, length = 4, notes = { { "C4", 0, 1 }, { "E4", 1, 1 } } })
   local roll = paw.ui.views:get("pianoroll")
   roll:edit(c)
@@ -138,15 +138,15 @@ test("? and Space fk search the whole description of a key, not the part that 80
   end
 end)
 
-test("the device panel's cursor starts on the first device of another track, so w goes to a device", function()
+test("the device panel's cursor starts on the first device of another part, so w goes to a device", function()
   start()
-  local a = paw.add_track({ name = "A" })
+  local a = paw.add_part({ name = "A" })
   a:add_device("synth")
   a:add_device("delay")
-  local b = paw.add_track({ name = "B" })
+  local b = paw.add_part({ name = "B" })
   b:add_device("synth")
   b:add_device("delay")
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.ui.focus("devices")
   T.after(function()
     paw.ui.hide("devices")
@@ -155,7 +155,7 @@ test("the device panel's cursor starts on the first device of another track, so 
   local panel = paw.ui.views:get("devices")
   paw.keymap.feed("G")
   eq(panel.row > 1, true, "G goes down the chain of A")
-  paw.cursor.set_track(b)
+  paw.cursor.set_part(b)
   local _, row = panel:selected()
   eq(panel.row, 1, "on B the cursor is on the first row")
   eq(row.param, nil, "a device's own row")
@@ -166,11 +166,11 @@ end)
 
 test("the device panel's cursor starts on the first device in another project", function()
   start()
-  local a = paw.add_track({ name = "A" })
+  local a = paw.add_part({ name = "A" })
   a:add_device("synth")
   a:add_device("delay")
   local path = paw.project.save(T.scratch .. "/panel-row")
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.ui.focus("devices")
   T.after(function()
     paw.ui.hide("devices")
@@ -181,9 +181,9 @@ test("the device panel's cursor starts on the first device in another project", 
   eq(panel.row > 1, true, "G goes down the chain")
   paw.project.load(path)
   paw.flush()
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   local _, row = panel:selected()
-  eq(panel.row .. " " .. tostring(row.param), "1 nil", "the same track id in the project opened: the first row")
+  eq(panel.row .. " " .. tostring(row.param), "1 nil", "the same part id in the project opened: the first row")
 end)
 
 test(
@@ -212,9 +212,9 @@ test(
   end
 )
 
-test("the piano roll names the rows of a track with the drums device: kick, snare, closed hat", function()
+test("the piano roll names the rows of a part with the drums device: kick, snare, closed hat", function()
   start()
-  local t = paw.add_track({ name = "Drums" })
+  local t = paw.add_part({ name = "Drums" })
   t:add_device("drums")
   local c = t:add_clip({ start = 0, length = 4 })
   local roll = paw.ui.views:get("pianoroll")
@@ -255,32 +255,32 @@ paw.ui.keybar.set("barview", "n", { { "Z1", "one" } })
   eq(table.concat(paw.ui.keybar.check(), ", "), "", "no line shows a key that is not mapped")
 end)
 
-test("a count before Alt-j and Alt-k moves the track that many places, and before & makes that many copies", function()
+test("a count before Alt-j and Alt-k moves the part that many places, and before & makes that many copies", function()
   start()
   for _, name in ipairs({ "A", "B", "C", "D", "E" }) do
-    paw.add_track({ name = name })
+    paw.add_part({ name = name })
   end
   local function order()
     local out = {}
-    for _, t in ipairs(paw.tracks()) do
+    for _, t in ipairs(paw.parts()) do
       out[#out + 1] = t.name
     end
     return table.concat(out)
   end
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   keys("3<A-j>")
   eq(order(), "BCDAE", "3 Alt-j moves A down three places")
-  eq(paw.cursor.track().name, "A", "the cursor goes with it")
+  eq(paw.cursor.part().name, "A", "the cursor goes with it")
   keys("9<A-j>")
   eq(order(), "BCDEA", "a count past the end stops at the last place")
   keys("2<A-k>")
   eq(order(), "BCADE", "2 Alt-k moves it up two")
   paw.undo()
   eq(order(), "BCDEA", "one undo step")
-  local t = paw.tracks()[1]
+  local t = paw.parts()[1]
   t:add_clip({ start = 0, length = 4, name = "riff" })
   api.undo_checkpoint()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   keys("3&")
   eq(T.layout(t), "riff@0+4 riff@4+4 riff@8+4 riff@12+4", "3& makes three copies, one after the other")

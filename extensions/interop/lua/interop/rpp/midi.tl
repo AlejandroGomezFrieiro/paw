@@ -367,13 +367,13 @@ function M.read_smf(data: string): M.Source, string
   local function count(what: string, n?: integer)
     out.other[what] = (out.other[what] or 0) + (n or 1)
   end
-  for _, track in ipairs(file.tracks) do
-    for _, n in ipairs(track.notes) do
+  for _, file_track in ipairs(file.tracks) do
+    for _, n in ipairs(file_track.notes) do
       out.notes[#out.notes + 1] = {
         tick = n.tick, length = n.length, pitch = n.pitch, velocity = n.velocity, channel = n.channel
       }
     end
-    for _, c in ipairs(track.controls) do
+    for _, c in ipairs(file_track.controls) do
       local status, d1, d2 = event_of(c)
       out.controls[#out.controls + 1] = M.control_of(c.tick, status + (c.channel or 0), d1, d2)
     end

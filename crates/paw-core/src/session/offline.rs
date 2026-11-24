@@ -2,12 +2,12 @@
 //!
 //! [`Session::render`] writes a file; this sets up the same private engine and
 //! hands it over, so that the caller can run it wherever it likes and read the
-//! output and the track meters as it goes.
+//! output and the part meters as it goes.
 
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use paw_engine::{Engine, EngineHandle, Msg, TrackSlot};
+use paw_engine::{Engine, EngineHandle, Msg, PartSlot};
 
 use super::{RenderOpts, Session};
 use crate::model::{Id, MASTER_ID, Project};
@@ -21,8 +21,8 @@ pub(crate) struct Offline {
     pub live: LiveDevices,
     pub sample_rate: u32,
     pub frames: usize,
-    /// Every track's slot in the engine, the master included.
-    pub slots: Vec<(Id, TrackSlot)>,
+    /// Every part's slot in the engine, the master included.
+    pub slots: Vec<(Id, PartSlot)>,
     /// Beat the render starts at, and the tempo.
     pub start: f64,
     pub tempo: f64,
@@ -30,19 +30,19 @@ pub(crate) struct Offline {
 
 impl Session {
     /// Build an engine that plays the project from `opts.start` to `opts.end`
-    /// plus `opts.tail` seconds. With `solo`, only that track sounds, with
+    /// plus `opts.tail` seconds. With `solo`, only that part sounds, with
     /// what it feeds on the way to the master, as when it is soloed.
     pub(crate) fn offline(&mut self, opts: &RenderOpts, solo: Option<Id>) -> Result<Offline> {
         self.capture_states();
         let mut project = self.doc.project.clone();
         if let Some(id) = solo.filter(|id| *id != MASTER_ID) {
-            if project.track(id).is_none() {
-                bail!("no track with id {id}");
+            if project.part(id).is_none() {
+                bail!("no part with id {id}");
             }
-            for track in project.tracks.iter_mut() {
-                let wanted = track.id == id;
-                if track.solo != wanted {
-                    Arc::make_mut(track).solo = wanted;
+            for part in project.parts.iter_mut() {
+                let wanted = part.id == id;
+                if part.solo != wanted {
+                    Arc::make_mut(part).solo = wanted;
                 }
             }
         }
@@ -119,7 +119,7 @@ impl Session {
             live,
             sample_rate,
             frames,
-            slots: map.tracks.iter().map(|(id, slot)| (*id, *slot)).collect(),
+            slots: map.parts.iter().map(|(id, slot)| (*id, *slot)).collect(),
             start: opts.start,
             tempo: project.tempo,
         })

@@ -17,19 +17,19 @@ function M.interactive()
 end
 
 --- Add a device as a person does, from the device picker, the "Add a device"
---- box of the window or `:device.add`. It works as `track:add_device`. Then
+--- box of the window or `:device.add`. It works as `part:add_device`. Then
 --- a plugin with a window shows its window (`paw.opt.editor_on_add`), as
 --- REAPER does. Some instruments make no sound until their window opens one time.
-function M.add(track, kind, opts)
-  local device = M.place(track, kind, opts)
+function M.add(part, kind, opts)
+  local device = M.place(part, kind, opts)
   M.added(device, kind, opts)
   return device
 end
 
---- The first half of `add`: the device on the track, set to the preset new
+--- The first half of `add`: the device on the part, set to the preset new
 --- ones start from. What the device picker tries out before it is chosen.
-function M.place(track, kind, opts)
-  local device = track:add_device(kind, nil, { index = opts and opts.index })
+function M.place(part, kind, opts)
+  local device = part:add_device(kind, nil, { index = opts and opts.index })
   -- The preset the user marked as the one new instances start from.
   local default = M.default_preset(kind)
   if default then
@@ -524,22 +524,22 @@ local function passes(info, tag)
   return false
 end
 
---- The kind of device that a track probably needs next. "instrument" is
---- for a track that makes sound from MIDI and has no instrument yet.
---- "effect" is for the other tracks (a track with an instrument, the
---- master, a track of audio).
-function M.preferred(track_id)
-  if not track_id or track_id == 0 then return "effect" end
-  local track = paw.track(track_id)
-  if not track then return "effect" end
+--- The kind of device that a part probably needs next. "instrument" is
+--- for a part that makes sound from MIDI and has no instrument yet.
+--- "effect" is for the other parts (a part with an instrument, the
+--- master, a part of audio).
+function M.preferred(part_id)
+  if not part_id or part_id == 0 then return "effect" end
+  local part = paw.part(part_id)
+  if not part then return "effect" end
   local category = {}
   for _, info in ipairs(paw.device_types()) do
     category[info.kind] = info.category
   end
-  for _, device in ipairs(track:devices()) do
+  for _, device in ipairs(part:devices()) do
     if category[device:get().kind] == "instrument" then return "effect" end
   end
-  for _, clip in ipairs(api.clip_list(track_id)) do
+  for _, clip in ipairs(api.clip_list(part_id)) do
     if clip.kind ~= "midi" then return "effect" end
   end
   return "instrument"
@@ -641,13 +641,13 @@ function M.pick(device)
       if not ok then return paw.notify(clean(err), "error") end
       paw.notify(d.name .. ": " .. p.name)
     end,
-    -- Loaded as a trial and heard with what the track plays around the
+    -- Loaded as a trial and heard with what the part plays around the
     -- cursor; Escape puts the device back as it was.
     audition_key = "presets",
     audition = function(p)
       paw.audition.try(function() M.load(device, p) end)
       return {
-        label = p.name .. " · " .. paw.audition.through(d.track),
+        label = p.name .. " · " .. paw.audition.through(d.part),
         keep = function() paw.notify(d.name .. ": " .. p.name) end,
       }
     end,
@@ -764,7 +764,7 @@ function M.setup()
       return paw.notify("no parameter touched yet: move one in a plugin's window, or here", "warn")
     end
     local d = api.device_get(last.device)
-    paw.cursor.set_track(d.track)
+    paw.cursor.set_part(d.part)
     paw.ui.focus("devices")
     M.focus_param(last.device, last.param)
     local what = ctx.args[1]
@@ -784,52 +784,52 @@ function M.setup()
   dmap("f", "param", "Find a parameter by name")
   dmap("t", "param.last", "The parameter last touched")
 
-  --- A track by name, by its place in the list, or by id.
-  local function track_named(text)
+  --- A part by name, by its place in the list, or by id.
+  local function part_named(text)
     local n = tonumber(text)
     local rows = paw.groups.rows()
-    if n and rows[n] then return paw.track(rows[n]) end
-    return paw.track(text)
+    if n and rows[n] then return paw.part(rows[n]) end
+    return paw.part(text)
   end
-  local function to_track(copy)
+  local function to_part(copy)
     return function(ctx)
       local device = M.target()
       if not device then return end
       local name = table.concat(ctx.args, " ")
-      local track = name ~= "" and track_named(name)
-      if not track then
-        return paw.notify("usage: device." .. (copy and "copy_to" or "move_to") .. " <track name or number>", "warn")
+      local part = name ~= "" and part_named(name)
+      if not part then
+        return paw.notify("usage: device." .. (copy and "copy_to" or "move_to") .. " <part name or number>", "warn")
       end
       if copy then
-        paw.restore_device(device:snapshot(), track)
+        paw.restore_device(device:snapshot(), part)
       else
-        device:move(#track:devices() + 1, track)
+        device:move(#part:devices() + 1, part)
       end
-      paw.notify(device:get().name .. (copy and " copied to " or " moved to ") .. track.name)
+      paw.notify(device:get().name .. (copy and " copied to " or " moved to ") .. part.name)
     end
   end
   command(
     "device.copy_to",
-    to_track(true),
-    { desc = "Copy the device, with its state, to the end of another track: `device.copy_to Bass`, `device.copy_to 3`" }
+    to_part(true),
+    { desc = "Copy the device, with its state, to the end of another part: `device.copy_to Bass`, `device.copy_to 3`" }
   )
   command(
     "device.move_to",
-    to_track(false),
-    { desc = "Move the device to the end of another track: `device.move_to Bass`" }
+    to_part(false),
+    { desc = "Move the device to the end of another part: `device.move_to Bass`" }
   )
 
   -- What the window's device card does: the same, for the device clicked.
   local A = paw.frontend.act
-  --- A card dropped on a track's header: the device moves there, or with
+  --- A card dropped on a part's header: the device moves there, or with
   --- Ctrl a copy of it goes there.
-  function A.drop_device(id, track, copy)
+  function A.drop_device(id, part, copy)
     local device = paw.device(id)
     local d = device:get()
-    local target = paw.track(track)
+    local target = paw.part(part)
     if copy then
       paw.restore_device(device:snapshot(), target)
-    elseif d.track ~= track then
+    elseif d.part ~= part then
       device:move(#target:devices() + 1, target)
     end
   end
@@ -839,7 +839,7 @@ function M.setup()
     local device = paw.device(id)
     local d = device:get()
     if copy then
-      paw.restore_device(device:snapshot(), d.track, index)
+      paw.restore_device(device:snapshot(), d.part, index)
     else
       device:move(d.index < index and index - 1 or index)
     end
@@ -894,7 +894,7 @@ function M.setup()
   --- each as the line to show and its kind.
   function A.search_devices(query)
     local out = {}
-    for i, info in ipairs(M.search(query, 40, M.preferred(paw.cursor.track_id()))) do
+    for i, info in ipairs(M.search(query, 40, M.preferred(paw.cursor.part_id()))) do
       out[i] = {
         kind = info.kind,
         line = (info.favourite and "★ " or "")
@@ -916,7 +916,7 @@ function M.setup()
   end
 end
 
---- Put the device panel's row on a device of the cursor track.
+--- Put the device panel's row on a device of the cursor part.
 function M.select(id)
   local panel = paw.ui.views:get("devices")
   for i, row in ipairs(panel:rows()) do

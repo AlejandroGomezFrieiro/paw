@@ -1,9 +1,9 @@
--- Whether a bake that the project keeps (a frozen track, later a frozen
+-- Whether a bake that the project keeps (a frozen part, later a frozen
 -- block of a subproject) is up to date or stale: what its sound was made
 -- from, as a key, and the words that `K` says of it.
 --
 -- A key has one stamp for each part of what plays in the bake: the clips,
--- the devices, the automation, the mix of the tracks that feed it, and the
+-- the devices, the automation, the mix of the parts that feed it, and the
 -- tempo. The key of the bake is made when the bake is made, and is kept
 -- with it. To check the bake, paw makes the key again and compares the
 -- parts: the parts that differ are the reason that it is stale. The key is
@@ -20,19 +20,19 @@
 --
 -- With a `derived.Ctx`, `M.make` records what it reads: a node of
 -- `paw.derived` that makes the key is then stale only after an edit of what
--- the bake plays, and an edit of any other track costs no work.
+-- the bake plays, and an edit of any other part costs no work.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local derived = require("paw.derived")
 local type types = require("paw.types")
 
---- What a bake plays: these tracks, from `from` to `to` in beats (the whole
---- song when nil). `own` is the track whose devices make the bake, and whose
---- fader, pan and mute come after it (a frozen track): only the mix of the
---- other tracks is in the key.
+--- What a bake plays: these parts, from `from` to `to` in beats (the whole
+--- song when nil). `own` is the part whose devices make the bake, and whose
+--- fader, pan and mute come after it (a frozen part): only the mix of the
+--- other parts is in the key.
 local record Scope
-  tracks: {integer}
+  parts: {integer}
   own: integer
   from: number
   to: number
@@ -87,10 +87,10 @@ local function source(ctx: derived.Ctx, name: string)
   end
 end
 
--- The clips of one track, in the scope's time, as text.
-local function clips_text(ctx: derived.Ctx, track: integer, scope: Scope, out: {string})
-  source(ctx, "track:" .. track .. ":clips")
-  local ok, list = pcall(api.clip_list, track) as (boolean, {types.Clip})
+-- The clips of one part, in the scope's time, as text.
+local function clips_text(ctx: derived.Ctx, part: integer, scope: Scope, out: {string})
+  source(ctx, "part:" .. part .. ":clips")
+  local ok, list = pcall(api.clip_list, part) as (boolean, {types.Clip})
   if not ok then
     return
   end
@@ -151,9 +151,9 @@ local function sorted_text(map: {string: number}): string
   return table.concat(names, ",")
 end
 
--- The devices of one track, in order, as text.
-local function devices_text(ctx: derived.Ctx, t: types.Track, out: {string})
-  source(ctx, "track:" .. t.id .. ":devices")
+-- The devices of one part, in order, as text.
+local function devices_text(ctx: derived.Ctx, t: types.Part, out: {string})
+  source(ctx, "part:" .. t.id .. ":devices")
   for i = 1, #t.devices do
     local ok, d = pcall(api.device_get, t.devices[i]) as (boolean, types.Device)
     if ok then
@@ -178,10 +178,10 @@ local function devices_text(ctx: derived.Ctx, t: types.Track, out: {string})
   end
 end
 
--- The automation of one track, in the scope's time, as text.
-local function automation_text(ctx: derived.Ctx, track: integer, scope: Scope, out: {string})
-  source(ctx, "track:" .. track .. ":lanes")
-  local ok, lanes = pcall(api.lane_list, track) as (boolean, {types.Lane})
+-- The automation of one part, in the scope's time, as text.
+local function automation_text(ctx: derived.Ctx, part: integer, scope: Scope, out: {string})
+  source(ctx, "part:" .. part .. ":lanes")
+  local ok, lanes = pcall(api.lane_list, part) as (boolean, {types.Lane})
   if not ok then
     return
   end
@@ -212,11 +212,11 @@ local function automation_text(ctx: derived.Ctx, track: integer, scope: Scope, o
   end
 end
 
--- The mix of a track that plays into the bake: its fader, pan, mute and
+-- The mix of a part that plays into the bake: its fader, pan, mute and
 -- where it plays.
-local function mix_text(ctx: derived.Ctx, t: types.Track, out: {string})
+local function mix_text(ctx: derived.Ctx, t: types.Part, out: {string})
   for _, field in ipairs({"volume", "pan", "mute", "output"}) do
-    source(ctx, "track:" .. t.id .. ":" .. field)
+    source(ctx, "part:" .. t.id .. ":" .. field)
   end
   out[#out + 1] = table.concat({tostring(t.id), num(t.volume), num(t.pan), tostring(t.mute), tostring(t.output)}, ";")
 end
@@ -225,9 +225,9 @@ end
 --- `paw.derived`: the node then reads again only after an edit of it.
 function M.make(scope: Scope, ctx?: derived.Ctx): Key
   local clips, devices, automation, mix: {string}, {string}, {string}, {string} = {}, {}, {}, {}
-  for i = 1, #scope.tracks do
-    local id = scope.tracks[i]
-    local ok, t = pcall(api.track_get, id) as (boolean, types.Track)
+  for i = 1, #scope.parts do
+    local id = scope.parts[i]
+    local ok, t = pcall(api.part_get, id) as (boolean, types.Part)
     if ok then
       clips[#clips + 1] = "#"
       clips_text(ctx, id, scope, clips)

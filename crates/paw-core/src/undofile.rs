@@ -471,13 +471,13 @@ mod tests {
         let state = |store: &mut Store, tempo: &str| {
             let files: BTreeMap<PathBuf, String> = [
                 (PathBuf::from("project.toml"), format!("tempo = {tempo}\n")),
-                (PathBuf::from("tracks/Bass/track.json"), "{ \"name\": \"Bass\" }\n".into()),
+                (PathBuf::from("parts/Bass/part.json"), "{ \"name\": \"Bass\" }\n".into()),
             ]
             .into_iter()
             .collect();
             store.put_files(&files).unwrap()
         };
-        // Two states that share the track's folder: the second one set the
+        // Two states that share the part's folder: the second one set the
         // tempo, and is the state on the disk.
         let (before, after) = (state(&mut store, "120"), state(&mut store, "100"));
         let mut set_tempo = entry(1, Some(0), vec![], after);
@@ -496,7 +496,7 @@ mod tests {
         let mut store = Store::new(&dir);
         let state = |store: &mut Store, n: u8| {
             let files: BTreeMap<PathBuf, Vec<u8>> =
-                [(PathBuf::from("tracks/a/clips/x.midi2"), vec![n; 1000])].into_iter().collect();
+                [(PathBuf::from("parts/a/clips/x.midi2"), vec![n; 1000])].into_iter().collect();
             store.put_files(&files).unwrap()
         };
         let ids: Vec<BlobId> = (0..4).map(|n| state(&mut store, n)).collect();
@@ -514,7 +514,7 @@ mod tests {
         assert_eq!(tree.states[1].parent, Some(0));
         assert_eq!(read_tree(&dir).unwrap().as_ref(), Some(&tree));
         assert!(store.get(ids[1]).is_err(), "its blobs are removed");
-        assert_eq!(store.read_files(ids[2]).unwrap()[Path::new("tracks/a/clips/x.midi2")][..], [2; 1000]);
+        assert_eq!(store.read_files(ids[2]).unwrap()[Path::new("parts/a/clips/x.midi2")][..], [2; 1000]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

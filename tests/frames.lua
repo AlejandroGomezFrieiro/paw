@@ -195,9 +195,9 @@ test("frames: a view that does not say what moves in it is drawn whole", functio
   eq(api.ui_frame_snapshot(120, 40, true), nil, "no frame of the live parts only")
 end)
 
-test("frames: a track that listens to its input keeps the meters moving while the song is stopped", function()
+test("frames: a part that listens to its input keeps the meters moving while the song is stopped", function()
   T.fresh()
-  local gtr = paw.add_track({ name = "Guitar" })
+  local gtr = paw.add_part({ name = "Guitar" })
   gtr.input = "1"
   gtr.armed = true
   -- Past the moment that any key keeps the screen live.
@@ -216,7 +216,7 @@ test("frames: a row of the timeline the cursor is not on shows each change to it
   -- from changed (paw/views/arrange.tl): each change must still show.
   T.fresh()
   local W, H = 120, 40
-  local one, two = paw.add_track({ name = "one" }), paw.add_track({ name = "two" })
+  local one, two = paw.add_part({ name = "one" }), paw.add_part({ name = "two" })
   one:add_clip({ name = "first", start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
   two:add_clip({ name = "second", start = 0, length = 4, notes = { { pitch = 64, start = 0, length = 1 } } })
   paw.flush()
@@ -229,7 +229,7 @@ test("frames: a row of the timeline the cursor is not on shows each change to it
     end
   end
   frame()
-  eq(row_with(frame(), "second") ~= nil, true, "the other track's clip is drawn")
+  eq(row_with(frame(), "second") ~= nil, true, "the other part's clip is drawn")
   two:clips()[1].name = "renamed"
   local drawn = frame()
   local row = row_with(drawn, "renamed")
@@ -240,7 +240,7 @@ test("frames: a row of the timeline the cursor is not on shows each change to it
   eq(frame().cells[row] ~= drawn.cells[row], true, "new colours show")
 end)
 
---- The arrange view above a piano roll on a clip of a track with a tone,
+--- The arrange view above a piano roll on a clip of a part with a tone,
 --- the mixer below, and the roll with the keys. The windows are kept and
 --- put back, not checked.
 local function roll_between_others()
@@ -248,14 +248,14 @@ local function roll_between_others()
   local was = paw.opt.check_stamps
   T.after(function() paw.opt.check_stamps = was end)
   paw.opt.check_stamps = false
-  local track = T.tone("Lead", 8)
+  local part = T.tone("Lead", 8)
   paw.ui.toggle("mixer")
   T.after(function()
     local L = require("paw.layout")
     L.restore({ { layout = L.default_tree() } })
   end)
   paw.keymap.set_mode("n")
-  paw.ui.views:get("pianoroll"):edit(track:clips()[1])
+  paw.ui.views:get("pianoroll"):edit(part:clips()[1])
   paw.ui.focus("pianoroll")
   paw.flush()
   -- The meters of a test before are at rest: frames are the same. An
@@ -305,9 +305,9 @@ test("frames: a key that only waits for the next draws the status and command li
   paw._kernel.key("<Esc>")
   paw._kernel.key("l")
   eq(whole() > before, true, "a key of the terminal that moves")
-  -- The counts at the left of open lanes count tracks after an operator,
+  -- The counts at the left of open lanes count parts after an operator,
   -- and the list of the keys that can follow goes away with Escape.
-  local id = paw.tracks()[1].id
+  local id = paw.parts()[1].id
   T.after(function() paw.lanes.open(id, false) end)
   paw.lanes.open(id)
   paw.flush()

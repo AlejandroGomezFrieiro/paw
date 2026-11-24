@@ -31,17 +31,17 @@ The zoom belongs to the window of the piano roll. A change of zoom is not an und
 
 ## What the view shows
 
-A note can have an articulation (its MIDI 2.0 attribute), and such a note shows a short tag of it (`pz` for pizzicato) in place of its pitch, and `K` names the articulation. The instrument of the track can name a key (a drum of a kit, a keyswitch of a sampler), and such a key shows its name on the keyboard, and `K` gives it.
+A note can have an articulation (its MIDI 2.0 attribute), and such a note shows a short tag of it (`pz` for pizzicato) in place of its pitch, and `K` names the articulation. The instrument of the part can name a key (a drum of a kit, a keyswitch of a sampler), and such a key shows its name on the keyboard, and `K` gives it.
 
 A clip with a transpose (`:clip.override transpose=3`, see [Overrides of a clip](arrange-view.md#overrides-of-a-clip)) shows each note at the pitch it plays at, 3 semitones above its stored pitch, and a note that you add or move there is stored 3 semitones lower. For example, a note that you add at E4 is stored as C#4, and the clips of its link get C#4 too. The velocity override does not change the notes that the piano roll shows.
 
-A row over the ruler names the chords that sound, read over every pitched track, with the key on the left (`paw.opt.chords`). A dot on the keyboard marks the keys that sound at the cursor, and the title names the chord there.
+A row over the ruler names the chords that sound, read over every pitched part, with the key on the left (`paw.opt.chords`). A dot on the keyboard marks the keys that sound at the cursor, and the title names the chord there.
 
-### Notes of other tracks
+### Notes of other parts
 
-Behind the notes of the clip, the piano roll shows the notes of other tracks that sound at the same time. Each is a dashed line (`╌`) in a faint shade of the color of its track, without a name, while the notes of the clip are solid and named, and drum tracks do not show.
+Behind the notes of the clip, the piano roll shows the notes of other parts that sound at the same time. Each is a dashed line (`╌`) in a faint shade of the color of its part, without a name, while the notes of the clip are solid and named, and drum parts do not show.
 
-`paw.opt.roll_context` sets which tracks show, with the values `"all"`, `"group"` (the tracks of the group of the clip), `"none"`, or a list of track ids. `:roll.tracks` lists the tracks and their clips, and `Enter` on a track there shows or hides its notes.
+`paw.opt.roll_context` sets which parts show, with the values `"all"`, `"group"` (the parts of the group of the clip), `"none"`, or a list of part ids. `:roll.parts` lists the parts and their clips, and `Enter` on a part there shows or hides its notes.
 
 ## Several clips
 
@@ -51,14 +51,14 @@ To open several clips, select them in the arrange view (`v` over them, or the po
 
 | Keys | Effect |
 | --- | --- |
-| `ga` | Makes the clip of the note of a different track under the cursor the active clip, in place of the old one. |
+| `ga` | Makes the clip of the note of a different part under the cursor the active clip, in place of the old one. |
 | `gE` | Edits the clip of that note too, or stops the edit of it. |
 | `gn` `gN` | Makes the next or the previous edited clip active. |
-| `]t` `[t` | Makes the next or the previous track shown the edited track (its clip at the cursor). The notes of the old clip then show behind. |
-| `Tab` `Shift-Tab` | Go round the tracks shown. With no track shown, `Tab` goes to the next view. |
+| `]t` `[t` | Makes the next or the previous part shown the edited part (its clip at the cursor). The notes of the old clip then show behind. |
+| `Tab` `Shift-Tab` | Go round the parts shown. With no part shown, `Tab` goes to the next view. |
 | `:roll.only` | Edits one clip again. |
 
-A click on a note behind makes its clip the active clip. In `:roll.tracks`, `Enter` on a clip adds it or removes it, and `Ctrl-a` makes it active.
+A click on a note behind makes its clip the active clip. In `:roll.parts`, `Enter` on a clip adds it or removes it, and `Ctrl-a` makes it active.
 
 The motions, operators, visual mode, copy and paste act on the notes of all edited clips, and so do the keys on the note under the cursor and the operators of musicops. The beats of the cursor are those of the active clip.
 
@@ -92,7 +92,7 @@ The edge of the pencil is the start or the end of its note, and the cursor is on
 | `~` | Ties the note to the next note: its end goes to the start of the next note of the clip, or of the next note that you kept. |
 | `Ctrl-r` and a register | Puts the notes of the register at the note, as `p` pastes them. `Ctrl-r a` puts the notes of register `a`, `Ctrl-r "` the last yank, and a count first (`2 Ctrl-r a`) puts them twice. The pencil goes on where the last one ends. A register that holds no notes does nothing and says so. |
 | `Tab` | Opens the picker of snippets, and the snippet that you choose writes its notes at the note (see [Snippets](snippets.md)). While a snippet is active, `Tab` goes to its next choice. |
-| `a` | Gives the note an articulation, by name. The names come from the articulations extension, which uses the map of the track or the usual words. |
+| `a` | Gives the note an articulation, by name. The names come from the articulations extension, which uses the map of the part or the usual words. |
 | `e` and a kind | Puts a controller point where the note starts: `em` the modulation wheel, `ee` expression, `eb` breath, `es` the sustain pedal, and `e` and a number any controller. A count first is the value (`100em`), and otherwise paw asks for it. |
 | `Ctrl-n` `Ctrl-p` | Suggest what comes next, in place of the note. After a chord, the suggestions are the chords of the key that often follow it, and after a note, they are the notes of the key near it. The next key that edits takes the suggestion, and `Enter` takes it and stays. |
 | `Ctrl-e` | Puts back the note from before the suggestions. |
@@ -194,9 +194,9 @@ The title shows what step input does, e.g., `STEP C4 E4 · 1 beat (=4) · vel ke
 
 - The step is the note length of the roll, or a grid step when the roll has no note length. The Note tool of the roll shows it.
 - `paw.opt.step_velocity` is `"key"` to use the velocity of each key, or a number from 1 to 127 to use for all notes.
-- Step input listens to the MIDI input of the track of the active clip, which is its port and its channel (`:track.midi`). A track with no MIDI input listens to all ports. While step input is on, that track plays the controller, even when another track is armed.
+- Step input listens to the MIDI input of the part of the active clip, which is its port and its channel (`:part.midi`). A part with no MIDI input listens to all ports. While step input is on, that part plays the controller, even when another part is armed.
 - Step input records nothing. While the song plays or records, the keys only sound, and the title shows `STEP (paused: playing)`.
-- When there is no MIDI input, `I` says why and opens the MIDI part of the list of inputs of the track. The pencil still works, and keys that arrive later enter. Step input has no input when no MIDI port is listed, when no port is open (the engine runs without an audio device), or when the port of the track is missing.
+- When there is no MIDI input, `I` says why and opens the MIDI section of the list of inputs of the part. The pencil still works, and keys that arrive later enter. Step input has no input when no MIDI port is listed, when no port is open (the engine runs without an audio device), or when the port of the part is missing.
 - `:step.input` says what step input listens to, and opens the same list.
 - When a port goes away, step input releases the keys held on it.
 - A key that an input filter maps (`paw.api.engine_midi_filter`) doesn't enter.
@@ -243,7 +243,7 @@ paw.step.bind({ port = "Keystation", note = 23 }, { keys = "=8t" })
 
 <!-- tags: suggestions -->
 
-With a completion source loaded (`extensions/continue`, a language server), the piano roll can suggest what comes next. A suggestion shows as dashed ghost notes in the color of the track, with a badge over them, e.g., `1/3 continue: the bar again`. Suggestions come after a pause in the edits (`paw.opt.complete_auto`), or when you press `Ctrl-Space`, and they do not come while the song plays or records.
+With a completion source loaded (`extensions/continue`, a language server), the piano roll can suggest what comes next. A suggestion shows as dashed ghost notes in the color of the part, with a badge over them, e.g., `1/3 continue: the bar again`. Suggestions come after a pause in the edits (`paw.opt.complete_auto`), or when you press `Ctrl-Space`, and they do not come while the song plays or records.
 
 | Keys | Effect |
 | --- | --- |

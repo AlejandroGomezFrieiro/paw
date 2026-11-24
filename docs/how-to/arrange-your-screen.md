@@ -33,19 +33,19 @@ cursor and scroll. As a result, you can edit two clips at the same time,
 or see the notation and the piano roll of one clip. `Ctrl-w v` and
 `Ctrl-w s` show the same view again, on the same clip.
 
-## See the devices of two tracks
+## See the devices of two parts
 
-The device panel shows the devices of the track that the cursor is on. If
-you want a panel to stay on one track, pin it:
+The device panel shows the devices of the part that the cursor is on. If
+you want a panel to stay on one part, pin it:
 
-1. To put a panel for the track `Bass` on the right, type
+1. To put a panel for the part `Bass` on the right, type
    `:vs devices://Bass`. Its title says `pinned`.
-2. Move the cursor to a different track. The other panel follows the
+2. Move the cursor to a different part. The other panel follows the
    cursor, and the panel of `Bass` stays.
-3. To pin the panel that has the keyboard to the track that it shows,
+3. To pin the panel that has the keyboard to the part that it shows,
    press `\p`. Press `\p` again to make it follow the cursor.
 
-The keys that you type in a pinned panel act on its track. For example,
+The keys that you type in a pinned panel act on its part. For example,
 `a` adds a device to `Bass`.
 
 ## Give one view the whole screen
@@ -112,7 +112,7 @@ it again, type `:layout write`.
 A workspace is a screen for one task, and you go from one workspace to
 another with `<Space>w` and a letter. paw has four workspaces:
 
-- `<Space>wr` goes to the record workspace, with the arrange view and the mixer. The cursor goes to the first armed track, so `R` records there.
+- `<Space>wr` goes to the record workspace, with the arrange view and the mixer. The cursor goes to the first armed part, so `R` records there.
 - `<Space>we` goes to the edit workspace, with the arrange view and the piano roll.
 - `<Space>wm` goes to the mix workspace, with the mixer and the device panel.
 - `<Space>wn` goes to the score workspace, with the notation view. It needs the notation extension.

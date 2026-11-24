@@ -19,7 +19,7 @@
 -- `scene.live`. The rectangle is the view's layout, the same in both.
 --
 -- A hit region's `action` (a mark's `props.hit`) is data: `{ kind = "fader",
--- track = 4 }`. A press, a move or the wheel on it goes to the view's
+-- part = 4 }`. A press, a move or the wheel on it goes to the view's
 -- gesture for its kind, `view.gestures[kind](view, e)`, with `e.hit` the
 -- action and `e.rect` the region, whichever frontend it came from. `e.x`,
 -- `e.y` and `e.rect` are in the view's cells: whole in a terminal (the
@@ -304,7 +304,7 @@ end
 --- terminal draws the cells of the role there. A frontend that knows the
 --- role paints it as what it is. `props.hit` makes it a hit region, and
 --- `props.bind` ties it to a live value. Returns the buffer of the area.
----   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
+---   buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", part = id } })
 function M.mark(buf: Buf, role: string, x: number, y: number, w: number, h: number, props?: MarkProps): Buf
   local spec = spec_of(role)
   props = props or {}

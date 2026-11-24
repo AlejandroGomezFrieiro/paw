@@ -1,12 +1,12 @@
 # utau
 
-The utau extension adds vocal tracks whose notes and lyrics the engines of OpenUtau sing, including classic
+The utau extension adds vocal parts whose notes and lyrics the engines of OpenUtau sing, including classic
 UTAU voicebanks, DiffSinger, ENUNU, Vogen and VOICEVOX. The engines sing through the
 own engine of the extension, `paw-utau-engine`, and the extension also has its
 own vocal editor.
 
 ```lua
-local vocal = paw.track_kinds.add("vocal", { name = "Vocal", ask = false })
+local vocal = paw.part_kinds.add("vocal", { name = "Vocal", ask = false })
 require("utau").configure(vocal.id, { singer = "Kitane sno act5 VCV" })
 vocal:add_clip({ start = 0, length = 4, notes = {
   { pitch = "A3", start = 0, length = 1, meta = { lyric = "- あ" } },
@@ -15,7 +15,7 @@ vocal:add_clip({ start = 0, length = 4, notes = {
 paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 ```
 
-![A vocal track added to the demo song with :track.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
+![A vocal part added to the demo song with :part.add vocal, its singer chosen with \Vs and its phonemizer with :utau.phonemizer, the melody pasted in, lyrics typed in romaji with :utau.lyrics and made kana with :utau.batch. The phrases turn green as the engine sings them](images/tui-utau.gif)
 
 ![The vocal editor on the sung melody: the phonemes under the notes, ~ puts a vibrato on the long note, \]e and } raise its dynamics, r sings it again, and Space pressed twice plays it](images/tui-utau-editor.gif)
 
@@ -24,9 +24,9 @@ paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 1. Start paw with the extension (see [How to enable the
    extension](#how-to-enable-the-extension)). Install a voicebank for
    OpenUtau.
-2. Type `:track.add vocal`, and a vocal track appears, with `V` before its name.
+2. Type `:part.add vocal`, and a vocal part appears, with `V` before its name.
 3. Press `\Vs` and choose a singer.
-4. Put the cursor on an empty part of the track. Press `i`, then `u`, to
+4. Put the cursor on an empty place of the part. Press `i`, then `u`, to
    insert a vocal clip, and press Enter, and the vocal editor opens.
 5. Press `i` to add a note, then `c`, type `a` and press Enter. The phrase
    in the ruler turns green when the engine has sung it, and you press Space two
@@ -91,39 +91,39 @@ When the file of the device changes, paw loads it again
 
 ### How to add a harmony or a double
 
-- Type `:utau.harmony 3up`, and a track under this one sings a third up, in the
+- Type `:utau.harmony 3up`, and a part under this one sings a third up, in the
   key.
-- Type `:utau.double`, and a track under this one doubles the voice.
+- Type `:utau.double`, and a part under this one doubles the voice.
 
-### How to open the tracks in OpenUtau
+### How to open the parts in OpenUtau
 
-Type `:utau.openutau`, and paw writes the vocal tracks to a `.ustx` file and
+Type `:utau.openutau`, and paw writes the vocal parts to a `.ustx` file and
 starts OpenUtau on it. To read changes back, save in OpenUtau and type
 `:utau.import <file>`.
 
-### How to make a vocal track into audio
+### How to make a vocal part into audio
 
-Type `:utau.freeze`, and to sing the track again, type `:utau.unfreeze`.
+Type `:utau.freeze`, and to sing the part again, type `:utau.unfreeze`.
 
 ## Reference
 
-### Vocal tracks
+### Vocal parts
 
-A vocal track is a kind of track (`paw.track_kinds`).
+A vocal part is a kind of part (`paw.part_kinds`).
 
-- `:track.add vocal [singer]`, `<localleader>Vt` (`:utau.track [singer]`) or
-  `:track.new` adds one. The graphical window offers "New vocal track"
-  where it makes a track.
+- `:part.add vocal [singer]`, `<localleader>Vt` (`:utau.part [singer]`) or
+  `:part.new` adds one. The graphical window offers "New vocal part"
+  where it makes a part.
 - `<localleader>Vs` (`:utau.singer`) chooses its singer from a list.
-- The header shows `V` before the name of the track. `K` and the header in
+- The header shows `V` before the name of the part. `K` and the header in
   the graphical window tell who sings.
-- Enter on a clip of a vocal track opens the vocal editor and not the piano
+- Enter on a clip of a vocal part opens the vocal editor and not the piano
   roll.
 - In insert mode of the arrange view (`i`), `u` inserts a vocal clip at
-  the cursor, and Enter after it opens the vocal editor. On a track that
-  is not a vocal track, `u` tells you so and inserts nothing. See [Insert
+  the cursor, and Enter after it opens the vocal editor. On a part that
+  is not a vocal part, `u` tells you so and inserts nothing. See [Insert
   mode](../../docs/reference/insert-mode.md).
-- Without the extension, a vocal track is an ordinary MIDI track.
+- Without the extension, a vocal part is an ordinary MIDI part.
 
 ### Keys after the leader
 
@@ -131,14 +131,14 @@ The keys below work from every view, and they are in the domain `<Space>u` (utau
 
 | Keys | Command | Effect |
 | --- | --- | --- |
-| `<Space>ut` | `utau.track` | adds a vocal track |
-| `<Space>uv` | `utau.voice` | makes the track at the cursor a vocal track |
-| `<Space>us` | `utau.singer` | chooses the singer of the vocal track |
+| `<Space>ut` | `utau.part` | adds a vocal part |
+| `<Space>uv` | `utau.voice` | makes the part at the cursor a vocal part |
+| `<Space>us` | `utau.singer` | chooses the singer of the vocal part |
 | `<Space>ue` | `utau.edit` | opens the clip under the cursor in the vocal editor |
 | `<Space>ul` | `utau.sheet` | shows or hides the lyric sheet |
-| `<Space>ur` | `utau.render` | renders the vocal track again |
-| `<Space>uf` `<Space>uF` | `utau.freeze`, `utau.unfreeze` | freezes the vocal track, or sings it again |
-| `<Space>uo` | `utau.openutau` | opens the vocal tracks in OpenUtau |
+| `<Space>ur` | `utau.render` | renders the vocal part again |
+| `<Space>uf` `<Space>uF` | `utau.freeze`, `utau.unfreeze` | freezes the vocal part, or sings it again |
+| `<Space>uo` | `utau.openutau` | opens the vocal parts in OpenUtau |
 | `<Space>ui` | `utau.status` | tells what the singing engine does |
 
 ### The vocal editor
@@ -162,7 +162,7 @@ The keys below work from every view, and they are in the domain `<Space>u` (utau
 | `[p` `]p` | choose the previous or next phoneme (in the phoneme row and the bottom line) |
 | `[` `]` | make that phoneme start 5 ticks earlier or later |
 | `grp`, `gR` | type the phoneme to sing in its place, or restore it from the voicebank |
-| `~`, `:utau.note key=value ...` | turn vibrato on or off, and set properties of the selected notes, such as `tuning`, `vibrato=on`, `length` `period` `depth` `in` `out` `shift` `drift` `vol_link`, `po` (phonemizer, `default` for the track's), `transition=default`, and any expression (`vel=120`) |
+| `~`, `:utau.note key=value ...` | turn vibrato on or off, and set properties of the selected notes, such as `tuning`, `vibrato=on`, `length` `period` `depth` `in` `out` `shift` `drift` `vol_link`, `po` (phonemizer, `default` for the part's), `transition=default`, and any expression (`vel=120`) |
 | `<Space><Space>`, `gh` | play from the cursor or stop, and hear the note under the cursor |
 | `S`, `s`, `r` | choose the singer, show the lyric sheet, render again |
 | `Esc`, `<C-w>p`, `<C-w>c` | forget the selection (the editor stays), return to the window before, and close the editor |
@@ -171,8 +171,8 @@ The keys below work from every view, and they are in the domain `<Space>u` (utau
   selection while there is one, and otherwise the notes chosen with the pointer.
   Each key above that says "selected" acts on the selection, or on the note under the
   cursor when nothing is selected.
-- When the engine runs and the track has a singer, you hear notes when you
-  place or click them, with the voice of the track, and otherwise you hear a soft
+- When the engine runs and the part has a singer, you hear notes when you
+  place or click them, with the voice of the part, and otherwise you hear a soft
   tone. `paw.opt.utau_audition = false` stops the sound.
 - While the transport plays, the editor scrolls to keep the
   playhead in view.
@@ -205,27 +205,27 @@ each note.
 
 | Command | Effect |
 | --- | --- |
-| `utau.track [singer]`, `utau.voice` | adds a vocal track, or makes the cursor track a vocal track |
-| `utau.singer [name]`, `utau.phonemizer`, `utau.renderer`, `utau.resampler`, `utau.color` | the voice of the track |
+| `utau.part [singer]`, `utau.voice` | adds a vocal part, or makes the cursor part a vocal part |
+| `utau.singer [name]`, `utau.phonemizer`, `utau.renderer`, `utau.resampler`, `utau.color` | the voice of the part |
 | `utau.edit`, `utau.sheet` | opens the vocal editor, or the lyric sheet |
 | `utau.lyric <text>`, `utau.lyrics <words...>`, `utau.lyrics_file <path>` | set the lyric of a note, of the notes from the cursor on, or from a text file |
 | `utau.vibrato`, `utau.tuning <cents>`, `utau.bend <cents>`, `utau.flatten` | properties and pitch of each note |
 | `utau.batch [name]` | batch edits: `romaji_to_hiragana`, `kana_to_romaji`, `vcv_to_cv`, `remove_tone_suffix`, `remove_hint`, `dash_to_plus`, `lowercase`, `replace find=a replace=b`, `reset_pitch`, `clear_vibrato`, `vibrato_long`, `reset_exp`, `reset_phonemes`, `reset_po`, `reset_all`, `fix_overlap`, `fill_gaps`. `note=1` for the note under the cursor only |
 | `utau.preset [name]` | tuning presets: breath at phrase starts, soft endings, swells, tension on high notes, overshoot and preparation on leaps, crisp consonants, vibrato styles, raspy, scream, growl, vocal fry, reset |
-| `utau.import <file>` | an OpenUtau `.ustx`, UTAU `.ust`, VOCALOID `.vsqx`, Synthesizer V `.svp`, MIDI or MusicXML file as vocal tracks, read by the code of OpenUtau |
-| `utau.render`, `utau.restart`, `utau.status` | renders a track again, starts the engine again, or shows what the engine does |
+| `utau.import <file>` | an OpenUtau `.ustx`, UTAU `.ust`, VOCALOID `.vsqx`, Synthesizer V `.svp`, MIDI or MusicXML file as vocal parts, read by the code of OpenUtau |
+| `utau.render`, `utau.restart`, `utau.status` | renders a part again, starts the engine again, or shows what the engine does |
 | `utau.inspector` | shows or hides the note inspector in the window of the vocal editor |
 
-### Commands of tracks, files and the engine
+### Commands of parts, files and the engine
 
 | Command | Effect |
 | --- | --- |
-| `utau.export <file> [all=1] [clip=1]` | writes the vocal track (with `all=1` every vocal track, with `clip=1` the clip under the cursor) to the `.ustx` of OpenUtau, the `.ust` of UTAU, or MIDI with lyrics (`.mid`), by the extension of the file. A `.ust` holds one part, and more parts go to `name-2.ust` and on |
-| `utau.openutau` | writes the vocal tracks to `<project>.ustx` beside the project file (`~/.local/share/paw/utau/openutau/` for a project that is not saved), and starts OpenUtau on it, using `paw.opt.utau_openutau`, else `$PAW_UTAU_OPENUTAU`, else `OpenUtau` |
-| `utau.freeze`, `utau.unfreeze` | renders the vocal track to audio on a track below it, "Vocal (frozen)", mutes the vocal track and stops its voice. `utau.unfreeze` sings it again and removes the audio |
-| `utau.singer_save <name>`, `utau.singer_preset [name]`, `utau.singer_delete <name>` | saves the voice of the track as a singer preset, gives a track a preset (with no name, from a list), or deletes a preset |
-| `utau.install <archive or folder>`, `utau.singers` | installs a voicebank (zip, rar, 7z, uar, a folder), a Vogen singer (`.vogeon`) or a dependency package (`.oudep`). `utau.singers` lists the installed singers, so that you can choose one for the track |
-| `utau.harmony [3up\|3down\|5up\|4down\|6down\|8up\|8down] [key=Dm] [preset=name]`, `utau.double [take=2]` | make a track under this one that sings a harmony in the key, or doubles it |
+| `utau.export <file> [all=1] [clip=1]` | writes the vocal part (with `all=1` every vocal part, with `clip=1` the clip under the cursor) to the `.ustx` of OpenUtau, the `.ust` of UTAU, or MIDI with lyrics (`.mid`), by the extension of the file. A `.ust` holds one part, and more parts go to `name-2.ust` and on |
+| `utau.openutau` | writes the vocal parts to `<project>.ustx` beside the project file (`~/.local/share/paw/utau/openutau/` for a project that is not saved), and starts OpenUtau on it, using `paw.opt.utau_openutau`, else `$PAW_UTAU_OPENUTAU`, else `OpenUtau` |
+| `utau.freeze`, `utau.unfreeze` | renders the vocal part to audio on a part below it, "Vocal (frozen)", mutes the vocal part and stops its voice. `utau.unfreeze` sings it again and removes the audio |
+| `utau.singer_save <name>`, `utau.singer_preset [name]`, `utau.singer_delete <name>` | saves the voice of the part as a singer preset, gives a part a preset (with no name, from a list), or deletes a preset |
+| `utau.install <archive or folder>`, `utau.singers` | installs a voicebank (zip, rar, 7z, uar, a folder), a Vogen singer (`.vogeon`) or a dependency package (`.oudep`). `utau.singers` lists the installed singers, so that you can choose one for the part |
+| `utau.harmony [3up\|3down\|5up\|4down\|6down\|8up\|8down] [key=Dm] [preset=name]`, `utau.double [take=2]` | make a part under this one that sings a harmony in the key, or doubles it |
 | `utau.ai_pitch [on\|off]` | starts AI pitch, where the pitch model of the renderer sings and paw adds the drawn pitch to it |
 | `utau.retake [new\|prev\|next\|info] [kind=timbre] [note=1] [whole=1]` | a new AI pitch (or timbre) take of the phrases of the clip, or of the note under the cursor of the editor. The command also steps between takes |
 | `utau.timing [take]` | makes a timing take, which humanizes the starts of the notes by up to 18 ticks, the same for the same take. `0` removes it |
@@ -240,19 +240,19 @@ each note.
   OpenUtau), and OpenUtau gives its default pitch points to notes that have
   none.
 - Freeze is the bounce of the core (`paw.bounce`), after the engine
-  sang every phrase at final quality. The frozen track keeps its notes,
+  sang every phrase at final quality. The frozen part keeps its notes,
   curves and voice, and the bounced file is in the media folder of the project.
 - Singer presets are JSON files in `~/.local/share/paw/utau/presets`
   (`paw.opt.utau_presets_dir`). A preset holds the singer, phonemizer,
   renderer, resampler, wavtool and voice color, and it also holds the options
   of the engine (AI pitch, unison, shifts) and the value of each curve with
-  no lane. A preset replaces the full voice of the track.
+  no lane. A preset replaces the full voice of the part.
 - Install runs `paw-utau-engine --install`, which finds the type of the
   singer and the encoding of the file names. A folder is copied into
   `Singers`, and the singers go into the folder of OpenUtau
   (`~/.local/share/OpenUtau`, or `utau_openutau_dir`), and then the engine finds
   the singers again.
-- A harmony is a copy of the track (voice, curves, lyrics and note
+- A harmony is a copy of the part (voice, curves, lyrics and note
   properties), 3 dB quieter and panned 0.3 to one side, and its notes move by
   scale degrees in the key. The key is the key of the project when the
   `musicops` extension has one, and otherwise the key of the melody
@@ -267,7 +267,7 @@ each note.
 
 ### In the graphical window
 
-A double click on a clip of a vocal track opens the vocal editor in a
+A double click on a clip of a vocal part opens the vocal editor in a
 window of its own, and the extension paints the window (`lua/utau/gui.lua` and the
 `gui_*.lua` panels beside it), through `paw.canvas`.
 
@@ -294,13 +294,13 @@ applies to it.
 | Notes | the notes of the clip. The lyric of a note is `note.meta.lyric`, and a note without one sings `paw.opt.utau_default_lyric` (`a`). `R` is a rest |
 | Note properties (tuning, vibrato, pitch transitions, phoneme overrides, expressions, phonemizer override) | `note.meta.utau`, in the shape that `paw-utau-engine --convert` writes (see `lua/utau/payload.lua`) |
 | Curves (pitch deviation `pitd`, dynamics `dyn`, tension, breathiness, gender, voicing, tone shift, growl, cross synthesis) | the parameters of the `utau` device (`lua:utau`). An automation lane on a parameter is that curve, and a parameter with no lane holds the curve at its value |
-| The kind | `track.meta.kind = "vocal"`. A track with the device and no kind (made before kinds of track) is a vocal track too, and a project saved when the device was part of the program (kind `utau`) gets the device in Lua |
-| The voice (singer, phonemizer, renderer, resampler, wavtool, voice color, other options of the engine) | `device.meta.utau`, which also holds the curve of the renderer that each slot `x1` to `x8` draws (`curves`) and, for a frozen track, its audio track (`frozen`) |
+| The kind | `part.meta.kind = "vocal"`. A part with the device and no kind (made before kinds of part) is a vocal part too, and a project saved when the device was a piece of the program (kind `utau`) gets the device in Lua |
+| The voice (singer, phonemizer, renderer, resampler, wavtool, voice color, other options of the engine) | `device.meta.utau`, which also holds the curve of the renderer that each slot `x1` to `x8` draws (`curves`) and, for a frozen part, its audio part (`frozen`) |
 | The id of a vocal clip | `clip.meta.utau_clip`, which lets a copy know its original |
 | The voice that a device plays | the `voice` parameter of the device, and the extension numbers the voices |
 
-- Curves follow their clip. When you move a vocal clip, on its track or
-  to another vocal track, its curves go with it, and a copy, a duplicate or a
+- Curves follow their clip. When you move a vocal clip, on its part or
+  to another vocal part, its curves go with it, and a copy, a duplicate or a
   paste gets a copy of them. A delete removes them, and a paste brings them
   back, while a split or a trim leaves them in place. All of this happens in the same
   undo step as the edit.
@@ -344,7 +344,7 @@ editor work but nothing sings, and an offline render tells you so.
   `paw.api.sock_listen`. The engine connects, and the two send msgpack frames
   (`lua/utau/proto.lua` and `msgpack.lua` on this side,
   `engine/PawUtau.Protocol` on the other side). After each edit, the
-  extension compares the vocal tracks with what it sent last and sends
+  extension compares the vocal parts with what it sent last and sends
   the difference.
 - Rendered phrases return as audio, with their place in seconds. The
   extension writes each phrase to a file of 32-bit floats and posts the list of
@@ -360,11 +360,11 @@ editor work but nothing sings, and an offline render tells you so.
   render agree bit for bit (`tests.lua` checks it). A block of 512 frames
   with four phrases costs about 16 µs of its 10.7 ms.
 - `paw.render` sends `render.before`, and the extension then waits until every
-  phrase of every vocal track is final before the render starts, so
+  phrase of every vocal part is final before the render starts, so
   offline renders are deterministic.
 - A device that crashes stops alone, as any device in Lua, and
   `:device.restart` starts it again with its voice.
-- The engine runs only while there is a vocal track or a command of the
+- The engine runs only while there is a vocal part or a command of the
   editor needs it, and it stops with paw.
 - Curves follow clips because the extension answers each edit of a clip with
   edits of lanes in the same turn, so the core puts both in one undo step.
@@ -379,7 +379,7 @@ editor work but nothing sings, and an offline render tells you so.
   in the graphical window), and no inspector panel (`:utau.note` and the
   bottom line do the work of the inspector).
 - The extension has no expression graphs and no macro lanes for them.
-- paw cannot take a track back from OpenUtau over the DAW protocol of
+- paw cannot take a part back from OpenUtau over the DAW protocol of
   OpenUtau, so `:utau.openutau` writes the file and starts OpenUtau, and
   `:utau.import` reads back what you saved there.
 - One clip is one part, and a clip cannot hold several parts.

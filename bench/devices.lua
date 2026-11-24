@@ -1,14 +1,14 @@
--- What each built-in effect costs: N tracks of audio rendered on one thread,
--- with and without one instance of the effect on every track (at its
+-- What each built-in effect costs: N parts of audio rendered on one thread,
+-- with and without one instance of the effect on every part (at its
 -- defaults, or with `busy` settings below that make it work), and the
 -- difference per instance as a share of one core in real time.
---   paw --clean --no-plugins -l bench/devices.lua [tracks] [seconds] [kind...]
+--   paw --clean --no-plugins -l bench/devices.lua [parts] [seconds] [kind...]
 local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
 
 local args = { ... }
-local tracks = tonumber(args[1]) or 16
+local parts = tonumber(args[1]) or 16
 local seconds = tonumber(args[2]) or 20
 local only = {}
 for i = 3, #args do
@@ -26,8 +26,8 @@ local function build(kind)
   api.project_new()
   local wav = B.wav()
   local bars = math.ceil(seconds / 2)
-  for i = 0, tracks - 1 do
-    local id = api.track_add({ name = "T" .. i })
+  for i = 0, parts - 1 do
+    local id = api.part_add({ name = "T" .. i })
     for bar = 0, bars - 1 do
       api.clip_add(id, { start = bar * 4, length = 4, file = wav })
     end
@@ -50,15 +50,15 @@ local function render(kind)
 end
 
 local base, audio = render(nil)
-B.emit({ workload = "devices", kind = "none", tracks = tracks, audio_seconds = audio, processing_ms = base })
+B.emit({ workload = "devices", kind = "none", parts = parts, audio_seconds = audio, processing_ms = base })
 for _, d in ipairs(api.device_types()) do
   if d.format == "builtin" and d.category == "effect" and (next(only) == nil or only[d.kind]) then
     local ms = render(d.kind)
-    local per = (ms - base) / tracks
+    local per = (ms - base) / parts
     B.emit({
       workload = "devices",
       kind = d.kind,
-      tracks = tracks,
+      parts = parts,
       audio_seconds = audio,
       processing_ms = ms,
       -- One instance's share of one core, in per cent, in real time.

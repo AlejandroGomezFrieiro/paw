@@ -1,23 +1,23 @@
 //! Save a view as a subproject (`nest.md` 3.6, 4.6, 4.7): `<Space>zw`, per
-//! track, and `<Space>zW`, with a row of its own. The Lua side
-//! (`paw.nest.save`) adds what is not track data: the blocks, the markers
+//! part, and `<Space>zW`, with a row of its own. The Lua side
+//! (`paw.nest.save`) adds what is not part data: the blocks, the markers
 //! and regions, and the place of the window.
 //!
-//! Per track, the tracks keep their devices and mix: the clips of each row
-//! in the time move into a track of the subproject that has no sound of
+//! Per part, the parts keep their devices and mix: the clips of each row
+//! in the time move into a part of the subproject that has no sound of
 //! its own, and a block on the row plays it there (the pass mode of
 //! `sync/nests.rs`), so the song sounds the same to the sample.
 //!
-//! With a row of its own, a track moves into the subproject whole (its
+//! With a row of its own, a part moves into the subproject whole (its
 //! devices are the same instances) when all of it is in the time and
-//! everything that plays into it moves too. Any other track with clips in
+//! everything that plays into it moves too. Any other part with clips in
 //! the time stays in the song with the rest of its clips, and a copy goes
 //! in: its clips in the time, and copies of its devices and of its lanes
-//! there. So a route of the song never changes because a track left: a
+//! there. So a route of the song never changes because a part left: a
 //! group or a bus that the song still plays into stays. One new return row
-//! plays the mix, into the bus that the tracks played into, and inside its
-//! group when that bus is a group. A view of one group whose tracks all
-//! move makes the group track the return row. Routes at the boundary
+//! plays the mix, into the bus that the parts played into, and inside its
+//! group when that bus is a group. A view of one group whose parts all
+//! move makes the group part the return row. Routes at the boundary
 //! change as 4.7 says, and each change is told.
 
 use super::*;
@@ -35,43 +35,43 @@ const EPS: f64 = 1e-9;
 pub(crate) struct SaveOpts {
     /// The subproject's name.
     pub name: String,
-    /// The tracks of the view, in their order: of one place.
-    pub tracks: Vec<Id>,
+    /// The parts of the view, in their order: of one place.
+    pub parts: Vec<Id>,
     /// The time of the view, in the beats of that place.
     pub from: f64,
     pub to: f64,
     #[serde(default)]
     pub meter: NestMeter,
-    /// A row of its own (`<Space>zW`) rather than per track.
+    /// A row of its own (`<Space>zW`) rather than per part.
     #[serde(default)]
     pub own_row: bool,
 }
 
-/// A row that gets a block per track, and the track of the subproject the
+/// A row that gets a block per part, and the part of the subproject the
 /// block plays.
 #[derive(Debug, Serialize)]
 pub(crate) struct HostRow {
     pub row: Id,
-    pub track: Id,
+    pub part: Id,
 }
 
 /// What [`Session::nest_save`] did, for the Lua side and its message.
 #[derive(Debug, Serialize)]
 pub(crate) struct Saved {
     pub nest: NestId,
-    /// Per track: each row that gets a block.
+    /// Per part: each row that gets a block.
     pub rows: Vec<HostRow>,
     /// With a row of its own: the return row.
     pub row: Option<Id>,
-    /// The subproject's tracks, without its master, in order.
-    pub tracks: Vec<Id>,
+    /// The subproject's parts, without its master, in order.
+    pub parts: Vec<Id>,
     /// The routes that changed at the boundary, in words.
     pub changes: Vec<String>,
     /// With a row of its own: the song's group that the return row is in.
     pub group: Option<Id>,
-    /// With a row of its own that plays into the master because the tracks
+    /// With a row of its own that plays into the master because the parts
     /// played into several buses: those buses, which no longer process the
-    /// time. The row's meta `nest_buses` keeps the bus of each track, for
+    /// time. The row's meta `nest_buses` keeps the bus of each part, for
     /// `:nest.outputs stems`.
     pub buses: Vec<Id>,
 }
@@ -80,49 +80,49 @@ fn overlaps(c: &Clip, from: f64, to: f64) -> bool {
     c.start < to - EPS && c.start + c.length > from + EPS
 }
 
-/// Whether the time holds all of a track: its clips, cues and lanes.
-fn inside(t: &Track, from: f64, to: f64) -> bool {
+/// Whether the time holds all of a part: its clips, cues and lanes.
+fn inside(t: &Part, from: f64, to: f64) -> bool {
     let within = |b: f64| b >= from - EPS && b <= to + EPS;
     t.cues.is_empty()
         && t.clips.iter().all(|c| within(c.start) && within(c.start + c.length))
         && t.lanes.iter().all(|l| l.points.iter().all(|p| within(p.0)))
 }
 
-fn is_vca(t: &Track) -> bool {
+fn is_vca(t: &Part) -> bool {
     t.meta.get("vca").and_then(Value::as_bool) == Some(true)
 }
 
-fn is_group(t: &Track) -> bool {
+fn is_group(t: &Part) -> bool {
     t.meta.get("group_head").and_then(Value::as_bool) == Some(true)
 }
 
-fn group_of(t: &Track) -> Option<Id> {
+fn group_of(t: &Part) -> Option<Id> {
     t.meta.get("group").and_then(Value::as_u64)
 }
 
-/// Whether track `f` plays into track `id`: its output, a send, a device's
+/// Whether part `f` plays into part `id`: its output, a send, a device's
 /// output pair, or as a member of the group `id`.
-fn feeds(f: &Track, id: Id) -> bool {
+fn feeds(f: &Part, id: Id) -> bool {
     f.output == Some(id)
         || group_of(f) == Some(id)
         || f.sends.iter().any(|s| s.target == id)
         || f.devices.iter().any(|d| d.outputs.values().any(|o| *o == id))
 }
 
-/// The tracks of `selected` that move into the subproject whole: all of
-/// each is in the time, and every track that plays into it moves whole
-/// too. A track that a track of the song still plays into (a group with
+/// The parts of `selected` that move into the subproject whole: all of
+/// each is in the time, and every part that plays into it moves whole
+/// too. A part that a part of the song still plays into (a group with
 /// members outside the time, a bus that the rest of the song sends to)
 /// stays, so that no route of the song changes.
-fn whole_tracks(p: &Project, selected: &[Arc<Track>], from: f64, to: f64) -> HashSet<Id> {
+fn whole_parts(p: &Project, selected: &[Arc<Part>], from: f64, to: f64) -> HashSet<Id> {
     let mut whole: HashSet<Id> = selected.iter().filter(|t| inside(t, from, to)).map(|t| t.id).collect();
-    // Remove each track that a track outside the set plays into, until
-    // none is left: a removal can make another track lose its place.
+    // Remove each part that a part outside the set plays into, until
+    // none is left: a removal can make another part lose its place.
     loop {
         let fed: Vec<Id> = whole
             .iter()
             .copied()
-            .filter(|&id| p.all_tracks().any(|f| f.id != id && !whole.contains(&f.id) && feeds(f, id)))
+            .filter(|&id| p.all_parts().any(|f| f.id != id && !whole.contains(&f.id) && feeds(f, id)))
             .collect();
         if fed.is_empty() {
             return whole;
@@ -133,25 +133,25 @@ fn whole_tracks(p: &Project, selected: &[Arc<Track>], from: f64, to: f64) -> Has
     }
 }
 
-/// Whether track `t` is inside group `g`, at any depth.
-fn in_group(p: &Project, t: &Track, g: Id) -> bool {
+/// Whether part `t` is inside group `g`, at any depth.
+fn in_group(p: &Project, t: &Part, g: Id) -> bool {
     let mut at = group_of(t);
     for _ in 0..32 {
         match at {
             Some(id) if id == g => return true,
-            Some(id) => at = p.track(id).and_then(|t| group_of(t)),
+            Some(id) => at = p.part(id).and_then(|t| group_of(t)),
             None => return false,
         }
     }
     false
 }
 
-/// The outermost group that track `t` is inside, or `t` itself.
-fn outermost(p: &Project, t: &Track) -> Id {
+/// The outermost group that part `t` is inside, or `t` itself.
+fn outermost(p: &Project, t: &Part) -> Id {
     let mut top = t.id;
     let mut at = group_of(t);
     for _ in 0..32 {
-        match at.and_then(|g| p.track(g)) {
+        match at.and_then(|g| p.part(g)) {
             Some(g) => {
                 top = g.id;
                 at = group_of(g);
@@ -204,13 +204,13 @@ impl Session {
         if name.is_empty() {
             bail!("a subproject needs a name");
         }
-        if opts.tracks.is_empty() {
-            bail!("the view has no tracks to save");
+        if opts.parts.is_empty() {
+            bail!("the view has no parts to save");
         }
-        let place = self.doc.project.view_place(&opts.tracks)?;
-        self.doc.project.check_cuts(&opts.tracks, from, to)?;
+        let place = self.doc.project.view_place(&opts.parts)?;
+        self.doc.project.check_cuts(&opts.parts, from, to)?;
         let id = NestId(self.doc.new_id());
-        let mut master = Track::new(self.doc.new_id());
+        let mut master = Part::new(self.doc.new_id());
         master.name = "Master".into();
         master.nest = Some(id);
         let nest = Nest {
@@ -228,22 +228,22 @@ impl Session {
         if opts.own_row {
             self.save_own_row(&opts, nest, master, place)
         } else {
-            self.save_per_track(&opts, nest, master)
+            self.save_per_part(&opts, nest, master)
         }
     }
 
-    /// `<Space>zw`: per track.
-    fn save_per_track(&mut self, opts: &SaveOpts, nest: Nest, master: Track) -> Result<Saved> {
+    /// `<Space>zw`: per part.
+    fn save_per_part(&mut self, opts: &SaveOpts, nest: Nest, master: Part) -> Result<Saved> {
         let (from, to) = (opts.from, opts.to);
         let mut rows = Vec::new();
         let mut kept: Vec<(Id, Clips)> = Vec::new();
         let mut made = vec![Arc::new(master)];
-        for &row in &opts.tracks {
-            let t = self.doc.project.track(row).context("no track")?.clone();
+        for &row in &opts.parts {
+            let t = self.doc.project.part(row).context("no part")?.clone();
             if !t.clips.iter().any(|c| overlaps(c, from, to)) {
                 continue;
             }
-            let mut inner = Track::new(self.doc.new_id());
+            let mut inner = Part::new(self.doc.new_id());
             inner.name = t.name.clone();
             inner.color = t.color.clone();
             inner.nest = Some(nest.id);
@@ -254,47 +254,47 @@ impl Session {
                     stay.push(c.clone());
                     continue;
                 }
-                let (parts, inside) = self.cut_clip(c, from, to);
-                stay.extend(parts);
+                let (pieces, inside) = self.cut_clip(c, from, to);
+                stay.extend(pieces);
                 moved.extend(inside);
             }
             stay.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
             inner.clips = moved.into_iter().collect();
-            rows.push(HostRow { row, track: inner.id });
+            rows.push(HostRow { row, part: inner.id });
             kept.push((row, stay.into_iter().collect()));
             made.push(Arc::new(inner));
         }
         if rows.is_empty() {
             bail!("the view has no clips to save");
         }
-        let tracks = made.iter().skip(1).map(|t| t.id).collect();
+        let parts = made.iter().skip(1).map(|t| t.id).collect();
         let id = nest.id;
         let mut p = self.doc.project.clone();
         for (row, clips) in kept {
-            p.track_mut(row).context("no row")?.clips = clips;
+            p.part_mut(row).context("no row")?.clips = clips;
         }
-        p.tracks.extend(made);
+        p.parts.extend(made);
         p.nests.insert(id, Arc::new(nest));
         p.validate()?;
         self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;
-        Ok(Saved { nest: id, rows, row: None, tracks, changes: Vec::new(), group: None, buses: Vec::new() })
+        Ok(Saved { nest: id, rows, row: None, parts, changes: Vec::new(), group: None, buses: Vec::new() })
     }
 
     /// `<Space>zW`: a row of its own (see the module).
-    fn save_own_row(&mut self, opts: &SaveOpts, nest: Nest, master: Track, place: Option<NestId>) -> Result<Saved> {
+    fn save_own_row(&mut self, opts: &SaveOpts, nest: Nest, master: Part, place: Option<NestId>) -> Result<Saved> {
         let (from, to) = (opts.from, opts.to);
         let p = &self.doc.project;
-        let selected: Vec<Arc<Track>> = opts
-            .tracks
+        let selected: Vec<Arc<Part>> = opts
+            .parts
             .iter()
-            .filter_map(|id| p.track(*id))
+            .filter_map(|id| p.part(*id))
             .filter(|t| !is_vca(t))
             .cloned()
             .collect();
-        let whole = whole_tracks(p, &selected, from, to);
+        let whole = whole_parts(p, &selected, from, to);
         let head = selected.first().filter(|g| {
             is_group(g)
                 && g.clips.is_empty()
@@ -302,7 +302,7 @@ impl Session {
                 && selected[1..].iter().all(|t| in_group(p, t, g.id) && whole.contains(&t.id))
         });
         let head = head.map(|g| g.id);
-        // The tracks that go in: whole ones, and those with clips in the
+        // The parts that go in: whole ones, and those with clips in the
         // time. A group that stays (members outside the time) does not go
         // in: its members inside play into the subproject's master, and the
         // return row plays into the group, so its devices act once.
@@ -315,8 +315,8 @@ impl Session {
         if taken.is_empty() {
             bail!("the view has nothing to save");
         }
-        let order: Vec<Arc<Track>> = selected.iter().filter(|t| taken.contains(&t.id)).cloned().collect();
-        // Each track that goes in, by its id in the song: the same id when it
+        let order: Vec<Arc<Part>> = selected.iter().filter(|t| taken.contains(&t.id)).cloned().collect();
+        // Each part that goes in, by its id in the song: the same id when it
         // moves whole, a new one for a copy.
         let mut ids: HashMap<Id, Id> = HashMap::new();
         for t in &order {
@@ -327,11 +327,11 @@ impl Session {
         let p = &self.doc.project;
         let moved: HashSet<Id> = order.iter().filter(|t| whole.contains(&t.id)).map(|t| t.id).collect();
         // A side-chain or an output pair across the new boundary is refused.
-        for t in p.all_tracks() {
+        for t in p.all_parts() {
             let inside = taken.contains(&t.id);
             for d in &t.devices {
-                if let Some(s) = d.sidechain.and_then(|s| p.track(s)) {
-                    // From outside into the subproject, or from a track that
+                if let Some(s) = d.sidechain.and_then(|s| p.part(s)) {
+                    // From outside into the subproject, or from a part that
                     // leaves the song to one that stays.
                     let (crosses, missing) = if inside {
                         (!taken.contains(&s.id), &s.name)
@@ -348,7 +348,7 @@ impl Session {
                     }
                 }
                 if inside && let Some(to) = d.outputs.values().find(|o| !taken.contains(o)) {
-                    let to = p.track(*to).map_or_else(|| to.to_string(), |t| t.name.clone());
+                    let to = p.part(*to).map_or_else(|| to.to_string(), |t| t.name.clone());
                     bail!(
                         "{} on {} plays an output pair into {to}: take {to} in too, or use <Space>zw",
                         device_name(d),
@@ -360,7 +360,7 @@ impl Session {
         // The return row, and the buses that no longer get the time.
         let mut changes = Vec::new();
         let mut buses = Vec::new();
-        let mut row = match head.and_then(|h| p.track(h)) {
+        let mut row = match head.and_then(|h| p.part(h)) {
             Some(g) => {
                 let mut row = (**g).clone();
                 row.meta.remove("group_head");
@@ -368,10 +368,10 @@ impl Session {
                 row
             }
             None => {
-                let mut row = Track::new(fresh_id);
+                let mut row = Part::new(fresh_id);
                 row.name = nest.name.clone();
                 row.nest = place;
-                // Where the tracks that leave played: one place, else the
+                // Where the parts that leave played: one place, else the
                 // master, and the buses that the time no longer goes through.
                 let outs: BTreeSet<Option<Id>> = order
                     .iter()
@@ -380,16 +380,16 @@ impl Session {
                     .collect();
                 if outs.len() == 1 {
                     row.output = outs.into_iter().next().flatten();
-                    if let Some(g) = row.output.and_then(|o| p.track(o)).filter(|g| is_group(g)) {
+                    if let Some(g) = row.output.and_then(|o| p.part(o)).filter(|g| is_group(g)) {
                         row.meta.insert("group".into(), json!(g.id));
                     }
                 } else {
                     buses.extend(outs.into_iter().flatten());
-                    let of_track: Map<String, Value> = order
+                    let of_part: Map<String, Value> = order
                         .iter()
                         .filter_map(|t| t.output.filter(|o| buses.contains(o)).map(|o| (ids[&t.id].to_string(), json!(o))))
                         .collect();
-                    row.meta.insert("nest_buses".into(), Value::Object(of_track));
+                    row.meta.insert("nest_buses".into(), Value::Object(of_part));
                 }
                 row
             }
@@ -403,7 +403,7 @@ impl Session {
         });
         let order_ids: Vec<Id> = order.iter().map(|t| t.id).collect();
         for song_id in order_ids {
-            let t = self.doc.project.track(song_id).context("no track")?.clone();
+            let t = self.doc.project.part(song_id).context("no part")?.clone();
             let mut inner = (*t).clone();
             inner.id = ids[&song_id];
             inner.nest = Some(nest.id);
@@ -422,8 +422,8 @@ impl Session {
                         kept.push(c.clone());
                         continue;
                     }
-                    let (parts, inside) = self.cut_clip(c, from, to);
-                    kept.extend(parts);
+                    let (pieces, inside) = self.cut_clip(c, from, to);
+                    kept.extend(pieces);
                     moved.extend(inside);
                 }
                 kept.sort_by(|a, b| a.start.total_cmp(&b.start).then(a.id.cmp(&b.id)));
@@ -467,10 +467,10 @@ impl Session {
                     .collect();
             }
             let p = &self.doc.project;
-            let name_of = |id: Id| p.track(id).map_or_else(|| id.to_string(), |t| t.name.clone());
+            let name_of = |id: Id| p.part(id).map_or_else(|| id.to_string(), |t| t.name.clone());
             // Where it plays: inside, or into the master.
             inner.output = t.output.and_then(|o| ids.get(&o).copied());
-            // Its sends to tracks that stay out become the return row's.
+            // Its sends to parts that stay out become the return row's.
             let mut sends = Vec::new();
             for s in &t.sends {
                 match ids.get(&s.target) {
@@ -520,25 +520,25 @@ impl Session {
         if !vcas.is_empty() {
             row.meta.insert("vcas".into(), json!(vcas));
         }
-        let tracks: Vec<Id> = made.iter().skip(1).map(|t| t.id).collect();
+        let parts: Vec<Id> = made.iter().skip(1).map(|t| t.id).collect();
         let first = order.first().map(|t| t.id).context("nothing to save")?;
         let id = nest.id;
         let fresh_row = head.is_none();
         let mut p = self.doc.project.clone();
         for (song_id, clips) in stay {
-            p.track_mut(song_id).context("no track")?.clips = clips;
+            p.part_mut(song_id).context("no part")?.clips = clips;
         }
-        // A track that moved whole leaves the song's list; nothing that
-        // stays plays into it (`whole_tracks`).
+        // A part that moved whole leaves the song's list; nothing that
+        // stays plays into it (`whole_parts`).
         let into = |id: &Id| moved.contains(id);
-        // The row after the last track of its group; else above the first
-        // track that goes in, or above the outermost group of that track,
-        // so that it does not split a group. The subproject's tracks go at
+        // The row after the last part of its group; else above the first
+        // part that goes in, or above the outermost group of that part,
+        // so that it does not split a group. The subproject's parts go at
         // the end of the list.
         let row = Arc::new(row);
-        let mut list: Vec<Arc<Track>> = Vec::with_capacity(p.tracks.len() + made.len() + 1);
+        let mut list: Vec<Arc<Part>> = Vec::with_capacity(p.parts.len() + made.len() + 1);
         let mut slot = None;
-        for t in p.tracks.iter() {
+        for t in p.parts.iter() {
             if t.id == first {
                 slot = Some(list.len());
             }
@@ -552,7 +552,7 @@ impl Session {
             let at = match row_group {
                 Some(g) => list.iter().rposition(|t| t.id == g || in_group(&p, t, g)).map_or(list.len(), |i| i + 1),
                 None => {
-                    let top = p.track(first).map_or(first, |t| outermost(&p, t));
+                    let top = p.part(first).map_or(first, |t| outermost(&p, t));
                     let above_group = if top == first { None } else { list.iter().position(|t| t.id == top) };
                     above_group.or(slot).unwrap_or(list.len())
                 }
@@ -560,13 +560,13 @@ impl Session {
             list.insert(at, row.clone());
         }
         list.extend(made);
-        p.tracks = list;
+        p.parts = list;
         p.nests.insert(id, Arc::new(nest));
         p.validate()?;
         self.doc.edit(|project| {
             *project = p;
             Ok(())
         })?;
-        Ok(Saved { nest: id, rows: Vec::new(), row: Some(row_id), tracks, changes, group: row_group, buses })
+        Ok(Saved { nest: id, rows: Vec::new(), row: Some(row_id), parts, changes, group: row_group, buses })
     }
 }

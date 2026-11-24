@@ -11,9 +11,9 @@
 --   paw.export.run(plan)                                -- write it, in the background
 --   paw.export.last()                                   -- what the last export wrote
 --
--- The grammar is `:[tracks] [time] export[!] [preset] [target] [word=value ...]`.
--- The range gives what is heard (tracks) and when (time). `each=` makes one
--- render for each group, track, region or clip. The target names the files,
+-- The grammar is `:[parts] [time] export[!] [preset] [target] [word=value ...]`.
+-- The range gives what is heard (parts) and when (time). `each=` makes one
+-- render for each group, part, region or clip. The target names the files,
 -- with fields such as `{group}`.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -68,7 +68,7 @@ local type Channels = types.RenderChannels
 --- What `each=` takes: one render for each of these.
 local enum Each
   "group"
-  "track"
+  "part"
   "region"
   "clip"
 end
@@ -110,9 +110,9 @@ end
 --- `normalize=` or `loudness=`: paw renders their mix first, and its gain
 --- goes to each file of the set, so the files still add up to the mix.
 local record GainSet
-  --- The tracks of all the files of the set. The files have the same
+  --- The parts of all the files of the set. The files have the same
   --- time, tap and words.
-  tracks: {integer}
+  parts: {integer}
   --- The gain in dB, when the mix is rendered.
   gain: number
 end
@@ -121,9 +121,9 @@ end
 local record Render
   --- The file, a full path.
   file: string
-  --- The tracks that it holds, or nil for the mix.
-  tracks: {integer}
-  --- What it holds, in words: the names of the tracks.
+  --- The parts that it holds, or nil for the mix.
+  parts: {integer}
+  --- What it holds, in words: the names of the parts.
   holds: string
   --- Where it starts and ends, in beats of the song. No start: the start
   --- of the song. No end: the end of the last clip.
@@ -190,11 +190,11 @@ local record M
   --- words of `mine`. A preset is the words of `:export` as text
   --- (`paw.export.presets.mine = "stems format=flac"`), a list of such
   --- texts for several exports (`{ "mix format=flac", "stems" }`), or a
-  --- table (`{ target = "mine/{track}.flac", words = { each = "track" } }`).
+  --- table (`{ target = "mine/{part}.flac", words = { each = "part" } }`).
   --- A preset of the project of the same name comes first, and these
   --- come before paw's own presets.
   presets: {string: PresetValue}
-  --- paw's own presets: mix, review, stems, tracks, regions and project.
+  --- paw's own presets: mix, review, stems, parts, regions and project.
   builtin: {string: Preset}
   --- The words that `:export` takes, for its completion: `{ key, values, what }`.
   words: {{string | {string}}}
@@ -226,10 +226,10 @@ M.builtin = {
     target = "stems/{group}.wav",
     words = {each = "group", tap = "master", channels = "auto"},
   },
-  tracks = {
-    desc = "one file for each track, for a mixing engineer",
-    target = "tracks/{track}.wav",
-    words = {each = "track", tap = "post", channels = "auto"},
+  parts = {
+    desc = "one file for each part, for a mixing engineer",
+    target = "parts/{part}.wav",
+    words = {each = "part", tap = "post", channels = "auto"},
   },
   regions = {desc = "one file for each region", target = "regions/{n} {region}.wav", words = {each = "region"}},
   project = {
@@ -240,7 +240,7 @@ M.builtin = {
 }
 
 M.words = {
-  {"each=", {"group", "track", "region", "clip", "region,group"}, "one file for each"},
+  {"each=", {"group", "part", "region", "clip", "region,group"}, "one file for each"},
   {"tap=", {"master", "groups", "post", "pre"}, "where in the sound the render listens"},
   {"channels=", {"stereo", "mono", "auto"}, "auto: mono when both sides are equal"},
   {"in=", {"loop"}, "the loop, or a region by name"},
@@ -412,14 +412,14 @@ local function unparse(args: Args): string
   return table.concat(out, " ")
 end
 
--- The tracks ---------------------------------------------------------------------------
+-- The parts ---------------------------------------------------------------------------
 
---- The name of a track.
+--- The name of a part.
 local function name_of(id: integer): string
-  return api.track_get(id).name
+  return api.part_get(id).name
 end
 
---- True when a track or a track inside it has clips.
+--- True when a part or a part inside it has clips.
 local function sounds(id: integer): boolean
   if #api.clip_list(id) > 0 then
     return true
@@ -432,14 +432,14 @@ local function sounds(id: integer): boolean
   return false
 end
 
---- The names of the tracks with clips that a render of `id` holds: the
---- track, or the tracks inside the group.
+--- The names of the parts with clips that a render of `id` holds: the
+--- part, or the parts inside the group.
 local function holds_of(id: integer): {string}
   if not paw.groups.is_group(id) then
     return {name_of(id)}
   end
   local out: {string} = {}
-  for _, other in ipairs(api.track_list()) do
+  for _, other in ipairs(api.part_list()) do
     if other ~= id and paw.scope.contains(other, id) and #api.clip_list(other) > 0 then
       out[#out + 1] = name_of(other)
     end
@@ -447,7 +447,7 @@ local function holds_of(id: integer): {string}
   return out
 end
 
---- True when a group in `set` holds the track `id`.
+--- True when a group in `set` holds the part `id`.
 local function inside(id: integer, set: {integer: boolean}): boolean
   local parent = paw.groups.of(id)
   while parent do
@@ -459,8 +459,8 @@ local function inside(id: integer, set: {integer: boolean}): boolean
   return false
 end
 
---- The tracks of a range without those that a group of the range holds:
---- `t/Drums/` names the group Drums and the track Drums 2 inside it, and
+--- The parts of a range without those that a group of the range holds:
+--- `t/Drums/` names the group Drums and the part Drums 2 inside it, and
 --- renders the group.
 local function outermost(ids: {integer}): {integer}
   local set: {integer: boolean} = {}
@@ -476,22 +476,22 @@ local function outermost(ids: {integer}): {integer}
   return out
 end
 
---- A unit that a render holds: a track, or a group with its tracks.
+--- A unit that a render holds: a part, or a group with its parts.
 local record Unit
   id: integer
   name: string
 end
 
---- The units of the range or of the scope, for `each=group` or `each=track`.
---- Muted tracks and VCAs are left out, the muted ones named in `left_out`.
+--- The units of the range or of the scope, for `each=group` or `each=part`.
+--- Muted parts and VCAs are left out, the muted ones named in `left_out`.
 local function units(kind: Each, given: {integer}, left_out: {string}): {Unit}
   local ids: {integer} = {}
   if given then
-    if kind == "track" then
-      -- Each track that sounds, the tracks inside a group of the range too.
+    if kind == "part" then
+      -- Each part that sounds, the parts inside a group of the range too.
       for _, id in ipairs(given) do
         if paw.groups.is_group(id) then
-          for _, other in ipairs(api.track_list()) do
+          for _, other in ipairs(api.part_list()) do
             if paw.scope.contains(other, id) and other ~= id and not paw.groups.is_group(other) then
               ids[#ids + 1] = other
             end
@@ -505,9 +505,9 @@ local function units(kind: Each, given: {integer}, left_out: {string}): {Unit}
     end
   else
     local scope = paw.scope.group()
-    for _, id in ipairs(paw.scope.tracks()) do
+    for _, id in ipairs(paw.scope.parts()) do
       local wanted: boolean
-      if kind == "track" then
+      if kind == "part" then
         wanted = not paw.groups.is_group(id) or #api.clip_list(id) > 0
       else
         -- The top of each branch: the parts of the scope's group, or of the song.
@@ -521,8 +521,8 @@ local function units(kind: Each, given: {integer}, left_out: {string}): {Unit}
   local out: {Unit} = {}
   for _, id in ipairs(ids) do
     if paw.vca.is_vca(id) or not sounds(id) then
-      -- A VCA and a track with nothing to play make no file.
-    elseif api.track_get(id).mute then
+      -- A VCA and a part with nothing to play make no file.
+    elseif api.part_get(id).mute then
       left_out[#left_out + 1] = name_of(id) .. ", muted"
     else
       out[#out + 1] = {id = id, name = name_of(id)}
@@ -623,9 +623,9 @@ end
 --- The fields of a file name, and what each holds for one render.
 local FIELDS: {string: boolean} = {
   project = true,
-  track = true,
+  part = true,
   group = true,
-  tracks = true,
+  parts = true,
   region = true,
   n = true,
   date = true,
@@ -633,8 +633,8 @@ local FIELDS: {string: boolean} = {
 
 --- The fields that tell the files of one kind of `each=` apart.
 local NAMED: {Each: {string}} = {
-  group = {"{group}", "{track}"},
-  track = {"{track}", "{group}"},
+  group = {"{group}", "{part}"},
+  part = {"{part}", "{group}"},
   region = {"{region}"},
   clip = {"{n}"},
 }
@@ -650,7 +650,7 @@ local function names_kind(target: string, kind: Each): boolean
 end
 
 --- The field that `each=` adds to a target that has none.
-local ADDED: {Each: string} = {group = "{group}", track = "{track}", region = "{n} {region}", clip = "{track} {n}"}
+local ADDED: {Each: string} = {group = "{group}", part = "{part}", region = "{n} {region}", clip = "{part} {n}"}
 
 --- A name that is safe in a file name: no folder separator and no control
 --- character.
@@ -673,7 +673,7 @@ local function fill(target: string, values: {string: string}): string
         if not FIELDS[field] then
           error(
             string.format(
-              "{%s}: not a field of a name; use {project} {track} {group} {tracks} {region} {n} {date}", field
+              "{%s}: not a field of a name; use {project} {part} {group} {parts} {region} {n} {date}", field
             ),
             0
           )
@@ -706,7 +706,7 @@ end
 
 -- The plan -----------------------------------------------------------------------------
 
---- An item of `each=`: a render's tracks, or its time, and the fields of
+--- An item of `each=`: a render's parts, or its time, and the fields of
 --- its name.
 local record Item
   unit: Unit
@@ -716,7 +716,7 @@ end
 --- The items of one kind of `each=`.
 local function items_of(kind: Each, given: {integer}, span: Span, level: string, left_out: {string}): {Item}
   local out: {Item} = {}
-  if kind == "group" or kind == "track" then
+  if kind == "group" or kind == "part" then
     for _, u in ipairs(units(kind, given, left_out)) do
       out[#out + 1] = {unit = u}
     end
@@ -725,9 +725,9 @@ local function items_of(kind: Each, given: {integer}, span: Span, level: string,
       out[#out + 1] = {span = s}
     end
   else
-    -- Each clip of the tracks, inside the span, plays alone on its track.
-    local tracks = given or paw.scope.tracks()
-    for _, id in ipairs(tracks) do
+    -- Each clip of the parts, inside the span, plays alone on its part.
+    local parts = given or paw.scope.parts()
+    for _, id in ipairs(parts) do
       for _, c in ipairs(api.clip_list(id)) do
         local inside_span = not span.to or (c.start + c.length > (span.from or 0) and c.start < span.to)
         if inside_span and not c.muted then
@@ -750,7 +750,7 @@ local function each_list(word: string): {Each}
   local out: {Each} = {}
   for part in word:gmatch("[^,%s]+") do
     if not ADDED[part as Each] then
-      error(string.format("each=%s: use group, track, region or clip, or two joined: each=region,group", part), 0)
+      error(string.format("each=%s: use group, part, region or clip, or two joined: each=region,group", part), 0)
     end
     out[#out + 1] = part as Each
   end
@@ -760,10 +760,10 @@ local function each_list(word: string): {Each}
   return out
 end
 
---- The devices of a track that change the level by the level they hear, by name.
+--- The devices of a part that change the level by the level they hear, by name.
 local function dynamics_of(id: integer): {string}
   local out: {string} = {}
-  for _, d in ipairs(api.track_get(id).devices or {}) do
+  for _, d in ipairs(api.part_get(id).devices or {}) do
     local device = api.device_get(d)
     if device and not device.bypass and M.is_dynamics(device) then
       out[#out + 1] = device.name or device.kind
@@ -772,7 +772,7 @@ local function dynamics_of(id: integer): {string}
   return out
 end
 
---- The id of the master, which `api.track_get` takes.
+--- The id of the master, which `api.part_get` takes.
 local MASTER = 0
 
 --- A note for each group or master that several renders of the plan pass
@@ -788,9 +788,9 @@ local function dynamics_notes(renders: {Render}): {string}
     passes[id] = (passes[id] or 0) + 1
   end
   for _, r in ipairs(renders) do
-    if r.tracks and (r.tap == "groups" or r.tap == "master") then
+    if r.parts and (r.tap == "groups" or r.tap == "master") then
       local seen: {integer: boolean} = {}
-      for _, id in ipairs(r.tracks) do
+      for _, id in ipairs(r.parts) do
         local parent = paw.groups.of(id)
         while parent do
           if not seen[parent] then
@@ -977,28 +977,28 @@ local function read_words(args: Args, found: Found): Preset, string, {string: st
   return preset, typed, words
 end
 
---- The tracks of the range without the muted ones, which go into
+--- The parts of the range without the muted ones, which go into
 --- `left_out`; nil with no range.
 local function heard(range: Range, left_out: {string}): {integer}
-  if not (range and range.tracks) then
+  if not (range and range.parts) then
     return nil
   end
   local given: {integer} = {}
-  for _, id in ipairs(outermost(range.tracks)) do
-    if api.track_get(id).mute then
+  for _, id in ipairs(outermost(range.parts)) do
+    if api.part_get(id).mute then
       left_out[#left_out + 1] = name_of(id) .. ", muted"
     else
       given[#given + 1] = id
     end
   end
   if #given == 0 then
-    error(string.format("%s holds only muted tracks: nothing to export", range.text or "the range"), 0)
+    error(string.format("%s holds only muted parts: nothing to export", range.text or "the range"), 0)
   end
   return given
 end
 
---- True when `each=` makes renders of single tracks or groups.
-local function per_track(kinds: {Each}): boolean
+--- True when `each=` makes renders of single parts or groups.
+local function per_part(kinds: {Each}): boolean
   for _, kind in ipairs(kinds) do
     if kind ~= "region" then
       return true
@@ -1030,7 +1030,7 @@ local function items_and_numbers(
   if #items == 0 then
     error(
       #left_out > 0 and ("nothing to export: " .. table.concat(left_out, "; "))
-        or "nothing to export: no group or track here has clips",
+        or "nothing to export: no group or part here has clips",
       0
     )
   end
@@ -1043,7 +1043,7 @@ end
 local function target_of(
   typed: string, preset: Preset, given: {integer}, words: {string: string}, kinds: {Each}
 ): string, string
-  local target = typed or (preset and preset.target) or (given and "{tracks}.wav" or "{project}.wav")
+  local target = typed or (preset and preset.target) or (given and "{parts}.wav" or "{project}.wav")
   local format = words.format and words.format:lower()
   local endings = sound_endings()
   if format and not endings[format] then
@@ -1102,7 +1102,7 @@ local function file_options(words: {string: string}): render.Options
   }
 end
 
---- The names of tracks, joined with `+`.
+--- The names of parts, joined with `+`.
 local function joined_names(ids: {integer}): string
   local names: {string} = {}
   for _, id in ipairs(ids) do
@@ -1120,7 +1120,7 @@ local function gain_sets(renders: {Render}): integer
   local order: {string} = {}
   for _, r in ipairs(renders) do
     local levels = r.options.normalize ~= nil or r.options.loudness ~= nil
-    if r.tracks and levels then
+    if r.parts and levels then
       local key = tostring(r.from) .. ":" .. tostring(r.to) .. ":" .. r.tap
       if not by[key] then
         by[key] = {}
@@ -1133,10 +1133,10 @@ local function gain_sets(renders: {Render}): integer
   for _, key in ipairs(order) do
     local list = by[key]
     if #list > 1 then
-      local set: GainSet = {tracks = {}}
+      local set: GainSet = {parts = {}}
       for _, r in ipairs(list) do
-        for _, id in ipairs(r.tracks) do
-          set.tracks[#set.tracks + 1] = id
+        for _, id in ipairs(r.parts) do
+          set.parts[#set.parts + 1] = id
         end
         r.set = set
       end
@@ -1172,11 +1172,11 @@ local function sound_plan(args: Args, found: Found, range: Range): Plan
   local kinds = each_list(words.each)
   -- The mix of a window narrowed to a group is the mix of the group.
   local scope = paw.scope.group()
-  if not given and scope and not per_track(kinds) then
+  if not given and scope and not per_part(kinds) then
     given = {scope}
   end
-  if (tap == "pre" or tap == "post") and not given and not per_track(kinds) then
-    error("tap=" .. tap .. " is the sound of tracks: give them, as in :t2export tap=" .. tap .. ", or each=track", 0)
+  if (tap == "pre" or tap == "post") and not given and not per_part(kinds) then
+    error("tap=" .. tap .. " is the sound of parts: give them, as in :t2export tap=" .. tap .. ", or each=part", 0)
   end
   local channels = (words.channels or "stereo") as Channels
   if channels ~= "stereo" and channels ~= "mono" and channels ~= "auto" then
@@ -1190,16 +1190,16 @@ local function sound_plan(args: Args, found: Found, range: Range): Plan
   local renders: {Render} = {}
   local used: {string: integer} = {}
   local date = os.date("%Y-%m-%d") as string
-  local tracks_name = given and joined_names(given) or project_name()
+  local parts_name = given and joined_names(given) or project_name()
   for i, item in ipairs(items) do
-    local tracks = item.unit and {item.unit.id} or given
+    local parts = item.unit and {item.unit.id} or given
     local s = item.span or span
-    local unit_name = item.unit and item.unit.name or tracks_name
+    local unit_name = item.unit and item.unit.name or parts_name
     local fields = {
       project = project_name(),
-      track = unit_name,
+      part = unit_name,
       group = unit_name,
-      tracks = tracks_name,
+      parts = parts_name,
       region = s.region or s.when,
       n = string.format("%02d", nth[i]),
       date = date,
@@ -1211,20 +1211,20 @@ local function sound_plan(args: Args, found: Found, range: Range): Plan
       file = file:sub(1, -#ext - 2) .. " " .. used[file] .. "." .. ext
     end
     local holds: {string} = {}
-    for _, id in ipairs(tracks or {}) do
+    for _, id in ipairs(parts or {}) do
       for _, n in ipairs(holds_of(id)) do
         holds[#holds + 1] = n
       end
     end
     renders[i] = {
       file = file,
-      tracks = tracks,
-      holds = tracks and table.concat(holds, ", ") or "the mix",
+      parts = parts,
+      holds = parts and table.concat(holds, ", ") or "the mix",
       from = s.from,
       to = s.to,
       when = s.when,
       -- The mix is always heard through the master (tap=groups leaves out its devices).
-      tap = (tracks or tap == "groups") and tap or "master",
+      tap = (parts or tap == "groups") and tap or "master",
       channels = channels,
       title = item.unit and item.unit.name or nil,
       replaces = io.open(file) ~= nil and not in_renders(file),
@@ -1319,9 +1319,9 @@ function M.plan_args(args: Args, range?: Range): Plan
 end
 
 --- The plan of an export: the words as typed after `:export`, and the
---- range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or
+--- range of parts and time before it (`paw.ex.range("t2,t4 17,32")`, or
 --- nil for the song). Gives `{ renders, left_out, notes, confirm }`.
---- Each render has its `file`, `tracks` (nil for the mix), `from`, `to`,
+--- Each render has its `file`, `parts` (nil for the mix), `from`, `to`,
 --- `when`, `tap` and `channels`. A plan that cannot be is an error with a
 --- clear message.
 function M.plan(words?: string, range?: Range): Plan
@@ -1362,7 +1362,7 @@ local function render_options(r: Render): render.Options
     (opts as {string: util.Data})[k] = v
   end
   opts.start, opts["end"] = r.from, r.to
-  opts.tracks, opts.tap, opts.channels = r.tracks, r.tap, r.channels
+  opts.parts, opts.tap, opts.channels = r.parts, r.tap, r.channels
   if r.set then
     opts.normalize, opts.loudness, opts.gain = nil, nil, r.set.gain
   end
@@ -1379,7 +1379,7 @@ end
 local MEASURING = "the mix, for the gain of its files"
 
 --- The render of the mix of a set, with the time and tap of a file of the
---- set: its tracks together, in a WAV file that paw removes when it has
+--- set: its parts together, in a WAV file that paw removes when it has
 --- the gain. It keeps the words that change the sound (the tail, the rate
 --- and the levels), and not those of the file (its format, quality and
 --- tags).
@@ -1387,7 +1387,7 @@ local function mix_of(set: GainSet, r: Render): Render
   local o = r.options
   return {
     file = place(".mix for the gain.wav", false),
-    tracks = set.tracks,
+    parts = set.parts,
     from = r.from,
     to = r.to,
     tap = r.tap,
@@ -1763,16 +1763,16 @@ end
 --- The words that a MIDI file takes. The others are for sound.
 local MIDI_WORDS: {string: boolean} = {each = true, ["in"] = true}
 
---- One MIDI file of an export: its path, and the tracks or the clips it holds.
+--- One MIDI file of an export: its path, and the parts or the clips it holds.
 local record MidiFile
   file: string
-  tracks: {integer}
+  parts: {integer}
   clips: {integer}
 end
 
---- The tracks that a MIDI export reads: those of the range, or those that
---- the window shows, with the tracks inside each group, in order.
-local function midi_tracks(range: Range): {integer}
+--- The parts that a MIDI export reads: those of the range, or those that
+--- the window shows, with the parts inside each group, in order.
+local function midi_parts(range: Range): {integer}
   local out: {integer} = {}
   local seen: {integer: boolean} = {}
   local function add(id: integer)
@@ -1781,9 +1781,9 @@ local function midi_tracks(range: Range): {integer}
       out[#out + 1] = id
     end
   end
-  for _, id in ipairs(range and range.tracks or paw.scope.tracks()) do
+  for _, id in ipairs(range and range.parts or paw.scope.parts()) do
     if paw.groups.is_group(id) then
-      for _, other in ipairs(api.track_list()) do
+      for _, other in ipairs(api.part_list()) do
         if other ~= id and paw.scope.contains(other, id) then
           add(other)
         end
@@ -1794,20 +1794,20 @@ local function midi_tracks(range: Range): {integer}
   return out
 end
 
---- A MIDI clip of a track, by their ids.
-local record TrackClip
-  track: integer
+--- A MIDI clip of a part, by their ids.
+local record PartClip
+  part: integer
   clip: integer
 end
 
---- The MIDI clips of `tracks` that play in the span.
-local function midi_clips(tracks: {integer}, span: Span): {TrackClip}
-  local out: {TrackClip} = {}
-  for _, id in ipairs(tracks) do
+--- The MIDI clips of `parts` that play in the span.
+local function midi_clips(parts: {integer}, span: Span): {PartClip}
+  local out: {PartClip} = {}
+  for _, id in ipairs(parts) do
     for _, c in ipairs(api.clip_list(id)) do
       local inside_span = not span.to or (c.start + c.length > (span.from or 0) and c.start < span.to)
       if c.kind == "midi" and not c.muted and inside_span then
-        out[#out + 1] = {track = id, clip = c.id}
+        out[#out + 1] = {part = id, clip = c.id}
       end
     end
   end
@@ -1842,35 +1842,35 @@ local function midi_words(args: Args, target: string): {string: string}
   return words
 end
 
---- What the files of a MIDI export hold: one file, or one for each track
+--- What the files of a MIDI export hold: one file, or one for each part
 --- or clip with `each=`. Gives the files without their paths, and the
---- name of each for `{track}`.
+--- name of each for `{part}`.
 local function midi_items(clip_word: boolean, each: Each, range: Range, span: Span): {MidiFile}, {string}
   local items: {MidiFile} = {}
   local names: {string} = {}
   if clip_word then
     local id = clip_at_cursor()
-    return {{clips = {id}}}, {name_of(api.clip_get(id).track)}
+    return {{clips = {id}}}, {name_of(api.clip_get(id).part)}
   end
-  local tracks = midi_tracks(range)
-  local clips = midi_clips(tracks, span)
+  local parts = midi_parts(range)
+  local clips = midi_clips(parts, span)
   if each == "clip" then
     for i, c in ipairs(clips) do
-      items[i], names[i] = {clips = {c.clip}}, name_of(c.track)
+      items[i], names[i] = {clips = {c.clip}}, name_of(c.part)
     end
-  elseif each == "track" then
+  elseif each == "part" then
     local with_clips: {integer: boolean} = {}
     for _, c in ipairs(clips) do
-      with_clips[c.track] = true
+      with_clips[c.part] = true
     end
-    for _, id in ipairs(tracks) do
+    for _, id in ipairs(parts) do
       if with_clips[id] then
-        items[#items + 1] = {tracks = {id}}
+        items[#items + 1] = {parts = {id}}
         names[#items] = name_of(id)
       end
     end
   elseif #clips > 0 then
-    items[1], names[1] = {tracks = tracks}, range and range.tracks and joined_names(tracks) or project_name()
+    items[1], names[1] = {parts = parts}, range and range.parts and joined_names(parts) or project_name()
   end
   return items, names
 end
@@ -1883,8 +1883,8 @@ local function midi_files(
   local words = midi_words(args, target)
   local kinds = each_list(words.each)
   local each = kinds[1]
-  if #kinds > 1 or (each and each ~= "track" and each ~= "clip") then
-    error(string.format("each=%s: a MIDI file takes each=track or each=clip", words.each), 0)
+  if #kinds > 1 or (each and each ~= "part" and each ~= "clip") then
+    error(string.format("each=%s: a MIDI file takes each=part or each=clip", words.each), 0)
   end
   if clip_word and (each or range) then
     error("`clip` is the clip at the cursor: for the clips of a range, type :'<,'>export each=clip " .. target, 0)
@@ -1892,7 +1892,7 @@ local function midi_files(
   local span = span_of(range, words["in"])
   local items, names = midi_items(clip_word, each, range, span)
   if #items == 0 then
-    error("nothing to export: no track here has a MIDI clip", 0)
+    error("nothing to export: no part here has a MIDI clip", 0)
   end
   if kind == "midi2" and not items[1].clips then
     error(target .. " holds one clip: `:export clip " .. target .. "`, or each=clip for each clip of a range", 0)
@@ -1908,9 +1908,9 @@ local function midi_files(
   for i, item in ipairs(items) do
     local fields = {
       project = project_name(),
-      track = names[i],
+      part = names[i],
       group = names[i],
-      tracks = names[i],
+      parts = names[i],
       region = span.region or span.when,
       n = string.format("%02d", i),
       date = date,
@@ -1927,7 +1927,7 @@ local function midi_files(
 end
 
 --- Write the MIDI files of the words of `:export`: Standard MIDI files of
---- type 1 with one track for each track, or MIDI 2 clip files. A file
+--- type 1 with one part for each part, or MIDI 2 clip files. A file
 --- outside the renders folder that is there is replaced with `!` only.
 local function midi_export(args: Args, range: Range, bang: boolean, found: Found): commands.Result
   local first = text_of(args[1])
@@ -1938,7 +1938,7 @@ local function midi_export(args: Args, range: Range, bang: boolean, found: Found
   local target = text_of(args[clip_word and 2 or 1])
   local extra = args[clip_word and 3 or 2]
   if extra ~= nil then
-    error("`" .. tostring(extra) .. "`: one target only; words take a value: each=track", 0)
+    error("`" .. tostring(extra) .. "`: one target only; words take a value: each=part", 0)
   end
   local kind = midi_kind(target)
   local files, span = midi_files(target, kind, clip_word, args, range)
@@ -1961,7 +1961,7 @@ local function midi_export(args: Args, range: Range, bang: boolean, found: Found
       api.midi2_write(f.file, {notes = clip_notes, controls = api.clip_controls(id), length = api.clip_get(id).length})
       notes = notes + #clip_notes
     else
-      notes = notes + paw.midifile.export(f.file, {tracks = f.tracks, clips = f.clips, from = span.from, to = span.to})
+      notes = notes + paw.midifile.export(f.file, {parts = f.parts, clips = f.clips, from = span.from, to = span.to})
       lost = lost or paw.midifile.lost_text()
     end
   end
@@ -2136,7 +2136,7 @@ commands.define(
     )
   end,
   {
-    desc = "Show or set the tags of the project's exported files: `export.tags artist=Me album=\"First one\" track=3 "
+    desc = "Show or set the tags of the project's exported files: `export.tags artist=Me album=\"First one\" part=3 "
       .. "year=2026 genre=Ambient comment=\"a note\" cover=cover.png`; an empty value takes one out",
   }
 )

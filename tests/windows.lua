@@ -59,14 +59,14 @@ end
 local keys = T.keys
 
 local function riff(start_beat)
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({
     start = start_beat or 0,
     length = 8,
     name = "riff",
     notes = { { pitch = 60, start = 0, length = 1 } },
   })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   return t, clip
 end
 
@@ -107,7 +107,7 @@ test(":vs roll puts the piano roll beside the arrange view, both drawn and both 
   eq(r.pianoroll.x > r.arrange.x, true, "the roll on the right")
   eq(math.abs(r.pianoroll.w - r.arrange.w) <= 1, true, "each half the width: " .. r.arrange.w .. " " .. r.pianoroll.w)
   local text = screen()
-  eq(text:find("Keys", 1, true) ~= nil, true, "the arrange view draws its track")
+  eq(text:find("Keys", 1, true) ~= nil, true, "the arrange view draws its part")
   eq(text:find("riff", 1, true) ~= nil, true, "the roll draws its clip")
   eq(text:find("traceback", 1, true), nil, "neither failed")
   local roll = paw.ui.views:get("pianoroll")
@@ -116,10 +116,10 @@ test(":vs roll puts the piano roll beside the arrange view, both drawn and both 
   eq(roll.pitch, pitch + 1, "keys in the roll move its cursor")
   keys("<C-w>h")
   eq(paw.ui.focused, "arrange", "Ctrl-w h goes to the arrange view")
-  paw.add_track({ name = "Bass" })
-  paw.cursor.set_track(t)
+  paw.add_part({ name = "Bass" })
+  paw.cursor.set_part(t)
   keys("j")
-  eq(paw.cursor.track().name, "Bass", "and keys there move its cursor")
+  eq(paw.cursor.part().name, "Bass", "and keys there move its cursor")
   keys("<C-w>l")
   eq(paw.ui.focused, "pianoroll", "Ctrl-w l back to the roll")
   -- Opening a clip shows it in the window the roll is in.
@@ -286,10 +286,10 @@ test("windows are resized by keys, by :resize and by dragging their border", fun
   reset()
 end)
 
-test("Ctrl-w + resizes a window only, never the tracks", function()
+test("Ctrl-w + resizes a window only, never the parts", function()
   start()
   keys("<C-w>+")
-  eq(L.current().vzoom, nil, "alone: no taller tracks (that is Ctrl-=)")
+  eq(L.current().vzoom, nil, "alone: no taller parts (that is Ctrl-=)")
   sized(function()
     keys(":sp mixer<CR>")
     keys("<C-w>k")

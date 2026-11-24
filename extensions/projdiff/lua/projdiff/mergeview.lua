@@ -21,16 +21,16 @@ local view = {
 }
 
 --- The subproject that conflict `c` is inside, or nil for the song: the
---- subproject that its path names, or the subproject of the track that
+--- subproject that its path names, or the subproject of the part that
 --- its path names.
 local function nest_of(doc, c)
   local path = c.path
   if path[1] ~= "project" or type(path[3]) ~= "table" then return nil end
   if path[2] == "nests" then return path[3].id end
-  if path[2] ~= "tracks" then return nil end
-  local track = merge.at(doc, { path[1], path[2], path[3] })
-  if track then return track.nest end
-  -- A track that ours removed is only in the other values of the conflict.
+  if path[2] ~= "parts" then return nil end
+  local part = merge.at(doc, { path[1], path[2], path[3] })
+  if part then return part.nest end
+  -- A part that ours removed is only in the other values of the conflict.
   if #path ~= 3 then return nil end
   for _, side in ipairs({ "theirs", "base" }) do
     if type(c[side]) == "table" then return c[side].nest end

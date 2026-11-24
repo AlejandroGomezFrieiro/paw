@@ -30,8 +30,8 @@ text.
 | `:take.new` | Keep what the clip plays as a take, and continue in a copy of it. |
 | `:take.remove`, `:take.remove 1` | Delete the active take, or take 1. |
 | `:take.keep` | Delete all the takes but the active take. |
-| `:take.explode` | Put each other take as a clip on a new track of its own. |
-| `zt`, `:take.lanes` | Show the takes of the track as lanes below its clips, or hide them. |
+| `:take.explode` | Put each other take as a clip on a new part of its own. |
+| `zt`, `:take.lanes` | Show the takes of the part as lanes below its clips, or hide them. |
 
 In the graphical window, the menu of a clip has a Takes entry with the actions in the table above.
 
@@ -53,23 +53,23 @@ To comp is to select the best part of each take.
 
 ## Take lanes
 
-`zt` shows the takes of a track as lanes below its clips. `:take.lanes`,
-the Takes entry of the menu of a clip, and the menu of the track in the
+`zt` shows the takes of a part as lanes below its clips. `:take.lanes`,
+the Takes entry of the menu of a clip, and the menu of the part in the
 graphical window do the same.
 
-- Lane k holds take k of each clip of the track that has takes, each over
+- Lane k holds take k of each clip of the part that has takes, each over
   the time range of its clip, so the pieces of a comp align in lanes.
 - The active take is bright and the other takes are dim, and each piece shows
   the waveform or the notes of its take, and its name.
 - After recording round the loop, the lanes do not open automatically, and
   `zt` shows each time round.
-- In the terminal, each lane has two rows below the track, or as many as the
+- In the terminal, each lane has two rows below the part, or as many as the
   automation lanes when you zoom the rows. The first row shows the name of
   each take, and the active take is bright with `▶` before its name. The rows
   under it show the waveform or the notes of the take, at the same time as
   the clip. With the keys, you comp with `:take 2` on a selection, and with
   the mouse you drag across a lane.
-- paw remembers which tracks show take lanes for the session, as it does for the
+- paw remembers which parts show take lanes for the session, as it does for the
   automation lanes that show as rows, and it does not save them in the project.
 
 ### Swipe comping (graphical window)
@@ -110,16 +110,16 @@ loops.
 | `paw.takes.new(clip)` | Make a take. |
 | `paw.takes.remove(clip, n)` | Delete take n. |
 | `paw.takes.keep(clip)` | Delete all the takes but the active take. |
-| `paw.takes.explode(clip)` | Put the other takes on new tracks. |
-| `paw.takes.comp(track, n, from, to)` | Play take n over beats `from` to `to`, then join the pieces as above. |
-| `paw.takes.choose_at(track, n, beat)` | Play take n in the piece at a beat. |
-| `paw.takes.join_pieces(track, from, to)` | Join the pieces in a range where the join is exact. |
+| `paw.takes.explode(clip)` | Put the other takes on new parts. |
+| `paw.takes.comp(part, n, from, to)` | Play take n over beats `from` to `to`, then join the pieces as above. |
+| `paw.takes.choose_at(part, n, beat)` | Play take n in the piece at a beat. |
+| `paw.takes.join_pieces(part, from, to)` | Join the pieces in a range where the join is exact. |
 | `paw.takes.content(clip, n)` | What take n plays: the file, offset and gain, or the notes. |
-| `paw.takes.show_lanes(track, on)` | Show or hide the take lanes. |
-| `paw.takes.lane_count(track)` | The number of lanes. |
-| `paw.frontend.act.take_lanes(track)` | The gesture that shows the lanes. |
-| `paw.frontend.act.comp(track, n, from, to, free)` | The swipe gesture. |
-| `paw.frontend.act.take_click(track, n, beat)` | The click gesture. |
+| `paw.takes.show_lanes(part, on)` | Show or hide the take lanes. |
+| `paw.takes.lane_count(part)` | The number of lanes. |
+| `paw.frontend.act.take_lanes(part)` | The gesture that shows the lanes. |
+| `paw.frontend.act.comp(part, n, from, to, free)` | The swipe gesture. |
+| `paw.frontend.act.take_click(part, n, beat)` | The click gesture. |
 | `paw.frontend.take_preview(clip, n, points)` | The drawing of a take that does not play. |
 | `paw.api.media_peaks(file, offset, seconds, points)` | The waveform of a part of a file. |
 

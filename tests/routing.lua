@@ -1,5 +1,5 @@
--- Routes between tracks besides outputs and sends: side-chains, which a
--- device on one track takes from another (runtime/lua/paw/routes.lua).
+-- Routes between parts besides outputs and sends: side-chains, which a
+-- device on one part takes from another (runtime/lua/paw/routes.lua).
 local T = ...
 local test, eq, near, fails, fresh, render = T.test, T.eq, T.near, T.fails, T.fresh, T.render
 local api = paw.api
@@ -16,10 +16,10 @@ end
 local function pad_and_kick()
   fresh()
   paw.project.tempo = 120
-  local pad = paw.add_track({ name = "Pad" })
+  local pad = paw.add_part({ name = "Pad" })
   pad:add_device("synth", { attack = 0.001, release = 0.01, wave = 0 })
   pad:add_clip({ start = 0, length = 8, notes = { { pitch = "A3", start = 0, length = 8 } } })
-  local kick = paw.add_track({ name = "Kick" })
+  local kick = paw.add_part({ name = "Kick" })
   kick:add_device("synth", { attack = 0.0005, release = 0.005, wave = 1, gain = 6 })
   local hits = {}
   for beat = 0, 6, 2 do
@@ -49,7 +49,7 @@ test("a compressor ducks a pad under a kick through its side-chain", function()
 
   comp:set_sidechain(kick, { pre = true })
   comp:set({ threshold = -30, ratio = 50 })
-  eq(comp.sidechain, kick.id, "the device names the track it listens to")
+  eq(comp.sidechain, kick.id, "the device names the part it listens to")
   eq(comp.sidechain_pre, true, "and that it takes it before the fader")
   during, between = levels()
   eq(during < between * 0.1, true, string.format("the pad ducks under the kick: %.3f against %.3f", during, between))
@@ -72,7 +72,7 @@ test("a compressor ducks a pad under a kick through its side-chain", function()
   near(during / between, 1, 0.1, "nor does one faded out")
 end)
 
-test("soloing the track a compressor ducks does not cut its key", function()
+test("soloing the part a compressor ducks does not cut its key", function()
   local pad, kick = pad_and_kick()
   local comp = pad:add_device("compressor", { threshold = -30, ratio = 50, attack = 0.1, release = 20, knee = 0 })
   comp:set_sidechain(kick)
@@ -106,15 +106,15 @@ end)
 test("a side-chain lines up with what the device hears, through latency on either side", function()
   fresh()
   paw.project.tempo = 120
-  -- The pad's track plays the kick upside down, through a gate that
+  -- The pad's part plays the kick upside down, through a gate that
   -- listens to the kick: if the two meet at the master at the same time
   -- they cancel. The kick is late through a look-ahead limiter, and the
   -- devices before the gate are late through a compressor's look-ahead.
-  local pad = paw.add_track({ name = "Pad" })
+  local pad = paw.add_part({ name = "Pad" })
   pad:add_device("compressor", { lookahead = 3, threshold = 0 })
   local gate = pad:add_device("gate", { listen = 1 })
   pad:add_device("utility", { invert_l = 1, invert_r = 1 })
-  local kick = paw.add_track({ name = "Kick" })
+  local kick = paw.add_part({ name = "Kick" })
   kick:add_device("synth", { attack = 0.0005, release = 0.005, wave = 1 })
   kick:add_device("limiter", { ceiling = -3 })
   kick:add_clip({ start = 0, length = 4, notes = { { pitch = "A2", start = 1, length = 0.5 } } })
@@ -126,13 +126,13 @@ test("a side-chain lines up with what the device hears, through latency on eithe
   eq(T.channel_peaks(info, 0.5, 1) > 0.05, true, "without the key the kick is heard")
 end)
 
-test("side-chains, output pairs and the threads that process tracks: the same file, byte for byte", function()
+test("side-chains, output pairs and the threads that process parts: the same file, byte for byte", function()
   fresh()
-  local bus = paw.add_track({ name = "bus" })
+  local bus = paw.add_part({ name = "bus" })
   bus:add_device("compressor", { threshold = -30, ratio = 8, attack = 1, release = 40, lookahead = 2 })
   local keys = {}
   for i = 1, 12 do
-    local t = paw.add_track({ name = "voice " .. i, pan = (i - 6) / 8 })
+    local t = paw.add_part({ name = "voice " .. i, pan = (i - 6) / 8 })
     t:add_device("synth", { wave = i % 4, attack = 0.002, release = 0.05 })
     if i % 3 == 0 then t:add_device("limiter") end
     local notes = {}
@@ -151,7 +151,7 @@ test("side-chains, output pairs and the threads that process tracks: the same fi
   end
   bus:devices()[1]:set_sidechain(keys[3])
   -- And a kit whose kick plays into the bus and whose hats into a voice.
-  local drums = paw.add_track({ name = "kit" })
+  local drums = paw.add_part({ name = "kit" })
   local kit = drums:add_device("drums")
   drums:add_device("limiter")
   local beats = {}
@@ -173,30 +173,30 @@ end)
 
 test("a side-chain that would make a loop is refused, in every combination with outputs and sends", function()
   fresh()
-  local a, b, c = paw.add_track({ name = "A" }), paw.add_track({ name = "B" }), paw.add_track({ name = "C" })
+  local a, b, c = paw.add_part({ name = "A" }), paw.add_part({ name = "B" }), paw.add_part({ name = "C" })
   local on_a = a:add_device("compressor")
   local on_b = b:add_device("compressor")
   local on_c = c:add_device("gate")
-  fails(function() on_a:set_sidechain(a) end, "its own track", "a device on its own track")
+  fails(function() on_a:set_sidechain(a) end, "its own part", "a device on its own part")
   fails(function() on_a.sidechain = 0 end, "master", "the master")
-  fails(function() on_a.sidechain = 999 end, "no track", "a track that is not there")
+  fails(function() on_a.sidechain = 999 end, "no part", "a part that is not there")
 
   a.output = b
-  fails(function() on_a:set_sidechain(b) end, "loop", "from the track its own plays into")
+  fails(function() on_a:set_sidechain(b) end, "loop", "from the part its own plays into")
   a.output = nil
   a:send(b, -6)
-  fails(function() on_a:set_sidechain(b) end, "loop", "from the track its own sends to")
+  fails(function() on_a:set_sidechain(b) end, "loop", "from the part its own sends to")
   paw.frontend.act.remove_send(a.id, 1)
 
   on_b:set_sidechain(a)
-  fails(function() b.output = a end, "loop", "an output into the track it listens to")
-  fails(function() b:send(a, 0) end, "loop", "a send into the track it listens to")
+  fails(function() b.output = a end, "loop", "an output into the part it listens to")
+  fails(function() b:send(a, 0) end, "loop", "a send into the part it listens to")
   fails(function() on_a:set_sidechain(b) end, "loop", "listening back the other way")
   on_c:set_sidechain(b)
-  fails(function() on_a:set_sidechain(c) end, "loop", "round three tracks")
-  fails(function() c.output = a end, "loop", "an output round three tracks")
-  fails(function() api.device_move(on_b.id, a.id, 1) end, "loop", "moving the device onto the track it listens to")
-  eq(on_b:track().id, b.id, "which stays where it was")
+  fails(function() on_a:set_sidechain(c) end, "loop", "round three parts")
+  fails(function() c.output = a end, "loop", "an output round three parts")
+  fails(function() api.device_move(on_b.id, a.id, 1) end, "loop", "moving the device onto the part it listens to")
+  eq(on_b:part().id, b.id, "which stays where it was")
 
   -- What the frontends offer leaves out what would be refused.
   local names = {}
@@ -216,14 +216,14 @@ test("a side-chain that would make a loop is refused, in every combination with 
   eq(table.concat(names, " "), "A B", "C can listen to the others")
 end)
 
-test("removing the track a device listens to takes the side-chain away, and undo brings it back", function()
+test("removing the part a device listens to takes the side-chain away, and undo brings it back", function()
   fresh()
-  local pad, kick = paw.add_track({ name = "Pad" }), paw.add_track({ name = "Kick" })
+  local pad, kick = paw.add_part({ name = "Pad" }), paw.add_part({ name = "Kick" })
   local comp = pad:add_device("compressor")
   local on_master = paw.master:add_device("compressor")
   comp:set_sidechain(kick, { pre = true })
   on_master:set_sidechain(kick)
-  eq(api.track_get(pad.id).listens[1], kick.id, "the track says what it listens to")
+  eq(api.part_get(pad.id).listens[1], kick.id, "the part says what it listens to")
   api.undo_checkpoint()
   kick:remove()
   eq(comp.sidechain, nil, "the device listens to its own input again")
@@ -234,9 +234,9 @@ test("removing the track a device listens to takes the side-chain away, and undo
   eq(comp.sidechain_pre, true, "as it was")
 end)
 
-test("side-chains are saved, loaded, copied with a track, and left out of templates", function()
+test("side-chains are saved, loaded, copied with a part, and left out of templates", function()
   fresh()
-  local pad, kick = paw.add_track({ name = "Pad" }), paw.add_track({ name = "Kick" })
+  local pad, kick = paw.add_part({ name = "Pad" }), paw.add_part({ name = "Kick" })
   local comp = pad:add_device("compressor")
   pad:add_device("delay")
   comp:set_sidechain(kick, { pre = true })
@@ -246,19 +246,19 @@ test("side-chains are saved, loaded, copied with a track, and left out of templa
   -- The project is named after its file: count the field, not the name.
   eq(select(2, text:gsub('"sidechain":', "")), 1, "the one side-chain is written")
   paw.project.load(path)
-  local loaded = paw.track("Pad"):devices()[1]
-  eq(loaded.sidechain, paw.track("Kick").id, "and read back")
+  local loaded = paw.part("Pad"):devices()[1]
+  eq(loaded.sidechain, paw.part("Kick").id, "and read back")
   eq(loaded.sidechain_pre, true, "with where it is taken")
 
-  local copy = paw.track("Pad"):duplicate()
-  eq(copy:devices()[1].sidechain, paw.track("Kick").id, "a copy of the track listens to the same track")
-  local snap = paw.track("Pad"):snapshot()
-  paw.track("Kick"):remove()
-  local restored = paw.restore_track(snap)
-  eq(restored:devices()[1].sidechain, nil, "a track restored after its key is gone listens to its own input")
+  local copy = paw.part("Pad"):duplicate()
+  eq(copy:devices()[1].sidechain, paw.part("Kick").id, "a copy of the part listens to the same part")
+  local snap = paw.part("Pad"):snapshot()
+  paw.part("Kick"):remove()
+  local restored = paw.restore_part(snap)
+  eq(restored:devices()[1].sidechain, nil, "a part restored after its key is gone listens to its own input")
 
   fresh()
-  local plain = paw.add_track({ name = "Plain" })
+  local plain = paw.add_part({ name = "Plain" })
   plain:add_device("compressor")
   paw.project.save(path)
   eq(T.read_file(path):find('"sidechain":', 1, true), nil, "a project without side-chains is written as before")
@@ -266,11 +266,11 @@ end)
 
 test("the device panel and the window choose a device's side-chain", function()
   fresh()
-  local pad, kick = paw.add_track({ name = "Pad" }), paw.add_track({ name = "Kick" })
-  local _ = paw.add_track({ name = "Hats" })
+  local pad, kick = paw.add_part({ name = "Pad" }), paw.add_part({ name = "Kick" })
+  local _ = paw.add_part({ name = "Hats" })
   local comp = pad:add_device("compressor")
   pad:add_device("delay")
-  paw.cursor.set_track(pad)
+  paw.cursor.set_part(pad)
   paw.ui.focus("devices")
   paw.ui.views:get("devices").row = 1
   paw.commands.exec("device.sidechain Kick pre=1")
@@ -300,10 +300,10 @@ test("the device panel and the window choose a device's side-chain", function()
   eq(
     table.concat(labels, "|"),
     "None: its own input|Kick|Hats|Before the fader",
-    "its menu lists the tracks it can hear"
+    "its menu lists the parts it can hear"
   )
   paw.frontend.act.choose_sidechain(comp.id, 3)
-  eq(comp.sidechain, paw.track("Hats").id, "choosing one sets it")
+  eq(comp.sidechain, paw.part("Hats").id, "choosing one sets it")
   paw.frontend.act.choose_sidechain(comp.id, 4)
   eq(comp.sidechain_pre, true, "the last entry takes it before the fader")
   eq(paw.frontend.state(-1).devices[1].sidechain, "Hats pre", "which the card shows")
@@ -337,19 +337,19 @@ end
 
 -- Devices with more than one output pair -----------------------------------------
 
---- A kit on its own track with a kick on beat 0 and a snare on beat 2, at
+--- A kit on its own part with a kick on beat 0 and a snare on beat 2, at
 --- 120 BPM: the kick sounds from 0 s, the snare from 1 s.
 local function kit_and_kick()
   fresh()
   paw.project.tempo = 120
-  local drums = paw.add_track({ name = "Drums" })
+  local drums = paw.add_part({ name = "Drums" })
   local kit = drums:add_device("drums")
   drums:add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = 36, start = 0, length = 0.5 }, { pitch = 38, start = 2, length = 0.5 } },
   })
-  local kick = paw.add_track({ name = "Kick" })
+  local kick = paw.add_part({ name = "Kick" })
   return drums, kit, kick
 end
 
@@ -359,7 +359,7 @@ local function kick_and_snare()
   return T.channel_peaks(info, 0.01, 0.2), T.channel_peaks(info, 1.01, 1.2)
 end
 
-test("a kit's routed pair plays on the track it is routed to, and leaves the kit's own", function()
+test("a kit's routed pair plays on the part it is routed to, and leaves the kit's own", function()
   local drums, kit, kick = kit_and_kick()
   eq(table.concat(kit.ports.outputs, " "), "Kit Kick Snare Hats Toms Cymbals Percussion", "the kit names its pairs")
   kit:set_output(2, kick)
@@ -369,7 +369,7 @@ test("a kit's routed pair plays on the track it is routed to, and leaves the kit
   eq(
     k > 0.05 and s < 0.001,
     true,
-    string.format("the kick plays through its own track, not the kit's fader: %.3f, %.4f", k, s)
+    string.format("the kick plays through its own part, not the kit's fader: %.3f, %.4f", k, s)
   )
   drums.volume = 0
   kick.volume = -120
@@ -385,18 +385,18 @@ test("a pair routed elsewhere is lined up with the rest through latency on eithe
   fresh()
   paw.project.tempo = 120
   local notes = { { pitch = 36, start = 1, length = 0.5 } }
-  -- One kit plays the kick on its own track through a look-ahead; another
+  -- One kit plays the kick on its own part through a look-ahead; another
   -- plays it on its kick pair, which leaves before a longer look-ahead and
-  -- is turned upside down on the track it plays into: they cancel.
-  local a = paw.add_track({ name = "A" })
+  -- is turned upside down on the part it plays into: they cancel.
+  local a = paw.add_part({ name = "A" })
   a:add_device("drums")
   a:add_device("compressor", { lookahead = 3, ratio = 1 })
   a:add_clip({ start = 0, length = 4, notes = notes })
-  local b = paw.add_track({ name = "B" })
+  local b = paw.add_part({ name = "B" })
   local kit = b:add_device("drums")
   b:add_device("compressor", { lookahead = 5, ratio = 1 })
   b:add_clip({ start = 0, length = 4, notes = notes })
-  local flip = paw.add_track({ name = "Flip" })
+  local flip = paw.add_part({ name = "Flip" })
   flip:add_device("utility", { invert_l = 1, invert_r = 1 })
   kit:set_output(2, flip)
   local info = render({ tail = 0.2, bits = 16 })
@@ -408,28 +408,28 @@ end)
 
 test("output pairs that would make a loop are refused, with outputs, sends and side-chains", function()
   local drums, kit, kick = kit_and_kick()
-  fails(function() kit:set_output(2, drums) end, "own track", "into the kit's own track")
-  fails(function() kit:set_output(1, kick) end, "from 2", "the first pair, which plays on the kit's track")
-  fails(function() kit:set_output(2, 999) end, "no track", "into a track that is not there")
+  fails(function() kit:set_output(2, drums) end, "own part", "into the kit's own part")
+  fails(function() kit:set_output(1, kick) end, "from 2", "the first pair, which plays on the kit's part")
+  fails(function() kit:set_output(2, 999) end, "no part", "into a part that is not there")
   local on_master = paw.master:add_device("drums")
   fails(function() on_master:set_output(2, kick) end, "master", "from the master")
   kit:set_output(2, kick)
-  fails(function() kick.output = drums end, "loop", "the kick track playing back into the kit's")
+  fails(function() kick.output = drums end, "loop", "the kick part playing back into the kit's")
   fails(function() kick:send(drums, 0) end, "loop", "sending back")
   local comp = drums:add_device("compressor")
-  fails(function() comp:set_sidechain(kick) end, "loop", "the kit's track listening to the kick track")
-  local other = paw.add_track({ name = "Other" })
+  fails(function() comp:set_sidechain(kick) end, "loop", "the kit's part listening to the kick part")
+  local other = paw.add_part({ name = "Other" })
   other:add_device("compressor"):set_sidechain(kick)
   local second = other:add_device("drums")
-  fails(function() second:set_output(2, drums) end, "loop", "round three tracks, through a side-chain")
+  fails(function() second:set_output(2, drums) end, "loop", "round three parts, through a side-chain")
   local names = {}
   for _, entry in ipairs(paw.frontend.outputs_menu(kit.id)[1].choices) do
     names[#names + 1] = entry.label
   end
-  eq(table.concat(names, "|"), "Nowhere: not heard|Kick|Other", "the window offers the tracks it can play into")
+  eq(table.concat(names, "|"), "Nowhere: not heard|Kick|Other", "the window offers the parts it can play into")
 end)
 
-test("removing the track a pair plays into takes the route away, and undo brings it back", function()
+test("removing the part a pair plays into takes the route away, and undo brings it back", function()
   local _, kit, kick = kit_and_kick()
   kit:set_output(3, kick)
   api.undo_checkpoint()
@@ -445,45 +445,45 @@ test("routed pairs are saved and loaded, left out of copies and templates", func
   local path = T.scratch .. "/pairs.json"
   paw.project.save(path)
   paw.project.load(path)
-  local loaded = paw.track("Drums"):devices()[1]
-  eq(loaded.outputs["2"], paw.track("Kick").id, "the pair is read back")
-  local copy = paw.track("Drums"):duplicate()
-  eq(next(copy:devices()[1].outputs), nil, "a copy of the track plays its pairs nowhere")
-  local snap = paw.track("Drums"):snapshot()
-  paw.track("Kick"):remove()
-  local restored = paw.restore_track(snap)
-  eq(next(restored:devices()[1].outputs), nil, "restored after the track is gone, the pair plays nowhere")
+  local loaded = paw.part("Drums"):devices()[1]
+  eq(loaded.outputs["2"], paw.part("Kick").id, "the pair is read back")
+  local copy = paw.part("Drums"):duplicate()
+  eq(next(copy:devices()[1].outputs), nil, "a copy of the part plays its pairs nowhere")
+  local snap = paw.part("Drums"):snapshot()
+  paw.part("Kick"):remove()
+  local restored = paw.restore_part(snap)
+  eq(next(restored:devices()[1].outputs), nil, "restored after the part is gone, the pair plays nowhere")
 end)
 
-test("spreading a kit's outputs makes a track for each pair, grouped with the kit's", function()
+test("spreading a kit's outputs makes a part for each pair, grouped with the kit's", function()
   local drums, kit = kit_and_kick()
-  paw.track("Kick"):remove()
+  paw.part("Kick"):remove()
   local made = paw.routes.spread(kit.id)
   local names = {}
   for i, t in ipairs(made) do
     names[i] = t.name
   end
   eq(table.concat(names, " "), "Kick Snare Hats Toms Cymbals Percussion", "named after the pairs")
-  eq(kit.outputs["2"], made[1].id, "each pair plays on its track")
+  eq(kit.outputs["2"], made[1].id, "each pair plays on its part")
   eq(kit.outputs["7"], made[6].id, "the last too")
   local group = paw.groups.of(drums)
-  eq(group ~= nil and api.track_get(group).name, "Drums outputs", "the kit's track and the new ones are in a group")
+  eq(group ~= nil and api.part_get(group).name, "Drums outputs", "the kit's part and the new ones are in a group")
   eq(paw.groups.of(made[3]), group, "all of them")
   eq(#paw.routes.spread(kit.id), 0, "spreading again makes nothing more")
-  eq(kick_and_snare() > 0.05, true, "the kick sounds through its new track")
+  eq(kick_and_snare() > 0.05, true, "the kick sounds through its new part")
 end)
 
 test("the window and the device panel route a kit's pairs", function()
   local drums, kit, kick = kit_and_kick()
-  paw.add_track({ name = "Snare" })
-  paw.cursor.set_track(drums)
+  paw.add_part({ name = "Snare" })
+  paw.cursor.set_part(drums)
   local card = paw.frontend.state(-1).devices[1]
   eq(card.pairs .. " " .. card.routed, "7 0", "the card knows the kit has seven pairs, none routed")
   local menu = paw.frontend.outputs_menu(kit.id)
   eq(#menu, 6, "the menu has the six further pairs")
   eq(menu[1].label, "2 Kick → not heard", "each says where it plays")
   paw.frontend.act.route_pair(kit.id, 2, 2)
-  eq(kit.outputs["2"], kick.id, "choosing a track routes the pair")
+  eq(kit.outputs["2"], kick.id, "choosing a part routes the pair")
   eq(paw.frontend.outputs_menu(kit.id)[1].choices[2].checked, true, "which the menu ticks")
   paw.frontend.act.route_pair(kit.id, 2, 1)
   eq(next(kit.outputs), nil, "and Nowhere takes it away")
@@ -491,7 +491,7 @@ test("the window and the device panel route a kit's pairs", function()
   paw.ui.focus("devices")
   paw.ui.views:get("devices").row = 1
   paw.commands.exec("device.output 3 Snare")
-  eq(kit.outputs["3"], paw.track("Snare").id, ":device.output routes a pair by number")
+  eq(kit.outputs["3"], paw.part("Snare").id, ":device.output routes a pair by number")
   paw.flush()
   local text = table.concat(api.ui_snapshot(140, 30), "\n")
   eq(text:find("outs 1/6", 1, true) ~= nil, true, "the device panel counts the routed pairs")
@@ -514,11 +514,11 @@ for _, case in ipairs({
     local kind = plugin_kind(format, pattern)
     if not kind then return "skipped: test plugins not found" end
     fresh()
-    local inst = paw.add_track({ name = "Inst" })
+    local inst = paw.add_part({ name = "Inst" })
     local d = inst:add_device(kind)
     local outputs = d.ports.outputs
     eq(#outputs > 1, true, "it has several pairs: " .. table.concat(outputs, ", "))
-    local out = paw.add_track({ name = "Out" })
+    local out = paw.add_part({ name = "Out" })
     d:set_output(2, out)
     eq(d.outputs["2"], out.id, "a pair is routed")
     local info = render({ tail = 0, bits = 16, start = 0, ["end"] = 2 })

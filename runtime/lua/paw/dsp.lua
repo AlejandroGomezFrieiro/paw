@@ -320,7 +320,7 @@ end
 ---   midi_effect  true for a device whose events replace those that came in
 ---             (an arpeggiator); otherwise what came in is passed on with
 ---             whatever the device sends added to it
----   sidechain true to listen to another track (b.key_left, b.key_right)
+---   sidechain true to listen to another part (b.key_left, b.key_right)
 --- Functions put on the device:
 ---   dev.init(sample_rate, max_block)  once, before the first block
 ---   dev.process(b)   each block: b.left, b.right (float arrays from 0),

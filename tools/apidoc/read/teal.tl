@@ -22,8 +22,8 @@ local loaded = package.loaded as {string: any}
 local TEAL = {".tl", "/init.tl"}
 
 --- The modules of the runtime written in Teal, by name. A module that is
---- no value of `paw` itself is `hidden`: its values are (`paw.Track` and
---- `paw.tracks` of paw.objects).
+--- no value of `paw` itself is `hidden`: its values are (`paw.Part` and
+--- `paw.parts` of paw.objects).
 function teal.modules(modules: {Module}, global: model.Table): {TealModule}
   local out: {TealModule} = {}
   local seen: {string: boolean} = {}
@@ -92,8 +92,8 @@ function teal.values(mods: {TealModule}): {any: string}
       exported[name] = true
     end
     local record_text = text:match("\nlocal record M\n(.-)\nend\n") or ""
-    -- A record of the module's own (`record Track` in `local record M`):
-    -- a type, and its value the table of the record (`paw.Track`).
+    -- A record of the module's own (`record Part` in `local record M`):
+    -- a type, and its value the table of the record (`paw.Part`).
     local records: {string: boolean} = {}
     for name in ("\n" .. record_text):gmatch("\n  record ([%w_]+)") do
       exported[name], records[name] = true, true
@@ -140,7 +140,7 @@ function teal.values(mods: {TealModule}): {any: string}
 end
 
 --- The `any` of the records of the kernel's data, by the name of what has
---- them (`types.Track.meta`): an `any` moved from a signature into a record
+--- them (`types.Part.meta`): an `any` moved from a signature into a record
 --- is still one.
 function teal.record_anys(): {string: integer}
   local out: {string: integer} = {}

@@ -1,5 +1,5 @@
 -- Arranging by section: moving, duplicating, deleting and inserting whole
--- stretches of the song on every track at once, clips and automation alike.
+-- stretches of the song on every part at once, clips and automation alike.
 --
 -- Everything here is one operation, `rebuild(plan)`, which lays the timeline
 -- out again from pieces of the old one. A plan is a list of pieces, each
@@ -47,33 +47,33 @@ end
 
 local function notes_of(c) return c.kind == "midi" and api.clip_notes(c.id) or nil end
 
---- Put a clip snapshot on a track, `meta` included.
-local function restore(snap, track)
+--- Put a clip snapshot on a part, `meta` included.
+local function restore(snap, part)
   local meta = snap.meta
   local copy = paw.util.merge(snap, {})
   copy.meta = nil
-  local clip = paw.restore_clip(copy, track)
+  local clip = paw.restore_clip(copy, part)
   if type(meta) == "table" and next(meta) ~= nil then api.clip_set(clip.id, "meta", meta) end
   return clip
 end
 
---- Cut the clips of a track that reach across a beat in two there.
-local function cut(track, at)
-  for _, c in ipairs(api.clip_list(track)) do
+--- Cut the clips of a part that reach across a beat in two there.
+local function cut(part, at)
+  for _, c in ipairs(api.clip_list(part)) do
     if c.start < at - EPS and c.start + c.length > at + EPS then
       local notes = notes_of(c)
       local left, right = piece(c, notes, c.start, at), piece(c, notes, at, c.start + c.length)
       api.clip_set(c.id, "length", left.length)
       if notes then api.clip_set_notes(c.id, left.notes) end
-      restore(right, track)
+      restore(right, part)
     end
   end
 end
 
---- What a track holds between two beats, counting from `from`.
-local function copy_clips(track, from, to)
+--- What a part holds between two beats, counting from `from`.
+local function copy_clips(part, from, to)
   local out = {}
-  for _, c in ipairs(api.clip_list(track)) do
+  for _, c in ipairs(api.clip_list(part)) do
     local p = piece(c, notes_of(c), from, to)
     if p then
       p.start = p.start - from
@@ -150,7 +150,7 @@ local function simplify(points)
   return out
 end
 
---- What identifies a lane on its track, the same after the track is copied.
+--- What identifies a lane on its part, the same after the part is copied.
 local function lane_key(lane)
   local index = ""
   if lane.device then
@@ -160,10 +160,10 @@ local function lane_key(lane)
   return string.format("%s|%s|%s", lane.target, lane.param or "", index)
 end
 
---- Every track with its row (0 for the master track) and lanes.
-local function all_tracks()
+--- Every part with its row (0 for the master part) and lanes.
+local function all_parts()
   local out = { { id = 0, row = 0 } }
-  for row, id in ipairs(api.track_list()) do
+  for row, id in ipairs(api.part_list()) do
     out[#out + 1] = { id = id, row = row }
   end
   return out
@@ -171,12 +171,12 @@ end
 
 -- Registers -------------------------------------------------------------------------
 
---- A stretch of every track as a register value. It is an ordinary "range"
---- that `p` and `P` can paste from the first track, with automation and the
+--- A stretch of every part as a register value. It is an ordinary "range"
+--- that `p` and `P` can paste from the first part, with automation and the
 --- sections in it added for `insert`.
 function M.yank_range(from, to)
   local value = { kind = "range", length = to - from, rows = {}, lanes = {}, sections = {} }
-  for _, t in ipairs(all_tracks()) do
+  for _, t in ipairs(all_parts()) do
     if t.row > 0 then value.rows[t.row] = copy_clips(t.id, from, to) end
     local lanes = {}
     for _, lane in ipairs(api.lane_list(t.id)) do
@@ -215,9 +215,9 @@ function M.rebuild(plan)
       if p.to < INF then edges[#edges + 1] = p.to end
     end
   end
-  local tracks = all_tracks()
+  local parts = all_parts()
 
-  for _, t in ipairs(tracks) do
+  for _, t in ipairs(parts) do
     if t.row > 0 then
       for _, edge in ipairs(edges) do
         cut(t.id, edge)
@@ -253,7 +253,7 @@ function M.rebuild(plan)
     end
   end
 
-  for _, t in ipairs(tracks) do
+  for _, t in ipairs(parts) do
     for _, lane in ipairs(api.lane_list(t.id)) do
       local key, points = lane_key(lane), api.lane_points(lane.id)
       local out, any = {}, false
@@ -301,7 +301,7 @@ local function neighbour(which, by)
 end
 
 --- Move a section past its neighbour, later (`by` 1) or earlier (-1), on
---- every track. Further with a larger `by`. Returns the section where it is now.
+--- every part. Further with a larger `by`. Returns the section where it is now.
 function M.move(which, by)
   by = by or 1
   local s = S.need(which)
@@ -344,7 +344,7 @@ function M.yank(which)
   return M.yank_range(s.start, s.finish)
 end
 
---- Remove a section from every track and close the gap. Returns what it
+--- Remove a section from every part and close the gap. Returns what it
 --- held, as `yank` does.
 function M.delete(which)
   local s = S.need(which)
@@ -356,9 +356,9 @@ function M.delete(which)
   return value
 end
 
---- Insert a register value at a beat on every track, pushing what follows
+--- Insert a register value at a beat on every part, pushing what follows
 --- along. A value from `yank` or `delete` brings its sections and
---- automation; a plain "range" goes onto the tracks from the first down.
+--- automation; a plain "range" goes onto the parts from the first down.
 function M.insert(value, at)
   if not value or value.kind ~= "range" then error("nothing to insert: yank a section first", 0) end
   at = math.max(0, at)

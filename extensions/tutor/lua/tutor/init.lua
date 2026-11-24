@@ -146,7 +146,7 @@ local function tidy_screen()
     paw.ui.hide(name)
   end
   -- The note length chosen in insert mode lasts the session, and the device
-  -- panel keeps its row from track to track: lessons start from the top.
+  -- panel keeps its row from part to part: lessons start from the top.
   paw.ui.views:get("pianoroll"):set_step(nil)
   paw.ui.views:get("devices").row = 1
   paw.ui.focus("arrange")
@@ -161,7 +161,7 @@ local function save_practice()
   if ok and S.lesson then
     local rec = M.record(S.lesson)
     rec.saved_step = S.step
-    rec.cursor = { track = paw.cursor.index(), beat = paw.cursor.beat }
+    rec.cursor = { part = paw.cursor.index(), beat = paw.cursor.beat }
   end
 end
 
@@ -260,7 +260,7 @@ paw.on("*", function(payload, name)
   if name == "project.saved" and in_practice() and S.lesson then
     local rec = M.record(S.lesson)
     rec.saved_step = S.step
-    rec.cursor = { track = paw.cursor.index(), beat = paw.cursor.beat }
+    rec.cursor = { part = paw.cursor.index(), beat = paw.cursor.beat }
   end
   if name == "command.pre" and (command == "quit" or command == "wq") then M.leaving() end
   M.poll()
@@ -289,8 +289,8 @@ local function build(lesson)
 end
 
 local function place_cursor(lesson)
-  local first = api.track_list()[1]
-  if first then paw.cursor.set_track(first) end
+  local first = api.part_list()[1]
+  if first then paw.cursor.set_part(first) end
   paw.cursor.set_beat(0)
   paw.transport.seek(0)
   if lesson.at then lesson.at(look) end
@@ -357,9 +357,9 @@ function M.start(which, opts)
     step = resume
     place_cursor(lesson)
     local where = M.record(lesson.id).cursor
-    local list = api.track_list()
-    if where and where.track and list[where.track] then
-      paw.cursor.set_track(list[where.track])
+    local list = api.part_list()
+    if where and where.part and list[where.part] then
+      paw.cursor.set_part(list[where.part])
       paw.cursor.set_beat(where.beat or 0)
     end
   else
@@ -440,8 +440,8 @@ function M.quit()
     paw.project.new()
   end
   paw.flush()
-  local first = api.track_list()[1]
-  if first then paw.cursor.set_track(first) end
+  local first = api.part_list()[1]
+  if first then paw.cursor.set_part(first) end
   write()
   paw.notify(
     back.path and ("Left the tutor; reopened " .. back.path) or "Left the tutor. `:tutor` comes back to where you were."

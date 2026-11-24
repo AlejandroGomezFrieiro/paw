@@ -11,9 +11,9 @@ local command, map, keymap, cursor = paw.command, paw.keymap.set, paw.keymap, pa
 
 -- Commands ---------------------------------------------------------------------
 
-local function track_or_warn()
-  local id = cursor.track_id()
-  if not id or id == 0 then paw.notify("no track selected", "warn") end
+local function part_or_warn()
+  local id = cursor.part_id()
+  if not id or id == 0 then paw.notify("no part selected", "warn") end
   return id ~= 0 and id or nil
 end
 
@@ -32,25 +32,25 @@ end
 
 command("session", function() paw.ui.focus("session") end, { desc = "Show the session view and go to it" })
 command("launch", function(ctx)
-  local track = track_or_warn()
-  if track then launcher.press(track, row_arg(ctx.args[1])) end
-end, { desc = "Launch a slot of the selected track: `launch 2`, or the one under the cursor" })
+  local part = part_or_warn()
+  if part then launcher.press(part, row_arg(ctx.args[1])) end
+end, { desc = "Launch a slot of the selected part: `launch 2`, or the one under the cursor" })
 command("launch.stop", function(ctx)
   if ctx.args[1] == "all" then return launcher.stop() end
-  local track = track_or_warn()
-  if track then launcher.stop(track) end
+  local part = part_or_warn()
+  if part then launcher.stop(part) end
 end, {
-  desc = "Stop the selected track's clip on the next boundary: `launch.stop all` stops every one",
+  desc = "Stop the selected part's clip on the next boundary: `launch.stop all` stops every one",
   complete = { "all" },
 })
 command(
   "launch.back",
   function(ctx)
     if ctx.args[1] == "all" then return launcher.back() end
-    local track = track_or_warn()
-    if track then launcher.back(track) end
+    local part = part_or_warn()
+    if part then launcher.back(part) end
   end,
-  { desc = "Have the selected track play its timeline again: `launch.back all` for every track", complete = { "all" } }
+  { desc = "Have the selected part play its timeline again: `launch.back all` for every part", complete = { "all" } }
 )
 command("launch.quantize", function(ctx)
   local q = ctx.args[1]
@@ -78,32 +78,32 @@ end, { desc = "Name the scene of the cursor's row: `scene.name Chorus`" })
 
 --- The clip in the slot under the cursor, or a warning.
 local function slot_clip()
-  local track = track_or_warn()
-  local clip = track and launcher.clip(track, launcher.row)
-  if track and not clip then paw.notify("the slot is empty", "warn") end
+  local part = part_or_warn()
+  local clip = part and launcher.clip(part, launcher.row)
+  if part and not clip then paw.notify("the slot is empty", "warn") end
   return clip
 end
 
 command("slot.new", function(ctx)
-  local track = track_or_warn()
-  if not track then return end
-  if launcher.clip(track, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
-  launcher.new_clip(track, launcher.row, tonumber(ctx.args[1]))
+  local part = part_or_warn()
+  if not part then return end
+  if launcher.clip(part, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
+  launcher.new_clip(part, launcher.row, tonumber(ctx.args[1]))
 end, { desc = "A new MIDI clip in the slot under the cursor: `slot.new 2` for two bars" })
 command("slot.record", function(ctx)
   if launcher.recording then return launcher.finish_recording() end
-  local track = track_or_warn()
-  if not track then return end
-  if launcher.clip(track, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
-  launcher.record(track, launcher.row, tonumber(ctx.args[1]) or ctx.count)
+  local part = part_or_warn()
+  if not part then return end
+  if launcher.clip(part, launcher.row) then return paw.notify("the slot holds a clip already", "warn") end
+  launcher.record(part, launcher.row, tonumber(ctx.args[1]) or ctx.count)
 end, {
   desc = "Record into the empty slot under the cursor from the next boundary: `slot.record 2` for two bars (again: stop now)",
 })
 command("slot.copy", function()
-  local track = track_or_warn()
-  local clip = track and cursor.clip()
+  local part = part_or_warn()
+  local clip = part and cursor.clip()
   if not clip then return paw.notify("no clip under the arrange view's cursor", "warn") end
-  launcher.copy(clip.id, track, launcher.row)
+  launcher.copy(clip.id, part, launcher.row)
 end, { desc = "Copy the clip under the arrange view's cursor into the slot under the session view's" })
 command("slot.delete", function()
   local clip = slot_clip()
@@ -163,12 +163,12 @@ local function to_row(row)
   launcher.row = math.max(0, row)
   api.ui_redraw()
 end
--- Tracks are the columns and slots the rows: `h` `l` go across, `j` `k` down.
+-- Parts are the columns and slots the rows: `h` `l` go across, `j` `k` down.
 local function smotion(lhs, rhs, desc) map(lhs, rhs, { view = "session", desc = desc, motion = true }) end
-smotion("l", "cursor.down", "Next track")
-smotion("h", "cursor.up", "Previous track")
-smotion("<Right>", "cursor.down", "Next track")
-smotion("<Left>", "cursor.up", "Previous track")
+smotion("l", "cursor.down", "Next part")
+smotion("h", "cursor.up", "Previous part")
+smotion("<Right>", "cursor.down", "Next part")
+smotion("<Left>", "cursor.up", "Previous part")
 smotion("j", function(ctx) to_row(launcher.row + (ctx.count or 1)) end, "Next slot")
 smotion("k", function(ctx) to_row(launcher.row - (ctx.count or 1)) end, "Previous slot")
 smotion("<Down>", function(ctx) to_row(launcher.row + (ctx.count or 1)) end, "Next slot")
@@ -179,19 +179,19 @@ smotion(
   function(ctx) to_row(ctx.count and ctx.count - 1 or launcher.rows() - 2) end,
   "Last slot with a clip, or slot N"
 )
-smotion("0", "cursor.first_track", "The first track")
-smotion("^", "cursor.first_track", "The first track")
-smotion("$", "cursor.last_track", "The last track")
-smap("<CR>", "launch", "Launch the slot (an empty one stops the track)")
+smotion("0", "cursor.first_part", "The first part")
+smotion("^", "cursor.first_part", "The first part")
+smotion("$", "cursor.last_part", "The last part")
+smap("<CR>", "launch", "Launch the slot (an empty one stops the part)")
 smap("L", "scene", "Launch the scene: the whole row")
--- `s` solos, `M` mutes and `r` arms, as on a track anywhere; stopping is the session's own.
-smap("s", "track.solo", "Solo")
-smap("M", "track.mute", "Mute the track")
-smap("r", "track.armed", "Arm for recording")
-smap("S", "launch.stop", "Stop the track's clip")
+-- `s` solos, `M` mutes and `r` arms, as on a part anywhere; stopping is the session's own.
+smap("s", "part.solo", "Solo")
+smap("M", "part.mute", "Mute the part")
+smap("r", "part.armed", "Arm for recording")
+smap("S", "launch.stop", "Stop the part's clip")
 smap("gS", "launch.stop all", "Stop every clip")
-smap("B", "launch.back", "Resume the track's timeline: stop its slot so the arranged clips play again")
-smap("gB", "launch.back all", "Every track back to its timeline")
+smap("B", "launch.back", "Resume the part's timeline: stop its slot so the arranged clips play again")
+smap("gB", "launch.back all", "Every part back to its timeline")
 smap("o", "slot.new", "A new MIDI clip in the slot")
 smap("i", "slot.edit", "Open the clip's notes, to enter some")
 for lhs, rhs in pairs({
@@ -212,13 +212,13 @@ smap("grn", "scene.name", "Name the scene")
 smap("C", "launch.capture", "Capture what is launched into the timeline")
 smap("R", "slot.record", "Record into the empty slot, a bar (or a count of bars) from the next boundary")
 smap("yy", function(ctx)
-  local track = cursor.track_id()
-  local clip = track and launcher.clip(track, launcher.row)
+  local part = cursor.part_id()
+  local clip = part and launcher.clip(part, launcher.row)
   if clip then keymap.setreg({ kind = "slot", clip = paw.clip(clip.id):snapshot() }, ctx.register, true) end
 end, "Yank the slot's clip")
 smap("p", function(ctx)
-  local track, value = cursor.track_id(), keymap.getreg(ctx.register)
-  if not track or not value then return end
+  local part, value = cursor.part_id(), keymap.getreg(ctx.register)
+  if not part or not value then return end
   -- A slot's clip, or the first clip yanked in the arrange view.
   local snap = value.kind == "slot" and value.clip
   if value.kind == "range" then
@@ -227,7 +227,7 @@ smap("p", function(ctx)
     end
   end
   if not snap then return paw.notify("the register holds no clip", "warn") end
-  launcher.paste(snap, track, launcher.row)
+  launcher.paste(snap, part, launcher.row)
 end, "Paste a clip into the slot")
 
 -- The line of keys under the view.
@@ -248,27 +248,27 @@ paw.ui.keybar.set("session", "n", {
 paw.learn.trigger("launch", {
   press = function(b, down)
     if down then
-      launcher.press(b.track, b.slot)
+      launcher.press(b.part, b.slot)
     else
-      launcher.release(b.track, b.slot)
+      launcher.release(b.part, b.slot)
     end
   end,
-  name = function(t) return api.track_get(t.track).name .. " › launch slot " .. (t.slot + 1) end,
+  name = function(t) return api.part_get(t.part).name .. " › launch slot " .. (t.slot + 1) end,
   check = function(t)
-    assert(t.track, "a launch names its track")
+    assert(t.part, "a launch names its part")
     assert(type(t.slot) == "number", "a launch names its `slot`, a row from 0")
   end,
   words = { "launch" },
-  target_for = function(word, track)
+  target_for = function(word, part)
     if word == "launch" then
-      if not track then error("no track selected", 0) end
-      return { track = track, target = "launch", slot = launcher.row }
+      if not part then error("no part selected", 0) end
+      return { part = part, target = "launch", slot = launcher.row }
     end
   end,
   -- In the session view, the slot under the cursor: a pad launches it.
   under_cursor = function(focused)
-    local track = cursor.track_id()
-    if focused == "session" and track then return { track = track, target = "launch", slot = launcher.row } end
+    local part = cursor.part_id()
+    if focused == "session" and part then return { part = part, target = "launch", slot = launcher.row } end
   end,
 })
 paw.learn.trigger("scene", {
@@ -284,18 +284,18 @@ paw.learn.trigger("scene", {
 })
 paw.learn.trigger("stop", {
   press = function(b, down)
-    if down then launcher.stop(b.track) end
+    if down then launcher.stop(b.part) end
   end,
   name = function(t)
-    if not t.track then return "stop every clip" end
-    return api.track_get(t.track).name .. " › stop"
+    if not t.part then return "stop every clip" end
+    return api.part_get(t.part).name .. " › stop"
   end,
   words = { "stop", "stop all" },
-  target_for = function(word, track)
+  target_for = function(word, part)
     if word == "stop all" then return { target = "stop" } end
     if word == "stop" then
-      if not track then error("no track selected", 0) end
-      return { track = track, target = "stop" }
+      if not part then error("no part selected", 0) end
+      return { part = part, target = "stop" }
     end
   end,
 })

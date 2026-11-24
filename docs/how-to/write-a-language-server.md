@@ -17,7 +17,7 @@ write a server.
      initialize = function() return { capabilities = { paw = { subjects = { "mix" } } } } end,
      ["textDocument/didOpen"] = function(p, ctx)
        local list = {}
-       for _, t in ipairs(p.textDocument.data.tracks) do   -- the subject as a table
+       for _, t in ipairs(p.textDocument.data.parts) do   -- the subject as a table
          if t.volume > 6 then
            list[#list + 1] = { severity = 2, message = t.name .. " is very loud",
              data = { location = { uri = t.address } } }
@@ -32,7 +32,7 @@ write a server.
 2. Start it with `paw.lsp.enable("loud")`.
 3. Type `:lsp info` to make sure that the server runs and gets the `mix`
    subject.
-4. Move a fader above +6 dB. A sign shows on the track header, and
+4. Move a fader above +6 dB. A sign shows on the part header, and
    `:diagnostics` lists the problem.
 
 If the server must react to changes, publish the diagnostics again in
@@ -50,7 +50,7 @@ If the server must react to changes, publish the diagnostics again in
       the location in `data.location`.
 2. To offer a fix, add `data.fixes`, which is a list of `{ title, edit }`.
    The edit is a workspace edit, for example
-   `[ { "uri": "paw://track/4", "set": { "volume": 0 } } ]`.
+   `[ { "uri": "paw://part/4", "set": { "volume": 0 } } ]`.
 3. Configure and start it:
 
    ```lua

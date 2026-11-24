@@ -4,11 +4,11 @@ local test, eq, after = T.test, T.eq, T.after
 local paw = require("paw")
 local api = paw.api
 
---- A track with C major for two bars, then F major for two, and the
+--- A part with C major for two bars, then F major for two, and the
 --- extension loaded, unloaded after the test.
 local function song()
   T.fresh()
-  local keys = paw.add_track({ name = "Keys" })
+  local keys = paw.add_part({ name = "Keys" })
   local notes = {}
   for i, chord in ipairs({ { "C4", "E4", "G4" }, { "F4", "A4", "C5" } }) do
     for _, pitch in ipairs(chord) do
@@ -16,7 +16,7 @@ local function song()
     end
   end
   keys:add_clip({ start = 0, length = 16, notes = notes })
-  paw.cursor.set_track(keys)
+  paw.cursor.set_part(keys)
   paw.ext.load("extensions/rulerplus")
   after(function()
     if paw.ext.loaded.rulerplus then paw.ext.unload("rulerplus") end

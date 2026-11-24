@@ -24,11 +24,11 @@ local function keys()
   return table.concat(out, " ")
 end
 
---- A track playing chords: each `{ "C4 E4 G4", beats }` one after another,
+--- A part playing chords: each `{ "C4 E4 G4", beats }` one after another,
 --- or `{ "C4 E4 G4", beats, at = beat }`.
 local function chords(name, list, opts)
   opts = opts or {}
-  local track = paw.add_track({ name = name })
+  local part = paw.add_part({ name = name })
   local notes, at = {}, opts.start or 0
   for _, entry in ipairs(list) do
     at = entry.at or at
@@ -37,13 +37,13 @@ local function chords(name, list, opts)
     end
     at = at + entry[2]
   end
-  track:add_clip({ start = 0, length = math.max(4, math.ceil(at / 4) * 4), notes = notes })
-  return track
+  part:add_clip({ start = 0, length = math.max(4, math.ceil(at / 4) * 4), notes = notes })
+  return part
 end
 
---- A melody track: `{ "E5", beats }` one after another.
+--- A melody part: `{ "E5", beats }` one after another.
 local function line(name, list, start)
-  local track = paw.add_track({ name = name })
+  local part = paw.add_part({ name = name })
   local notes, at = {}, start or 0
   for _, entry in ipairs(list) do
     if entry[1] ~= "r" then
@@ -51,8 +51,8 @@ local function line(name, list, start)
     end
     at = at + entry[2]
   end
-  track:add_clip({ start = 0, length = math.max(4, math.ceil(at / 4) * 4), notes = notes })
-  return track
+  part:add_clip({ start = 0, length = math.max(4, math.ceil(at / 4) * 4), notes = notes })
+  return part
 end
 
 test("harmony: block chords in C major are named, numbered and in C major", function()
@@ -224,19 +224,19 @@ test("harmony: the demo song", function()
   eq(reading(nil, nil, "roman"), "0:i 4:bVI 8:bIII 12:V 16:i 20:bVI 24:bIII 28:V", "the numerals")
 end)
 
-test("harmony: drum tracks, muted tracks and muted clips are left out", function()
+test("harmony: drum parts, muted parts and muted clips are left out", function()
   fresh()
   chords("Piano", { { "C3 E3 G3", 4 } })
   local kit = chords("Kit", { { "C#3 D#3 F#3", 4 } })
   paw.flush()
-  eq(reading(), "0:C", "a drum track by its name")
+  eq(reading(), "0:C", "a drum part by its name")
   kit.name = "Perc 2"
   local pad = chords("Pad", { { "D3 F#3 A3", 4 } })
   paw.flush()
-  eq(reading() ~= "0:C", true, "a pitched track is heard")
+  eq(reading() ~= "0:C", true, "a pitched part is heard")
   pad.mute = true
   paw.flush()
-  eq(reading(), "0:C", "a muted track is not")
+  eq(reading(), "0:C", "a muted part is not")
   pad.mute = false
   pad:clips()[1].muted = true
   paw.flush()
@@ -246,7 +246,7 @@ test("harmony: drum tracks, muted tracks and muted clips are left out", function
   pad:clips()[1].muted = false
   pad.meta = meta
   paw.flush()
-  eq(reading(), "0:C", "nor a track with a drum map")
+  eq(reading(), "0:C", "nor a part with a drum map")
 end)
 
 test("harmony: the reading is cached, follows edits and undo, and says when it changes", function()
@@ -408,16 +408,16 @@ test("harmony: voicings fit the range and lead smoothly", function()
   eq(V.voice(g7, { low = 60, high = 62 }), nil, "nothing fits a range too narrow")
 end)
 
-test("harmony: an instrument's range is guessed from the track", function()
+test("harmony: an instrument's range is guessed from the part", function()
   fresh()
-  local bass = paw.add_track({ name = "Bass" })
+  local bass = paw.add_part({ name = "Bass" })
   eq(H.range(bass).low, 28, "a bass")
-  eq(H.range(paw.add_track({ name = "Lead Guitar" })).name, "guitar", "a guitar")
-  eq(H.range(paw.add_track({ name = "Track 3" })).low, 48, "else C3")
-  eq(H.range(paw.add_track({ name = "Track 4" })).high, 84, "to C6")
-  local own = paw.add_track({ name = "Odd" })
+  eq(H.range(paw.add_part({ name = "Lead Guitar" })).name, "guitar", "a guitar")
+  eq(H.range(paw.add_part({ name = "Part 3" })).low, 48, "else C3")
+  eq(H.range(paw.add_part({ name = "Part 4" })).high, 84, "to C6")
+  local own = paw.add_part({ name = "Odd" })
   own.meta = { range = { low = 50, high = 70 } }
-  eq(H.range(own).high, 70, "or the track's own")
+  eq(H.range(own).high, 70, "or the part's own")
 end)
 
 test("harmony: a provider answers instead of the reading", function()
@@ -456,7 +456,7 @@ test("harmony: chord symbols in the piano roll's ruler", function()
   chords("Piano", { { "C3 E3 G3", 4 }, { "A2 C3 E3", 4 }, { "G2 B2 D3 F3", 4 }, { "C3 E3 G3", 4 } })
   paw.flush()
   local roll = paw.ui.views:get("pianoroll")
-  roll:edit(paw.tracks()[1]:clips()[1])
+  roll:edit(paw.parts()[1]:clips()[1])
   paw.opt.note_zoom = 4
   -- The view draws the reading as it stands: read the chords first.
   paw.harmony.chords()
@@ -492,7 +492,7 @@ test("harmony: the chords MIDI LSP's engine hears flow into the reading and the 
   fresh()
   dofile("examples/demo-song.lua")
   paw.flush()
-  local keys = paw.tracks()[3]
+  local keys = paw.parts()[3]
   paw.ui.views:get("pianoroll"):edit(keys:clips()[1])
   local ok, err = pcall(function()
     midilsp.start(true)

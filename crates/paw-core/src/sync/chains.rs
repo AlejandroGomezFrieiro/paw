@@ -1,7 +1,7 @@
-//! The chain of each track as a tree of engine slots, which the engine
+//! The chain of each part as a tree of engine slots, which the engine
 //! compiles into the plan its processor runs.
 //!
-//! A track with no chain plays its devices in series. A track with one
+//! A part with no chain plays its devices in series. A part with one
 //! plays its splits: the kind of each split is looked up in the registry of
 //! split kinds. A kind that the engine does not play (one that no loaded
 //! extension defines, one that an extension defines but the engine has no
@@ -15,9 +15,9 @@ use paw_engine::{DeviceSlot, db_to_gain};
 
 use crate::model::chain::{self, BuiltinSplit, SplitImpl, SplitKinds, default_crossovers};
 use crate::model::ids::NodeId;
-use crate::model::{DeviceInst, Id, Track};
+use crate::model::{DeviceInst, Id, Part};
 
-/// What a tree of a track is built from.
+/// What a tree of a part is built from.
 pub(super) struct Slots<'a> {
     /// The engine slot of each device that the engine runs.
     pub devices: &'a HashMap<Id, DeviceSlot>,
@@ -26,13 +26,13 @@ pub(super) struct Slots<'a> {
     pub kinds: &'a SplitKinds,
 }
 
-/// The tree of `track`, and the warnings of the splits that do not play as
+/// The tree of `part`, and the warnings of the splits that do not play as
 /// their kind says.
-pub(super) fn tree_of(track: &Track, slots: &Slots) -> (Tree, Vec<String>) {
-    let devices: HashMap<Id, &DeviceInst> = track.devices.iter().map(|d| (d.id, &**d)).collect();
+pub(super) fn tree_of(part: &Part, slots: &Slots) -> (Tree, Vec<String>) {
+    let devices: HashMap<Id, &DeviceInst> = part.devices.iter().map(|d| (d.id, &**d)).collect();
     let mut walk = Walk { slots, devices, notes: Vec::new() };
-    let nodes = match &track.chain {
-        None => track.devices.iter().filter_map(|d| walk.device(d.id)).collect(),
+    let nodes = match &part.chain {
+        None => part.devices.iter().filter_map(|d| walk.device(d.id)).collect(),
         Some(chain) => vec![walk.split(&chain.root)],
     };
     (Tree { nodes }, walk.notes)
@@ -159,11 +159,11 @@ mod tests {
 
     use super::*;
 
-    /// Track 1 with devices 2 and 3, and a chain whose split 52 is of
+    /// Part 1 with devices 2 and 3, and a chain whose split 52 is of
     /// `kind`, with device 3 in its first branch (at -6 dB) and an empty
     /// second.
-    fn track(kind: &str) -> Track {
-        let mut track: Track = serde_json::from_value(json!({
+    fn part(kind: &str) -> Part {
+        let mut part: Part = serde_json::from_value(json!({
             "id": 1, "name": "Keys", "volume": 0.0, "pan": 0.0, "mute": false, "solo": false,
             "armed": false, "output": null, "sends": [], "color": null, "clips": [],
             "devices": [
@@ -179,14 +179,14 @@ mod tests {
                 { "id": 54, "nodes": [] },
             ] } },
         ] }] } });
-        track.chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
-        track
+        part.chain = Some(Arc::new(serde_json::from_value(chain).unwrap()));
+        part
     }
 
     fn tree(kind: &str) -> (Tree, Vec<String>) {
         let devices = HashMap::from([(2, DeviceSlot(7)), (3, DeviceSlot(8))]);
         let slots = Slots { devices: &devices, latency: &|_| 0, kinds: &SplitKinds::builtin() };
-        tree_of(&track(kind), &slots)
+        tree_of(&part(kind), &slots)
     }
 
     /// The split in the root's branch, after the synth.

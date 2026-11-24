@@ -61,9 +61,9 @@ end
 
 local function clip_with(level, gain)
   fresh()
-  local t = paw.add_track({ name = "hits" })
+  local t = paw.add_part({ name = "hits" })
   local clip = t:add_clip({ start = 0, file = burst_file("burst" .. level, level), gain = gain })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   return t, clip
 end
 
@@ -109,7 +109,7 @@ test("columns that reach full scale, after the clip's gain, are drawn in the err
 
   -- On the screen the column is red whichever way up its cells are drawn.
   local _ = clip_with(1.0)
-  paw.opt.zoom, paw.opt.track_height = 8, 4
+  paw.opt.zoom, paw.opt.part_height = 8, 4
   local red = require("paw.theme").palette.red
   local found = 0
   for _, row in ipairs(api.ui_view_snapshot("arrange", 100, 30).rows) do
@@ -117,13 +117,13 @@ test("columns that reach full scale, after the clip's gain, are drawn in the err
       if run.fg == red or run.bg == red then found = found + 1 end
     end
   end
-  paw.opt.zoom, paw.opt.track_height = 2, "auto"
+  paw.opt.zoom, paw.opt.part_height = 2, "auto"
   eq(found >= 3, true, "the clipping cells are red on the screen: " .. found)
 end)
 
 test("zooming draws the waveform again from the peaks, and the hit stays at its time", function()
   clip_with(0.8)
-  paw.opt.track_height = 4
+  paw.opt.part_height = 4
   local function column_of_hit(zoom)
     paw.opt.zoom = zoom
     local lines = api.ui_snapshot(100, 30)
@@ -140,12 +140,12 @@ test("zooming draws the waveform again from the peaks, and the hit stays at its 
   end
   eq(column_of_hit(4), 2, "a quarter of a second is half a beat: two columns at 4 to a beat")
   eq(column_of_hit(8), 4, "and four columns at 8")
-  paw.opt.zoom, paw.opt.track_height = 2, "auto"
+  paw.opt.zoom, paw.opt.part_height = 2, "auto"
 end)
 
 test("the waveform is the same in cells with graphics on and off, and in ASCII it is still a shape", function()
   local _, clip = clip_with(1.0)
-  paw.opt.zoom, paw.opt.track_height = 8, 4
+  paw.opt.zoom, paw.opt.part_height = 8, 4
   paw.opt.graphics = true
   local on = table.concat(api.ui_snapshot(100, 30), "\n")
   paw.opt.graphics = false
@@ -160,7 +160,7 @@ test("the waveform is the same in cells with graphics on and off, and in ASCII i
   for _, row in ipairs(rows) do
     eq(row:find("[\128-\255]") == nil, true, "with nothing outside ASCII: " .. row)
   end
-  paw.opt.zoom, paw.opt.track_height = 2, "auto"
+  paw.opt.zoom, paw.opt.part_height = 2, "auto"
 end)
 
 test("a decibel scale makes quiet sound reach further than the linear one does", function()

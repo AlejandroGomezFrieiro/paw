@@ -1,51 +1,51 @@
--- Lesson 3: tracks, instruments, clips, notes, hearing them.
+-- Lesson 3: parts, instruments, clips, notes, hearing them.
 return {
   id = "making",
-  title = "Tracks, clips and notes",
+  title = "Parts, clips and notes",
   intro = [[
-In this lesson, we add a track with a name and a synth, and we draw some
+In this lesson, we add a part with a name and a synth, and we draw some
 notes with the keyboard. Then we listen to the notes with a drum beat.
 
-A track has clips on the timeline and a chain of devices. The first device is
+A part has clips on the timeline and a chain of devices. The first device is
 an instrument, which makes sound from notes, and effects come after it. A
 MIDI clip contains notes, and an audio clip contains a recording. A new
-track makes no sound until it has an instrument.]],
+part makes no sound until it has an instrument.]],
   idea = [[
 In normal mode, lowercase letters do an action on the item under the cursor.
-For example, `o` opens a new track below, and `a` adds a device. Moreover,
+For example, `o` opens a new part below, and `a` adds a device. Moreover,
 `i` inserts clips and notes, and `x` deletes the clip while `&` repeats it.
 `u` undoes and `<C-r>` redoes, so you can take back each change that you
 make here.]],
   vim = [[
-`o` and `O` add a track below and above, as they add lines in Vim. `i`
+`o` and `O` add a part below and above, as they add lines in Vim. `i`
 starts insert mode, where each key inserts an item, e.g., `m` a MIDI clip,
 `r` a region and `'` a marker. `<CR>` opens the clip in the piano roll in
 insert mode, where the cursor draws notes instead of text. `grn`
 renames.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums" })
+    local drums = paw.add_part({ name = "Drums" })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 16, notes = look.drums(look.beat, 4) })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
   end,
   steps = {
     {
-      say = "`o` adds a track below the track of the cursor. Press `o`.",
+      say = "`o` adds a part below the part of the cursor. Press `o`.",
       keys = { "o" },
-      start = function(ctx) ctx.tracks = #paw.tracks() end,
-      check = function(ctx) return #paw.tracks() == ctx.tracks + 1 end,
-      done = "A new empty track shows, and the cursor is on it.",
+      start = function(ctx) ctx.parts = #paw.parts() end,
+      check = function(ctx) return #paw.parts() == ctx.parts + 1 end,
+      done = "A new empty part shows, and the cursor is on it.",
     },
     {
-      say = "Give the track a name. Press `grn`, and press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.",
+      say = "Give the part a name. Press `grn`, and press `<C-u>` to clear the old name. Type `Bass` and press `<CR>`.",
       keys = { "grn", "<C-u>", "Bass", "<CR>" },
-      check = function(_, look) return look.cursor_track() == "Bass" end,
-      done = "The name of the track is Bass.",
+      check = function(_, look) return look.cursor_part() == "Bass" end,
+      done = "The name of the part is Bass.",
       hint = "`grn` shows the old name on the command line. `<C-u>` is Ctrl and u. `<Esc>` cancels.",
     },
     {
-      say = "A track makes no sound until it has an instrument. Press `a`, type `synth` and press `<CR>`.",
+      say = "A part makes no sound until it has an instrument. Press `a`, type `synth` and press `<CR>`.",
       keys = { "a", "synth", "<CR>" },
       check = function(_, look) return look.device("Bass", "synth") ~= nil end,
       done = "Bass has a synth.",
@@ -83,7 +83,7 @@ renames.]],
       say = "`&` puts a copy of the clip immediately after it. Press `&` two times.",
       keys = { "&", "&" },
       check = function(_, look) return #look.clips("Bass") == 3 end,
-      done = "The track has three copies of the clip, one after the other.",
+      done = "The part has three copies of the clip, one after the other.",
       hint = "The cursor must be on the clip. `0` moves it to the start.",
     },
     {
@@ -102,8 +102,8 @@ renames.]],
       say = "Listen to the result. Press `gs` to move to the start, `<leader><Space>` to play and `<leader><Space>` to stop.",
       keys = { "gs", "<leader><Space>", { advance = 300 }, "<leader><Space>" },
       check = function(ctx, look) return look.ran(ctx, "transport.start") and look.played(ctx) end,
-      done = "You have a bass line on a track that you made.",
+      done = "You have a bass line on a part that you made.",
     },
   },
-  outro = "We made a track and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change.",
+  outro = "We made a part and gave it a name and an instrument. We added notes, repeated and deleted clips, and undid a change.",
 }

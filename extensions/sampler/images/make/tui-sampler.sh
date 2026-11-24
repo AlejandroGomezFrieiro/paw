@@ -1,5 +1,5 @@
 #!/bin/sh
-# The sampler's instrument picker auditioning: a sampler track added to the
+# The sampler's instrument picker auditioning: a sampler part added to the
 # demo song, the library listed, each instrument loaded and played as the
 # selection rests on it, one kept, and :sampler.info.
 #
@@ -35,8 +35,8 @@ rig_start
 term_start
 key G k; pause 0.4
 rec_start tui-sampler
-cap ":track.add sampler adds a sampler track and opens its instrument picker"
-pause 0.5; key colon; TYPE_DELAY=90 typ "track.add sampler"; key Return; pause 1.6
+cap ":part.add sampler adds a sampler part and opens its instrument picker"
+pause 0.5; key colon; TYPE_DELAY=90 typ "part.add sampler"; key Return; pause 1.6
 cap "Each instrument is loaded and plays a phrase as the selection rests on it"
 keys 1.6 ctrl+n ctrl+n ctrl+n
 cap "Typing narrows the list; Enter keeps the instrument, as one undo step"

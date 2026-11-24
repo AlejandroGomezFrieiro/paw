@@ -11,7 +11,7 @@ local function start()
     paw.ui.close()
   end
   paw.ui.focus("arrange")
-  paw.add_track({ name = "Bass" })
+  paw.add_part({ name = "Bass" })
   paw.keymap.delmarks("a-zA-Z")
 end
 
@@ -74,7 +74,7 @@ end)
 
 test("marks: gx keeps regions and gX removes the region the cursor is in, not its clips", function()
   start()
-  local bass = paw.tracks()[1]
+  local bass = paw.parts()[1]
   bass:add_clip({ start = 4, length = 4 })
   paw.markers.add(4, "Verse", { length = 8 })
   paw.markers.add(6, "Hit")
@@ -90,21 +90,21 @@ test("marks: gx keeps regions and gX removes the region the cursor is in, not it
   eq(#bass:clips(), 1, "and its clip stays")
 end)
 
-test("marks: dir empties a region on the track, dar on every track, and the region stays", function()
+test("marks: dir empties a region on the part, dar on every part, and the region stays", function()
   start()
-  local bass = paw.tracks()[1]
-  local keys = paw.add_track({ name = "Keys" })
+  local bass = paw.parts()[1]
+  local keys = paw.add_part({ name = "Keys" })
   for _, t in ipairs({ bass, keys }) do
     t:add_clip({ start = 0, length = 4 })
     t:add_clip({ start = 4, length = 4 })
     t:add_clip({ start = 8, length = 4 })
   end
   paw.markers.add(4, "Verse", { length = 4 })
-  paw.cursor.set_track(bass)
+  paw.cursor.set_part(bass)
   paw.cursor.set_beat(5)
   paw.keymap.feed("dir")
-  eq(#bass:clips() .. " " .. #keys:clips(), "2 3", "dir takes the region's clip on this track only")
+  eq(#bass:clips() .. " " .. #keys:clips(), "2 3", "dir takes the region's clip on this part only")
   paw.keymap.feed("dar")
-  eq(#bass:clips() .. " " .. #keys:clips(), "2 2", "dar takes it on every track")
+  eq(#bass:clips() .. " " .. #keys:clips(), "2 2", "dar takes it on every part")
   eq(paw.markers.region("Verse") ~= nil, true, "and the region stays")
 end)

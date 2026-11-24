@@ -816,7 +816,7 @@ impl Engine {
             Some(c) => program.instrument.curves.get(c).map_or(v * v, |c| c.at(v)),
             None => v * v,
         };
-        // A negative track makes soft notes loud.
+        // A negative part makes soft notes loud.
         let vt = veltrack.clamp(-1.0, 1.0);
         let vgain = 1.0 - vt.abs() + vt.abs() * if vt >= 0.0 { curve(vel) } else { curve(1.0 - vel) };
         let mut gain = db(r.volume) * r.amplitude * vgain * extra_gain;

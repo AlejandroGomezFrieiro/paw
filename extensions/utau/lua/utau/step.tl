@@ -13,7 +13,7 @@ local type StepAction = paw.contracts.StepAction
 
 local record Clip
   id: integer
-  track: integer
+  part: integer
   length: number
 end
 
@@ -60,8 +60,8 @@ local function listening(): boolean
   return on and paw.keymap.mode == "i" and (paw.ui as {string: string}).focused == "utau" and editor:clip() ~= nil
 end
 
-local function track(): integer
-  return listening() and editor:clip().track or nil
+local function part(): integer
+  return listening() and editor:clip().part or nil
 end
 
 local function join()
@@ -90,7 +90,7 @@ local function note(e: StepNote)
     -- One voice: the highest note of the chord stays.
     if not told then
       told = true
-      paw.notify("a vocal track sings one note at a time: a chord enters its highest note")
+      paw.notify("a vocal part sings one note at a time: a chord enters its highest note")
     end
     if e.pitch <= pending[1] then
       return
@@ -180,7 +180,7 @@ paw.step.target(
   "utau",
   {
     active = listening,
-    track = track,
+    part = part,
     note = note,
     release = release,
     status = function(): string return listening() and "STEP" or nil end,

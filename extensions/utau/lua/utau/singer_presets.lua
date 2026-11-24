@@ -1,12 +1,12 @@
--- Singer presets: a vocal track's whole voice saved under a name, to give
--- another vocal track with one command.
+-- Singer presets: a vocal part's whole voice saved under a name, to give
+-- another vocal part with one command.
 --
 -- A preset holds the singer, phonemizer, renderer, resampler, wavtool,
--- voice colour, the engine's other track options (AI pitch mode, unison,
+-- voice colour, the engine's other part options (AI pitch mode, unison,
 -- key shift, ...) and the value each curve holds where it has no lane. It is
 -- a JSON file in `<data dir>/utau/presets/<name>.json` (`~/.local/share/paw`
 -- by default; `paw.opt.utau_presets_dir` puts them elsewhere).
--- Applying one replaces the track's voice whole: options it does not name
+-- Applying one replaces the part's voice whole: options it does not name
 -- are cleared.
 local api = paw.api
 local utau = require("utau")
@@ -28,11 +28,11 @@ end
 
 function M.path(name) return M.dir() .. "/" .. M.file_name(name) .. ".json" end
 
---- A vocal track's voice as a preset.
-function M.from_track(track_id, name)
-  local device = utau.device_of(track_id)
-  if not device then error("not a vocal track", 0) end
-  local config = utau.config(track_id)
+--- A vocal part's voice as a preset.
+function M.from_part(part_id, name)
+  local device = utau.device_of(part_id)
+  if not device then error("not a vocal part", 0) end
+  local config = utau.config(part_id)
   local options = {}
   for k, v in pairs(type(config.options) == "table" and config.options or {}) do
     options[k] = tostring(v)
@@ -57,10 +57,10 @@ function M.from_track(track_id, name)
   }
 end
 
---- Save a track's voice under a name. Returns the file.
-function M.save(track_id, name)
+--- Save a part's voice under a name. Returns the file.
+function M.save(part_id, name)
   if not name or name == "" then error("a preset needs a name", 0) end
-  local preset = M.from_track(track_id, name)
+  local preset = M.from_part(part_id, name)
   local dir = M.dir()
   pcall(paw.api.fs_mkdir, dir)
   local path = M.path(name)
@@ -110,10 +110,10 @@ function M.find(name)
   end
 end
 
---- Give a vocal track a preset's voice, as one edit.
-function M.apply(track_id, preset)
-  local device = utau.device_of(track_id)
-  if not device then error("not a vocal track", 0) end
+--- Give a vocal part a preset's voice, as one edit.
+function M.apply(part_id, preset)
+  local device = utau.device_of(part_id)
+  if not device then error("not a vocal part", 0) end
   if type(preset) ~= "table" then
     preset = M.find(preset) or error("no singer preset `" .. tostring(preset) .. "`", 0)
   end
@@ -123,7 +123,7 @@ function M.apply(track_id, preset)
   end
   local function str(v) return type(v) == "string" and v ~= "" and v or false end
   local subbank = type(preset.options) == "table" and preset.options.subbank
-  utau.configure(track_id, {
+  utau.configure(part_id, {
     singer = str(preset.singer),
     phonemizer = str(preset.phonemizer),
     renderer = str(preset.renderer),

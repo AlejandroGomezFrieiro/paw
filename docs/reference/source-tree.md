@@ -45,7 +45,7 @@ crates.
 
 | Crate | What it holds |
 | --- | --- |
-| `paw-engine` | The audio thread: tracks, routing, chains of devices, clip playback, the transport, the metronome. The built-in devices. The cpal and null backends, and the `page` backend of a BrowserPod pod. It has no Lua and no UI. |
+| `paw-engine` | The audio thread: parts, routing, chains of devices, clip playback, the transport, the metronome. The built-in devices. The cpal and null backends, and the `page` backend of a BrowserPod pod. It has no Lua and no UI. |
 | `paw-core` | The kernel: the project model, undo, the sync that drives the engine from the model, the Lua host and `paw.api`, the grid of cells, the event loop, the control socket. |
 | `paw-plugins` | The hosts of CLAP, LV2 and VST3 plugins: the scan, its cache, and for each format a device for the audio thread and a controller for the main thread. |
 | `paw-luadev` | Devices written in Lua. Each is a script in its own LuaJIT state, in a helper process. Also the folders where paw finds the scripts. |

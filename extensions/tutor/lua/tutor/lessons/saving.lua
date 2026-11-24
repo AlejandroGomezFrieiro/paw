@@ -5,7 +5,7 @@ return {
   intro = [[
 In this lesson, we change a song, save it, and export it to a WAV file.
 
-A project is a folder that contains the whole song, e.g., the tracks, the
+A project is a folder that contains the whole song, e.g., the parts, the
 devices and their settings, the clips and the notes. It also contains the
 automation and the loop, and each part is in a file of its own. Recordings
 are in the `media` folder of the project. To export, paw plays the whole
@@ -35,10 +35,10 @@ project. In Vim, `:w name` writes a copy and you stay in the old file, but
 paw does not make such a copy.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums", volume = -6 })
+    local drums = paw.add_part({ name = "Drums", volume = -6 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 8, notes = look.drums(look.beat, 2) })
-    local keys = paw.add_track({ name = "Keys", volume = -8 })
+    local keys = paw.add_part({ name = "Keys", volume = -8 })
     keys:add_device("synth", { wave = 3, attack = 0.02, release = 0.5, cutoff = 1800 })
     keys:add_device("delay", { time = 450, feedback = 0.35, mix = 0.25 })
     local chords = look.chord({ "D4", "F4", "A4" }, 4)
@@ -47,7 +47,7 @@ paw does not make such a copy.]],
     end
     keys:add_clip({ name = "chords", start = 0, length = 8, notes = chords })
   end,
-  at = function() paw.cursor.set_track(paw.track("Keys")) end,
+  at = function() paw.cursor.set_part(paw.part("Keys")) end,
   test = {
     -- The export writes into the renders folder of the practice project; the test tidies up.
     after = function() os.remove(paw.files.here() .. "/renders/tutor-song.wav") end,
@@ -56,7 +56,7 @@ paw does not make such a copy.]],
     {
       say = "First, change the song. `&` puts a copy of the chords after them, so press `&`, and the name of the project in the status line gets a `[+]`.",
       keys = { "&" },
-      check = function() return paw.project.modified and #paw.track("Keys"):clips() == 2 end,
+      check = function() return paw.project.modified and #paw.part("Keys"):clips() == 2 end,
       done = "The `[+]` shows that some changes are not saved.",
     },
     {

@@ -243,23 +243,23 @@ impl Session {
                 let mut send = |msg| handle.send(msg);
                 install(&device, instance, &self.engine.map, &mut ctx, &mut send);
             }
-            let track = self.doc.project.find_device(id).map(|(track, _)| track);
+            let part = self.doc.project.find_device(id).map(|(part, _)| part);
             let name = self.device_name(&device.kind);
-            self.doc.emit(E::DeviceReady(DeviceReady { id, track, name }));
-            self.doc.emit(E::DeviceChanged(Item::on(id, track)));
+            self.doc.emit(E::DeviceReady(DeviceReady { id, part, name }));
+            self.doc.emit(E::DeviceChanged(Item::on(id, part)));
             self.doc.emit(E::changed());
-            // Its latency lines the tracks up again.
+            // Its latency lines the parts up again.
             self.doc.dirty = true;
         }
         for (id, why) in failed {
             self.loads.tests.remove(&id);
-            let Some((track, _)) = self.doc.project.find_device(id) else {
+            let Some((part, _)) = self.doc.project.find_device(id) else {
                 continue;
             };
             let kind = self.doc.project.device(id).map_or("", |d| d.kind.as_str());
             let name = self.device_name(kind);
-            self.doc.emit(E::DeviceStopped(DeviceTrouble { device: id, track, name, reason: Some(why), loading: true }));
-            self.doc.emit(E::DeviceChanged(Item::on(id, Some(track))));
+            self.doc.emit(E::DeviceStopped(DeviceTrouble { device: id, part, name, reason: Some(why), loading: true }));
+            self.doc.emit(E::DeviceChanged(Item::on(id, Some(part))));
             self.doc.emit(E::changed());
         }
         self.flush();
@@ -327,12 +327,12 @@ impl Session {
         let describe = |session: &Session, id: Id| {
             let device = session.doc.project.device(id);
             let name = session.device_name(device.map_or("", |d| d.kind.as_str()));
-            let track = session
+            let part = session
                 .doc.project
                 .find_device(id)
-                .and_then(|(track, _)| session.doc.project.track(track))
+                .and_then(|(part, _)| session.doc.project.part(part))
                 .map_or(String::new(), |t| t.name.clone());
-            format!("{name} on {track}")
+            format!("{name} on {part}")
         };
         match self.loads.devices.iter().next() {
             Some((id, Load::Failed(why))) => bail!(
@@ -369,19 +369,19 @@ impl Session {
                 .get(kind)
                 .is_some_and(|f| matches!(f.info().format, Clap | Lv2 | Vst3 | Lua))
         };
-        for track in project
-            .tracks
+        for part in project
+            .parts
             .iter_mut()
             .chain(std::iter::once(&mut project.master))
         {
-            if !track.devices.iter().any(|d| {
+            if !part.devices.iter().any(|d| {
                 !d.offline
                     && ((opts.plugins_offline && plugin(&d.kind)) || opts.offline.contains(&d.id))
             }) {
                 continue;
             }
-            let track = std::sync::Arc::make_mut(track);
-            for device in track.devices.iter_mut() {
+            let part = std::sync::Arc::make_mut(part);
+            for device in part.devices.iter_mut() {
                 if !device.offline
                     && ((opts.plugins_offline && plugin(&device.kind))
                         || opts.offline.contains(&device.id))

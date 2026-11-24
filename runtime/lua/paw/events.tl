@@ -1,7 +1,7 @@
 -- Publish/subscribe. The kernel reports project changes here, and extensions
 -- can emit and listen for events of their own.
 --
--- A handler name is an exact event (`track.added`), a family (`track.*`), or
+-- A handler name is an exact event (`part.added`), a family (`part.*`), or
 -- `*` for everything. Handlers receive `(payload, event_name)`.
 --
 -- In Teal, an event is a descriptor: its name and the type of its payload.
@@ -148,7 +148,7 @@ local function family_of(name: string): string
 end
 
 -- Whether `M.emit` can call a handler of `pattern` for a declared event.
--- `*` gets every event. A family (`track.*`) needs one declared event of
+-- `*` gets every event. A family (`part.*`) needs one declared event of
 -- that family. Any other text is a name, which must be declared itself:
 -- this includes text with a `*` in another place (`undo*`), which
 -- `M.emit` never matches.
@@ -205,7 +205,7 @@ function M.undeclared(): {string}
   return out
 end
 
---- The descriptor of a pattern of events (`track.*`, `*`): its handlers
+--- The descriptor of a pattern of events (`part.*`, `*`): its handlers
 --- read nothing of the payload without a cast.
 function M.pattern(pattern: string): M.Event<Payload>
   return {name = pattern}

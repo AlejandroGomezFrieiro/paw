@@ -6,7 +6,7 @@
 --   maps.mykit = { label = "My kit", rows = { { note = 36, name = "Kick" }, { note = 40, name = "Snare" } } }
 --   maps.gm.rows[2].name = "Snare (top)"
 --
--- A track keeps a copy of the rows it was given, so a project opens the
+-- A part keeps a copy of the rows it was given, so a project opens the
 -- same wherever it goes.
 local M = {}
 

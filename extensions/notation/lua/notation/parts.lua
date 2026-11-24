@@ -1,22 +1,22 @@
--- The full score and its parts: every track with MIDI as an instrument,
+-- The full score and its parts: every part with MIDI as an instrument,
 -- in orchestral order, and each instrument's part to play from.
 --
 -- The score has every instrument's staves in the order of an orchestra
 -- (woodwinds, brass, percussion, keyboards and harp, voices, strings: by
--- the group a track is in, `paw.groups`, else by its name), a bracket over
+-- the group a part is in, `paw.groups`, else by its name), a bracket over
 -- each family with the barlines through it, a brace over an instrument of
 -- two staves, the names in full on the first system and short after. It
 -- is written at concert pitch. Condensed (`:part.condense`), two players
 -- of an instrument share a staff: `a2` where they play the same, `1.` or
 -- `2.` where one rests, two voices where they part.
 --
--- A part is one instrument written for its player: transposed (a track's
+-- A part is one instrument written for its player: transposed (a part's
 -- `meta.notation.transpose`, or "in Bb" in its name), bars of rest as
 -- multi-measure rests, the score's rehearsal marks and tempo marks, cues
 -- from other instruments (`:part.cue`), systems that end in rests where a
 -- page turns, and system breaks of its own. What a part keeps is the
--- track's `meta.notation.part`; what it shows is made from the MIDI each
--- time (`notation.files`' parts, one aligned score per track), so a part
+-- part's `meta.notation.part`; what it shows is made from the MIDI each
+-- time (`notation.files`' parts, one aligned score per part), so a part
 -- is never out of date and never owns music of its own.
 local api = paw.api
 local util = paw.util
@@ -143,24 +143,24 @@ function P.short(name)
   return word:sub(1, 3) .. "." .. (number and (" " .. number) or "")
 end
 
---- What a track keeps for its part: `meta.notation.part`.
-function P.own(track_id)
-  local ok, t = pcall(api.track_get, track_id)
+--- What a part keeps for its printed part: `meta.notation.part`.
+function P.own(part_id)
+  local ok, t = pcall(api.part_get, part_id)
   local meta = ok and type(t.meta) == "table" and type(t.meta.notation) == "table" and t.meta.notation or {}
   return type(meta.part) == "table" and meta.part or {}, meta
 end
 
---- Keep something for a track's part: `fn(part, notation)` changes copies
+--- Keep something for a printed part: `fn(part, notation)` changes copies
 --- of `meta.notation.part` and `meta.notation`, written back as one edit.
-function P.keep(track_id, fn)
-  local t = api.track_get(track_id)
+function P.keep(part_id, fn)
+  local t = api.part_get(part_id)
   local meta = util.merge(t.meta or {}, {})
   local own = type(meta.notation) == "table" and util.merge(meta.notation, {}) or {}
   local part = type(own.part) == "table" and util.merge(own.part, {}) or {}
   fn(part, own)
   own.part = next(part) and part or nil
   meta.notation = next(own) and own or nil
-  api.track_set(track_id, "meta", meta)
+  api.part_set(part_id, "meta", meta)
   api.undo_checkpoint()
 end
 
@@ -192,7 +192,7 @@ local function fifths_of(steps, semis)
 end
 
 --- The interval a part is written at from how it sounds, `{ steps,
---- semis, fifths, name }`, from what a track says: `Bb` (an instrument in
+--- semis, fifths, name }`, from what a part says: `Bb` (an instrument in
 --- B flat, sounding that far below C: written a major second up), `Eb up`
 --- (sounding above: an E flat clarinet, written a minor third down),
 --- `octave` after either for an octave more (`Bb octave`, a tenor sax;
@@ -222,13 +222,13 @@ function P.interval(spec)
   }
 end
 
---- The interval a track's part is written at: its `meta.notation.transpose`,
+--- The interval a printed part is written at: its `meta.notation.transpose`,
 --- else "in Bb" (or A, F, Eb...) in its name.
-function P.transposition(track_id)
-  local _, meta = P.own(track_id)
+function P.transposition(part_id)
+  local _, meta = P.own(part_id)
   if meta.transpose == "off" then return nil end
   if meta.transpose then return P.interval(meta.transpose) end
-  local ok, t = pcall(api.track_get, track_id)
+  local ok, t = pcall(api.part_get, part_id)
   local after = ok and tostring(t.name):match("%f[%a]in%s+([A-G].*)$")
   if not after then return nil end
   local letter, _, acc, rest = key_of(after)
@@ -278,26 +278,26 @@ end
 
 -- The instruments and their scores ---------------------------------------------------------------
 
---- Every instrument of the score in its order: each track with a MIDI
---- clip with notes, `{ id, track, clips, clip, name, short, family, rank,
+--- Every instrument of the score in its order: each part with a MIDI
+--- clip with notes, `{ id, part, clips, clip, name, short, family, rank,
 --- order, transpose, group }`, `clips` its MIDI clips with notes in the
---- order they start, `clip` the first. `opts.tracks` (ids) keeps those
---- tracks alone; `opts.from`, `opts.to` (beats of the song) take each
---- track's clips that reach into that stretch.
+--- order they start, `clip` the first. `opts.parts` (ids) keeps those
+--- parts alone; `opts.from`, `opts.to` (beats of the song) take each
+--- part's clips that reach into that stretch.
 function P.instruments(opts)
   opts = opts or {}
   local wanted
-  if opts.tracks then
+  if opts.parts then
     wanted = {}
-    for _, id in ipairs(opts.tracks) do
+    for _, id in ipairs(opts.parts) do
       wanted[id] = true
     end
   end
   local out = {}
-  for order, track in ipairs(paw.tracks()) do
+  for order, part in ipairs(paw.parts()) do
     local clips = {}
-    if not wanted or wanted[track.id] then
-      for _, c in ipairs(track:clips()) do
+    if not wanted or wanted[part.id] then
+      for _, c in ipairs(part:clips()) do
         local g = c:get()
         local inside = not opts.from or (g.start < opts.to and g.start + g.length > opts.from)
         if g.kind == "midi" and g.note_count > 0 and inside then clips[#clips + 1] = c end
@@ -306,16 +306,16 @@ function P.instruments(opts)
     end
     local clip = clips[1]
     if clip then
-      local t = track:get()
+      local t = part:get()
       local own = P.own(t.id)
       local group = paw.groups and paw.groups.of(t.id)
       local found = P.family(t.name)
-      -- A track in a group named for a family ("Strings", "Flutes") is of that family.
-      local by_group = group and P.family(api.track_get(group, "name"))
+      -- A part in a group named for a family ("Strings", "Flutes") is of that family.
+      local by_group = group and P.family(api.part_get(group, "name"))
       local family = (by_group and by_group.family) or (found and found.family) or #P.FAMILIES + 1
       out[#out + 1] = {
         id = t.id,
-        track = track,
+        part = part,
         clip = clip,
         clips = clips,
         name = own.name or t.name,
@@ -336,18 +336,18 @@ function P.instruments(opts)
   return out
 end
 
---- The instrument of a track, from a list, or nil.
+--- The instrument of a part, from a list, or nil.
 local function find(list, id)
   for i, e in ipairs(list) do
     if e.id == id then return e, i end
   end
 end
 
---- A track's clips written on staves of one shape: where its clips would
+--- A part's clips written on staves of one shape: where its clips would
 --- choose different clefs (one high, one low), all of them on a grand
---- staff (`view.track_clefs`, which the view's own layouts take too).
+--- staff (`view.part_clefs`, which the view's own layouts take too).
 local function one_clef(e)
-  view.track_clefs[e.id] = nil
+  view.part_clefs[e.id] = nil
   if #e.clips < 2 then return end
   local seen
   for _, clip in ipairs(e.clips) do
@@ -358,7 +358,7 @@ local function one_clef(e)
     end
     shape = table.concat(shape, "+")
     if seen and shape ~= seen then
-      view.track_clefs[e.id] = "grand"
+      view.part_clefs[e.id] = "grand"
       return
     end
     seen = shape
@@ -377,7 +377,7 @@ local function own_ids(m, prefix)
   end
 end
 
---- One score of a track's clips, each aligned on the timeline (their
+--- One score of a part's clips, each aligned on the timeline (their
 --- `notation.files` parts): each measure from the clip that plays then (the
 --- one starting latest, where clips overlap), with its marks; a measure no
 --- clip plays is a bar of rest. `owners[mi]` is the clip of measure mi.
@@ -441,7 +441,7 @@ local function compose(group, first)
 end
 
 --- Each instrument's score, all on one timeline and as many bars long
---- (`notation.files`' parts), made of every clip of its track (see
+--- (`notation.files`' parts), made of every clip of its part (see
 --- `compose`): concert pitch, or as each is written with `written`. Each
 --- score is a copy, its measures laid out afresh.
 local function scores(list, written)
@@ -645,7 +645,7 @@ end
 
 --- Another instrument's notes written small in a part's bars of rest over
 --- a stretch, to come in by: as this part is written, on its clef, the
---- other's short name over them. `cue = { from = track id, at, to }` in
+--- other's short name over them. `cue = { from = part id, at, to }` in
 --- beats of the timeline.
 local function put_cue(layout, cue, source)
   local named = false
@@ -694,13 +694,13 @@ local function part_breaks(layout, own)
   return breaks, joins
 end
 
---- The part of a track, as its player reads it. `opts.concert` leaves it
+--- The printed part of a part, as its player reads it. `opts.concert` leaves it
 --- at concert pitch.
-function P.part_layout(track_id, opts)
+function P.part_layout(part_id, opts)
   opts = opts or {}
   local list = P.instruments()
-  local entry = find(list, track_id)
-  if not entry then return nil, "no MIDI on that track" end
+  local entry = find(list, part_id)
+  if not entry then return nil, "no MIDI on that part" end
   local parts, first = scores(list, not opts.concert)
   local number = first_number(first)
   local layouts, mine = {}, nil
@@ -710,7 +710,7 @@ function P.part_layout(track_id, opts)
   end
   share(layouts)
   local layout = layouts[mine]
-  local own = P.own(track_id)
+  local own = P.own(part_id)
   local concert = #(own.cues or {}) > 0 and scores(list, false)
   for _, cue in ipairs(own.cues or {}) do
     local src, si = find(list, cue.from)
@@ -733,7 +733,7 @@ function P.part_layout(track_id, opts)
   local breaks, joins = part_breaks(layout, own)
   layout.turns = turns
   layout.asked = { breaks = breaks, joins = joins, per = own.per_system, rests = turns }
-  layout.tracks = { track_id }
+  layout.parts = { part_id }
   -- How far the written notes stand from the sounding ones, for the
   -- cursor, which goes by the clip's.
   if not opts.concert and entry.transpose then
@@ -748,7 +748,7 @@ function P.part_layout(track_id, opts)
     {
       first = 1,
       last = #layout.staves,
-      tracks = { track_id },
+      parts = { part_id },
       clips = ids,
       players = { ids },
       family = entry.family,
@@ -835,11 +835,11 @@ local function seconds(list)
 end
 
 --- The bars (by number) a condensed pair is written apart in, though they
---- play the same there: `:score.split`, kept with the first player's track
+--- play the same there: `:score.split`, kept with the first player's part
 --- (`meta.notation.part.split`).
-function P.split_bars(track_id)
+function P.split_bars(part_id)
   local set = {}
-  for _, n in ipairs(P.own(track_id).split or {}) do
+  for _, n in ipairs(P.own(part_id).split or {}) do
     set[n] = true
   end
   return set
@@ -889,17 +889,17 @@ end
 
 --- The full score at concert pitch: every instrument's staves in order,
 --- named, bracketed by family. `opts.condensed` puts two players of an
---- instrument on one staff; `opts.tracks`, `opts.from` and `opts.to` say
+--- instrument on one staff; `opts.parts`, `opts.from` and `opts.to` say
 --- which instruments, as for `P.instruments`. `units` lists what stands
---- on the page, in order: `{ first, last, tracks, clips, players, family,
---- group, name, condensed }`, its staves and the tracks and clips they show
---- (every MIDI clip of its tracks, and each player's, two on a condensed
+--- on the page, in order: `{ first, last, parts, clips, players, family,
+--- group, name, condensed }`, its staves and the parts and clips they show
+--- (every MIDI clip of its parts, and each player's, two on a condensed
 --- staff, which says how each bar is written, by measure).
 
 function P.score_layout(opts)
   opts = opts or {}
   local list = P.instruments(opts)
-  if #list == 0 then return nil, opts.tracks and "none of those tracks has MIDI" or "no track has MIDI" end
+  if #list == 0 then return nil, opts.parts and "none of those parts has MIDI" or "no part has MIDI" end
   local parts, first = scores(list, false)
   local number = first_number(first)
   local layouts = {}
@@ -919,21 +919,21 @@ function P.score_layout(opts)
         layout = P.condense(layouts[i], layouts[i + 1], P.split_bars(a.id)),
         entry = a,
         entries = { a, b },
-        tracks = { a.id, b.id },
+        parts = { a.id, b.id },
         full = base .. " " .. na .. "." .. nb,
         short = (P.short(base):gsub("%s+%S+$", "")) .. " " .. na .. "." .. nb,
       }
       i = i + 2
     else
       units[#units + 1] =
-        { layout = layouts[i], entry = a, entries = { a }, tracks = { a.id }, full = a.name, short = a.short }
+        { layout = layouts[i], entry = a, entries = { a }, parts = { a.id }, full = a.name, short = a.short }
       i = i + 1
     end
   end
   local top = layouts[1]
   local out = setmetatable({
     staves = {},
-    tracks = {},
+    parts = {},
     labels = {},
     brackets = {},
     braces = {},
@@ -950,7 +950,7 @@ function P.score_layout(opts)
     local base = #out.staves
     for k, clef in ipairs(u.layout.staves) do
       out.staves[base + k] = clef
-      out.tracks[base + k] = u.tracks[1]
+      out.parts[base + k] = u.parts[1]
       for mi, m in ipairs(u.layout.measures) do
         out.measures[mi].staves[base + k] = m.staves[k]
       end
@@ -968,7 +968,7 @@ function P.score_layout(opts)
       end
     end
     out.labels[#out.labels + 1] = { first = base + 1, last = base + count, full = u.full, short = u.short }
-    -- Every clip of the staff's tracks, and each player's own.
+    -- Every clip of the staff's parts, and each player's own.
     local clips, players = {}, {}
     for k, e in ipairs(u.entries) do
       players[k] = {}
@@ -979,7 +979,7 @@ function P.score_layout(opts)
     end
     -- A condensed staff says how each bar is written: "a2", "1.", "2.", "div.".
     local condensed
-    if #u.tracks > 1 then
+    if #u.parts > 1 then
       condensed = {}
       for mi, m in ipairs(u.layout.measures) do
         condensed[mi] = m.condensed or false
@@ -988,7 +988,7 @@ function P.score_layout(opts)
     out.units[#out.units + 1] = {
       first = base + 1,
       last = base + count,
-      tracks = u.tracks,
+      parts = u.parts,
       clips = clips,
       players = players,
       family = u.entry.family,
@@ -1028,21 +1028,21 @@ local function serial(v)
 end
 
 --- What the view shows instead of its clip: `view.parts` is `{ kind =
---- "score" | "part", track, condensed }`. Made again when a clip, a track
+--- "score" | "part", part, condensed }`. Made again when a clip, a part
 --- or the song changes.
 function P.view_layout(v)
   local shown = v.parts
-  -- A score that follows the scope shows the tracks of the scope of the window.
-  local tracks = shown.tracks
+  -- A score that follows the scope shows the parts of the scope of the window.
+  local parts = shown.parts
   local scope = shown.scope and rawget(paw, "scope")
-  if scope and scope.limits_tracks() then tracks = scope.tracks() end
+  if scope and scope.limits_parts() then parts = scope.parts() end
   local p = api.project_get()
   local stamp = {
     shown.kind,
-    tostring(shown.track),
+    tostring(shown.part),
     tostring(shown.condensed),
     tostring(paw.opt.notation_grid),
-    table.concat(tracks or {}, ","),
+    table.concat(parts or {}, ","),
     tostring(shown.from),
     tostring(shown.to),
   }
@@ -1050,7 +1050,7 @@ function P.view_layout(v)
   -- edited or undone since, it is the one made last.
   local quick = table.concat(stamp, ":") .. ":" .. tostring(p.edits) .. ":" .. tostring(api.undo_current())
   if v.score_cache and v.score_cache.quick == quick then return v.score_cache.layout end
-  for _, t in ipairs(paw.tracks()) do
+  for _, t in ipairs(paw.parts()) do
     local tt = t:get()
     stamp[#stamp + 1] = tt.id .. "/" .. tostring(tt.name) .. "/" .. serial(tt.meta)
     for _, c in ipairs(t:clips()) do
@@ -1067,9 +1067,9 @@ function P.view_layout(v)
 
   local layout, err
   if shown.kind == "part" then
-    layout, err = P.part_layout(shown.track)
+    layout, err = P.part_layout(shown.part)
   else
-    layout, err = P.score_layout({ condensed = shown.condensed, tracks = tracks, from = shown.from, to = shown.to })
+    layout, err = P.score_layout({ condensed = shown.condensed, parts = parts, from = shown.from, to = shown.to })
   end
   if not layout then
     paw.notify(err, "warn")

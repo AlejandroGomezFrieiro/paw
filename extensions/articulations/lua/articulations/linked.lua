@@ -34,9 +34,9 @@ local function inverse(fn, y)
 end
 M.inverse = inverse
 
---- The linked controllers of a track's map by id, or nil.
-function M.entry(track, id)
-  local map = art.map_of(track)
+--- The linked controllers of a part's map by id, or nil.
+function M.entry(part, id)
+  local map = art.map_of(part)
   for _, l in ipairs(map and map.linked or {}) do
     if l.id == id or id == nil then return l, map end
   end
@@ -52,8 +52,8 @@ paw.curves.provide("articulations.linked", function(uri, parts)
   local id = parts.fragment:match("^linked=([%w_%-]+)$")
   if not id then return nil end
   local c = api.clip_get(parts.clip)
-  local entry = M.entry(c.track, id)
-  if not entry then return nil, "the track's map links no controllers as `" .. id .. "`" end
+  local entry = M.entry(c.part, id)
+  if not entry then return nil, "the part's map links no controllers as `" .. id .. "`" end
   local mine = {}
   for _, n in ipairs(entry.cc) do
     mine[n] = true
@@ -62,7 +62,7 @@ paw.curves.provide("articulations.linked", function(uri, parts)
     uri = uri,
     kind = "control",
     clip = parts.clip,
-    track = c.track,
+    part = c.part,
     linked = entry,
     shapes = { hold = true },
     min = 0,
@@ -123,15 +123,15 @@ function M.open(id)
   local clip = roll:clip() or paw.cursor.clip()
   if not clip then error("no clip here", 0) end
   local c = clip:get()
-  local entry = M.entry(c.track, id)
+  local entry = M.entry(c.part, id)
   if not entry then
-    local map = art.map_of(c.track)
+    local map = art.map_of(c.part)
     error(
       map
           and ("the map links no controllers" .. (id and (" as `" .. id .. "`") or "") .. ": [linked] in " .. tostring(
             map.file
           ))
-        or "the track has no articulation map: :art.map",
+        or "the part has no articulation map: :art.map",
       0
     )
   end

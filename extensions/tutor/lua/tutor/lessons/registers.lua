@@ -28,7 +28,7 @@ return {
   id = "registers",
   title = "Yank, paste, registers and macros",
   intro = [[
-In this lesson, we copy a short hook along a track and keep two bass clips
+In this lesson, we copy a short hook along a part and keep two bass clips
 in named registers. Then we record a macro that changes the hook.
 
 A delete or a yank puts the items in a register, and a paste takes them from
@@ -37,7 +37,7 @@ registers (`"a` to `"z`) let you keep several items at the same time. You
 can undo each change, and with a count you undo more than one change. A
 macro records keys into a register, so that you can play the keys again.
 
-The Lead track has a short hook, and the Bass track has two clips, A and
+The Lead part has a short hook, and the Bass part has two clips, A and
 B.]],
   idea = [[
 `y` yanks, and `d` and `x` delete into the register. `p` pastes after the
@@ -54,24 +54,24 @@ into register q until you press `q`, and `@q` plays the keys. `@@` plays
 the last macro again, and `5@q` plays it five times.]],
   vim = [[
 Registers, `"0`, `"_`, `qq`…`q`, `@q`, `@@` and `@:` come from Vim. A
-register contains clips, tracks, notes or a device instead of text. Pasted
+register contains clips, parts, notes or a device instead of text. Pasted
 time replaces the items that were there, and `:lua paw.opt.ripple = true`
 moves the old items later instead.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums", volume = -6 })
+    local drums = paw.add_part({ name = "Drums", volume = -6 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 16, notes = look.drums(look.beat, 4) })
-    local lead = paw.add_track({ name = "Lead", volume = -6 })
+    local lead = paw.add_part({ name = "Lead", volume = -6 })
     lead:add_device("synth", { wave = 1, cutoff = 2400, release = 0.2 })
     lead:add_clip({ name = "hook", start = 0, length = 4, notes = look.notes(HOOK) })
-    local bass = paw.add_track({ name = "Bass", volume = -4 })
+    local bass = paw.add_part({ name = "Bass", volume = -4 })
     bass:add_device("synth", { wave = 2, cutoff = 600, release = 0.05 })
     bass:add_clip({ name = "A", start = 0, length = 4, notes = look.pulse("A1", 4) })
     bass:add_clip({ name = "B", start = 4, length = 4, notes = look.pulse("F1", 4) })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 16, true
   end,
-  at = function() paw.cursor.set_track(paw.track("Lead")) end,
+  at = function() paw.cursor.set_part(paw.part("Lead")) end,
   steps = {
     {
       say = "The cursor is on the hook. Press `yic` to yank (copy) the clip.",
@@ -138,7 +138,7 @@ moves the old items later instead.]],
       say = "Now we record a macro. Press `k` to go up to Lead and `0` to go to its start. Then press `qq` to record keys into register q.",
       keys = { "k", "0", "qq" },
       check = function(_, look)
-        return paw.keymap.recording() == "q" and look.cursor_track() == "Lead" and paw.cursor.beat == 0
+        return paw.keymap.recording() == "q" and look.cursor_part() == "Lead" and paw.cursor.beat == 0
       end,
       done = "The status line shows `recording @q`.",
     },
@@ -151,7 +151,7 @@ moves the old items later instead.]],
         return paw.keymap.recording() == nil and r ~= ctx.before and r and r.kind == "keys" and r.keys == "vic12<C-a>w"
       end,
       done = "The first hook went up one octave while you recorded, and register q contains `vic12<C-a>w`.",
-      hint = "Without the selection, `<C-a>` on a track moves the fader. If the result is wrong, press `u` to undo the change, and `qq` to record again.",
+      hint = "Without the selection, `<C-a>` on a part moves the fader. If the result is wrong, press `u` to undo the change, and `qq` to record again.",
     },
     {
       say = "`@q` plays the macro on the clip under the cursor, and `@@` plays it again. Press `@q`, then `@@`.",

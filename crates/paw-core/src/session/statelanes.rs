@@ -45,11 +45,11 @@ struct MainLane<'a> {
 
 fn main_lanes<'a>(project: &'a Project, map: &'a Mapper) -> Vec<MainLane<'a>> {
     let mut out = Vec::new();
-    for track in project.all_tracks() {
-        if track.automation == AutoMode::Off {
+    for part in project.all_parts() {
+        if part.automation == AutoMode::Off {
             continue;
         }
-        for lane in &track.lanes {
+        for lane in &part.lanes {
             let (Target::State { device }, Some(main)) = (&lane.target, map.state_main.get(&lane.id))
             else {
                 continue;
@@ -76,7 +76,7 @@ fn index_at(lane: &Lane, beat: f64) -> Option<usize> {
 /// parameter's value.
 pub(crate) fn driven(project: &Project) -> Vec<Id> {
     project
-        .all_tracks()
+        .all_parts()
         .filter(|t| t.automation != AutoMode::Off)
         .flat_map(|t| &t.lanes)
         .filter(|l| is_active(l))
@@ -91,11 +91,11 @@ pub(crate) fn driven(project: &Project) -> Vec<Id> {
 /// device.
 pub(crate) fn states_at(project: &Project, beat: f64) -> Vec<(Id, Arc<LaneState>)> {
     let mut out = Vec::new();
-    for track in project.all_tracks() {
-        if track.automation == AutoMode::Off {
+    for part in project.all_parts() {
+        if part.automation == AutoMode::Off {
             continue;
         }
-        for lane in track.lanes.iter().filter(|l| is_active(l)) {
+        for lane in part.lanes.iter().filter(|l| is_active(l)) {
             if let Target::State { device } = lane.target
                 && let Some(state) = index_at(lane, beat).and_then(|i| lane.states.get(i))
             {

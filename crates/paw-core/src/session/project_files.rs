@@ -4,7 +4,7 @@
 //!
 //! The map holds only the files that paw writes into a project folder
 //! (`project.toml`, `meta.json`, `screen.json`, `media.json`, `master/` and
-//! `tracks/`). A file outside those (a sound file, a track folder or a chain
+//! `parts/`). A file outside those (a sound file, a part folder or a chain
 //! file outside the project) is read from the disk in both cases.
 
 use std::borrow::Cow;

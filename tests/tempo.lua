@@ -116,9 +116,9 @@ test("tempo: a render's notes fall where the map puts them", function()
   for i, line in ipairs(lines) do
     notes[i] = { pitch = 81, start = line.beat, length = 0.05 }
   end
-  local track = paw.add_track()
-  track:add_device("synth", { attack = 0, release = 0.001 })
-  track:add_clip({ start = 0, length = 44, notes = notes })
+  local part = paw.add_part()
+  part:add_device("synth", { attack = 0, release = 0.001 })
+  part:add_clip({ start = 0, length = 44, notes = notes })
   local info = T.render({ start = 0, ["end"] = 44, tail = 0, bits = 16 })
   local s = T.samples(info)
   local onsets, silent = {}, 100
@@ -151,8 +151,8 @@ test("tempo: audio clips keep their length in time when the tempo changes", func
     left[k * 48000 + 101] = 0.9
   end
   local file = T.write_wav(T.scratch .. "/clicks.wav", left)
-  local track = paw.add_track()
-  local clip = track:add_clip({ file = file, start = 8 })
+  local part = paw.add_part()
+  local clip = part:add_clip({ file = file, start = 8 })
   eq(clip.length, 8, "four seconds at 120")
   -- Slower before it: in time, its start stays at 4 s, which is now fewer beats.
   paw.project.tempo = 60
@@ -190,7 +190,7 @@ test("tempo: audio clips keep their length in time when the tempo changes", func
     "and its length in time"
   )
   -- A MIDI clip stays on its beats.
-  local midi = track:add_clip({ start = 20, length = 4 })
+  local midi = part:add_clip({ start = 20, length = 4 })
   paw.project.tempo = 140
   eq(midi.start, 20, "MIDI follows beats")
   eq(midi.length, 4, "and keeps its length in beats")

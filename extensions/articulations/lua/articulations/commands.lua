@@ -1,5 +1,5 @@
 -- Commands and keys: `:art` over Ex ranges and `:g` matches, the `art`
--- field of patterns, binding maps, the track's default and pen, modifiers,
+-- field of patterns, binding maps, the part's default and pen, modifiers,
 -- making maps from libraries and banks, and the piano roll's keys: `\a`
 -- (the articulation popover, heard as the highlight moves), `\A`
 -- (modifiers), `\a` in insert mode (the pen) and the text objects `ia` `aa`.
@@ -19,60 +19,60 @@ local function fail(text) error(text, 0) end
 
 local function words(ctx) return (tostring(ctx.args[1] or ""):match("^%s*(.-)%s*$")) end
 
---- The track the roll or the cursor is on.
-local function current_track()
+--- The part the roll or the cursor is on.
+local function current_part()
   local clip = roll:clip()
-  if paw.ui.focused == "pianoroll" and clip then return clip:get().track end
-  local t = paw.cursor.track()
+  if paw.ui.focused == "pianoroll" and clip then return clip:get().part end
+  local t = paw.cursor.part()
   return t and t.id
 end
 
---- The notes a command works on, as `{ clip, place, note, track }`: what
+--- The notes a command works on, as `{ clip, place, note, part }`: what
 --- its range holds (`:5,8art`, `:'<,'>art`, the matches of `:g`), else
 --- the note under the roll's cursor.
 local function places_of(ctx)
   local out = {}
   if ctx.range then
     for _, item in ipairs(paw.ex.items(ctx.range, "note")) do
-      out[#out + 1] = { clip = item.clip.id, place = item.place, note = item.note, track = item.track }
+      out[#out + 1] = { clip = item.clip.id, place = item.place, note = item.note, part = item.part }
     end
     return out
   end
   if paw.ui.focused == "pianoroll" or roll:clip() then
-    local note, place, part = roll:note_at(roll.pitch, roll.beat)
+    local note, place, portion = roll:note_at(roll.pitch, roll.beat)
     if note then
-      local n = part.clip:notes()[place]
-      out[1] = { clip = part.id, place = place, note = n, track = part.track }
+      local n = portion.clip:notes()[place]
+      out[1] = { clip = portion.id, place = place, note = n, part = portion.part }
     end
   end
   return out
 end
 M.places_of = places_of
 
-local function tracks_of(places)
+local function parts_of(places)
   local seen, out = {}, {}
   for _, p in ipairs(places) do
-    if not seen[p.track] then
-      seen[p.track], out[#out + 1] = true, p.track
+    if not seen[p.part] then
+      seen[p.part], out[#out + 1] = true, p.part
     end
   end
   return out
 end
 
 --- Set an articulation by what is typed, on places of possibly several
---- tracks: each track's own map says what the text means.
+--- parts: each part's own map says what the text means.
 local function set_by_text(places, text)
-  local by_track = {}
+  local by_part = {}
   for _, p in ipairs(places) do
-    by_track[p.track] = by_track[p.track] or {}
-    table.insert(by_track[p.track], p)
+    by_part[p.part] = by_part[p.part] or {}
+    table.insert(by_part[p.part], p)
   end
   local changed, said = 0, nil
-  for _, track in ipairs(tracks_of(places)) do
-    local map = art.map_of(track)
+  for _, part in ipairs(parts_of(places)) do
+    local map = art.map_of(part)
     local choice, why = art.lookup(map, text)
     if choice == nil then fail(why) end
-    changed = changed + art.set(by_track[track], choice)
+    changed = changed + art.set(by_part[part], choice)
     said = choice and (choice.art and choice.art.name or m2.describe(choice.attr)) or "no articulation (the default)"
   end
   return changed, said
@@ -94,7 +94,7 @@ end, {
   label = "Articulation",
   desc = "Give notes an articulation: the note under the cursor, or a range (`:'<,'>art stc`, `:5,8art pizz`, `:g/art=pizz/art arco`); `none` takes it away; alone, the popover",
   complete = function(text)
-    local map = art.map_of(current_track())
+    local map = art.map_of(current_part())
     local out = {}
     if map then
       for _, a in ipairs(map.arts) do
@@ -113,9 +113,9 @@ paw.ex.field("art", {
   level = "note",
   type = "text",
   desc = "the note's articulation: its tag (`stc`), or its M2-123 code; empty for none",
-  get = function(item) return art.tag_of(item.track, item.note) or "" end,
+  get = function(item) return art.tag_of(item.part, item.note) or "" end,
   set = function(item, value, change)
-    local choice, why = art.lookup(art.map_of(item.track), value)
+    local choice, why = art.lookup(art.map_of(item.part), value)
     if choice == nil then fail(why) end
     for k, v in pairs(art.attr_fields(item.note, choice and choice.attr)) do
       change[k] = v
@@ -125,22 +125,22 @@ paw.ex.field("art", {
 
 -- Binding ----------------------------------------------------------------------------
 
-local function need_track()
-  local id = current_track()
-  if not id then fail("no track here") end
+local function need_part()
+  local id = current_part()
+  if not id then fail("no part here") end
   return id
 end
 
 command("art.map", function(ctx)
   local which = words(ctx)
-  local track = need_track()
-  if which == "" and #maps.matching(track) == 0 then return M.pick_map(track) end
+  local part = need_part()
+  if which == "" and #maps.matching(part) == 0 then return M.pick_map(part) end
   maps.forget()
-  local map = art.bind(track, which ~= "" and which or nil)
+  local map = art.bind(part, which ~= "" and which or nil)
   paw.notify(string.format("%s: %d articulations, %s by default", map.name, #map.arts, map.by_id[map.default].name))
 end, {
   raw = true,
-  desc = "Bind an articulation map to the track: `art.map violin-section`; alone, the one whose `match` names its instrument, else a list",
+  desc = "Bind an articulation map to the part: `art.map violin-section`; alone, the one whose `match` names its instrument, else a list",
   complete = function()
     local out = {}
     for _, f in ipairs(maps.list()) do
@@ -151,10 +151,10 @@ end, {
 })
 
 command("art.unmap", function()
-  local track = need_track()
-  art.unbind(track)
+  local part = need_part()
+  art.unbind(part)
   paw.notify("no articulation map: the notes keep their articulations")
-end, { desc = "Take the track's articulation map away (the notes keep their articulations)" })
+end, { desc = "Take the part's articulation map away (the notes keep their articulations)" })
 
 command("art.maps", function()
   local lines = { { text = "Articulation maps", style = "Title" }, "" }
@@ -174,11 +174,11 @@ command("art.maps", function()
 end, { desc = "List the articulation maps there are, where they are from, and any that does not read" })
 
 command("art.shift", function(ctx)
-  local track = need_track()
+  local part = need_part()
   local text = words(ctx)
-  local map = art.map_of(track)
-  if not map then fail("the track has no articulation map: :art.map") end
-  local now = (art.info(track) or {}).shift or 0
+  local map = art.map_of(part)
+  if not map then fail("the part has no articulation map: :art.map") end
+  local now = (art.info(part) or {}).shift or 0
   if text == "" then
     paw.notify(
       string.format(
@@ -195,7 +195,7 @@ command("art.shift", function(ctx)
   if not n then fail("`" .. text .. "`: a number of keys (`-12`, `+1`, `0`) or of octaves (`-1oct`)") end
   local shift = tonumber(n) * (unit == "oct" and 12 or 1) * (sign == "-" and -1 or 1)
   if unit ~= "" and unit ~= "oct" then fail("`" .. text .. "`: a number of keys (`-12`) or of octaves (`-1oct`)") end
-  local moved = art.set_shift(track, shift)
+  local moved = art.set_shift(part, shift)
   local ks = moved.keyswitches
   paw.notify(
     string.format(
@@ -208,15 +208,15 @@ command("art.shift", function(ctx)
 end, {
   raw = true,
   label = "Shift keyswitches",
-  desc = "Move the keyswitches of the track's map by keys (`art.shift -12`) or octaves (`art.shift +1oct`), for an instrument whose keyswitch area you moved; `art.shift 0` puts them back; alone, says where they are",
+  desc = "Move the keyswitches of the part's map by keys (`art.shift -12`) or octaves (`art.shift +1oct`), for an instrument whose keyswitch area you moved; `art.shift 0` puts them back; alone, says where they are",
 })
 
--- A plugin put on a track with no map binds the map whose `match` names it.
+-- A plugin put on a part with no map binds the map whose `match` names it.
 paw.option.define("art_auto_map", true)
 local known_devices = {}
 local function know_all()
-  for _, t in ipairs(api.track_list()) do
-    local ok, devices = pcall(api.track_get, t, "devices")
+  for _, t in ipairs(api.part_list()) do
+    local ok, devices = pcall(api.part_get, t, "devices")
     for _, d in ipairs(ok and devices or {}) do
       known_devices[type(d) == "table" and d.id or d] = true
     end
@@ -239,16 +239,16 @@ function M.plugin_map(device)
   end
 end
 
---- Bind the map of a plugin to its track, when the track has none, as its
+--- Bind the map of a plugin to its part, when the part has none, as its
 --- own undo step. Returns the map bound, or nil.
-function M.auto_map(track, device)
+function M.auto_map(part, device)
   if not paw.opt.art_auto_map then return nil end
-  local info = art.info(track)
+  local info = art.info(part)
   if info and info.map then return nil end
   local map = M.plugin_map(device)
   if not map then return nil end
   api.undo_checkpoint()
-  if not pcall(art.bind, track, map.id) then return nil end
+  if not pcall(art.bind, part, map.id) then return nil end
   api.undo_checkpoint()
   paw.notify(string.format("%s: articulation map %s bound (:art.unmap takes it away)", device.name or map.name, map.id))
   return map
@@ -259,15 +259,15 @@ end
 paw.on("device.added", function(e)
   if not e or not e.id or known_devices[e.id] then return end
   known_devices[e.id] = true
-  if not paw.opt.art_auto_map or not e.track then return end
+  if not paw.opt.art_auto_map or not e.part then return end
   paw.defer(function()
     local ok, d = pcall(api.device_get, e.id)
-    if ok then M.auto_map(e.track, d) end
+    if ok then M.auto_map(e.part, d) end
   end, 0)
 end)
 
---- A picker of every map, to bind one to a track.
-function M.pick_map(track)
+--- A picker of every map, to bind one to a part.
+function M.pick_map(part)
   local items = {}
   for _, f in ipairs(maps.list()) do
     local map = maps.load(f.file, f.id)
@@ -282,36 +282,36 @@ function M.pick_map(track)
   })
 end
 
-local function lookup_one(track, text)
-  local map = art.map_of(track)
+local function lookup_one(part, text)
+  local map = art.map_of(part)
   local choice, why = art.lookup(map, text)
   if choice == nil then fail(why) end
   return choice, map
 end
 
 command("art.default", function(ctx)
-  local track = need_track()
+  local part = need_part()
   local text = words(ctx)
-  local map = art.map_of(track)
-  if not map then fail("the track has no articulation map: :art.map") end
+  local map = art.map_of(part)
+  if not map then fail("the part has no articulation map: :art.map") end
   if text == "" then return M.popover({ mode = "default" }) end
-  local choice = lookup_one(track, text)
+  local choice = lookup_one(part, text)
   if not choice or not choice.art then fail("the default is one of the map's articulations: " .. art.names(map)) end
-  art.set_track(track, "default", choice.art.id)
+  art.set_part(part, "default", choice.art.id)
   paw.notify("by default " .. choice.art.name)
 end, {
   raw = true,
   label = "Default articulation",
-  desc = "The articulation the track's notes without one play: `art.default sustain`",
+  desc = "The articulation the part's notes without one play: `art.default sustain`",
 })
 
 command("art.pen", function(ctx)
-  local track = need_track()
+  local part = need_part()
   local text = words(ctx)
   if text == "" then return M.popover({ mode = "pen" }) end
-  local choice = lookup_one(track, text)
+  local choice = lookup_one(part, text)
   local id = choice and (choice.art and choice.art.id or m2.code(choice.attr)) or nil
-  art.set_track(track, "pen", id)
+  art.set_part(part, "pen", id)
   paw.notify(id and ("new notes: " .. (choice.art and choice.art.name or id)) or "new notes: no articulation")
   api.ui_redraw()
 end, {
@@ -346,8 +346,8 @@ command("art.mod", function(ctx)
   if text == "" then return M.popover({ mode = "mod" }) end
   local places = places_of(ctx)
   if #places == 0 then fail("no note here: put the cursor on a note, or give a range") end
-  local map = art.map_of(places[1].track)
-  if not map or #map.mods == 0 then fail("the track's map has no modifiers ([mod] in its file)") end
+  local map = art.map_of(places[1].part)
+  if not map or #map.mods == 0 then fail("the part's map has no modifiers ([mod] in its file)") end
   local mod
   for _, m in ipairs(map.mods) do
     if m.id == text or m.tag == text or (m.text or ""):lower() == text:lower() or m.id:sub(1, #text) == text then
@@ -377,7 +377,7 @@ end, {
 --- The phrase that lets an articulation be heard: the notes it is for,
 --- after the keyswitch notes that tell a MIDI 1.0 instrument; its
 --- controllers and program are sent first.
-local function hear(track, places, a)
+local function hear(part, places, a)
   local notes, from, to = {}, math.huge, -math.huge
   for _, p in ipairs(places) do
     local c = api.clip_get(p.clip)
@@ -391,9 +391,9 @@ local function hear(track, places, a)
         notes[#notes + 1] = { pitch = e.key, start = 0, length = 1 / 16, velocity = e.velocity or 100 }
         lead = 1 / 8
       elseif e.type == "cc" then
-        pcall(api.midi_send, track, { type = "cc", number = e.number, value = e.value / 127 })
+        pcall(api.midi_send, part, { type = "cc", number = e.number, value = e.value / 127 })
       elseif e.type == "program" then
-        pcall(api.midi_send, track, { type = "program", program = e.program, bank = e.bank })
+        pcall(api.midi_send, part, { type = "program", program = e.program, bank = e.bank })
       end
     end
   end
@@ -406,10 +406,10 @@ local function hear(track, places, a)
       velocity = p.note.velocity,
     }
   end
-  paw.audition.phrase(track, notes, { length = lead + (to - from), at = from, loop = false })
+  paw.audition.phrase(part, notes, { length = lead + (to - from), at = from, loop = false })
 end
 
---- The popover: the track's articulations, numbered, each heard on the
+--- The popover: the part's articulations, numbered, each heard on the
 --- notes it is for as the highlight rests on it (the edit a trial, taken
 --- back unless chosen). `opts.mode`: nil for notes, "default", "pen", "mod".
 function M.popover(opts)
@@ -422,16 +422,16 @@ function M.popover(opts)
   end
   local entering = keymap.mode == "i"
   if entering and not mode then mode = "pen" end
-  local track = need_track()
-  local map = art.map_of(track)
-  if not map and mode ~= "pen" and mode ~= nil then fail("the track has no articulation map: :art.map") end
+  local part = need_part()
+  local map = art.map_of(part)
+  if not map and mode ~= "pen" and mode ~= nil then fail("the part has no articulation map: :art.map") end
   local places = {}
   if not mode or mode == "mod" then
     places = places_of(range ~= "" and { range = paw.ex.selection_range() } or {})
     if #places == 0 then fail("no note here: put the cursor on a note, or choose some in visual mode") end
   end
   local items = {}
-  local info = art.info(track) or {}
+  local info = art.info(part) or {}
   if mode == "mod" then
     for i, m in ipairs(map and map.mods or {}) do
       items[#items + 1] = { i = i, mod = m }
@@ -462,7 +462,7 @@ function M.popover(opts)
     top = true,
     height = math.min(20, #items + 4),
     format = function(it)
-      if it.none then return "0 —    none                     the track's default plays" end
+      if it.none then return "0 —    none                     the part's default plays" end
       if it.mod then
         return string.format(
           "%d %-4s %-22s %-14s %s",
@@ -495,7 +495,7 @@ function M.popover(opts)
         and function(it)
           local a = it.art
           paw.audition.try(function() art.set(places, it.none and false or { attr = a and a.attr or it.attr }) end)
-          hear(track, places, a or (it.none and art.default_of(track, map)) or nil)
+          hear(part, places, a or (it.none and art.default_of(part, map)) or nil)
           return (a and a.name or it.none and "none" or m2.describe(it.attr))
             .. " · "
             .. #places
@@ -522,23 +522,23 @@ end
 
 -- Making maps ---------------------------------------------------------------------------
 
---- Write a spec as a generated map, and bind it to a track when given one.
-local function save_generated(spec, track)
+--- Write a spec as a generated map, and bind it to a part when given one.
+local function save_generated(spec, part)
   local name = gen.slug(spec.name)
   local path = maps.generated_dir() .. "/" .. name .. maps.SUFFIX
   maps.write(path, gen.text(spec))
   maps.forget()
-  if track then art.bind(track, path) end
+  if part then art.bind(part, path) end
   return path
 end
 
 command("art.generate", function(ctx)
   local what = words(ctx)
-  local track = current_track()
+  local part = current_part()
   local spec, stats
   if what == "" or what == "device" then
-    if not track then fail("no track here") end
-    for _, id in ipairs(api.track_get(track).devices or {}) do
+    if not part then fail("no part here") end
+    for _, id in ipairs(api.part_get(part).devices or {}) do
       local ok, answer = pcall(api.device_call, id, "describe")
       local d = ok and type(answer) == "string" and paw.json.decode(answer)
       if type(d) == "table" then
@@ -547,7 +547,7 @@ command("art.generate", function(ctx)
       end
     end
     if not spec then
-      fail("no device of the track describes its instrument: name a library, `art.generate /libs/Violins.sfz`")
+      fail("no device of the part describes its instrument: name a library, `art.generate /libs/Violins.sfz`")
     end
   else
     local path = what:gsub("^~", os.getenv("HOME") or "~")
@@ -563,7 +563,7 @@ command("art.generate", function(ctx)
     end
     if not spec then fail(stats) end
   end
-  local file = save_generated(spec, track)
+  local file = save_generated(spec, part)
   paw.notify(
     string.format(
       "%s: %d articulations, %d named by a code of the profile; written to %s%s",
@@ -571,7 +571,7 @@ command("art.generate", function(ctx)
       stats.articulations,
       stats.coded,
       file,
-      track and " and bound to the track" or ""
+      part and " and bound to the part" or ""
     )
   )
 end, {
@@ -609,15 +609,15 @@ end, {
 command("art.export", function(ctx)
   local args = words(ctx)
   local kind, path = args:match("^(%S*)%s*(.-)$")
-  if kind ~= "reabank" then fail("`art.export reabank [file]`: the track's map as a Reaticulate bank") end
-  local track = need_track()
-  local map = art.map_of(track)
-  if not map then fail("the track has no articulation map") end
+  if kind ~= "reabank" then fail("`art.export reabank [file]`: the part's map as a Reaticulate bank") end
+  local part = need_part()
+  local map = art.map_of(part)
+  if not map then fail("the part has no articulation map") end
   path = path ~= "" and path:gsub("^~", os.getenv("HOME") or "~")
     or (api.env().data_dir .. "/articulations/" .. gen.slug(map.name) .. ".reabank")
   maps.write(path, gen.to_reabank(map))
   paw.notify("written " .. path)
-end, { raw = true, desc = "Write the track's map as a Reaticulate bank: `art.export reabank [file]`" })
+end, { raw = true, desc = "Write the part's map as a Reaticulate bank: `art.export reabank [file]`" })
 
 command("art.new", function(ctx)
   local name = words(ctx)
@@ -714,8 +714,8 @@ M.switches = switches
 --- the notes get the articulation. Returns how many notes got one.
 function M.from_keyswitches(clip_id)
   local c = api.clip_get(clip_id)
-  local map = art.map_of(c.track)
-  if not map then fail("the track has no articulation map: :art.map") end
+  local map = art.map_of(c.part)
+  if not map then fail("the part has no articulation map: :art.map") end
   local by_key, by_cc = switches(map)
   local changes = {}
   for _, n in ipairs(api.clip_notes(clip_id)) do
@@ -802,9 +802,9 @@ keymap.set("<localleader>A", function() M.popover({ mode = "mod" }) end, {
 local function run_region(around)
   local clip = roll:clip()
   if not clip then return end
-  local note, place, part = roll:note_at(roll.pitch, roll.beat)
+  local note, place, portion = roll:note_at(roll.pitch, roll.beat)
   if not note then return end
-  local notes = part.clip:notes()
+  local notes = portion.clip:notes()
   local want = art.attr_of(notes[place])
   local first, last = place, place
   while first > 1 and art.same(art.attr_of(notes[first - 1]), want) do
@@ -820,7 +820,7 @@ local function run_region(around)
     c0, c1 = math.min(c0, n.start), math.max(c1, n.start + n.length)
   end
   if around and notes[last + 1] then c1 = math.max(c1, notes[last + 1].start) end
-  return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0 + part.offset, c1 = c1 + part.offset }
+  return { view = "pianoroll", kind = "block", r0 = r0, r1 = r1, c0 = c0 + portion.offset, c1 = c1 + portion.offset }
 end
 
 keymap.textobject(

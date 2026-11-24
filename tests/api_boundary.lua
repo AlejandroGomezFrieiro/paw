@@ -114,22 +114,22 @@ end
 -- that were there and are deleted.
 local function fixture()
   T.fresh()
-  local track = paw.add_track({ name = "Boundary" })
-  local clip = track:add_clip({ start = 0, length = 4 })
+  local part = paw.add_part({ name = "Boundary" })
+  local clip = part:add_clip({ start = 0, length = 4 })
   clip:add_note({ pitch = 60, start = 0, length = 1 })
-  local device = track:add_device("synth")
-  local lane = api.lane_add(track.id, { target = "volume", points = { { 0, -6 }, { 4, 0 } } })
-  local gone = paw.add_track({ name = "Gone" })
+  local device = part:add_device("synth")
+  local lane = api.lane_add(part.id, { target = "volume", points = { { 0, -6 }, { 4, 0 } } })
+  local gone = paw.add_part({ name = "Gone" })
   local gone_clip = gone:add_clip({ start = 0, length = 4 })
   local ids = {
-    track = track.id,
+    part = part.id,
     clip = clip.id,
     device = device.id,
     lane = lane,
-    gone_track = gone.id,
+    gone_part = gone.id,
     gone_clip = gone_clip.id,
   }
-  api.track_remove(gone.id)
+  api.part_remove(gone.id)
   paw.flush()
   api.undo_checkpoint()
   return ids
@@ -168,7 +168,7 @@ end
 -- function's name (`clip_get(id)`).
 local function id_kind(fname, param)
   local kind = param == "id" and fname:match("^(%a+)_") or param
-  if kind == "track" or kind == "clip" or kind == "device" or kind == "lane" then return kind end
+  if kind == "part" or kind == "clip" or kind == "device" or kind == "lane" then return kind end
 end
 
 -- A good value of an argument, for the positions that a call does not make
@@ -216,24 +216,24 @@ local function wrong(fname, param, rust, ids)
   return { 1, -1, 1e300, 0 / 0, "abc", true, LONG, { x = { y = 1e300 } }, { 1, 2, 3 }, print }
 end
 
--- The song as the walk compares it before and after a call: each track,
+-- The song as the walk compares it before and after a call: each part,
 -- clip, note, lane and the tempo. Not where it is saved, nor whether it is.
 local function fingerprint()
   local project = api.project_get()
   project.path, project.modified = nil, nil
-  local parts = { project, api.tempo_points(), api.nest_list() }
-  for _, track in ipairs(api.track_list({})) do
-    parts[#parts + 1] = api.track_get(track)
-    for _, clip in ipairs(api.clip_list(track)) do
-      parts[#parts + 1] = clip
-      parts[#parts + 1] = api.clip_notes(clip.id)
+  local pieces = { project, api.tempo_points(), api.nest_list() }
+  for _, part in ipairs(api.part_list({})) do
+    pieces[#pieces + 1] = api.part_get(part)
+    for _, clip in ipairs(api.clip_list(part)) do
+      pieces[#pieces + 1] = clip
+      pieces[#pieces + 1] = api.clip_notes(clip.id)
     end
-    for _, lane in ipairs(api.lane_list(track)) do
-      parts[#parts + 1] = lane
-      parts[#parts + 1] = api.lane_points(lane.id)
+    for _, lane in ipairs(api.lane_list(part)) do
+      pieces[#pieces + 1] = lane
+      pieces[#pieces + 1] = api.lane_points(lane.id)
     end
   end
-  return api.json_encode(parts)
+  return api.json_encode(pieces)
 end
 
 -- One call of `paw.api.<name>`: what is wrong with it, or nil. A panic in

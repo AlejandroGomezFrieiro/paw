@@ -1,4 +1,4 @@
-//! Playing a track's audio regions into its block.
+//! Playing a part's audio regions into its block.
 
 use std::ops::Range;
 

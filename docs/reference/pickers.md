@@ -2,7 +2,7 @@
 
 <!-- tags: pick telescope -->
 
-A picker chooses one thing from many, and you type some letters of the thing to find it. `<Space>f:` runs a command by name, and the other pickers are under `<Space>f` (`<Space>` is the leader). The key after `<Space>f` is the key of the same thing on the leader, so `<Space>fc` finds clips and `<Space>cf` fades a clip, `<Space>fd` finds the devices of the track and `<Space>dd` shows them, and `<Space>fr` finds regions and `<Space>rn` makes one.
+A picker chooses one thing from many, and you type some letters of the thing to find it. `<Space>f:` runs a command by name, and the other pickers are under `<Space>f` (`<Space>` is the leader). The key after `<Space>f` is the key of the same thing on the leader, so `<Space>fc` finds clips and `<Space>cf` fades a clip, `<Space>fd` finds the devices of the part and `<Space>dd` shows them, and `<Space>fr` finds regions and `<Space>rn` makes one.
 
 ## The pickers
 
@@ -10,20 +10,20 @@ A picker chooses one thing from many, and you type some letters of the thing to 
 | --- | --- | --- | --- |
 | `<Space>f:` | `pick.commands` | every command, with its key. A match in the name ranks above a match in the description, and a name that is the typed word, or starts with it, ranks above the others (`arrange` finds `:arrange`). Among equal matches, the commands that you ran from here come first, and then those that the focused view has keys for. | runs it. `Ctrl-e` types it on the command line, for arguments. |
 | `?` `<Space>fk` | `pick.keys` | every key of the focused view and the global keys, written as `Alt-h`, `Space at` and `Ctrl-w o`. Each has a tag for where it works, and for whether it is a motion, an operator, a text object, or a key for a selection or insert mode. The keys of the view come first and then the global keys, and plain keys come before operators, motions and the others, and short keys before long keys. Keys that do the same share one line (`Ctrl-z, u`). The right side shows the section of the manual for the chosen key. The keys of the other views come last, with a tag (`arrange view`), so `send` in the mixer finds `<Space>ts` of the arrange view. | runs it. A key of a different view goes to that view. |
-| `<Space>ft` | `pick.tracks` | the tracks | moves the cursor to the track |
-| `<Space>fc` | `pick.clips` | every clip, with its track | goes to it |
-| `<Space>da` | `pick.devices` | the devices and plugins that you can add | adds it to the track of the cursor |
-| `<Space>fd` | `pick.track_devices` | the devices on the track | shows it in the device panel. `Ctrl-e` opens the window of the plugin. |
+| `<Space>ft` | `pick.parts` | the parts | moves the cursor to the part |
+| `<Space>fc` | `pick.clips` | every clip, with its part | goes to it |
+| `<Space>da` | `pick.devices` | the devices and plugins that you can add | adds it to the part of the cursor |
+| `<Space>fd` | `pick.part_devices` | the devices on the part | shows it in the device panel. `Ctrl-e` opens the window of the plugin. |
 | `<Space>f'` | `pick.marks` | the marks | goes to the mark |
 | `<Space>f"` | `pick.registers` | the registers | pastes it at the cursor, or plays a macro |
 | `<Space>fl` | `pick.messages` | the earlier messages, newest first | shows the full message |
-| `<Space>ff` | `pick.files` | projects, audio and MIDI files under the working directory | opens the project, adds the audio at the cursor, or adds the tracks of the MIDI file there |
+| `<Space>ff` | `pick.files` | projects, audio and MIDI files under the working directory | opens the project, adds the audio at the cursor, or adds the parts of the MIDI file there |
 | `<Space>fo` | `pick.options` | the options and their values | switches a true or false option, or asks for a new value |
 | `<Space>pr` | `recent` | the recent projects, with their place and when each was last opened. `Alt-d` removes one. | opens it |
 | `<Space>fh` | `pick.help` | every help tag, with its page | goes to it |
 | `<Space>fm` | `pick.markers` | the markers, with what plays there | goes to it |
 | `<Space>fr` | `pick.regions` | the regions, with what plays there | goes to it |
-| `<Space>fg` | `pick.grep` | every text in the project, which means the names of tracks, clips, markers and devices, lyrics, articulations, comments and the tags of the project. It is a live grep, and it starts in exact mode. | goes to it |
+| `<Space>fg` | `pick.grep` | every text in the project, which means the names of parts, clips, markers and devices, lyrics, articulations, comments and the tags of the project. It is a live grep, and it starts in exact mode. | goes to it |
 | `<Space>fn` | `pick.notes` | every note, with its pitch, velocity, lyric, articulations, clip and place, and with the clip drawn next to it. You hear a note when the selection stops on it. | goes to it |
 | `<Space>fa` | `pick.media` | the sound files of the project, and the clips that play each | adds it at the cursor |
 | `<Space>fq` | `pick.quickfix` | the entries of the quickfix list | goes to it |
@@ -34,7 +34,7 @@ A picker chooses one thing from many, and you type some letters of the thing to 
 | `<Space>fp` | `pick` | every picker | opens it |
 | `<Space>f.` | `pick.resume` | the last picker as it was, with the typed text, the mode and the line (`:pick resume`) | |
 
-`:pick tracks` opens a picker by name, and `:pick devices query=reverb` or `:pick.devices reverb` opens it with text typed.
+`:pick parts` opens a picker by name, and `:pick devices query=reverb` or `:pick.devices reverb` opens it with text typed.
 
 ## The device picker
 
@@ -79,7 +79,7 @@ The keys below work in every picker. The own keys of a picker come before them, 
 | `Ctrl-q` | Sends the marked lines (or every line that matches) to the quickfix list, with the picker and the typed text as its title, and opens its window. |
 | `Ctrl-l` | Sends them to the location list of the window. |
 | `Ctrl-y` | Types the line on the command line (for a Lua function, `lua paw.x(`). |
-| `Alt-d` | Deletes the marked things, or the thing of the line: tracks, clips, notes, markers, recent projects. The picker stays open, and `u` undoes the deletion. |
+| `Alt-d` | Deletes the marked things, or the thing of the line: parts, clips, notes, markers, recent projects. The picker stays open, and `u` undoes the deletion. |
 | `Ctrl-r` | The next mode: fuzzy, exact, regex. |
 | `Ctrl-Up` `Ctrl-Down` | The text typed before in this picker, newest first. |
 | `Ctrl-Space` | Starts or stops the audition (below). |
@@ -103,7 +103,7 @@ The match is fuzzy, so the typed letters must be in the line in that order, but 
 
 A mode that is not fuzzy shows next to the count, and a picker keeps the mode that it had last. A regular expression that paw cannot read shows the reason in place of the list.
 
-The notes of a thousand tracks open in less than a second, and each key takes tens of milliseconds, because each key filters the last matches and paw draws only the lines on the screen.
+The notes of a thousand parts open in less than a second, and each key takes tens of milliseconds, because each key filters the last matches and paw draws only the lines on the screen.
 
 ## Audition
 
@@ -113,12 +113,12 @@ In the pickers in this table, you hear the item under the selection when the sel
 
 | Picker | What you hear |
 | --- | --- |
-| presets (`:preset`) | The preset loaded into the device, with the notes of the track, which are the bar of its MIDI clip at the cursor (or the last bar before it with notes), again and again. A track without notes plays a built-in phrase in the key of the song (a beat on a drum track). When you move, paw loads the next preset over the same loop. |
-| devices (`<Space>da`) | The device added to the track of the cursor, with the same phrase. paw makes a plugin in a separate process, so the selection stops on it for 600 ms first, and the pane shows `… loading` until the plugin plays. |
-| files (`<Space>ff`, and the file picker of `:import`) | A sound file alone, from its start, over everything else at `paw.opt.audition_level` dB (-12), with its outline and the place that it plays. A MIDI file plays its first two bars, at its own tempo, through the track of the cursor if it has an instrument, and otherwise through a synth (and a kit for its drums) that paw adds for this. |
+| presets (`:preset`) | The preset loaded into the device, with the notes of the part, which are the bar of its MIDI clip at the cursor (or the last bar before it with notes), again and again. A part without notes plays a built-in phrase in the key of the song (a beat on a drum part). When you move, paw loads the next preset over the same loop. |
+| devices (`<Space>da`) | The device added to the part of the cursor, with the same phrase. paw makes a plugin in a separate process, so the selection stops on it for 600 ms first, and the pane shows `… loading` until the plugin plays. |
+| files (`<Space>ff`, and the file picker of `:import`) | A sound file alone, from its start, over everything else at `paw.opt.audition_level` dB (-12), with its outline and the place that it plays. A MIDI file plays its first two bars, at its own tempo, through the part of the cursor if it has an instrument, and otherwise through a synth (and a kit for its drums) that paw adds for this. |
 | beats (`:drums.beat`) | The beat written into the clip, its first bar again and again. |
-| snippets (`Ctrl-s` in the piano roll) | What the snippet writes, one time, with what the other pitched tracks play over the same beats. |
-| tracks, clips, notes, media | With `Ctrl-Space`: the first two bars of a clip through its track, a note with the chord that it starts, an audio file. The tracks picker starts with audition off. |
+| snippets (`Ctrl-s` in the piano roll) | What the snippet writes, one time, with what the other pitched parts play over the same beats. |
+| parts, clips, notes, media | With `Ctrl-Space`: the first two bars of a clip through its part, a note with the chord that it starts, an audio file. The parts picker starts with audition off. |
 
 What you try on the project is a trial, which paw makes so that you hear and see it as any edit. `Esc` puts everything back exactly as it was, with no undo step, and the project is not marked as changed. `Enter` on the item that you hear keeps it, as the one undo step of the choice, and paw keeps the plugin that it loaded and does not make it again.
 
@@ -134,10 +134,10 @@ The graphical window shows a picker as it shows any float, through `paw.frontend
 
 ```lua
 paw.pick({
-  title = "Tracks",
+  title = "Parts",
   items = { { text = "Bass", id = 3 }, { text = "Drums", id = 4 } },   -- or a function that gives the list; an item can be a string
   format = function(item) return item.text end,   -- optional: the line that shows and matches
-  on_choose = function(item) paw.cursor.set_track(item.id) end,
+  on_choose = function(item) paw.cursor.set_part(item.id) end,
   on_cancel = function() end,                     -- optional: Esc
 })
 ```
@@ -179,8 +179,8 @@ The pickers use `paw.audition`, as in this example.
 
 ```lua
 paw.audition.try(function() paw.fx.load(device, "Plate") end)   -- an edit that can be undone
-paw.audition.through(track.id)        -- play the bar of the track at the cursor through it, again and again
-paw.audition.phrase(track.id, { { pitch = 60, start = 0, length = 1, velocity = 100 } }, { length = 4 })
+paw.audition.through(part.id)        -- play the bar of the part at the cursor through it, again and again
+paw.audition.phrase(part.id, { { pitch = 60, start = 0, length = 1, velocity = 100 } }, { length = 4 })
 paw.audition.file("/samples/kick.wav")  -- alone, at paw.opt.audition_level
 paw.audition.keep()                     -- the trial becomes one undo step
 paw.audition.stop()                     -- silence, and the trial is undone

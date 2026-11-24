@@ -14,7 +14,7 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "lua",
             title: "Escape hatch: run Lua in paw",
-            description: "ESCAPE HATCH: run Lua inside paw with the whole `paw` scripting interface (paw.tracks(), paw.project, paw.api.*, ...) and return what it returns, as text. Read the manual and the API reference as resources (paw://reference/api, paw://reference/lua/<module>) first. An expression is returned as is (`paw.project.tempo`); statements need `return`. This is arbitrary code in paw's process, with its file and network access, which the typed tools' checks do not cover: a client should ask the person before running it. Only offered with --allow-eval. One undo step; not rolled back on failure.".into(),
+            description: "ESCAPE HATCH: run Lua inside paw with the whole `paw` scripting interface (paw.parts(), paw.project, paw.api.*, ...) and return what it returns, as text. Read the manual and the API reference as resources (paw://reference/api, paw://reference/lua/<module>) first. An expression is returned as is (`paw.project.tempo`); statements need `return`. This is arbitrary code in paw's process, with its file and network access, which the typed tools' checks do not cover: a client should ask the person before running it. Only offered with --allow-eval. One undo step; not rolled back on failure.".into(),
             schema: obj(json!({"code": {"type": "string", "description": "Lua code"}}), &["code"]),
             effect: Effect::Destroys,
             run: Run::Escape(Tools::lua_code),
@@ -22,7 +22,7 @@ pub(super) fn tools() -> Vec<Tool> {
         Tool {
             name: "run_command",
             title: "Escape hatch: run a paw command",
-            description: "ESCAPE HATCH, for what the typed tools do not cover: run a command line as typed after `:` in paw, such as `track.add Bass device=synth`, `tempo 96`, `commands` or `lua <code>`. Commands act on paw's cursor and selection. Returns the command's result and any messages it showed. One undo step; not rolled back on failure. It can run Lua and write files: a client should ask the person first. Only offered with --allow-eval.".into(),
+            description: "ESCAPE HATCH, for what the typed tools do not cover: run a command line as typed after `:` in paw, such as `part.add Bass device=synth`, `tempo 96`, `commands` or `lua <code>`. Commands act on paw's cursor and selection. Returns the command's result and any messages it showed. One undo step; not rolled back on failure. It can run Lua and write files: a client should ask the person first. Only offered with --allow-eval.".into(),
             schema: obj(json!({"line": {"type": "string", "description": "The command line, without the leading `:`"}}), &["line"]),
             effect: Effect::Destroys,
             run: Run::Escape(Tools::run_command),

@@ -13,34 +13,34 @@ use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::Take;
 use crate::plan::GraphPlan;
-use crate::slot::{DeviceSlot, ProcessorSlot, TrackSlot};
+use crate::slot::{DeviceSlot, ProcessorSlot, PartSlot};
 
 use super::device_rt::{KeyBuf, OutBufs};
 use super::schedule::Schedule;
-use super::track::TrackRt;
+use super::part::PartRt;
 
 pub enum Msg {
-    InsertTrack {
-        slot: TrackSlot,
-        track: Box<TrackRt>,
+    InsertPart {
+        slot: PartSlot,
+        part: Box<PartRt>,
     },
-    RemoveTrack {
-        slot: TrackSlot,
+    RemovePart {
+        slot: PartSlot,
     },
     SetSchedule(Box<Schedule>),
     SetMix {
-        slot: TrackSlot,
+        slot: PartSlot,
         gain: f32,
         pan: f32,
         mute: bool,
-        /// Silenced by another track's solo (see `TrackRt::quiet`).
+        /// Silenced by another part's solo (see `PartRt::quiet`).
         quiet: bool,
     },
     InsertDevice {
         slot: DeviceSlot,
         device: Box<dyn Device>,
     },
-    /// Give a device a buffer for its side-chain, which the track it listens
+    /// Give a device a buffer for its side-chain, which the part it listens
     /// to fills each block, or take it away with `None`.
     SetKey {
         device: DeviceSlot,
@@ -63,10 +63,10 @@ pub enum Msg {
         slot: ProcessorSlot,
         plan: Box<GraphPlan>,
     },
-    /// The track's own time, which its devices see (a subproject's bars),
+    /// The part's own time, which its devices see (a subproject's bars),
     /// or `None` for the song's.
     SetLocalTime {
-        track: TrackSlot,
+        part: PartSlot,
         time: Option<Box<crate::LocalTime>>,
     },
     SetParam {
@@ -89,19 +89,19 @@ pub enum Msg {
         frames: u32,
     },
     SetClips {
-        track: TrackSlot,
+        part: PartSlot,
         clips: Box<ClipSet>,
     },
-    /// Take out and put in some of the parts of a track's clips (see
+    /// Take out and put in some of the pieces of a part's clips (see
     /// [`ClipSet::edit`]): what an edit of a few clips sends.
     EditClips {
-        track: TrackSlot,
-        edit: Box<crate::clip::PartEdit>,
+        part: PartSlot,
+        edit: Box<crate::clip::PieceEdit>,
     },
-    /// While playing, the lanes set the track's fader, pan and device
+    /// While playing, the lanes set the part's fader, pan and device
     /// parameters at the start of each block, over whatever was set directly.
     SetAutomation {
-        track: TrackSlot,
+        part: PartSlot,
         automation: Box<Automation>,
     },
     /// The devices already hold the states their state lanes give at the
@@ -147,31 +147,31 @@ pub enum Msg {
     Seek(f64),
     /// A note played live rather than from a clip, delivered at the next block.
     Live {
-        track: TrackSlot,
+        part: PartSlot,
         event: EventKind,
     },
-    /// Which input channels a track takes (`channels` is 0 for none), whether
-    /// they are heard, and whether the track is armed.
+    /// Which input channels a part takes (`channels` is 0 for none), whether
+    /// they are heard, and whether the part is armed.
     SetInput {
-        track: TrackSlot,
+        part: PartSlot,
         first: usize,
         channels: usize,
         monitor: bool,
         armed: bool,
     },
-    /// Which MIDI input an armed track without audio input takes: a port's
+    /// Which MIDI input an armed part without audio input takes: a port's
     /// key ([`crate::midi::port_key`]) or 0 for all, a channel from 1 to 16
     /// or 0 for all.
     SetMidiInput {
-        track: TrackSlot,
+        part: PartSlot,
         port: u32,
         channel: u8,
     },
-    /// The MIDI output port a track sends what it plays to, by its key (0
+    /// The MIDI output port a part sends what it plays to, by its key (0
     /// for none), on a channel from 1 to 16 or 0 for each message's own,
     /// in a form for ports that take no MIDI 2.0.
     SetMidiOutput {
-        track: TrackSlot,
+        part: PartSlot,
         port: u32,
         channel: u8,
         form: paw_types::midi_form::Form,
@@ -182,22 +182,22 @@ pub enum Msg {
     /// Start capturing into a take, or stop with `None`.
     SetTake(Option<Box<Take>>),
     /// A note as if it came from a MIDI input port, by its key (0 for none
-    /// in particular, which only tracks that take every port hear).
+    /// in particular, which only parts that take every port hear).
     MidiIn {
         port: u32,
         kind: EventKind,
     },
-    /// The controls of MIDI input that tracks do not get (see
+    /// The controls of MIDI input that parts do not get (see
     /// [`crate::midi_filter`]), in place of those before.
     SetMidiFilter(Box<MidiFilter>),
-    /// Worker threads to process tracks on, or `None` for the audio thread alone.
+    /// Worker threads to process parts on, or `None` for the audio thread alone.
     SetPool(Option<Box<Pool>>),
-    /// The clips in a track's slots, to be launched.
+    /// The clips in a part's slots, to be launched.
     SetSlots {
-        track: TrackSlot,
+        part: PartSlot,
         slots: Box<Slots>,
     },
-    /// Launch slots, stop them or go back to the arrangement, each track on
+    /// Launch slots, stop them or go back to the arrangement, each part on
     /// the first boundary of its quantize from where the engine is when it
     /// takes the message (at once while stopped). Launches sent together
     /// are timed together.
@@ -221,12 +221,12 @@ pub enum Msg {
 }
 
 pub(super) enum Garbage {
-    Track(#[allow(dead_code)] Box<TrackRt>),
+    Part(#[allow(dead_code)] Box<PartRt>),
     Device(#[allow(dead_code)] Box<dyn Device>),
     Schedule(#[allow(dead_code)] Box<Schedule>),
     Plan(#[allow(dead_code)] Box<GraphPlan>),
     Clips(#[allow(dead_code)] Box<ClipSet>),
-    PartEdit(#[allow(dead_code)] Box<crate::clip::PartEdit>),
+    PieceEdit(#[allow(dead_code)] Box<crate::clip::PieceEdit>),
     Automation(#[allow(dead_code)] Box<Automation>),
     Take(#[allow(dead_code)] Box<Take>),
     Pool(#[allow(dead_code)] Box<Pool>),

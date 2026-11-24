@@ -13,10 +13,10 @@ local paw = host.paw
 local A = M.act
 local snap = host.snap
 local to_arrange = host.to_arrange
-local track_flag = host.track_flag
+local part_flag = host.part_flag
 
---- The record button. With nothing being recorded: arm the selected track
---- if no track is armed, then record from the playhead. Otherwise: end the
+--- The record button. With nothing being recorded: arm the selected part
+--- if no part is armed, then record from the playhead. Otherwise: end the
 --- take and stop.
 function A.record()
   local t = api.transport_get()
@@ -28,16 +28,16 @@ function A.record()
     return
   end
   local armed = false
-  for _, id in ipairs(api.track_list({all = true})) do
-    armed = armed or track_flag(id, "armed")
+  for _, id in ipairs(api.part_list({all = true})) do
+    armed = armed or part_flag(id, "armed")
   end
   if not armed then
-    local track = paw.cursor.track()
-    if not track then
-      return paw.notify("nothing to record on: select a track, or arm one with its R button", "warn")
+    local part = paw.cursor.part()
+    if not part then
+      return paw.notify("nothing to record on: select a part, or arm one with its R button", "warn")
     end
-    track.armed = true
-    paw.notify("recording on " .. track.name .. ": it was armed for you (its R button)")
+    part.armed = true
+    paw.notify("recording on " .. part.name .. ": it was armed for you (its R button)")
   end
   paw.transport.record()
 end
@@ -88,41 +88,41 @@ function A.set_punch(from: number, to: number)
   paw.transport.punch_enabled = true
 end
 
---- Show a track's take lanes under its clips, or hide them. Returns
+--- Show a part's take lanes under its clips, or hide them. Returns
 --- whether they show now.
-function A.take_lanes(track: integer): boolean
-  return paw.takes.toggle_lanes(track)
+function A.take_lanes(part: integer): boolean
+  return paw.takes.toggle_lanes(part)
 end
 
---- A drag across take lane `take` of a track, from beat `from` to `to`:
+--- A drag across take lane `take` of a part, from beat `from` to `to`:
 --- that take plays over the stretch (see `paw.takes.comp`). The ends land
 --- on the grid unless `free` (Shift). A stretch shorter than a grid step is
 --- a click, which chooses the take for the piece under the pointer. One
 --- undo step. Returns how many pieces play the take now.
-function A.comp(track: integer, take: integer, from: number, to: number, free?: boolean): integer
+function A.comp(part: integer, take: integer, from: number, to: number, free?: boolean): integer
   local a, b = math.min(from, to), math.max(from, to)
   if not free then
     a, b = snap(a), snap(b)
   end
   a = math.max(0, a)
   if b - a < (free and 1 / 64 or timegrid.step()) - 1e-9 then
-    return A.take_click(track, take, math.min(from, to)) and 1 or 0
+    return A.take_click(part, take, math.min(from, to)) and 1 or 0
   end
-  local n = paw.takes.comp(track, take, a, b)
+  local n = paw.takes.comp(part, take, a, b)
   if n > 0 then
-    paw.cursor.set_track(track)
+    paw.cursor.set_part(part)
   end
   return n
 end
 
---- A click on take lane `take` of a track: the piece under the pointer
+--- A click on take lane `take` of a part: the piece under the pointer
 --- plays that take. Returns its clip, or nil when there is none there.
-function A.take_click(track: integer, take: integer, beat: number): integer
-  local c = paw.takes.choose_at(track, take, beat)
+function A.take_click(part: integer, take: integer, beat: number): integer
+  local c = paw.takes.choose_at(part, take, beat)
   if c then
     clips.set_pointing(true)
     to_arrange()
-    paw.cursor.set_track(track)
+    paw.cursor.set_part(part)
     clips.set_pointing(false)
   end
   return c and c.id or nil
@@ -138,19 +138,19 @@ function A.ruler_click(beat: number)
   paw.transport.seek(beat)
 end
 
---- Drag across empty lanes: select that stretch of time on those tracks,
+--- Drag across empty lanes: select that stretch of time on those parts,
 --- as visual mode does, for the keys and the menu to act on. Rows are
---- places in the track list, from 1.
+--- places in the part list, from 1.
 function A.select_range(row0: integer, beat0: number, row1: integer, beat1: number)
-  local tracks = paw.groups.rows()
-  if #tracks == 0 then
+  local parts = paw.groups.rows()
+  if #parts == 0 then
     return
   end
   to_arrange()
   local clamp = util.clamp
-  paw.cursor.set_track(tracks[clamp(row0, 1, #tracks) as integer])
+  paw.cursor.set_part(parts[clamp(row0, 1, #parts) as integer])
   paw.cursor.set_beat(snap(math.min(beat0, beat1)))
   paw.keymap.visual_start("v")
-  paw.cursor.set_track(tracks[clamp(row1, 1, #tracks) as integer])
+  paw.cursor.set_part(parts[clamp(row1, 1, #parts) as integer])
   paw.cursor.set_beat(snap(math.max(beat0, beat1)))
 end

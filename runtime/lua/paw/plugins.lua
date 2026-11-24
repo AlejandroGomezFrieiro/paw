@@ -5,7 +5,7 @@
 --   paw.plugins.attach(path)        -- a native library that can take each plugin (ARA)
 --   paw.plugins.from["clap:dev.paw.sampler"]   -- "sampler": who added it
 --   paw.plugins.note_names(device)  -- { [36] = "Kick", ... } (CLAP note-name)
---   paw.plugins.key_names(track)    -- the same for a track's devices together
+--   paw.plugins.key_names(part)    -- the same for a part's devices together
 local api = paw.api
 
 local M = {}
@@ -55,8 +55,8 @@ function M.add_dir(dir, name)
   for _, note in ipairs(found.notes) do
     api.log("plugin scan: " .. note)
   end
-  for _, id in ipairs(api.track_list({ all = true })) do
-    for _, device in ipairs(api.track_get(id).devices) do
+  for _, id in ipairs(api.part_list({ all = true })) do
+    for _, device in ipairs(api.part_get(id).devices) do
       local d = api.device_get(device)
       if added[d.kind] and d.missing then pcall(api.device_restart, device) end
     end
@@ -138,11 +138,11 @@ function M.note_names(device)
   return names[device].names
 end
 
---- The key names of all the devices of a track. When two devices name a
+--- The key names of all the devices of a part. When two devices name a
 --- key, the first in the chain wins.
---- @type function(track: integer): {integer:string}
-function M.key_names(track)
-  local ok, t = pcall(api.track_get, track)
+--- @type function(part: integer): {integer:string}
+function M.key_names(part)
+  local ok, t = pcall(api.part_get, part)
   local out = {}
   if not ok then return out end
   for i = #t.devices, 1, -1 do

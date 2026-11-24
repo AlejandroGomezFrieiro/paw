@@ -9,7 +9,7 @@ return {
   needs = {},
   cmd = {
     { "notation", desc = "Show the clip under the cursor as notation, to read and edit" },
-    { "score", desc = "Show a score to edit, a staff for each track with MIDI" },
+    { "score", desc = "Show a score to edit, a staff for each part with MIDI" },
     { "part", desc = "Show a part to play from, to edit as it is written" },
     "notation.*",
     "score.*",
@@ -18,7 +18,7 @@ return {
   keys = {
     { "<leader>nn", desc = "Show the clip under the cursor as notation" },
     { "<leader>vn", desc = "Show the clip under the cursor as notation" },
-    { "<leader>ns", desc = "Show every track with MIDI as a score, a staff each" },
+    { "<leader>ns", desc = "Show every part with MIDI as a score, a staff each" },
     { "<leader>nc", desc = "Show the score's pages as they will be exported, to check them" },
     { "<leader>ne", desc = "Export the clip as MusicXML, a file named after it" },
     { "<leader>nE", desc = "Export the clip as an engraved PDF, a file named after it" },

@@ -106,7 +106,7 @@ local function text(m: model.Model, run: model.Run): string
   out[#out + 1] = "global record paw"
   out[#out + 1] = "   api: Api"
   -- What is still written in Lua: `paw.Untyped`, which any use takes and
-  -- whose value is cast (`paw.cursor.track_id() as integer`). Each one is
+  -- whose value is cast (`paw.cursor.part_id() as integer`). Each one is
   -- on the allow-list until its module is ported.
   out[#out + 1] = "   type Untyped = UntypedLua"
   local of_kernel = kernel_forms(m.kernel)

@@ -11,7 +11,7 @@ helper processes and what they cost. For the behavior and the flags, see
 
 The helper is the `paw` program, started again as a plugin host, so when a
 plugin crashes, only its helper stops. paw tells you which plugin stopped
-and why, and the track continues. An effect lets the sound through, and an
+and why, and the part continues. An effect lets the sound through, and an
 instrument is silent. `:device.restart` starts the plugin again from the
 last state of it that the project has, so the project does not lose work
 because of a bad plugin.
@@ -20,8 +20,8 @@ because of a bad plugin.
 
 The audio thread and the helper share memory for the audio, and they use a
 futex to signal a block. The audio thread waits for the helper for no
-longer than about one block, so a slow plugin costs its own track one block
-of sound, but the other tracks do not drop out. A plugin that gives no
+longer than about one block, so a slow plugin costs its own part one block
+of sound, but the other parts do not drop out. A plugin that gives no
 block for two seconds has hung, and paw stops it as if it crashed.
 
 When the plugin is too late to take a block, the events of the block stay

@@ -61,7 +61,7 @@ end
 local record Sections
   project: {string: Value}
   lines: {FrontendModule.Line}
-  tracks: {FrontendModule.TrackState}
+  parts: {FrontendModule.PartState}
   clips: {FrontendModule.ClipState}
   devices: {FrontendModule.DeviceState}
   routing: FrontendModule.Routing | boolean
@@ -173,7 +173,7 @@ local function sections_of(state: FrontendModule.State): Sections
   return {
     project = project,
     lines = state.project.lines or {},
-    tracks = state.tracks or {},
+    parts = state.parts or {},
     clips = state.clips or {},
     devices = state.devices or {},
     routing = state.routing or false,
@@ -182,7 +182,7 @@ local function sections_of(state: FrontendModule.State): Sections
   }
 end
 
-local SECTION_KEYS = {"project", "tracks", "clips", "devices", "routing", "kinds", "selected", "cursor"}
+local SECTION_KEYS = {"project", "parts", "clips", "devices", "routing", "kinds", "selected", "cursor"}
 
 -- Numbers that tremble (a meter falling towards nothing) are rounded to
 -- what a frontend can show, so that an idle program has nothing new to

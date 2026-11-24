@@ -29,26 +29,26 @@ end
 
 local keys = T.keys
 
---- A fresh project with a drum track made by the command, its clip open in the grid.
-local function drum_track()
+--- A fresh project with a drum part made by the command, its clip open in the grid.
+local function drum_part()
   load()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
   paw.opt.drums_step, paw.opt.drums_velocity = 0.25, 100
-  paw.cmd("drums.track")
+  paw.cmd("drums.part")
   paw.flush()
-  local track = paw.cursor.track()
-  local clip = track:clips()[1]
+  local part = paw.cursor.part()
+  local clip = part:clips()[1]
   local grid = paw.ui.views:get("drums")
   grid.step = nil
   api.undo_checkpoint()
-  return track, clip, grid
+  return part, clip, grid
 end
 
 local function screen(w, h) return table.concat(api.ui_snapshot(w or 120, h or 40), "\n") end
 
--- Maps and tracks -------------------------------------------------------------------
+-- Maps and parts -------------------------------------------------------------------
 
 test("drums: the General MIDI map names the pieces a beat needs, in order", function()
   local d = load()
@@ -65,13 +65,13 @@ test("drums: the General MIDI map names the pieces a beat needs, in order", func
   eq(#d.maps["gm-full"].rows, 47, "every General MIDI percussion note is in gm-full")
 end)
 
-test("drums: drums.track makes a track ready for drums in one step", function()
-  local track, clip = drum_track()
-  eq(track.name, "Drums", "named")
-  eq(track.color, drums.colour, "coloured")
-  eq(track:devices()[1].kind, "drums", "with the built-in kit")
-  eq(drums.info(track).map, "gm", "and the General MIDI map")
-  eq(#drums.rows(track), 15, "fifteen rows")
+test("drums: drums.part makes a part ready for drums in one step", function()
+  local part, clip = drum_part()
+  eq(part.name, "Drums", "named")
+  eq(part.color, drums.colour, "coloured")
+  eq(part:devices()[1].kind, "drums", "with the built-in kit")
+  eq(drums.info(part).map, "gm", "and the General MIDI map")
+  eq(#drums.rows(part), 15, "fifteen rows")
   eq(clip.length, paw.time.bar(), "a bar to program")
   eq(paw.ui.focused, "drums", "open in the drum grid")
   eq(paw.ui.views:get("drums").clip_id, clip.id, "on its clip")
@@ -90,31 +90,31 @@ test("drums: drums.track makes a track ready for drums in one step", function()
   )
 end)
 
-test("drums: the map is kept with the track in the project", function()
-  local track = drum_track()
+test("drums: the map is kept with the part in the project", function()
+  local part = drum_part()
   local path = T.scratch .. "/drums-map.json"
   paw.project.save(path)
   paw.project.load(path)
-  local again = paw.tracks()[1]
+  local again = paw.parts()[1]
   eq(drums.info(again).map, "gm", "the map's name")
   eq(drums.rows(again)[5].name, "Closed hat", "and its rows")
-  eq(drums.is_drum(again), true, "still a drum track")
-  local _ = track
+  eq(drums.is_drum(again), true, "still a drum part")
+  local _ = part
 end)
 
-test("drums: drums.map turns any track into a drum track, and back", function()
+test("drums: drums.map turns any part into a drum part, and back", function()
   load()
   fresh()
-  local synth = paw.add_track({ name = "Plugin kit" })
+  local synth = paw.add_part({ name = "Plugin kit" })
   synth:add_device("synth")
-  paw.cursor.set_track(synth)
-  eq(drums.is_drum(synth), false, "an ordinary track to begin with")
+  paw.cursor.set_part(synth)
+  eq(drums.is_drum(synth), false, "an ordinary part to begin with")
   paw.commands.exec("drums.map gm-full")
-  eq(drums.info(synth).map, "gm-full", "a drum track with the map chosen")
+  eq(drums.info(synth).map, "gm-full", "a drum part with the map chosen")
   eq(synth:devices()[1].kind, "synth", "whatever its instrument")
   eq(#drums.rows(synth), 47, "all its rows")
   paw.commands.exec("drums.map off")
-  eq(drums.is_drum(synth), false, "and an ordinary track again")
+  eq(drums.is_drum(synth), false, "and an ordinary part again")
   T.fails(function() paw.commands.exec("drums.map nosuch") end, "no drum map", "an unknown map")
 end)
 
@@ -122,7 +122,7 @@ test("drums: maps are plain tables an init.lua can add to", function()
   load()
   fresh()
   drums.maps.tiny = { label = "two pieces", rows = { { note = "C2", name = "Boom" }, { note = 40, name = "Crack" } } }
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   drums.set_map(t, "tiny")
   eq(drums.rows(t)[1].note, 36, "notes may be given by name")
   eq(drums.rows(t)[2].name, "Crack", "and the rows keep their names")
@@ -130,9 +130,9 @@ test("drums: maps are plain tables an init.lua can add to", function()
 end)
 
 test("drums: a note the map does not name still gets a row", function()
-  local track, clip = drum_track()
+  local part, clip = drum_part()
   clip:add_note({ pitch = 81, start = 0, length = 0.25 })
-  local rows = drums.rows(track, clip)
+  local rows = drums.rows(part, clip)
   eq(#rows, 16, "one more row")
   eq(rows[16].note, 81, "for the note")
   eq(rows[16].extra, true, "marked as outside the map")
@@ -144,7 +144,7 @@ end)
 -- The terminal grid -------------------------------------------------------------------
 
 test("drums: Enter toggles a hit, and the grid shows it by name and by how hard", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   keys("<CR>")
   eq(hits(clip, true), "36@0:100", "a kick on the first step")
   keys("2l<CR>")
@@ -160,7 +160,7 @@ test("drums: Enter toggles a hit, and the grid shows it by name and by how hard"
 end)
 
 test("drums: the ruler marks the beats with ticks and no numbers, as the roll's does", function()
-  drum_track()
+  drum_part()
   paw.flush()
   local lines = api.ui_snapshot(140, 30)
   local ruler
@@ -176,12 +176,12 @@ test("drums: the ruler marks the beats with ticks and no numbers, as the roll's 
 end)
 
 test("drums: a new hit is heard", function()
-  local track = drum_track()
-  eq(T.wakes(function() keys("<CR>") end, track:devices()[1]), true, "the kick sounds when it is entered")
+  local part = drum_part()
+  eq(T.wakes(function() keys("<CR>") end, part:devices()[1]), true, "the kick sounds when it is entered")
 end)
 
 test("drums: + and - make a hit harder and softer", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   keys("<CR>+")
   eq(hits(clip, true), "36@0:116", "harder")
   keys("3-")
@@ -193,7 +193,7 @@ test("drums: + and - make a hit harder and softer", function()
 end)
 
 test("drums: the step size changes, with triplets", function()
-  local _, clip, grid = drum_track()
+  local _, clip, grid = drum_part()
   keys("]g")
   eq(grid:step_size(), 0.5, "]g is coarser")
   keys("<localleader>3")
@@ -207,7 +207,7 @@ test("drums: the step size changes, with triplets", function()
 end)
 
 test("drums: motions move by steps, rows, hits and bars", function()
-  local _, clip, grid = drum_track()
+  local _, clip, grid = drum_part()
   clip.length = 8
   clip:add_notes({ { pitch = 38, start = 1, length = 0.25 }, { pitch = 38, start = 3, length = 0.25 } })
   keys("j")
@@ -229,7 +229,7 @@ test("drums: motions move by steps, rows, hits and bars", function()
 end)
 
 test("drums: dd clears a row, and u brings it back", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip:add_notes({
     { pitch = 36, start = 0, length = 0.25 },
     { pitch = 36, start = 2, length = 0.25 },
@@ -248,7 +248,7 @@ test("drums: dd clears a row, and u brings it back", function()
 end)
 
 test("drums: & repeats a bar to the end of the clip, or N times", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip.length = 16
   clip:add_notes({ { pitch = 36, start = 0, length = 0.25 }, { pitch = 38, start = 1, length = 0.25 } })
   clip:add_note({ pitch = 42, start = 6, length = 0.25 })
@@ -266,7 +266,7 @@ test("drums: & repeats a bar to the end of the clip, or N times", function()
 end)
 
 test("drums: yank and paste hits, by row and by stretch of time", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip.length = 8
   clip:add_notes({ { pitch = 36, start = 0, length = 0.25 }, { pitch = 38, start = 1, length = 0.25 } })
   api.undo_checkpoint()
@@ -281,7 +281,7 @@ test("drums: yank and paste hits, by row and by stretch of time", function()
 end)
 
 test("drums: visual mode selects hits to change together", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip:add_notes({
     { pitch = 36, start = 0, length = 0.25 },
     { pitch = 36, start = 1, length = 0.25 },
@@ -296,7 +296,7 @@ test("drums: visual mode selects hits to change together", function()
 end)
 
 test("drums: > and < move hits by a step", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip:add_note({ pitch = 36, start = 0, length = 0.25 })
   api.undo_checkpoint()
   keys(">ih")
@@ -305,7 +305,7 @@ test("drums: > and < move hits by a step", function()
   eq(hits(clip), "36@0", "and back")
 end)
 
-test("drums: Enter opens a drum track's clip in the grid, other clips in the piano roll", function()
+test("drums: Enter opens a drum part's clip in the grid, other clips in the piano roll", function()
   load()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
@@ -315,19 +315,19 @@ test("drums: Enter opens a drum track's clip in the grid, other clips in the pia
     paw.ui.hide("pianoroll")
     paw.ui.hide("drums")
   end)
-  local keys_track = paw.add_track({ name = "Keys" })
-  keys_track:add_device("synth")
-  keys_track:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
-  local beat = drums.make_track({ name = "Beat" })
+  local keys_part = paw.add_part({ name = "Keys" })
+  keys_part:add_device("synth")
+  keys_part:add_clip({ start = 0, length = 4, notes = { { pitch = 60, start = 0, length = 1 } } })
+  local beat = drums.make_part({ name = "Beat" })
   beat:add_clip({ start = 0, length = 4 })
-  paw.cursor.set_track(keys_track)
+  paw.cursor.set_part(keys_part)
   paw.cursor.set_beat(0)
   paw.keymap.feed("<CR>")
   eq(paw.ui.focused, "pianoroll", "an ordinary clip opens in the piano roll")
   paw.keymap.feed("<C-w>p")
-  paw.cursor.set_track(beat)
+  paw.cursor.set_part(beat)
   paw.keymap.feed("<CR>")
-  eq(paw.ui.focused, "drums", "a drum track's clip opens in the drum grid")
+  eq(paw.ui.focused, "drums", "a drum part's clip opens in the drum grid")
   paw.keymap.feed("<Esc>")
   eq(paw.ui.focused, "drums", "Esc stays in the grid, as in every view")
   paw.keymap.feed("<C-w>p")
@@ -374,24 +374,24 @@ local function click(row, cell, button)
   paw.mouse.forget()
 end
 
-test("drums: the grid opens on a double click of a drum track's clip only", function()
+test("drums: the grid opens on a double click of a drum part's clip only", function()
   load()
   fresh()
-  local keys_track = paw.add_track({ name = "Keys" })
-  keys_track:add_device("synth")
-  local other = keys_track:add_clip({ start = 0, length = 4 })
+  local keys_part = paw.add_part({ name = "Keys" })
+  keys_part:add_device("synth")
+  local other = keys_part:add_clip({ start = 0, length = 4 })
   paw.frontend.act.open_clip(other.id)
-  eq(paw.ui.visible("drums"), false, "not for a clip of another track")
+  eq(paw.ui.visible("drums"), false, "not for a clip of another part")
   eq(paw.ui.focused, "pianoroll", "which opens in the piano roll")
-  local beat = drums.make_track({ name = "Beat" })
+  local beat = drums.make_part({ name = "Beat" })
   local clip = beat:add_clip({ start = 0, length = 4 })
   paw.frontend.act.open_clip(clip.id)
-  eq(paw.ui.visible("drums"), true, "a drum track's clip opens the drum grid")
+  eq(paw.ui.visible("drums"), true, "a drum part's clip opens the drum grid")
   eq(paw.ui.views:get("drums").clip_id, clip.id, "on that clip")
 end)
 
 test("drums: a window is sent the grid's rows by name and its hits as roles by velocity", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip:add_notes({
     { pitch = 36, start = 0, length = 0.25, velocity = 127 },
     { pitch = 38, start = 1, length = 0.25, velocity = 40 },
@@ -417,7 +417,7 @@ test("drums: a window is sent the grid's rows by name and its hits as roles by v
 end)
 
 test("drums: clicking a cell adds a hit, clicking it again removes it, in a window and in the terminal", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   click(1, 0)
   eq(hits(clip, true), "36@0:100", "a kick")
   click(2, 4)
@@ -441,7 +441,7 @@ test("drums: clicking a cell adds a hit, clicking it again removes it, in a wind
 end)
 
 test("drums: dragging along a row paints hits, or erases them, as one undo step", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   scene()
   local x0, y = at(5, 0)
   pointer("down", x0, y)
@@ -472,7 +472,7 @@ test("drums: dragging along a row paints hits, or erases them, as one undo step"
 end)
 
 test("drums: the velocity lane sets how hard the row's hits are", function()
-  local _, clip, grid = drum_track()
+  local _, clip, grid = drum_part()
   clip:add_notes({
     { pitch = 36, start = 0, length = 0.25 },
     { pitch = 36, start = 0.5, length = 0.25 },
@@ -500,7 +500,7 @@ test("drums: the velocity lane sets how hard the row's hits are", function()
 end)
 
 test("drums: the toolbar's buttons set the step and the clip's length", function()
-  local _, clip, grid = drum_track()
+  local _, clip, grid = drum_part()
   local function press(label)
     for _, node in ipairs(scene().set) do
       if node.role == "button" and node.props.text == " " .. label .. " " then
@@ -524,20 +524,20 @@ test("drums: the toolbar's buttons set the step and the clip's length", function
 end)
 
 test("drums: clicking a row's name plays the piece", function()
-  local track, _, grid = drum_track()
+  local part, _, grid = drum_part()
   scene()
   local _, y = at(2, 0)
   local heard = T.wakes(function()
     pointer("down", 2.5, y)
     paw.mouse.forget()
-  end, track:devices()[1])
+  end, part:devices()[1])
   eq(grid:piece().name, "Snare", "the row is chosen")
   eq(heard, true, "and heard")
   api.scene_forget(0)
 end)
 
 test("drums: the ruler moves the playhead, which the grid shows", function()
-  local _, clip, grid = drum_track()
+  local _, clip, grid = drum_part()
   scene()
   local x = at(1, 4)
   pointer("down", x, grid.geometry.head - 0.5)
@@ -555,9 +555,9 @@ end)
 -- The sound ---------------------------------------------------------------------------
 
 test("drums: the built-in kit plays every row of the General MIDI map", function()
-  local track, clip = drum_track()
+  local part, clip = drum_part()
   paw.project.tempo = 120
-  local rows = drums.rows(track)
+  local rows = drums.rows(part)
   clip.length = #rows
   local notes = {}
   for i, row in ipairs(rows) do
@@ -573,7 +573,7 @@ test("drums: the built-in kit plays every row of the General MIDI map", function
 end)
 
 test("drums: a closed hat cuts the open hat off", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   paw.project.tempo = 120
   clip:add_note({ pitch = 46, start = 0, length = 0.25 })
   local open = T.channel_peaks(T.render({ bits = 16, ["end"] = 2, tail = 0 }), 0.4, 0.55)
@@ -655,16 +655,16 @@ test("drums: a folder of samples becomes a kit, the files named by what they are
   eq(kit.classify("hat_pedal").name, "Pedal hat", "pedal hats")
 end)
 
-test("drums: drums.kit makes a drum track that plays the files", function()
+test("drums: drums.kit makes a drum part that plays the files", function()
   load()
   fresh()
   paw.project.tempo = 120
   paw.commands.exec("drums.kit " .. samples())
-  local track = paw.cursor.track()
-  eq(drums.is_drum(track), true, "a drum track")
-  eq(track:devices()[1].kind, "sampler", "playing samples")
-  eq(drums.rows(track)[1].name, "Kick 808", "its rows named after the files")
-  local clip = track:add_clip({
+  local part = paw.cursor.part()
+  eq(drums.is_drum(part), true, "a drum part")
+  eq(part:devices()[1].kind, "sampler", "playing samples")
+  eq(drums.rows(part)[1].name, "Kick 808", "its rows named after the files")
+  local clip = part:add_clip({
     start = 0,
     length = 4,
     notes = {
@@ -692,10 +692,10 @@ test("drums: a pad's level, pan, tuning and group are set, and undone", function
   load()
   fresh()
   paw.project.tempo = 120
-  local track = drums.make_track({ kit = samples() })
+  local part = drums.make_part({ kit = samples() })
   local kit = require("drums.kit")
-  local device = kit.device(track)
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = 36, start = 0, length = 0.25, velocity = 127 } } })
+  local device = kit.device(part)
+  part:add_clip({ start = 0, length = 4, notes = { { pitch = 36, start = 0, length = 0.25, velocity = 127 } } })
   api.undo_checkpoint()
   kit.set_pad(device, 36, { level = -6.0206, pan = -1 })
   api.undo_checkpoint()
@@ -711,7 +711,7 @@ test("drums: a pad's level, pan, tuning and group are set, and undone", function
   kit.set_pad(device, 36, { tune = 12 })
   eq(kit.pads(device)[1].tune, 12, "tuned an octave up")
   local open, closed = 46, 42
-  track:clips()[1]:set_notes({
+  part:clips()[1]:set_notes({
     { pitch = open, start = 0, length = 0.25, velocity = 127 },
     { pitch = closed, start = 0.5, length = 0.25, velocity = 127 },
   })
@@ -725,9 +725,9 @@ end)
 test("drums: a kit's files are read again for a render, and a missing one is reported", function()
   load()
   fresh()
-  local track = drums.make_track({ kit = samples() })
+  local part = drums.make_part({ kit = samples() })
   local kit = require("drums.kit")
-  local device = kit.device(track)
+  local device = kit.device(part)
   kit.set_pad(device, 37, { file = T.scratch .. "/nowhere.wav" })
   paw.flush()
   local status = api.device_call(device.id, "status")
@@ -738,7 +738,7 @@ end)
 -- Swing and beats --------------------------------------------------------------------
 
 test("drums: gs swings every other step of what it covers, and does not add up", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip:add_notes({
     { pitch = 42, start = 0, length = 0.25 },
     { pitch = 42, start = 0.25, length = 0.25 },
@@ -766,7 +766,7 @@ test("drums: gs swings every other step of what it covers, and does not add up",
 end)
 
 test("drums: a beat to start from fills the clip", function()
-  local _, clip = drum_track()
+  local _, clip = drum_part()
   clip.length = 8
   clip:add_note({ pitch = 81, start = 0, length = 0.25 })
   paw.commands.exec("drums.beat rock")
@@ -783,22 +783,22 @@ test("drums: a beat to start from fills the clip", function()
   T.fails(function() paw.commands.exec("drums.beat polka") end, "no beat", "an unknown beat")
 end)
 
-test("drums: a drum track is a kind of track, made by track.add and opened in the grid", function()
+test("drums: a drum part is a kind of part, made by part.add and opened in the grid", function()
   fresh()
   load()
   paw.ui.focus("arrange")
-  local track = paw.cmd("track.add", { "drums" })
-  eq(paw.track_kinds.of(track.id), "drums", "track.add drums makes a drum track")
-  eq(drums.is_drum(track.id), true, "with a map")
-  eq(track:devices()[1].kind, "drums", "and the kit")
-  eq(paw.track_kinds.describe(track.id), "Drum track · " .. paw.opt.drums_map .. " map", "described with its map")
-  local clip = track:add_clip({ start = 0, length = 4 })
-  paw.cursor.set_track(track)
+  local part = paw.cmd("part.add", { "drums" })
+  eq(paw.part_kinds.of(part.id), "drums", "part.add drums makes a drum part")
+  eq(drums.is_drum(part.id), true, "with a map")
+  eq(part:devices()[1].kind, "drums", "and the kit")
+  eq(paw.part_kinds.describe(part.id), "Drum part · " .. paw.opt.drums_map .. " map", "described with its map")
+  local clip = part:add_clip({ start = 0, length = 4 })
+  paw.cursor.set_part(part)
   paw.cursor.set_beat(1)
   paw.cmd("clip.edit")
   eq(paw.ui.focused, "drums", "its clips open in the drum grid")
   eq(clip ~= nil, true, "")
   paw.ui.focus("arrange")
-  drums.clear_map(track)
-  eq(paw.track_kinds.of(track.id), nil, "without its map it is an ordinary track")
+  drums.clear_map(part)
+  eq(paw.part_kinds.of(part.id), nil, "without its map it is an ordinary part")
 end)

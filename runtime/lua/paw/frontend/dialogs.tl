@@ -12,7 +12,7 @@ local host = require("paw.frontend.host")
 local paw = host.paw
 local opt = options.opt
 local render_module = host.render_module
-local track_flag = host.track_flag
+local part_flag = host.part_flag
 local type Check = M.Check
 local type Choice = host.Choice
 local type Closing = M.Closing
@@ -174,12 +174,12 @@ function M.render_dialog(): RenderDialog
   }
 end
 
---- The menu of the input of a track: the choices of `paw.audio.choices`
+--- The menu of the input of a part: the choices of `paw.audio.choices`
 --- under their headings, `audio`, `midi` and `channel`. It also gives the
---- MIDI output of the track: `midi_out`, `midi_out_channel` and
+--- MIDI output of the part: `midi_out`, `midi_out_channel` and
 --- `midi_out_form`. Each is a list of `{ label, checked }`.
 --- `act.choose_input` takes one by heading and place.
-function M.input_menu(track: integer): InputMenu
+function M.input_menu(part: integer): InputMenu
   local out: InputMenu = {
     audio = {},
     midi = {},
@@ -187,10 +187,10 @@ function M.input_menu(track: integer): InputMenu
     midi_out = {},
     midi_out_channel = {},
     midi_out_form = {},
-    monitor = track_flag(track, "monitor"),
+    monitor = part_flag(part, "monitor"),
   }
   local lists = out as {string: {Check}}
-  for _, choice in ipairs(paw.audio.choices(track)) do
+  for _, choice in ipairs(paw.audio.choices(part)) do
     local list = lists[choice.group]
     list[#list + 1] = {label = choice.label, checked = choice.checked}
   end

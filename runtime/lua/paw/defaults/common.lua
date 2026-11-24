@@ -6,15 +6,15 @@ local map = paw.keymap.set
 
 local M = {}
 
-function M.need_track()
-  local track = cursor.track()
-  if not track then paw.notify("no track selected", "warn") end
-  return track
+function M.need_part()
+  local part = cursor.part()
+  if not part then paw.notify("no part selected", "warn") end
+  return part
 end
 
---- The tracks of the selection in the arrange view, or else the track of
---- the cursor: ids, empty when there is no track.
-function M.chosen_tracks()
+--- The parts of the selection in the arrange view, or else the part of
+--- the cursor: ids, empty when there is no part.
+function M.chosen_parts()
   local selection = paw.keymap.selection()
   if selection and selection.view == "arrange" then
     local rows, out = paw.groups.rows(), {}
@@ -23,7 +23,7 @@ function M.chosen_tracks()
     end
     if #out > 0 then return out end
   end
-  local id = cursor.track_id()
+  local id = cursor.part_id()
   return id and { id } or {}
 end
 

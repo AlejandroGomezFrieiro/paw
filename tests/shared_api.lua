@@ -87,11 +87,11 @@ test(
     eq(root.text, "<raw>", "CDATA as text")
     eq(#root:all(), 2, "two child elements")
     eq(select(2, xml.decode("<a><b></a>")) ~= nil, true, "a tag closed by the wrong one is an error")
-    local made = xml.element("Track", { name = 'A "b" & c', gain = 0.5, on = true }, { "name" })
+    local made = xml.element("Part", { name = 'A "b" & c', gain = 0.5, on = true }, { "name" })
     made:add("Note", { key = 60 })
     eq(
       xml.encode(made),
-      '<Track name="A &quot;b&quot; &amp; c" gain="0.5" on="true"><Note key="60"/></Track>',
+      '<Part name="A &quot;b&quot; &amp; c" gain="0.5" on="true"><Note key="60"/></Part>',
       "written: `order` first, then by name"
     )
     local text = '<?xml version="1.0"?>\n<r  a = "1"  >\n  <x v="&#65;"/>\n  <y v="2" ></y>\n</r>\n'

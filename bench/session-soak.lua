@@ -53,9 +53,9 @@ while api.real_ms() - start < minutes * 60000 do
   local file = string.format("%s/sound-%d.wav", dir, round % 50)
   wav(file, 10)
   paw.project.new()
-  local tracks = {}
+  local parts = {}
   for i = 1, 6 do
-    local t = paw.add_track({ name = "t" .. i })
+    local t = paw.add_part({ name = "t" .. i })
     t:add_device(i % 2 == 0 and "synth" or "gain")
     if i % 2 == 0 then
       t:add_clip({
@@ -66,17 +66,17 @@ while api.real_ms() - start < minutes * 60000 do
     else
       t:add_clip({ start = 0, file = file })
     end
-    tracks[i] = t
+    parts[i] = t
   end
   api.undo_checkpoint()
-  local mic = tracks[1]
+  local mic = parts[1]
   mic.input, mic.armed = "1", true
   paw.project.save(string.format("%s/song-%d.json", dir, round % 5))
   paw.transport.record()
   paw.wait(1500)
   paw.transport.stop()
   for i = 1, 20 do
-    tracks[i % 6 + 1].volume = -(i % 12)
+    parts[i % 6 + 1].volume = -(i % 12)
     api.undo_checkpoint()
   end
   for _ = 1, 10 do

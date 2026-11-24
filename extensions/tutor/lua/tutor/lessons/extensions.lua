@@ -28,9 +28,9 @@ operators (`gzkip`), so `.`, counts and macros work with them.]],
 the loaded extensions.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums", volume = -6 })
+    local drums = paw.add_part({ name = "Drums", volume = -6 })
     drums:add_device("drums")
-    local keys = paw.add_track({ name = "Keys", volume = -8 })
+    local keys = paw.add_part({ name = "Keys", volume = -8 })
     keys:add_device("synth", { wave = 1, attack = 0.01, release = 0.3, cutoff = 2200 })
     keys:add_clip({
       name = "tune",
@@ -40,7 +40,7 @@ the loaded extensions.]],
     })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,
-  at = function() paw.cursor.set_track(paw.track("Drums")) end,
+  at = function() paw.cursor.set_part(paw.part("Drums")) end,
   test = {
     after = function() os.remove("tutor-song.rpp") end,
   },
@@ -72,7 +72,7 @@ the loaded extensions.]],
           if s.name == "Verse" then return true end
         end
       end,
-      done = "Verse shows on the ruler, and `is` is now a text object. `yis` yanks the section on all tracks, and `]]` goes to the next section.",
+      done = "Verse shows on the ruler, and `is` is now a text object. `yis` yanks the section on all parts, and `]]` goes to the next section.",
     },
     {
       say = "undotree shows each state of the project. Type `:tutor.try undotree` and `<CR>`, and press `<leader>pu` to open the undo tree. Look at the tree, and then press `q` to close it.",
@@ -96,15 +96,15 @@ the loaded extensions.]],
       done = "tutor-song.rpp is in the folder where you started paw. As the list said, the file does not contain the built-in devices.",
     },
     {
-      say = "utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a track. Then type `:utau.voice` and `<CR>` to make it a vocal track.",
+      say = "utau sings notes with lyrics through the engines of OpenUtau. Type `:tutor.try utau` and `<CR>`, and press `o` to add a part. Then type `:utau.voice` and `<CR>` to make it a vocal part.",
       keys = { ":tutor.try utau", "<CR>", "o", ":utau.voice", "<CR>" },
       browser_lacks = "native code for the engines of utau",
       check = function(_, look)
-        for _, t in ipairs(paw.tracks()) do
+        for _, t in ipairs(paw.parts()) do
           if look.device(t, "lua:utau") then return loaded("utau") end
         end
       end,
-      done = "The track is a vocal track, and it sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). After that, `\\Vt` adds a vocal track and asks for its singer in one step.",
+      done = "The part is a vocal part, and it sings when you install `paw-utau-engine` and a voicebank (see extensions/utau/README.md). After that, `\\Vt` adds a vocal part and asks for its singer in one step.",
     },
     {
       say = "Listen to the pattern and the tune. Press `gs` and `<leader><Space>`, and `<leader><Space>` to stop.",

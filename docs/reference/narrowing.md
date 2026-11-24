@@ -3,8 +3,8 @@
 <!-- tags: narrowing scope narrow region subproject nest zn znn zw zW folds fold zf za zc zd zE zM zR zm zr time-folds -->
 
 In a large project, you can narrow a window to a part of the song. The
-part is a group of tracks, the time of a region, some tracks, or both
-tracks and time. The window then shows only that part, and it is the
+part is a group of parts, the time of a region, some parts, or both
+parts and time. The window then shows only that part, and it is the
 same project, not a copy. The part is a scope, and the Lua module is
 `paw.scope`. [About scopes](../explanation/about-scopes.md) explains the
 model.
@@ -13,27 +13,27 @@ model.
 
 | Keys, command | Effect |
 | --- | --- |
-| `zn{motion}`, `{Visual}zn` | Enter the scope that the motion or the selection covers, in this window. `znar`: the region at the cursor. `znag`: the group. `znit`: the track. `Vjjzn`: the three tracks. A visual block: those tracks in that time. |
-| `znn` | Enter the innermost scope at the cursor that the window does not show yet. On a clip of a subproject, the subproject. In a region, the region inside it at the cursor. Else the group of the track, else the track. |
+| `zn{motion}`, `{Visual}zn` | Enter the scope that the motion or the selection covers, in this window. `znar`: the region at the cursor. `znag`: the group. `znit`: the part. `Vjjzn`: the three parts. A visual block: those parts in that time. |
+| `znn` | Enter the innermost scope at the cursor that the window does not show yet. On a clip of a subproject, the subproject. In a region, the region inside it at the cursor. Else the group of the part, else the part. |
 | `<CR>` on a clip of a subproject | Enter the subproject, as `znn` does. |
 | `:narrow Strings`, `:narrow Bridge` | Enter a group or a region by name. A named scope comes first, then a group, then a region of the same name. A name can be the start of the name. Of two regions with the same name, the region in the current scope comes first. A path of regions also finds one: `:narrow Chorus 2/Verse A`. Alone, `:narrow` is `znn`. |
 | `zw`, `:widen` | Go up one level. |
 | `zW`, `:widen!` | Go up to the whole song. |
-| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A subproject: the next clip of a subproject in time, which is the next block of the same subproject or another subproject. A region: the next region of the same parent region. A group: the next group in the same group. A track: the next track of the parent scope. A block with time: the same tracks, the next stretch of the same length. `3]z` goes three on. |
+| `]z` `[z`, `:scope.next`, `:scope.prev` | Go to the next scope beside this one, or to the one before, in the same parent. A subproject: the next clip of a subproject in time, which is the next block of the same subproject or another subproject. A region: the next region of the same parent region. A group: the next group in the same group. A part: the next part of the parent scope. A block with time: the same parts, the next stretch of the same length. `3]z` goes three on. |
 | `<C-o>` `<C-i>` | Move backward and forward through the jump list. To enter, to leave and `]z` are jumps. A jump keeps the scope, so `<C-o>` returns into the scope and to the place. |
 | `<Space>zz`, `<Space>fz`, `:scope.list` | Choose from a list: the levels of this window's scope (to go up to), the named scopes, the folds of this window (marked `fold`), the groups, the subprojects (marked `subproject` and `⧉` before the name) and the regions as a tree. The preview shows the path of the entry and what it holds. |
-| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes first in the float of `K`, before the track under the cursor (see below). |
+| `K` | On a closed fold, describe the fold. In a scope, with no clip under the cursor, describe the scope. The description comes first in the float of `K`, before the part under the cursor (see below). |
 | `<Space>zs` `<Space>zv` `<Space>zt`, `:scope.split`, `:scope.vsplit`, `:scope.tab` | Show the scope at the cursor (or of the selection, or one by name) in a new split, vertical split or tab. The window that you were in stays as it was. |
 | `<Space>zn`, `:scope.name Strings in bridge` | Name the scope of this window, so that the list and `:narrow` find it again. |
-| `:set scope_rest=mute` | Set what the tracks outside the scope do (see below). |
+| `:set scope_rest=mute` | Set what the parts outside the scope do (see below). |
 
 ## What `K` says of a scope
 
 `K` gives the path of the scope, then its bars, its meter and its
-tracks, for example:
+parts, for example:
 
 ```
-Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named
+Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 parts · named
 ```
 
 - The bars count from 1 at the start of the scope. The bars of the song
@@ -43,7 +43,7 @@ Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named
 - The meter is the meter at the start of the scope.
 - `named` shows when you named the scope with `:scope.name`.
 - On a fold, the path ends with the name of the fold, and the last word is
-  `folded` or `open`, for example `Song › Strings · 3 tracks · folded`.
+  `folded` or `open`, for example `Song › Strings · 3 parts · folded`.
 - A last line gives the keys for it. On a fold, these are `za` to open it,
   `znn` to enter it and `zd` to delete it. In a scope, these are `zw` to go
   up one level, `zW` to go to the song and `]z` to go to the next scope.
@@ -59,7 +59,7 @@ The same words show in the message when you enter a scope.
   show the scope of the arrange window of the tab that had the keyboard last.
 - The tab has the name of the scope of its current window.
 - Each arrange window shows where it is in the two left cells of its
-  ruler, over the track headers. The first line is the path of its scope
+  ruler, over the part headers. The first line is the path of its scope
   without `Song`, for example `Bridge › Strings`, or `Song` in the whole
   song. The second line is the place of the cursor, for example
   `cur 3.2 @19.2`. When the ruler has one row, both are on it. A long path
@@ -77,8 +77,8 @@ Strings`, shows the strings in the time of the bridge. The status line
 shows the path: `Bridge › Strings`. `zw` goes up one level, and
 `zW` goes up to the song.
 
-If the two scopes have no track or no time in common, paw does not go
-down. The message gives the reason, for example `no track of Brass is in
+If the two scopes have no part or no time in common, paw does not go
+down. The message gives the reason, for example `no part of Brass is in
 Strings`.
 
 ## In a narrowed window
@@ -87,21 +87,21 @@ Strings`.
   edit made in the narrowed window. Every window shows an edit at once.
 - To narrow and to widen change nothing in the project. They are not undo
   steps.
-- Only the tracks of the scope show in these: the arrange view, the
+- Only the parts of the scope show in these: the arrange view, the
   mixer, the device panel, the session view of the clip launcher,
-  `paw://tracks`, the pickers.
-- The track column numbers the tracks of the scope from 1.
-- The track motions (`gg`, `G`, `j`) and the Ex ranges use only these
-  tracks. `t1` is the first track of the scope, `t*` and `%` are its
-  tracks, and `:g` and `:s` look only in them.
+  `paw://parts`, the pickers.
+- The part column numbers the parts of the scope from 1.
+- The part motions (`gg`, `G`, `j`) and the Ex ranges use only these
+  parts. `t1` is the first part of the scope, `t*` and `%` are its
+  parts, and `:g` and `:s` look only in them.
 - The text objects take only what the scope shows. `ie` is the entire
-  scope, and `ar` is the region on the tracks of the scope, cut at the
+  scope, and `ar` is the region on the parts of the scope, cut at the
   edges of its time. So in `Song › Bridge › Strings`, `dar` deletes only
   the clips of the strings in the region.
-- The piano roll edits the clips of the tracks of the scope, and it shows
-  the notes of those tracks behind them.
-- The fold of the group or of the tracks of the scope is open.
-- A track that you add in the scope of a group goes into the group.
+- The piano roll edits the clips of the parts of the scope, and it shows
+  the notes of those parts behind them.
+- The fold of the group or of the parts of the scope is open.
+- A part that you add in the scope of a group goes into the group.
 - The graphical window shows the window as the terminal does.
 
 ## A scope with time
@@ -112,7 +112,7 @@ A scope of a region, or a block with time, shows that time.
   `l` stop at its end.
 - The arrange view starts at the bar that the scope starts in. It dims
   the rest of that bar before the start.
-- The scope ends at a `┃` on the ruler and down every track, and the
+- The scope ends at a `┃` on the ruler and down every part, and the
   view draws nothing after it. The ruler says what is after it and the key
   that shows it, for example `end of Bridge · zw: the song`.
 - The bars count from 1 at the start of the scope, from the meter map of
@@ -155,14 +155,14 @@ loop:
 
 ## A subproject
 
-A subproject has its own tracks and its own timeline, and a clip of the
+A subproject has its own parts and its own timeline, and a clip of the
 subproject places it in the song. The commands and the Lua functions
 call a subproject a nest. You enter a subproject as you enter any other
 scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
 
-- The song does not show the tracks of a subproject. The arrange view,
-  the mixer, `paw://tracks`, the pickers, `t*` and `%` list the tracks of
-  the song only. In the subproject, they list its tracks only.
+- The song does not show the parts of a subproject. The arrange view,
+  the mixer, `paw://parts`, the pickers, `t*` and `%` list the parts of
+  the song only. In the subproject, they list its parts only.
 - The status line and the window bar mark a subproject with `⧉`, for
   example `⧉Ballad 1.2 @9.2`. The first place is in the bars of the
   subproject, and the place after `@` is in the bars of the song, at the
@@ -181,9 +181,9 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
 - The cursor keeps its place in the song when you enter or leave. The
   loop is the time of the clip in the song.
 - `]z` and `[z` go to the next clip of a subproject and to the one before.
-- A track that you add in a subproject belongs to the subproject.
-- The subproject plays in the song through the track that holds its
-  clip, its return row. Its tracks play into its master track, and its
+- A part that you add in a subproject belongs to the subproject.
+- The subproject plays in the song through the part that holds its
+  clip, its return row. Its parts play into its master part, and its
   master plays into the return row, so the fader, pan, sends and devices
   of the return row act on the whole subproject. Two clips of one
   subproject on the row play it twice, through the same devices. A muted
@@ -193,40 +193,40 @@ scope, with `znn` or `<CR>` on its clip, or from `<Space>zz`.
   tree. The name of the undo step starts with the name of the subproject,
   for example `Ballad: add note`, so that `u` in the song undoes it and
   the undo list says where it was.
-- Inside a subproject, a scope of a group, a track or a time goes one
+- Inside a subproject, a scope of a group, a part or a time goes one
   level down as in the song, for example `Song › ⧉Ballad › Strings`.
 
 ## The rest of the song
 
-`paw.opt.scope_rest` sets what the tracks outside the scope do while a
+`paw.opt.scope_rest` sets what the parts outside the scope do while a
 narrowed window is in front. No value changes the project. A scope of time
-only (a region) has no tracks outside it: the loop keeps the playhead in
+only (a region) has no parts outside it: the loop keeps the playhead in
 its time.
 
 | Value | Effect |
 | --- | --- |
 | `play` | Default. The rest plays, as a reference. |
-| `mute` | The rest is silent, as with a solo of the scope. The tracks that the sound of the scope goes through still play. The mutes and solos of the project do not change. |
-| `frozen` | paw renders each part of the rest in the background (each full group, and each track outside a group), and plays the files, so that their devices rest. A part that you edit plays live until paw renders it again. paw releases the files when a window of the song is in front. |
+| `mute` | The rest is silent, as with a solo of the scope. The parts that the sound of the scope goes through still play. The mutes and solos of the project do not change. |
+| `frozen` | paw renders each piece of the rest in the background (each full group, and each part outside a group), and plays the files, so that their devices rest. A part that you edit plays live until paw renders it again. paw releases the files when a window of the song is in front. |
 
 ## Folds
 
-A fold draws a part of the song in place. A fold of tracks is one row: a
-group is a fold by itself, and `zf` makes a fold of any tracks. A time
+A fold draws a stretch of the song in place. A fold of parts is one row: a
+group is a fold by itself, and `zf` makes a fold of any parts. A time
 fold is one narrow column: every region is a fold by itself, and `zf`
-makes a fold of any bars. A block fold is one cell over some tracks for
+makes a fold of any bars. A block fold is one cell over some parts for
 some bars, and `zf` on a visual block makes one. A fold is a scope that the window shows
 closed, so `znn` on a fold enters it.
 
 | Keys, command | Effect |
 | --- | --- |
-| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three tracks, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every track: those bars, in one column. A visual block on some of the tracks: one frame over those tracks and bars, named by its tracks and bars, for example `Piano, Pad 9-24`. |
-| `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a block fold, the block. Else on a track of a group, the fold is the group, and else the region at the cursor. |
+| `zf{motion}`, `{Visual}zf` | Make a fold of what the motion or the selection covers, closed. `zfar`: the region at the cursor, in one column. `zfag`: the group at the cursor. `Vjjzf`: the three parts, in one row named `Fold 1` (then `Fold 2`, and so on). A selection of bars on every part: those bars, in one column. A visual block on some of the parts: one frame over those parts and bars, named by its parts and bars, for example `Piano, Pad 9-24`. |
+| `za`, `:fold.toggle` | Close the fold at the cursor, or open it. On a time fold, the fold is that one. Else on a block fold, the block. Else on a part of a group, the fold is the group, and else the region at the cursor. |
 | `zc`, `:fold.close` | Close the fold at the cursor. On a closed fold, close the fold around it. |
 | `zm`, `:fold.more` | Close one more level of regions, the deepest open level first. |
 | `zr`, `:fold.less` | Open one more level of regions. |
 | `:fold.open` | Open the fold at the cursor. (`zo` is zoom out in paw.) |
-| `zd`, `:fold.delete` | Delete the fold at the cursor. The tracks and the clips stay, and they show as before. On a group, the group opens. On a region, the region follows its level again. |
+| `zd`, `:fold.delete` | Delete the fold at the cursor. The parts and the clips stay, and they show as before. On a group, the group opens. On a region, the region follows its level again. |
 | `zE`, `:fold.clear` | Delete every fold of the window, and open every level of regions. |
 | `zM`, `:fold.closeall` | Close every group, every region and every fold of the window. |
 | `zR`, `:fold.openall` | Open every group, every region and every fold of the window. |
@@ -238,25 +238,25 @@ closed, so `znn` on a fold enters it.
   undoes the last edit, not a fold.
 - The project keeps the folds of each window with its windows
   (`screen.json`), so they come back when you open the project.
-- A closed fold of tracks shows as one row with its name and the number
-  of its tracks, for example `Fold 1 +3`. The track column shows `▸` on
-  it. The row is the first track of the fold, so the clips and the
-  buttons on the row are those of that track.
-- The first line of a group's row shows `━` where any track of the group
+- A closed fold of parts shows as one row with its name and the number
+  of its parts, for example `Fold 1 +3`. The part column shows `▸` on
+  it. The row is the first part of the fold, so the clips and the
+  buttons on the row are those of that part.
+- The first line of a group's row shows `━` where any part of the group
   has a clip, and stays blank where none has. A folded group lists its
-  tracks on its other lines, one track on each line, with the track's
-  name and the notes of its clips in one line. When the tracks don't fit,
+  parts on its other lines, one part on each line, with the part's
+  name and the notes of its clips in one line. When the parts don't fit,
   the last line says how many more there are, for example `+3 more`.
-- `znn` on a closed fold enters it, and the window then shows its tracks.
+- `znn` on a closed fold enters it, and the window then shows its parts.
   `zw` returns to the fold, closed as it was.
-- The cursor never stays on a track that is folded away. It goes to the
+- The cursor never stays on a part that is folded away. It goes to the
   row of the fold.
 - The graphical window shows the same folds as the terminal.
 
 ### Time folds
 
 A closed region shows as one narrow column on the ruler and down the
-tracks, with its name and its number of bars, for example `Bridge ▸ 8`.
+parts, with its name and its number of bars, for example `Bridge ▸ 8`.
 
 - The bars after the fold move left. The song does not change: it plays
   through the fold, and a render with the fold is the same as one
@@ -281,11 +281,11 @@ tracks, with its name and its number of bars, for example `Bridge ▸ 8`.
 
 ### Block folds
 
-A visual block over some of the tracks, then `zf`, makes a block fold.
-The block shows as a frame over the rows of its tracks and over its
-bars. The top edge has `▸`, the name, the number of bars and the tracks,
-and each track has a line of `━` where it has clips. The bottom edge
-shows the keys `za` and `znn` when the block holds more than one track.
+A visual block over some of the parts, then `zf`, makes a block fold.
+The block shows as a frame over the rows of its parts and over its
+bars. The top edge has `▸`, the name, the number of bars and the parts,
+and each part has a line of `━` where it has clips. The bottom edge
+shows the keys `za` and `znn` when the block holds more than one part.
 
 ```
  5 │█ Piano        MSRI │▏Piano                          ╭▸ Piano, Pad 9-24 · 16 bars ──────────────
@@ -296,14 +296,14 @@ shows the keys `za` and `znn` when the block holds more than one track.
     ▌   C        → Keys │                                ╰─ za opens · znn enters ───────────────────
 ```
 
-- The name of a new block gives its tracks and its bars, for example
-  `Piano, Pad 9-24`. With more than three tracks, the name has the first
-  track and how many more, for example `Kick +4 1-8`. A second block with
+- The name of a new block gives its parts and its bars, for example
+  `Piano, Pad 9-24`. With more than three parts, the name has the first
+  part and how many more, for example `Kick +4 1-8`. A second block with
   the same name gets a number after it. A block with a name of its own,
-  from `paw.folds.make`, shows its tracks on the top edge too.
-- Where the frame is too narrow for all of it, the tracks go first, then
+  from `paw.folds.make`, shows its parts on the top edge too.
+- Where the frame is too narrow for all of it, the parts go first, then
   the number of bars. The name stays.
-- The other tracks show that time as usual, and the bars do not move.
+- The other parts show that time as usual, and the bars do not move.
 - The song does not change. A render with the block is the same as one
   without it.
 - The cursor takes a closed block as one row and one step, as a closed
@@ -314,16 +314,16 @@ shows the keys `za` and `znn` when the block holds more than one track.
   through its rows and bars one at a time.
 - `za` opens the block and closes it again, and `zd` deletes it. The
   clips under it then show as before.
-- `znn` on a closed block enters it, and the window shows those tracks
+- `znn` on a closed block enters it, and the window shows those parts
   in those bars. `zw` returns to the block, closed as it was.
 - The scene of the arrange view carries the frame and its text, so the
   graphical window gets the same frame as the terminal.
 
 ## Lua
 
-A scope is a table. `kind` is `"group"`, `"track"`, `"tracks"`,
-`"region"`, `"range"` or `"nest"`. `id` is the group, track, region or
-subproject. `tracks` is a list of track ids, and `from` and `to` are
+A scope is a table. `kind` is `"group"`, `"part"`, `"parts"`,
+`"region"`, `"range"` or `"nest"`. `id` is the group, part, region or
+subproject. `parts` is a list of part ids, and `from` and `to` are
 beats. For a subproject, `clip` is the clip that the window entered
 through. `name` is its name, and `parent` is the scope that it is in, or
 nil.
@@ -332,8 +332,8 @@ A window keeps the innermost level in `win.scope`.
 
 | Function | Result |
 | --- | --- |
-| `paw.scope.narrow(which)` | Narrow the current window to a group or a region, by its id, its track or its name. |
-| `paw.scope.enter(scope, win)` | Narrow a window (the current one by default) to a scope, for example `{ kind = "range", tracks = { 3, 4 }, from = 64, to = 96 }`. |
+| `paw.scope.narrow(which)` | Narrow the current window to a group or a region, by its id, its part or its name. |
+| `paw.scope.enter(scope, win)` | Narrow a window (the current one by default) to a scope, for example `{ kind = "range", parts = { 3, 4 }, from = 64, to = 96 }`. |
 | `paw.scope.widen(top, win)` | Go up one level, or with `top` up to the song. |
 | `paw.scope.next(n)` | Go to the scope `n` places beside the current one. |
 | `paw.scope.open(how, scope)` | Show a scope in a new `"split"`, `"vsplit"` or `"tab"`. |
@@ -341,12 +341,12 @@ A window keeps the innermost level in `win.scope`.
 | `paw.scope.current(win)` | The scope of a window, or nil. Without a window: of the window that paw draws, else of the current window. |
 | `paw.scope.group()` | The innermost group of the current scope, or nil. |
 | `paw.scope.children()` | The scopes one level inside the current scope: for a region, the regions inside it, and for a group, its members. |
-| `paw.scope.tracks()` | The tracks that the current scope shows. In the song, the tracks of the song without those of the subprojects. |
+| `paw.scope.parts()` | The parts that the current scope shows. In the song, the parts of the song without those of the subprojects. |
 | `paw.scope.nest()` | The innermost subproject of the current scope, or nil in the song. |
 | `paw.scope.of_clip(id)` | The scope of the subproject that a clip places, or nil. |
 | `paw.scope.song_beat(beat)` | The beat of the song for a beat that the current scope shows. In a subproject, the beat at the clip that the window entered through. |
 | `paw.scope.span()` | The time that the current scope shows, `from, to` in beats, or nil for all of it. |
-| `paw.scope.contains(track)` | True if the current scope shows the track. |
+| `paw.scope.contains(part)` | True if the current scope shows the part. |
 | `paw.scope.breadcrumb()` | The path, for example `Song › Bridge › Strings`. |
 | `paw.scope.song_bar(n)` | The bar of the song for bar `n` of the scope. |
 
@@ -357,15 +357,15 @@ every level is open). `paw.folds` has the functions of the keys:
 `open()`, `delete()` (`zd`), `clear()` (`zE`), `all(true)` (`zM`) or
 `all(false)` (`zR`), and `level(-1)` (`zm`) or `level(1)` (`zr`).
 `paw.folds.list(win)` gives the folds of a window, and
-`paw.folds.at(track)` the fold at a track. `paw.folds.time_spans()` gives
+`paw.folds.at(part)` the fold at a part. `paw.folds.time_spans()` gives
 the closed time folds of a window, with the columns that each one takes.
 `paw.axis.new(scroll, zoom, paw.folds.time_spans())` gives the time axis of
 a view with them, and its `x_of(beat)` gives the column of a beat.
 
-`paw.api.track_list()` gives the tracks of the song. `paw.api.track_list({ nest = id })`
-gives the tracks of a subproject, and `paw.api.track_list({ all = true })`
-gives every track.
+`paw.api.part_list()` gives the parts of the song. `paw.api.part_list({ nest = id })`
+gives the parts of a subproject, and `paw.api.part_list({ all = true })`
+gives every part.
 
-`paw.api.engine_audible(ids)` and `paw.api.engine_hold(track, file)` give
+`paw.api.engine_audible(ids)` and `paw.api.engine_hold(part, file)` give
 `mute` and `frozen` (see
 [The audio engine](engine.md#scripts-and-the-engine)).

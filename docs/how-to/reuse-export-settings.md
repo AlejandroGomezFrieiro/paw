@@ -29,7 +29,7 @@ If the project already has a preset of that name, type
 3. Press `Enter` to export. For more than one file, paw shows the plan
    again, and `y` writes the files.
 
-To export the selection with a preset, select the tracks and the time in
+To export the selection with a preset, select the parts and the time in
 the arrange view, and press `<Space>ep`.
 
 ## Export several things at once

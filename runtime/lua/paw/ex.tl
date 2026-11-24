@@ -1,22 +1,22 @@
--- Ex: command lines over time and tracks, as Vim's are over lines.
+-- Ex: command lines over time and parts, as Vim's are over lines.
 --
--- A line may start with a range of tracks, then a range of time, then the
+-- A line may start with a range of parts, then a range of time, then the
 -- command (docs/reference/ex.md says it for people):
 --
---   :5,8d          bars 5 to 8 of every track         :t2,t4 mute    tracks 2 to 4
+--   :5,8d          bars 5 to 8 of every part         :t2,t4 mute    parts 2 to 4
 --   :5.3,6.1y      from beat 3 of bar 5 to beat 1 of bar 6, both beats taken in
---   :%s/c4/d4/g    every C4 of the song               :t/Drums/ solo  tracks whose name holds Drums
---   :.,.+3>        from the cursor's bar, 4 bars      :t* volume -=3  every track 3 dB down
+--   :%s/c4/d4/g    every C4 of the song               :t/Drums/ solo  parts whose name holds Drums
+--   :.,.+3>        from the cursor's bar, 4 bars      :t* volume -=3  every part 3 dB down
 --   :'a,'bd        from mark a up to mark b           :'<,'>s/vel>100/vel=90/
---   :t2 5,8d       bars 5 to 8 of track 2 alone       :t'<,'>         the tracks of the selection
+--   :t2 5,8d       bars 5 to 8 of part 2 alone       :t'<,'>         the parts of the selection
 --
--- A time range alone covers every track, or the clips the focused view
--- edits (the piano roll's); a track range alone covers whole tracks; both
--- together, that time on those tracks.
+-- A time range alone covers every part, or the clips the focused view
+-- edits (the piano roll's); a part range alone covers whole parts; both
+-- together, that time on those parts.
 --
--- Patterns (`:s`, `:g`, `:v`) match notes, clips or tracks by their fields:
+-- Patterns (`:s`, `:g`, `:v`) match notes, clips or parts by their fields:
 -- `c4` `c#4` `c` (any octave) `60`, `vel>100`, `len<1/8`, `beat=1`,
--- `name:Verse`, `track:Bass`; terms side by side must all hold, `c4|e4`
+-- `name:Verse`, `part:Bass`; terms side by side must all hold, `c4|e4`
 -- is either, `!c4` is not. The deepest field named says what is matched:
 -- `name:Verse c4` matches the C4s of clips named Verse. A replacement sets
 -- fields (`d4`, `+12`, `vel=90`, `vel-10`, `len*2`, `name:Chorus`), and an
@@ -113,13 +113,13 @@ local record Mark
 end
 
 --- What the views show while a line is typed (`paw.ex.shown`): the
---- stretch of time, the tracks (a set), the matches, the notes lit by
+--- stretch of time, the parts (a set), the matches, the notes lit by
 --- clip and by note id (or place), how many matches each clip holds, and
 --- the one that `:s///c` asks about.
 local record Shown
   from: number
   to: number
-  tracks: {integer: boolean}
+  parts: {integer: boolean}
   matches: {Item}
   notes: {integer: {integer: Mark}}
   clips: {integer: integer}
@@ -146,7 +146,7 @@ local record PartLayer
   x: number
   y: number
   width: integer
-  track: integer
+  part: integer
   clip: types.Clip
 end
 
@@ -155,7 +155,7 @@ local record ScopeLevel
   id: integer
 end
 local record Scope
-  tracks: function(): {integer}
+  parts: function(): {integer}
   span: function(): number, number
   bar_offset: function(): integer
   nest: function(): ScopeLevel
@@ -178,9 +178,9 @@ local record Paw is partial.Paw
   groups: GroupsModule
   time: objects.Time
   clip: function(id: integer): objects.Clip
-  track: function(which: number | string): objects.Track
-  restore_track: function(snap: objects.TrackSnapshot, index?: integer): objects.Track
-  restore_clip: function(snap: ClipSnapshot, track: integer | objects.Track): objects.Clip
+  part: function(which: number | string): objects.Part
+  restore_part: function(snap: objects.PartSnapshot, index?: integer): objects.Part
+  restore_clip: function(snap: ClipSnapshot, part: integer | objects.Part): objects.Clip
   scope: Scope
   roll_clips: RollClipsModule
 end
@@ -230,7 +230,7 @@ end
 -- How a view's own beats (its grid's columns) map to beats of the song, and
 -- which clips it edits: `paw.ex.view(name, { song = function(col) ... end,
 -- col = function(beat) ... end, clips = function() return ids end,
--- track = function() return id end })`. A view not named here counts in
+-- part = function() return id end })`. A view not named here counts in
 -- beats of the song. A view of several clips may also say: `clips_at(s, i)`,
 -- the clips an address of its own at `i` names and where it ends (the
 -- notation view's staves, `s4`), which a range then holds as `clips`;
@@ -257,7 +257,7 @@ end
 M.view(
   "arrange",
   {
-    track = function(): integer return paw.cursor.track_id() end,
+    part = function(): integer return paw.cursor.part_id() end,
     go = function(beat: number) paw.cursor.set_beat(beat) end,
   }
 )
@@ -267,7 +267,7 @@ M.view(
     song = function(col: number): number return roll_start() + col end,
     col = function(beat: number): number return beat - roll_start() end,
     clips = function(): {integer} return roll():clip() and paw.roll_clips.ids() or nil end,
-    track = function(): integer local clip = roll():clip(); return clip and clip:track().id or nil end,
+    part = function(): integer local clip = roll():clip(); return clip and clip:part().id or nil end,
     go = function(beat: number) roll():set(nil, beat - roll_start()) end,
   }
 )
@@ -292,10 +292,10 @@ local function cursor_beat(): number
   return song_of(col)
 end
 
---- The track the focused view is about: the cursor's, or the clip's it edits.
-local function cursor_track(): integer
+--- The part the focused view is about: the cursor's, or the clip's it edits.
+local function cursor_part(): integer
   local a = adapter()
-  return (a.track and a.track()) or paw.cursor.track_id()
+  return (a.part and a.part()) or paw.cursor.part_id()
 end
 
 --- The clips the focused view edits: those a range names of them (`r.clips`,
@@ -309,10 +309,10 @@ local function view_clips(r?: Range): {integer}
   return a.clips and a.clips() or nil
 end
 
---- The tracks a range can name: those of the scope of a narrowed window
+--- The parts a range can name: those of the scope of a narrowed window
 --- (`paw.scope`); `t1` is the first of them.
 local function scoped(): {integer}
-  return paw.scope.tracks()
+  return paw.scope.parts()
 end
 
 -- Addresses of time --------------------------------------------------------------
@@ -328,7 +328,7 @@ end
 
 local function song_end(): number
   local finish = 0.0
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     for _, c in ipairs(api.clip_list(id)) do
       finish = math.max(finish, c.start + c.length)
     end
@@ -431,7 +431,7 @@ local function address(s: string, i: integer): Span, integer
         local r = M.selection_range()
         local at = name == "<" and r.from or r.to
         if not at then
-          fail("`'%s`: the selection is of whole tracks, with no time", name)
+          fail("`'%s`: the selection is of whole parts, with no time", name)
         end
         span = {from = at, to = at, unit = "point"}
       else
@@ -476,7 +476,7 @@ end
 --
 -- A range is a table: `from` and `to` (beats of the song, `to` not
 -- included) and `bars` (the first and last bar they touch, as typed: in a scope with time, its own bars) for time;
--- `tracks` (ids) for tracks; `selection` and `region` for `'<,'>`, with
+-- `parts` (ids) for parts; `selection` and `region` for `'<,'>`, with
 -- `pitches` ({ low, high }) when the selection was of some pitches in the
 -- piano roll, and `clip_ids` (a set) when it was of clips chosen one by
 -- one; `items` (see below) for the matches `:g` hands a command; `single`
@@ -501,10 +501,10 @@ function M.selection_range(): Range
   local song = spec.song or function(c: number): number return c end
   if view == "arrange" then
     local rows = paw.groups.rows()
-    r.tracks = {}
+    r.parts = {}
     for row = math.max(1, math.tointeger(region.r0)), math.tointeger(region.r1) do
       if rows[row] then
-        r.tracks[#r.tracks + 1] = rows[row]
+        r.parts[#r.parts + 1] = rows[row]
       end
     end
     if region.clips then
@@ -528,21 +528,21 @@ function M.selection_range(): Range
   return finish_range(r)
 end
 
-local function track_index(s: string, i: integer): integer, integer
+local function part_index(s: string, i: integer): integer, integer
   local list = scoped()
   local n, j: integer, integer
   local num, e = s:match("^(%d+)()", i)
   if num then
     n, j = math.tointeger(tonumber(num)), e as integer
   elseif s:sub(i, i) == "." then
-    local id = cursor_track()
+    local id = cursor_part()
     for k, other in ipairs(list) do
       if other == id then
         n = k
       end
     end
     if not n then
-      fail("`t.`: the cursor is on no track")
+      fail("`t.`: the cursor is on no part")
     end
     j = i + 1
   elseif s:sub(i, i) == "$" then
@@ -559,14 +559,14 @@ local function track_index(s: string, i: integer): integer, integer
     j = e2 as integer
   end
   if n < 1 or n > #list then
-    fail("`t%s`: there %s %s", s:sub(i, j - 1), #list == 1 and "is" or "are", plural(#list, "track"))
+    fail("`t%s`: there %s %s", s:sub(i, j - 1), #list == 1 and "is" or "are", plural(#list, "part"))
   end
   return n, j
 end
 
---- A range of tracks at `i` (`t2`, `t2,t4`, `t*`, `t/Drums/`, `t'<,'>`):
+--- A range of parts at `i` (`t2`, `t2,t4`, `t*`, `t/Drums/`, `t'<,'>`):
 --- the ids, and where it ends; nil when there is none.
-local function track_range(s: string, i: integer): {integer}, integer
+local function part_range(s: string, i: integer): {integer}, integer
   if s:sub(i, i) ~= "t" then
     return nil, i
   end
@@ -579,24 +579,24 @@ local function track_range(s: string, i: integer): {integer}, integer
     local text = s:sub(j + 1, (close or #s + 1) - 1)
     local out, wanted: {integer}, string = {}, text:lower()
     for _, id in ipairs(scoped()) do
-      if api.track_get(id).name:lower():find(wanted, 1, true) then
+      if api.part_get(id).name:lower():find(wanted, 1, true) then
         out[#out + 1] = id
       end
     end
     if #out == 0 then
-      fail("`t/%s/`: no track's name holds `%s`", text, text)
+      fail("`t/%s/`: no part's name holds `%s`", text, text)
     end
     return out, close and close + 1 or #s + 1
   end
   if s:match("^'<%s*,%s*'>", j) then
     local r = M.selection_range()
-    local out = r.tracks
+    local out = r.parts
     if not out then
-      -- In a view of clips: the tracks of the clips it edits.
+      -- In a view of clips: the parts of the clips it edits.
       out = {}
       local seen: {integer: boolean} = {}
       for _, id in ipairs(view_clips() or {}) do
-        local t = api.clip_get(id).track
+        local t = api.clip_get(id).part
         if not seen[t] then
           seen[t], out[#out + 1] = true, t
         end
@@ -608,17 +608,17 @@ local function track_range(s: string, i: integer): {integer}, integer
   if not c:match("[%d%.%$]") then
     return nil, i
   end
-  local a, k = track_index(s, j)
+  local a, k = part_index(s, j)
   local b = a
   local more = s:match("^,t?()", k)
   if more then
-    b, k = track_index(s, more as integer)
+    b, k = part_index(s, more as integer)
     if not b then
-      fail("`%s`: a range of tracks needs a second track: `t2,t4`", s:sub(i, (more as integer) - 1))
+      fail("`%s`: a range of parts needs a second part: `t2,t4`", s:sub(i, (more as integer) - 1))
     end
   end
   if b < a then
-    fail("`%s`: a range of tracks goes from the first to the last", s:sub(i, k - 1))
+    fail("`%s`: a range of parts goes from the first to the last", s:sub(i, k - 1))
   end
   local list, out: {integer}, {integer} = scoped(), {}
   for n = a, b do
@@ -675,29 +675,29 @@ local function read_range(line: string): Range, string
   if own then
     clips, j = own(line, i)
   end
-  local tracks: {integer}
+  local parts: {integer}
   if not clips then
-    tracks, j = track_range(line, i)
+    parts, j = part_range(line, i)
   end
   local k = line:match("^%s*()", j) as integer
   local time, e = time_range(line, k)
-  if time and not tracks and not clips and own then
+  if time and not parts and not clips and own then
     local after = line:match("^%s*()", e) as integer
     local found, e2 = own(line, after)
     if found then
       clips, e = found, e2
     end
   end
-  if not tracks and not time and not clips then
+  if not parts and not time and not clips then
     return nil, line
   end
   local r: Range = time or {}
-  if tracks then
-    -- A selection's own tracks give way to tracks named outright.
-    r.tracks, r.track_range, r.single = tracks, true, nil
+  if parts then
+    -- A selection's own parts give way to parts named outright.
+    r.parts, r.part_range, r.single = parts, true, nil
   end
   if clips then
-    r.clips, r.tracks, r.single = clips, nil, nil
+    r.clips, r.parts, r.single = clips, nil, nil
   end
   local finish = time and e or j
   r.text = line:sub(i, finish - 1):match("^(.-)%s*$")
@@ -717,51 +717,51 @@ function M.range(line: string): Range, string, string
   return r, rest
 end
 
---- What a range covers, in words: "bars 5 to 8 on 2 tracks".
+--- What a range covers, in words: "bars 5 to 8 on 2 parts".
 function M.describe(r: Range): string
-  local parts: {string} = {}
+  local portions: {string} = {}
   if r.from then
     local a, b = r.bars[1], r.bars[2]
     if math.abs(bar_span(a).from - r.from) < EPS and math.abs(bar_span(b).to - r.to) < EPS then
-      parts[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
+      portions[1] = a == b and "bar " .. a or string.format("bars %d–%d", a, b)
     else
-      parts[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
+      portions[1] = paw.time.format(r.from) .. "–" .. paw.time.format(r.to)
     end
   end
-  if r.tracks then
-    if #r.tracks == 1 then
-      parts[#parts + 1] = (r.from and "on " or "") .. api.track_get(r.tracks[1]).name
+  if r.parts then
+    if #r.parts == 1 then
+      portions[#portions + 1] = (r.from and "on " or "") .. api.part_get(r.parts[1]).name
     else
-      parts[#parts + 1] = (r.from and "on " or "") .. plural(#r.tracks, "track")
+      portions[#portions + 1] = (r.from and "on " or "") .. plural(#r.parts, "part")
     end
   end
   if r.items then
-    parts[#parts + 1] = plural(#r.items, "match")
+    portions[#portions + 1] = plural(#r.items, "match")
   end
-  return table.concat(parts, " ")
+  return table.concat(portions, " ")
 end
 
 -- Items: what a range holds -------------------------------------------------------
 --
--- An item is a note, a clip or a track: `{ kind, track = id, clip = <clip
+-- An item is a note, a clip or a part: `{ kind, part = id, clip = <clip
 -- as paw.api gives it>, note = <note>, place = <its place in the clip>,
 -- at = <beat of the song> }`, the fields a kind has.
 
-local LEVEL: {Level: integer} = {track = 1, clip = 2, note = 3}
+local LEVEL: {Level: integer} = {part = 1, clip = 2, note = 3}
 
 local function scope_clips(r: Range): {types.Clip}
   local out: {types.Clip} = {}
   -- A range of time asks the kernel only for the clips that meet it.
   local from: number = r.from and r.from - EPS
   local to: number = r.to
-  local function add_track(id: integer)
+  local function add_part(id: integer)
     for _, c in ipairs(api.clip_list(id, from, to)) do
       out[#out + 1] = c
     end
   end
-  if r.tracks then
-    for _, id in ipairs(r.tracks) do
-      add_track(id)
+  if r.parts then
+    for _, id in ipairs(r.parts) do
+      add_part(id)
     end
   else
     local ids = view_clips(r)
@@ -771,7 +771,7 @@ local function scope_clips(r: Range): {types.Clip}
       end
     else
       for _, id in ipairs(scoped()) do
-        add_track(id)
+        add_part(id)
       end
     end
   end
@@ -852,7 +852,7 @@ local function sort_by_place(items: {Item})
   end
 end
 
---- The notes, clips or tracks (`kind`) a range holds, in the order they
+--- The notes, clips or parts (`kind`) a range holds, in the order they
 --- come in the song.
 function M.items(r: Range, kind: Level): {Item}
   if r.items then
@@ -865,21 +865,21 @@ function M.items(r: Range, kind: Level): {Item}
     return out
   end
   local out: {Item} = {}
-  if kind == "track" then
-    local ids = r.tracks or (view_clips() and {cursor_track()}) or scoped()
+  if kind == "part" then
+    local ids = r.parts or (view_clips() and {cursor_part()}) or scoped()
     for i, id in ipairs(ids) do
-      out[i] = {kind = "track", track = id, at = 0, order = i}
+      out[i] = {kind = "part", part = id, at = 0, order = i}
     end
     return out
   end
   local order: {integer: integer} = {}
-  for i, id in ipairs(api.track_list({all = true})) do
+  for i, id in ipairs(api.part_list({all = true})) do
     order[id] = i
   end
   for _, c in ipairs(scope_clips(r)) do
     if kind == "clip" then
       if inside(r, c.start) then
-        out[#out + 1] = {kind = "clip", track = c.track, clip = c, at = c.start, order = order[c.track]}
+        out[#out + 1] = {kind = "clip", part = c.part, clip = c, at = c.start, order = order[c.part]}
       end
     elseif c.kind == "midi" and c.note_count > 0 and meets(r, c) then
       local notes, places = notes_near(c, r)
@@ -889,12 +889,12 @@ function M.items(r: Range, kind: Level): {Item}
         if pitch_ok and inside(r, at) then
           out[#out + 1] = {
             kind = "note",
-            track = c.track,
+            part = c.part,
             clip = c,
             note = n,
             place = places and places[i] or i,
             at = at,
-            order = order[c.track],
+            order = order[c.part],
           }
         end
       end
@@ -912,7 +912,7 @@ function M.address_of(item: Item): string
   if item.kind == "clip" then
     return paw.address.clip(item.clip.id)
   end
-  return paw.address.track(item.track)
+  return paw.address.part(item.part)
 end
 
 --- The item an address names, or nil.
@@ -927,12 +927,12 @@ function M.item_of(uri: string): Item
       return nil
     end
     local c = api.clip_get(p.clip)
-    return {kind = "note", track = c.track, clip = c, note = n, place = place, at = c.start + n.start}
+    return {kind = "note", part = c.part, clip = c, note = n, place = place, at = c.start + n.start}
   elseif p.kind == "clip" then
     local ok, c = pcall(api.clip_get, p.clip)
-    return ok and {kind = "clip", track = c.track, clip = c, at = c.start} or nil
-  elseif p.kind == "track" and p.track then
-    return {kind = "track", track = p.track, at = 0}
+    return ok and {kind = "clip", part = c.part, clip = c, at = c.start} or nil
+  elseif p.kind == "part" and p.part then
+    return {kind = "part", part = p.part, at = 0}
   end
 end
 
@@ -954,30 +954,28 @@ function M.label(item: Item): string
       item.clip.name
     )
   elseif item.kind == "clip" then
-    return string.format(
-      "clip %s at %s on %s", item.clip.name, paw.time.format(item.at), api.track_get(item.track).name
-    )
+    return string.format("clip %s at %s on %s", item.clip.name, paw.time.format(item.at), api.part_get(item.part).name)
   end
-  return "track " .. api.track_get(item.track).name
+  return "part " .. api.part_get(item.part).name
 end
 
 -- Fields and patterns --------------------------------------------------------------
 --
--- A field: `paw.ex.field(name, { level = "note" | "clip" | "track", type =
+-- A field: `paw.ex.field(name, { level = "note" | "clip" | "part", type =
 -- "number" | "beats" | "pitch" | "text", get = function(item) return value
 -- end, set = function(item, value, change) ... end, min, max, desc })`.
 -- `set` writes what changes into `change`, a table of the fields `paw.api`
 -- keeps for that kind of thing (a note's `velocity`, a clip's `name`);
 -- without it the field can be matched but not set. A field of a shallower
--- level is read from the clip or track of a deeper item.
+-- level is read from the clip or part of a deeper item.
 
 M.fields = registry.new("ex_fields", "fields of :s and :g")
 
 --- A field that `:s` and `:g` patterns can name (`lyric:la`): `level`
---- (note, clip or track), `type`, `get(item)`, `set(item, value, change)`.
+--- (note, clip or part), `type`, `get(item)`, `set(item, value, change)`.
 function M.field(name: string, spec: FieldSpec)
   assert(name is string and name:match("^[%a_][%w_]*$"), "a field's name is a word")
-  assert(LEVEL[spec.level], "a field's level is note, clip or track")
+  assert(LEVEL[spec.level], "a field's level is note, clip or part")
   M.fields:put(name:lower(), util.merge(spec as {string: util.Data}, {name = name:lower()}) as Field)
 end
 
@@ -1065,12 +1063,12 @@ M.field(
   }
 )
 M.field(
-  "track",
+  "part",
   {
-    level = "track",
+    level = "part",
     type = "text",
-    desc = "the track's name",
-    get = function(item: Item): ExValue return api.track_get(item.track).name end,
+    desc = "the part's name",
+    get = function(item: Item): ExValue return api.part_get(item.part).name end,
     set = function(_: Item, value: ExValue, change: Change) change.name = value as string end,
   }
 )
@@ -1230,11 +1228,11 @@ function M.pattern(text: string): Pattern
     local negated = word:sub(1, 1) == "!" and #word > 1
     local body = negated and word:sub(2) or word
     local alts: {Alternative} = {}
-    for part in (body .. "|"):gmatch("([^|]*)|") do
-      if part == "" then
+    for portion in (body .. "|"):gmatch("([^|]*)|") do
+      if portion == "" then
         fail("`%s`: an empty alternative", word)
       end
-      local alt = alternative(part, word)
+      local alt = alternative(portion, word)
       alts[#alts + 1] = alt
       if alt.level and (not level or LEVEL[alt.level] > LEVEL[level]) then
         level = alt.level
@@ -1242,8 +1240,8 @@ function M.pattern(text: string): Pattern
       if alt.field == "name" and not negated and alt.op == ":" then
         names.name = alt.value
       end
-      if alt.field == "track" and not negated and alt.op == ":" then
-        names.track = alt.value
+      if alt.field == "part" and not negated and alt.op == ":" then
+        names.part = alt.value
       end
     end
     terms[#terms + 1] = function(item: Item): boolean
@@ -1335,9 +1333,9 @@ function M.change(item: Item, sets: {Set}, pattern: Pattern): Change
     local value: ExValue
     if spec.type == "text" then
       value = set.value as string
-      local part = set.op == ":" and pattern.names[set.field]
-      if part and part ~= "" then
-        local a, b = tostring(now):lower():find(part:lower(), 1, true)
+      local portion = set.op == ":" and pattern.names[set.field]
+      if portion and portion ~= "" then
+        local a, b = tostring(now):lower():find(portion:lower(), 1, true)
         if a then
           value = tostring(now):sub(1, a - 1) .. (set.value as string) .. tostring(now):sub(b + 1)
         end
@@ -1381,7 +1379,7 @@ end
 local function clips_to_edit(changes: {Changed}, remove: {Item}): {integer: boolean}
   local edited: {integer: boolean} = {}
   for _, item in ipairs(remove) do
-    if item.kind ~= "track" then
+    if item.kind ~= "part" then
       edited[item.clip.id] = true
     end
   end
@@ -1478,10 +1476,10 @@ function M.apply(changes?: {Changed}, remove?: {Item})
     elseif item.kind == "clip" then
       api.clip_set(item.clip.id, {name = ch.name, start = ch.start, muted = ch.muted})
     else
-      api.track_set(item.track, {name = ch.name})
+      api.part_set(item.part, {name = ch.name})
     end
   end
-  local tracks: {integer} = {}
+  local parts: {integer} = {}
   for _, item in ipairs(remove) do
     if item.kind == "note" then
       local e = clip_edit(item)
@@ -1491,7 +1489,7 @@ function M.apply(changes?: {Changed}, remove?: {Item})
         api.clip_remove(item.clip.id)
       end
     else
-      tracks[#tracks + 1] = item.track
+      parts[#parts + 1] = item.part
     end
   end
   if columns then
@@ -1503,8 +1501,8 @@ function M.apply(changes?: {Changed}, remove?: {Item})
       paw.clip(id):edit_notes({set = e.set, remove = e.remove})
     end
   end
-  for _, id in ipairs(tracks) do
-    api.track_remove(id)
+  for _, id in ipairs(parts) do
+    api.part_remove(id)
   end
 end
 
@@ -1526,7 +1524,7 @@ local function notes_value(items: {Item}): Yanked
   return {kind = "notes", shape = "char", top = top, length = finish, notes = notes}
 end
 
---- Clips as a register value: each whole, rows by track.
+--- Clips as a register value: each whole, rows by part.
 local function clips_value(items: {Item}): Yanked
   local first, finish = math.huge, 0.0
   for _, item in ipairs(items) do
@@ -1535,11 +1533,11 @@ local function clips_value(items: {Item}): Yanked
   local rows: {{ClipSnapshot}} = {}
   local row_of: {integer: integer} = {}
   for _, item in ipairs(items) do
-    local row = row_of[item.track]
+    local row = row_of[item.part]
     if not row then
       rows[#rows + 1] = {}
       row = #rows
-      row_of[item.track] = row
+      row_of[item.part] = row
     end
     local snap = paw.clip(item.clip.id):snapshot()
     snap.start = snap.start - first
@@ -1549,19 +1547,19 @@ local function clips_value(items: {Item}): Yanked
   return {kind = "range", length = finish, rows = rows}
 end
 
-local function tracks_value(ids: {integer}): Yanked
-  local tracks: {objects.TrackSnapshot} = {}
+local function parts_value(ids: {integer}): Yanked
+  local parts: {objects.PartSnapshot} = {}
   for i, id in ipairs(ids) do
-    tracks[i] = paw.track(id):snapshot()
+    parts[i] = paw.part(id):snapshot()
   end
-  return {kind = "tracks", tracks = tracks}
+  return {kind = "parts", parts = parts}
 end
 
 -- Commands -------------------------------------------------------------------------
 
 --- The range a command works on: the one typed, the entry `:cdo` is on,
 --- or the command's own default: "." the cursor's bar, "%" the whole
---- song, "track" the cursor's track.
+--- song, "part" the cursor's part.
 local function range_of(ctx: Context, default: string): Range
   if ctx.range then
     return ctx.range
@@ -1576,12 +1574,12 @@ local function range_of(ctx: Context, default: string): Range
   local r: Range
   if default == "%" then
     r = whole_range()
-  elseif default == "track" then
-    local id = cursor_track()
+  elseif default == "part" then
+    local id = cursor_part()
     if not id then
-      fail("no track here")
+      fail("no part here")
     end
-    r = {tracks = {id}}
+    r = {parts = {id}}
   else
     local span = bar_span(typed_bar(cursor_beat()))
     r = {from = span.from, to = span.to}
@@ -1591,7 +1589,7 @@ end
 
 --- Whether a range is about the notes of the clips the focused view edits.
 local function in_view_clips(r: Range): boolean
-  return not r.tracks and not r.items and view_clips(r) ~= nil
+  return not r.parts and not r.items and view_clips(r) ~= nil
 end
 
 local function bang(ctx: Context): boolean
@@ -1613,12 +1611,12 @@ local function register_of(ctx: Context): string
   return name
 end
 
-local function whole_tracks(r: Range): boolean
-  return r.tracks and not r.from
+local function whole_parts(r: Range): boolean
+  return r.parts and not r.from
 end
 
-local function time_tracks(r: Range): {integer}
-  return r.tracks or scoped()
+local function time_parts(r: Range): {integer}
+  return r.parts or scoped()
 end
 
 --- Put a value in a register as `d` and `y` do.
@@ -1627,11 +1625,11 @@ local function keep(value: Yanked, ctx: Context, yank: boolean)
 end
 
 local function remove_items(items: {Item}, ctx: Context, yank_only: boolean)
-  local by: {Level: {Item}} = {note = {}, clip = {}, track = {}}
+  local by: {Level: {Item}} = {note = {}, clip = {}, part = {}}
   for _, item in ipairs(items) do
     by[item.kind][#by[item.kind] + 1] = item
   end
-  local kind: Level = #by.note > 0 and "note" or #by.clip > 0 and "clip" or "track"
+  local kind: Level = #by.note > 0 and "note" or #by.clip > 0 and "clip" or "part"
   local list = by[kind]
   if #list == 0 then
     return paw.notify("nothing there", "warn")
@@ -1644,9 +1642,9 @@ local function remove_items(items: {Item}, ctx: Context, yank_only: boolean)
   else
     local ids: {integer} = {}
     for i, item in ipairs(list) do
-      ids[i] = item.track
+      ids[i] = item.part
     end
-    value = tracks_value(ids)
+    value = parts_value(ids)
   end
   keep(value, ctx, yank_only)
   if not yank_only then
@@ -1677,14 +1675,14 @@ local function delete_or_yank(ctx: Context, yank_only: boolean)
   if r.items then
     return remove_items(r.items, ctx, yank_only)
   end
-  if whole_tracks(r) then
-    keep(tracks_value(r.tracks), ctx, yank_only)
+  if whole_parts(r) then
+    keep(parts_value(r.parts), ctx, yank_only)
     if not yank_only then
-      for _, id in ipairs(r.tracks) do
-        api.track_remove(id)
+      for _, id in ipairs(r.parts) do
+        api.part_remove(id)
       end
     end
-    return paw.notify(string.format("%s %s", yank_only and "yanked" or "deleted", plural(#r.tracks, "track")))
+    return paw.notify(string.format("%s %s", yank_only and "yanked" or "deleted", plural(#r.parts, "part")))
   end
   if in_view_clips(r) then
     local items = M.items(r, "note")
@@ -1698,13 +1696,13 @@ local function delete_or_yank(ctx: Context, yank_only: boolean)
     return
   end
   local rows: {{ClipSnapshot}} = {}
-  local tracks = time_tracks(r)
-  for i, id in ipairs(tracks) do
+  local parts = time_parts(r)
+  for i, id in ipairs(parts) do
     rows[i] = paw.edit.arrange.copy(id, r.from, r.to)
   end
   keep({kind = "range", length = r.to - r.from, rows = rows}, ctx, yank_only)
   if not yank_only then
-    for _, id in ipairs(tracks) do
+    for _, id in ipairs(parts) do
       paw.edit.arrange.clear(id, r.from, r.to)
       if bang(ctx) then
         paw.edit.arrange.ripple(id, r.to, r.from - r.to)
@@ -1739,22 +1737,22 @@ local function copy_or_move(ctx: Context, move: boolean)
   local r = range_of(ctx, ".")
   local name = move and "m" or "co"
   if r.items then
-    fail("`%s` takes a range of time or tracks, not the matches of :g", name)
+    fail("`%s` takes a range of time or parts, not the matches of :g", name)
   end
   local text = arg_text(ctx)
-  if whole_tracks(r) then
-    -- Whole tracks go below track N (`0` for the top).
+  if whole_parts(r) then
+    -- Whole parts go below part N (`0` for the top).
     local n = math.tointeger(tonumber((text:gsub("^t", ""))))
     if text == "$" or text == "t$" then
       n = #scoped()
     end
     if not n then
-      fail("`%s`: tracks go below a track's number: `:t2 %s 5`, `0` for the top", text, name)
+      fail("`%s`: parts go below a part's number: `:t2 %s 5`, `0` for the top", text, name)
     end
-    -- In a narrowed window N counts its tracks: below the Nth of them. The
-    -- place counts among the tracks of the song, or of the subproject.
+    -- In a narrowed window N counts its parts: below the Nth of them. The
+    -- place counts among the parts of the song, or of the subproject.
     local nest = paw.scope.nest()
-    local place = api.track_list({nest = nest and nest.id or nil})
+    local place = api.part_list({nest = nest and nest.id or nil})
     local seen = scoped()
     if #seen < #place and n > 0 then
       local id = seen[math.min(n, #seen)]
@@ -1764,28 +1762,28 @@ local function copy_or_move(ctx: Context, move: boolean)
         end
       end
     end
-    local snaps: {objects.TrackSnapshot} = {}
-    for i, id in ipairs(r.tracks) do
-      snaps[i] = paw.track(id):snapshot()
+    local snaps: {objects.PartSnapshot} = {}
+    for i, id in ipairs(r.parts) do
+      snaps[i] = paw.part(id):snapshot()
     end
     if move then
       local list, below = place, 0
-      for _, id in ipairs(r.tracks) do
+      for _, id in ipairs(r.parts) do
         for k = 1, math.min(n, #list) do
           if list[k] == id then
             below = below + 1
           end
         end
       end
-      for _, id in ipairs(r.tracks) do
-        api.track_remove(id)
+      for _, id in ipairs(r.parts) do
+        api.part_remove(id)
       end
       n = n - below
     end
     for i, snap in ipairs(snaps) do
-      paw.restore_track(snap, n + i)
+      paw.restore_part(snap, n + i)
     end
-    return paw.notify(string.format("%s %s", move and "moved" or "copied", plural(#snaps, "track")))
+    return paw.notify(string.format("%s %s", move and "moved" or "copied", plural(#snaps, "part")))
   end
   local at = destination(text, name)
   local len = r.to - r.from
@@ -1823,7 +1821,7 @@ local function copy_or_move(ctx: Context, move: boolean)
       string.format("%s %s to %s", move and "moved" or "copied", plural(#items, "note"), paw.time.format(at))
     )
   end
-  for _, id in ipairs(time_tracks(r)) do
+  for _, id in ipairs(time_parts(r)) do
     local snaps = paw.edit.arrange.copy(id, r.from, r.to)
     local target = at
     if move then
@@ -1893,36 +1891,36 @@ local function notes_in(ctx: Context): {Item}
   return items
 end
 
---- The tracks a track command works on: those named, or those of the matches.
-local function tracks_in(ctx: Context, name: string): {integer}
-  local r = range_of(ctx, "track")
+--- The parts a part command works on: those named, or those of the matches.
+local function parts_in(ctx: Context, name: string): {integer}
+  local r = range_of(ctx, "part")
   if r.items then
     local out: {integer} = {}
     local seen: {integer: boolean} = {}
     for _, item in ipairs(r.items) do
-      if not seen[item.track] then
-        seen[item.track], out[#out + 1] = true, item.track
+      if not seen[item.part] then
+        seen[item.part], out[#out + 1] = true, item.part
       end
     end
     return out
   end
-  if not r.tracks then
-    fail("`%s` takes tracks: `:t2,t4 %s`", name, name)
+  if not r.parts then
+    fail("`%s` takes parts: `:t2,t4 %s`", name, name)
   end
-  return r.tracks
+  return r.parts
 end
 
---- Set a field of the tracks a command works on: `read` makes the patch
---- of each from the track as it is.
-local function set_tracks(ctx: Context, name: string, read: function(types.Track): types.Track): {integer}
-  local ids = tracks_in(ctx, name)
+--- Set a field of the parts a command works on: `read` makes the patch
+--- of each from the part as it is.
+local function set_parts(ctx: Context, name: string, read: function(types.Part): types.Part): {integer}
+  local ids = parts_in(ctx, name)
   for _, id in ipairs(ids) do
-    api.track_set(id, read(api.track_get(id)))
+    api.part_set(id, read(api.part_get(id)))
   end
   return ids
 end
 
---- What muting or soloing came to: `muted 3 tracks`, and those that were
+--- What muting or soloing came to: `muted 3 parts`, and those that were
 --- so already, so that doing it twice does not say it did it twice.
 local function said(word: string, changed: integer, total: integer, what: string): string
   if changed == total then
@@ -1937,7 +1935,7 @@ local function said(word: string, changed: integer, total: integer, what: string
 end
 
 local function mute_or_solo(ctx: Context, field: string, on: boolean)
-  local r = range_of(ctx, "track")
+  local r = range_of(ctx, "part")
   local word = field == "mute" and (on == false and "unmuted" or "muted") or (on == false and "unsoloed" or "soloed")
   local toggle = bang(ctx)
   local function value(now: boolean): boolean
@@ -1957,18 +1955,18 @@ local function mute_or_solo(ctx: Context, field: string, on: boolean)
     end
     return changed
   end
-  local function track_flag(id: integer): boolean
-    local t = api.track_get(id)
+  local function part_flag(id: integer): boolean
+    local t = api.part_get(id)
     if field == "mute" then
       return t.mute
     end
     return t.solo
   end
-  local function set_track(id: integer, to: boolean)
+  local function set_part(id: integer, to: boolean)
     if field == "mute" then
-      api.track_set(id, {mute = to})
+      api.part_set(id, {mute = to})
     else
-      api.track_set(id, {solo = to})
+      api.part_set(id, {solo = to})
     end
   end
   -- A stretch of time mutes the clips in it.
@@ -1976,13 +1974,13 @@ local function mute_or_solo(ctx: Context, field: string, on: boolean)
     local clips = M.items(r, "clip")
     if #clips == 0 then
       if r.items then
-        local ids = tracks_in(ctx, field)
-        return paw.notify(said(word, set(track_flag, set_track, ids), #ids, "track"))
+        local ids = parts_in(ctx, field)
+        return paw.notify(said(word, set(part_flag, set_part, ids), #ids, "part"))
       end
       return paw.notify("no clips in " .. M.describe(r), "warn")
     end
     if field ~= "mute" then
-      fail("clips are muted, not soloed: `solo` takes tracks")
+      fail("clips are muted, not soloed: `solo` takes parts")
     end
     local ids: {integer} = {}
     for i, item in ipairs(clips) do
@@ -1995,8 +1993,8 @@ local function mute_or_solo(ctx: Context, field: string, on: boolean)
     )
     return paw.notify(said(word, changed, #clips, "clip"))
   end
-  local ids = tracks_in(ctx, field)
-  paw.notify(said(word, set(track_flag, set_track, ids), #ids, "track"))
+  local ids = parts_in(ctx, field)
+  paw.notify(said(word, set(part_flag, set_part, ids), #ids, "part"))
 end
 
 local function number_arg(ctx: Context, name: string, example: string): string
@@ -2028,7 +2026,7 @@ local last: Last = {}
 
 --- Read `/pattern/replacement/flags` (any delimiter that is not a letter,
 --- a digit or a space; `\` before it keeps it in). Missing ends are empty.
-local function delimited(text: string, parts: integer): {string}, string
+local function delimited(text: string, portions: integer): {string}, string
   text = text:match("^%s*(.*)$")
   local delim = text:sub(1, 1)
   if delim == "" then
@@ -2043,7 +2041,7 @@ local function delimited(text: string, parts: integer): {string}, string
     local ch = text:sub(i, i)
     if ch == "\\" and text:sub(i + 1, i + 1) == delim then
       cur[#cur + 1], i = delim, i + 2
-    elseif ch == delim and #out < parts - 1 then
+    elseif ch == delim and #out < portions - 1 then
       out[#out + 1], cur, i = table.concat(cur), {}, i + 1
     else
       cur[#cur + 1], i = ch, i + 1
@@ -2083,7 +2081,7 @@ function M.substitution(r: Range, pattern: Pattern, replacement: {Set}, flags: s
   for _, item in ipairs(items) do
     -- As in Vim, without `g` only the first match of each line changes,
     -- and a line here is a bar.
-    local key = item.kind == "track" and item.track or paw.time.bar_of(item.at)
+    local key = item.kind == "part" and item.part or paw.time.bar_of(item.at)
     if all or not seen[key] then
       seen[key] = true
       local change: Change | boolean = false
@@ -2104,9 +2102,9 @@ local function substitute_args(ctx: Context): string, string, string
     end
     return last.sub[1], last.sub[2], ctx.keep_flags and last.sub[3] or ""
   end
-  local parts = delimited(text, 3)
-  local pat = pattern_text(parts[1])
-  local rep, flags = parts[2] or "", parts[3] or ""
+  local portions = delimited(text, 3)
+  local pat = pattern_text(portions[1])
+  local rep, flags = portions[2] or "", portions[3] or ""
   local bad = flags:match("[^gcni&%s]")
   if bad then
     fail("`%s`: not a flag of :s (g every match, c confirm each, n only count)", bad)
@@ -2204,9 +2202,9 @@ local function normal(ctx: Context): Result
         end
       end
     end
-  elseif whole_tracks(r) then
-    for i, id in ipairs(r.tracks) do
-      places[i] = function() ui().focus("arrange"); paw.cursor.set_track(id) end
+  elseif whole_parts(r) then
+    for i, id in ipairs(r.parts) do
+      places[i] = function() ui().focus("arrange"); paw.cursor.set_part(id) end
     end
   else
     -- Where the range starts, then every bar line inside it.
@@ -2214,13 +2212,13 @@ local function normal(ctx: Context): Result
     for _, bar in ipairs(paw.time.bars(r.from + NEAR, r.to - NEAR)) do
       bars[#bars + 1] = bar.beat
     end
-    local tracks: {integer | boolean} = in_view_clips(r) and {false} or r.tracks or {paw.cursor.track_id()}
+    local parts: {integer | boolean} = in_view_clips(r) and {false} or r.parts or {paw.cursor.part_id()}
     local a = adapter()
-    for _, id in ipairs(tracks) do
+    for _, id in ipairs(parts) do
       for _, beat in ipairs(bars) do
         places[#places + 1] = function()
           if id is integer then
-            paw.cursor.set_track(id)
+            paw.cursor.set_part(id)
           end
           if a.go then
             a.go(beat)
@@ -2237,11 +2235,11 @@ end
 --- Run a command on every match of a pattern, or put the matches in the
 --- quickfix list when there is no command.
 local function global(ctx: Context, invert: boolean): Result
-  local parts = delimited(arg_text(ctx), 2)
-  if not parts then
+  local portions = delimited(arg_text(ctx), 2)
+  if not portions then
     fail("`g` needs a pattern: `:g/vel<20/d`")
   end
-  local pat = pattern_text(parts[1])
+  local pat = pattern_text(portions[1])
   local pattern = M.pattern(pat)
   local r = range_of(ctx, "%")
   local matches: {Item} = {}
@@ -2250,7 +2248,7 @@ local function global(ctx: Context, invert: boolean): Result
       matches[#matches + 1] = item
     end
   end
-  local cmd = (parts[2] or ""):match("^%s*(.-)%s*$")
+  local cmd = (portions[2] or ""):match("^%s*(.-)%s*$")
   local title = string.format(":%s/%s/", invert and "v" or "g", pat)
   -- Vim's `:g/pat/p` prints the lines: here the list of them is the print.
   local prints: {string: boolean} = {
@@ -2319,7 +2317,7 @@ ex(
   function(ctx: Context): Result delete_or_yank(ctx, false) end,
   {
     items = true,
-    desc = "Delete what a range holds into a register: `:5,8d`, `:t2 d` whole tracks, `:5,8d!` taking the time out",
+    desc = "Delete what a range holds into a register: `:5,8d`, `:t2 d` whole parts, `:5,8d!` taking the time out",
     label = "Delete",
   }
 )
@@ -2356,52 +2354,52 @@ ex(
   {"j"},
   function(ctx: Context): Result
     local r = range_of(ctx, ".")
-    if r.items or in_view_clips(r) or whole_tracks(r) then
+    if r.items or in_view_clips(r) or whole_parts(r) then
       fail("`j` joins the clips of a stretch of time: `:5,8j`")
     end
     local joined = 0
-    for _, id in ipairs(time_tracks(r)) do
+    for _, id in ipairs(time_parts(r)) do
       if paw.edit.arrange.join(id, r.from, r.to) then
         joined = joined + 1
       end
     end
-    paw.notify(joined == 0 and "nothing to join" or "joined clips on " .. plural(joined, "track"))
+    paw.notify(joined == 0 and "nothing to join" or "joined clips on " .. plural(joined, "part"))
   end,
-  {desc = "Join the MIDI clips of a range into one on each track: `:5,8j`", label = "Join clips"}
+  {desc = "Join the MIDI clips of a range into one on each part: `:5,8j`", label = "Join clips"}
 )
 ex(
   {"mute", "mute!"},
   function(ctx: Context): Result mute_or_solo(ctx, "mute", true) end,
   {
     items = true,
-    desc = "Mute tracks (`:t2,t4 mute`) or the clips of a stretch of time (`:5,8 mute`); `mute!` switches",
+    desc = "Mute parts (`:t2,t4 mute`) or the clips of a stretch of time (`:5,8 mute`); `mute!` switches",
     label = "Mute",
   }
 )
 ex(
   {"unmute"},
   function(ctx: Context): Result mute_or_solo(ctx, "mute", false) end,
-  {items = true, desc = "Unmute tracks or clips: `:t* unmute`", label = "Unmute"}
+  {items = true, desc = "Unmute parts or clips: `:t* unmute`", label = "Unmute"}
 )
 ex(
   {"solo", "solo!"},
   function(ctx: Context): Result mute_or_solo(ctx, "solo", true) end,
-  {items = true, desc = "Solo tracks: `:t/Drums/ solo`; `solo!` switches", label = "Solo"}
+  {items = true, desc = "Solo parts: `:t/Drums/ solo`; `solo!` switches", label = "Solo"}
 )
 ex(
   {"unsolo"},
   function(ctx: Context): Result mute_or_solo(ctx, "solo", false) end,
-  {items = true, desc = "Unsolo tracks: `:t* unsolo`", label = "Unsolo"}
+  {items = true, desc = "Unsolo parts: `:t* unsolo`", label = "Unsolo"}
 )
 ex(
   {"volume"},
   function(ctx: Context): Result
     local text = number_arg(ctx, "volume", "`:t* volume -6` to -6 dB, `-=3` 3 dB down")
     local read = cmdline().read_value
-    local ids = set_tracks(
+    local ids = set_parts(
       ctx,
       "volume",
-      function(t: types.Track): types.Track
+      function(t: types.Part): types.Part
         local v = read(text, t.volume)
         if not v then
           fail("`%s`: not a volume: `-6`, `+=2`, `-=3`", text)
@@ -2409,19 +2407,19 @@ ex(
         return {volume = util.clamp(v, -150, 24)}
       end
     )
-    paw.notify("volume of " .. plural(#ids, "track"))
+    paw.notify("volume of " .. plural(#ids, "part"))
   end,
-  {items = true, desc = "Set the volume of tracks: `:t* volume -6` sets -6 dB, `-=3` steps down 3 dB", label = "Volume"}
+  {items = true, desc = "Set the volume of parts: `:t* volume -6` sets -6 dB, `-=3` steps down 3 dB", label = "Volume"}
 )
 ex(
   {"pan"},
   function(ctx: Context): Result
     local text = number_arg(ctx, "pan", "`:t2 pan -0.5` half left, `+=0.1` a step right")
     local read = cmdline().read_value
-    local ids = set_tracks(
+    local ids = set_parts(
       ctx,
       "pan",
-      function(t: types.Track): types.Track
+      function(t: types.Part): types.Part
         local v = read(text, t.pan)
         if not v then
           fail("`%s`: not a pan: `-0.5`, `+=0.1`, `0`", text)
@@ -2429,9 +2427,9 @@ ex(
         return {pan = util.clamp(v, -1, 1)}
       end
     )
-    paw.notify("pan of " .. plural(#ids, "track"))
+    paw.notify("pan of " .. plural(#ids, "part"))
   end,
-  {items = true, desc = "Pan tracks, -1 left to 1 right: `:t2 pan -0.5`, `+=0.1` a step right", label = "Pan"}
+  {items = true, desc = "Pan parts, -1 left to 1 right: `:t2 pan -0.5`, `+=0.1` a step right", label = "Pan"}
 )
 ex(
   {"quantize"},
@@ -2542,13 +2540,13 @@ ex(
   function(ctx: Context): Result return global(ctx, true) end,
   {desc = "Run a command on every thing that does not match: `:v/c/d`", label = "Global, not matching"}
 )
--- `normal` alone types keys; with a range, at each bar, track, clip or note of it.
+-- `normal` alone types keys; with a range, at each bar, part, clip or note of it.
 ex(
   {"normal"},
   normal,
   {
     items = true,
-    desc = "Type keys: `normal 3j dd`; with a range at each bar of it, `:t* normal gc` at each track, `:g/c4/normal x` at each match",
+    desc = "Type keys: `normal 3j dd`; with a range at each bar of it, `:t* normal gc` at each part, `:g/c4/normal x` at each match",
   }
 )
 
@@ -2586,8 +2584,8 @@ end
 --- Move to where a range starts, as `:5` does in Vim.
 function M.go(r: Range)
   keymap().push_jump()
-  if r.tracks then
-    paw.cursor.set_track(r.tracks[1])
+  if r.parts then
+    paw.cursor.set_part(r.parts[1])
   end
   if r.from then
     local a = adapter()
@@ -2663,14 +2661,14 @@ function M.exec(line: string, ctx?: Context): Result
     return run(range)
   end
 
-  if range.selection and not range.track_range then
+  if range.selection and not range.part_range then
     return keymap().with_selection(range.region, function(): Result return commands.run(name, parsed, ctx) end)
   end
-  if whole_tracks(range) then
-    -- Any command at each track, the cursor on it, as `:g` runs one at each match.
-    for _, id in ipairs(range.tracks) do
-      paw.cursor.set_track(id)
-      commands.run(name, parsed, with(ctx, {target = paw.address.track(id)}))
+  if whole_parts(range) then
+    -- Any command at each part, the cursor on it, as `:g` runs one at each match.
+    for _, id in ipairs(range.parts) do
+      paw.cursor.set_part(id)
+      commands.run(name, parsed, with(ctx, {target = paw.address.part(id)}))
     end
     return
   end
@@ -2739,7 +2737,7 @@ end
 -- Live preview ---------------------------------------------------------------------
 --
 -- While a line is typed, the views show what it would act on, as Neovim's
--- `inccommand` does: the stretch of time on the rulers, the tracks in the
+-- `inccommand` does: the stretch of time on the rulers, the parts in the
 -- headers, the matches lit, and what a replacement would make of them as
 -- ghosts in the piano roll. Nothing changes until Enter.
 
@@ -2753,8 +2751,8 @@ function M.mark(state: Shown, item: Item, change: Change | boolean)
   elseif item.kind == "clip" then
     state.clips[item.clip.id] = (state.clips[item.clip.id] or 0) + 1
   else
-    state.tracks = state.tracks or {}
-    state.tracks[item.track] = true
+    state.parts = state.parts or {}
+    state.parts[item.part] = true
   end
 end
 
@@ -2766,10 +2764,10 @@ local function preview_of(text: string): string, string
   local state: Shown = {matches = {}, notes = {}, clips = {}}
   if r then
     state.from, state.to = r.from, r.to
-    if r.tracks then
-      state.tracks = {}
-      for _, id in ipairs(r.tracks) do
-        state.tracks[id] = true
+    if r.parts then
+      state.parts = {}
+      for _, id in ipairs(r.parts) do
+        state.parts[id] = true
       end
     end
   end
@@ -2780,18 +2778,18 @@ local function preview_of(text: string): string, string
   end
   local base = name:gsub("!$", "")
   if base == "s" or base == "g" or base == "v" then
-    local parts = delimited(args or "", base == "s" and 3 or 2)
-    if not parts or (parts[1] == "" and not last.pattern) then
+    local portions = delimited(args or "", base == "s" and 3 or 2)
+    if not portions or (portions[1] == "" and not last.pattern) then
       return r and M.describe(r) or nil
     end
-    local pattern = M.pattern(parts[1] ~= "" and parts[1] or last.pattern)
+    local pattern = M.pattern(portions[1] ~= "" and portions[1] or last.pattern)
     local range = r or range_of({}, base == "s" and "." or "%")
     if not r then
       state.from, state.to = range.from, range.to
     end
     if base == "s" then
-      local replacement = parts[2] and M.replacement(parts[2], pattern) or nil
-      local items, chosen = M.substitution(range, pattern, replacement or {}, parts[3] or "")
+      local replacement = portions[2] and M.replacement(portions[2], pattern) or nil
+      local items, chosen = M.substitution(range, pattern, replacement or {}, portions[3] or "")
       for _, c in ipairs(chosen) do
         M.mark(state, c.item, replacement and c.change)
       end
@@ -2799,7 +2797,7 @@ local function preview_of(text: string): string, string
       if replacement and #chosen < #items then
         words = words .. string.format(", %d change (g: all)", #chosen)
       end
-      if replacement and #replacement == 0 and parts[3] then
+      if replacement and #replacement == 0 and portions[3] then
         words = words .. ", removed"
       end
       return words
@@ -2827,7 +2825,7 @@ function M.preview(text?: string): string, string
   -- a command name alone leaves the frame as it is.
   local function lit(): boolean
     local s = view_state
-    return s ~= nil and (s.from ~= nil or s.tracks ~= nil or #s.matches > 0)
+    return s ~= nil and (s.from ~= nil or s.parts ~= nil or #s.matches > 0)
   end
   local had = lit()
   view_state = nil
@@ -2852,7 +2850,7 @@ function M.preview(text?: string): string, string
   api.ui_redraw()
 end
 
---- What the views show now, for frontends and tests: `{ from, to, tracks,
+--- What the views show now, for frontends and tests: `{ from, to, parts,
 --- matches, notes, clips, current }`, or nil.
 function M.shown(): Shown
   return view_state
@@ -2873,14 +2871,14 @@ local function paint_roll(p: RollLayer)
       p.ruler:fill(from, 0, w, 1, nil, "ExRange")
     end
   end
-  for _, part in ipairs(p.parts or {{id = p.clip.id, offset = 0}}) do
-    local marks = s.notes[part.id]
+  for _, portion in ipairs(p.portions or {{id = p.clip.id, offset = 0}}) do
+    local marks = s.notes[portion.id]
     if marks then
-      local offset = part.offset or 0
+      local offset = portion.offset or 0
       for key, m in pairs(marks) do
         local n = m.item.note
         local cur = s.current
-        local current = cur and cur.kind == "note" and cur.clip.id == part.id and (cur.note.id or cur.place) == key
+        local current = cur and cur.kind == "note" and cur.clip.id == portion.id and (cur.note.id or cur.place) == key
         local x0, x1 = p.x(n.start + offset), p.x(n.start + n.length + offset)
         local row = p.row(n.pitch)
         if row then
@@ -2902,7 +2900,7 @@ end
 
 roll().layer("ex", 45, paint_roll)
 
--- The arrange view: the range on the ruler, its tracks marked in the
+-- The arrange view: the range on the ruler, its parts marked in the
 -- headers, clips that match (or hold notes that do) lit with how many.
 (paw.ui.views:get("arrange") as Arrange).layers.ex = function(_: Arrange, layer: ArrangeLayer)
   local s = view_state
@@ -2923,7 +2921,7 @@ ui().layer(
   45,
   function(c: PartLayer)
     local s = view_state
-    if s and s.tracks and s.tracks[c.track] then
+    if s and s.parts and s.parts[c.part] then
       c.buf:text(c.x, c.y, "▌", "ExCurrent")
     end
   end
@@ -2950,7 +2948,7 @@ ui().layer(
 
 -- Completion of ranges ---------------------------------------------------------------
 
---- What could finish a range being typed: marks after `'`, tracks after
+--- What could finish a range being typed: marks after `'`, parts after
 --- `t/`. Nil when the line is not in the middle of one.
 function M.complete_range(line: string): {commands.Entry}
   local before = line:match("^(.-)'%a?$")
@@ -2985,9 +2983,9 @@ function M.complete_range(line: string): {commands.Entry}
   if stem then
     local out: {commands.Entry} = {}
     for i, id in ipairs(scoped()) do
-      local name = api.track_get(id).name
+      local name = api.part_get(id).name
       if name:lower():find(stem:lower(), 1, true) then
-        out[#out + 1] = {text = "t/" .. name .. "/ ", label = "t/" .. name .. "/", desc = "track " .. i}
+        out[#out + 1] = {text = "t/" .. name .. "/ ", label = "t/" .. name .. "/", desc = "part " .. i}
       end
     end
     return out

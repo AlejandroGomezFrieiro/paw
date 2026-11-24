@@ -13,8 +13,8 @@
 -- freedesktop trash), never away; nothing is overwritten.
 --
 -- Enter opens a folder, a project (asking about unsaved work first), and
--- places a sound or MIDI file at the cursor's track and time; `go` brings
--- it in on a new track; `gh` hears it. The tree opens and closes folders
+-- places a sound or MIDI file at the cursor's part and time; `go` brings
+-- it in on a new part; `gh` hears it. The tree opens and closes folders
 -- with Enter and `za`.
 local api = paw.api
 local tb = paw.textbuf
@@ -449,34 +449,34 @@ end
 
 -- Opening ------------------------------------------------------------------------------
 
---- Place a sound or MIDI file at the cursor's track and time, or on a new
---- track (`fresh`); open a project; anything else is said not to open.
+--- Place a sound or MIDI file at the cursor's part and time, or on a new
+--- part (`fresh`); open a project; anything else is said not to open.
 local function place(path, fresh)
   local stat = api.fs_stat(path)
   if not stat then return paw.notify(path .. " is not there any more: `:e!` reads the folder again", "warn") end
   local name = basename(path)
   if is_sound(path) then
-    local track = not fresh and paw.cursor.track() or nil
-    local ok, clip = pcall(paw.import_audio, path, { track = track and track.id, start = paw.cursor.beat })
+    local part = not fresh and paw.cursor.part() or nil
+    local ok, clip = pcall(paw.import_audio, path, { part = part and part.id, start = paw.cursor.beat })
     if not ok then return paw.notify("could not place " .. name .. ": " .. tostring(clip), "error") end
     return paw.notify(
       string.format(
         "%s: %.1f beats on “%s” at %s",
         name,
         clip.length,
-        clip:track().name,
+        clip:part().name,
         paw.time.format(clip.start)
       )
     )
   end
   if is_midi(path) then
-    local track = not fresh and paw.cursor.track() or nil
-    local ok, done = pcall(paw.midifile.import, path, { track = track })
+    local part = not fresh and paw.cursor.part() or nil
+    local ok, done = pcall(paw.midifile.import, path, { part = part })
     if not ok then
       return paw.notify("could not place " .. name .. ": " .. tostring(done):gsub("^[^:]*:%d+: ", ""), "error")
     end
     return paw.notify(
-      string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
+      string.format("%s: %d notes on %d part%s", name, done.notes, #done.parts, #done.parts == 1 and "" or "s")
     )
   end
   if path:lower():match("%.json$") then return paw.commands.run("open", { path }) end
@@ -571,23 +571,23 @@ local function kind(name, tree)
       return text
     end,
     keywords = {},
-    first_style = "TrackName",
+    first_style = "PartName",
     keys = {
       { "<CR>", tree and "open, place" or "open, place a sound" },
       { "d", "trash", "dd" },
       { "o", "new" },
       { "y", "copy", "yyp" },
-      { "go", "new track" },
+      { "go", "new part" },
       { "gh", "hear" },
       { "-", "up" },
       { ":", "does it", ":w" },
       { "?", "keys" },
     },
     hint = tree
-        and "edit names and `:w` · Enter or `za` opens a folder · `dd` trash, `o` new (`name/` a folder), `yyp` copy · Enter places a sound · `go` new track · `gh` hear · `-` up"
-      or "edit names and `:w` · Enter opens, places a sound at the cursor · `dd` trash, `o` new (`name/` a folder), `yyp` copy · `go` new track · `gh` hear · `-` up",
+        and "edit names and `:w` · Enter or `za` opens a folder · `dd` trash, `o` new (`name/` a folder), `yyp` copy · Enter places a sound · `go` new part · `gh` hear · `-` up"
+      or "edit names and `:w` · Enter opens, places a sound at the cursor · `dd` trash, `o` new (`name/` a folder), `yyp` copy · `go` new part · `gh` hear · `-` up",
     style = function(cell, i)
-      if i == 1 then return cell:match("/$") and "Accent" or "TrackName" end
+      if i == 1 then return cell:match("/$") and "Accent" or "PartName" end
       if cell == "unused" then return "Warn" end
       return "Faint"
     end,
@@ -753,11 +753,11 @@ files_key("gH", function()
   paw.notify(paw.opt.files_hear and "hearing the file under the cursor" or "not hearing files as the cursor moves")
 end, "Files: hear each sound file as the cursor rests on it, or stop doing so")
 
--- A new track for the file, or one each for the lines selected.
+-- A new part for the file, or one each for the lines selected.
 files_key("go", function(buf, t, s)
   local line = t.lines[s.row]
   if line and line.id then place(line.id, true) end
-end, "Files: bring the file in on a new track")
+end, "Files: bring the file in on a new part")
 files_key("go", function(buf, t, s)
   local region = paw.keymap.selection()
   paw.keymap.set_mode("n")
@@ -766,6 +766,6 @@ files_key("go", function(buf, t, s)
     local line = t.lines[row]
     if line and line.id and not (api.fs_stat(line.id) or {}).dir then place(line.id, true) end
   end
-end, "Files: bring each file selected in on a track of its own", "x")
+end, "Files: bring each file selected in on a part of its own", "x")
 
 return M

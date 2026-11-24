@@ -1,19 +1,19 @@
 # How to route the outputs of a drum plugin
 
-You can give each output of a drum plugin a track of its own, so that you
-can mix each drum on its own track. The rules are in
+You can give each output of a drum plugin a part of its own, so that you
+can mix each drum on its own part. The rules are in
 [Routing](../reference/routing.md#instruments-with-several-outputs).
 
-1. Add the drum plugin to a track, open the device panel, and select the
+1. Add the drum plugin to a part, open the device panel, and select the
    plugin.
-2. Type `:device.spread`. paw makes a track for each output pair that
-   plays nowhere, with the name of the pair, and it puts the new tracks
-   and the drum track in a group.
-3. Play the song. Each drum now plays on its own track, and the device line
+2. Type `:device.spread`. paw makes a part for each output pair that
+   plays nowhere, with the name of the pair, and it puts the new parts
+   and the drum part in a group.
+3. Play the song. Each drum now plays on its own part, and the device line
    shows `outs 6/6`.
 
 To route only one pair, press `O` in the device panel, select the pair,
-and then select the track. Or type `:device.output 2 Kick`.
+and then select the part. Or type `:device.output 2 Kick`.
 
 To remove a route, type `:device.output 2 none`.
 

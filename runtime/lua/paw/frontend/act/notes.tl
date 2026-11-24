@@ -19,7 +19,7 @@ local A = M.act
 local by_beat = host.by_beat
 local note_snap = host.note_snap
 local to_arrange = host.to_arrange
-local type Part = host.Part
+local type Portion = host.Portion
 local type Point = host.Point
 local type Value = host.Value
 
@@ -102,17 +102,17 @@ end
 --- The clips a gesture on `clip` reaches, with how far each starts after
 --- it (`offset`): every clip the roll edits when it is one of them, else
 --- that clip alone.
-local function parts_for(clip: integer): {Part}
+local function portions_for(clip: integer): {Portion}
   local rc = paw.roll_clips
   if rc.editable(clip) then
-    local parts = rc.parts() as {Part}
+    local portions = rc.portions() as {Portion}
     -- Offsets count from the clip named, which is the active one when the
     -- gesture gives beats.
     local base = rc.offset(clip)
-    for _, part in ipairs(parts) do
-      part.offset = part.offset - base
+    for _, portion in ipairs(portions) do
+      portion.offset = portion.offset - base
     end
-    return parts
+    return portions
   end
   local c = api.clip_get(clip)
   return {{id = clip, clip = played(clip), offset = 0, start = c.start, length = c.length}}
@@ -123,10 +123,10 @@ end
 local function chosen_map(clip: integer): {integer: {integer}}, integer
   local map: {integer: {integer}} = {}
   local count = 0
-  for _, part in ipairs(parts_for(clip)) do
-    local places = M.chosen_notes(part.id)
+  for _, portion in ipairs(portions_for(clip)) do
+    local places = M.chosen_notes(portion.id)
     if #places > 0 then
-      map[part.id], count = places, count + #places
+      map[portion.id], count = places, count + #places
     end
   end
   return map, count
@@ -139,9 +139,9 @@ function M.chosen_refs(): {{integer}}
   if not active then
     return out
   end
-  for _, part in ipairs(parts_for(active)) do
-    for _, place in ipairs(M.chosen_notes(part.id)) do
-      out[#out + 1] = {part.id, place}
+  for _, portion in ipairs(portions_for(active)) do
+    for _, place in ipairs(M.chosen_notes(portion.id)) do
+      out[#out + 1] = {portion.id, place}
     end
   end
   return out
@@ -236,7 +236,7 @@ end
 --- which is then the one chosen note. `free` leaves it off the grid. A
 --- click gives no length (nil, or 0 or less): the note is the piano roll's
 --- note length (`set_note_length`); a drawn length becomes that length. A
---- click on a note shown behind the roll's own (another track's) makes its
+--- click on a note shown behind the roll's own (another part's) makes its
 --- clip the one the roll edits instead. With several clips edited the note
 --- goes into the one at `start`, the active one first.
 function A.add_note(clip: integer, pitch: integer, start: number, length?: number, free?: boolean): integer
@@ -248,12 +248,12 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
       return nil
     end
   end
-  local part = parts_for(clip)[1]
+  local portion = portions_for(clip)[1]
   if rc.editable(clip) then
-    part = rc.target(start + rc.offset(clip)) as Part
-    start = start + rc.offset(clip) - part.offset
+    portion = rc.target(start + rc.offset(clip)) as Portion
+    start = start + rc.offset(clip) - portion.offset
   end
-  local c = part.clip
+  local c = portion.clip
   free = free or not opt.note_snap
   start = snap_note(start, free)
   if start >= c.length or c:note_at(pitch, start) then
@@ -271,8 +271,8 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
       c, {pitch = pitch, start = start, length = math.min(length, c.length - start), velocity = opt.velocity}
     )
   )
-  c:track():play_note(pitch, opt.velocity, 150)
-  choose(part.id, {index})
+  c:part():play_note(pitch, opt.velocity, 150)
+  choose(portion.id, {index})
   return index
 end
 
@@ -286,18 +286,18 @@ function A.context_click(clip: integer, beat: number, pitch: number)
 end
 
 --- The clips list of the roll's side panel: make one active, edit it too
---- (or no longer), show a track's notes behind the roll's or not.
+--- (or no longer), show a part's notes behind the roll's or not.
 function A.roll_activate(_: integer, id: number)
   paw.roll_clips.activate(math.floor(id))
 end
 function A.roll_toggle_clip(_: integer, id: number)
   paw.roll_clips.toggle(math.floor(id))
 end
-function A.roll_show_track(_: integer, id: number)
-  local track = math.floor(id)
-  for _, t in ipairs(paw.roll_clips.tracks()) do
-    if t.id == track then
-      return paw.roll_clips.show_track(track, not t.on)
+function A.roll_show_part(_: integer, id: number)
+  local part = math.floor(id)
+  for _, t in ipairs(paw.roll_clips.parts()) do
+    if t.id == part then
+      return paw.roll_clips.show_part(part, not t.on)
     end
   end
 end
@@ -339,15 +339,15 @@ function A.select_notes_box(
   end
   local map: {integer: {integer}} = (mode == "add" or mode == "toggle") and chosen_map(clip) or {}
   local count = 0
-  for _, part in ipairs(parts_for(clip)) do
+  for _, portion in ipairs(portions_for(clip)) do
     local set: {integer: boolean} = {}
-    for _, place in ipairs(map[part.id] or {}) do
+    for _, place in ipairs(map[portion.id] or {}) do
       set[place] = true
     end
-    local notes, order = by_place(part.clip)
+    local notes, order = by_place(portion.clip)
     for _, place in ipairs(order) do
       local n = notes[place]
-      local start = n.start + part.offset
+      local start = n.start + portion.offset
       if n.start >= 0 and n.pitch >= pitch0 and n.pitch <= pitch1 and start < beat1 and start + n.length > beat0 then
         if mode == "toggle" and set[place] then
           set[place] = nil
@@ -360,7 +360,7 @@ function A.select_notes_box(
     for place in pairs(set) do
       out[#out + 1] = place
     end
-    map[part.id], count = out, count + #out
+    map[portion.id], count = out, count + #out
   end
   choose_all(map)
   return count
@@ -368,17 +368,17 @@ end
 
 function A.select_all_notes(clip: integer)
   local map: {integer: {integer}} = {}
-  for _, part in ipairs(parts_for(clip)) do
+  for _, portion in ipairs(portions_for(clip)) do
     local out: {integer} = {}
-    local notes, order = by_place(part.clip)
+    local notes, order = by_place(portion.clip)
     for _, place in ipairs(order) do
       local n = notes[place]
       -- Not those hidden by a trim of the clip's edges.
-      if n.start >= 0 and n.start < part.length then
+      if n.start >= 0 and n.start < portion.length then
         out[#out + 1] = place
       end
     end
-    map[part.id] = out
+    map[portion.id] = out
   end
   choose_all(map)
 end
@@ -404,12 +404,12 @@ local function grabbed(clip: integer, index: integer): {integer: {integer}}
 end
 
 --- The parts a map of chosen notes is in, each with its notes and places.
-local function grabbed_parts(clip: integer, map: {integer: {integer}}): {Part}
-  local out: {Part} = {}
-  for _, part in ipairs(parts_for(clip)) do
-    if map[part.id] then
-      part.notes, part.places = by_place(part.clip), map[part.id]
-      out[#out + 1] = part
+local function grabbed_portions(clip: integer, map: {integer: {integer}}): {Portion}
+  local out: {Portion} = {}
+  for _, portion in ipairs(portions_for(clip)) do
+    if map[portion.id] then
+      portion.notes, portion.places = by_place(portion.clip), map[portion.id]
+      out[#out + 1] = portion
     end
   end
   return out
@@ -434,15 +434,15 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
   if not held then
     return
   end
-  local parts = grabbed_parts(clip, grabbed(clip, index))
+  local portions = grabbed_portions(clip, grabbed(clip, index))
   local by = snap_note(held.start + dbeat, free) - held.start
   local up = math.floor((dpitch or 0) + 0.5)
   -- Nothing leaves its clip or the keyboard.
-  for _, part in ipairs(parts) do
-    for _, place in ipairs(part.places) do
-      local n = part.notes[place]
+  for _, portion in ipairs(portions) do
+    for _, place in ipairs(portion.places) do
+      local n = portion.notes[place]
       by = math.max(by, -n.start)
-      by = math.min(by, part.length - n.start - math.min(n.length, timegrid.step("note")))
+      by = math.min(by, portion.length - n.start - math.min(n.length, timegrid.step("note")))
       up = util.clamp(up, -n.pitch, 127 - n.pitch) as integer
     end
   end
@@ -450,12 +450,12 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
     return
   end
   local after: {integer: {Wanted}} = {}
-  for _, part in ipairs(parts) do
+  for _, portion in ipairs(portions) do
     local wanted: {Wanted} = {}
     local set: {objects.NoteChangeInput} = {}
     local add: {objects.NoteInput} = {}
-    for _, place in ipairs(part.places) do
-      local n = part.notes[place]
+    for _, place in ipairs(portion.places) do
+      local n = portion.notes[place]
       local moved: Wanted = {start = n.start + by, pitch = n.pitch + up}
       wanted[#wanted + 1] = moved
       if copy then
@@ -464,11 +464,11 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
         set[#set + 1] = {index = place, start = moved.start, pitch = moved.pitch}
       end
     end
-    part.clip:edit_notes({set = set, add = add})
-    after[part.id] = wanted
+    portion.clip:edit_notes({set = set, add = add})
+    after[portion.id] = wanted
   end
   if up ~= 0 then
-    paw.clip(clip):track():play_note(held.pitch + up, held.velocity, 120)
+    paw.clip(clip):part():play_note(held.pitch + up, held.velocity, 120)
   end
   local map: {integer: {integer}} = {}
   for id, wanted in pairs(after) do
@@ -484,7 +484,7 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
   if not held then
     return
   end
-  local parts = grabbed_parts(clip, grabbed(clip, index))
+  local portions = grabbed_portions(clip, grabbed(clip, index))
   local least = (free or not opt.note_snap) and 1 / 64 or timegrid.step("note")
   -- The grabbed note's end lands on the grid; the others change by as much.
   if dstart and dstart ~= 0 then
@@ -498,19 +498,19 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
     dlength = 0
   end
   local map: {integer: {integer}} = {}
-  for _, part in ipairs(parts) do
+  for _, portion in ipairs(portions) do
     local wanted: {Wanted} = {}
     local set: {objects.NoteChangeInput} = {}
-    for _, place in ipairs(part.places) do
-      local n = part.notes[place]
+    for _, place in ipairs(portion.places) do
+      local n = portion.notes[place]
       local stop = n.start + n.length
       local start = util.clamp(n.start + dstart, 0, stop - least)
-      local length = math.max(least, math.min(stop + dlength, part.length) - start)
+      local length = math.max(least, math.min(stop + dlength, portion.length) - start)
       wanted[#wanted + 1] = {start = start, pitch = n.pitch}
       set[#set + 1] = {index = place, start = start, length = length}
     end
-    part.clip:edit_notes({set = set})
-    map[part.id] = places_of(part.id, wanted)
+    portion.clip:edit_notes({set = set})
+    map[portion.id] = places_of(portion.id, wanted)
   end
   choose_all(map)
   return dlength ~= 0 or dstart ~= 0
@@ -518,8 +518,8 @@ end
 
 --- Take a note away, and with it the others if it is one of the chosen.
 function A.remove_note(clip: integer, index: integer)
-  for _, part in ipairs(grabbed_parts(clip, grabbed(clip, index))) do
-    part.clip:edit_notes({remove = part.places})
+  for _, portion in ipairs(grabbed_portions(clip, grabbed(clip, index))) do
+    portion.clip:edit_notes({remove = portion.places})
   end
   choose_all({})
 end
@@ -530,8 +530,8 @@ function A.remove_chosen_notes(clip: integer): boolean
   if count == 0 then
     return false
   end
-  for _, part in ipairs(grabbed_parts(clip, map)) do
-    part.clip:edit_notes({remove = part.places})
+  for _, portion in ipairs(grabbed_portions(clip, map)) do
+    portion.clip:edit_notes({remove = portion.places})
   end
   choose_all({})
   return true
@@ -546,7 +546,7 @@ function A.move_note(clip: integer, index: integer, start: number, pitch: intege
   local before = c:note(index)
   local at = c:set_note(index, {start = note_snap(start), pitch = pitch})
   if before and before.pitch ~= pitch then
-    c:track():play_note(pitch, before.velocity, 120)
+    c:part():play_note(pitch, before.velocity, 120)
   end
   return at
 end
@@ -566,19 +566,19 @@ function A.set_velocity(clip: integer, index: integer, velocity: number): intege
   if not among then
     return paw.clip(clip):set_note(index, {velocity = v})
   end
-  for _, part in ipairs(grabbed_parts(clip, map)) do
+  for _, portion in ipairs(grabbed_portions(clip, map)) do
     local set: {objects.NoteChangeInput} = {}
-    for i, place in ipairs(part.places) do
+    for i, place in ipairs(portion.places) do
       set[i] = {index = place, velocity = v}
     end
-    part.clip:edit_notes({set = set})
+    portion.clip:edit_notes({set = set})
   end
   choose_all(map)
 end
 
---- Hear a pitch on the track of the clip that is open: a click on the keyboard.
+--- Hear a pitch on the part of the clip that is open: a click on the keyboard.
 function A.audition(clip: integer, pitch: integer)
-  paw.clip(clip):track():play_note(util.clamp(pitch, 0, 127) as integer, opt.velocity, 250)
+  paw.clip(clip):part():play_note(util.clamp(pitch, 0, 127) as integer, opt.velocity, 250)
 end
 
 --- A note as `erase_notes` crosses it: where it shows in the roll.
@@ -606,13 +606,13 @@ function A.erase_notes(clip: integer, points: {Point}): integer
     return false
   end
   local count = 0
-  for _, part in ipairs(parts_for(clip)) do
+  for _, portion in ipairs(portions_for(clip)) do
     local hit: {integer} = {}
-    local notes, order = by_place(part.clip)
+    local notes, order = by_place(portion.clip)
     for _, place in ipairs(order) do
       local n = notes[place]
       -- Notes hidden by a trim of the clip's start are not there to cross.
-      local seen: Seen = {start = n.start + part.offset, length = n.length, pitch = n.pitch, hidden = n.start < 0}
+      local seen: Seen = {start = n.start + portion.offset, length = n.length, pitch = n.pitch, hidden = n.start < 0}
       for i = 1, #points do
         local a, b = points[i], points[math.min(i + 1, #points)]
         if crosses(seen, a[1], a[2], b[1], b[2]) then
@@ -622,7 +622,7 @@ function A.erase_notes(clip: integer, points: {Point}): integer
       end
     end
     if #hit > 0 then
-      part.clip:edit_notes({remove = hit})
+      portion.clip:edit_notes({remove = hit})
     end
     count = count + #hit
   end
@@ -636,8 +636,8 @@ end
 --- `low` to `high` (either way round). `mode` as for `select_note`.
 function A.select_pitches(clip: integer, low: number, high: number, mode?: string): integer
   local from, to: number, number = 0, paw.clip(clip).length
-  for _, part in ipairs(parts_for(clip)) do
-    from, to = math.min(from, part.offset), math.max(to, part.offset + part.length)
+  for _, portion in ipairs(portions_for(clip)) do
+    from, to = math.min(from, portion.offset), math.max(to, portion.offset + portion.length)
   end
   return A.select_notes_box(clip, from - 1, low, to + 1, high, mode)
 end
@@ -667,22 +667,22 @@ function A.draw_velocities(clip: integer, points: {Point}, reach?: number): inte
   end
   local map, chosen_count = chosen_map(clip)
   local count = 0
-  for _, part in ipairs(parts_for(clip)) do
+  for _, portion in ipairs(portions_for(clip)) do
     local only: {integer: boolean} = {}
-    for _, place in ipairs(map[part.id] or {}) do
+    for _, place in ipairs(map[portion.id] or {}) do
       only[place] = true
     end
     local set: {objects.NoteChangeInput} = {}
-    local notes, order = by_place(part.clip)
+    local notes, order = by_place(portion.clip)
     for _, place in ipairs(order) do
       local n = notes[place]
-      local start = n.start + part.offset
+      local start = n.start + portion.offset
       if (chosen_count == 0 or only[place]) and n.start >= 0 and start >= from - 1e-9 and start <= to + 1e-9 then
         set[#set + 1] = {index = place, velocity = util.clamp(math.floor(height(start) * 127 + 0.5), 1, 127) as integer}
       end
     end
     if #set > 0 then
-      part.clip:edit_notes({set = set})
+      portion.clip:edit_notes({set = set})
     end
     count = count + #set
   end
@@ -714,10 +714,10 @@ function A.quantize_notes(clip: integer, strength?: number): integer
   local some = chosen_count > 0
   local count = 0
   local after: {integer: {Wanted}} = {}
-  for _, part in ipairs(parts_for(clip)) do
-    local notes, order = by_place(part.clip)
+  for _, portion in ipairs(portions_for(clip)) do
+    local notes, order = by_place(portion.clip)
     -- The chosen notes, or every note with none chosen.
-    local places = map[part.id] or {}
+    local places = map[portion.id] or {}
     if not some then
       places = order
     end
@@ -728,15 +728,17 @@ function A.quantize_notes(clip: integer, strength?: number): integer
       picked[i] = notes[place]
     end
     -- On the grid of the clip, and each note stays inside it.
-    local moved = transform.quantize(picked, {grid = timegrid.step("note"), strength = strength, within = part.length})
+    local moved = transform.quantize(
+      picked, {grid = timegrid.step("note"), strength = strength, within = portion.length}
+    )
     for i, place in ipairs(places) do
       local n = moved[i]
       set[i] = {index = place, start = n.start, length = n.length}
       wanted[i] = {start = n.start, pitch = n.pitch}
     end
     if #set > 0 then
-      part.clip:edit_notes({set = set})
-      after[part.id] = wanted
+      portion.clip:edit_notes({set = set})
+      after[portion.id] = wanted
     end
     count = count + #set
   end

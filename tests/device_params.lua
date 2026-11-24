@@ -14,8 +14,8 @@ end
 
 test("device params: one description for each parameter of a built-in device", function()
   fresh()
-  local track = paw.add_track({ name = "lead" })
-  local synth = track:add_device("synth")
+  local part = paw.add_part({ name = "lead" })
+  local synth = part:add_device("synth")
   local d = synth:get()
   eq(d.plugin, nil, "a built-in device is not a plugin")
   local wave, cutoff = by_key(d, "wave"), by_key(d, "cutoff")
@@ -27,18 +27,15 @@ test("device params: one description for each parameter of a built-in device", f
   eq(cutoff.automatable, true, "it can be automated")
   eq(cutoff.read_only, false, "it takes values")
   eq(cutoff.automated, false, "nothing moves it yet")
-  api.lane_add(
-    track.id,
-    { target = "param", device = synth.id, param = "cutoff", points = { { 0, 200 }, { 4, 8000 } } }
-  )
+  api.lane_add(part.id, { target = "param", device = synth.id, param = "cutoff", points = { { 0, 200 }, { 4, 8000 } } })
   eq(by_key(synth:get(), "cutoff").automated, true, "a lane moves it")
 end)
 
 test("device params: values as text and back, the same as the device panel shows", function()
   fresh()
-  local track = paw.add_track({ name = "lead" })
-  local synth = track:add_device("synth")
-  local eqd = track:add_device("eq")
+  local part = paw.add_part({ name = "lead" })
+  local synth = part:add_device("synth")
+  local eqd = part:add_device("eq")
   for _, case in ipairs({
     { synth, "cutoff", 2500 },
     { synth, "gain", -18 },
@@ -61,8 +58,8 @@ end)
 
 test("device params: set by text and by the device's own id, and told with that id", function()
   fresh()
-  local track = paw.add_track({ name = "lead" })
-  local synth = track:add_device("synth")
+  local part = paw.add_part({ name = "lead" })
+  local synth = part:add_device("synth")
   api.device_set_param(synth.id, "cutoff", "1.2 kHz")
   eq(synth:get().params.cutoff, 1200, "a value given as text")
   api.device_set_param(synth.id, "Wave", "triangle")
@@ -90,8 +87,8 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     local kind, info = plugin_kind(format, "Limiter Stereo")
     if not kind then return "skipped: test plugins not found" end
     fresh()
-    local track = paw.add_track({ name = "lim" })
-    local fx = track:add_device(kind)
+    local part = paw.add_part({ name = "lim" })
+    local fx = part:add_device(kind)
     local d = fx:get()
     eq(d.plugin.format, format, "the plugin says its format")
     eq(d.plugin.id ~= "", true, "and its own id")
@@ -125,14 +122,14 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     if not kind then return "skipped: test plugins not found" end
     if format == "lv2" then return "skipped: an LV2 parameter's key is its own id" end
     fresh()
-    local track = paw.add_track({ name = "lim" })
-    local fx = track:add_device(kind)
+    local part = paw.add_part({ name = "lim" })
+    local fx = part:add_device(kind)
     local gain = by_key(fx:get(), "input_gain")
     -- A quarter of the way up: VST3 values go from 0 to 1, CLAP's in dB.
     local value = gain.min + (gain.max - gain.min) / 4
     api.device_set_param(fx.id, "input_gain", value)
     api.lane_add(
-      track.id,
+      part.id,
       { target = "param", device = fx.id, param = "input_gain", points = { { 0, gain.min }, { 4, gain.max } } }
     )
     local path = T.scratch .. "/ids-" .. format .. ".json"
@@ -148,7 +145,7 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     T.write_file(path, (text:gsub('"input_gain"', '"in_level"')))
     fresh()
     paw.project.load(path)
-    local loaded = paw.tracks()[1]:devices()[1]
+    local loaded = paw.parts()[1]:devices()[1]
     local p = api.device_param(loaded.id, gain.id)
     eq(p.key, "in_level", "the parameter takes the key the project knows it by")
     eq(p.name, gain.name, "it is the same parameter")
@@ -162,14 +159,14 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     if not kind then return "skipped: test plugins not found" end
     if format == "lv2" then return "skipped: an LV2 parameter's key is its own id" end
     fresh()
-    local track = paw.add_track({ name = "lim" })
-    local fx = track:add_device(kind)
+    local part = paw.add_part({ name = "lim" })
+    local fx = part:add_device(kind)
     local gain = by_key(fx:get(), "input_gain")
     local value = gain.min + (gain.max - gain.min) / 4
     api.device_set_param(fx.id, "input_gain", value)
     local dir = T.scratch .. "/chain-" .. format
     api.fs_mkdir(dir)
-    api.chain_write(track.id, dir .. "/devices.json")
+    api.chain_write(part.id, dir .. "/devices.json")
     local text = T.read_file(dir .. "/devices.json")
     eq(
       text:find('"input_gain": "' .. gain.id .. '"', 1, true) ~= nil,
@@ -179,8 +176,8 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     -- A new version of the plugin names the parameter otherwise.
     T.write_file(dir .. "/devices.json", (text:gsub('"input_gain"', '"in_level"')))
     fresh()
-    local other = paw.add_track({ name = "again" })
-    api.track_chain_file(other.id, dir .. "/devices.json", true)
+    local other = paw.add_part({ name = "again" })
+    api.part_chain_file(other.id, dir .. "/devices.json", true)
     local loaded = other:devices()[1]
     local p = api.device_param(loaded.id, gain.id)
     eq(p.key, "in_level", "the parameter takes the key of the chain file")
@@ -194,8 +191,8 @@ for _, format in ipairs({ "clap", "lv2", "vst3" }) do
     local project = T.scratch .. "/chain-project-" .. format
     paw.project.save(project)
     local found
-    for _, entry in ipairs(api.read_dir(project .. "/tracks")) do
-      local file = project .. "/tracks/" .. entry.name .. "/devices.json"
+    for _, entry in ipairs(api.read_dir(project .. "/parts")) do
+      local file = project .. "/parts/" .. entry.name .. "/devices.json"
       local saved = entry.is_dir and io.open(file) and T.read_file(file)
       if saved and saved:find('"in_level": "' .. gain.id .. '"', 1, true) then found = true end
     end

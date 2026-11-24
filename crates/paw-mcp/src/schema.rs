@@ -10,8 +10,8 @@ use serde_json::{Value, json};
 /// Tools that change the project: each is one undo step, and any of them may
 /// be a step of a `batch`.
 pub(crate) const BATCHABLE: [&str; 12] = [
-    "add_track",
-    "set_track",
+    "add_part",
+    "set_part",
     "add_clip",
     "edit_clip",
     "add_device",
@@ -44,7 +44,7 @@ pub(crate) fn integer() -> Value {
     json!({"type": "integer"})
 }
 
-pub(crate) fn track_ref(what: &str) -> Value {
+pub(crate) fn part_ref(what: &str) -> Value {
     either(
         integer(),
         text(),
@@ -179,7 +179,7 @@ pub(crate) fn send_spec(description: &str) -> Value {
             "type": "object",
             "description": "A send",
             "properties": {
-                "target": track_ref("Track to send to"),
+                "target": part_ref("Part to send to"),
                 "level": {"type": "number", "description": "Send level in dB (default 0)"}
             },
             "required": ["target"],
@@ -209,12 +209,12 @@ pub(crate) fn note_filter() -> Value {
 /// Instructions for the model, sent with `initialize`.
 pub(crate) const INSTRUCTIONS: &str = "\
 This server drives a session of paw (a personal audio workstation). Conventions:
-- Ids: tracks, devices, clips, notes, markers and automation lanes have numeric ids; get_project lists most (get_clip lists note ids). Tracks and markers can also be named. The master track is id 0 or \"master\".
+- Ids: parts, devices, clips, notes, markers and automation lanes have numeric ids; get_project lists most (get_clip lists note ids). Parts and markers can also be named. The master part is id 0 or \"master\".
 - Results: every tool answers in text and in structuredContent (JSON); prefer the JSON when you read values back.
 - Time: a JSON number is beats (quarter notes) from the start, 0 being the start. A string counts bars and beats from 1, in any of \"5.1\", \"5:1\", \"bar 5 beat 1\" (bar 5, beat 1). Note starts are relative to their clip; in the compact note strings (\"C4 2.5 1/8 90\") a bare number is beats and bar:beat takes a colon (\"1:3\"). Lengths may be beats, \"2 bars\" or a note value \"1/8\" (a whole note is 4 beats).
 - Pitches: note names with octave, middle C = C4 = MIDI 60; sharps # and flats b; chords as \"C4+E4+G4\".
 - Volumes and send levels in dB, pan -1..1. Device parameters in each parameter's own range (get_device).
-- Sound: a MIDI track needs an instrument device (built-in `synth` or `drums`, or a plugin) to make sound. diagnose says what will not be heard.
+- Sound: a MIDI part needs an instrument device (built-in `synth` or `drums`, or a plugin) to make sound. diagnose says what will not be heard.
 - Every typed write is one undo step named `mcp: ...` and is rolled back if it fails; use batch for several as one step. Results show the state afterwards, so there is no need to read again. undo says what it undid, and lists the history.
 - To check what you made, render it: the result measures loudness (LUFS), peaks, level per bar and spectrum.
 - The manual and an API reference are resources: paw://help/<page>, paw://reference/api, paw://reference/lua/<module>.";

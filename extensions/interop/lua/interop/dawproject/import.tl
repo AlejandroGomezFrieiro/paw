@@ -3,8 +3,8 @@
 --   local result = require("interop.dawproject.import").file("song.dawproject")
 --   print(result.report:text())     -- what could not be carried over, grouped
 --
--- The tracks of <Structure> become paw's tracks in the same order (a
--- nested track goes into its folder); <Arrangement> gives their clips and
+-- The parts of <Structure> become paw's parts in the same order (a
+-- nested part goes into its folder); <Arrangement> gives their clips and
 -- automation. Audio in the archive is copied into a folder beside it.
 --
 -- Written in Teal (paw/lang.tl): paw compiles it as it loads.
@@ -22,7 +22,7 @@ local type Element = pawxml.Element
 local type Report = reports.Report
 
 local record M
-  --- A device or plugin that could not come across, kept in the track's
+  --- A device or plugin that could not come across, kept in the part's
   --- meta (`dawproject_placeholders`) to be written back where it was.
   record Placeholder
     name: string
@@ -51,7 +51,7 @@ local INF = math.huge
 local db = interop.db
 
 --- What a parameter element of the file stands for: a parameter of a
---- device, or the volume, pan or mute of a track, or the level of a send.
+--- device, or the volume, pan or mute of a part, or the level of a send.
 local enum ParamKind
   "param"
   "volume"
@@ -62,7 +62,7 @@ end
 
 local record Param
   kind: ParamKind
-  track: integer
+  part: integer
   --- A parameter of a device: the device, its key, and its range in paw
   --- and in the file.
   device: integer
@@ -75,12 +75,12 @@ local record Param
   label: string
 end
 
---- A track of the file as it became a track of paw.
-local record TrackEntry
+--- A part of the file as it became a part of paw.
+local record PartEntry
   id: integer
   el: Element
   channel: Element
-  parent: TrackEntry
+  parent: PartEntry
   name: string
 end
 
@@ -92,16 +92,16 @@ local record Ctx
   dir: string
   media_dir: string
   report: Report
-  --- The tracks of paw by the id of their element in the file; the
+  --- The parts of paw by the id of their element in the file; the
   --- elements of a master that a merge leaves out are in `dropped`.
-  tracks: {string: integer}
+  parts: {string: integer}
   dropped: {string: boolean}
-  --- The track of each channel, by the channel's id.
+  --- The part of each channel, by the channel's id.
   channels: {string: integer}
   --- What each parameter element stands for, by its id.
   params: {string: Param}
-  --- The new tracks in order.
-  list: {TrackEntry}
+  --- The new parts in order.
+  list: {PartEntry}
   placeholders: {integer: {Placeholder}}
   --- The audio files of the archive written to disk, by their name in it.
   extracted: {string: string}
@@ -110,7 +110,7 @@ local record Ctx
   clips: integer
   devices: integer
   merge: boolean
-  --- The track whose lanes are being read, for the report.
+  --- The part whose lanes are being read, for the report.
   label: string
 end
 
@@ -211,11 +211,11 @@ local function param_key(dev: integer, pe: Element, plugin: boolean): types.Para
   end
 end
 
---- A device element on its way into a track: what finds it, its state
+--- A device element on its way into a part: what finds it, its state
 --- file, and its bypass.
 local record DeviceIn
   el: Element
-  track: integer
+  part: integer
   name: string
   device_id: string
   state: string
@@ -224,7 +224,7 @@ end
 
 --- Add a device of `kind`; nil and why when it does not load here.
 local function add_device(d: DeviceIn, kind: string, opts?: types.DeviceOptions): integer, string
-  local ok, dev = pcall(api.device_add, d.track, kind, opts or {}) as (boolean, integer)
+  local ok, dev = pcall(api.device_add, d.part, kind, opts or {}) as (boolean, integer)
   if not ok then
     return nil, "could not load here: " .. first_line(tostring(dev))
   end
@@ -300,7 +300,7 @@ end
 
 --- The parameters of a device, as automation targets (and their values
 --- for devices that have no state of their own).
-local function device_params(e: Element, id: integer, track: integer, set_params: boolean, ctx: Ctx, where: string)
+local function device_params(e: Element, id: integer, part: integer, set_params: boolean, ctx: Ctx, where: string)
   local tag = e.name
   local params = e:child("Parameters")
   local unknown: {string} = {}
@@ -311,7 +311,7 @@ local function device_params(e: Element, id: integer, track: integer, set_params
       if pid then
         ctx.params[pid] = {
           kind = "param",
-          track = track,
+          part = part,
           device = id,
           key = p.key,
           min = p.min,
@@ -333,7 +333,7 @@ local function device_params(e: Element, id: integer, track: integer, set_params
   end
 end
 
-local function import_device(e: Element, track: integer, ctx: Ctx, label: string, position: integer): integer
+local function import_device(e: Element, part: integer, ctx: Ctx, label: string, position: integer): integer
   local tag = e.name
   local name = attr(e, "deviceName") or attr(e, "name") or tag
   local where = label .. ": " .. name
@@ -342,7 +342,7 @@ local function import_device(e: Element, track: integer, ctx: Ctx, label: string
   local enabled = e:child("Enabled")
   local d: DeviceIn = {
     el = e,
-    track = track,
+    part = part,
     name = name,
     device_id = attr(e, "deviceID") or "",
     state = state_path and ctx.files[state_path],
@@ -351,9 +351,9 @@ local function import_device(e: Element, track: integer, ctx: Ctx, label: string
   local id, why, set_params = add_from(d, ctx, where)
   if not id then
     ctx.report:add("Plugins and devices left as placeholders", where .. " (" .. tostring(why) .. ")")
-    ctx.placeholders[track] = ctx.placeholders[track] or {}
+    ctx.placeholders[part] = ctx.placeholders[part] or {}
     table.insert(
-      ctx.placeholders[track],
+      ctx.placeholders[part],
       {
         name = name,
         format = tag,
@@ -366,57 +366,57 @@ local function import_device(e: Element, track: integer, ctx: Ctx, label: string
     return nil
   end
   ctx.devices = ctx.devices + 1
-  device_params(e, id, track, set_params, ctx, where)
+  device_params(e, id, part, set_params, ctx, where)
   return id
 end
 
 -- Structure ----------------------------------------------------------------------------
 
-local function import_channel(c: Element, track: integer, ctx: Ctx, label: string)
-  ctx.channels[attr(c, "id") or ""] = track
+local function import_channel(c: Element, part: integer, ctx: Ctx, label: string)
+  ctx.channels[attr(c, "id") or ""] = part
   local vol, p, mute = c:child("Volume"), c:child("Pan"), c:child("Mute")
   if vol then
-    api.track_set(track, {volume = level(vol)})
+    api.part_set(part, {volume = level(vol)})
   end
   if p then
-    api.track_set(track, {pan = pan(p)})
+    api.part_set(part, {pan = pan(p)})
   end
   if mute and attr(mute, "value") == "true" then
-    api.track_set(track, {mute = true})
+    api.part_set(part, {mute = true})
   end
-  if track ~= 0 and attr(c, "solo") == "true" then
-    api.track_set(track, {solo = true})
+  if part ~= 0 and attr(c, "solo") == "true" then
+    api.part_set(part, {solo = true})
   end
   if vol and attr(vol, "id") then
-    ctx.params[attr(vol, "id")] = {kind = "volume", track = track, max = num(vol, "max", 1)}
+    ctx.params[attr(vol, "id")] = {kind = "volume", part = part, max = num(vol, "max", 1)}
   end
   if p and attr(p, "id") then
-    ctx.params[attr(p, "id")] = {kind = "pan", track = track}
+    ctx.params[attr(p, "id")] = {kind = "pan", part = part}
   end
   if mute and attr(mute, "id") then
-    ctx.params[attr(mute, "id")] = {kind = "mute", track = track, label = label}
+    ctx.params[attr(mute, "id")] = {kind = "mute", part = part, label = label}
   end
   local devices = c:child("Devices")
   local position = 0
   for _, d in ipairs(devices and devices.children or {}) do
     if PLUGINS[d.name] then
       position = position + 1
-      import_device(d, track, ctx, label, position)
+      import_device(d, part, ctx, label, position)
     end
   end
 end
 
---- The tracks of <Structure> (and channels with no track), and the tracks
---- nested in a track.
-local function import_tracks(parent_el: Element, parent_track: TrackEntry, ctx: Ctx)
+--- The parts of <Structure> (and channels with no part), and the parts
+--- nested in a part.
+local function import_parts(parent_el: Element, parent_part: PartEntry, ctx: Ctx)
   for _, e in ipairs(parent_el.children) do
-    if e.name == "Track" or (e.name == "Channel" and not parent_track) then
+    if e.name == "Track" or (e.name == "Channel" and not parent_part) then
       local c = e.name == "Channel" and e or e:child("Channel")
       local name = attr(e, "name") or (c and attr(c, "name")) or nil
       local key = attr(e, "id") or ""
       local master = c and attr(c, "role") == "master"
       if master and not ctx.merge then
-        ctx.tracks[key] = 0
+        ctx.parts[key] = 0
         import_channel(c, 0, ctx, "Master")
       elseif master then
         -- Merged: what goes to the file's master goes to this project's.
@@ -424,27 +424,27 @@ local function import_tracks(parent_el: Element, parent_track: TrackEntry, ctx: 
         ctx.channels[attr(c, "id") or ""] = 0
         ctx.report:add("The master of the file (merged: the project keeps its own)", attr(e, "name") or "Master")
       else
-        local id = api.track_add({name = name})
-        local t: TrackEntry = {id = id, el = e, channel = c, parent = parent_track, name = api.track_get(id).name}
+        local id = api.part_add({name = name})
+        local t: PartEntry = {id = id, el = e, channel = c, parent = parent_part, name = api.part_get(id).name}
         ctx.list[#ctx.list + 1] = t
-        ctx.tracks[key] = id
+        ctx.parts[key] = id
         local color = attr(e, "color")
         if color and color:match("^#%x%x%x%x%x%x$") then
-          api.track_set(id, {color = color:lower()})
+          api.part_set(id, {color = color:lower()})
         end
         if c then
           import_channel(c, id, ctx, t.name)
         end
         if e.name == "Track" then
-          import_tracks(e, t, ctx)
+          import_parts(e, t, ctx)
         end
       end
     end
   end
 end
 
---- The sends of a channel, as paw's sends of its track.
-local function channel_sends(t: TrackEntry, c: Element, ctx: Ctx)
+--- The sends of a channel, as paw's sends of its part.
+local function channel_sends(t: PartEntry, c: Element, ctx: Ctx)
   local sends_el = c and c:child("Sends")
   local sends: {types.Send} = {}
   for _, s in ipairs(sends_el and sends_el:all("Send") or {}) do
@@ -471,14 +471,14 @@ local function channel_sends(t: TrackEntry, c: Element, ctx: Ctx)
     end
   end
   if #sends > 0 then
-    local ok, err = pcall(api.track_set, t.id, {sends = sends}) as (boolean, string)
+    local ok, err = pcall(api.part_set, t.id, {sends = sends}) as (boolean, string)
     if not ok then
       ctx.report:add("Routing", t.name .. ": sends: " .. tostring(err))
     end
   end
 end
 
---- The output of each track (its channel's destination, else its folder)
+--- The output of each part (its channel's destination, else its folder)
 --- and its sends.
 local function routing(ctx: Ctx)
   for _, t in ipairs(ctx.list) do
@@ -489,7 +489,7 @@ local function routing(ctx: Ctx)
       dest = t.parent.id
     end
     if dest and dest ~= 0 and dest ~= t.id then
-      local ok, err = pcall(api.track_set, t.id, {output = dest}) as (boolean, string)
+      local ok, err = pcall(api.part_set, t.id, {output = dest}) as (boolean, string)
       if not ok then
         ctx.report:add("Routing", t.name .. ": " .. tostring(err))
       end
@@ -643,7 +643,7 @@ end
 --- (`a` to `b`), its fades in beats, and how its content time runs.
 local record Clip
   el: Element
-  track: integer
+  part: integer
   name: string
   label: string
   muted: boolean
@@ -682,7 +682,7 @@ end
 
 local import_clip: function(
   c: Element,
-  track: integer,
+  part: integer,
   ctx: Ctx,
   place: function(number): number,
   parent_unit: string,
@@ -706,7 +706,7 @@ local function inner_clips(clip: Clip, ctx: Ctx)
   for _, ic in ipairs(inner) do
     import_clip(
       ic,
-      clip.track,
+      clip.part,
       ctx,
       inner_place,
       clip.unit,
@@ -795,7 +795,7 @@ local function audio_clip(clip: Clip, ctx: Ctx)
       opts.offset = math.max(0, file_at(clip.loop_start + into))
     end
   end
-  local ok, id = pcall(api.clip_add, clip.track, opts) as (boolean, integer)
+  local ok, id = pcall(api.clip_add, clip.part, opts) as (boolean, integer)
   if not ok then
     ctx.report:add("Unreadable media", clip.label .. ": " .. first_line(tostring(id)))
     return
@@ -850,7 +850,7 @@ local function midi_clip(clip: Clip, ctx: Ctx)
       opts.loop_start = opts.loop_start - opts.loop_length
     end
   end
-  local ok, id = pcall(api.clip_add, clip.track, opts) as (boolean, integer)
+  local ok, id = pcall(api.clip_add, clip.part, opts) as (boolean, integer)
   if not ok then
     ctx.report:add("Clips that could not be added", clip.label .. ": " .. first_line(tostring(id)))
     return
@@ -868,7 +868,7 @@ end
 --- between `lo` and `hi`.
 local function place_clip(
   c: Element,
-  track: integer,
+  part: integer,
   ctx: Ctx,
   place: function(number): number,
   parent_unit: string,
@@ -894,7 +894,7 @@ local function place_clip(
   local name = attr(c, "name") or outer.name
   local clip: Clip = {
     el = c,
-    track = track,
+    part = part,
     name = name,
     label = ctx.label .. ": " .. (name or "clip"),
     muted = attr(c, "enable") == "false" or outer.muted,
@@ -940,7 +940,7 @@ end
 --- `outer` holds what a parent clip adds (fades, mute, name).
 import_clip = function(
   c: Element,
-  track: integer,
+  part: integer,
   ctx: Ctx,
   place: function(number): number,
   parent_unit: string,
@@ -948,7 +948,7 @@ import_clip = function(
   hi: number,
   outer: Outer
 )
-  local clip = place_clip(c, track, ctx, place, parent_unit, lo, hi, outer)
+  local clip = place_clip(c, part, ctx, place, parent_unit, lo, hi, outer)
   if not clip then
     return
   end
@@ -1044,7 +1044,7 @@ local function import_points(p: Element, ctx: Ctx, unit: string)
   if dest.kind == "param" then
     opts.device, opts.param = dest.device, dest.key
   end
-  local ok, id = pcall(api.lane_add, dest.track, opts) as (boolean, integer)
+  local ok, id = pcall(api.lane_add, dest.part, opts) as (boolean, integer)
   if not ok then
     ctx.report:add("Automation", where .. ": " .. tostring(id))
     return
@@ -1061,8 +1061,8 @@ local function import_points(p: Element, ctx: Ctx, unit: string)
   end
 end
 
---- Content straight on a track: one clip that holds it.
-local function bare_content(e: Element, track: integer, unit: string, ctx: Ctx)
+--- Content straight on a part: one clip that holds it.
+local function bare_content(e: Element, part: integer, unit: string, ctx: Ctx)
   local clip = xml.element("Clip", {time = "0"})
   clip.children = {e}
   local last = 4.0
@@ -1070,12 +1070,12 @@ local function bare_content(e: Element, track: integer, unit: string, ctx: Ctx)
     last = math.max(last, num(n, "time", 0) + num(n, "duration", 0))
   end
   clip.attr.duration = tostring(last)
-  import_clip(clip, track, ctx, function(x: number): number return to_beats(x, unit) end, unit, -INF, INF, {})
+  import_clip(clip, part, ctx, function(x: number): number return to_beats(x, unit) end, unit, -INF, INF, {})
 end
 
---- Walk the arrangement's lanes, with the track and time unit each one
+--- Walk the arrangement's lanes, with the part and time unit each one
 --- inherits.
-local function walk_lanes(e: Element, ctx: Ctx, track: integer, unit: string)
+local function walk_lanes(e: Element, ctx: Ctx, part: integer, unit: string)
   local key = attr(e, "track")
   if key and ctx.dropped[key] then
     if #e.children > 0 then
@@ -1083,40 +1083,40 @@ local function walk_lanes(e: Element, ctx: Ctx, track: integer, unit: string)
     end
     return
   end
-  local t = key and ctx.tracks[key]
+  local t = key and ctx.parts[key]
   if key and t == nil then
     ctx.report:add("Lanes of tracks that are not in the file", key)
     return
   end
-  track = t or track
+  part = t or part
   unit = attr(e, "timeUnit") or unit
-  if track then
-    ctx.label = track == 0 and "Master" or api.track_get(track).name
+  if part then
+    ctx.label = part == 0 and "Master" or api.part_get(part).name
   end
   if e.name == "Lanes" then
     for _, c in ipairs(e.children) do
-      walk_lanes(c, ctx, track, unit)
+      walk_lanes(c, ctx, part, unit)
     end
   elseif e.name == "Clips" then
-    if not track then
+    if not part then
       ctx.report:add("Clips not on a track", "arrangement")
       return
     end
-    if track == 0 then
+    if part == 0 then
       ctx.report:add("Clips on the master (left out)", "Master")
       return
     end
     for _, c in ipairs(e:all("Clip")) do
-      import_clip(c, track, ctx, function(x: number): number return to_beats(x, unit) end, unit, -INF, INF, {})
+      import_clip(c, part, ctx, function(x: number): number return to_beats(x, unit) end, unit, -INF, INF, {})
     end
   elseif e.name == "Points" then
     import_points(e, ctx, unit)
   elseif e.name == "Notes" or e.name == "Audio" or e.name == "Warps" then
-    if not track or track == 0 then
+    if not part or part == 0 then
       ctx.report:add("Content not on a track", e.name)
       return
     end
-    bare_content(e, track, unit, ctx)
+    bare_content(e, part, unit, ctx)
   elseif e.name == "markers" or e.name == "Markers" then
     ctx.report:add("Markers of a track (left out)", ctx.label or "?")
   else
@@ -1253,17 +1253,17 @@ local function begin_project(files: {string: string}, root: Element, arr: Elemen
   api.project_set({name = title and title ~= "" and title or stem})
 end
 
---- Keep the devices that could not come across in their tracks' meta.
+--- Keep the devices that could not come across in their parts' meta.
 local function keep_placeholders(ctx: Ctx)
-  for track, holders in pairs(ctx.placeholders) do
-    local meta = api.track_get(track).meta or {}
+  for part, holders in pairs(ctx.placeholders) do
+    local meta = api.part_get(part).meta or {}
     meta.dawproject_placeholders = holders
-    api.track_set(track, {meta = meta})
+    api.part_set(part, {meta = meta})
   end
 end
 
 --- Import the files of an archive (name to contents). `opts.path` is
---- where it was read from; `opts.merge` adds its tracks to the project.
+--- where it was read from; `opts.merge` adds its parts to the project.
 function M.files(files: {string: string}, opts?: interop.Options): interop.Result
   opts = opts or {}
   local text = files["project.xml"]
@@ -1283,7 +1283,7 @@ function M.files(files: {string: string}, opts?: interop.Options): interop.Resul
     dir = dir,
     media_dir = opts.media_dir or (dir .. "/" .. stem .. " media"),
     report = reports.new("Not carried over from " .. name .. ":"),
-    tracks = {},
+    parts = {},
     dropped = {},
     channels = {},
     params = {},
@@ -1300,7 +1300,7 @@ function M.files(files: {string: string}, opts?: interop.Options): interop.Resul
   begin_project(files, root, arr, stem, ctx)
   local structure = root:child("Structure")
   if structure then
-    import_tracks(structure, nil, ctx)
+    import_parts(structure, nil, ctx)
   end
   routing(ctx)
   keep_placeholders(ctx)
@@ -1319,7 +1319,7 @@ function M.files(files: {string: string}, opts?: interop.Options): interop.Resul
   for i, t in ipairs(ctx.list) do
     ids[i] = t.id
   end
-  return {tracks = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices}
+  return {parts = ids, report = ctx.report, clips = ctx.clips, devices = ctx.devices}
 end
 
 --- Read a .dawproject file and import it.

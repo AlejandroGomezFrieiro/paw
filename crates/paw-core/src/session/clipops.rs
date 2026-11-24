@@ -81,14 +81,14 @@ impl Session {
             out.resize(frames, 0.0);
             out
         };
-        let part = AudioData {
+        let samples = AudioData {
             sample_rate: data.sample_rate,
             channels: [
                 take(&data.channels[0]).into(),
                 take(&data.channels[1]).into(),
             ],
         };
-        Ok((part, clip, gain))
+        Ok((samples, clip, gain))
     }
 
     /// A new file in the project's media directory, named after a clip.
@@ -103,7 +103,7 @@ impl Session {
 
     /// Play an audio clip backwards: a `reverse` in its edit list (or one
     /// taken away, when it was the last edit), and its offset where the same
-    /// part of the sound is. Its fades change ends too. Returns `{ edits }`,
+    /// samples of the sound is. Its fades change ends too. Returns `{ edits }`,
     /// how many edits the clip has.
     pub(crate) fn clip_reverse(&mut self, id: Id) -> Result<Value> {
         let (clip, file, offset, _) = self.audio_clip(id)?;
@@ -129,7 +129,7 @@ impl Session {
     }
 
     /// Add an edit to an audio clip's edit list, with its times counted from
-    /// where the clip starts in its sound: a gain on a part, or samples drawn
+    /// where the clip starts in its sound: a gain on a samples, or samples drawn
     /// over its own (a pencil fix). Returns how many edits it has.
     pub(crate) fn clip_edit_add(&mut self, id: Id, mut edit: AudioEdit) -> Result<usize> {
         let (_, _, offset, _) = self.audio_clip(id)?;
@@ -162,7 +162,7 @@ impl Session {
         if edits.is_empty() {
             return Ok(0);
         }
-        // Where the part it plays is in the file, with the reverses undone.
+        // Where the samples it plays is in the file, with the reverses undone.
         let reversed = edits.iter().filter(|e| **e == AudioEdit::Reverse).count() % 2 == 1;
         let back = if reversed {
             let length = self.audio.load(&file)?.seconds();
@@ -191,8 +191,8 @@ impl Session {
         if !level.is_finite() || level > 0.0 {
             bail!("normalize to a level in dB at or below 0, such as -1");
         }
-        let (part, _, _) = self.clip_samples(id)?;
-        let peak = part
+        let (samples, _, _) = self.clip_samples(id)?;
+        let peak = samples
             .channels
             .iter()
             .flatten()
@@ -212,20 +212,20 @@ impl Session {
         Ok(gain)
     }
 
-    /// Join audio clips of one track into one clip playing a new file: what
+    /// Join audio clips of one part into one clip playing a new file: what
     /// they play together, with their gains, fades and overlaps, and without
-    /// the track's devices, fader or pan. With one clip, it and every audio
-    /// clip on its track that touches or overlaps it, one after another.
+    /// the part's devices, fader or pan. With one clip, it and every audio
+    /// clip on its part that touches or overlaps it, one after another.
     pub(crate) fn clip_glue(&mut self, ids: &[Id]) -> Result<Value> {
         let first = *ids.first().context("no clips to glue")?;
-        let (track, _) = self
+        let (part, _) = self
             .doc.project
             .find_clip(first)
             .with_context(|| format!("no clip {first}"))?;
         let clips: Vec<Arc<Clip>> = self
             .doc.project
-            .track(track)
-            .context("no such track")?
+            .part(part)
+            .context("no such part")?
             .clips
             .to_vec();
         let chosen = glue_choice(&clips, ids, first)?;
@@ -240,7 +240,7 @@ impl Session {
             .map(|c| c.start + c.length)
             .fold(f64::NEG_INFINITY, f64::max);
 
-        let project = self.glue_project(track, &chosen)?;
+        let project = self.glue_project(part, &chosen)?;
         let first_clip = clips
             .iter()
             .find(|c| c.id == first)
@@ -290,7 +290,7 @@ impl Session {
         });
         let id = glued.id;
         self.doc.edit(|p| {
-            let t = p.track_mut(track).context("the track went away")?;
+            let t = p.part_mut(part).context("the part went away")?;
             let at = t
                 .clips
                 .iter()
@@ -305,16 +305,16 @@ impl Session {
 }
 
 impl Session {
-    /// A project of the chosen clips alone on a bare track, straight to a
+    /// A project of the chosen clips alone on a bare part, straight to a
     /// bare master.
-    fn glue_project(&mut self, track: Id, chosen: &[Id]) -> Result<crate::model::Project> {
+    fn glue_project(&mut self, part: Id, chosen: &[Id]) -> Result<crate::model::Project> {
         self.capture_states();
         let mut project = self.doc.project.clone();
-        project.tracks.retain(|t| t.id == track);
-        if track == MASTER_ID {
-            bail!("clips on the master track cannot be glued");
+        project.parts.retain(|t| t.id == part);
+        if part == MASTER_ID {
+            bail!("clips on the master part cannot be glued");
         }
-        let t = Arc::make_mut(&mut project.tracks[0]);
+        let t = Arc::make_mut(&mut project.parts[0]);
         t.clips.retain(|c| chosen.contains(&c.id));
         t.devices.clear();
         t.lanes.clear();
@@ -326,7 +326,7 @@ impl Session {
 }
 
 /// The clips to glue: the ones given, or with one clip, the run of audio
-/// clips that touch or overlap it. Each must be an audio clip of its track.
+/// clips that touch or overlap it. Each must be an audio clip of its part.
 fn glue_choice(clips: &[Arc<Clip>], ids: &[Id], first: Id) -> Result<Vec<Id>> {
     let audio = |c: &Clip| matches!(c.content, ClipContent::Audio { .. });
     let mut chosen: Vec<Id> = ids.to_vec();
@@ -358,7 +358,7 @@ fn glue_choice(clips: &[Arc<Clip>], ids: &[Id], first: Id) -> Result<Vec<Id>> {
         let c = clips
             .iter()
             .find(|c| c.id == *id)
-            .with_context(|| format!("clip {id} is not on the same track as clip {first}"))?;
+            .with_context(|| format!("clip {id} is not on the same part as clip {first}"))?;
         if !audio(c) {
             bail!("clip {id} is a MIDI clip: only audio clips are glued");
         }

@@ -1,7 +1,7 @@
 -- Importing OpenUtau (.ustx), UTAU (.ust) and other singing projects.
 --
 -- OpenUtau's own readers do the parsing: `paw-utau-engine --convert` loads
--- the file and writes it out as a Lua table, which becomes vocal tracks here.
+-- the file and writes it out as a Lua table, which becomes vocal parts here.
 local api = paw.api
 local engine = require("utau.engine")
 local utau = require("utau")
@@ -28,8 +28,8 @@ for _, abbr in ipairs(utau.CURVES) do
   CURVES[abbr] = true
 end
 
---- Add the tracks of a converted project after the existing ones. Returns the
---- new tracks' ids.
+--- Add the parts of a converted project after the existing ones. Returns the
+--- new parts' ids.
 function M.add(project, opts)
   opts = opts or {}
   local resolution = project.resolution or 480
@@ -65,20 +65,20 @@ function M.add(project, opts)
   end
   local added = {}
   for _, t in ipairs(project.tracks or {}) do
-    local track = api.track_add({ name = t.name ~= "" and t.name or "Vocal" })
-    local device = api.device_add(track, "utau", {})
-    added[#added + 1] = track
+    local part = api.part_add({ name = t.name ~= "" and t.name or "Vocal" })
+    local device = api.device_add(part, "utau", {})
+    added[#added + 1] = part
     local config = {}
     if t.singer ~= "" then config.singer = t.singer end
     if t.phonemizer ~= "" then config.phonemizer = t.phonemizer end
     if t.renderer ~= "" then config.renderer = t.renderer end
-    if next(config) then utau.configure(track, config) end
-    if t.mute then api.track_set(track, "mute", true) end
+    if next(config) then utau.configure(part, config) end
+    if t.mute then api.part_set(part, "mute", true) end
     local lanes = {}
-    for _, part in ipairs(t.parts or {}) do
-      local start = offset + part.pos / resolution
+    for _, vpart in ipairs(t.parts or {}) do
+      local start = offset + vpart.pos / resolution
       local notes = {}
-      for _, n in ipairs(part.notes or {}) do
+      for _, n in ipairs(vpart.notes or {}) do
         local props = {}
         for _, key in ipairs({ "tu", "po", "vb", "pp", "ex", "ph" }) do
           props[key] = n[key]
@@ -91,13 +91,13 @@ function M.add(project, opts)
           meta = { lyric = n.lyric, utau = next(props) and props or nil },
         }
       end
-      api.clip_add(track, {
-        name = part.name ~= "" and part.name or t.name,
+      api.clip_add(part, {
+        name = vpart.name ~= "" and vpart.name or t.name,
         start = start,
-        length = math.max(part.dur / resolution, 1 / resolution),
+        length = math.max(vpart.dur / resolution, 1 / resolution),
         notes = notes,
       })
-      for _, curve in ipairs(part.curves or {}) do
+      for _, curve in ipairs(vpart.curves or {}) do
         if CURVES[curve.abbr] then
           local points = lanes[curve.abbr] or {}
           lanes[curve.abbr] = points
@@ -109,13 +109,13 @@ function M.add(project, opts)
     end
     for abbr, points in pairs(lanes) do
       table.sort(points, function(a, b) return a[1] < b[1] end)
-      api.lane_add(track, { target = "param", device = device, param = abbr, points = points })
+      api.lane_add(part, { target = "param", device = device, param = abbr, points = points })
     end
   end
   return added
 end
 
---- Read a file and add its tracks.
+--- Read a file and add its parts.
 function M.file(path, opts) return M.add(M.read(path), opts) end
 
 return M

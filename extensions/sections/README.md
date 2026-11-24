@@ -8,13 +8,13 @@ one bar.
 Sections are text objects and motions, so your usual operators work on a
 full section. They are also the units that you arrange the song with, so you can move a chorus
 past the verse, repeat it, cut it, or copy it to another place. Each edit
-applies to every track and is one undo step.
+applies to every part and is one undo step.
 
 ```lua
 paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
 ```
 
-![The demo song named Intro and Verse with \Sa, [[ and ]] going between them, \S& repeats the verse after itself on every track, and u](images/tui-sections.gif)
+![The demo song named Intro and Verse with \Sa, [[ and ]] going between them, \S& repeats the verse after itself on every part, and u](images/tui-sections.gif)
 
 ## Try it
 
@@ -23,7 +23,7 @@ paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
    name `Intro` appears on a second row of the ruler.
 3. Move the cursor to bar 5. Press `\Sa`, type `Verse` and press Enter.
 4. Press `[[`, then `]]`, and the cursor goes to the start of each section.
-5. Press `\S&`, and the verse repeats after itself on every track. Press `u` to
+5. Press `\S&`, and the verse repeats after itself on every part. Press `u` to
    undo it.
 
 ## How to
@@ -45,7 +45,7 @@ paw.ext.load("extensions/sections")   -- or put it in ~/.config/paw/extensions
 
 Use the text object `is` after the operator:
 
-- `dis` empties the section on every track. With `paw.opt.ripple`, it
+- `dis` empties the section on every part. With `paw.opt.ripple`, it
   closes the gap.
 - `yis` yanks it, and `glis` loops it.
 - `>is` moves its clips, and `vis` selects it.
@@ -65,7 +65,7 @@ Use the text object `is` after the operator:
 - The section under the cursor is amber.
 - When the start of a section is past the left edge, its name stays at the
   left, after a `‹`.
-- The column where each section starts has a tint across the tracks.
+- The column where each section starts has a tint across the parts.
 - In the graphical window, the sections are a band under the ruler, each
   over its part. The section under the cursor is lit.
 
@@ -76,7 +76,7 @@ In the arrange view.
 | Keys | Effect |
 | --- | --- |
 | `]]` `[[` | `]]` goes to the start of the next section, and `[[` goes to the start of this section, or of the section before. A count goes further. After the last section, `]]` goes to the end of the project. They are motions, as in `d]]`, `y[[` and `v]]` |
-| `is` | text object for the section under the cursor, on every track. `2is` takes that section and the next |
+| `is` | text object for the section under the cursor, on every part. `2is` takes that section and the next |
 | `as` | the same text object, made wider to full bars (for a section that starts with a pickup) |
 | `<localleader>Sa` | adds a section at the cursor and asks for a name, and Tab offers the usual names |
 | `<localleader>Sr` | renames the section at the cursor |
@@ -85,9 +85,9 @@ In the arrange view.
 | `<localleader>Sl` | shows the list of sections |
 | `<localleader>SL` `<localleader>SH` | moves the section later, past the next section, or earlier, past the section before. A count moves it further |
 | `<localleader>S&` | repeats the section after itself, and moves the rest of the song later |
-| `<localleader>Sd` | deletes the section from every track and closes the gap, and the section goes into the register |
+| `<localleader>Sd` | deletes the section from every part and closes the gap, and the section goes into the register |
 | `<localleader>Sy` | yanks the section with its automation and marker |
-| `<localleader>Sp` `<localleader>SP` | inserts the register after or before the section at the cursor, on every track, and moves the rest later |
+| `<localleader>Sp` `<localleader>SP` | inserts the register after or before the section at the cursor, on every part, and moves the rest later |
 | `<localleader>Sc` | inserts a copy of a section, chosen from the list, before the section at the cursor |
 
 - Registers (`"a<localleader>Sy`), counts and `.` work as in all views.
@@ -118,13 +118,13 @@ matches exactly first, then without regard to case, and then by its start (`chor
 
 ### What moves
 
-- Each command that arranges acts on every track at the same time.
+- Each command that arranges acts on every part at the same time.
 - Clips across the edges of a section are cut there first, and the pieces go
   with their sections. A MIDI note belongs to the piece that it starts in,
   and becomes shorter to fit in it, as with the built-in operators.
 - A clip that moves keeps its id and its `meta`.
-- Automation lanes (volume, pan and device parameters, on every track and
-  the master track) move with their sections. Each piece of the song takes
+- Automation lanes (volume, pan and device parameters, on every part and
+  the master part) move with their sections. Each piece of the song takes
   the values of the lane at its edges as points, so a moved section sounds
   as before. Where it touches a different section, the lane steps from one
   value to the other, and paw then removes points that change nothing.
@@ -152,7 +152,7 @@ sections.remove(3)
 sections.set_start("Hook", 60)  -- moves the marker only
 sections.set({ { name = "A", start = 0 }, { name = "B", start = 32 } })
 
--- Arrange, on every track. Each returns the section at its new place.
+-- Arrange, on every part. Each returns the section at its new place.
 sections.move("Verse", 1)       -- past the next section. -1 past the section before
 sections.duplicate("Chorus")
 local value = sections.delete("Bridge")   -- a register value
@@ -170,7 +170,7 @@ paw.on("sections.changed", function(event) print(#event.sections) end)
   undo, redo, or a new or opened project. It sends the event when the command that
   changed the list returns, or at `paw.flush()`.
 - A register value from `sections.yank` or `sections.delete` is an ordinary
-  `range` value, so `p` and `P` paste it too, from the cursor track down,
+  `range` value, so `p` and `P` paste it too, from the cursor part down,
   without automation or markers. The value also has `lanes` and `sections`.
 
 ### Limits
@@ -178,11 +178,11 @@ paw.on("sections.changed", function(event) print(#event.sections) end)
 - The status line does not show the current section, because the extension adds no
   component to the status line, but the ruler keeps the name of the current
   section in view.
-- An insert finds tracks by their position, so if you add, remove or move
-  tracks between the yank and the insert, its clips go on the tracks that
+- An insert finds parts by their position, so if you add, remove or move
+  parts between the yank and the insert, its clips go on the parts that
   are now at those positions.
 - An insert finds automation by target, parameter and position of the
-  device on the track. paw drops a lane that has no match where the section
+  device on the part. paw drops a lane that has no match where the section
   goes.
 - Notes that sound across the edge of a section become shorter and do
   not continue into the next piece.

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::Session;
-use crate::model::{ClipContent, Project, Track};
+use crate::model::{ClipContent, Project, Part};
 
 /// Checkpoints between looks at what is still referred to.
 const EVERY: u32 = 64;
@@ -34,24 +34,24 @@ impl Session {
             return;
         }
         let mut keep: HashSet<PathBuf> = HashSet::new();
-        // Undo steps share the tracks they did not change: look at each once.
-        let mut seen: HashSet<*const Track> = HashSet::new();
+        // Undo steps share the parts they did not change: look at each once.
+        let mut seen: HashSet<*const Part> = HashSet::new();
         let mut add = |project: &Project| {
-            for track in project
-                .tracks
+            for part in project
+                .parts
                 .iter()
                 .chain(std::iter::once(&project.master))
             {
-                if !seen.insert(Arc::as_ptr(track)) {
+                if !seen.insert(Arc::as_ptr(part)) {
                     continue;
                 }
-                for clip in &track.clips {
+                for clip in &part.clips {
                     if let Some(ClipContent::Audio { file, .. }) = clip.playable() {
                         keep.insert(file.clone());
                     }
                     keep.extend(crate::freeze::block_file(clip));
                 }
-                keep.extend(crate::freeze::frozen_file(track));
+                keep.extend(crate::freeze::frozen_file(part));
             }
         };
         add(&self.doc.project);

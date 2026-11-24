@@ -101,7 +101,7 @@ local record model
 
   --- A module of the runtime as `paw` reaches it, by its shortest name
   --- (`paw.option`), with the name `require` gives it (nil for a class,
-  --- `paw.Track`).
+  --- `paw.Part`).
   record Module
     name: string
     table: Table
@@ -126,7 +126,7 @@ local record model
   end
 
   --- A module of the runtime in Teal. `hidden` when it is no value of
-  --- `paw` itself, but its values are (paw.objects gives `paw.Track`).
+  --- `paw` itself, but its values are (paw.objects gives `paw.Part`).
   record TealModule
     name: string
     module: string

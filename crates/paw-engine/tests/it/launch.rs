@@ -1,11 +1,11 @@
 //! Clips launched from slots start and stop on their boundary, to the frame,
-//! and the timeline is silent on a track while it plays a slot.
+//! and the timeline is silent on a part while it plays a slot.
 
 use std::sync::Arc;
 
 use paw_engine::launch::{Launch, SlotClip, Slots, Target};
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, SchedEntry, Schedule, PartSlot,
 };
 use paw_types::{Quantize, TempoMap, TempoPoint};
 
@@ -13,7 +13,7 @@ use crate::common::{SR, send};
 
 /// Frames in a beat at 120 BPM.
 const BEAT: usize = 24000;
-const TRACK: TrackSlot = TrackSlot(1);
+const PART: PartSlot = PartSlot(1);
 
 /// Sound that is `level` throughout, for ten seconds.
 fn steady(level: f32) -> Arc<AudioData> {
@@ -40,15 +40,15 @@ fn region(level: f32, start: f64, end: f64) -> AudioRegion {
     }
 }
 
-/// One track playing 0.25 on the timeline, with a slot 0 that plays 0.5
+/// One part playing 0.25 on the timeline, with a slot 0 that plays 0.5
 /// for `sounding` beats of every `length`, and a slot 1 that plays 0.125.
 fn engine(length: f64, sounding: f64) -> (Engine, EngineHandle) {
     let (engine, mut handle) = Engine::new(SR);
     send(
         &mut handle,
-        Msg::InsertTrack {
-            slot: TRACK,
-            track: paw_engine::TrackRt::new(),
+        Msg::InsertPart {
+            slot: PART,
+            part: paw_engine::PartRt::new(),
         },
     );
     let mut timeline = ClipSet::default();
@@ -56,7 +56,7 @@ fn engine(length: f64, sounding: f64) -> (Engine, EngineHandle) {
     send(
         &mut handle,
         Msg::SetClips {
-            track: TRACK,
+            part: PART,
             clips: Box::new(timeline),
         },
     );
@@ -68,15 +68,15 @@ fn engine(length: f64, sounding: f64) -> (Engine, EngineHandle) {
     send(
         &mut handle,
         Msg::SetSlots {
-            track: TRACK,
+            part: PART,
             slots: Box::new(Slots {
                 rows: vec![slot(0.5, length, sounding), slot(0.125, 4.0, 4.0)],
             }),
         },
     );
     let entries = vec![
-        SchedEntry::new(TRACK, TrackSlot::MASTER),
-        SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+        SchedEntry::new(PART, PartSlot::MASTER),
+        SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
     ];
     send(
         &mut handle,
@@ -101,7 +101,7 @@ fn run(engine: &mut Engine, frames: usize, block: usize) -> Vec<f32> {
 
 fn launch(target: Target, quantize: Quantize) -> Msg {
     Msg::Launch(Box::new([Launch {
-        track: TRACK,
+        part: PART,
         target,
         quantize,
         legato: false,
@@ -131,7 +131,7 @@ fn a_launch_lands_on_the_next_bar_to_the_frame_and_silences_the_timeline() {
         out.len(),
         "the slot alone is heard"
     );
-    let state = engine.shared().launch(TRACK).unwrap();
+    let state = engine.shared().launch(PART).unwrap();
     assert_eq!(state.playing, Target::Slot(0));
     assert_eq!(state.since, 4.0);
     assert!((state.phase - 2.0 - 1000.0 / BEAT as f64).abs() < 1e-6);
@@ -170,7 +170,7 @@ fn stopping_and_going_back_to_the_arrangement_wait_for_their_boundary() {
     );
     out.extend(run(&mut engine, BEAT, 256));
     assert_eq!(changes(&out, 0, 0.5), BEAT, "stops on the beat");
-    let state = engine.shared().launch(TRACK).unwrap();
+    let state = engine.shared().launch(PART).unwrap();
     assert_eq!(state.playing, Target::Arrangement);
     // Asked for 100 frames after 2.5 beats, so back on the next sixteenth.
     let back = BEAT * 11 / 4;
@@ -185,14 +185,14 @@ fn launches_sent_together_land_together_and_a_queued_one_shows() {
     run(&mut engine, 100, 100);
     send(&mut handle, launch(Target::Slot(1), Quantize::Bars(2)));
     run(&mut engine, 100, 100);
-    let state = engine.shared().launch(TRACK).unwrap();
+    let state = engine.shared().launch(PART).unwrap();
     assert_eq!(state.playing, Target::Arrangement);
     assert_eq!(state.queued, Some((Target::Slot(1), 8.0)));
     // A second launch replaces the first.
     send(&mut handle, launch(Target::Slot(0), Quantize::Bars(1)));
     let out = run(&mut engine, 5 * BEAT, 100);
     assert_eq!(changes(&out, 0, 0.25), 4 * BEAT - 200);
-    assert_eq!(engine.shared().launch(TRACK).unwrap().queued, None);
+    assert_eq!(engine.shared().launch(PART).unwrap().queued, None);
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn a_launch_past_the_end_of_the_loop_lands_where_the_loop_begins_again() {
     let at = changes(&out, 0, 0.25);
     assert!(at.abs_diff(BEAT - 375) <= 1, "{at}");
     assert_eq!(changes(&out, at, 0.5), out.len());
-    assert_eq!(engine.shared().launch(TRACK).unwrap().since, 0.0);
+    assert_eq!(engine.shared().launch(PART).unwrap().since, 0.0);
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn a_launch_counted_from_an_earlier_beat_starts_where_the_clip_would_have_got_to
     send(
         &mut handle,
         Msg::Launch(Box::new([Launch {
-            track: TRACK,
+            part: PART,
             target: Target::Slot(0),
             quantize: Quantize::Off,
             legato: false,

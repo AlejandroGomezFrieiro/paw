@@ -428,11 +428,11 @@ end
 
 -- What to export -------------------------------------------------------------------------------
 
---- The layout of a whole track: its MIDI clips' notes on one timeline, from
+--- The layout of a whole part: its MIDI clips' notes on one timeline, from
 --- the start of the project to the end of the last clip.
-function M.track_layout(track, opts, bars_of)
+function M.part_layout(part, opts, bars_of)
   local notes, finish = {}, 0
-  for _, clip in ipairs(track:clips()) do
+  for _, clip in ipairs(part:clips()) do
     local c = clip:get()
     if c.kind == "midi" then
       finish = math.max(finish, c.start + c.length)

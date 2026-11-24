@@ -10,7 +10,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw
 
-- `paw.add_track(opts)`: A new track, last unless `opts.index` says where: `opts` as `paw.api.track_add` takes them (`name`, `volume`, `output` as a track or an id, ...). In a window inside a subproject, the track is made in that subproject unless `opts.nest` says another.
+- `paw.add_part(opts)`: A new part, last unless `opts.index` says where: `opts` as `paw.api.part_add` takes them (`name`, `volume`, `output` as a part or an id, ...). In a window inside a subproject, the part is made in that subproject unless `opts.nest` says another.
 - `paw.buftype(name, def)`: Make a buffer type. See `docs/reference/lua-views.md`.
 
   ```lua
@@ -29,12 +29,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cmd(name, args, ctx)`: Run a command. `args` is a table of arguments. `ctx` adds fields such as `count`.
 - `paw.defer(fn, ms)`: Run `fn` once, after `ms` milliseconds (or when the current turn ends).
 - `paw.device(id)`: The device, clip or automation lane of an id, as an object.
-- `paw.device_types()`: Descriptions of each kind of device that you can add to a track. A kind that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
+- `paw.device_types()`: Descriptions of each kind of device that you can add to a part. A kind that an extension added (`paw.plugins.add_dir`) has its extension in `from`.
 - `paw.emit(event, payload)`: Call each handler for `event` (a name, or a descriptor). paw reports a handler that fails, and goes to the next. Returns true, or false and the reason when a handler returned `false, reason`. So a handler refuses the request of an event (`edit.before`, `project.saving`, `key.pre`).
 - `paw.every(ms, fn)`: Run `fn` every `ms` milliseconds. Returns a handle for `paw.cancel`.
 - `paw.failure(err)`: What a user sees of an error: one line, without the list of calls. The place in the code (`paw/x.lua:12:`) moves to the end, where it does not hide what went wrong. The whole error goes to the log.
 - `paw.flush()`: Push the edits made until now to the engine, and send their change events. The kernel does this at the end of each turn. Call `paw.flush()` to make handlers run sooner.
-- `paw.import_audio(path, opts)`: Bring a sound file into the project: on a new track named after the file (or on `opts.track`), at the cursor (or `opts.start`). Returns the clip.
+- `paw.import_audio(path, opts)`: Bring a sound file into the project: on a new part named after the file (or on `opts.part`), at the cursor (or `opts.start`). Returns the clip.
 - `paw.inspect(value, indent, seen)`: Render any value as readable Lua-like text.
 - `paw.is_audio_file(path)`: True if a path names a sound file, from its file ending.
 - `paw.is_chain_file(path)`: True if a path names a chain file of devices: a `devices.json`.
@@ -43,17 +43,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.off(id)`: Stop a listener: `id` is the value that `paw.on` or `paw.once` returned.
 - `paw.on(event, fn, opts)`: Listen for an event: in Lua its name or a pattern as text, in Teal its descriptor (`paw.events.event`). Returns a handle for `paw.off`. A name or a pattern as text that matches no event that a part of paw declares goes in the log (`:checkhealth events`).
 - `paw.once(event, fn)`: Listen for an event once: the handler is removed after its first call.
-- `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new track, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
-- `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one track with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the track.
+- `paw.open(path, opts)`: Open what a path names: a folder that is no project as a list of its files, a sound file as a new part, anything else as a project, with plugins offline as `opts` says (see `paw.loading.open`).
+- `paw.open_chain(path)`: Open a chain file (a `devices.json`) alone, as a new project with no file: one part with its devices, and the device panel on it. `:w` writes the chain back to its file. Returns the part.
+- `paw.part(which)`: A part by id, or by name.
+- `paw.parts()`: Every part, in order, as `paw.Part` objects (the master is `paw.master`).
 - `paw.redo`: the same as `paw.api.redo`.
 - `paw.render_cancel()`: Stop the render in the background, and the renders that wait after it. paw does not write its file. Returns true if a render ran.
 - `paw.render_status()`: The render in the background: `{ path, fraction, seconds, cancelling, stage, queued }`, or nil. `stage` is "rendering", or "encoding" when ffmpeg makes a lossy file from the render. Then `fraction` tells how far the encoding is.
-- `paw.render_tags(set)`: What the project's rendered files are tagged with (`project.meta.tags`): `paw.render_tags()` gives `{ title, artist, album, track, year, genre, comment, cover }` as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others, an empty string takes one out. A relative `cover` is from the project's directory.
-- `paw.restore_clip(snap, track)`: Add a clip from a snapshot to a track.
-- `paw.restore_device(snap, track, index)`: Add a device from a snapshot to a track, at the end of the chain or at the 1-based `index`.
-- `paw.restore_track(snap, index)`: Make a track from a snapshot, at a 1-based position in the track list.
-- `paw.track(which)`: A track by id, or by name.
-- `paw.tracks()`: Every track, in order, as `paw.Track` objects (the master is `paw.master`).
+- `paw.render_tags(set)`: What the project's rendered files are tagged with (`project.meta.tags`): `paw.render_tags()` gives `{ title, artist, album, part, year, genre, comment, cover }` as far as set; `paw.render_tags({ artist = "Me" })` sets those fields and keeps the others, an empty string takes one out. A relative `cover` is from the project's directory.
+- `paw.restore_clip(snap, part)`: Add a clip from a snapshot to a part.
+- `paw.restore_device(snap, part, index)`: Add a device from a snapshot to a part, at the end of the chain or at the 1-based `index`.
+- `paw.restore_part(snap, index)`: Make a part from a snapshot, at a 1-based position in the part list.
 - `paw.try(fn, ...)`: Call a function. If it fails, show the error as a message and do not raise it. Returns true and the results of the function, or false and the error. The message is the first lines of the error (`paw.failure`). The log keeps the list of calls.
 - `paw.undo`: the same as `paw.api.undo`.
 - `paw.wait`: the same as `paw.api.wait`.
@@ -90,8 +90,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 
   A handle from `Clip:shifted` leaves out each note that the shift takes below 0 or above 127. The places in the second value still count every note of the clip.
+- `paw.Clip:part()`: The part the clip is on.
 - `paw.Clip:peaks(n)`: The waveform of an audio clip: `n` { min, max, rms } entries. Each entry covers an equal part of the sound of the clip, scaled by its gain. It gives how far the wave goes each way (-1 to 1) and how loud it is there. paw keeps the result, so the code that draws can ask for it each frame.
-- `paw.Clip:remove()`: Take the clip out of its track.
+- `paw.Clip:remove()`: Take the clip out of its part.
 - `paw.Clip:remove_note(index)`: Remove the note at a place among the clip's notes (from 1).
 - `paw.Clip:set_controls(controls)`
 
@@ -104,7 +105,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.Clip:set_notes(notes)`: Replace every note of the clip with `notes` (as `add_note` takes each).
 - `paw.Clip:shifted(semitones)`: A handle on the same clip whose pitches are `semitones` above the stored ones. The notes that it reads, and the notes and pitches that it takes, are at those pitches. The piano roll edits a clip with a transpose through such a handle, so that it shows each note at the pitch it plays at.
 - `paw.Clip:snapshot()`: The clip as plain data, for `paw.restore_clip`.
-- `paw.Clip:track()`: The track the clip is on.
 
 ## Module paw.Device
 
@@ -126,9 +126,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.Device:info()`: The description of this device: its name, category, format, and its parameters with their ranges. A plugin's parameters are those of this instance, which is the only place they are known.
 - `paw.Device:lane(param)`: The lane for a parameter, if there is one.
 - `paw.Device:lanes()`: The automation lanes of the device's parameters, as `paw.Lane` objects.
-- `paw.Device:move(index, track)`: Move within the chain, or to another track: `device:move(1)`, `device:move(2, other)`.
+- `paw.Device:move(index, part)`: Move within the chain, or to another part: `device:move(1)`, `device:move(2, other)`.
 - `paw.Device:open_editor()`: Show the plugin's own window.
-- `paw.Device:remove()`: Take the device off its track.
+- `paw.Device:part()`: The part this device is on.
+- `paw.Device:remove()`: Take the device off its part.
 - `paw.Device:restart()`: Show the window of the plugin. `device.editor` is "open", "closed", or nil for devices that have no window. Start the device again: for a plugin that stopped (`stopped` tells why) or did not load. It returns with the last state of it in the project.
 - `paw.Device:set(name, value)`: Set one parameter, or several from a table.
 
@@ -137,11 +138,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   device:set({ cutoff = 800, resonance = 0.4 })
   ```
 - `paw.Device:set_offline(on)`: Set the device offline, or online again. An offline device is not made (a plugin has no process), and the chain passes over it. Its state and parameters do not change.
-- `paw.Device:set_output(pair, track)`: Play the output pair `pair` of the device (2 and more: the first pair plays on its own track) into a track, or nowhere with nil. `device.outputs` is a table of pair number to track id. `device.ports.outputs` names the pairs.
-- `paw.Device:set_sidechain(track, opts)`: Listen to the sound of a different track as the side-chain of the device. With `comp:set_sidechain(kick)`, a compressor on the bass ducks under the kick. `{ pre = true }` takes the sound before the fader, pan and mute of that track. nil (or no track) removes the side-chain. `device.sidechain` is the id of the track.
+- `paw.Device:set_output(pair, part)`: Play the output pair `pair` of the device (2 and more: the first pair plays on its own part) into a part, or nowhere with nil. `device.outputs` is a table of pair number to part id. `device.ports.outputs` names the pairs.
+- `paw.Device:set_sidechain(part, opts)`: Listen to the sound of a different part as the side-chain of the device. With `comp:set_sidechain(kick)`, a compressor on the bass ducks under the kick. `{ pre = true }` takes the sound before the fader, pan and mute of that part. nil (or no part) removes the side-chain. `device.sidechain` is the id of the part.
 - `paw.Device:snapshot()`: The device as plain data, for `paw.restore_device`. For a plugin, the data contains its state, which holds more than its parameters.
 - `paw.Device:state_lane()`: The device's state lane, if it has one.
-- `paw.Device:track()`: The track this device is on.
 - `paw.Device:value_at(param, beat)`: The value of a parameter at a beat while the song plays. This is the value of the lane when the lane is on. If not, it is the value of the device.
 
 ## Module paw.Lane
@@ -151,6 +151,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.Lane:clear()`: Remove every point of the lane.
 - `paw.Lane:exists()`: True if the lane is still in the project.
 - `paw.Lane:get()`: Everything about the lane as plain data (`paw.api.lane_get`).
+- `paw.Lane:part()`: The part the lane belongs to.
 - `paw.Lane:points()`: The points as a list of { beat, value }, sorted by beat.
 - `paw.Lane:remove()`: Take the lane away, and the automation in it.
 - `paw.Lane:set_points(points)`: Replace the points: `lane:set_points({ { 0, -60 }, { 8, 0 } })`. Points may also be written { beat = 0, value = -60 }.
@@ -161,83 +162,82 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```
 - `paw.Lane:state_index(which)`: The index of a state of a state lane, by its name or its index. Nil when the lane has no such state.
 - `paw.Lane:states()`: The states of a state lane: `{ name, state, params, call, program, bank }` each.
-- `paw.Lane:track()`: The track the lane belongs to.
 - `paw.Lane:value_at(beat)`: The value at a beat, when the lane is on and when it is off. Nil without points.
 
-## Module paw.Track
+## Module paw.Part
 
-- `paw.Track:add_clip(opts)`: Add a clip. With `file` it is an audio clip, otherwise a MIDI clip.
-
-  ```lua
-  track:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
-  track:add_clip({ start = 8, file = "take1.wav" })
-  ```
-- `paw.Track:add_device(kind, params, opts)`: Add a device to the end of the chain, or at the 1-based `opts.index`.
+- `paw.Part:add_clip(opts)`: Add a clip. With `file` it is an audio clip, otherwise a MIDI clip.
 
   ```lua
-  track:add_device("synth", { cutoff = 800 })
+  part:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
+  part:add_clip({ start = 8, file = "take1.wav" })
   ```
-- `paw.Track:automate(target)`: The lane for "volume" or "pan", made if there is none yet.
+- `paw.Part:add_device(kind, params, opts)`: Add a device to the end of the chain, or at the 1-based `opts.index`.
 
   ```lua
-  track:automate("volume"):set_points({ { 0, -60 }, { 8, 0 } })
+  part:add_device("synth", { cutoff = 800 })
   ```
-- `paw.Track:clip_at(beat)`: The clip that covers `beat`, if any. Where two clips overlap, the later clip wins.
-- `paw.Track:clips()`: The track's clips, as `paw.Clip` objects.
-- `paw.Track:device(which)`: The first device of a kind, or the device at a 1-based position.
-- `paw.Track:devices()`: The track's devices in the order they process, as `paw.Device` objects.
-- `paw.Track:duplicate()`: Copy the track with its devices, clips and automation, and put the copy after it.
-- `paw.Track:exists()`: True if the track is still in the project.
-- `paw.Track:get()`: A plain table with every field of the track, read once.
-- `paw.Track:lane(target)`: The lane for "volume" or "pan", if there is one.
-- `paw.Track:lanes()`: The automation lanes of the track, its devices' included.
-- `paw.Track:meter()`: Peak level as linear `left, right`.
-- `paw.Track:midi(event)`: Send a MIDI message to this track's devices now, outside the timeline: a controller, the pitch wheel, pressure, or with `key` one note's own.
+- `paw.Part:automate(target)`: The lane for "volume" or "pan", made if there is none yet.
 
   ```lua
-  track:midi({ type = "cc", number = 1, value = 0.5 })
-  track:midi({ type = "bend", value = -0.25 })
-  track:midi({ type = "bend", key = "C4", value = 0.1 })
+  part:automate("volume"):set_points({ { 0, -60 }, { 8, 0 } })
   ```
-- `paw.Track:move(index)`: Move to a 1-based position in the track list.
-- `paw.Track:note_off(pitch)`: Stop a note, or every note when `pitch` is left out.
-- `paw.Track:note_on(pitch, velocity, attr)`: Start a note now, outside the timeline. `pitch` may be a name like "C4". With `attr`, a MIDI 2.0 attribute (`paw.attr`), the note carries it, and what the track's `attr_map` sends for it goes first.
-- `paw.Track:play_note(pitch, velocity, ms, attr)`: Play a note for `ms` milliseconds (default 200), with `attr` if given.
-- `paw.Track:remove()`: Take the track out of the project, with its clips and devices.
-- `paw.Track:send(target, level, opts)`: Send some of this track's output to another track. `level` is in dB. With `{ pre = true }` the send is taken before the fader and pan, so it keeps its level when the fader moves: `vocal:send(reverb, -6, { pre = true })`.
-- `paw.Track:snapshot()`: Everything about the track as plain data: its settings, devices (plugins with their state), clips and automation. `paw.restore_track` makes a track from it again, in this project or after the original is gone.
-- `paw.Track:value_at(target, beat)`: The value of "volume" or "pan" at a beat while the song plays. This is the value of the lane when the lane is on. If not, it is the value of the track.
+- `paw.Part:clip_at(beat)`: The clip that covers `beat`, if any. Where two clips overlap, the later clip wins.
+- `paw.Part:clips()`: The part's clips, as `paw.Clip` objects.
+- `paw.Part:device(which)`: The first device of a kind, or the device at a 1-based position.
+- `paw.Part:devices()`: The part's devices in the order they process, as `paw.Device` objects.
+- `paw.Part:duplicate()`: Copy the part with its devices, clips and automation, and put the copy after it.
+- `paw.Part:exists()`: True if the part is still in the project.
+- `paw.Part:get()`: A plain table with every field of the part, read once.
+- `paw.Part:lane(target)`: The lane for "volume" or "pan", if there is one.
+- `paw.Part:lanes()`: The automation lanes of the part, its devices' included.
+- `paw.Part:meter()`: Peak level as linear `left, right`.
+- `paw.Part:midi(event)`: Send a MIDI message to this part's devices now, outside the timeline: a controller, the pitch wheel, pressure, or with `key` one note's own.
+
+  ```lua
+  part:midi({ type = "cc", number = 1, value = 0.5 })
+  part:midi({ type = "bend", value = -0.25 })
+  part:midi({ type = "bend", key = "C4", value = 0.1 })
+  ```
+- `paw.Part:move(index)`: Move to a 1-based position in the part list.
+- `paw.Part:note_off(pitch)`: Stop a note, or every note when `pitch` is left out.
+- `paw.Part:note_on(pitch, velocity, attr)`: Start a note now, outside the timeline. `pitch` may be a name like "C4". With `attr`, a MIDI 2.0 attribute (`paw.attr`), the note carries it, and what the part's `attr_map` sends for it goes first.
+- `paw.Part:play_note(pitch, velocity, ms, attr)`: Play a note for `ms` milliseconds (default 200), with `attr` if given.
+- `paw.Part:remove()`: Take the part out of the project, with its clips and devices.
+- `paw.Part:send(target, level, opts)`: Send some of this part's output to another part. `level` is in dB. With `{ pre = true }` the send is taken before the fader and pan, so it keeps its level when the fader moves: `vocal:send(reverb, -6, { pre = true })`.
+- `paw.Part:snapshot()`: Everything about the part as plain data: its settings, devices (plugins with their state), clips and automation. `paw.restore_part` makes a part from it again, in this project or after the original is gone.
+- `paw.Part:value_at(target, beat)`: The value of "volume" or "pan" at a beat while the song plays. This is the value of the lane when the lane is on. If not, it is the value of the part.
 
 ## Module paw.address
 
 - `paw.address.children(uri)`: What an address holds, one level down.
 - `paw.address.clip(id)`: A clip's address.
-- `paw.address.device(id)`: A device's address, under its track's.
+- `paw.address.device(id)`: A device's address, under its part's.
 - `paw.address.edit(changes, label)`: Do a workspace edit. paw checks each change first, and does nothing unless it can do all changes. Then it makes all of them as one undo step with the label `label`. Returns true, or nil and the reason.
 
   ```lua
-  paw.address.edit({ { uri = "paw://track/3", set = { volume = -6 } },
+  paw.address.edit({ { uri = "paw://part/3", set = { volume = -6 } },
                      { uri = "paw://clip/7/note/41", set = { pitch = 62 } } }, "Lower the bass")
   ```
 - `paw.address.find_note(clip, id)`: The note of a clip with an id, and its place in the clip (from 1).
 - `paw.address.lane(id)`: An automation lane's address.
 - `paw.address.location(uri, selector)`: A location: an address and, optionally, a part of it.
 - `paw.address.marker(id)`: A marker's address.
-- `paw.address.matches(pattern, uri)`: True if an address matches a pattern: `paw://track/*` (one level), `paw://track/**` (any depth), or an exact address.
+- `paw.address.matches(pattern, uri)`: True if an address matches a pattern: `paw://part/*` (one level), `paw://part/**` (any depth), or an exact address.
 - `paw.address.note(clip, id)`: A note's address: its clip, and the note's id there.
-- `paw.address.of(object)`: The address of an object of the Lua interface (`paw.track(3)`, `paw.clip(7)`, a device), or of a table from `paw.api` (with its fields).
+- `paw.address.of(object)`: The address of an object of the Lua interface (`paw.part(3)`, `paw.clip(7)`, a device), or of a table from `paw.api` (with its fields).
 - `paw.address.param(device, key)`: A device parameter's address, by its key.
-- `paw.address.parent(uri)`: The address that holds this one (a note's clip, a device's track), or nil.
-- `paw.address.parse(uri)`: An address in parts: `{ kind = "note", track?, device?, param?, send?, clip?, note?, lane?, marker?, control?, number?, path?, segments }`, or nil when it is not one. The fragment (`#mix`) is kept as `fragment`.
-- `paw.address.project()`: The addresses of the project, the tempo map, a track, a clip and a note. Also the addresses of a lane, a marker, a rendered file and a send, as `parse` reads them.
+- `paw.address.parent(uri)`: The address that holds this one (a note's clip, a device's part), or nil.
+- `paw.address.parse(uri)`: An address in parts: `{ kind = "note", part?, device?, param?, send?, clip?, note?, lane?, marker?, control?, number?, path?, segments }`, or nil when it is not one. The fragment (`#mix`) is kept as `fragment`.
+- `paw.address.part(id)`: A part's address.
+- `paw.address.part_of(uri)`: The part an address belongs to, if any.
+- `paw.address.project()`: The addresses of the project, the tempo map, a part, a clip and a note. Also the addresses of a lane, a marker, a rendered file and a send, as `parse` reads them.
 - `paw.address.render(path)`: A rendered file's address.
 - `paw.address.resolve(uri)`: What an address names, as `paw.api` has it (a note also says its `place`; a parameter is `{ key, value, info }`), or nil when it is gone.
 - `paw.address.scheme(name, spec)`: Add a kind of address, `paw://<name>/...`, for the data of an extension (the phrases of the vocal editor, the measures of a score). `spec.resolve(uri, parts)` gives the item or nil. The optional fields are `of(object)`, `children(uri, parts)` and `parent(uri, parts)`. For the quickfix list, `go(location, parts)` goes to an item and `where(location, parts)` names it in a few words. `edit(change, parts)` applies the change of a workspace edit to it. It must make its edits through `paw.api`, so the edits join the undo step.
-- `paw.address.send(track, target)`: The address of a track's send to another.
+- `paw.address.send(part, target)`: The address of a part's send to another.
 - `paw.address.tempo()`: The tempo map's address.
-- `paw.address.track(id)`: A track's address.
-- `paw.address.track_of(uri)`: The track an address belongs to, if any.
-- `paw.address.within(uri, ancestor)`: True if `uri` is `ancestor` or is inside it (a note inside its clip, a parameter inside its device and track). All addresses are inside the project.
+- `paw.address.within(uri, ancestor)`: True if `uri` is `ancestor` or is inside it (a note inside its clip, a parameter inside its device and part). All addresses are inside the project.
 
 ## Module paw.annotation
 
@@ -247,7 +247,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.attr
 
-- `paw.attr.delay_of(track, attr)`: The milliseconds that a note with `attr` (nil for none) on `track` plays early (below 0) or late, from the `attr_map` of the track. So a library that speaks slowly still sounds on the beat. 0 without a map.
+- `paw.attr.delay_of(part, attr)`: The milliseconds that a note with `attr` (nil for none) on `part` plays early (below 0) or late, from the `attr_map` of the part. So a library that speaks slowly still sounds on the beat. 0 without a map.
 - `paw.attr.describe(attr)`: What an attribute is, for people: `{ code, tag, name, class, text }` (`code` and `class` only for articulations), where `tag` is a few letters for the piano roll and `text` one line for `K`. Nil for none.
 - `paw.attr.m2(code, opts)`: An articulation's code as an attribute, or an attribute as its code (nil when it is not an articulation of M2-123). `opts` adds what a code leaves out: `variation` (0 to 15), `direction` ("down", "up", 1 or 2), `string` (1 to 7, highest first), `reset` (round robin).
 - `paw.attr.parts(attr)`: The fields of an attribute's data, as M2-123 lays them out: `{ type, data, subclass, variation, direction, reset, string }`. Nil for none.
@@ -255,18 +255,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.audio
 
-- `paw.audio.choices(track)`: All the possible inputs of a track, in order, under three headings (`group`). "audio" is none, each channel of the input device, and each pair of adjacent channels. "midi" is all ports, or one. "channel" is all MIDI channels, or one. Each is `{ group, label, checked, value }`. Give it to `M.choose`. A saved choice that is not available now is also in the list, marked as not found. So you can see it and change it.
-- `paw.audio.choose(track, choice)`: Use a choice from `M.choices`. A track hears a MIDI port or channel only when it has no audio input. So a MIDI choice removes the audio input.
+- `paw.audio.choices(part)`: All the possible inputs of a part, in order, under three headings (`group`). "audio" is none, each channel of the input device, and each pair of adjacent channels. "midi" is all ports, or one. "channel" is all MIDI channels, or one. Each is `{ group, label, checked, value }`. Give it to `M.choose`. A saved choice that is not available now is also in the list, marked as not found. So you can see it and change it.
+- `paw.audio.choose(part, choice)`: Use a choice from `M.choices`. A part hears a MIDI port or channel only when it has no audio input. So a MIDI choice removes the audio input.
 - `paw.audio.choose_engine(choice)`: Take a choice from `M.engine_choices`.
 - `paw.audio.device()`: The input device's short name, or nil when there is none.
 - `paw.audio.devices`: the same as `paw.api.audio_devices`.
 - `paw.audio.engine_choices()`: The choices of the devices, under the headings (`group`) "output", "input", "block", "rate" and "backend" (the sound system). Each is `{ group, label, checked, value }` for `M.choose_engine`. The `info` lines are data that you cannot select.
-- `paw.audio.label(t)`: What a track takes in, in a few words: `UR22mkII · 1/2` for audio, `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a track that takes nothing in particular: no audio, and MIDI from everywhere.
-- `paw.audio.level(t, levels)`: The level of the sound at the audio input of a track, 0 to 1. The track does not have to be armed or monitored. 0 for a track without an audio input.
+- `paw.audio.label(t)`: What a part takes in, in a few words: `UR22mkII · 1/2` for audio, `MIDI · Keystation · ch 1` for MIDI from one port. Nil for a part that takes nothing in particular: no audio, and MIDI from everywhere.
+- `paw.audio.level(t, levels)`: The level of the sound at the audio input of a part, 0 to 1. The part does not have to be armed or monitored. 0 for a part without an audio input.
 - `paw.audio.levels`: the same as `paw.api.input_levels`.
 - `paw.audio.load(cpu)`: How busy the engine is, 0 to 1, as the status line and all frontends show it. It is the load of its blocks, averaged over about one second, in steps of 2.5%. It changes only when the average leaves the step that shows. The load of one block changes all the time, more on a busy computer. If paw showed each change, the terminal would draw it again, and each window would draw a frame for it. `cpu` is the load that the caller read (`api.engine_get().cpu`), if the caller has it.
-- `paw.audio.pick(track, groups)`: A picker of the inputs of a track (`I` on a track): monitoring first, then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`), only those choices: the MIDI input, as step input opens it.
-- `paw.audio.short(name)`: The name of a device, made short enough for a track header. The name of the maker goes when a model number follows it, and a number at the end also goes.
+- `paw.audio.pick(part, groups)`: A picker of the inputs of a part (`I` on a part): monitoring first, then each choice of `M.choices`. With `groups` (`{ "midi", "channel" }`), only those choices: the MIDI input, as step input opens it.
+- `paw.audio.short(name)`: The name of a device, made short enough for a part header. The name of the maker goes when a model number follows it, and a number at the end also goes.
 
   ```lua
   "Steinberg UR22mkII 0" → "UR22mkII", "Bose NC 700 HP" → "Bose NC 700 HP"
@@ -277,20 +277,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.audition
 
-- `paw.audition.builtin(track, at)`: A phrase for a track with nothing to play. For a drum track, it is a bar of a beat. For other tracks, it is the tonic chord of the key, held, then as an arpeggio up and down, in the range of the track. `{ notes, length, label }`.
+- `paw.audition.builtin(part, at)`: A phrase for a part with nothing to play. For a drum part, it is a bar of a beat. For other parts, it is the tonic chord of the key, held, then as an arpeggio up and down, in the range of the part. `{ notes, length, label }`.
 - `paw.audition.file(path)`: Hear a sound file on its own, from its start, in place of whatever was.
-- `paw.audition.has_instrument(track)`: True if a track has an instrument to play notes.
+- `paw.audition.has_instrument(part)`: True if a part has an instrument to play notes.
 - `paw.audition.keep()`: Keep the trial's edits as one undo step.
 - `paw.audition.midi_file(path, bars)`: Play the first `bars` bars of a MIDI file (2 when nil), at its own tempo, once: pitched parts through `player()`, its drums (channel 10) through a kit. Returns the label.
 - `paw.audition.outline_lines(outline, width, rows, position, length)`: The outline of a sound file as `rows` lines `width` columns wide. The loudest part of each column goes up from the bottom. If `position` (seconds of `length`) is given, the column of that position is marked.
-- `paw.audition.phrase(track, notes, opts)`: Play `notes` through a track, again each `opts.length` beats (or one time with `loop = false`). The notes are `{ pitch, start, length, velocity }`, with `start` in beats from the start of the phrase. The `track` of a note wins over the `track` of the phrase. `opts.label` tells what the phrase is. A phrase with the same `opts.key` as the phrase that plays continues and does not start again. So only the sound changes. `opts.tempo` is its tempo. If not given, it is the tempo of the project at `opts.at` (the cursor). paw plays nothing while the transport runs.
-- `paw.audition.player(drums)`: A track to play notes through: the cursor's when it has an instrument, else one added as a trial (with the built-in synth, or drums) that `revert` takes away. `drums` asks for a drum kit.
+- `paw.audition.part_phrase(part)`: What a part plays around the cursor, as a phrase. This is the bar of its MIDI clip at the cursor. If not, it is the last bar with notes before the cursor. If not, it is the first bar with notes. It is `builtin` when the part has no notes. `{ notes, length, label, at }`.
+- `paw.audition.phrase(part, notes, opts)`: Play `notes` through a part, again each `opts.length` beats (or one time with `loop = false`). The notes are `{ pitch, start, length, velocity }`, with `start` in beats from the start of the phrase. The `part` of a note wins over the `part` of the phrase. `opts.label` tells what the phrase is. A phrase with the same `opts.key` as the phrase that plays continues and does not start again. So only the sound changes. `opts.tempo` is its tempo. If not given, it is the tempo of the project at `opts.at` (the cursor). paw plays nothing while the transport runs.
+- `paw.audition.player(drums)`: A part to play notes through: the cursor's when it has an instrument, else one added as a trial (with the built-in synth, or drums) that `revert` takes away. `drums` asks for a drum kit.
 - `paw.audition.quiet()`: Stop the sound of the audition (phrase and file). A trial does not change.
 - `paw.audition.revert()`: Put the project back as it was before the trial, if there is one.
-- `paw.audition.state()`: What you hear now: `{ kind = "phrase", label, track, notes, length, silent }`, `{ kind = "file", file, state, position, length, outline }` or nil. `trial` is true while the edits of a trial stay.
+- `paw.audition.state()`: What you hear now: `{ kind = "phrase", label, part, notes, length, silent }`, `{ kind = "file", file, state, position, length, outline }` or nil. `trial` is true while the edits of a trial stay.
 - `paw.audition.stop()`: Stop what is heard and take a trial back.
-- `paw.audition.through(track)`: Play what a track plays around the cursor, through the track, again and again (`track_phrase`). So you hear a sound that you try on the track with its own notes. The loop continues while only the sound changes. Returns what you hear, in words.
-- `paw.audition.track_phrase(track)`: What a track plays around the cursor, as a phrase. This is the bar of its MIDI clip at the cursor. If not, it is the last bar with notes before the cursor. If not, it is the first bar with notes. It is `builtin` when the track has no notes. `{ notes, length, label, at }`.
+- `paw.audition.through(part)`: Play what a part plays around the cursor, through the part, again and again (`part_phrase`). So you hear a sound that you try on the part with its own notes. The loop continues while only the sound changes. Returns what you hear, in words.
 - `paw.audition.try(fn)`: Make the edits of `fn` as a trial, in place of the last trial. You hear and see them, and `revert` removes them with no trace. Returns the results of `fn`. If `fn` fails, paw removes the edits and raises the error.
 
 ## Module paw.autosave
@@ -299,7 +299,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.autosave.choices()`: Everything `:recover` offers: the stand-ins for a project that would not open, then the copies left by sessions that ended badly.
 - `paw.autosave.copy(force)`: Write a copy now, if the project changed after the last copy (or with `force`, as when a take starts). Returns the written file, or nil.
 - `paw.autosave.file()`: The file this session's copy of the project goes in: one per project file, or per session for a project that has no file yet.
-- `paw.autosave.import_take(file)`: Import an orphaned take. It goes on the track that it was recorded for, if a track has the name that it starts with. If not, it goes on a new track. It goes at the start of the song.
+- `paw.autosave.import_take(file)`: Import an orphaned take. It goes on the part that it was recorded for, if a part has the name that it starts with. If not, it goes on a new part. It goes at the start of the song.
 - `paw.autosave.left_behind()`: The copies left by sessions that are gone: { file, path, name, time }.
 - `paw.autosave.offer(path, err)`: Offer the alternatives to a project that would not open, if there are any: `:recover` lists them first. Returns how many there are.
 - `paw.autosave.orphan_takes()`: Recorded takes in the `media` directory of the project that no clip uses, written after the last save of the project. A session that stopped during or after a take, without a save, leaves them. A take that you undid before a save is not one of them. { file, name }.
@@ -312,9 +312,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.bounce
 
-- `paw.bounce.describe(clip)`: What `K` says of a clip that a bounce muted: the track that plays it now. Nil for another clip.
-- `paw.bounce.track(track, opts)`: Render a track (its id, or the track) to audio, as one clip on a new track below it, and mute it. `paw.bounce(track, opts)` is the same. The new track plays its sound where the old one sends it. `opts.tap` is where the render listens: `"post"` (the default) holds the track's devices, fader and pan, but not its groups or the master, and the new track's fader starts at 0 dB. `"pre"` is before the fader: the new track gets the volume, pan and sends of the old one, and the automation of its volume and pan. `opts.start` and `opts["end"]` are the beats to render. Without them, it renders from the first clip to the end of the last, and mutes the whole track. With them, it cuts the clips at those beats and mutes only the parts between them, and `K` on such a part names the new track. `opts.tail` is the seconds after the end (2). `opts.name` names the new track ("<name> (bounced)" by default). It uses `paw.render`, so `render.before` runs. Returns the new track, or nil when there is nothing to render.
-- `paw.bounce.tracks(ids, opts)`: Render the tracks of `ids` to audio, as one clip on a new track below the last of them, and mute them. The new track plays its sound where the first track sends its sound. `opts` is as for `paw.bounce.track`, and `opts.tap = "pre"` takes one track only. Returns the new track, or nil when there is nothing to render.
+- `paw.bounce.describe(clip)`: What `K` says of a clip that a bounce muted: the part that plays it now. Nil for another clip.
+- `paw.bounce.part(part, opts)`: Render a part (its id, or the part) to audio, as one clip on a new part below it, and mute it. `paw.bounce(part, opts)` is the same. The new part plays its sound where the old one sends it. `opts.tap` is where the render listens: `"post"` (the default) holds the part's devices, fader and pan, but not its groups or the master, and the new part's fader starts at 0 dB. `"pre"` is before the fader: the new part gets the volume, pan and sends of the old one, and the automation of its volume and pan. `opts.start` and `opts["end"]` are the beats to render. Without them, it renders from the first clip to the end of the last, and mutes the whole part. With them, it cuts the clips at those beats and mutes only the parts between them, and `K` on such a part names the new part. `opts.tail` is the seconds after the end (2). `opts.name` names the new part ("<name> (bounced)" by default). It uses `paw.render`, so `render.before` runs. Returns the new part, or nil when there is nothing to render.
+- `paw.bounce.parts(ids, opts)`: Render the parts of `ids` to audio, as one clip on a new part below the last of them, and mute them. The new part plays its sound where the first part sends its sound. `opts` is as for `paw.bounce.part`, and `opts.tap = "pre"` takes one part only. Returns the new part, or nil when there is nothing to render.
 
 ## Module paw.bytes
 
@@ -397,7 +397,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.chain.link(h, macro, device, param, depth)`: Link the macro `macro` to the parameter `param` of `device` in its split, with `depth` from -1 to 1; a nil depth removes the link. One undo step.
 - `paw.chain.link_rack(h, split, name)`: Make the split `split` the first instance of a new linked rack named `name`: a change of the rack in one instance reaches the others.
 - `paw.chain.move(h, id, place)`: Move the node `id` in its chain, as one undo step: `{ before = id }`, `{ after = id }` or `{ branch = id, index = n }` (from 1).
-- `paw.chain.of(owner)`: The handle of the chain of `owner`, which each other function of paw.chain takes: `{ track = id }` for the chain of a track. An error when the owner is not in the project.
+- `paw.chain.of(owner)`: The handle of the chain of `owner`, which each other function of paw.chain takes: `{ part = id }` for the chain of a part. An error when the owner is not in the project.
 - `paw.chain.overrides(h, split)`: The keys of the values that the instance `split` overrides, as `paw.chain.set_rack` takes them.
 - `paw.chain.place_rack(h, rack, place)`: Put a new instance of the linked rack `rack` at `place` in the chain of `h` (as `paw.chain.move` takes it).
 - `paw.chain.racks()`: The linked racks of the project.
@@ -420,7 +420,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.clip_kinds
 
-- `paw.clip_kinds.add(track, name, args, data)`: A new clip of the kind `name` on `track`: `data`, or what the kind's `create` makes of `args` (the words, and `name`, `start` and `length` of the clip). Its length is `args.length`, or the length the kind compiled, or a bar of 4 beats. One undo step.
+- `paw.clip_kinds.add(part, name, args, data)`: A new clip of the kind `name` on `part`: `data`, or what the kind's `create` makes of `args` (the words, and `name`, `start` and `length` of the clip). Its length is `args.length`, or the length the kind compiled, or a bar of 4 beats. One undo step.
 - `paw.clip_kinds.compile(clip)`: Compile a clip of a kind again from its data (after something that it links to changed). One undo step.
 - `paw.clip_kinds.data(clip)`: The data of a clip of a kind, by its kind's `deserialize`: nil for a MIDI or audio clip, and nil and why when the kind cannot read it. Without its kind, the plain data as it is stored.
 - `paw.clip_kinds.define(name, spec)`: Define a kind of clip (see above). `name` is a lowercase word that is not a built-in kind (`midi`, `audio`): what a clip of the kind keeps. Defining a kind again replaces it. Clips of an older version of its data are migrated.
@@ -441,7 +441,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.command.define(name, run, opts)`: Define or replace a command.
 
   ```lua
-  paw.command("track.mute", function(ctx) ... end, { desc = "Mute the track" })
+  paw.command("part.mute", function(ctx) ... end, { desc = "Mute the part" })
   ```
 
   The handler gets `ctx` with `ctx.args` (positional and named arguments) and `ctx.count` (the number typed before a key mapping, or nil). With `opts.raw`, the command line gives its text as one string in `ctx.args[1]`. With `opts.range`, it accepts a range of bars before it (`:5,8name`) as `ctx.range`. See Ranges below.
@@ -464,7 +464,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.complete(line)`: What could finish a command line: a list of `{ text, label, desc }` with `text` the whole line it would become and `label` the part shown.
 
   ```lua
-  paw.commands.complete("track.co")   --> { { text = "track.color", label = "track.color", desc = ... } }
+  paw.commands.complete("part.co")   --> { { text = "part.color", label = "part.color", desc = ... } }
   ```
 - `paw.commands.define`: the same as `paw.command.define`.
 - `paw.commands.exec`: the same as `paw.command.exec`.
@@ -482,10 +482,10 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.commands.parse(line)`: Split a command line into a name and arguments:
 
   ```lua
-  `track.add Bass volume=-6` -> "track.add", { "Bass", volume = -6 }
+  `part.add Bass volume=-6` -> "part.add", { "Bass", volume = -6 }
   ```
 
-  Quotes keep spaces together: `track.add "Lead Guitar"`, `name="Lead Guitar"`.
+  Quotes keep spaces together: `part.add "Lead Guitar"`, `name="Lead Guitar"`.
 - `paw.commands.range(line)`: Split a range from the start of a command line. Returns the range and the rest. The range is nil when there is no range. When the range names nothing, an error message replaces the rest.
 - `paw.commands.run`: the same as `paw.cmd`.
 - `paw.commands.unknown(name)`: What to say about a name that is no command: the commands that start with it, if there are any.
@@ -495,12 +495,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.complete
 
 - `paw.complete.accept(next_only)`: Write the alternative that shows into the clip, as one edit. Write all of it, or with `next_only` only the notes of its first onset (a note, or the notes of a chord that start together). The rest continues to show. The cursor goes to the end of the accepted part. Returns true if it wrote notes.
-- `paw.complete.audition()`: Play the alternative that shows through the track of the clip. It starts one bar before it, with the notes that are there, and the project does not change. Not while the transport runs.
+- `paw.complete.audition()`: Play the alternative that shows through the part of the clip. It starts one bar before it, with the notes that are there, and the project does not change. Not while the transport runs.
 - `paw.complete.cancel()`: Cancel the current request, and tell this to the sources that did not answer yet.
 - `paw.complete.context(trigger)`: What a request is about: the clip open in the piano roll, where the suggestion starts and what is chosen there. Nil without an open clip.
 
   ```lua
-  clip, track      ids
+  clip, part      ids
   start, length    where the clip is in the project, in beats
   at, pitch        where the suggestion starts (clip beats) and the cursor's pitch
   notes            the clip's notes, as `clip:notes()` gives them
@@ -541,24 +541,24 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.cursor
 
 - `paw.cursor.clip()`: The clip under the cursor, if any.
-- `paw.cursor.index()`: 1-based position of the cursor track among the tracks of its place: the song's, or its subproject's (as `paw.api.track_move` counts).
-- `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor track that shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
-- `paw.cursor.lens()`: Keys and commands typed in a pinned window act on its track: the track of "the cursor" is the window's while that window has the keyboard, or while paw draws it.
+- `paw.cursor.index()`: 1-based position of the cursor part among the parts of its place: the song's, or its subproject's (as `paw.api.part_move` counts).
+- `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor part that shows as a row (see `paw.lanes`). Nil when the cursor is on the part.
+- `paw.cursor.lens()`: Keys and commands typed in a pinned window act on its part: the part of "the cursor" is the window's while that window has the keyboard, or while paw draws it.
 - `paw.cursor.line()`: 1-based row of the cursor among every row drawn, lanes included.
-- `paw.cursor.master_reachable()`: True if a move of the cursor can go on from the last track to the master: a move of its own in normal mode, in the views that draw the master after the tracks. After an operator or in a selection, only tracks count.
-- `paw.cursor.move_track(delta)`: Move by rows. In normal mode, the rows of open automation lanes count. After an operator or in a selection, only tracks count, as for `dj`. From the last track, a move down goes on to the master, and from the master a move up returns to the tracks. A closed block fold at the cursor's beat is one row (`paw.cursor.stop`).
-- `paw.cursor.on_master()`: True if the cursor is on the master track: the row after the last track in the arrange view, the strip after the last in the mixer.
-- `paw.cursor.over(old, new)`: Where the cursor goes when it moves from beat `old` to `new`: a beat inside a closed time fold is its start, or its end when the cursor moves on from its start, so that a motion takes a fold as one step. A closed block fold on the cursor's track is one step in the same way.
-- `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
+- `paw.cursor.master_reachable()`: True if a move of the cursor can go on from the last part to the master: a move of its own in normal mode, in the views that draw the master after the parts. After an operator or in a selection, only parts count.
+- `paw.cursor.move_part(delta)`: Move by rows. In normal mode, the rows of open automation lanes count. After an operator or in a selection, only parts count, as for `dj`. From the last part, a move down goes on to the master, and from the master a move up returns to the parts. A closed block fold at the cursor's beat is one row (`paw.cursor.stop`).
+- `paw.cursor.on_master()`: True if the cursor is on the master part: the row after the last part in the arrange view, the strip after the last in the mixer.
+- `paw.cursor.over(old, new)`: Where the cursor goes when it moves from beat `old` to `new`: a beat inside a closed time fold is its start, or its end when the cursor moves on from its start, so that a motion takes a fold as one step. A closed block fold on the cursor's part is one step in the same way.
+- `paw.cursor.part()`: The part the cursor is on, as a `paw.Part`, or nil.
+- `paw.cursor.part_id()`: The id of the part of the cursor, or of the first part when that part does not exist now. Nil when the project has no parts. 0 when the cursor is on the master part (`on_master`).
+- `paw.cursor.row()`: 1-based row of the cursor part among the parts that are drawn: the same as `index` until a group is folded. On the master, the row after the last part.
 - `paw.cursor.set_beat(beat)`: Put the cursor at a beat: the nearest tick, as `set_tick`.
+- `paw.cursor.set_part(part, lane)`: Put the cursor on a part, or with `lane` on one of its lane rows.
 - `paw.cursor.set_tick(at)`: Put the cursor at a tick: not before 0, in the scope's time (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want` becomes the tick asked for. A tick with a fraction is an error in the tests, and is rounded else.
-- `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
-- `paw.cursor.shift(track, beat)`: For a track of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is, for the block of the row at `beat` (the first block when none is there). Nil for any other track. The arrange view draws its clips that much later, and the cursor finds them there.
+- `paw.cursor.shift(part, beat)`: For a part of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is, for the block of the row at `beat` (the first block when none is there). Nil for any other part. The arrange view draws its clips that much later, and the cursor finds them there.
 - `paw.cursor.snap(beat)`: A position at the nearest line of the arrange grid.
 - `paw.cursor.step(beat, n, grid)`: `beat` moved by `n` lines of the arrange grid (of a grid of `grid` beats, when given), with the same offset after its line (`paw.timegrid` `steps`). A beat on a line stays on one, a long run of steps gives the exact beat, and a place between two lines (the end of a take) keeps its distance from the line.
-- `paw.cursor.stop(id, beat)`: The row that stands for a track at a beat when the cursor moves by rows: the first row of the closed block fold that holds the track there, or nil when no closed block holds it. A closed block is one row for `j` and `k`, as a closed fold is one line in Vim.
-- `paw.cursor.track()`: The track the cursor is on, as a `paw.Track`, or nil.
-- `paw.cursor.track_id()`: The id of the track of the cursor, or of the first track when that track does not exist now. Nil when the project has no tracks. 0 when the cursor is on the master track (`on_master`).
+- `paw.cursor.stop(id, beat)`: The row that stands for a part at a beat when the cursor moves by rows: the first row of the closed block fold that holds the part there, or nil when no closed block holds it. A closed block is one row for `j` and `k`, as a closed fold is one line in Vim.
 
 ## Module paw.curves
 
@@ -579,7 +579,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.curves.editor
 
 - `paw.curves.editor.add(on_curve)`: Add a point at the cursor: at the cursor's value, or with `on_curve` at the curve's value there.
-- `paw.curves.editor.automate(device_id, key)`: Automate a parameter of a device. paw makes its lane, with a first point at its current value at the beat of the arrange cursor. paw shows the lanes of the track as rows, with the cursor on the new lane, and tells you.
+- `paw.curves.editor.automate(device_id, key)`: Automate a parameter of a device. paw makes its lane, with a first point at its current value at the beat of the arrange cursor. paw shows the lanes of the part as rows, with the cursor on the new lane, and tells you.
 - `paw.curves.editor.climb(n)`: Move the cursor's value `n` steps up.
 - `paw.curves.editor.current()`: The curve window the keyboard is in: the current window, or the one a graphical frontend shows.
 - `paw.curves.editor.cycle_shape()`: The next shape for the stretch from the point under the cursor.
@@ -624,12 +624,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.diagnostic.goto_prev(opts)`: Go to the diagnostic before, or `opts.count` back (`[d`).
 - `paw.diagnostic.group(prefix, severity)`: The highlight group for a severity with a prefix: `Diagnostic` gives `DiagnosticWarn`.
 - `paw.diagnostic.jump(dir, count)`: The next (`dir` 1) or previous (-1) diagnostic that the focused view can show, from its cursor, `count` times, round the ends. The cursor goes there. Returns the diagnostic, or nil when the view has none.
-- `paw.diagnostic.kind(d)`: The kind of item that a diagnostic is about, to make groups: clip, track, device, time, project, render, or the kind of an extension.
+- `paw.diagnostic.kind(d)`: The kind of item that a diagnostic is about, to make groups: clip, part, device, time, project, render, or the kind of an extension.
 - `paw.diagnostic.list(target)`: Every diagnostic (of `target`, as `get` takes it) in a picker, as the quickfix list, grouped by what they are about: Enter goes to one.
-- `paw.diagnostic.marks()`: The marks of the window in other views. Each track (by id) has the worst severity about it, its devices or its sends, and the first message. The ranges of time are also marks.
+- `paw.diagnostic.marks()`: The marks of the window in other views. Each part (by id) has the worst severity about it, its devices or its sends, and the first message. The ranges of time are also marks.
 - `paw.diagnostic.namespaces()`: The namespaces that published diagnostics.
 - `paw.diagnostic.notes_of(d)`: The notes of a diagnostic as they are now.
-- `paw.diagnostic.paint_part(p, id, offset)`: One clip's, `offset` beats from the roll's own.
+- `paw.diagnostic.paint_portion(p, id, offset)`: One clip's, `offset` beats from the roll's own.
 - `paw.diagnostic.paint_roll(p)`: Mark the diagnostics of each clip that the piano roll edits, as one of its layers. Each note has a line below it in the color of its severity. The message comes after the last note while there is space, and a mark on the ruler shows where it starts.
 - `paw.diagnostic.places(d)`: The current places of the notes of a diagnostic (from 1). The list does not contain a note that does not exist now.
 - `paw.diagnostic.reset(namespace, doc)`: Forget the diagnostics of `namespace` about one document, or all of them. With a clip id, forget all its diagnostics about that clip. With no namespace, forget the diagnostics of all namespaces about that document, or all diagnostics.
@@ -649,7 +649,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.beats(ruler, ax, span, origin)`: Write the numbers of a ruler above a roll that shows `span` beats on the axis `ax` (paw/axis.tl, from its `scroll`). Bars have the numbers of the project (`origin` is the project beat of the beat 0 of the roll). Beats between them are ticks. Returns the positions of the lines, as `{ x, bar }`, for the rows below.
 - `paw.draw.braille(bits)`: A braille character from its eight dots: bit k is dot k + 1.
 - `paw.draw.chips(buf, x, y, list, gap)`: Small on/off marks side by side, each a letter on a cell of its own: `chips(buf, x, y, { { "M", on, "Mute" }, ... }, gap)`. Returns the columns used.
-- `paw.draw.clear_peak(id)`: Put out a track's clip light and let its loudest of late fall.
+- `paw.draw.clear_peak(id)`: Put out a part's clip light and let its loudest of late fall.
 - `paw.draw.curve(buf, y, rows, value, style)`: Draw a curve as a thin line over `rows` rows of a buffer, from row `y` down. `value(i)` gives the height, from 0 at the bottom to 1 at the top, at point `i`, with two points for each column. The function changes only the cells on the line. It uses sextants (a connected line), braille dots or lines at three heights a row, as `M.curve_glyphs()` tells.
 - `paw.draw.curve_glyphs()`: How paw draws curves in cells: "sextant", "braille" or "line", from `paw.opt.curve_glyphs`. `paw.opt.braille = false` and `paw.opt.ascii` both mean "line". `paw.opt.ascii` wins over all, and uses ASCII characters.
 - `paw.draw.db_cell(db, width)`: Where on a meter `width` cells long a level in dB falls, from 0.
@@ -662,23 +662,26 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   title, body         a clip's name row and the rows under it
   title_cur, body_cur the same for the clip under the cursor (or chosen)
   title_off, body_off the same for a muted clip
-  lane_sel            the background of the selected track's lane
+  lane_sel            the background of the selected part's lane
   note, note_soft, note_faint   notes, loud to quiet
   pill                dark text on the colour
   plate               a name plate: light text on a deep shade
   ```
 - `paw.draw.jump_scroll(ax, target, span, jumped)`: Where a view scrolls to for a move of its cursor to `target`, a beat, or nil when the move leaves the scroll to the caller. A step (`jumped` is false) is left to the caller, which scrolls just enough. A jump (it went into the jump list) to a target that is off screen, or in the last quarter of the view, puts the target at the left margin (`paw.opt.jumpview` "left", `paw.opt.jumpmargin` columns) or in the middle ("center"). `target` is a place in the beats of the view's axis `ax` (paw/axis.tl), whose left edge is `ax.left`; `span` is the beats shown. Gives the new left edge.
-- `paw.draw.keys(buf, x, y, entries, width, groups)`: A row of keys and their actions, for a line of hints: `{ { "o", "new track" }, ... }`, with a faint dot between them. `? keys` is always the last when it is in the list. Returns the columns used. The entries that do not fit are not shown.
+- `paw.draw.keys(buf, x, y, entries, width, groups)`: A row of keys and their actions, for a line of hints: `{ { "o", "new part" }, ... }`, with a faint dot between them. `? keys` is always the last when it is in the list. Returns the columns used. The entries that do not fit are not shown.
 - `paw.draw.level(peak)`: How far up a meter a linear peak reaches, from 0 to 1 over 60 dB.
 - `paw.draw.meter(buf, x, y, width, peak, hold)`: A level meter `width` cells wide for a linear peak: a thin rail, lit from the left, green then yellow then red. With `hold` (a linear peak), the loudest of late is marked.
 - `paw.draw.meter_shown(width, peak, hold)`: What `meter` shows for these values in `width` cells, as a text: the cells lit full and half, and the cell of the peak held (-1: none).
-- `paw.draw.meters_falling()`: True while a track meter drawn lately (`track_peak`) still shows a level: it is not at rest yet.
+- `paw.draw.meters_falling()`: True while a part meter drawn lately (`part_peak`) still shows a level: it is not at rest yet.
 - `paw.draw.miniroll(notes, width, rows, ax, phase)`: Notes as a small piano roll of `rows` text rows, each `width` columns. A row holds two pitches, drawn with half blocks. `notes` have `start`, `length` and `pitch`, in beats from the start of the box. The box begins `phase` of a cell into its first column on the axis `ax` (paw/axis.tl): each note takes the cells that the axis gives its time, so that it is under the ruler's beat.
 - `paw.draw.mix(a, b, t)`: A color between two colors: `t` 0 gives `a`, 1 gives `b`.
 - `paw.draw.nearest256(hex)`: The nearest of the 256 colors to `#rrggbb`, from the 6x6x6 cube (16 to 231) or the grays (232 to 255). A color with little hue gets a gray. Returns its index and the color that the index shows.
 - `paw.draw.note_style(hue, velocity)`: The shade of a note by how hard it is played.
 - `paw.draw.pan(buf, x, y, width, pan, style)`: A pan from -1 to 1 as a bar that is `width` cells wide (an odd number is best). It is a rail with a mark at the position of the sound, `───┃───` in the middle.
 - `paw.draw.pan_text(pan)`: Where a pan from -1 to 1 points, in a few cells: `L30`, `C`, `R100`.
+- `paw.draw.part_colour(part, index)`: The color of a part: its own color if it has one. If not, a color of the theme, by the place of the part in the part list.
+- `paw.draw.part_hue(part, index)`: The hue of the color of a part, from 0 to 360.
+- `paw.draw.part_peak(id)`: The meter of a part as the mixer shows it, in a terminal and in a window (`scene.live`). It gives the two sides and the loudest recent peak. It also tells if the part reached full scale after the last `clear_peak` for it.
 - `paw.draw.piano_key(buf, row, pitch, cursor, width, name, part)`: One row of a keyboard on its side, `width` cells wide, for the left edge of a piano roll. Black keys are short. The Cs have their names, and the pitch of the cursor has its name too. A key taller than a row shows its names on its first row and its line on its last (`part`).
 - `paw.draw.reset()`: Forget the shades made until now. Call it after the palette changes.
 - `paw.draw.sextant(bits)`: The character for a set of sextants (U+1FB00 to U+1FB3B, two columns by three rows): bits 1 to 32 are top left, top right, middle left, middle right, bottom left, bottom right. The patterns that are not in that block are a space, the left half, the right half and the full block.
@@ -687,9 +690,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.draw.stereo_meter_shown(width, left, right)`: What `stereo_meter` shows for these values in `width` cells, as a text: the cells lit on each side.
 - `paw.draw.term_def(def, truecolor)`: A highlight definition as this terminal can show it. On a terminal without 24-bit color, each `#rrggbb` becomes the nearest of the 256.
 - `paw.draw.trace(width, samples, y, sub, kind)`: A connected line over a grid of cells, for a curve. `y(sx)` gives the row of the line from the top, in `sub` rows for each cell (3 for sextants, 4 for braille). `sx` counts from 0, with two samples for each cell. `y(sx)` gives nil for no line, and there are `samples` of them. The function fills a jump from the last row to this row, to keep the line connected. Returns `{ [row * width + col] = bits }`, the bits as `M.sextant` or `M.braille` take them.
-- `paw.draw.track_colour(track, index)`: The color of a track: its own color if it has one. If not, a color of the theme, by the place of the track in the track list.
-- `paw.draw.track_hue(track, index)`: The hue of the color of a track, from 0 to 360.
-- `paw.draw.track_peak(id)`: The meter of a track as the mixer shows it, in a terminal and in a window (`scene.live`). It gives the two sides and the loudest recent peak. It also tells if the track reached full scale after the last `clear_peak` for it.
 - `paw.draw.truecolor()`: True if the terminal shows 24-bit color. `paw.opt.termcolors` is "true" or "256". With "auto" (the default), the environment tells: COLORTERM of truecolor or 24bit, or a TERM that ends in -direct.
 - `paw.draw.use_glyphs()`: Take the glyphs `paw.opt.ascii` asks for into `paw.draw.g`.
 - `paw.draw.vmeter(buf, x, y, height, peak, hold)`: A level meter `height` cells tall, lit from the bottom, with the peak held (`hold`, linear) marked by a line over its cell.
@@ -712,7 +712,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.events.off`: the same as `paw.off`.
 - `paw.events.on`: the same as `paw.on`.
 - `paw.events.once`: the same as `paw.once`.
-- `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`track.*`, `*`): its handlers read nothing of the payload without a cast.
+- `paw.events.pattern(pattern)`: The descriptor of a pattern of events (`part.*`, `*`): its handlers read nothing of the payload without a cast.
 - `paw.events.stamp()`: A number that changes when the project changes or paw sends an event. A value that is read from the project, or that an event can change, can be kept while this number is the same. An edit counts at once, before its event is sent at the end of the turn.
 - `paw.events.undeclared()`: The names and patterns (`undo.*`) of events that `paw.on` got as text and that match no event that a part of paw declares, sorted. `:checkhealth events` lists them.
 
@@ -722,13 +722,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ex.apply(changes, remove)`: Make the changes `{ item, change }` and remove the items in `remove`. The changes of notes go to the kernel in one call, as columns: no table for each note. A clip whose notes go, or get data or an attribute, gets one edit of its own.
 - `paw.ex.change(item, sets, pattern)`: What a replacement makes of one item: the fields that change, as `paw.api` keeps them.
 - `paw.ex.complete_pattern(line)`: Field names as they are typed in a pattern: `:%s/ve` offers `vel`.
-- `paw.ex.complete_range(line)`: What could finish a range being typed: marks after `'`, tracks after `t/`. Nil when the line is not in the middle of one.
-- `paw.ex.describe(r)`: What a range covers, in words: "bars 5 to 8 on 2 tracks".
+- `paw.ex.complete_range(line)`: What could finish a range being typed: marks after `'`, parts after `t/`. Nil when the line is not in the middle of one.
+- `paw.ex.describe(r)`: What a range covers, in words: "bars 5 to 8 on 2 parts".
 - `paw.ex.exec(line, ctx)`: Run a command line, as typed after `:`, with a range in front if it has one. A line with a range, or an Ex command, is one undo step named after the line (a line typed after `:` always is).
-- `paw.ex.field(name, spec)`: A field that `:s` and `:g` patterns can name (`lyric:la`): `level` (note, clip or track), `type`, `get(item)`, `set(item, value, change)`.
+- `paw.ex.field(name, spec)`: A field that `:s` and `:g` patterns can name (`lyric:la`): `level` (note, clip or part), `type`, `get(item)`, `set(item, value, change)`.
 - `paw.ex.go(r)`: Move to where a range starts, as `:5` does in Vim.
 - `paw.ex.item_of(uri)`: The item an address names, or nil.
-- `paw.ex.items(r, kind)`: The notes, clips or tracks (`kind`) a range holds, in the order they come in the song.
+- `paw.ex.items(r, kind)`: The notes, clips or parts (`kind`) a range holds, in the order they come in the song.
 - `paw.ex.label(item)`: An item in a few words: "C4 vel 100 at 5.1.00 in Verse".
 - `paw.ex.mark(state, item, change)`: Remember an item for the views: lit, and with its change as a ghost.
 - `paw.ex.pattern(text)`: Read a pattern: `{ text, level, test(item), names = { substrings of names it looks for } }`.
@@ -737,7 +737,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ex.replacement(text, pattern)`: Read a replacement for what `pattern` matches: a list of changes, or an empty list, which removes what matched.
 - `paw.ex.selection_range()`: The last selection of the focused view as a range of the song.
 - `paw.ex.show(item)`: Put the cursor on an item, in the view that shows it.
-- `paw.ex.shown()`: What the views show now, for frontends and tests: `{ from, to, tracks, matches, notes, clips, current }`, or nil.
+- `paw.ex.shown()`: What the views show now, for frontends and tests: `{ from, to, parts, matches, notes, clips, current }`, or nil.
 - `paw.ex.split(rest)`: Split what follows a range into the command's name, the text after it, and how many times a `>` or `<` was typed.
 - `paw.ex.substitution(r, pattern, replacement, flags)`: What a substitution would do: the matches, the ones it changes, and for each its change (false to remove it).
 - `paw.ex.view(name, spec)`: Tell how a view of your own maps its columns to the beats of the song, and which clips it edits, for ranges. See `docs/reference/lua-commands.md`.
@@ -752,7 +752,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.export.last()`: What the last export did: `{ plan, results, failed, cancelled, message }`. `results` holds what `paw.render` gives for each file written. Nil before the first export ends.
 - `paw.export.lines(plan)`: The lines of a plan, as the float shows them: one for each file, with what it holds, when, where it listens and its channels; then what it leaves out, and the notes.
 - `paw.export.pick(range)`: Pick a preset from a list: the preview shows its plan, and Enter exports it as `:export <name>` does. `range` is the Ex range of the export, such as `'<,'>`, or nil for the song.
-- `paw.export.plan(words, range)`: The plan of an export: the words as typed after `:export`, and the range of tracks and time before it (`paw.ex.range("t2,t4 17,32")`, or nil for the song). Gives `{ renders, left_out, notes, confirm }`. Each render has its `file`, `tracks` (nil for the mix), `from`, `to`, `when`, `tap` and `channels`. A plan that cannot be is an error with a clear message.
+- `paw.export.plan(words, range)`: The plan of an export: the words as typed after `:export`, and the range of parts and time before it (`paw.ex.range("t2,t4 17,32")`, or nil for the song). Gives `{ renders, left_out, notes, confirm }`. Each render has its `file`, `parts` (nil for the mix), `from`, `to`, `when`, `tap` and `channels`. A plan that cannot be is an error with a clear message.
 - `paw.export.plan_args(args, range)`: The plan of the words of `:export`, as `commands.parse` gives them, and a range. See `M.plan`.
 - `paw.export.preset_names()`: The names of the presets, in order.
 - `paw.export.run(plan)`: Write the files of a plan, one render at a time, on the render thread: the status line shows how far it is, and one message at the end says what it wrote. A plan with `wait` renders in the foreground. When an export runs, the files of this one wait after it.
@@ -777,7 +777,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ext.satisfies(version, want)`: True if `version` agrees with `want`. `want` is comparisons with spaces or commas between them. Each is `>=1.2`, `>1`, `<=2`, `<2.0`, `=1.2.3`, `^1.2` (the same first number, at least 1.2), `~1.2` (the same first two numbers) or a version alone, which means `^`. `*` or nothing is any version.
 - `paw.ext.unload(name, opts)`: Unload an extension. paw removes all that it registered (while it loaded, and later from its handlers and timers). paw puts back what it replaced (a command or key of the core that it mapped again). Its options go with their values, and its timers stop. paw stops to offer the devices written in Lua and the plugin directories that it added. paw forgets its modules, so a new load runs them again.
 
-  While a track contains one of its devices, paw does not unload it (as Neovim does not delete a buffer with changes). With `opts.force`, it unloads, and the devices stay and play until you remove them. paw cannot find them when you open the project again without the extension. Returns true (with `opts.force`, the devices that stay on tracks, in words), or nil and the reason.
+  While a part contains one of its devices, paw does not unload it (as Neovim does not delete a buffer with changes). With `opts.force`, it unloads, and the devices stay and play until you remove them. paw cannot find them when you open the project again without the extension. Returns true (with `opts.force`, the devices that stay on parts, in words), or nil and the reason.
 - `paw.ext.use(which, spec)`: Use an extension: it waits for its triggers, or loads now (paw/lazy.tl). `which` is a path, or the name of a bundled extension. `spec` gives triggers in place of those of its manifest, field by field, and `spec.lazy = false` loads it now. Returns the entry when it loaded, or nil when it waits.
 
 ## Module paw.ext.lazy
@@ -819,32 +819,32 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.folds
 
 - `paw.folds.all(on, win)`: Close every fold of a window, every group too (`zM`), or open them all (`zR`).
-- `paw.folds.at(id, win)`: The fold at a track (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the track is in none. At the cursor, a closed time fold or a block that the cursor is in comes first.
+- `paw.folds.at(id, win)`: The fold at a part (the cursor's by default), in a window: the largest closed one, which its row stands for, else the smallest. Nil when the part is in none. At the cursor, a closed time fold or a block that the cursor is in comes first.
 - `paw.folds.bars(f)`: How many bars a block or a time fold covers (0 when its region is gone).
 - `paw.folds.block_at_cursor(win)`: The closed block fold at the cursor in a window, or nil.
-- `paw.folds.blocks(win)`: The closed block folds that a window draws (the one a view shows by default), in the order they were made: each draws one frame over the rows of its tracks and its time. A block that holds all of the scope the window shows is open there.
+- `paw.folds.blocks(win)`: The closed block folds that a window draws (the one a view shows by default), in the order they were made: each draws one frame over the rows of its parts and its time. A block that holds all of the scope the window shows is open there.
 - `paw.folds.clear(win)`: Delete every fold of a window, as `zE`. Returns how many there were.
 - `paw.folds.close(id, win)`: Close the fold at the cursor, as `zc`; on a closed fold, the one around it. Returns it, or nil and the reason.
 - `paw.folds.closed_at(win)`: The closed fold at the cursor, in a window: the time fold that the cursor is in, else the closed block that it is in, else the fold that the cursor's row stands for. Nil when the cursor is on no closed fold.
-- `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its tracks without its folds of tracks: each closed fold of tracks keeps its first row, which stands for all of it.
-- `paw.folds.count(f)`: How many tracks of a fold are there.
-- `paw.folds.delete(id, win)`: Delete the fold at a track (the cursor's by default), as `zd`: the fold goes, its tracks stay, drawn as before. Returns it, or nil and the reason.
-- `paw.folds.describe(f)`: What a fold holds, in words: `3 tracks`, `8 bars`, `2 tracks, 4 bars`.
+- `paw.folds.collapse(rows, win)`: The rows that a window draws, from the rows of its parts without its folds of parts: each closed fold of parts keeps its first row, which stands for all of it.
+- `paw.folds.count(f)`: How many parts of a fold are there.
+- `paw.folds.delete(id, win)`: Delete the fold at a part (the cursor's by default), as `zd`: the fold goes, its parts stay, drawn as before. Returns it, or nil and the reason.
+- `paw.folds.describe(f)`: What a fold holds, in words: `3 parts`, `8 bars`, `2 parts, 4 bars`.
 - `paw.folds.group_closed(group, win)`: True if a group is folded into its row in a window (the one a view shows by default).
 - `paw.folds.level(delta, win)`: Close one more level of regions in a window (`zm`, `delta` -1: the deepest open level first), or open one (`zr`, 1), as the `foldlevel` option of Vim. The regions that `za` or `zf` opened or closed follow the level again. Returns the level: how many levels stay open.
 - `paw.folds.list(win)`: The folds of a window that a view shows (the one being drawn, else the current one). Empty when it has none.
-- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), tracks into one row named `Fold 1` (`Vjjzf`), a region or bars on every track into a column (`zfar`), and some tracks for some bars into one frame (a visual block, then `zf`). Returns it, or nil and the reason.
+- `paw.folds.make(spec, win)`: Make a fold of what a scope covers (`zf{motion}`), closed, in a window: a group folds into its row (`zfag`), parts into one row named `Fold 1` (`Vjjzf`), a region or bars on every part into a column (`zfar`), and some parts for some bars into one frame (a visual block, then `zf`). Returns it, or nil and the reason.
 - `paw.folds.name(f)`: The name a fold shows: its own, else its group's.
 - `paw.folds.open(id, win)`: Open the fold at the cursor (the one its row stands for). Returns it, or nil and the reason.
 - `paw.folds.over`: the same as `paw.cursor.over`.
-- `paw.folds.reveal()`: The cursor does not stay on a track that is folded away: it goes to the row that stands for it.
-- `paw.folds.row(id, win)`: The closed fold of tracks that the row of a track stands for in a window (the one a view shows by default), or nil: the track is the first row of that fold.
+- `paw.folds.part_names(f)`: The names of the parts of a block fold: `Piano, Pad`, or with more than three, the first and how many more: `Piano +4`.
+- `paw.folds.reveal()`: The cursor does not stay on a part that is folded away: it goes to the row that stands for it.
+- `paw.folds.row(id, win)`: The closed fold of parts that the row of a part stands for in a window (the one a view shows by default), or nil: the part is the first row of that fold.
 - `paw.folds.row_stop`: the same as `paw.cursor.stop`.
 - `paw.folds.set_group(group, on, win)`: Fold a group into its row, or open it, in a window: `on` nil flips it.
 - `paw.folds.time_at(beat, win)`: The closed time fold that a beat is on (`from` up to `to`), in a window.
 - `paw.folds.time_spans(win)`: The closed time folds of a window (the one a view shows by default), in order of time: the outermost of folds inside each other, and folds that overlap as one. A fold that holds all the time of the window's scope is open there.
-- `paw.folds.toggle(id, win)`: Toggle the fold at a track (the cursor's by default), as `za`. Returns it, or nil and the reason.
-- `paw.folds.track_names(f)`: The names of the tracks of a block fold: `Piano, Pad`, or with more than three, the first and how many more: `Piano +4`.
+- `paw.folds.toggle(id, win)`: Toggle the fold at a part (the cursor's by default), as `za`. Returns it, or nil and the reason.
 
 ## Module paw.formats
 
@@ -861,13 +861,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.freeze
 
-- `paw.freeze.describe(track)`: What `K` says of a frozen track, or of a track held in one: "frozen, up to date", "frozen, stale: Drums changed since: devices", "held in Drums, which is frozen, up to date". Nil for a track that plays live.
-- `paw.freeze.freeze(track, opts)`: Freeze a track or a group: render it, and play the file from now on. `opts.tail` is the seconds rendered after the song's end (2). One undo step. Returns the file.
-- `paw.freeze.frozen(track)`: What a frozen track was frozen to, `{ file, key }`, or nil. The `key` says what the file was made from.
-- `paw.freeze.holder(track)`: The frozen track a track sounds through, if any: the one whose file holds its sound.
-- `paw.freeze.render_opts(track, opts)`: The render options of a freeze: the whole song from its start, the track alone before its fader, as 32-bit float. So the file plays what the track did.
-- `paw.freeze.state(track)`: "frozen", "held" (its sound is in a frozen track it feeds), or nil.
-- `paw.freeze.unfreeze(track)`: Play a frozen track's clips and devices again. The file stays where it is, as undo can bring the freeze back.
+- `paw.freeze.describe(part)`: What `K` says of a frozen part, or of a part held in one: "frozen, up to date", "frozen, stale: Drums changed since: devices", "held in Drums, which is frozen, up to date". Nil for a part that plays live.
+- `paw.freeze.freeze(part, opts)`: Freeze a part or a group: render it, and play the file from now on. `opts.tail` is the seconds rendered after the song's end (2). One undo step. Returns the file.
+- `paw.freeze.frozen(part)`: What a frozen part was frozen to, `{ file, key }`, or nil. The `key` says what the file was made from.
+- `paw.freeze.holder(part)`: The frozen part a part sounds through, if any: the one whose file holds its sound.
+- `paw.freeze.render_opts(part, opts)`: The render options of a freeze: the whole song from its start, the part alone before its fader, as 32-bit float. So the file plays what the part did.
+- `paw.freeze.state(part)`: "frozen", "held" (its sound is in a frozen part it feeds), or nil.
+- `paw.freeze.unfreeze(part)`: Play a frozen part's clips and devices again. The file stays where it is, as undo can bring the freeze back.
 
 ## Module paw.freeze_block
 
@@ -894,40 +894,40 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.frontend.engine_menu()`: The menu where the audio devices are chosen: `info` (lines to show), `output`, `input`, `block`, `rate` and `backend`, each a list of `{ label, checked }`. `act.choose_engine` takes one by heading and place.
 - `paw.frontend.float(width, height)`: The float that is open (help, a list, a picker), drawn as text `width` columns wide: its title and its lines. Nil when there is none.
 - `paw.frontend.format_value(param, value)`: A parameter's value as text in its unit (see `paw.params.format`).
-- `paw.frontend.input_menu(track)`: The menu of the input of a track: the choices of `paw.audio.choices` under their headings, `audio`, `midi` and `channel`. It also gives the MIDI output of the track: `midi_out`, `midi_out_channel` and `midi_out_form`. Each is a list of `{ label, checked }`. `act.choose_input` takes one by heading and place.
+- `paw.frontend.input_menu(part)`: The menu of the input of a part: the choices of `paw.audio.choices` under their headings, `audio`, `midi` and `channel`. It also gives the MIDI output of the part: `midi_out`, `midi_out_channel` and `midi_out_form`. Each is a list of `{ label, checked }`. `act.choose_input` takes one by heading and place.
 - `paw.frontend.lane_name(lane)`: What a lane moves, in words: `Volume`, `Pan`, `Synth · cutoff`.
 - `paw.frontend.lane_span(lane)`: The stretch of a lane's range that the drawing covers: a fader's travel for volume, the whole range for anything else.
 - `paw.frontend.layout_get()`: How the window was left (its size, the zoom, the heights of rows and of the piano roll, if the mixer shows): a table, empty when nothing was kept. It belongs to the machine, so it is kept here, where a window attached to this kernel finds it too. (`M.layout_path` names another file, for tests.)
 - `paw.frontend.layout_set(layout)`: Keep the window's layout (see `layout_get`).
 - `paw.frontend.menu(kind, args)`: Menu `kind` for `args`, as plain data for a window to show.
-- `paw.frontend.outputs_menu(device)`: The menu of the other output pairs of a device. For each pair, it gives `{ label, choices }`. The label names the pair and where it plays. The choices (`{ label, checked }`) are "Nowhere" and the tracks that it can play into. `act.route_pair` takes one. `act.spread_outputs` makes a track for each pair that plays nowhere.
+- `paw.frontend.outputs_menu(device)`: The menu of the other output pairs of a device. For each pair, it gives `{ label, choices }`. The label names the pair and where it plays. The choices (`{ label, checked }`) are "Nowhere" and the parts that it can play into. `act.route_pair` takes one. `act.spread_outputs` makes a part for each pair that plays nowhere.
 - `paw.frontend.peaks(clip, points)`: The waveform of an audio clip at `points` points (`M.peak_points` without), as one flat list { min1, max1, rms1, min2, max2, rms2, ... }. It gives how far the wave goes each way and how loud it is, which is its body. It is not in `state`, which paw sends again each time the cursor moves. So a frontend gets each waveform only one time for each width.
 - `paw.frontend.preview(id)`: A MIDI clip's notes for the small picture inside it: one flat list { start1, length1, pitch1, start2, ... }, at most `M.preview_notes` notes. Fetched when the clip's `stamp` in `state` changes.
 - `paw.frontend.recent_menu()`: The recent projects the File menu lists: `{ label, path }` each.
 - `paw.frontend.refresh()`: Make the frontend get the state of the project again, when nothing in the project changed. This is for data that an extension adds to the state.
 - `paw.frontend.render_dialog()`: The start values of the render dialog. These are the file that a render would write, and the ranges that paw can render (`{ name, label }`: the song, the loop, the selection, each region). They are also the sample rate of the engine, and the lossy formats that ffmpeg can make here (`formats`: `{ mp3 = true, ogg = false, ... }`).
-- `paw.frontend.routing(track)`: Where a track's sound goes, for a frontend to show and change:
+- `paw.frontend.routing(part)`: Where a part's sound goes, for a frontend to show and change:
 
   ```lua
-  output   the name of the track it plays into ("Master" without one)
-  targets  the tracks it could play into or send to, `{ id, name }` each;
+  output   the name of the part it plays into ("Master" without one)
+  targets  the parts it could play into or send to, `{ id, name }` each;
            the master is first, with id 0
   sends    `{ target, name, level, pre }` each, levels in dB
   ```
 
-  A track cannot play into itself or into a track that plays into it.
+  A part cannot play into itself or into a part that plays into it.
 - `paw.frontend.save_as(after)`: Save the project under a new name: type it at a prompt that starts with the name of the project. A relative name goes where `:w name` puts it (`paw.files.here()`), `..` and `~` go elsewhere, and Tab completes. `after` runs once it is saved.
-- `paw.frontend.send_list(track)`: A track's sends as `{ name, level }`, the level in dB.
-- `paw.frontend.sidechain_menu(device)`: The menu of the side-chain of a device: "None" first, then the tracks that it can listen to. The last item tells if it takes the sound before their fader. Each is `{ label, checked }`. `act.choose_sidechain` takes one by place.
-- `paw.frontend.state(known)`: The data that paw sends to a graphical frontend: transport, tracks, clips, devices and the modal state, as plain data. `known` is a list of the data that the frontend has already.
+- `paw.frontend.send_list(part)`: A part's sends as `{ name, level }`, the level in dB.
+- `paw.frontend.sidechain_menu(device)`: The menu of the side-chain of a device: "None" first, then the parts that it can listen to. The last item tells if it takes the sound before their fader. Each is `{ label, checked }`. `act.choose_sidechain` takes one by place.
+- `paw.frontend.state(known)`: The data that paw sends to a graphical frontend: transport, parts, clips, devices and the modal state, as plain data. `known` is a list of the data that the frontend has already.
 - `paw.frontend.take_preview(id, take, points)`: What take `take` of a clip plays, for the picture in its take lane. For sound, this is a waveform as `M.peaks` gives it, at `points` points. For MIDI, it is the notes as `M.preview` gives them. It repeats as a looped clip repeats (`paw.takes.peaks` gives the waveform).
 - `paw.frontend.take_rows(clip)`: The takes of a clip as its take lanes show them: `{ name, key }` each. `key` changes exactly when the sound of the take changes. Nil for a clip without takes, which has nothing in the lanes.
-- `paw.frontend.vca_words(id)`: What a track is in VCA terms, for a strip: a VCA's members by name, a member's VCAs by name, joined by commas.
+- `paw.frontend.vca_words(id)`: What a part is in VCA terms, for a strip: a VCA's members by name, a member's VCAs by name, joined by commas.
 - `paw.frontend.window_renderer_set(info)`: The window tells which OpenGL renderer draws it (see `paw.frontend.window_renderer`). One that draws on the processor is told once, in a line that says what to do.
 
 ## Module paw.fx
 
-- `paw.fx.add(track, kind, opts)`: Add a device as a person does, from the device picker, the "Add a device" box of the window or `:device.add`. It works as `track:add_device`. Then a plugin with a window shows its window (`paw.opt.editor_on_add`), as REAPER does. Some instruments make no sound until their window opens one time.
+- `paw.fx.add(part, kind, opts)`: Add a device as a person does, from the device picker, the "Add a device" box of the window or `:device.add`. It works as `part:add_device`. Then a plugin with a window shows its window (`paw.opt.editor_on_add`), as REAPER does. Some instruments make no sound until their window opens one time.
 - `paw.fx.added(device, kind, opts)`: The second half of `add`, once the device is there: remembered as used, its window shown.
 - `paw.fx.card_params(d)`: A device's own parameters in the order its card shows them: the ones chosen, the one last touched, then the rest. `d` is `api.device_get`'s.
 - `paw.fx.current(device)`: The name of the preset the device was last set to, if any.
@@ -946,15 +946,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.fx.note_used(kind, query)`: Note that a device was chosen, after `query` was typed if anything.
 - `paw.fx.pick(device)`: Choose a preset of the device in a picker and load it.
 - `paw.fx.pick_param(device)`: Select one of the parameters of the device: type a part of its name. It shows first on the card of the window, and it is selected in the device panel.
-- `paw.fx.place(track, kind, opts)`: The first half of `add`: the device on the track, set to the preset new ones start from. What the device picker tries out before it is chosen.
-- `paw.fx.preferred(track_id)`: The kind of device that a track probably needs next. "instrument" is for a track that makes sound from MIDI and has no instrument yet. "effect" is for the other tracks (a track with an instrument, the master, a track of audio).
+- `paw.fx.place(part, kind, opts)`: The first half of `add`: the device on the part, set to the preset new ones start from. What the device picker tries out before it is chosen.
+- `paw.fx.preferred(part_id)`: The kind of device that a part probably needs next. "instrument" is for a part that makes sound from MIDI and has no instrument yet. "effect" is for the other parts (a part with an instrument, the master, a part of audio).
 - `paw.fx.presets(device)`: Every preset of the device: the user's first, then the factory's.
 - `paw.fx.presets_dir()`: Where presets are kept: `paw.opt.presets_dir`, or `presets` in the data directory.
 - `paw.fx.rank(info, query, line, wanted)`: How well a device matches the typed text, or nil when it does not match. The `@` words filter. The other words must match the whole line. A match in the name alone counts for more than a match that needs the vendor. The device selected last time for the same words comes first. A device of the category `wanted` (see `preferred`) comes before the others.
 - `paw.fx.reload_library()`: Forget what was read, for tests that change the file underneath.
 - `paw.fx.save(device, name)`: Save the device as it is now as a user preset. Returns the file's path.
 - `paw.fx.search(query, limit, wanted)`: The devices that match `query`, best first, at most `limit`. The "Add a device" box of the window shows this list.
-- `paw.fx.select(id)`: Put the device panel's row on a device of the cursor track.
+- `paw.fx.select(id)`: Put the device panel's row on a device of the cursor part.
 - `paw.fx.set_default(kind, name)`: Mark the preset that new instances of `kind` start from, or none.
 - `paw.fx.set_gain(device, db)`: A device's own gain after its effect, in dB.
 - `paw.fx.set_wet(device, percent)`: How much of a device's effect is heard, in percent.
@@ -972,30 +972,30 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.grep.fields()`: The fields text can be found in, for completion.
 - `paw.grep.matcher(pattern, mode)`: A test of text: `mode` "regex" (`paw.regex`), "exact" (the words, each anywhere) or "fuzzy" (as the pickers match). Raises an error for a bad regular expression.
 - `paw.grep.reader()`: The records of `records` read in slices, for a picker (`paw.slices`): each call of the function gives the records found in about `ms` milliseconds, and true when all are read.
-- `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged. paw keeps the records of the tracks and the clips from one search to the next, so read a record and don't change it.
+- `paw.grep.records()`: Every record of every source, in the order the sources were added. A source that fails is passed over and logged. paw keeps the records of the parts and the clips from one search to the next, so read a record and don't change it.
 - `paw.grep.search(pattern, opts)`: The records whose text matches `pattern`. `opts.mode` is as `matcher` takes it. `opts.fields` is a set of fields to search (all without it).
 - `paw.grep.source(name, fn)`: Add a source of text, or replace the one of that name.
 - `paw.grep.vimgrep(line, opts)`: What `:vimgrep` does: search, fill the list, go to the first place found unless the flags hold `j`. `opts.loc` the window's location list, `opts.add` adds to the current list. Returns the records found.
 
 ## Module paw.groups
 
-- `paw.groups.add(track, group)`: Put a track into a group: it then sounds through the group, unless it was sent somewhere of its own.
-- `paw.groups.depth(track)`: How many groups a track is inside.
+- `paw.groups.add(part, group)`: Put a part into a group: it then sounds through the group, unless it was sent somewhere of its own.
+- `paw.groups.depth(part)`: How many groups a part is inside.
 - `paw.groups.dissolve(group)`: Undo a group: its members go up a level and the group, if it holds nothing of its own (no clips, no devices), goes away.
 - `paw.groups.fold(group, on)`: Fold a group away, or open it, in the current window: `on` nil flips it. View state: no undo step (paw/folds.tl).
-- `paw.groups.folded(group)`: True if the tracks of a group are folded and hidden, in the window a view shows (paw/folds.tl).
+- `paw.groups.folded(group)`: True if the parts of a group are folded and hidden, in the window a view shows (paw/folds.tl).
 - `paw.groups.gather(group)`: Put a group's members right under it, in the order they are in.
-- `paw.groups.hidden(track, top)`: True if a track is hidden: inside a folded group. Inside group `top` (the group of a narrowed window), only the groups inside it count. `top` itself is open there.
-- `paw.groups.home(track, above)`: The group that a new track goes into when it is added next to `track` (`o`, `O`, `:nest.new`): below an open group's own row, that group; else the group of `track`. Nil at the top level, and for a group in another place (a subproject) than `track`.
-- `paw.groups.is_group(track)`: True if a track is a group.
+- `paw.groups.hidden(part, top)`: True if a part is hidden: inside a folded group. Inside group `top` (the group of a narrowed window), only the groups inside it count. `top` itself is open there.
+- `paw.groups.home(part, above)`: The group that a new part goes into when it is added next to `part` (`o`, `O`, `:nest.new`): below an open group's own row, that group; else the group of `part`. Nil at the top level, and for a group in another place (a subproject) than `part`.
+- `paw.groups.is_group(part)`: True if a part is a group.
 - `paw.groups.link(group, on)`: Link the faders of a group's members, or let them go: `on` nil flips it.
 - `paw.groups.linked(group)`: True if the faders of the members of a group are linked. When one moves, the others move by the same number of dB. This is separate from the routing, which a group also has.
-- `paw.groups.make(tracks, name)`: A new group that contains `tracks` (ids or tracks), above the first of them. Returns the track of the group.
-- `paw.groups.members(group)`: The tracks that belong to a group, in the order of the track list.
-- `paw.groups.of(track)`: The group a track belongs to (its id), or nil.
-- `paw.groups.remove(track, stay)`: Remove a track from its group, up one level. It sounds where the group sounds, and it is in the parent group of the group, if any. It moves out of the rows of the group, unless `stay`.
-- `paw.groups.rows(opts)`: The tracks that are drawn, in order: all but those folded away in the window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ track = id }` for a track and `{ track = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
-- `paw.groups.under(row)`: The tracks to draw under a row that is open in place, or nil (`paw.groups.rows` asks for each row).
+- `paw.groups.make(parts, name)`: A new group that contains `parts` (ids or parts), above the first of them. Returns the part of the group.
+- `paw.groups.members(group)`: The parts that belong to a group, in the order of the part list.
+- `paw.groups.of(part)`: The group a part belongs to (its id), or nil.
+- `paw.groups.remove(part, stay)`: Remove a part from its group, up one level. It sounds where the group sounds, and it is in the parent group of the group, if any. It moves out of the rows of the group, unless `stay`.
+- `paw.groups.rows(opts)`: The parts that are drawn, in order: all but those folded away in the window (`paw.folds`), and in a scope only those of the scope (`paw.scope`). Rows of the arrange view and of a graphical frontend are places in this list. With `{ lanes = true }`, every row: `{ part = id }` for a part and `{ part = id, lane = id }` for an automation lane shown under it (see `paw.lanes`).
+- `paw.groups.under(row)`: The parts to draw under a row that is open in place, or nil (`paw.groups.rows` asks for each row).
 
 ## Module paw.harmony
 
@@ -1010,14 +1010,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.fresh()`: True if the reading agrees with the project, so `key` and `chords` answer immediately. A view that paw draws on each key asks this first, because to read a long song again takes some time.
 - `paw.harmony.in_key(key, pitch)`: True if a pitch (or pitch class) is in a key.
 - `paw.harmony.invalidate()`: Forget the reading: a provider whose answer changed calls this.
-- `paw.harmony.is_drums(track)`: True if the harmony does not use a track: a drum track (a drum map in its meta, as the drums extension keeps it, or a drum device or name).
+- `paw.harmony.is_drums(part)`: True if the harmony does not use a part: a drum part (a drum map in its meta, as the drums extension keeps it, or a drum device or name).
 - `paw.harmony.key(beat, latest)`: The key at `beat` (the start when nil): the last key marker at or before it (`mk`, `key D minor`), or the key of a region over it, else the project's when one is set, else the one read there, else C major. `{ tonic, mode, name, ... }`. With `latest`, the key of the reading as it stands, without waiting for a new one: what a view that is drawn on each key asks.
 - `paw.harmony.key_name(key)`: "D minor", "Bb major": the tonic spelled as its key writes it.
 - `paw.harmony.keys()`: The keys over the song, `{ at, length, tonic, mode, name }` each: the key markers and the keys of regions, then the key of the project when it has one (over all of the song), else the keys read from the notes.
 - `paw.harmony.label(chord, how)`: A chord's label as `paw.opt.chords` (or `how`) asks: its name, its numeral, or both ("G7 V7").
 - `paw.harmony.marked_key(beat)`: The key that the user wrote for `beat` (a key marker, or a region's key), or nil. It is the one that `key` gives before the project's key.
 - `paw.harmony.next(beat)`: The first chord that starts after `beat`.
-- `paw.harmony.notes()`: Each note of the pitched tracks, in project beats, each with `track` and `clip`. The list does not contain muted clips and tracks, or notes that a trim of the edges of the clip hides. paw keeps the list until the project changes. This is what sounds, for the reading and for snippets. The context notes of the piano roll, `paw.roll_clips.context`, are what the roll shows, in its own beats, and only of the tracks selected to show.
+- `paw.harmony.notes()`: Each note of the pitched parts, in project beats, each with `part` and `clip`. The list does not contain muted clips and parts, or notes that a trim of the edges of the clip hides. paw keeps the list until the project changes. This is what sounds, for the reading and for snippets. The context notes of the piano roll, `paw.roll_clips.context`, are what the roll shows, in its own beats, and only of the parts selected to show.
 - `paw.harmony.parse_chord(text)`: A chord from its symbol: "G7", "F#m7b5", "C/E", "Bbmaj7". Nil when it is not one.
 - `paw.harmony.parse_key(spec)`: A key from a name ("D minor", "F# dorian", "Bb") or a table (`{ root = "D", scale = "minor" }`, `{ tonic = 2, mode = "minor" }`, or a key). A key is `{ tonic, mode, name, root = tonic, scale = mode, steps }`.
 - `paw.harmony.pc_name(pc, key)`: The name of a pitch class: spelled as `key` writes it (sharps or flats), else the names most often written (C#, Eb, F#, Ab, Bb).
@@ -1026,7 +1026,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.project_key()`: The key set for the project, or nil when none is.
 - `paw.harmony.provide(name, fn, priority)`: Add a provider. `fn(from, to)` returns chords and keys, or nil to let the next provider answer. The lists have the shapes that `chords` and `key` give. `root`, `quality`, `at` and `length` are enough for a chord. `at`, `length`, `tonic` and `mode` are enough for a key. The highest `priority` (default 50) answers first. A new provider with the same name replaces the old one. `fn` nil removes it.
 - `paw.harmony.provider()`: The provider the current reading came from.
-- `paw.harmony.range(track)`: The range of a part for a track, `{ low, high, name }`. This is the range of the track (`track.meta.range = { low, high }`). If not, paw guesses it from the words of its name and the names of its devices. If not, it is C3 to C6.
+- `paw.harmony.range(part)`: The range of the music for a part, `{ low, high, name }`. This is the range of the part (`part.meta.range = { low, high }`). If not, paw guesses it from the words of its name and the names of its devices. If not, it is C3 to C6.
 - `paw.harmony.scale_names()`: Names of the known scales, sorted.
 - `paw.harmony.schedule()`: Some time after the project changes, paw makes the reading again, in slices of a few milliseconds (the job `harmony`). So `harmony.changed` comes even when nothing asks.
 - `paw.harmony.set_key(spec)`: Set the project's key (one edit), or clear it with nil. Returns the key.
@@ -1044,8 +1044,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.harmony.read.fit(w, bass, total, root, q)`: How well the chord `root` `quality` fits weights `w` with `bass` and `total`.
 - `paw.harmony.read.key_path(notes_hist, bars, chords, pause)`: The keys from the pitch classes of each bar (`hist`, as `bar_part` gives them, which it leaves as they are) and the chords, as `keys`. `pause`, if given, is called after each 16 bars, as `decode` does.
 - `paw.harmony.read.keys(notes, bars, chords)`: Keys over notes in project beats, bar by bar. `bars` is a list of bar starts, with the end after the last bar. When `chords` (as `chords` gives them) are given, their roots and basses count two times. The harmony tells more about the tonic than the notes of a melody. Each key is `{ at, length, tonic, mode }`, with mode "major" or "minor".
-- `paw.harmony.read.merge(parts)`: The parts of one stretch of time, or of stretches side by side, as one part: the weights add up, and the lowest pitch over time is the lowest of theirs. One part that sounds gives that part.
-- `paw.harmony.read.part(run, offset, from, to)`: What the notes of `run`, `offset` beats later, sound from `from` to `to` (a `Part`). A note counts for how long it sounds there, a short note off the beat half; the lowest pitch over time is cut where a note starts or ends.
+- `paw.harmony.read.merge(portions)`: The portions of one stretch of time, or of stretches side by side, as one portion: the weights add up, and the lowest pitch over time is the lowest of theirs. One portion that sounds gives that portion.
+- `paw.harmony.read.portion(run, offset, from, to)`: What the notes of `run`, `offset` beats later, sound from `from` to `to` (a `Part`). A note counts for how long it sounds there, a short note off the beat half; the lowest pitch over time is cut where a note starts or ends.
 - `paw.harmony.read.run(notes)`: Notes as a `Run`: `notes` sorted by start, in their order.
 
 ## Module paw.harmony.voice
@@ -1142,7 +1142,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.classic(lhs, rhs, opts)`: A mapping as it was before the key rule. paw makes it when `paw.opt.keys` is "classic", now or later. It goes over the mapping that the rule gives the same keys. paw removes it again when the option changes back. A false `rhs` removes the keys.
 
   ```lua
-  paw.keymap.classic("j", "track.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
+  paw.keymap.classic("j", "part.volume by=-1", { view = "mixer", desc = "Volume down 1 dB" })
   ```
 - `paw.keymap.del(lhs, opts)`: Remove a mapping: `opts.mode` and `opts.view` as `set` took them.
 - `paw.keymap.delmarks(spec, all)`: Remove marks from every view, as Vim's `:delmarks` does: `spec` lists letters and ranges (`"a b"`, `"a-d"`), and `all` removes every lowercase one. Returns how many were removed, or nil and what is wrong.
@@ -1197,7 +1197,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.keymap.set(lhs, rhs, opts)`: Map keys.
 
   ```lua
-  paw.keymap.set("M", "track.mute", { desc = "Mute track" })
+  paw.keymap.set("M", "part.mute", { desc = "Mute part" })
   paw.keymap.set("<leader>mz", function(ctx) ... end, { desc = "Check the mix" })
   ```
 
@@ -1231,18 +1231,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.lanes
 
-- `paw.lanes.any_open()`: True if a track has its lanes open.
+- `paw.lanes.any_open()`: True if a part has its lanes open.
 - `paw.lanes.edit(lane_id, fn)`: Change the lane's points with `fn(points)`, which edits the list in place.
 - `paw.lanes.format(lane, value)`: A value of a lane as its target shows it: "-6.0 dB", "L30", "800 Hz".
-- `paw.lanes.is_open(track)`: True if the lanes of a track show as rows.
-- `paw.lanes.lines()`: Every row of the arrange view in order: each track drawn, then its lanes when they are open.
+- `paw.lanes.is_open(part)`: True if the lanes of a part show as rows.
+- `paw.lanes.lines()`: Every row of the arrange view in order: each part drawn, then its lanes when they are open.
 - `paw.lanes.name(lane)`: What a lane is called: Volume, Pan, or its device and parameter.
-- `paw.lanes.open(track, on)`: Show a track's lanes as rows, or hide them (`on` false).
+- `paw.lanes.open(part, on)`: Show a part's lanes as rows, or hide them (`on` false).
 - `paw.lanes.param_of(lane)`: The parameter a lane moves: its name, and the parameter's description for a device's lane.
 - `paw.lanes.point_at(lane_id, beat, reach)`: The point at a beat, within `reach` beats: its index in the lane's points, and the point { beat, value }.
-- `paw.lanes.shown(track)`: The lanes shown under a track: none when they are closed.
+- `paw.lanes.shown(part)`: The lanes shown under a part: none when they are closed.
 - `paw.lanes.step(lane)`: How far `+` and `-` move a point: a dB, 5% of pan, one choice, or a hundredth of the parameter's range.
-- `paw.lanes.toggle(track)`: Show the automation lanes of a track, or hide them. Returns true if they show.
+- `paw.lanes.toggle(part)`: Show the automation lanes of a part, or hide them. Returns true if they show.
 - `paw.lanes.value_at(lane, beat)`: What a lane's target is at a beat: the curve's value, or with no points yet the target's own value.
 
 ## Module paw.lang
@@ -1279,7 +1279,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.buffers_list()`: The buffers to list (`:ls`), by number: the views' that are in the layout or docked, and every other made since and not deleted.
 - `paw.layout.buftype`: the same as `paw.buftype`.
 - `paw.layout.capture(scopes)`: The tabs and windows as plain data: what `:layout save` writes. With `scopes`, the windows' scope stacks too (what the project keeps).
-- `paw.layout.clip_named(target)`: The clip a name of a window's thing stands for: an id (`7`), an address (`paw://clip/7`) or the name of a clip, the first in the order of the tracks. Nil if there is none.
+- `paw.layout.clip_named(target)`: The clip a name of a window's thing stands for: an id (`7`), an address (`paw://clip/7`) or the name of a clip, the first in the order of the parts. Nil if there is none.
 - `paw.layout.close(win)`: Close a window. The window of a view keeps its place, hidden. Other windows go. The last window of a tab closes the tab. The last window of all does not close. Returns true if it closed.
 - `paw.layout.conceal(name)`: Hide the windows of a view in each tab, but the last window of a tab, which stays. Returns true if one that was on the screen went.
 - `paw.layout.copy_tabs(tabs)`: A copy of a seat's tabs for a new seat: the windows keep their places and options, and start from that seat's state.
@@ -1291,7 +1291,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.layout.enter(win)`: Make a window the current one and give it the keyboard.
 - `paw.layout.equalize()`: Give every window of the current tab an equal share, but strips that do not take the keyboard.
 - `paw.layout.exchange(count)`: Exchange the current window with the next window next to it, or with the window number `count`, in their row or column. When it is the last window, use the previous window. The next window can be a split of several windows.
-- `paw.layout.export(node, scopes)`: A tree of windows as plain data, for `paw.layouts` and to save. With `scopes`, each window's scope stack too: the project's screen keeps them, a named layout does not (its tracks are another project's).
+- `paw.layout.export(node, scopes)`: A tree of windows as plain data, for `paw.layouts` and to save. With `scopes`, each window's scope stack too: the project's screen keeps them, a named layout does not (its parts are another project's).
 - `paw.layout.find(root, name, on_screen)`: The window of a view in a tree, one on screen first: the window with the keyboard, else the one whose state the view holds, else the one that had the keyboard last. With `shown`, only one on screen.
 - `paw.layout.find_id(root, id)`: The window of an id in the tree under `root`.
 - `paw.layout.focusable_windows()`: The windows of the current tab that take the keyboard.
@@ -1367,7 +1367,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.learn
 
 - `paw.learn.bind(source, target)`: Bind a controller to a target, in place of whatever moved that target before. `source` is { cc = 74 }, { bend = true } or { pressure = true }, or for a button { note = 36 }, with `channel` (1 to 16) or without for any channel. Returns the binding.
-- `paw.learn.bindings()`: The bindings: { { source, channel, number, track, target, device, param }, ... }.
+- `paw.learn.bindings()`: The bindings: { { source, channel, number, part, target, device, param }, ... }.
 - `paw.learn.bound(target)`: What moves a target: its binding, or nil.
 - `paw.learn.cancel()`: Stop the wait for a controller to learn.
 - `paw.learn.clear()`: Forget every controller binding.
@@ -1375,9 +1375,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.learn.source(event)`: The source of a `midi.in` event that can move something, or nil: { source, number, channel, value } with the value from 0 to 1.
 - `paw.learn.source_name(b)`: A controller as text: "CC 74 ch 1", "pitch wheel ch 2", "note 36 ch 10".
 - `paw.learn.start(target)`: Wait for the next controller move and bind it to `target` (or to what was moved last).
-- `paw.learn.target_for(word)`: The target a word names on the selected track: "volume", "pan", or a parameter of one of its devices by key or name.
+- `paw.learn.target_for(word)`: The target a word names on the selected part: "volume", "pan", or a parameter of one of its devices by key or name.
 - `paw.learn.target_name(t)`: What a binding moves, as text: "Lead › volume", "Lead › Filter › Cutoff".
-- `paw.learn.trigger(name, spec)`: Add a kind of target that a button or a pad presses: `spec` has `press(binding, down)` (down is false when it is let go), `name(target)` (the text of `:learn.list`), and optionally `check(target)` (an error for a target that is not right), `words` (the words of `:learn` that name it), `target_for(word, track)` (the target of a word, or nil) and `under_cursor(focused)` (the target under the cursor of a view, or nil). A target can keep a number in `slot`, such as a row.
+- `paw.learn.trigger(name, spec)`: Add a kind of target that a button or a pad presses: `spec` has `press(binding, down)` (down is false when it is let go), `name(target)` (the text of `:learn.list`), and optionally `check(target)` (an error for a target that is not right), `words` (the words of `:learn` that name it), `target_for(word, part)` (the target of a word, or nil) and `under_cursor(focused)` (the target under the cursor of a view, or nil). A target can keep a number in `slot`, such as a row.
 - `paw.learn.unbind(which)`: Take a binding away: by its place in `bindings()`, or everything that moves a target. Returns how many went.
 - `paw.learn.under_cursor()`: What the keyboard is on, if that is something a controller can move: the parameter under the device panel's cursor, the mixer's fader.
 
@@ -1427,7 +1427,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
                and `diagnostic(finding, doc)` (a location, fixes)
   framing      "lines" (newline-delimited JSON, the default) or "headers" (Content-Length)
   adapter      the dialect, by name or as a table (LSP's own by default)
-  attach       { subjects = { "clip", "mix", ... }, where = { focus, tracks = { "Flute*" }, drums } }
+  attach       { subjects = { "clip", "mix", ... }, where = { focus, parts = { "Flute*" }, drums } }
   settings     sent at initialize and with `workspace/didChangeConfiguration`
   init_options sent once, as `initializationOptions`
   restart      { max = 3, within_s = 60 }: restarts after it dies (none by default)
@@ -1456,7 +1456,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.lsp.document_module.build(id, key)`: The document for a clip, as `midi/didOpen` and `midi/didChange` send it, under `key` (from `key_of`). Nil when the clip is gone.
 - `paw.lsp.document_module.clip_of(uri)`: The clip a URI names, or nil.
 - `paw.lsp.document_module.key(beat)`: The project's key at a beat as `{ root = 0..11, scale = "major" }`, as `paw.harmony.key` gives it.
-- `paw.lsp.document_module.key_of(id)`: A value that changes each time the data that paw would send about a clip changes, and that is fast to make. It contains the notes of the clip, its position, the tracks around it, the tempo map and the key. Nil when the clip does not exist.
+- `paw.lsp.document_module.key_of(id)`: A value that changes each time the data that paw would send about a clip changes, and that is fast to make. It contains the notes of the clip, its position, the parts around it, the tempo map and the key. Nil when the clip does not exist.
 - `paw.lsp.document_module.release(id)`: Stop updating the key of clip `id` after each edit, when no server has its document.
 - `paw.lsp.document_module.tick(beats)`: Beats as ticks of `M.PPQ` a beat, the language server's unit.
 - `paw.lsp.document_module.uri(id)`: The URI that names a clip: `paw://clip/12`.
@@ -1510,7 +1510,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.media.collect()`: Copy every file from outside the project's folder into `media` beside it and point the clips at the copies. A file with the same bytes as one the folder has already is not copied again. One undo step. Returns `{ copied, same, missing, dir }`.
 - `paw.media.edits(clip)`: An audio clip's edit list: `{ { kind, ... } }`.
 - `paw.media.gain_part(clip, from, to, db)`: A gain of `db` on a part of an audio clip, from `from` to `to` seconds of what it plays, in its edit list. Returns how many edits it has.
-- `paw.media.glue(clips)`: Join audio clips of one track into one clip that plays a new file: the clips of the list, by id or as clips. A list of one clip joins it and each audio clip that touches or overlaps it. Lua can also give one clip without a list. Returns { id, file, glued }.
+- `paw.media.glue(clips)`: Join audio clips of one part into one clip that plays a new file: the clips of the list, by id or as clips. A list of one clip joins it and each audio clip that touches or overlaps it. Lua can also give one clip without a list. Returns { id, file, glued }.
 - `paw.media.list()`: Every file the project plays: `{ path, missing, inside, on_disk, hash, size }`. `hash` (`b3:` and 64 hexadecimal digits, the BLAKE3 hash of the file's bytes) and `size` are nil until paw has read the file.
 - `paw.media.missing()`: Files the project's clips play that are not there, once each.
 - `paw.media.normalize(clip, level)`: Bring the loudest sample an audio clip plays to `level` dB (0) by its gain. Returns the new gain.
@@ -1523,14 +1523,14 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.midifile
 
 - `paw.midifile.encode(file)`: The bytes of a Standard MIDI File from the shape that `parse` returns (`format` 0 or 1, `ppq`, `tracks`, and `tempos`, `signatures` and `markers`, which go in the first track). Ticks can be fractions. paw rounds them.
-- `paw.midifile.export(path, opts)`: Write a format 1 MIDI file with the tempo map, time signatures and markers. It contains the whole project, `opts.tracks` (tracks or ids), or only `opts.clips` (ids), with one track of the file for each track that has notes or moves. `opts.from` and `opts.to` keep the notes and moves that start in that time, at their place in the song. Returns the number of notes written.
-- `paw.midifile.import(path, opts)`: Import a MIDI file into the project. Its parts go on new tracks below the track of the cursor, at the cursor (or `opts.start`). With `opts.track`, all of it goes as one clip on that track. The tempo map does not change, unless `opts.tempo`. Then the tempo map of the file applies from its start. paw adds the markers of the file. Returns { tracks, clips, notes, skipped }.
-- `paw.midifile.import_clip(path, track, start)`: Bring a MIDI 2.0 clip file in as a clip that refers to it, on a track at a beat. The first edit makes it the project's own. Returns the clip.
+- `paw.midifile.export(path, opts)`: Write a format 1 MIDI file with the tempo map, time signatures and markers. It contains the whole project, `opts.parts` (parts or ids), or only `opts.clips` (ids), with one track of the file for each part that has notes or moves. `opts.from` and `opts.to` keep the notes and moves that start in that time, at their place in the song. Returns the number of notes written.
+- `paw.midifile.import(path, opts)`: Import a MIDI file into the project. Its parts go on new parts below the part of the cursor, at the cursor (or `opts.start`). With `opts.part`, all of it goes as one clip on that part. The tempo map does not change, unless `opts.tempo`. Then the tempo map of the file applies from its start. paw adds the markers of the file. Returns { parts, clips, notes, skipped }.
+- `paw.midifile.import_clip(path, part, start)`: Bring a MIDI 2.0 clip file in as a clip that refers to it, on a part at a beat. The first edit makes it the project's own. Returns the clip.
 - `paw.midifile.is_clip_file(path)`: True if a path names a MIDI 2.0 clip file (`.midi2`), from its ending.
 - `paw.midifile.is_midi_file(path)`: True if a path names a MIDI file, from its file ending.
 - `paw.midifile.lost_text()`: What the last export could not keep, as one line, or nil: MIDI 1.0 has 960 ticks to a beat here, values of 7 bits (14 for the pitch bend), and no controllers of one note but its pressure.
-- `paw.midifile.open(path)`: Open a MIDI file as a new project with no file (see the top of this file). Returns { tracks, notes, skipped }. If paw cannot read the file, it raises an error, and the open project does not change.
-- `paw.midifile.open_clip(path)`: Open a MIDI 2.0 clip file alone, as a new project with no file: one track that plays it on the default instrument, the clip, and the piano roll on it. `:w` writes the clip back to its file. Returns the clip.
+- `paw.midifile.open(path)`: Open a MIDI file as a new project with no file (see the top of this file). Returns { parts, notes, skipped }. If paw cannot read the file, it raises an error, and the open project does not change.
+- `paw.midifile.open_clip(path)`: Open a MIDI 2.0 clip file alone, as a new project with no file: one part that plays it on the default instrument, the clip, and the piano roll on it. `:w` writes the clip back to its file. Returns the clip.
 - `paw.midifile.parse(data)`: Read the bytes of a Standard MIDI File. Returns, in ticks (`ppq` for each beat) from the start:
 
   ```lua
@@ -1545,18 +1545,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   Channels count from 0. The `type` of a control is "cc" (with `number`), "bend", "pressure" or "program" (with `program`). A bend goes from 0 to 16383, with 8192 in the middle. A pressure has `key` for the pressure of one note.
 
   Values are as in the file. paw reads format 2 files (independent patterns) as one track after the other. paw reads a file timed in frames of SMPTE time code at 120 beats a minute, because its seconds are then correct. Returns nil and a reason when it is not a MIDI file.
-- `paw.midifile.parts(file, merge)`: The data for one track: { name, channel, drums, notes, controls }, in ticks. paw splits the one track of a format 0 file by channel. Each other track with notes is one part. With `merge`, all is one part.
+- `paw.midifile.parts(file, merge)`: The data for one part: { name, channel, drums, notes, controls }, in ticks. paw splits the one track of a format 0 file by channel. Each other track with notes is one part. With `merge`, all is one part.
 - `paw.midifile.read(path)`: Read a MIDI file from disk: as `parse`, or nil and a reason.
 - `paw.midifile.skipped_text(file)`: What was left out of a file, as one line, or nil.
 - `paw.midifile.write_clip()`: Write the clip open alone back to its file. Returns its path.
 
 ## Module paw.mixer_rows
 
-- `paw.mixer_rows.current()`: The row under the cursor, and the track it is on.
+- `paw.mixer_rows.current()`: The row under the cursor, and the part it is on.
 - `paw.mixer_rows.describe_row(id, row)`: What a row is called and holds, for the title bar and `K`.
 - `paw.mixer_rows.device()`: The insert under the cursor, for `ge`.
-- `paw.mixer_rows.rows(id)`: The rows of a track's strip, top to bottom: { key, kind, index }.
-- `paw.mixer_rows.to(i)`: Put the cursor on row `i` (1 for the top) of the cursor track's strip.
+- `paw.mixer_rows.rows(id)`: The rows of a part's strip, top to bottom: { key, kind, index }.
+- `paw.mixer_rows.to(i)`: Put the cursor on row `i` (1 for the top) of the cursor part's strip.
 - `paw.mixer_rows.to_kind(dir, n)`: Go to the first row of the next (`dir` 1) or previous kind.
 - `paw.mixer_rows.to_kind_end(n)`: Move the mixer's cursor to the last row of its kind (or `n` kinds on).
 
@@ -1590,36 +1590,36 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.nest.content_key(c)`: A key that changes when what a block plays changes: the stamps of the clips of its subproject, and the block's own place in it.
 - `paw.nest.data(nest)`: The data of subproject `nest`'s kind: what its `create` gave, or what `paw.nest.set_data` stored last. Nil for a plain subproject.
 - `paw.nest.define_kind(name, spec)`: Define a kind of subproject that `:nest.new kind=<name>` makes, such as a drum pattern that opens in a step grid. `spec` gives `title`, `letter`, `create(region)`, `enter(nest)` and `describe(nest)`, each optional (`paw.contracts.NestKind`). The kind's data is in the subproject's `meta` under the kind's name: read it with `paw.nest.data(nest)`. Without the kind, the subproject plays and the arrange view edits it. Returns the spec.
-- `paw.nest.describe(c)`: What `K` says of a block, in three lines. The first gives the subproject, its meter, its bars, its tempo and whether it is live or frozen, with the stem's name after it for a stem. The second gives its tracks, and the third gives the bars of the song where it plays, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, `2 tracks: Piano, Strings` and `plays in 2 places: @9 (here), @25`. `c` is the clip, in the window's time.
-- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder): its tracks, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
+- `paw.nest.describe(c)`: What `K` says of a block, in three lines. The first gives the subproject, its meter, its bars, its tempo and whether it is live or frozen, with the stem's name after it for a stem. The second gives its parts, and the third gives the bars of the song where it plays, for example `subproject Ballad · 6/8 · 8 bars · follows the tempo · live`, `2 parts: Piano, Strings` and `plays in 2 places: @9 (here), @25`. `c` is the clip, in the window's time.
+- `paw.nest.export(nest, folder)`: Write subproject `nest` as a project folder of its own at `folder` (`~/` is the home folder): its parts, its master, its markers and regions, its tempo and meter as its first block plays them, and its media copied in (`paw.api.nest_export`). The song does not change. Returns the message.
 - `paw.nest.flush`: the same as `paw.flush`.
 - `paw.nest.get(id)`: The subproject `id`, or nil when there is none.
-- `paw.nest.import(folder)`: Bring the project folder `folder` (`~/` is the home folder) into the song as a subproject, as `:import <folder>` does: a subproject that refers to the folder (`paw.api.nest_import`), on a row of its own below the cursor's track with one block from the cursor's bar. It plays at once. Its first edit, or `:nest.own`, makes it the song's own copy. Call it in one undo step (a command is one). Returns the message.
+- `paw.nest.import(folder)`: Bring the project folder `folder` (`~/` is the home folder) into the song as a subproject, as `:import <folder>` does: a subproject that refers to the folder (`paw.api.nest_import`), on a row of its own below the cursor's part with one block from the cursor's bar. It plays at once. Its first edit, or `:nest.own`, makes it the song's own copy. Call it in one undo step (a command is one). Returns the message.
 - `paw.nest.is_open(row)`: Whether a row is open in place.
 - `paw.nest.kind(nest)`: The kind of subproject `nest` as defined, or nil: for a plain subproject, and for one whose kind no extension here defines.
 - `paw.nest.letter(nest)`: The letter of the kind of subproject `nest`, which its blocks show after `⧉`, or nil for a plain subproject.
-- `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, tracks, kind, meta, used }.
-- `paw.nest.new(o)`: Make a subproject with a row of its own, as `:nest.new` does (see the top): the subproject over the time given, a return row below the track `below` (in its group, as `o` puts a track) with one block, the meter in the song's map when one is given; then the window enters it, with one empty track (`paw.opt.nest_track`), or with the tracks that the `create` of its kind (`o.kind`) makes. Call it in one undo step (a command is one).
+- `paw.nest.list()`: Every subproject, in the order they were made: { id, name, length, tempo, meter, master, parts, kind, meta, used }.
+- `paw.nest.new(o)`: Make a subproject with a row of its own, as `:nest.new` does (see the top): the subproject over the time given, a return row below the part `below` (in its group, as `o` puts a part) with one block, the meter in the song's map when one is given; then the window enters it, with one empty part (`paw.opt.nest_part`), or with the parts that the `create` of its kind (`o.kind`) makes. Call it in one undo step (a command is one).
 - `paw.nest.notes(c, limit)`: The notes that a block plays, from its start, for the small picture inside it: { start, length, pitch } each, at most `limit`.
 - `paw.nest.open(path, opts)`: Open the song of `path`, a path inside a song (`song/nests/Bridge`, see `song_of`), and enter that subproject in the window, as `:e` of the path does. The song opens only when it is not open already; `opts` go to `paw.loading.open`. Returns the message.
-- `paw.nest.outputs(nest, row, how)`: Give a subproject one row of its own for each of its tracks (`stems`), or one stereo return again (`master`), on its return row `row`. Call it in one undo step. Returns the message.
+- `paw.nest.outputs(nest, row, how)`: Give a subproject one row of its own for each of its parts (`stems`), or one stereo return again (`master`), on its return row `row`. Call it in one undo step. Returns the message.
 - `paw.nest.own(nest)`: Make subproject `nest`, which refers to a project folder, the song's own copy now, as `:nest.own` does: the subprojects that came with it too. One undo step: `u` makes it refer to the folder again. Returns the message.
 - `paw.nest.places(nest)`: How many places the song plays subproject `nest` in: `×2` on its return row and on each of its blocks.
-- `paw.nest.promote(clip, deep)`: Promote the subproject of block `clip` to a view, as `:nest.promote` does: its tracks come back in a group named after it at the place of its return row (`paw.api.nest_promote`); its regions come back as children of a region named after it over the block (made if there is none); its own meter goes into the song's map over the block; and the window that was inside it is now inside a view of the group's tracks over the region's time, at the same place. With `deep`, the subprojects inside it too. Call it in one undo step. Returns the message.
+- `paw.nest.promote(clip, deep)`: Promote the subproject of block `clip` to a view, as `:nest.promote` does: its parts come back in a group named after it at the place of its return row (`paw.api.nest_promote`); its regions come back as children of a region named after it over the block (made if there is none); its own meter goes into the song's map over the block; and the window that was inside it is now inside a view of the group's parts over the region's time, at the same place. With `deep`, the subprojects inside it too. Call it in one undo step. Returns the message.
 - `paw.nest.returns(row)`: The subproject that a row returns, when the window shows the row's place: what `za` shows under it. Nil for any other row.
-- `paw.nest.save(name, own_row, stems)`: Save the window's view as a subproject, as `:scope.write` does: per track, or with a row of its own (`own_row`, `:scope.write!`). The view's clips move into the subproject (`paw.api.nest_save`); the rows get its blocks. In a view with time, its markers and regions inside move in, and a region over its time stays; a view with no time takes none of them. The meter of the time is the subproject's own. With a row of its own, no route of the song changes: the row plays where the tracks played, in their group; when they played into several buses, it plays into the master, and `stems` gives a stem row for each track, into its bus. Per track, the window stays in the view; with a row of its own, it is inside the subproject at the same place. Call it in one undo step. Returns the message.
+- `paw.nest.save(name, own_row, stems)`: Save the window's view as a subproject, as `:scope.write` does: per part, or with a row of its own (`own_row`, `:scope.write!`). The view's clips move into the subproject (`paw.api.nest_save`); the rows get its blocks. In a view with time, its markers and regions inside move in, and a region over its time stays; a view with no time takes none of them. The meter of the time is the subproject's own. With a row of its own, no route of the song changes: the row plays where the parts played, in their group; when they played into several buses, it plays into the master, and `stems` gives a stem row for each part, into its bus. Per part, the window stays in the view; with a row of its own, it is inside the subproject at the same place. Call it in one undo step. Returns the message.
 - `paw.nest.set_data(nest, data)`: Store the data of subproject `nest`'s kind, as one undo step.
 - `paw.nest.set_meter(nest, meter)`: Give subproject `nest` a meter of its own (`6/8`), with the song's map as it is (polymeter), or the song's meter again (`follow`), as `:nest.meter` does. Returns the message.
 - `paw.nest.set_time(nest, how, bpm)`: Give subproject `nest` a tempo of its own (`own`: the song's over its first block, or `bpm` throughout) or the song's again (`follow`), as `:nest.time` does. Its blocks keep their start; their length in the song follows. Call it in one undo step. Returns the message.
 - `paw.nest.shift`: the same as `paw.cursor.shift`.
 - `paw.nest.show(id)`: Put the window in front inside subproject `id`, as if you entered it from the song through each subproject that holds it. It does nothing when the window shows that subproject already. With no `id`, the window goes back to the song. Returns false and why when the project has no such subproject.
-- `paw.nest.shown_under(track)`: The return row that a track of a subproject is shown under, in place (`za`), or nil for any other track.
+- `paw.nest.shown_under(part)`: The return row that a part of a subproject is shown under, in place (`za`), or nil for any other part.
 - `paw.nest.song_of(path)`: The song and the subproject that a path inside a song names (`song/nests/Bridge`, or its `nest.toml`): the song's folder and the subproject's id. Nil for any other path.
-- `paw.nest.toggle(track)`: `za` on a return row: open its subproject's tracks under it, in the song's time, or close them. On a track shown in place: close its row. False when the track is neither.
+- `paw.nest.toggle(part)`: `za` on a return row: open its subproject's parts under it, in the song's time, or close them. On a part shown in place: close its row. False when the part is neither.
 - `paw.nest.under`: the same as `paw.groups.under`.
 - `paw.nest.unique(clip)`: Make the block `clip` a subproject of its own, as `:nest.unique` does: a copy of its subproject that only this block plays; the others keep the subproject. A window inside it through this block goes inside the copy. Call it in one undo step. Returns the message.
-- `paw.nest.windows(track)`: For a track shown in place under its return row: each block of the row that plays the whole subproject, in order of time. The arrange view draws the track's clips in each of them, and nothing outside them. Nil for any other track.
-- `paw.nest.write(folder)`: Write what the window shows as a project folder of its own at `folder` (`~/` is the home folder), as `:export project <folder>/` does. The whole song is a copy of the project with its media (`paw.api.song_export`). A subproject is as `paw.nest.export` writes it. A view is copies of its tracks with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media (`paw.api.scope_export`). The song does not change. Returns the message.
+- `paw.nest.windows(part)`: For a part shown in place under its return row: each block of the row that plays the whole subproject, in order of time. The arrange view draws the part's clips in each of them, and nothing outside them. Nil for any other part.
+- `paw.nest.write(folder)`: Write what the window shows as a project folder of its own at `folder` (`~/` is the home folder), as `:export project <folder>/` does. The whole song is a copy of the project with its media (`paw.api.song_export`). A subproject is as `paw.nest.export` writes it. A view is copies of its parts with their devices, their clips and lanes in its time, the markers and regions inside, the tempo and meter of its time, and the media (`paw.api.scope_export`). The song does not change. Returns the message.
 
 ## Module paw.notes
 
@@ -1649,7 +1649,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.panes
 
-- `paw.panes.area(width, height)`: The size of the main area in pixels, from the frontend: at the start and each time that it changes. The first time that the window of a seat gives it, paw shows the device panel when the tab has its place, closed, as the default start layout has (`paw.layout.default_tree`): a window shows the devices of the selected track next to the timeline unless the user closes them. A start layout of the configuration's own is shown as it is.
+- `paw.panes.area(width, height)`: The size of the main area in pixels, from the frontend: at the start and each time that it changes. The first time that the window of a seat gives it, paw shows the device panel when the tab has its place, closed, as the default start layout has (`paw.layout.default_tree`): a window shows the devices of the selected part next to the timeline unless the user closes them. A start layout of the configuration's own is shown as it is.
 - `paw.panes.border(index, x, y)`: A border of the last arrangement (by its place in `state().borders`) dragged to `x, y`: as a border dragged in the terminal, the side that has a size keeps one, in whole cells.
 - `paw.panes.cells()`: The main area in cells, with the status line and the command line under it as on a terminal: what the seat's screen is. Nil until the frontend has said.
 - `paw.panes.close(id)`: Close a pane's window, as `:close` in it would.
@@ -1672,6 +1672,42 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.params.presets(kind)`: The built-in presets of a device kind: a list of `{ name, params }`.
 - `paw.params.read(device, method, data)`: Ask a built-in device for a reading: a list of numbers (`curve`, `spectrum`) or a table of named numbers (`meters`, `pitch`).
 - `paw.params.step(p, value, steps)`: The value `steps` key presses away: a hundredth of the slider each, one option at a time for a choice.
+
+## Module paw.part_kinds
+
+- `paw.part_kinds.add(name, opts)`: A new part of the kind `name`. `opts.name` is its name (if not given, the title of the kind without "part"), and `opts.index` its place. The other options go to `create`.
+- `paw.part_kinds.clear(which)`: Make a part an ordinary one again, as far as its kind goes: what the kind made (its devices) stays, for the extension to take away.
+- `paw.part_kinds.define(name, spec)`: Define a kind of part (see above). `name` is a word: what is typed after `:part.add` and kept in the part's `meta.kind`.
+- `paw.part_kinds.describe(which)`: A few words on a part's kind, for `K` and the part header: `Vocal part · Kitane`, "vocal (no extension here defines it)", or nil.
+- `paw.part_kinds.known_words()`: ": there are vocal, drums", for messages.
+- `paw.part_kinds.list()`: The defined kinds, in the order they were defined.
+- `paw.part_kinds.of(which)`: The name of the kind of a part: the kind that it keeps. If not, a kind whose `is` claims it. Nil for a usual part.
+- `paw.part_kinds.open(clip)`: Open a clip in its part's kind's editor. True when it did.
+- `paw.part_kinds.remove(name)`: Forget a kind: no longer offered, nor in the menus. Parts that keep it are ordinary parts again until something defines it.
+- `paw.part_kinds.set(which, name, args)`: Make a part of `name`'s kind: keep the kind on it, then let the kind make it what it is. `args` go to `create`.
+- `paw.part_kinds.spec(which)`: A part's kind as defined, or nil (an ordinary part, or a kind that no loaded extension defines).
+
+## Module paw.partcolumn
+
+- `paw.partcolumn.add(name, spec)`: Add a component, or put a new one in place of one of that name. It goes into `paw.opt.partcolumn` (unless `hidden`), so it shows at once.
+- `paw.partcolumn.click(L, x, part, ctx)`: A click at column `x` of the column on a line of `part`: the component there does what its `click` says. True if one had a `click`.
+- `paw.partcolumn.describe(part)`: What the components shown say of `part` for `K` (their `describe`), a line each, in their order.
+- `paw.partcolumn.draw(buf, L, y, part, ctx)`: Draw one line of the column for `part` at line `y` of `buf` (the column's own part of the view), with what `ctx` says of the line.
+- `paw.partcolumn.layout(frame, room, header_room)`: The column for one draw over the parts of `frame`: the components named in `paw.opt.partcolumn`, in their order, each as wide as it says. Each component with `from_header` takes its columns from the headers, up to `header_room` columns in all. The other components, and a component that does not fit in the headers, take their columns from the timeline, up to `room` columns. A component that fails, or that has no room left, takes no columns.
+- `paw.partcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.partcolumn`. The component that it replaced, if any, comes back.
+- `paw.partcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy: `paw.partcolumn.add(name, old)` with the table it had before puts that back. The change of an extension goes when the extension unloads.
+
+  ```lua
+  paw.partcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
+  paw.partcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
+  ```
+- `paw.partcolumn.set_sign(name, patch)`: Change a sign that is there, as `set` changes a component: its `priority`, `render`, `describe`, `glyphs` and `styles`.
+
+  ```lua
+  paw.partcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
+  ```
+- `paw.partcolumn.shows(name)`: True if component `name` is shown: added and named in `paw.opt.partcolumn`.
+- `paw.partcolumn.sign(name, spec)`: Add a sign to the `signs` component: `render(part, ctx)` gives one character, or nothing. Where several give one, the highest `priority` shows. `nil` for `spec` takes the sign away.
 
 ## Module paw.pick
 
@@ -1714,7 +1750,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   frac              `frac(value)` from 0 (bottom) to 1 (top); else `lo` and `hi`
   flat              the value shown when there are no points (else nothing is)
   color             the line's colour, `#rrggbb` (the theme's `dim` by default):
-                    a track's own is `paw.draw.track_colour(track)`
+                    a part's own is `paw.draw.part_colour(part)`
   fill              how opaque the area under the line is, 0 to 1 (0.16); false for none
   width             the line's width in pixels (1.5)
   top, bottom       pixels kept clear above 1 and below 0 (2 each)
@@ -1755,7 +1791,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   ```lua
   paw.plugins.attach(here .. "/lib/paw-ara.so")   -- "ara"
   ```
-- `paw.plugins.key_names(track)`: The key names of all the devices of a track. When two devices name a key, the first in the chain wins.
+- `paw.plugins.key_names(part)`: The key names of all the devices of a part. When two devices name a key, the first in the chain wins.
 - `paw.plugins.note_names(device)`: What a device calls its keys, by pitch: a plugin that implements CLAP's `note-name` (a drum kit's drums, a sampler's keyswitches), or a built-in device of `M.builtin_names` (the `drums` kit). Empty for the rest. Asked again after `M.names_ttl`.
 - `paw.plugins.remove_dir(dir)`: Stop to find plugins in `dir`, and stop to offer the devices found there. The devices that exist continue to work.
 
@@ -1768,7 +1804,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.qf
 
-- `paw.qf.cdo(line, opts)`: Run a command line on each entry of the current list of a stack (`:cdo`), all as one undo step. For each entry, the cursor goes to the entry first. The command gets the address as `ctx.target`, and the whole location as `ctx.location`. With `per_track`, it runs one time for each track of the entries (`:cfdo`). Returns how many times it ran.
+- `paw.qf.cdo(line, opts)`: Run a command line on each entry of the current list of a stack (`:cdo`), all as one undo step. For each entry, the cursor goes to the entry first. The command gets the address as `ctx.target`, and the whole location as `ctx.location`. With `per_part`, it runs one time for each part of the entries (`:cfdo`). Returns how many times it ran.
 - `paw.qf.changed(source)`: Tell paw that the entries of a source can be different now.
 - `paw.qf.close(loc)`: Close the windows of the tab that show the quickfix list (`loc`: the location list of the current window). Returns true if one closed.
 - `paw.qf.count(list)`: How many entries of each level a list has: `{ error, warning, info, hint, total }`.
@@ -1786,7 +1822,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.fix_title(e)`: The title of an entry's fix, or nil.
 - `paw.qf.format(e, list)`: An entry in one line, as said when going to it: `(2 of 7) error: …`.
 - `paw.qf.from_diagnostics(target, filter)`: Diagnostics as entries (as `paw.diagnostic.get` takes `target` and `filter`).
-- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a track, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
+- `paw.qf.go(e)`: Put the cursor on the address of an entry, in the view that shows it best, and focus that view. A thing inside a subproject goes inside that subproject first. A note goes to the piano roll, and a device or a parameter to the device panel. A clip, a part, a lane or a range of time goes to the arrange view. Returns true if there was a place to go.
 - `paw.qf.jump(n, stack)`: Make entry `n` of a stack's current list the current entry and go to it.
 - `paw.qf.last(stack)`: Go to the list's last entry.
 - `paw.qf.loc_stack(win, make)`: The location lists of a window (of the current window without `win`), made when you ask with `make`. A window that shows a location list uses the list that it shows, as in Neovim.
@@ -1797,7 +1833,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.qf.set(entries, opts)`: Put a list of entries in the quickfix lists (the location lists of a window with `opts.win`, of the current window with `opts.win = true`), with the title `opts.title`, and make it current. A list with the same title in the history is replaced at its place. Its current entry stays. `opts.current = false` keeps a different list current. Returns the list.
 
   ```lua
-  paw.qf.set({ { address = "paw://track/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
+  paw.qf.set({ { address = "paw://part/3", text = "too quiet", level = "warning" } }, { title = "Levels" })
   ```
 - `paw.qf.severity_of(level)`: A severity from 1 (error) to 4 (hint) from a number or a word. Nil for none.
 - `paw.qf.source(source, fn)`: A source that paw asks for its entries when they can change. `fn()` returns them. paw calls it again after `paw.qf.changed(source)`, one time, when a user next looks at the list.
@@ -1848,7 +1884,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.registry.all()`: The registries made so far, in the order they were made.
 - `paw.registry.maker(value)`: The loaded extension whose files made `value`: the owner of an entry of a registry made with `made` (the timers).
-- `paw.registry.missing(reg, key)`: Loads the extension that waits for `key` of `reg` (its `kind` trigger), and gives true when it loaded, so that `reg:get(key)` gives the entry that the extension put. The kind of a track loads its extension when the track header asks for it, and the kind of a clip loads its extension when the project opens.
+- `paw.registry.missing(reg, key)`: Loads the extension that waits for `key` of `reg` (its `kind` trigger), and gives true when it loaded, so that `reg:get(key)` gives the entry that the extension put. The kind of a part loads its extension when the part header asks for it, and the kind of a clip loads its extension when the project opens.
 - `paw.registry.new(kind, title, options)`: A new registry: entries by key, each with the extension that put it there. `kind` names it in `paw.ext.provides` and `title` in `:extensions`. Its functions are `put(key, value)`, `get(key)`, `remove(key)`, `entries()`, `owned_by(name)`, `put_by(key, name)` and `label(key, value)`. `paw.ext.unload` takes away the entries of an extension, and an entry that one of them replaced comes back.
 - `paw.registry.owner()`: The extension that loads now, or whose code calls: the owner of an entry that it puts. paw/command.tl reads it for the commands too.
 - `paw.registry.replaced(reg, what, owner, previous)`: Records that the extension `owner` put an entry over an entry of the extension `previous`. `:checkhealth extensions` gives a warning for it.
@@ -1880,7 +1916,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   dither      true to add dither when writing 16 or 24 bits
   quality     for MP3, Ogg Vorbis and Opus: "low", "medium", "high" (the
               default) or "best"; `bitrate` (kbit/s) instead of it for a number
-  tags        { title, artist, album, track, year, genre, comment, cover } written into
+  tags        { title, artist, album, part, year, genre, comment, cover } written into
               the file, over the project's own (`paw.render_tags`); `cover` is a PNG or
               JPEG file (a WAV holds no cover); the title of a lossy file is the project's name by default
   normalize   bring the loudest sample to this level in dB, such as -1
@@ -1888,17 +1924,17 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
               with `normalize` too, the peak level is a ceiling
   gain        raise or lower the whole file by this many dB, such as -3.5; not with
               `normalize` or `loudness` (an export of stems gives each stem the gain of the mix)
-  tracks      { id, ... }: only these, with what they pass through (a stem)
-  tap         where in the sound of the tracks the render listens:
+  parts      { id, ... }: only these, with what they pass through (a stem)
+  tap         where in the sound of the parts the render listens:
               "pre"     their clips and devices, without the fader, pan or mute
               "post"    with the fader, pan and mute, without the groups, sends or master
               "groups"  as when they are soloed, through their groups and the
                         returns of their sends, without the master
               "master"  through the master as well (the default)
-              "pre" and "post" need `tracks`. The files of "groups" and
+              "pre" and "post" need `parts`. The files of "groups" and
               "master" add up to the mix.
   master      false is the same as tap = "groups"
-  freeze      a track id: that track alone, before its fader, as a freeze renders it
+  freeze      a part id: that part alone, before its fader, as a freeze renders it
   block       a clip id of a block of a subproject: what the block plays into its row,
               and nothing else, as a freeze of the block renders it
   through     with `block` inside a subproject: the blocks that place it in the song,
@@ -1931,7 +1967,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roles.mark(buf, role, x, y, w, h, props)`: `buf:mark(role, x, y, w, h, props)`: mark a role over an area. A terminal draws the cells of the role there. A frontend that knows the role paints it as what it is. `props.hit` makes it a hit region, and `props.bind` ties it to a live value. Returns the buffer of the area.
 
   ```lua
-  buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", track = id } })
+  buf:mark("fader", 4, 2, 3, 12, { at = 0.8, hit = { kind = "fader", part = id } })
   ```
 - `paw.roles.plane(buf, x, y, w, h, opts)`: `buf:plane(x, y, w, h, opts)`: a plane over an area. Each axis of the plane has its own domain, `opts.x` and `opts.y` (`{ domain, from, per }`): `per` is the cells for one unit of the domain, and `from` is the value at the edge of the area. A terminal shows a mark on the cells it rounds to. A window shows it at its exact position.
 
@@ -1946,27 +1982,27 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 - `paw.roll_clips.activate(id)`: Make a clip the active clip. A clip that is not editable yet takes the place of the old active clip in the set. The cursor stays at its position in the song.
 - `paw.roll_clips.active()`: The id of the active clip, or nil with no clip open.
-- `paw.roll_clips.context()`: The context notes, in the beats of the roll. These are the notes of the other clips of the active clip's track, and of the clips of the shown tracks (not the editable clips), that sound in the range of the editable clips. Each is `{ pitch, start, length, velocity, clip, track, color }`, at most `paw.opt.roll_context_max` of them. paw finds them again only when those clips, the shown tracks, the edited clips or their span change: an edit of the notes of an edited clip keeps them.
+- `paw.roll_clips.context()`: The context notes, in the beats of the roll. These are the notes of the other clips of the active clip's part, and of the clips of the shown parts (not the editable clips), that sound in the range of the editable clips. Each is `{ pitch, start, length, velocity, clip, part, color }`, at most `paw.opt.roll_context_max` of them. paw finds them again only when those clips, the shown parts, the edited clips or their span change: an edit of the notes of an edited clip keeps them.
 - `paw.roll_clips.context_at(pitch, beat)`: The context note on `pitch` that sounds at roll beat `beat`, if any.
 - `paw.roll_clips.cycle(n)`: Make the clip `n` places after the active one (before it, with a negative `n`) active, the editable clips taken in the order they start.
 - `paw.roll_clips.editable(id)`: True if a clip is one of the editable clips.
 - `paw.roll_clips.ids()`: The ids of the editable clips, the active one first, then the others in the order they were added. In a narrowed window, only the clips that its scope shows (the active one always).
-- `paw.roll_clips.note_at(pitch, beat, parts)`: The note of an editable clip on `pitch` that sounds at roll beat `beat`, the active clip first. Returns the note (in the beats of the roll), its place and its part.
-- `paw.roll_clips.notes(range, parts)`: The notes of the editable clips in the roll's beats, in the order they start (lower pitches first in a chord), each with `clip` (its clip's id), `place` (its place among that clip's notes, for `edit_notes`) and `offset`. With one clip they are that clip's notes in its own order. `range` is as for `Clip:notes`, its beats the roll's.
+- `paw.roll_clips.note_at(pitch, beat, portions)`: The note of an editable clip on `pitch` that sounds at roll beat `beat`, the active clip first. Returns the note (in the beats of the roll), its place and its part.
+- `paw.roll_clips.notes(range, portions)`: The notes of the editable clips in the roll's beats, in the order they start (lower pitches first in a chord), each with `clip` (its clip's id), `place` (its place among that clip's notes, for `edit_notes`) and `offset`. With one clip they are that clip's notes in its own order. `range` is as for `Clip:notes`, its beats the roll's.
 - `paw.roll_clips.offset(id)`: Where a clip's beats are in the roll: add this to them.
 - `paw.roll_clips.only()`: Edit the active clip alone. This is what paw does when you open a clip.
 - `paw.roll_clips.open(ids, active)`: Edit these clips together. `active` (or the first of them) gets the new notes. paw does not use clips that are not MIDI.
-- `paw.roll_clips.parts()`: The editable clips, the active one first: `{ id, clip, offset, start, length, track, name }` each, `clip` a handle (`paw.clip`) whose pitches are those that the clip plays (`Clip:shifted`).
-- `paw.roll_clips.pick()`: `:roll.tracks`: a list of the tracks near the roll and of their clips. On a track, Enter shows or hides its notes. On a clip, Enter adds it to the editable set or removes it.
-- `paw.roll_clips.rows()`: Each clip near the roll, as rows for a list. Each shown track is a row (`kind` "track", `on` tells if its notes show). Under it are its MIDI clips in the range of the roll (`kind` "clip", `on` tells if it is editable, `active`). The track of the active clip is first, with its clips.
-- `paw.roll_clips.show_track(id, on)`: Show the notes of a track behind the notes of the roll, or not. nil returns to the value of `paw.opt.roll_context`.
+- `paw.roll_clips.parts()`: The parts whose notes can show behind the notes of the roll. These are the parts with MIDI clips (of the scope, in a narrowed window), but not the part of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
+- `paw.roll_clips.pick()`: `:roll.parts`: a list of the parts near the roll and of their clips. On a part, Enter shows or hides its notes. On a clip, Enter adds it to the editable set or removes it.
+- `paw.roll_clips.portions()`: The editable clips, the active one first: `{ id, clip, offset, start, length, part, name }` each, `clip` a handle (`paw.clip`) whose pitches are those that the clip plays (`Clip:shifted`).
+- `paw.roll_clips.rows()`: Each clip near the roll, as rows for a list. Each shown part is a row (`kind` "part", `on` tells if its notes show). Under it are its MIDI clips in the range of the roll (`kind` "clip", `on` tells if it is editable, `active`). The part of the active clip is first, with its clips.
+- `paw.roll_clips.show_part(id, on)`: Show the notes of a part behind the notes of the roll, or not. nil returns to the value of `paw.opt.roll_context`.
 - `paw.roll_clips.sounding(beat)`: The pitches that sound at roll beat `beat`, in the editable clips and the context, lowest first. The second value is the name of the chord that they make, when `paw.harmony` can tell it. The name comes from the chords that paw has read so far, so right after an edit it can be the name from before the edit.
 - `paw.roll_clips.span()`: The stretch of the roll the editable clips cover: from, to. In a scope with time, only its time, as the arrange view (`0` and `$` stop there).
-- `paw.roll_clips.step_track(n, wrap)`: Make active the track `n` places after the track of the active clip, in the tracks that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other track.
-- `paw.roll_clips.target(beat, parts)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
+- `paw.roll_clips.step_part(n, wrap)`: Make active the part `n` places after the part of the active clip, in the parts that the roll shows (before it with a negative `n`). Its clip under the cursor gets the new notes. The notes of the old clip show behind. With `wrap`, it goes round. False when the roll shows no other part.
+- `paw.roll_clips.target(beat, portions)`: The editable clip a new note at `beat` goes into: the active one, unless the beat is outside it and inside another. Returns the part.
 - `paw.roll_clips.toggle(id)`: Add a clip to the editable set, or remove it. If you remove the active clip, the next clip becomes active. The last clip stays. Returns whether the clip is editable now, nil for a clip that is not MIDI.
-- `paw.roll_clips.tracks()`: The tracks whose notes can show behind the notes of the roll. These are the tracks with MIDI clips (of the scope, in a narrowed window), but not the track of the active clip. `{ id, name, color, drums, on }` each. `on` tells if its notes show.
-- `paw.roll_clips.visible()`: The tracks whose notes the roll shows, in the order of the track list: the active clip's and those shown behind it.
+- `paw.roll_clips.visible()`: The parts whose notes the roll shows, in the order of the part list: the active clip's and those shown behind it.
 
 ## Module paw.roll_draw
 
@@ -1974,8 +2010,8 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.active()`: True if you draw a note now: insert mode in the piano roll, the kind that draws.
 - `paw.roll_draw.again()`: Keep the notes being drawn and draw them again where they end (`.`), count times.
 - `paw.roll_draw.append()`: The next insert mode takes up the note under the cursor at its end, or starts a step on (`a`).
-- `paw.roll_draw.articulate()`: Give the notes being drawn an articulation (`a`): asked by name, with the names of the track's instrument to complete.
-- `paw.roll_draw.articulation(provider)`: Set where `a` takes articulations from (the articulations extension does): `names(track)` and `apply(track, text, note)`.
+- `paw.roll_draw.articulate()`: Give the notes being drawn an articulation (`a`): asked by name, with the names of the part's instrument to complete.
+- `paw.roll_draw.articulation(provider)`: Set where `a` takes articulations from (the articulations extension does): `names(part)` and `apply(part, text, note)`.
 - `paw.roll_draw.back()`: Take back the last note kept: it is the one being drawn again.
 - `paw.roll_draw.back_all()`: Take back all that this insert drew (`Ctrl-u`): the pencil is where it began.
 - `paw.roll_draw.bend(dir)`: Bend the notes being drawn by `dir` steps of `bend_step` semitones (times the count): their own pitch bend rises (or falls) to that at their end, from half of each.
@@ -2018,7 +2054,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.roll_draw.suggest(dir)`: Show the next (`dir` 1, `<C-n>`) or the previous (-1, `<C-p>`) suggestion in place of the notes being drawn. Any key that edits takes it; `<C-e>` puts back what was there.
 - `paw.roll_draw.text()`: The notes that you drew and kept, as "60@1+0.5 64@1+0.5" in the beats of the roll. The second value is the notes that you draw now, "67@1.5+0".
 - `paw.roll_draw.tie()`: Tie the note being drawn to the next note (`~`): its end goes to where the next note of the clips, or the next note kept, starts.
-- `paw.roll_draw.toggle_step()`: Step input on or off (`I` in insert mode). The pen stays as it is. Without a MIDI input, paw says why and opens the track's list of inputs.
+- `paw.roll_draw.toggle_step()`: Step input on or off (`I` in insert mode). The pen stays as it is. Without a MIDI input, paw says why and opens the part's list of inputs.
 - `paw.roll_draw.unsuggest()`: Put back the notes that were there before the suggestions (`<C-e>`).
 - `paw.roll_draw.value(value)`: Set the step (and the notes being drawn) to a note value, as `=` then `value` does: "8", "8.", "8t". `dot` and `triplet` turn the dot or the triplet of the step on and off.
 - `paw.roll_draw.velocity(dir)`: The velocity of the notes being drawn and of the next, by `dir` tens.
@@ -2026,18 +2062,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.routes
 
 - `paw.routes.feeds(from, into)`: True if the sound of `from` goes to `into`.
-- `paw.routes.midi_out_text(t)`: Where a track sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
-- `paw.routes.outputs(device)`: The output pairs of a device: `{ pair, name, target, target_name }` each, the main pair (pair 1, on its own track) first. Empty for a device with one pair.
-- `paw.routes.peers(track)`: The tracks a track may route to: those of its place, the song or its subproject (the tracks of a subproject route only to each other).
-- `paw.routes.reached(from)`: The tracks a track's sound reaches, directly or through others, as a set of ids: by outputs, sends and side-chains.
-- `paw.routes.reaching(into)`: The tracks whose sound reaches a track, as a set of ids.
-- `paw.routes.set_midi_out(track, name, channel, form, members)`: Send the MIDI of a track to the port named `name` (or a part of its name, "none" for none). `channel` is 1 to 16, or nil for the channel of each message. `form` applies where the port does not accept MIDI 2.0 (a key of `M.midi_out_forms`, nil keeps the current form). MPE uses `members` channels (nil for 15).
-- `paw.routes.set_output(device, pair, track)`: Play a device's output pair `pair` (2 and on) into a track (a track, its id or name; nil or "none" for nowhere). Errors say why it cannot be.
-- `paw.routes.set_sidechain(device, track, pre)`: Set a device's side-chain by a track, a track's id or name ("none" or nil for none), and `pre`. Errors say why it cannot be.
+- `paw.routes.midi_out_text(t)`: Where a part sends MIDI, as text: `Synth · channel 2 · MPE`, or "no MIDI output".
+- `paw.routes.outputs(device)`: The output pairs of a device: `{ pair, name, target, target_name }` each, the main pair (pair 1, on its own part) first. Empty for a device with one pair.
+- `paw.routes.peers(part)`: The parts a part may route to: those of its place, the song or its subproject (the parts of a subproject route only to each other).
+- `paw.routes.reached(from)`: The parts a part's sound reaches, directly or through others, as a set of ids: by outputs, sends and side-chains.
+- `paw.routes.reaching(into)`: The parts whose sound reaches a part, as a set of ids.
+- `paw.routes.set_midi_out(part, name, channel, form, members)`: Send the MIDI of a part to the port named `name` (or some of its name, "none" for none). `channel` is 1 to 16, or nil for the channel of each message. `form` applies where the port does not accept MIDI 2.0 (a key of `M.midi_out_forms`, nil keeps the current form). MPE uses `members` channels (nil for 15).
+- `paw.routes.set_output(device, pair, part)`: Play a device's output pair `pair` (2 and on) into a part (a part, its id or name; nil or "none" for nowhere). Errors say why it cannot be.
+- `paw.routes.set_sidechain(device, part, pre)`: Set a device's side-chain by a part, a part's id or name ("none" or nil for none), and `pre`. Errors say why it cannot be.
 - `paw.routes.setup()`: Define the commands for sends and sidechains. The runtime calls this once at start.
-- `paw.routes.sidechain_sources(device)`: The tracks that a device can listen to, `{ id, name }` each, in the order of the track list. Its own track, the master and the tracks that its track feeds are not in the list.
-- `paw.routes.sidechain_text(d)`: What a device listens to, as text: the name of the track, with `pre` when it takes the sound before the fader. Nil if it listens to nothing.
-- `paw.routes.spread(device)`: Make a track for each output pair of a device that plays nowhere yet, with the name of the pair, and send the pair there. paw puts the new tracks and the track of the device in a group (or in the group of the track of the device). The track of the device cannot be the group, because its pairs feed the new tracks, which would then feed it again. Returns the new tracks.
+- `paw.routes.sidechain_sources(device)`: The parts that a device can listen to, `{ id, name }` each, in the order of the part list. Its own part, the master and the parts that its part feeds are not in the list.
+- `paw.routes.sidechain_text(d)`: What a device listens to, as text: the name of the part, with `pre` when it takes the sound before the fader. Nil if it listens to nothing.
+- `paw.routes.spread(device)`: Make a part for each output pair of a device that plays nowhere yet, with the name of the pair, and send the pair there. paw puts the new parts and the part of the device in a group (or in the group of the part of the device). The part of the device cannot be the group, because its pairs feed the new parts, which would then feed it again. Returns the new parts.
 
 ## Module paw.ruler
 
@@ -2052,7 +2088,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a part away, and its name out of `paw.opt.barlabel`. The part that it replaced, if any, comes back.
 - `paw.ruler.remove_lane(name)`: Take a lane away.
-- `paw.ruler.set(name, patch)`: Change a part that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The part becomes a changed copy, as with `paw.trackcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
+- `paw.ruler.set(name, patch)`: Change a component that is there, the built-in `number` too: its `order`, `render`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy, as with `paw.partcolumn.set`: `paw.ruler.add(name, old)` puts back the table it had before.
 
   ```lua
   paw.ruler.set("number", { styles = { cursor = "Title" } })
@@ -2062,7 +2098,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scene
 
 - `paw.scene.closed(client)`: A connection closed or stopped to watch. paw keeps no more data for it.
-- `paw.scene.live()`: The values that move the bound nodes of a frontend (see the `bind` of crates/paw-scene). These are the playhead, the clock and the load of the engine. For each track id, they are the meter, the recent peak, the clip light and the input. paw rounds them to what a frontend can show. So a program that does nothing has no new data to send (the load is as `paw.audio.load` gives it, as `frontend.watch` sends it). Each call gives the current values.
+- `paw.scene.live()`: The values that move the bound nodes of a frontend (see the `bind` of crates/paw-scene). These are the playhead, the clock and the load of the engine. For each part id, they are the meter, the recent peak, the clip light and the input. paw rounds them to what a frontend can show. So a program that does nothing has no new data to send (the load is as `paw.audio.load` gives it, as `frontend.watch` sends it). Each call gives the current values.
 - `paw.scene.set_pace(ms)`: Tick every `ms` while something moves (`frontend.pace`).
 - `paw.scene.sync(client)`: Send connection `client` now what it would get after the turn: the windows whose drawing changed, and the live values when they changed. A window that moves only with time waits for its next tick. `frontend.sync` calls it.
 - `paw.scene.turn()`: Call it after a turn of the kernel. paw pushes now, not at the next tick, the windows whose drawing can be different.
@@ -2072,49 +2108,49 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.scope
 
 - `paw.scope.apply(s)`: Tell the engine what the rest of the song does for a scope. This is the scope of the tab in front, which the last seat to change tabs (a terminal or a window) selected.
-- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; on a closed block fold, its tracks in its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of tracks whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its tracks), else the track. Nil when the window shows that track already.
+- `paw.scope.at_cursor()`: The scope that `znn` enters at the cursor: the innermost not entered yet. On a closed time fold (paw/folds.tl), its region or its bars; on a closed block fold, its parts in its bars; a subproject's clip at the cursor; in a region scope, the region one level inside it at the cursor; else the closed fold of parts whose row the cursor is on (paw/folds.tl), else the group at the cursor (its header or one of its parts), else the part. Nil when the window shows that part already.
 - `paw.scope.bar_offset(s)`: How many bars of the song come before the first bar of a scope (the current one by default) when its bars are numbered from 1: 0 with no time, or with `scopebars=song`. A scope's bars are the song's (its meter map), counted from the bar its time starts in.
 - `paw.scope.breadcrumb(s)`: The path in words: `Song › Bridge › Strings`; a subproject is marked `⧉`: `Song › ⧉Ballad › Strings`.
-- `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a track), in order. Each has that scope as its parent. Other kinds have none.
-- `paw.scope.contains(track, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a track: it and every level above it do. With no scope, every track is inside.
-- `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, track or region is gone is left out.
+- `paw.scope.children(s)`: The scopes one level inside a scope (the current one by default): for a region scope, the regions one level inside its region (paw/markers.tl), in order of time; for a group scope, its members (a group or a part), in order. Each has that scope as its parent. Other kinds have none.
+- `paw.scope.contains(part, s)`: True if a scope (the current one by default; a group's id is a scope of that group) shows a part: it and every level above it do. With no scope, every part is inside.
+- `paw.scope.current(win)`: The scope a window shows, or nil for the song: the window given, else the window being drawn, else the current one. A level whose group, part or region is gone is left out.
 - `paw.scope.cursor_beat(win)`: The cursor's beat in the time of window `win` (the one being drawn, else the current one). The cursor counts in the time of the current window, so another window that shows another timeline (a split with one window inside a subproject) has it at the same place of the song, in its own beats. Nil when that place is outside the time the window shows: such a window keeps its place.
-- `paw.scope.describe(s, extra)`: What a scope (the current one by default) shows, in words: its path, its bars (its own, and the song's), its meter, its tracks, and whether it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 tracks · named`.
-- `paw.scope.describe_fold(f)`: A fold of the current window in words, as a scope inside the one the window shows, and whether it is folded: `Song › Strings · 3 tracks · folded`.
-- `paw.scope.enter(spec, win)`: Enter a scope (`{ kind, id, tracks, from, to, name }`) in a window (the current one by default). In a window that shows a scope, it becomes its child: it shows what both show, and an empty one is refused with the reason. Changes nothing in the project; a jump. Returns the scope.
-- `paw.scope.find(which)`: A group by its id, its track, or its name (or part of it).
+- `paw.scope.describe(s, extra)`: What a scope (the current one by default) shows, in words: its path, its bars (its own, and the song's), its meter, its parts, and whether it is named, with `extra` last: `Song › Bridge · bars 1-8 (song @17-24) · 6/8 · 12 parts · named`.
+- `paw.scope.describe_fold(f)`: A fold of the current window in words, as a scope inside the one the window shows, and whether it is folded: `Song › Strings · 3 parts · folded`.
+- `paw.scope.enter(spec, win)`: Enter a scope (`{ kind, id, parts, from, to, name }`) in a window (the current one by default). In a window that shows a scope, it becomes its child: it shows what both show, and an empty one is refused with the reason. Changes nothing in the project; a jump. Returns the scope.
+- `paw.scope.find(which)`: A group by its id, its part, or its name (or some of it).
 - `paw.scope.format(beat)`: A place as the scope numbers it: `bar.beat.hundredths`, as `paw.time.format`.
-- `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed window's tracks are shown under. Nil when no level is a group.
-- `paw.scope.group_at(track)`: The group of a track when you narrow: the track itself if it is a group. If not, the group that contains it.
+- `paw.scope.group(s)`: The innermost group of a scope's path (the current scope by default): what a narrowed window's parts are shown under. Nil when no level is a group.
+- `paw.scope.group_at(part)`: The group of a part when you narrow: the part itself if it is a group. If not, the group that contains it.
 - `paw.scope.held()`: The parts of the rest the engine plays from files now.
 - `paw.scope.holder(win)`: The window whose scope and folds an action changes: the one given, else the current one; its stack's keeper.
-- `paw.scope.limits_tracks(s)`: True if a scope, or one of the levels above it, limits the tracks.
+- `paw.scope.limits_parts(s)`: True if a scope, or one of the levels above it, limits the parts.
 - `paw.scope.local_bar(song_bar)`: The bar the current scope shows for a bar of the song.
 - `paw.scope.name(name, win)`: Name the current scope, so that the picker and `:narrow` find it again. View state, kept with the project's screen. Returns it.
 - `paw.scope.named(which)`: A scope by name: a named scope (`:scope.name`), else a group of that name, else a region of that name, else a group or a region whose name starts with it. A number is a group's id.
 - `paw.scope.names()`: The named scopes, the latest last.
-- `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its track or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
-- `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its tracks and its timeline are what the window shows.
+- `paw.scope.narrow(which)`: Narrow to a group or a region, by its id, its part or its name (see `named`): `enter` of that scope in the current window. Returns the scope.
+- `paw.scope.nest(s)`: The innermost subproject of a scope's path (the current scope by default), or nil when the path is in the song: its parts and its timeline are what the window shows.
 - `paw.scope.nest_time(clip)`: The own time of the subproject of block `clip`, or nil when it follows the song's tempo and meter.
 - `paw.scope.next(n)`: Go to the scope `n` places beside the current one (`]z`, `3]z`, `[z`), in the same parent. A jump. Returns the scope.
 - `paw.scope.of_clip(id)`: The scope of a subproject's clip (`znn` or `<CR>` on it enters it), or nil when the clip places no subproject.
-- `paw.scope.of_fold(f)`: A fold of a window (paw/folds.tl) as a scope to enter: its group, its region, its tracks or its bars, with the name it shows.
-- `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or track its text object names (`ar`, `ag`, `it`), else a block of its tracks, with its time when it has some. Nil for the whole of what the window shows (`ie`).
+- `paw.scope.of_fold(f)`: A fold of a window (paw/folds.tl) as a scope to enter: its group, its region, its parts or its bars, with the name it shows.
+- `paw.scope.of_region(r)`: The scope an operator's region covers (`zn{motion}`, `{Visual}zn`): the region, group or part its text object names (`ar`, `ag`, `it`), else a block of its parts, with its time when it has some. Nil for the whole of what the window shows (`ie`).
 - `paw.scope.of_tab(tab)`: The scope of a tab: that of its current window.
 - `paw.scope.open(how, spec)`: Open a scope (the one at the cursor by default) in a new window: `how` is "split", "vsplit" or "tab". The new window starts with the scope of the one it comes from, and enters this one inside it.
 - `paw.scope.origin()`: The song's beat of beat 0 of the time the window shows (the window being drawn, else the current one): in a subproject, where its block starts; else 0. `paw.time` adds it, so that a subproject's bars are the song's bars at its place.
 - `paw.scope.own_time()`: The own time of the subproject that the window (the one being drawn, else the current one) is in, when it has its own tempo or meter (`paw.api.nest_own_tempo` of the block it was entered through); else nil. `paw.time` counts in it then.
+- `paw.scope.parts(s)`: The parts of a scope (the current one by default), in the order of the part list. With no scope, or one that keeps every part, all parts of the song; in a subproject, its parts.
 - `paw.scope.path(s)`: The levels of a scope's path (the current one by default), from the outermost to it.
 - `paw.scope.place(beat)`: A place of the window being drawn (else the current one), as its window bar and the status line give it: `bar.beat` as the scope numbers it, then the song's with `@` where they differ (`1.2 @9.2`), as a bar typed with `@` is the song's.
-- `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the tracks outside it at the top of their branch (a whole group, not its members). They are not the tracks that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
+- `paw.scope.rest_parts(s)`: The parts of the rest of the song that paw can freeze for a scope. These are the parts outside it at the top of their branch (a whole group, not its members). They are not the parts that the sound of the scope goes through (its groups, and a bus that its sends reach). They are not empty.
 - `paw.scope.restore(s, win)`: Show a scope in a window as it was (a jump back, `<C-o>`): no jump of its own, no check. Nil is the song.
 - `paw.scope.saved_names()`: The named scopes as the project's screen keeps them (paw/layout.tl).
-- `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or track; a block's next stretch of the same length. Nil and the reason when there is none.
+- `paw.scope.sibling(n)`: The scope `n` places after the current one (before it, with a negative `n`), beside it in the same parent: the next region, group or part; a block's next stretch of the same length. Nil and the reason when there is none.
 - `paw.scope.song_bar(local_bar)`: The bar of the song for a bar as the current scope shows it.
 - `paw.scope.song_beat(beat, s)`: The song's beat of a beat that the current scope shows.
 - `paw.scope.song_offset(s)`: The beats to add to a beat of the window to get the song's beat: in a subproject, where the clip it was entered through places its beat 0 (the clip's start less its offset), and for a subproject inside another, that clip's place in the song too; else 0.
 - `paw.scope.span(s)`: The time a scope shows (the current one by default): `from, to` in beats, its own time intersected with its parent's. Nil when it shows all of the song's time. `from` is `to` when the times do not meet.
-- `paw.scope.tracks(s)`: The tracks of a scope (the current one by default), in the order of the track list. With no scope, or one that keeps every track, all tracks of the song; in a subproject, its tracks.
 - `paw.scope.where(s)`: Where a window is, in words, for its window bar and the status line: the path without the song, which is always there (`Verse › Keys`, `⧉Bridge`), or `Song` with no scope.
 - `paw.scope.widen(top, win)`: Leave the scope of a window (the current one by default): up one level, or with `top` to the song. False when it shows the song.
 - `paw.scope.window(win)`: The window whose scope and folds a view shows: the one given, else the one being drawn, else the current one; for a view that keeps no stack of its own (the mixer), the arrange window of its tab.
@@ -2201,19 +2237,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.step.action_text(b)`: What a control does, in words: "rest", "keys =8t", "rest, tie while keys are held".
 - `paw.step.actions()`: Every action that a control can do: the core's, then the actions of extensions (`M.action`).
 - `paw.step.active()`: The name of the target that listens now, or nil.
-- `paw.step.ask_input(track)`: Say that step input has no MIDI input for `track`, and why, and open the MIDI part of the track's list of inputs. True if it had to.
+- `paw.step.ask_input(part)`: Say that step input has no MIDI input for `part`, and why, and open the MIDI section of the part's list of inputs. True if it had to.
 - `paw.step.bind(source, action)`: Let a control of the controller do an action while a target listens. `source` is `{ port, channel, note | cc }`; `port` and `channel` may be left out. `action` is a name (`paw.step.actions()`), `{ keys = "=8t" }` (types those keys in the view), or `{ down = "rest", held = "tie" }` (the first with no key held, the second while keys are held). It replaces the control of the same source, for this session: `:step.learn` keeps a control in the file.
 - `paw.step.bindings()`: The controls, each `{ source, action, keys, down, held, saved }`.
 - `paw.step.held()`: The pitches held now on the controller, in the order they were played.
 - `paw.step.held_text()`: The pitches held, in words: "C4 E4".
-- `paw.step.input(track)`: What step input listens to for `track`: its MIDI input's port and channel, or every port. Nil and why not when paw hears no MIDI: no port is listed or open, or the track's port is not connected.
+- `paw.step.input(part)`: What step input listens to for `part`: its MIDI input's port and channel, or every port. Nil and why not when paw hears no MIDI: no port is listed or open, or the part's port is not connected.
 - `paw.step.learn(action)`: Wait for the next key, pad or pedal of the controller, and bind it to `action` by its port, channel and note or cc, in the file of the controls.
 - `paw.step.learn_cancel()`: Stop the wait of `:step.learn`.
 - `paw.step.load()`: Read the file of the controls again: what it keeps replaces what it kept before. With no file, the default of the pedal. The controls from Lua (`M.bind`) stay as they are.
 - `paw.step.paused()`: Why the keys only sound now: "playing" or "recording", or nil.
-- `paw.step.refresh()`: Look again at which target listens: its track plays the controller, and with none the held keys are forgotten. A target calls it when it starts or stops listening.
+- `paw.step.refresh()`: Look again at which target listens: its part plays the controller, and with none the held keys are forgotten. A target calls it when it starts or stops listening.
 - `paw.step.said()`: What a control did a moment ago ("rest", "back"), for the title; nil after a moment.
-- `paw.step.source(track)`: The port that step input listens to for `track`, in a few words: `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
+- `paw.step.source(part)`: The port that step input listens to for `part`, in a few words: `"Keystation 49"`, `"Keystation 49 · ch 2"`, `"all ports"`, or nil with no input.
 - `paw.step.source_text(s)`: A control in words: "Test Pads C2 (note 36)", "cc 64 (pedal)".
 - `paw.step.target(name, spec)`: Let a view take step input: `spec` as `paw.contracts.StepTarget` says. The first target whose `active()` is true listens. A second call with the same name replaces the target.
 - `paw.step.unbind(source)`: Take away the control of `source`: `paw.step.unbind({ cc = 64 })` lets the pedal sustain again. True if there was one.
@@ -2249,27 +2285,27 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.takes
 
 - `paw.takes.badge(c)`: A clip's takes in a few characters, for its label: "2/4", or nil.
-- `paw.takes.choose_at(track, take, beat)`: Make take `take` play in the piece of a track at `beat`, and join it to the pieces next to it where that is exact. Returns the clip, or nil if no piece there has such a take.
-- `paw.takes.comp(track, take, from, to)`: Make take `take` play on a track from beat `from` to `to`. paw cuts each clip there with that number of takes at the two ends where it goes across them. paw selects take `take` for each piece between them. Then it joins again the adjacent pieces that play the same take, where that is exact (`M.join_pieces`). Clips without takes do not change. Returns the number of pieces that got the take, or 0 when no clip there has it. A piece named after its recording or its take is named after the take that it plays.
+- `paw.takes.choose_at(part, take, beat)`: Make take `take` play in the piece of a part at `beat`, and join it to the pieces next to it where that is exact. Returns the clip, or nil if no piece there has such a take.
+- `paw.takes.comp(part, take, from, to)`: Make take `take` play on a part from beat `from` to `to`. paw cuts each clip there with that number of takes at the two ends where it goes across them. paw selects take `take` for each piece between them. Then it joins again the adjacent pieces that play the same take, where that is exact (`M.join_pieces`). Clips without takes do not change. Returns the number of pieces that got the take, or 0 when no clip there has it. A piece named after its recording or its take is named after the take that it plays.
 - `paw.takes.content(clip, index)`: What take `index` of a clip plays, as the clip would have it if that take were selected. For sound, it is `{ file, offset, gain }`, with the offset of the start of the clip in the file. For notes, it is `{ notes, controls }`, counted from the start of the clip. The take that plays is the content of the clip.
 - `paw.takes.count(clip)`: How many takes a clip has (1 without any others), and which plays.
-- `paw.takes.explode(id)`: Each take as a separate clip, on new tracks below the track of the clip, one take on each track. The clip keeps the take that plays. Returns the tracks.
-- `paw.takes.join_pieces(track, from, to)`: Join the pieces of a track that continue exactly from one another (see `continues`). This applies to the pieces from beat `from` to `to`, with the pieces that touch each end. Returns the number of joins.
+- `paw.takes.explode(id)`: Each take as a separate clip, on new parts below the part of the clip, one take on each part. The clip keeps the take that plays. Returns the parts.
+- `paw.takes.join_pieces(part, from, to)`: Join the pieces of a part that continue exactly from one another (see `continues`). This applies to the pieces from beat `from` to `to`, with the pieces that touch each end. Returns the number of joins.
 - `paw.takes.keep(id)`: Throw away every take but the one that plays.
-- `paw.takes.lane_count(track)`: The number of take lanes that a track shows: the highest number of takes of its clips. None while they are hidden or when no clip has takes.
-- `paw.takes.lanes_shown(track)`: True if a track shows its take lanes.
+- `paw.takes.lane_count(part)`: The number of take lanes that a part shows: the highest number of takes of its clips. None while they are hidden or when no clip has takes.
+- `paw.takes.lanes_shown(part)`: True if a part shows its take lanes.
 - `paw.takes.named_by_take(c, takes)`: True if the name of a clip comes from its takes: the name of the take that plays, or of the recording ("take 1" for "take 1.2").
 - `paw.takes.new(id, name)`: Keep the sound of the clip as a take, and continue in a copy of it. The copy becomes the take that plays. Use it to try a variation. Returns its number.
 - `paw.takes.of(clip)`: The takes of a clip: { active, list = { { name }, ... } }, or nil for a clip that has only what it plays.
 - `paw.takes.peaks(clip, index, n)`: The waveform of take `index` of an audio clip, as `n` `{ min, max, rms }` across the clip, as `paw.api.clip_peaks` gives the clip's. The take that plays is the clip's own waveform, stretched. Another take is its file, stretched in time as the clip stretches it, and repeated as a looped clip repeats. Nothing for a missing file.
 - `paw.takes.piece(c, from, to, shift)`: The takes of a piece of a clip, from beat `from` to `to` of the timeline: what a cut gives to each side. Sound keeps its entries as they are (the offset of the piece tells where it is in them). Notes are those of the range, counted from the start of the piece. Nil for a clip without takes. All notes of a looped clip go with each piece, moved by `shift` as the notes of the piece are (see `paw.stretch.moved`).
-- `paw.takes.record_over(id)`: Make a new audio recording, clip `id`, the newest take of the audio clips under it on its track, instead of a clip on top of them. paw cuts those clips where the recording starts and ends. Each piece gets all the takes of the recording, lined up, and plays the take that the recording plays. What the piece played before stays as a take. The part of the recording where no clip was stays a clip. Returns the number of clips that got takes.
+- `paw.takes.record_over(id)`: Make a new audio recording, clip `id`, the newest take of the audio clips under it on its part, instead of a clip on top of them. paw cuts those clips where the recording starts and ends. Each piece gets all the takes of the recording, lined up, and plays the take that the recording plays. What the piece played before stays as a take. The part of the recording where no clip was stays a clip. Returns the number of clips that got takes.
 - `paw.takes.remove(id, index)`: Discard a take: by default the take that plays. Then the take before it plays. With one take left, the clip becomes a clip without takes again.
 - `paw.takes.select(id, index)`: Play take `index` of a clip. One undo step. Returns the take's name.
 - `paw.takes.shift(id, by)`: Move the notes of a clip's other takes by `by` beats, as its own are moved when its start is trimmed or its content slipped.
-- `paw.takes.show_lanes(track, on)`: Show a track's take lanes, or hide them (`on` false).
+- `paw.takes.show_lanes(part, on)`: Show a part's take lanes, or hide them (`on` false).
 - `paw.takes.step(id, by)`: Step through a clip's takes, round and round.
-- `paw.takes.toggle_lanes(track)`: Show the take lanes of a track, or hide them. Returns true if they show.
+- `paw.takes.toggle_lanes(part)`: Show the take lanes of a part, or hide them. Returns true if they show.
 
 ## Module paw.tempo
 
@@ -2377,45 +2413,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.timers.every`: the same as `paw.every`.
 - `paw.timers.wait`: the same as `paw.api.wait`.
 
-## Module paw.track_kinds
-
-- `paw.track_kinds.add(name, opts)`: A new track of the kind `name`. `opts.name` is its name (if not given, the title of the kind without "track"), and `opts.index` its place. The other options go to `create`.
-- `paw.track_kinds.clear(which)`: Make a track an ordinary one again, as far as its kind goes: what the kind made (its devices) stays, for the extension to take away.
-- `paw.track_kinds.define(name, spec)`: Define a kind of track (see above). `name` is a word: what is typed after `:track.add` and kept in the track's `meta.kind`.
-- `paw.track_kinds.describe(which)`: A few words on a track's kind, for `K` and the track header: `Vocal track · Kitane`, "vocal (no extension here defines it)", or nil.
-- `paw.track_kinds.known_words()`: ": there are vocal, drums", for messages.
-- `paw.track_kinds.list()`: The defined kinds, in the order they were defined.
-- `paw.track_kinds.of(which)`: The name of the kind of a track: the kind that it keeps. If not, a kind whose `is` claims it. Nil for a usual track.
-- `paw.track_kinds.open(clip)`: Open a clip in its track's kind's editor. True when it did.
-- `paw.track_kinds.remove(name)`: Forget a kind: no longer offered, nor in the menus. Tracks that keep it are ordinary tracks again until something defines it.
-- `paw.track_kinds.set(which, name, args)`: Make a track of `name`'s kind: keep the kind on it, then let the kind make it what it is. `args` go to `create`.
-- `paw.track_kinds.spec(which)`: A track's kind as defined, or nil (an ordinary track, or a kind that no loaded extension defines).
-
-## Module paw.trackcolumn
-
-- `paw.trackcolumn.add(name, spec)`: Add a component, or put a new one in place of one of that name. It goes into `paw.opt.trackcolumn` (unless `hidden`), so it shows at once.
-- `paw.trackcolumn.click(L, x, track, ctx)`: A click at column `x` of the column on a line of `track`: the component there does what its `click` says. True if one had a `click`.
-- `paw.trackcolumn.describe(track)`: What the components shown say of `track` for `K` (their `describe`), a line each, in their order.
-- `paw.trackcolumn.draw(buf, L, y, track, ctx)`: Draw one line of the column for `track` at line `y` of `buf` (the column's own part of the view), with what `ctx` says of the line.
-- `paw.trackcolumn.layout(frame, room, header_room)`: The column for one draw over the tracks of `frame`: the components named in `paw.opt.trackcolumn`, in their order, each as wide as it says. Each component with `from_header` takes its columns from the headers, up to `header_room` columns in all. The other components, and a component that does not fit in the headers, take their columns from the timeline, up to `room` columns. A component that fails, or that has no room left, takes no columns.
-- `paw.trackcolumn.remove(name)`: Take a component away, and its name out of `paw.opt.trackcolumn`. The component that it replaced, if any, comes back.
-- `paw.trackcolumn.set(name, patch)`: Change a component that is there, the built-in ones too: its `order` (to put it elsewhere), `width`, `render`, `click`, `describe`, and the `glyphs` and `styles` it draws with (merged into its own). The component becomes a changed copy: `paw.trackcolumn.add(name, old)` with the table it had before puts that back. The change of an extension goes when the extension unloads.
-
-  ```lua
-  paw.trackcolumn.set("fold", { order = 5, glyphs = { open = "-", closed = "+" } })
-  paw.trackcolumn.set("number", { width = 4, styles = { cursor = "Title" } })
-  ```
-- `paw.trackcolumn.set_sign(name, patch)`: Change a sign that is there, as `set` changes a component: its `priority`, `render`, `describe`, `glyphs` and `styles`.
-
-  ```lua
-  paw.trackcolumn.set_sign("diagnostics", { glyphs = { error = "E", warn = "W" } })
-  ```
-- `paw.trackcolumn.shows(name)`: True if component `name` is shown: added and named in `paw.opt.trackcolumn`.
-- `paw.trackcolumn.sign(name, spec)`: Add a sign to the `signs` component: `render(track, ctx)` gives one character, or nothing. Where several give one, the highest `priority` shows. `nil` for `spec` takes the sign away.
-
 ## Module paw.ui
 
-- `paw.ui.active()`: True if something moves on its own now: the song plays, a track listens to its input, or a moment after activity (`poke`), while meters fall.
+- `paw.ui.active()`: True if something moves on its own now: the song plays, a part listens to its input, or a moment after activity (`poke`), while meters fall.
 - `paw.ui.arrange(width, height)`: The position of each visible view on a screen of the current size: a list of `{ name, win, x, y, w, h }`. The tab line is along the top when there is more than one tab. `.borders` contains the borders between windows, and `.nodes` the position of each node of the tree, to resize them.
 - `paw.ui.ask_value(opts, set)`: Ask for an exact value on the command line: a number is the value, with its sign (`-6` is -6 dB), and `+=2` and `-=3` change the current value by a step.
 
@@ -2439,7 +2439,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.focus(name)`: Give a view the keyboard, and show it first if it is hidden. The window that contains it gets the keys, and paw goes to the tab of that window.
 - `paw.ui.focus_next(step)`: Focus the next (or with -1 the previous) window that takes the keyboard.
 - `paw.ui.frame_ms()`: How many milliseconds at least go between two frames while something moves: 1000 / `paw.opt.fps`, as the option is now.
-- `paw.ui.go(location)`: Go to a location in the view that shows it best, and focus that view. The piano roll shows notes, the device panel shows devices and parameters, and the arrange view shows tracks and time.
+- `paw.ui.go(location)`: Go to a location in the view that shows it best, and focus that view. The piano roll shows notes, the device panel shows devices and parameters, and the arrange view shows parts and time.
 - `paw.ui.hide(name)`: Close the window of a view, in each tab. The view keeps its place for the next time. The last window of a tab does not close: it goes on showing the view, as `Ctrl-w c` leaves it.
 - `paw.ui.hl(name, def)`: Define a highlight group: a table of `fg`, `bg`, `bold`, `dim`, `italic`, `underline`, `reverse`, `strike`, or the name of a group to follow. Colors are `#rrggbb`, or a number for one of the 256 colors of the terminal. On a terminal without 24-bit color, each `#rrggbb` shows as the nearest of the 256.
 - `paw.ui.hover(title, lines)`: Show lines next to the cursor of the focused window, in a small float that leaves the keys where they are: the next key closes it and does what it does. Each line is a string or `{ text = ..., style = ... }`.
@@ -2503,7 +2503,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ui.titlebar(buf, opts)`: Draw a title bar of one row along the top of a docked panel, and return a buffer for the rest of it. `opts`: `name`, `pill` (`{ text, group }`, before the name), `context` (after the name), `right` (state, at the right end), `reserve` (columns to keep free at the right end, for the view's own items), `focused`. When the panel has focus, the whole bar is in the accent color, inverted.
 
   ```lua
-  local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 tracks", focused = ctx.focused })
+  local body = paw.ui.titlebar(buf, { name = "Mixer", context = "5 parts", focused = ctx.focused })
   ```
 - `paw.ui.toggle(name)`: Show the view `name` in its window, or hide it if it shows now.
 - `paw.ui.transport()`: The transport as `paw.api.transport_get` gives it. While a frame is drawn, the one read first in that frame: the status line, the ruler and the views read it once between them.
@@ -2575,7 +2575,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.util.clamp(v, lo, hi)`: `v`, kept between `lo` and `hi`.
 - `paw.util.copy`: the same as `paw.seats.copy`.
 - `paw.util.expand_path(path)`: A path as typed, with `~` at its start for the home folder, as a shell reads it: `~/mix.wav`. Every command that takes a file name reads it so.
-- `paw.util.fader_db(now, want, lo, hi)`: The level a fader goes to from `now` when it is moved to `want`: in its travel (`lo` to `hi`, the fader's when not given), but never back past where it is. A track at +10 dB that is turned down goes to +9, not to the top of the travel.
+- `paw.util.fader_db(now, want, lo, hi)`: The level a fader goes to from `now` when it is moved to `want`: in its travel (`lo` to `hi`, the fader's when not given), but never back past where it is. A part at +10 dB that is turned down goes to +9, not to the top of the travel.
 - `paw.util.fit(text, width)`: Cut or pad text to exactly `width` columns.
 - `paw.util.inspect`: the same as `paw.inspect`.
 - `paw.util.merge(base, extra)`: Shallow copy with the fields of `extra` laid over it.
@@ -2585,18 +2585,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.vca
 
-- `paw.vca.assign(track, vca)`: Put a track under a VCA.
-- `paw.vca.dissolve(vca)`: Take a VCA away: its tracks stay, at their own faders.
-- `paw.vca.is_vca(track)`: True if a track is a VCA.
-- `paw.vca.list()`: Every VCA, in the order of the track list.
-- `paw.vca.make(tracks, name)`: A new VCA over `tracks` (ids or tracks), after the last track. Returns its track.
-- `paw.vca.members(vca)`: The tracks in a VCA, in the order of the track list.
-- `paw.vca.of(track)`: The VCAs of a track (their ids), in the order in which paw put the track in them.
-- `paw.vca.unassign(track, vca)`: Take a track out of a VCA, or out of all of them without `vca`.
+- `paw.vca.assign(part, vca)`: Put a part under a VCA.
+- `paw.vca.dissolve(vca)`: Take a VCA away: its parts stay, at their own faders.
+- `paw.vca.is_vca(part)`: True if a part is a VCA.
+- `paw.vca.list()`: Every VCA, in the order of the part list.
+- `paw.vca.make(parts, name)`: A new VCA over `parts` (ids or parts), after the last part. Returns its part.
+- `paw.vca.members(vca)`: The parts in a VCA, in the order of the part list.
+- `paw.vca.of(part)`: The VCAs of a part (their ids), in the order in which paw put the part in them.
+- `paw.vca.unassign(part, vca)`: Take a part out of a VCA, or out of all of them without `vca`.
 
 ## Module paw.vzoom
 
-- `paw.vzoom.any_own()`: Whether some tracks of the arrange view's window have rows of their own.
+- `paw.vzoom.any_own()`: Whether some parts of the arrange view's window have rows of their own.
 - `paw.vzoom.define(view, zoomer)`: Add the vertical zoom of a view: `zoomer.step(by, opts)` and `zoomer.fit(opts)`, each returning what it did. nil removes it.
 
   ```lua
@@ -2606,9 +2606,9 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.vzoom.fit(opts)`: Give back the rows the options say: the focused view's, or `opts.view`'s.
 - `paw.vzoom.key_rows()`: Rows per key in the piano roll: 1 at no zoom.
 - `paw.vzoom.lane_rows()`: Rows per automation lane shown as a row in the arrange view: 2 at no zoom.
-- `paw.vzoom.rows_of(id)`: The rows of a track of its own in the arrange view's window, or nil.
+- `paw.vzoom.part_rows()`: Rows per part in the arrange view's window, or nil for the option's.
+- `paw.vzoom.rows_of(id)`: The rows of a part of its own in the arrange view's window, or nil.
 - `paw.vzoom.step(by, opts)`: Make the rows of a view `by` taller (shorter when negative): the focused view's, or `opts.view`'s.
-- `paw.vzoom.track_rows()`: Rows per track in the arrange view's window, or nil for the option's.
 - `paw.vzoom.window(view)`: The window of `view` whose zoom is meant: the one being drawn, the focused one, else the one whose state the view has now.
 
 ## Module paw.workspace
@@ -2623,7 +2623,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.xml.child(el, name)`: The first child of an element with a name, or nil.
 - `paw.xml.children(el, name)`: Every child of an element with a name (every child without one).
 - `paw.xml.decode(text, opts)`: The root element of an XML text, or nil and what is wrong. `opts.spans` keeps where each element is in the text, for `encode` with `opts.source` (see `paw.api.xml_decode`).
-- `paw.xml.element(name, attr, order)`: A new element: `paw.xml.element("Track", { id = "t1", name = "Bass" })`. Its attributes are written in the order of `order`, then the others by name.
+- `paw.xml.element(name, attr, order)`: A new element: `paw.xml.element("Part", { id = "t1", name = "Bass" })`. Its attributes are written in the order of `order`, then the others by name.
 - `paw.xml.encode(root, opts)`: The XML text of an element: see `paw.api.xml_encode` for `opts`.
 - `paw.xml.escape(text)`: Text made safe for XML, in text and in an attribute's quotes.
 - `paw.xml.number(el, name)`: The text of a child as a number, or nil.
@@ -2641,7 +2641,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.audio_test_device(opts)`: The simulated device of the `test` backend. `{ present = false }` disconnects it. `fail_after = n` disconnects it after n blocks of the next stream. `back_after = ms` connects it again `ms` after it goes.
 - `paw.api.audio_use(opts)`: Open other devices, and remember them for the next run.
 - `paw.api.audio_watch(opts)`: With `{ auto = false }`, paw does not open again a device that returns by itself. `period` is the interval between checks, in milliseconds.
-- `paw.api.automation_hold(track, target, device, param, on)`: A control is held (a fader under the pointer) or let go: in touch mode it writes automation for as long as it is held. The control is named as a lane's target is.
+- `paw.api.automation_hold(part, target, device, param, on)`: A control is held (a fader under the pointer) or let go: in touch mode it writes automation for as long as it is held. The control is named as a lane's target is.
 - `paw.api.base64_decode(text)`: The bytes of base64 text, either alphabet, with or without its padding; spaces and line ends are left out. Nil and the reason when it is not base64.
 - `paw.api.base64_encode(data, opts)`: Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and `opts.pad = false` leaves out the `=` at the end.
 - `paw.api.block_beat(path, beat)`: The beat of the place of the last block of `path` (a `block_path`) at the song's beat `beat`: the inverse of `block_song_beat`.
@@ -2653,7 +2653,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.canvas_image(bytes, w, h, format)`: Keep a picture of pixels for drawings to name (`paw.canvas.image`): `bytes` a PNG file, or straight RGBA `w` by `h` pixels row by row; `format` `"png"` or `"rgba"` (a PNG file is known without it). Returns its content key, its width and its height.
 - `paw.api.canvas_pixels(key)`: A picture of pixels kept under `key`, as a window is sent it: its size and its pixels as straight RGBA in base64. Nil for a key not kept (any more).
 - `paw.api.chain_branch_add(owner, split, opts)`: Add an empty branch to a split, as one undo step: `{ name =, index = }` (from 1; the end when not given). Gives its id.
-- `paw.api.chain_get(owner)`: The chain of an owner's devices, or nil when it has none (its devices play in series, in the order of `track.devices`).
+- `paw.api.chain_get(owner)`: The chain of an owner's devices, or nil when it has none (its devices play in series, in the order of `part.devices`).
 - `paw.api.chain_kind_define(name, spec, by)`: Let a chain have a split of a new kind, of the extension `by` (the user's when nil): `spec` gives the fewest (`min`) and the most (`max`) branches, and how many a new split gets (`first`).
 - `paw.api.chain_kinds()`: The names of the kinds of split: the built-in kinds first, then the kinds that extensions defined.
 - `paw.api.chain_link(owner, source, device, param, depth)`: Link a macro to a parameter of a device in its split, with a depth from -1 to 1; no depth removes the link. One undo step.
@@ -2665,13 +2665,13 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.chain_tap(owner, device, from)`: Let a device take its key from a node of its chain that comes before it, from `"in"` (the input of the chain), or (nil) from no node of the chain. One undo step.
 - `paw.api.chain_unwrap(owner, split, keep)`: Take a split away, as one undo step. With `keep` (a branch of it), that branch takes its place and the devices of the others leave the owner; without, its branches go in its place one after the other. Gives how many devices left the owner.
 - `paw.api.chain_wrap(owner, nodes, kind, opts)`: Wrap nodes (devices or splits in a row of one branch) in a new split of `kind`, as one undo step. They go into its first branch. Gives the split's id.
-- `paw.api.chain_write(track, file)`: Write a track's devices as a chain file: `file` (a `devices.json`) and the `.state` files of the plugins beside it. Returns the files.
+- `paw.api.chain_write(part, file)`: Write a part's devices as a chain file: `file` (a `devices.json`) and the `.state` files of the plugins beside it. Returns the files.
 - `paw.api.checkpoint_delete(file)`
 - `paw.api.checkpoint_dir()`
 - `paw.api.checkpoint_list()`
 - `paw.api.checkpoint_restore(file)`
 - `paw.api.checkpoint_write(name, id)`
-- `paw.api.clip_add(track, opts)`: A clip of a defined kind: `kind` is its name, with `data` and `length`, and `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
+- `paw.api.clip_add(part, opts)`: A clip of a defined kind: `kind` is its name, with `data` and `length`, and `version`, `timeline`, `offset`, `media`, `sound` and `signals` as `clip_custom` gives them.
 - `paw.api.clip_add_notes(id, notes)`
 - `paw.api.clip_collect()`: Make every clip that refers to a MIDI clip file outside the project the project's own. Returns how many.
 - `paw.api.clip_controls(id)`: Controller, pitch wheel and pressure moves of a MIDI clip: { start, type = "cc" | "bend" | "pressure", number, value }.
@@ -2685,7 +2685,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_kind_remove(name)`: Stop making clips of the kind `name`. Clips of it that the project has stay.
 - `paw.api.clip_kinds()`: The kinds of clip that extensions defined, by name (sorted).
 - `paw.api.clip_link(id)`: Put a linked copy of a MIDI clip right after it, and return the id of the copy. The clips of a link share their notes and controller moves: an edit of one changes all of them. A clip that has no link yet starts one, named after the clip. `clip_get` gives a linked clip's `link` and `link_count`.
-- `paw.api.clip_list(track, from, to)`: --- clips --- The clips of a track, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
+- `paw.api.clip_list(part, from, to)`: --- clips --- The clips of a part, in timeline order. With `from` and `to` (beats), only those that overlap that stretch: a view that shows part of the song asks for what it shows.
 - `paw.api.clip_normalize(id, level)`
 - `paw.api.clip_note_add(id, note)`: One note at a time, by its place in the notes of the clip (from 1). The functions that add and change a note return its new place, because the notes stay in the order of their start.
 - `paw.api.clip_note_at(id, pitch, beat)`: The note on `pitch` that sounds at `beat`, and its place in the notes of the clip. Nothing when there is no such note.
@@ -2701,18 +2701,18 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_set_custom(id, set)`: Replace what a custom clip's kind compiled, as one undo step: `data` (required), `media`, `sound` (a MIDI or audio content) and `signals` are all replaced (absent: none); `version`, `timeline` and `offset` stay as they are when absent. The data and the signals' bodies are plain values: a function, `userdata`, `cdata`, a table that holds itself, NaN, an infinite number or a string that is not UTF-8 is refused with where it is (`.frames[3]: a function is not data`), and so is data over 1 MB. Binary or big data goes in a media file.
 - `paw.api.clip_set_notes(id, notes)`
 - `paw.api.clip_source_length(id)`: Beats of sound left in an audio clip's file from where the clip starts in it.
-- `paw.api.clip_to_cues(id, track)`: Copy a clip, with its `meta`, off the timeline of a track. Returns the copy's id.
+- `paw.api.clip_to_cues(id, part)`: Copy a clip, with its `meta`, off the timeline of a part. Returns the copy's id.
 - `paw.api.clip_unlink(id)`: Take a clip out of its link. It keeps its notes, and edits of it no longer change the other clips.
 - `paw.api.clip_warp_add(id, beat)`: Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 - `paw.api.clip_warp_move(id, index, beat)`
 - `paw.api.clip_warp_remove(id, index)`
 - `paw.api.clock()`: The schedule clock of the process: "manual" when it moves only when a script waits (`paw --clock manual`, the tests), else "wall".
 - `paw.api.crc32(data)`: The CRC-32 of bytes, as zip and gzip use it.
-- `paw.api.cue(list)`: `{ { track =, clip = id }, { track =, stop = true }, { track =, timeline = true }, ... }`, each with `quantize` (`bar` when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato` and `from`: all on their boundary, timed together by the engine.
-- `paw.api.cue_list(track)`: --- cues (session/cues.rs) --- A clip goes off the timeline with `clip_add(track, { cue = true, ... })`: it starts at 0, loops over its length, and plays only when cued. You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
-- `paw.api.cue_state()`: What each track plays and has in its queue, in the last report of the engine.
+- `paw.api.cue(list)`: `{ { part =, clip = id }, { part =, stop = true }, { part =, timeline = true }, ... }`, each with `quantize` (`bar` when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato` and `from`: all on their boundary, timed together by the engine.
+- `paw.api.cue_list(part)`: --- cues (session/cues.rs) --- A clip goes off the timeline with `clip_add(part, { cue = true, ... })`: it starts at 0, loops over its length, and plays only when cued. You edit it as a usual clip; `clip_set(id, "part", other)` moves it.
+- `paw.api.cue_state()`: What each part plays and has in its queue, in the last report of the engine.
 - `paw.api.deflate(data, format)`: Compress `data` with deflate, as `format` says: "raw", "zlib" or "gzip".
-- `paw.api.device_add(track, kind, opts)`
+- `paw.api.device_add(part, kind, opts)`
 - `paw.api.device_alias(old, new)`: Devices of `old`, a kind that was renamed, are made as `new`.
 - `paw.api.device_call(id, method, data)`: A request to a device that accepts data from scripts. Bytes in, bytes out.
 - `paw.api.device_editor(id, open)`: Show or hide the window of a plugin. With no second argument, toggle it.
@@ -2720,7 +2720,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_find_all(query)`: Each kind of device installed that answers `query` (see `device_find`): all that answer the first test that finds one.
 - `paw.api.device_get(id)`
 - `paw.api.device_load(id, load)`: Load a preset into a device, as one undo step: `{ name =, state =, params =, factory =, call = }`. `call = { method =, data = }` is a `device_call` that changes the state of the plugin (`property.set` of an LV2 plugin). The state after it is kept.
-- `paw.api.device_move(id, track, index)`
+- `paw.api.device_move(id, part, index)`
 - `paw.api.device_note_names(id)`: What a plugin calls its keys, `{ [pitch] = name }` (CLAP `note-name`).
 - `paw.api.device_param(id, name)`: One parameter of a device, named by its key, the device's own id for it or its name: its entry of `param_info`, with `value` (now) and `text` (that value as the device writes it).
 - `paw.api.device_param_parse(id, name, text)`: The value that a text stands for, for a parameter, as the device reads it. An error when the device cannot read the text.
@@ -2732,19 +2732,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.device_set_param(id, name, value)`: Set a parameter of a device, named by its key, the device's own id for it or its name. The value is a number, or text as the device reads it ("440 Hz", "Saw").
 - `paw.api.device_state(id)`: The state of a plugin. Give it as `state` when you add a copy of the device.
 - `paw.api.device_types()`: --- devices ---
-- `paw.api.engine_audible(tracks)`: Only these tracks heard for now, as a solo would, or all with nil.
-- `paw.api.engine_follow(track)`: The track that plays MIDI input while no track is armed, as if monitored, or none with nil (`paw.opt.midi_follows_selection`).
-- `paw.api.engine_follow_always(track)`: The track that plays MIDI input as if monitored, also while another track is armed, or none with nil. While set, it takes the place of `engine_follow`'s track. Step input sets it to the track of the clip it enters into, so that the controller sounds there.
+- `paw.api.engine_audible(parts)`: Only these parts heard for now, as a solo would, or all with nil.
+- `paw.api.engine_follow(part)`: The part that plays MIDI input while no part is armed, as if monitored, or none with nil (`paw.opt.midi_follows_selection`).
+- `paw.api.engine_follow_always(part)`: The part that plays MIDI input as if monitored, also while another part is armed, or none with nil. While set, it takes the place of `engine_follow`'s part. Step input sets it to the part of the clip it enters into, so that the controller sounds there.
 - `paw.api.engine_get()`: --- engine ---
 - `paw.api.engine_held()`
-- `paw.api.engine_hold(track, file)`: Play a track from a sound file for now, as if it is frozen, or live again with nil. Nil also works for a track that is gone. Another project plays all its tracks live. The project does not change (see `freeze.rs`).
+- `paw.api.engine_hold(part, file)`: Play a part from a sound file for now, as if it is frozen, or live again with nil. Nil also works for a part that is gone. Another project plays all its parts live. The project does not change (see `freeze.rs`).
 - `paw.api.engine_load()`: What changes of the engine by itself, as `engine_get` gives it but without a table, for what is read on each frame: `cpu`, `xruns` and `block`.
-- `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that tracks do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
+- `paw.api.engine_midi_filter(name, rules)`: Controls of MIDI input that parts do not get: they neither sound nor record. Scripts still hear them, as `midi.in` events with `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own list beside the others; nil or an empty list removes it.
 - `paw.api.engine_reset_stats()`: Forget the process times that `engine_get().blocks` recorded until now.
 - `paw.api.engine_restart(opts)`: Start the engine again with these options. With no `backend`, it keeps the one that runs: `null`, `step`, `test` or the sound system that opened.
 - `paw.api.engine_set_quality(quality)`: The quality that the built-in devices play at live: `"full"`, or `"edit"` to lower their costly settings while you edit, such as the oversampling of `saturation`. A render, an export, stems, a freeze and a bounce always play at full quality. `paw.opt.quality` calls it.
 - `paw.api.engine_set_sleep(sleep)`: With true, devices at rest sleep through silence: a reverb after its tail, a synth with no note that sounds. When the song is stopped and nothing sounds, the whole engine rests. The sound is the same with false. `engine_get().device_sleeps` counts the blocks that devices slept through, and `engine_get().engine_rests` the blocks that the engine rested.
-- `paw.api.engine_set_threads(threads)`: The number of threads that process tracks, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
+- `paw.api.engine_set_threads(threads)`: The number of threads that process parts, with the audio thread. 0 lets paw select the number. `engine_get().threads` gives the number in use.
 - `paw.api.env()`
 - `paw.api.events_take()`: The change events of the edits pushed until now (`flush`), taken out of the queue.
 - `paw.api.flush()`: Push the edits made until now to the engine: automation that is held is written, and files are read ahead of the playhead. The kernel does this at the end of each turn; `paw.flush` does it at once.
@@ -2779,11 +2779,11 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.json_array(t)`: Mark a table (a new one without `t`) as a JSON array, so that `json_encode` writes it as `[]` when it is empty. Returns it.
 - `paw.api.json_decode(text)`: Nil and the reason, when the text is not JSON.
 - `paw.api.json_encode(value, pretty)`: JSON text of a value; `pretty` lays it out on lines, indented.
-- `paw.api.lane_add(track, opts)`
+- `paw.api.lane_add(part, opts)`
 - `paw.api.lane_add_point(id, beat, value)`
 - `paw.api.lane_add_state(id, state)`: Add a state to a state lane, or replace the one of its name, as one undo step. Returns its index, from 0.
 - `paw.api.lane_get(id)`
-- `paw.api.lane_list(track)`: --- automation ---
+- `paw.api.lane_list(part)`: --- automation ---
 - `paw.api.lane_points(id)`
 - `paw.api.lane_remove(id)`
 - `paw.api.lane_set(id, key, value)`: Change a lane: a table of the entries to change, as `lane_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
@@ -2827,19 +2827,19 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.midi_open_port(name)`: A port of paw that other programs can send MIDI to. `midi_close_port` returns true if there was such a port to remove.
 - `paw.api.midi_outputs()`: --- MIDI output ---
 - `paw.api.midi_select(which)`: Open only the ports that match these ids or names, or all of them with nil.
-- `paw.api.midi_send(track, event)`: Send a MIDI message to one track's devices right now, outside the timeline.
+- `paw.api.midi_send(part, event)`: Send a MIDI message to one part's devices right now, outside the timeline.
 - `paw.api.midi_test_ports(ports)`: The MIDI ports the null backend lists, as if plugged in.
 - `paw.api.midi_ump(event)`: What an event is as a MIDI 2.0 packet: two 32-bit words.
-- `paw.api.nest_add(opts)`: Make a subproject with its master track and no other track, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its tracks with `track_add({ nest = id })`. Returns its id.
+- `paw.api.nest_add(opts)`: Make a subproject with its master part and no other part, as one undo step, for example `{ name = "Bridge", length = 32 }`. The length is in beats, and 32 when you leave it out. Add its parts with `part_add({ nest = id })`. Returns its id.
 - `paw.api.nest_beat(clip, beat)`: The subproject's beat of the song's beat `beat`, for block `clip`.
-- `paw.api.nest_export(id, dir)`: Write a subproject as a project folder of its own at `dir`, a new or empty folder. Its tracks become the project's tracks and its master the master. A subproject that follows the song's tempo or meter gets the song's from its first block. Its media are copied into `media/`. The song does not change. Returns `path` (the new `project.toml`), `tracks`, `media` (the files copied), `missing` and `changes`.
-- `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `tracks` (its tracks in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
-- `paw.api.nest_import(dir)`: Make the project folder `dir` a subproject, as one undo step with the block that places it. The subproject refers to the folder: the song keeps no copy and reads the folder again when it opens. Its tracks, its master and the subprojects inside come from the folder. It follows the song's tempo (its own is kept, for `nest.time own`) and keeps the meter of the folder. Its first edit, or `nest_own`, makes it the song's own copy. Nothing places it yet: add a block. Returns its id.
-- `paw.api.nest_list()`: --- nests (subprojects): tracks with a timeline of their own --- The ids of the subprojects, in the order they were made.
+- `paw.api.nest_export(id, dir)`: Write a subproject as a project folder of its own at `dir`, a new or empty folder. Its parts become the project's parts and its master the master. A subproject that follows the song's tempo or meter gets the song's from its first block. Its media are copied into `media/`. The song does not change. Returns `path` (the new `project.toml`), `parts`, `media` (the files copied), `missing` and `changes`.
+- `paw.api.nest_get(id, key)`: A subproject as a table: its fields, `parts` (its parts in order, without its master) and `used` (whether the song plays it). With `key`, only that field of its own (`name`, `length`, `master`...): this is quicker.
+- `paw.api.nest_import(dir)`: Make the project folder `dir` a subproject, as one undo step with the block that places it. The subproject refers to the folder: the song keeps no copy and reads the folder again when it opens. Its parts, its master and the subprojects inside come from the folder. It follows the song's tempo (its own is kept, for `nest.time own`) and keeps the meter of the folder. Its first edit, or `nest_own`, makes it the song's own copy. Nothing places it yet: add a block. Returns its id.
+- `paw.api.nest_list()`: --- nests (subprojects): parts with a timeline of their own --- The ids of the subprojects, in the order they were made.
 - `paw.api.nest_own(id)`: Make subproject `id`, which refers to a project folder, the song's own copy now, as one undo step, with the subprojects that came with it. Returns the folder it referred to, which it keeps as `origin`.
 - `paw.api.nest_own_tempo(clip)`: Whether the subproject that block `clip` places counts its own time: true with its own tempo, false with only its own meter, nil when it follows the song's tempo and meter (the song's map from the block's start is its time then). The `nest_tempo_*` functions give its map.
-- `paw.api.nest_promote(clip)`: Promote the subproject of a block (`clip`) to song data, as one undo step: its tracks come back in a group named after it at the place of its return row, their clips at the row's beats, cut at the block. The group track gets the master's devices and then the row's, the sum of their faders in dB, the row's pan and sends, and their lanes (two volume lanes added in dB). The row, the master and the subproject go. A subproject saved per track (`<Space>zw`) gives its clips back to the rows of its blocks instead, with no group. Returns `group`, `tracks`, `from`, `to`, `zero` (the song's beat of the subproject's beat 0) and `combined` (the targets of the lanes made one). `paw.nest.promote` does the rest: regions, the meter, the view.
-- `paw.api.nest_save(opts)`: Save a view as a subproject, as one undo step: the clips of `tracks` from `from` to `to` (beats of their place) move into a new subproject named `name` with the meter `meter`. Per track, each row keeps its devices and gets a track of the subproject with its clips; add a block on the row that plays it. With `own_row`, the tracks go in (whole, or as copies with copies of their devices and lanes) and one return row plays the mix; add its block. `paw.nest.save` does the rest: blocks, regions, the window. Returns `nest`, `rows`, `row`, `tracks`, `changes`, and with a row of its own the song's `group` it is in or the `buses` that no longer get the time.
+- `paw.api.nest_promote(clip)`: Promote the subproject of a block (`clip`) to song data, as one undo step: its parts come back in a group named after it at the place of its return row, their clips at the row's beats, cut at the block. The group part gets the master's devices and then the row's, the sum of their faders in dB, the row's pan and sends, and their lanes (two volume lanes added in dB). The row, the master and the subproject go. A subproject saved per part (`<Space>zw`) gives its clips back to the rows of its blocks instead, with no group. Returns `group`, `parts`, `from`, `to`, `zero` (the song's beat of the subproject's beat 0) and `combined` (the targets of the lanes made one). `paw.nest.promote` does the rest: regions, the meter, the view.
+- `paw.api.nest_save(opts)`: Save a view as a subproject, as one undo step: the clips of `parts` from `from` to `to` (beats of their place) move into a new subproject named `name` with the meter `meter`. Per part, each row keeps its devices and gets a part of the subproject with its clips; add a block on the row that plays it. With `own_row`, the parts go in (whole, or as copies with copies of their devices and lanes) and one return row plays the mix; add its block. `paw.nest.save` does the rest: blocks, regions, the window. Returns `nest`, `rows`, `row`, `parts`, `changes`, and with a row of its own the song's `group` it is in or the `buses` that no longer get the time.
 - `paw.api.nest_set(id, key, value)`: Change a subproject: a table of the entries to change (`name`, `length`, `tempo`, `meter`, `kind`, `meta`), as `nest_get` gives them, or one `key` and its value.
 - `paw.api.nest_song_beat(clip, beat)`: The song's beat of beat `beat` of the subproject of block `clip`.
 - `paw.api.nest_tempo_at(clip, beat)`
@@ -2852,11 +2852,22 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.nest_tempo_points(clip)`
 - `paw.api.nest_tempo_seconds(clip, beat)`: The `tempo_*` conversions in the own map of the subproject of block `clip`, in its beats: `nest_tempo_bbt(clip, beat)`.
 - `paw.api.nest_tempo_signature(clip, beat)`
-- `paw.api.nest_unique(clip)`: Make the block `clip` a subproject of its own, as one undo step: a copy of its subproject (tracks, devices, lanes and clips) named `Ballad 2`, which the block and the stems of the same block then play. The other blocks keep the subproject. Returns the copy's id.
-- `paw.api.note_off(track, pitch)`
-- `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
+- `paw.api.nest_unique(clip)`: Make the block `clip` a subproject of its own, as one undo step: a copy of its subproject (parts, devices, lanes and clips) named `Ballad 2`, which the block and the stems of the same block then play. The other blocks keep the subproject. Returns the copy's id.
+- `paw.api.note_off(part, pitch)`
+- `paw.api.note_on(part, pitch, velocity, attr)`: Play a note on a part, with a MIDI 2.0 attribute if one is given.
 - `paw.api.notes_set(columns)`: Many notes of many clips at once, as one edit, given as lists of the same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`. Entry i is about the note at place `place[i]` of clip `clip[i]`, its place before the call. A list left out of `start`, `length`, `pitch` and `velocity` keeps that value of each note.
 - `paw.api.now()`: The schedule time in milliseconds since paw started: the time that timers, delays and throttles wait for. In a test that runs with `paw --clock manual`, it moves only when the test waits. To measure how long work takes, use `real_ms`.
+- `paw.api.part_add(opts)`
+- `paw.api.part_attr_delay(id, attr)`: The milliseconds that the attribute map of the part moves a note with `attr` (below 0: earlier). 0 when the part has no attribute map.
+- `paw.api.part_chain_file(part, file, refer)`: Give a part the devices of a chain file (a `devices.json`). With `refer`, the part refers to the file until the chain's first edit. Returns how many devices.
+- `paw.api.part_collect()`: Make every part read from a folder outside the project, and every chain of devices read from a file outside it, the project's own. Returns how many parts and how many chains.
+- `paw.api.part_get(id, key)`: A part as a table. With `key`, only that entry of the table: this is quicker, because the table lists each clip of the part.
+- `paw.api.part_import_folder(folder, index)`: Add the part of a part folder outside the project (a folder with a `part.json`) at `index` (from 1; the end when nil). The project refers to the folder until the part's first edit. Returns its id.
+- `paw.api.part_list(opts)`: --- parts --- The ids of the song's parts, in their order. `{ nest = id }` gives the parts of that subproject instead (without its master), and `{ all = true }` every part: the song's and each subproject's. Views list the parts of their scope with `paw.scope.parts()`.
+- `paw.api.part_meter(id)`
+- `paw.api.part_move(id, index)`
+- `paw.api.part_remove(id)`
+- `paw.api.part_set(id, key, value)`: Change a part: a table of the entries to change, as `part_get` gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its value. Only the key form clears an entry (`part_set(id, "output", nil)`). An entry that is as it was is no change.
 - `paw.api.pending()`: The work that is not done yet: whether the next turn has work (`ready`), whether only due times are left (`quiet`), the time until the next timer or delay is due (`next_ms`), the work in flight on other threads and processes by kind (`in_flight`), the timers, the bakes and changed files that wait for their settle, MIDI that came in, helper processes, and the wakes that a worker missed (`missed_wakes`).
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
@@ -2894,7 +2905,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.project_screen()`: The tabs and windows that the project file keeps, as plain data, or nil. They are not part of the song: setting them is not an edit, and the next save writes them (paw/layout.tl).
 - `paw.api.project_screen_set(value)`
 - `paw.api.project_set(key, value)`: Change the project: a table of the entries to change, as `project_get` gives them (`{ name = "Song", tempo = 96 }`), or one `key` and its value. Only the key form clears an entry (`nil`).
-- `paw.api.project_shelve()`: Put the open project aside, with its undo history, and open an empty project. `project_unshelve` brings the first project back exactly as it was. For checks that need their own tracks (extensions/doctor).
+- `paw.api.project_shelve()`: Put the open project aside, with its undo history, and open an empty project. `project_unshelve` brings the first project back exactly as it was. For checks that need their own parts (extensions/doctor).
 - `paw.api.project_shelved()`
 - `paw.api.project_unshelve()`
 - `paw.api.quit(code)`: --- kernel ---
@@ -2931,7 +2942,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.scene_open(rect, opts)`: While a view is drawn for a scene: a node over a rectangle of it, in units of the scene, that what is written until `scene_close` goes into. `opts`: `role` (a group without), `props`, `hit` (a press on it is on that), `bind` (`meter:4`), `key` (its name; the role and where it is without), `clip` (the part that shows). With `plane` (`{ x = axis, y = axis }`, each `{ domain, from, per }`, see `paw_scene::Axis`) it is a plane, whose kids are placed in its domain; with `into` (the key a plane was made with) it goes into that plane, `rect` in the plane's domain. False when paw draws no scene now, or there is no such plane, with nothing to close.
 - `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
 - `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
-- `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `tracks` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a track outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
+- `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `parts` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a part outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
 - `paw.api.settle()`: Turn the loop until nothing is ready and no work is in flight: the timers due now fire, and the loop waits for the bakes, the hashes, the plugin loads, the renders and the other work of threads and processes to end. No schedule time passes, and an idle timer is not waited for. Gives what `pending` gives then. It fails when work is still in flight after 30 seconds.
 - `paw.api.signature_remove(beat)`
 - `paw.api.signature_set(beat, num, den)`
@@ -2977,17 +2988,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.timer_stop(id)`
 - `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.
 - `paw.api.toml_encode(value, inline)`: The TOML text of a table; with `inline`, of any value on one line (`{ a = 1, b = "x" }`). The keys of a table come in the order of its metatable's `__keys`, then the others by name. A list of tables is an array of tables.
-- `paw.api.track_add(opts)`
-- `paw.api.track_attr_delay(id, attr)`: The milliseconds that the attribute map of the track moves a note with `attr` (below 0: earlier). 0 when the track has no attribute map.
-- `paw.api.track_chain_file(track, file, refer)`: Give a track the devices of a chain file (a `devices.json`). With `refer`, the track refers to the file until the chain's first edit. Returns how many devices.
-- `paw.api.track_collect()`: Make every track read from a folder outside the project, and every chain of devices read from a file outside it, the project's own. Returns how many tracks and how many chains.
-- `paw.api.track_get(id, key)`: A track as a table. With `key`, only that entry of the table: this is quicker, because the table lists each clip of the track.
-- `paw.api.track_import_folder(folder, index)`: Add the track of a track folder outside the project (a folder with a `track.json`) at `index` (from 1; the end when nil). The project refers to the folder until the track's first edit. Returns its id.
-- `paw.api.track_list(opts)`: --- tracks --- The ids of the song's tracks, in their order. `{ nest = id }` gives the tracks of that subproject instead (without its master), and `{ all = true }` every track: the song's and each subproject's. Views list the tracks of their scope with `paw.scope.tracks()`.
-- `paw.api.track_meter(id)`
-- `paw.api.track_move(id, index)`
-- `paw.api.track_remove(id)`
-- `paw.api.track_set(id, key, value)`: Change a track: a table of the entries to change, as `track_get` gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its value. Only the key form clears an entry (`track_set(id, "output", nil)`). An entry that is as it was is no change.
 - `paw.api.transport_get()`: --- transport ---
 - `paw.api.transport_play()`
 - `paw.api.transport_playhead()`: What moves of the transport by itself, as `transport_get` gives it but without a table, for what is read on each frame: `playing`, `position`, `counting` and `take` (nil while nothing records).
@@ -3040,7 +3040,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.undo_travel(seconds)`
 - `paw.api.undo_tree()`: The undo tree and checkpoints: crate::history, session/undo.rs.
 - `paw.api.view_ranges()`: The ranges that `view_ranges_set` gave last.
-- `paw.api.view_ranges_set(ranges)`: Tell paw which part of the song each window shows: a list of ranges of beats, each with the tracks shown (all tracks when `tracks` is nil). The stretched clips there bake before the others. paw.derived sends this after each frame.
+- `paw.api.view_ranges_set(ranges)`: Tell paw which part of the song each window shows: a list of ranges of beats, each with the parts shown (all parts when `parts` is nil). The stretched clips there bake before the others. paw.derived sends this after each frame.
 - `paw.api.wait(ms)`: Let `ms` milliseconds pass. Timers fire and events come, as between the key presses of a person. `sleep` stops all of that. A script that waits for the result of a timer uses `wait`. With `paw --clock manual`, the time passes at once: each timer fires in its order, at its own time.
 - `paw.api.wait_blocks(blocks)`: On the stepped audio backend (`paw --audio step --clock manual`, the tests), let the time of `blocks` audio blocks pass: the clock moves to the end of the last of them, the timers due on the way fire, and the engine plays exactly that many blocks. Gives the number of blocks. On another backend or clock, and for more than 60 seconds of blocks, it is an error.
 - `paw.api.warnings()`

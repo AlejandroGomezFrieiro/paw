@@ -1,4 +1,4 @@
-//! The device interface: anything that sits in a track's chain and makes or
+//! The device interface: anything that sits in a part's chain and makes or
 //! changes sound. Built-in devices and hosted plugins both implement [`Device`].
 
 use std::collections::BTreeMap;
@@ -82,7 +82,7 @@ pub struct Io<'a> {
     /// Events for this block, ordered by frame. A device may rewrite them for
     /// the devices after it.
     pub events: &'a mut EventBuf,
-    /// The side-chain: another track's sound, as long as the block, for a
+    /// The side-chain: another part's sound, as long as the block, for a
     /// device that listens to one ([`Ports::sidechain`]). None when nothing
     /// is connected; a compressor then listens to its own input.
     pub sidechain: Option<[&'a [f32]; 2]>,
@@ -1090,7 +1090,7 @@ pub mod method {
 pub const FILE_SAVE: &str = "paw.file.save";
 /// The call that gives a device made again the files it kept, packed.
 pub const FILE_LOAD: &str = "paw.file.load";
-/// The call that gives a device the audio clips of its track, as JSON, each
+/// The call that gives a device the audio clips of its part, as JSON, each
 /// time they or the tempo change; a device that does not take clips does
 /// not know the method, and is not asked again.
 pub const CLIPS: &str = "paw.clips";

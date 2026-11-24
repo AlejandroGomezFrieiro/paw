@@ -7,7 +7,7 @@ local api = paw.api
 
 test("the transport plays, seeks, loops and stops", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_device("synth")
   local notes = {}
   for beat = 0, 7 do
@@ -52,7 +52,7 @@ test("the engine counts the blocks it ran, and the blocks each device ran", func
   local sleep = api.engine_get().device_sleep
   after(function() api.engine_set_sleep(sleep) end)
   api.engine_set_sleep(true)
-  local t = paw.add_track()
+  local t = paw.add_part()
   local synth = t:add_device("synth", { attack = 0.001, release = 0.01 })
   next_block()
   local first = api.blocks()
@@ -80,7 +80,7 @@ test("a lane wins over the fader while playing, and lets go when it is turned of
   lane:add(0, -60)
   paw.transport.play()
   next_block(10)
-  eq(select(1, meter(t)) < 0.003, true, "the lane holds the track down")
+  eq(select(1, meter(t)) < 0.003, true, "the lane holds the part down")
   t.volume = 6
   next_block(10)
   eq(select(1, meter(t)) < 0.003, true, "moving the fader does not override it")
@@ -91,7 +91,7 @@ end)
 
 test("live notes sound without the transport", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_device("synth")
   t:note_on("C4", 110)
   until_(function() return select(1, meter(t)) > 0.01 end, "the note to sound")

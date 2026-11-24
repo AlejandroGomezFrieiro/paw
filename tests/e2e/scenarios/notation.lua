@@ -45,7 +45,7 @@ local function read_musicxml(path)
   return out, parts
 end
 
---- The model's notes of a track, in the order of time, as pitches.
+--- The model's notes of a part, in the order of time, as pitches.
 local function pitches(t)
   local out = {}
   for _, n in ipairs(t.notes) do
@@ -72,12 +72,12 @@ days[1] = function(E)
     says = "imported",
     apply = function(m)
       for _, part in ipairs(parts) do
-        local t = M.new_track(part.name)
+        local t = M.new_part(part.name)
         t.clips = M.ANY
         for _, n in ipairs(part.notes) do
           t.notes[#t.notes + 1] = M.copy(n)
         end
-        m.tracks[#m.tracks + 1] = t
+        m.parts[#m.parts + 1] = t
       end
     end,
   })
@@ -85,17 +85,17 @@ days[1] = function(E)
     E:act({
       name = "a synth for voice " .. i,
       keys = { "<Esc>", i .. "G", "a", "synth<CR>" },
-      apply = function(m) m.tracks[i].devices = { "synth" } end,
+      apply = function(m) m.parts[i].devices = { "synth" } end,
     })
   end
-  local last = #E.model.tracks
+  local last = #E.model.parts
   E:act({
-    name = "add the track Flute",
+    name = "add the part Flute",
     keys = { "<Esc>", last .. "G", "o", "grn", "<C-u>Flute<CR>", "a", "synth<CR>" },
     apply = function(m)
-      local t = M.new_track("Flute")
+      local t = M.new_part("Flute")
       t.devices = { "synth" }
-      m.tracks[#m.tracks + 1] = t
+      m.parts[#m.parts + 1] = t
     end,
   })
   local flute = last + 1
@@ -111,7 +111,7 @@ days[1] = function(E)
     keys = all,
     focus = "arrange",
     apply = function(m)
-      local t = m.tracks[flute]
+      local t = m.parts[flute]
       t.clips = { { kind = "midi", start = 0, length = 4, notes = sketch } }
       M.renote(t)
     end,
@@ -139,13 +139,13 @@ days[1] = function(E)
     keys = { "0", "g5", "i" .. table.concat(letters), "<Esc>" },
     focus = "notation",
     apply = function(m)
-      local c = m.tracks[flute].clips[1]
+      local c = m.parts[flute].clips[1]
       local before = 60
       for k, letter in ipairs(letters) do
         before = nearest(letter, before)
         c.notes[k] = { pitch = before, start = k - 1, length = 1, velocity = M.ANY }
       end
-      M.renote(m.tracks[flute])
+      M.renote(m.parts[flute])
     end,
   })
   E:act({
@@ -153,10 +153,10 @@ days[1] = function(E)
     keys = { "0", "w", "+", "w", "}" },
     focus = "notation",
     apply = function(m)
-      local c = m.tracks[flute].clips[1]
+      local c = m.parts[flute].clips[1]
       c.notes[2].pitch = c.notes[2].pitch + 1
       c.notes[3].pitch = c.notes[3].pitch + 12
-      M.renote(m.tracks[flute])
+      M.renote(m.parts[flute])
     end,
   })
   E:act({
@@ -164,9 +164,9 @@ days[1] = function(E)
     keys = { "w", "x" },
     focus = "notation",
     apply = function(m)
-      local c = m.tracks[flute].clips[1]
+      local c = m.parts[flute].clips[1]
       c.notes[4] = nil
-      M.renote(m.tracks[flute])
+      M.renote(m.parts[flute])
     end,
   })
   E:act({ name = "back to the arrange view", keys = { "<Esc>", "\\n" }, focus = "arrange" })
@@ -178,7 +178,7 @@ end
 days[2] = function(E)
   M = E.Model
   load_notation(E)
-  local flute = #E.model.tracks
+  local flute = #E.model.parts
   local xml = E.workdir .. "/flute.musicxml"
   E:act({
     name = "write the flute as MusicXML",
@@ -186,7 +186,7 @@ days[2] = function(E)
     slow = true,
     check = function(self)
       local got = read_musicxml(xml)
-      local want = pitches(self.model.tracks[flute])
+      local want = pitches(self.model.parts[flute])
       local seen = {}
       for k, n in ipairs(got) do
         seen[k] = n.pitch
@@ -219,13 +219,13 @@ days[2] = function(E)
     check = function(self)
       local got, parts = read_musicxml(score)
       local want = 0
-      for _, t in ipairs(self.model.tracks) do
+      for _, t in ipairs(self.model.parts) do
         want = want + #t.notes
       end
-      if parts ~= #self.model.tracks or #got ~= want then
+      if parts ~= #self.model.parts or #got ~= want then
         self:fail(
           "MusicXML of the score",
-          string.format("%d parts and %d notes, the model %d and %d", parts, #got, #self.model.tracks, want)
+          string.format("%d parts and %d notes, the model %d and %d", parts, #got, #self.model.parts, want)
         )
       end
     end,
@@ -236,7 +236,7 @@ days[2] = function(E)
     slow = true,
     run = function(self)
       self:type({ "<Esc>", flute .. "G", "3|", ":import " .. xml .. "<CR>" })
-      local t = paw.tracks()[flute + 1]
+      local t = paw.parts()[flute + 1]
       local got = {}
       for _, c in ipairs(t and t:clips() or {}) do
         for _, n in ipairs(c:notes()) do
@@ -245,7 +245,7 @@ days[2] = function(E)
       end
       M.sort_notes(got)
       local want = {}
-      for _, n in ipairs(self.model.tracks[flute].notes) do
+      for _, n in ipairs(self.model.parts[flute].notes) do
         want[#want + 1] = { pitch = n.pitch, start = n.start, length = n.length }
       end
       local diffs = M.diff(want, got, "the flute again")
@@ -260,14 +260,14 @@ end
 days[3] = function(E)
   M = E.Model
   load_notation(E)
-  local first = E.model.tracks[1].notes[1]
+  local first = E.model.parts[1].notes[1]
   E:act({
     name = "the soprano's first note an octave down, in the score",
     keys = { "<Esc>", "1G", "1|", ":notation<CR>", "0", "{", "<Esc>" },
     focus = "notation",
     apply = function(m)
-      m.tracks[1].notes[1].pitch = first.pitch - 12
-      M.sort_notes(m.tracks[1].notes)
+      m.parts[1].notes[1].pitch = first.pitch - 12
+      M.sort_notes(m.parts[1].notes)
     end,
   })
   E:act({ name = "back to the arrange view", keys = { "\\n" }, focus = "arrange" })

@@ -152,12 +152,12 @@ local record Offer
 end
 
 --- Which subjects a server is shown, and where: `subjects` (or the older
---- `kinds`), `where`, and the older `tracks` and `drums`.
+--- `kinds`), `where`, and the older `parts` and `drums`.
 local record Attach
   subjects: {string}
   kinds: {string}
   where: subjects.Where
-  tracks: {string}
+  parts: {string}
   drums: boolean
 end
 

@@ -84,7 +84,7 @@ not need the reply.
 | `cmd` | A command line, as after `:` | Runs the command. |
 | `keys` | Keys as typed: `"ggdd"`, `"<C-s>"` | Types the keys. |
 | `render` | A path, options | Calls `paw.render`. |
-| A `paw.api` function | Its arguments | Calls the function: `track_add`, `transport_get` and other. |
+| A `paw.api` function | Its arguments | Calls the function: `part_add`, `transport_get` and other. |
 | `subscribe` | Event names or patterns | Sends the events from now on. Replies the list of patterns. |
 | `unsubscribe` | Patterns, or nothing for all | Stops the events. |
 | `frontend.watch` | `{ "interval": ms, "seat": "own" or "instance" }`. Defaults: 33, `"own"`. | Sends `frontend.state` events from now on. See [`frontend.watch`](#frontendwatch). |
@@ -140,7 +140,7 @@ JSON, and it writes an error to stderr.
 
 ```sh
 paw ctl --json eval 'return paw.project.tempo'     # {"ok":true,"result":120}
-paw ctl --json track_get 99                        # {"ok":false,"error":"..."}
+paw ctl --json part_get 99                        # {"ok":false,"error":"..."}
 ```
 
 ### `hello` and the token
@@ -185,12 +185,12 @@ A connection gets only the events that it asked for.
 
 ### `subscribe`
 
-`subscribe` takes exact names (`track.added`), families (`transport.*`) or
+`subscribe` takes exact names (`part.added`), families (`transport.*`) or
 `*`. The events are the events of `paw.on` in Lua, also those of
 extensions. Some of them are:
 
-`changed`, `project.loaded`, `project.saved`, `track.added`,
-`track.changed`, `track.removed`, `clip.add`, `clip.set`,
+`changed`, `project.loaded`, `project.saved`, `part.added`,
+`part.changed`, `part.removed`, `clip.add`, `clip.set`,
 `device.changed`, `device.stopped`, `transport.play`, `transport.stop`,
 `transport.seek`, `transport.record`, `transport.recorded`,
 `transport.changed`, `midi.in`,
@@ -216,7 +216,7 @@ make values that the window does not draw.
 {"event": "frontend.state", "payload": {
   "seq": 7, "revision": 41, "playing": true, "position": 12.5, "time": "4.1.50",
   "levels": [0.31, 0.3, 0, 0], "cpu": 0.075, "modal": { "mode": "n" },
-  "sections": { "tracks": [ … ], "clips": [ … ] }
+  "sections": { "parts": [ … ], "clips": [ … ] }
 }}
 ```
 
@@ -244,9 +244,9 @@ returns when the project did not change.
 | --- | --- |
 | `project` | The name, the tempo, the loop, the markers and other: `state.project` without `lines`. |
 | `lines` | The bar and beat lines: `state.project.lines`. |
-| `tracks`, `clips`, `devices` | As in the state. |
-| `routing` | The routing of the selected track, or `false` without a selected track. |
-| `view` | `{ "selected": track id, "cursor": beat }` |
+| `parts`, `clips`, `devices` | As in the state. |
+| `routing` | The routing of the selected part, or `false` without a selected part. |
+| `view` | `{ "selected": part id, "cursor": beat }` |
 | `kinds` | The kinds of device. |
 
 An idle program sends nothing.
@@ -273,7 +273,7 @@ again, and no event between the two replies.
 
 ```json
 {"id": 9, "method": "frontend.sync", "params": []}
-{"event": "frontend.state", "payload": { "seq": 8, "sections": { "tracks": [ … ] }, … }}
+{"event": "frontend.state", "payload": { "seq": 8, "sections": { "parts": [ … ] }, … }}
 {"id": 9, "result": 8}
 ```
 
@@ -444,10 +444,10 @@ without a new scene, when they change:
 
 | Field | Value |
 | --- | --- |
-| `meters` | The level of each side of each track, by its id. The master is `"0"`. |
-| `peaks` | The recent peak of each track. |
-| `clips` | The tracks whose clip light is on. A click on the peak clears it, as `paw.draw.clear_peak` does. |
-| `inputs` | The level at the input of each track. |
+| `meters` | The level of each side of each part, by its id. The master is `"0"`. |
+| `peaks` | The recent peak of each part. |
+| `clips` | The parts whose clip light is on. A click on the peak clears it, as `paw.draw.clear_peak` does. |
+| `inputs` | The level at the input of each part. |
 | `params` | The parameters that lanes move, by their binding (`param:<device>:<key>`): `fraction`, where the slider is from 0 to 1, and `text`, the value in its unit. The device panel binds a parameter only while a lane moves it. |
 
 ## A remote terminal

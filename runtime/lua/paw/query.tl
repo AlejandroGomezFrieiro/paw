@@ -2,14 +2,14 @@
 -- Tree-sitter query or a CSS selector finds nodes in a tree.
 --
 --   clip[name~=pizz] > note[pitch>=C5]     the high notes of the pizzicato clips
---   group[name=Strings] track              every track inside the Strings group
+--   group[name=Strings] part              every part inside the Strings group
 --   note[lyric^=la], note[art=staccato]    two kinds of note at once
 --   clip:has(note[vel>120])                clips with a very loud note
 --
--- The tree: the project holds its tracks (a group holds its members),
--- markers and regions; a track holds its clips, devices and automation
+-- The tree: the project holds its parts (a group holds its members),
+-- markers and regions; a part holds its clips, devices and automation
 -- lanes; a MIDI clip holds its notes and controller moves (`cc`); a lane
--- holds its points. A step names a kind (`track` `group` `clip` `note`
+-- holds its points. A step names a kind (`part` `group` `clip` `note`
 -- `cc` `device` `lane` `point` `marker` `region`, or `*` for any), then
 -- tests in brackets. `a > b` is a `b` right inside an `a`, `a b` one
 -- anywhere inside it, and `,` joins two queries.
@@ -28,7 +28,7 @@
 --   paw.query({ { "clip", name = "~= pizz" }, ">", { "note", pitch = ">= C5", function(n) return n.data.velocity > 90 end } })
 --
 -- Each result is a node (`paw.contracts.QueryNode`): `{ kind, id, data,
--- parent, track, clip, location, text }`, `data` the thing as `paw.api`
+-- parent, part, clip, location, text }`, `data` the thing as `paw.api`
 -- gives it. `paw.query.field(kind, name, get)` adds a field; the fields of
 -- `paw.ex.field` are fields here as well.
 --
@@ -112,9 +112,9 @@ end
 --- What `paw.ex` reads its fields from (paw/ex.tl).
 local type ExItem = contracts.ExItem
 
---- paw/scope.tl, the part of it that this module reads: the tracks of the scope shown.
+--- paw/scope.tl, the piece of it that this module reads: the parts of the scope shown.
 local record Scope
-  tracks: function(): {integer}
+  parts: function(): {integer}
 end
 
 --- A note's meta, as far as this module reads it.
@@ -181,7 +181,7 @@ end
 
 -- The tree -------------------------------------------------------------------------
 
-M.KINDS = {"track", "group", "clip", "note", "cc", "device", "lane", "point", "marker", "region"}
+M.KINDS = {"part", "group", "clip", "note", "cc", "device", "lane", "point", "marker", "region"}
 local KIND: {string: boolean} = {}
 for _, k in ipairs(M.KINDS) do
   KIND[k] = true
@@ -190,7 +190,7 @@ end
 -- What each kind can hold, at any depth: where looking for a kind goes.
 local HOLDS: {string: {string: boolean}} = {
   project = {
-    track = true,
+    part = true,
     group = true,
     clip = true,
     note = true,
@@ -201,11 +201,11 @@ local HOLDS: {string: {string: boolean}} = {
     marker = true,
     region = true,
   },
-  track = {track = true, group = true, clip = true, note = true, cc = true, device = true, lane = true, point = true},
+  part = {part = true, group = true, clip = true, note = true, cc = true, device = true, lane = true, point = true},
   clip = {note = true, cc = true},
   lane = {point = true},
 }
-HOLDS.group = HOLDS.track
+HOLDS.group = HOLDS.part
 
 local function holds(node_kind: string, wanted: string): boolean
   local h = HOLDS[node_kind]
@@ -219,10 +219,10 @@ local function try<T, R>(fn: function(T): R, value: T): R
   end
 end
 
---- The tracks of the project as a tree: the ones in no group, and each
---- group's members, in the order of the track list.
-local record Tracks
-  data: {integer: types.Track}
+--- The parts of the project as a tree: the ones in no group, and each
+--- group's members, in the order of the part list.
+local record Parts
+  data: {integer: types.Part}
   members: {integer: {integer}}
   top: {integer}
   index: {integer: integer}
@@ -230,39 +230,39 @@ end
 
 --- What one run of a query reads once.
 local record Cache
-  tracks: Tracks
+  parts: Parts
   tree: tree.Tree
 end
 
---- The clips and notes of every track (paw/query/tree.tl), read once a run.
+--- The clips and notes of every part (paw/query/tree.tl), read once a run.
 local function tree_of(cache: Cache): tree.Tree
   cache.tree = cache.tree or tree.tree()
   return cache.tree
 end
 
---- What this module reads of a track's `meta` (paw/groups.tl).
+--- What this module reads of a part's `meta` (paw/groups.tl).
 local record GroupMeta
   group: integer
   group_head: boolean
 end
 
-local function group_meta(t: types.Track): GroupMeta
+local function group_meta(t: types.Part): GroupMeta
   return (t.meta or {}) as GroupMeta
 end
 
---- The tracks of the project as a tree: the ones in no group, and each
---- group's members, in the order of the track list. In a narrowed
---- window, the tracks of its scope, as Ex ranges see them.
-local function track_tree(cache: Cache): Tracks
-  if cache.tracks then
-    return cache.tracks
+--- The parts of the project as a tree: the ones in no group, and each
+--- group's members, in the order of the part list. In a narrowed
+--- window, the parts of its scope, as Ex ranges see them.
+local function part_tree(cache: Cache): Parts
+  if cache.parts then
+    return cache.parts
   end
-  local ids = paw.scope and paw.scope.tracks() or api.track_list()
-  local data: {integer: types.Track} = {}
+  local ids = paw.scope and paw.scope.parts() or api.part_list()
+  local data: {integer: types.Part} = {}
   local members: {integer: {integer}} = {}
   local top: {integer} = {}
   for _, id in ipairs(ids) do
-    data[id] = api.track_get(id)
+    data[id] = api.part_get(id)
   end
   for _, id in ipairs(ids) do
     local g = group_meta(data[id]).group
@@ -277,26 +277,26 @@ local function track_tree(cache: Cache): Tracks
   for i, id in ipairs(ids) do
     index[id] = i
   end
-  cache.tracks = {data = data, members = members, top = top, index = index}
-  return cache.tracks
+  cache.parts = {data = data, members = members, top = top, index = index}
+  return cache.parts
 end
 
-local function track_node(cache: Cache, id: integer, parent: Node): Node
-  local t = track_tree(cache)
+local function part_node(cache: Cache, id: integer, parent: Node): Node
+  local t = part_tree(cache)
   local d = t.data[id]
   local group = group_meta(d).group_head == true
   return {
-    kind = (group and "group" or "track") as contracts.QueryKind,
+    kind = (group and "group" or "part") as contracts.QueryKind,
     id = id,
     data = d as Data,
     parent = parent,
-    track = id,
+    part = id,
     index = t.index[id],
   }
 end
 
-local function track_of(node: Node): types.Track
-  return node.data as types.Track
+local function part_of(node: Node): types.Part
+  return node.data as types.Part
 end
 local function clip_data(node: Node): types.Clip
   return node.data as types.Clip
@@ -310,10 +310,10 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
   end
   local k = node.kind
   if k == "project" then
-    local t = track_tree(cache)
-    if want("track") or want("group") then
+    local t = part_tree(cache)
+    if want("part") or want("group") then
       for _, id in ipairs(t.top) do
-        out[#out + 1] = track_node(cache, id, node)
+        out[#out + 1] = part_node(cache, id, node)
       end
     end
     if wanted == "*" or wanted == "marker" or wanted == "region" then
@@ -323,32 +323,32 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
         }
       end
     end
-  elseif k == "track" or k == "group" then
-    local t = track_tree(cache)
-    if k == "group" and (want("track") or want("group")) then
+  elseif k == "part" or k == "group" then
+    local t = part_tree(cache)
+    if k == "group" and (want("part") or want("group")) then
       for _, id in ipairs(t.members[node.id] or {}) do
-        out[#out + 1] = track_node(cache, id, node)
+        out[#out + 1] = part_node(cache, id, node)
       end
     end
     if want("clip") then
-      -- The clip nodes are kept from run to run: each run gives them its track.
-      local nodes = tree_of(cache).tracks[node.id]
+      -- The clip nodes are kept from run to run: each run gives them its part.
+      local nodes = tree_of(cache).parts[node.id]
       for _, c in ipairs(nodes and nodes.clips or {}) do
         c.parent = node
         out[#out + 1] = c
       end
     end
     if want("device") then
-      for i, id in ipairs(track_of(node).devices or {}) do
+      for i, id in ipairs(part_of(node).devices or {}) do
         local d = try(api.device_get, id)
         if d then
-          out[#out + 1] = {kind = "device", id = id, data = d as Data, parent = node, track = node.id, index = i}
+          out[#out + 1] = {kind = "device", id = id, data = d as Data, parent = node, part = node.id, index = i}
         end
       end
     end
     if want("lane") then
       for _, l in ipairs(try(api.lane_list, node.id) or {}) do
-        out[#out + 1] = {kind = "lane", id = l.id, data = l as Data, parent = node, track = node.id}
+        out[#out + 1] = {kind = "lane", id = l.id, data = l as Data, parent = node, part = node.id}
       end
     end
   elseif k == "clip" then
@@ -356,7 +356,7 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
       return out
     end
     if wanted == "*" or wanted == "note" then
-      local nodes = tree_of(cache).tracks[node.track]
+      local nodes = tree_of(cache).parts[node.part]
       local notes = nodes and nodes.notes[node.id] or {}
       if wanted == "note" and #out == 0 then
         -- The kept list itself: the callers only read it.
@@ -369,14 +369,14 @@ local function children(cache: Cache, node: Node, wanted: string, out?: {Node}):
     if wanted == "*" or wanted == "cc" then
       for i, c in ipairs(try(api.clip_controls, node.id) or {}) do
         out[#out + 1] = {
-          kind = "cc", id = i, data = c as Data, parent = node, track = node.track, clip = node.id, place = i
+          kind = "cc", id = i, data = c as Data, parent = node, part = node.part, clip = node.id, place = i
         }
       end
     end
   elseif k == "lane" then
     for i, p in ipairs(try(api.lane_points, node.id) or {}) do
       local point: Point = {beat = p[1] or (p as Point).beat, value = p[2] or (p as Point).value}
-      out[#out + 1] = {kind = "point", id = i, data = point as Data, parent = node, track = node.track, place = i}
+      out[#out + 1] = {kind = "point", id = i, data = point as Data, parent = node, part = node.part, place = i}
     end
   end
   return out
@@ -397,7 +397,7 @@ local function descendants(cache: Cache, node: Node, wanted: string, out?: {Node
     if kind ~= kind_before then
       kind_before, inside = kind, holds(kind, wanted)
     end
-    if wanted == "*" or kind == wanted or (wanted == "track" and kind == "group") then
+    if wanted == "*" or kind == wanted or (wanted == "part" and kind == "group") then
       n = n + 1
       out[n] = child
     end
@@ -442,8 +442,8 @@ end
 --- A node's location, as the quickfix list and `paw.qf.go` take them.
 function M.location(node: Node): contracts.Location
   local k = node.kind
-  if k == "track" or k == "group" then
-    return {uri = A.track(node.id)}
+  if k == "part" or k == "group" then
+    return {uri = A.part(node.id)}
   end
   if k == "clip" then
     return {uri = A.clip(node.id)}
@@ -479,9 +479,9 @@ function M.location(node: Node): contracts.Location
   return {uri = A.project()}
 end
 
-local function track_name(node: Node): string
+local function part_name(node: Node): string
   local at = node
-  while at and at.kind ~= "track" and at.kind ~= "group" do
+  while at and at.kind ~= "part" and at.kind ~= "group" do
     at = at.parent
   end
   return at and at.data.name or ""
@@ -517,16 +517,16 @@ function M.describe(node: Node): string
       clip_of(node).data.name
     )
   elseif k == "clip" then
-    return string.format("clip %s at %s on %s", node.data.name, when, track_name(node))
-  elseif k == "track" or k == "group" then
+    return string.format("clip %s at %s on %s", node.data.name, when, part_name(node))
+  elseif k == "part" or k == "group" then
     return k .. " " .. node.data.name
   elseif k == "device" then
-    return string.format("device %s on %s", node.data.name, track_name(node))
+    return string.format("device %s on %s", node.data.name, part_name(node))
   elseif k == "lane" then
     local d = node.data as types.Lane
-    return string.format("lane %s on %s", paw.lanes and paw.lanes.name(d) or tostring(d.target), track_name(node))
+    return string.format("lane %s on %s", paw.lanes and paw.lanes.name(d) or tostring(d.target), part_name(node))
   elseif k == "point" then
-    return string.format("point %g at %s on %s", (node.data as Point).value, when, track_name(node))
+    return string.format("point %g at %s on %s", (node.data as Point).value, when, part_name(node))
   elseif k == "marker" or k == "region" then
     return string.format("%s %s at %s", k, paw.markers.label(node.data as Marker), when)
   end
@@ -633,15 +633,15 @@ local clip_fields: {string: Field} = {
   bar = function(n: Node): Value return paw.time.bar_of(clip_data(n).start) end,
   notes = function(n: Node): Value return clip_data(n).note_count end,
   muted = function(n: Node): Value return clip_data(n).muted end,
-  track = function(n: Node): Value return track_name(n) end,
+  part = function(n: Node): Value return part_name(n) end,
 }
 for name, get in pairs(clip_fields) do
   M.field("clip", name, get)
 end
-for _, kind in ipairs({"track", "group"}) do
+for _, kind in ipairs({"part", "group"}) do
   M.field(kind, "index", function(n: Node): Value return n.index end)
   M.field(kind, "group", function(n: Node): Value return n.kind == "group" end)
-  M.field(kind, "devices", function(n: Node): Value return #(track_of(n).devices or {}) end)
+  M.field(kind, "devices", function(n: Node): Value return #(part_of(n).devices or {}) end)
 end
 for _, kind in ipairs({"marker", "region"}) do
   M.field(kind, "name", function(n: Node): Value return paw.markers.label(marker(n)) end)
@@ -650,7 +650,7 @@ for _, kind in ipairs({"marker", "region"}) do
   M.field(kind, "bar", function(n: Node): Value return paw.time.bar_of(marker(n).beat) end)
 end
 M.field("device", "index", function(n: Node): Value return n.index end)
-M.field("device", "track", function(n: Node): Value return track_name(n) end)
+M.field("device", "part", function(n: Node): Value return part_name(n) end)
 M.field(
   "lane",
   "name",
@@ -665,7 +665,7 @@ M.field("point", "at", function(n: Node): Value return song_beat(n) end)
 M.field("*", "comment", function(n: Node): Value return meta(n).comment end)
 
 -- The level `paw.ex` gives its fields.
-local EX_LEVEL: {string: contracts.ExLevel} = {note = "note", clip = "clip", track = "track", group = "track"}
+local EX_LEVEL: {string: contracts.ExLevel} = {note = "note", clip = "clip", part = "part", group = "part"}
 
 -- What `paw.ex` reads of each node, made when first asked for, and kept
 -- in the node: the nodes of clips and notes live from query to query
@@ -674,14 +674,14 @@ local record Kept
   ex_item: ExItem
 end
 
---- What `paw.ex` reads its fields from: `{ kind, track, clip, note, place, at }`.
+--- What `paw.ex` reads its fields from: `{ kind, part, clip, note, place, at }`.
 local function ex_item(node: Node): ExItem
   local kept = node as Kept
   if kept.ex_item then
     return kept.ex_item
   end
   local level = EX_LEVEL[node.kind]
-  local item: ExItem = {kind = level, track = node.track}
+  local item: ExItem = {kind = level, part = node.part}
   if level == "note" then
     item.clip, item.note, item.place, item.at = clip_data(clip_of(node)), note(node), node.place, song_beat(node)
   elseif level == "clip" then
@@ -695,7 +695,7 @@ end
 
 --- How a field of a kind of node is read: `name` in lower case.
 local function getter(kind: string, name: string): Field
-  local own = M.fields:get(kind .. " " .. name) or (kind == "group" and M.fields:get("track " .. name))
+  local own = M.fields:get(kind .. " " .. name) or (kind == "group" and M.fields:get("part " .. name))
   if own then
     return own
   end
@@ -1152,7 +1152,7 @@ end
 local function key_of(node: Node): string
   return node.kind
     .. ":"
-    .. tostring(node.clip or node.track or "")
+    .. tostring(node.clip or node.part or "")
     .. ":"
     .. tostring(node.id)
     .. ":"
@@ -1162,9 +1162,7 @@ end
 local run_steps: function(cache: Cache, steps: {Step}, from: {Node}, first?: boolean): {Node}
 
 local function passes(cache: Cache, step: Step, node: Node): boolean
-  if
-    step.kind ~= "*" and (node.kind as string) ~= step.kind and not (step.kind == "track" and node.kind == "group")
-  then
+  if step.kind ~= "*" and (node.kind as string) ~= step.kind and not (step.kind == "part" and node.kind == "group") then
     return false
   end
   local tests = step.tests

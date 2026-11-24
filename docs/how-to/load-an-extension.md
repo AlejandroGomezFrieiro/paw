@@ -69,9 +69,9 @@ and `--clean` does not stop it.
 ## Unload an extension
 
 1. Type `:ext.unload name`.
-2. If paw refuses because devices of the extension are on tracks, remove
+2. If paw refuses because devices of the extension are on parts, remove
    the devices, or type `:ext.unload! name`.
 
 **CAUTION:** After `:ext.unload!`, the devices of the extension stay on
-their tracks until you remove them. A project that you save with them
+their parts until you remove them. A project that you save with them
 opens without them when the extension is not loaded.

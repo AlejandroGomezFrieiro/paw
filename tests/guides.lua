@@ -95,7 +95,7 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
   end
   step("<Esc>")
   step("<C-w>p", "&", "&", "&")
-  local drums = paw.track("Drums")
+  local drums = paw.part("Drums")
   eq(#drums:clips(), 4, "four bars of drums")
   eq(
     melody(drums:clips()[4]),
@@ -106,8 +106,8 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
   step("o", "grn", "<C-u>", "Bass<CR>", "a", "synth", "<CR>", "0")
   step("i", "<CR>", "J", "3-", "16l", "<CR>", "4-", "16l", "<CR>", "7+", "16l", "<CR>", "5-", "16l", "<Esc>")
   step("<C-w>p")
-  eq(melody(paw.track("Bass"):clips()[1]), "45@0+4 41@4+4 48@8+4 43@12+4", "the bass plays A F C G")
-  eq(paw.track("Bass"):clips()[1].length, 16, "the clip ends with the notes, at the end of bar 4")
+  eq(melody(paw.part("Bass"):clips()[1]), "45@0+4 41@4+4 48@8+4 43@12+4", "the bass plays A F C G")
+  eq(paw.part("Bass"):clips()[1].length, 16, "the clip ends with the notes, at the end of bar 4")
 
   step("o", "grn", "<C-u>", "Keys<CR>", "a", "synth", "<CR>", "0")
   step("i", "<CR>", "3-", "c", "vi<CR>", "16l", "<CR>")
@@ -116,7 +116,7 @@ test("make music 1: the first song has drums, bass and keys in a loop of four ba
   step("c", "V<CR>", "16l", "<Esc>")
   step("<C-w>p")
   eq(
-    melody(paw.track("Keys"):clips()[1]),
+    melody(paw.part("Keys"):clips()[1]),
     "57@0+4 60@0+4 64@0+4 57@4+4 60@4+4 65@4+4 55@8+4 60@8+4 64@8+4 55@12+4 59@12+4 62@12+4",
     "the chords Am F C G"
   )
@@ -142,7 +142,7 @@ test("make music 2: a lead played on a MIDI keyboard is recorded over the loop a
   open("2-midi-keyboard.lua")
   step("G", "o", "grn", "<C-u>", "Lead<CR>", "a", "synth", "<CR>")
   step("I", "Keystation", "<CR>")
-  local lead = paw.track("Lead")
+  local lead = paw.part("Lead")
   eq(lead.midi_input and lead.midi_input.port, "Keystation 49", "the lead takes MIDI from the keyboard")
   step("r")
   eq(lead.armed, true, "the lead is armed")
@@ -194,7 +194,7 @@ test("make music 3: a guitar through an amp chain is recorded in two takes and c
   open("3-guitar.lua")
   step("G", "o", "grn", "<C-u>", "Guitar<CR>")
   step("I", "· 1", "<CR>")
-  local guitar = paw.track("Guitar")
+  local guitar = paw.part("Guitar")
   eq(guitar.input, "1", "the guitar takes input 1")
   step("<A-i>")
   eq(guitar.monitor, true, "we hear the input")
@@ -251,15 +251,15 @@ end)
 test("make music 4: the song is arranged into verse and chorus, with markers, a new tempo and a jump", function()
   open("4-arrange.lua")
   step(":1,4co 5<CR>")
-  eq(#paw.track("Drums"):clips(), 8, "eight bars of drums")
+  eq(#paw.part("Drums"):clips(), 8, "eight bars of drums")
   step("/Lead<CR>", "0", "x", "j", "x")
-  eq(#paw.track("Lead"):clips(), 1, "the lead plays only in the chorus")
-  eq(paw.track("Lead"):clips()[1].start, 16, "from bar 5")
+  eq(#paw.part("Lead"):clips(), 1, "the lead plays only in the chorus")
+  eq(paw.part("Lead"):clips()[1].start, 16, "from bar 5")
   step("5|", "8L")
-  eq(paw.track("Guitar"):clips()[1].start, 24, "the guitar answers in bar 7")
+  eq(paw.part("Guitar"):clips()[1].start, 24, "the guitar answers in bar 7")
   step(":1,8co 9<CR>")
-  eq(#paw.track("Drums"):clips(), 16, "sixteen bars of drums")
-  eq(#paw.track("Lead"):clips(), 2, "two choruses")
+  eq(#paw.part("Drums"):clips(), 16, "sixteen bars of drums")
+  eq(#paw.part("Lead"):clips(), 2, "two choruses")
 
   step(
     "0",
@@ -289,7 +289,7 @@ test("make music 4: the song is arranged into verse and chorus, with markers, a 
   step("['")
   eq(paw.cursor.beat, 32, "[' goes to the marker before")
   step("<Space>ft", "Bass", "<CR>")
-  eq(paw.cursor.track().name, "Bass", "the track picker goes to the bass")
+  eq(paw.cursor.part().name, "Bass", "the part picker goes to the bass")
   step("gp")
   eq(paw.transport.position, 32, "the playhead is at the cursor")
   eq(listen() > 0.01, true, "the song plays from the second verse")
@@ -302,33 +302,33 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   step("<Space>mm")
   eq(paw.ui.focused, "mixer", "Space mm opens the mixer")
   step("V", "$", "6-", "<Esc>")
-  for _, track in ipairs(paw.tracks()) do
-    eq(track.volume, -6, track.name .. " is 6 dB lower")
+  for _, part in ipairs(paw.parts()) do
+    eq(part.volume, -6, part.name .. " is 6 dB lower")
   end
   step("0", "l", "3-")
-  eq(paw.track("Bass").volume, -9, "the bass is 3 dB lower again")
+  eq(paw.part("Bass").volume, -9, "the bass is 3 dB lower again")
   step("l", "j", "3-")
-  T.near(paw.track("Keys").pan, -0.3, 1e-6, "the keys are on the left")
+  T.near(paw.part("Keys").pan, -0.3, 1e-6, "the keys are on the left")
   step("2l", "3+")
-  T.near(paw.track("Guitar").pan, 0.3, 1e-6, "the guitar is on the right")
+  T.near(paw.part("Guitar").pan, 0.3, 1e-6, "the guitar is on the right")
   step("<C-w>c")
 
   step("/Bass<CR>", "<Space>dd", "a", "eq", "<CR>", "gg", "w", "c", "tighten", "<CR>", "<Space>dd")
-  local bass_eq = paw.track("Bass"):devices()[2]
+  local bass_eq = paw.part("Bass"):devices()[2]
   eq(bass_eq and bass_eq:get().kind, "eq", "the bass has an equalizer")
   eq(params(bass_eq).b1_on, 1, "with the preset")
   step("/Drums<CR>", "<Space>dd", "a", "compressor", "<CR>", "gg", "w", "c", "glue", "<CR>", "<Space>dd")
-  local compressor = paw.track("Drums"):devices()[2]
+  local compressor = paw.part("Drums"):devices()[2]
   eq(compressor and compressor:get().kind, "compressor", "the drums have a compressor")
   eq(params(compressor).ratio, 2, "with the preset")
   eq(paw.ui.focused, "arrange", "back in the arrange view")
 
-  step("G", ":track.add Reverb<CR>", "<Space>dd", "a", "reverb", "<CR>", "gg", "c", "on a send", "<CR>", "<Space>dd")
-  local reverb = paw.track("Reverb")
-  eq(reverb and params(reverb:devices()[1]).mix, 100, "the reverb track has a reverb set for a send")
+  step("G", ":part.add Reverb<CR>", "<Space>dd", "a", "reverb", "<CR>", "gg", "c", "on a send", "<CR>", "<Space>dd")
+  local reverb = paw.part("Reverb")
+  eq(reverb and params(reverb:devices()[1]).mix, 100, "the reverb part has a reverb set for a send")
   step("/Keys<CR>", ":send Reverb -9<CR>", "/Lead<CR>", ":send Reverb -12<CR>")
   local function send_level(name)
-    for _, send in ipairs(api.track_get(paw.track(name).id).sends) do
+    for _, send in ipairs(api.part_get(paw.part(name).id).sends) do
       if send.target == reverb.id then return send.level end
     end
   end
@@ -338,7 +338,7 @@ test("make music 5: the song is mixed, rendered to WAV and MP3, and the file pla
   eq(listen() > 0.01, true, "the mix plays")
 
   step("5|", "A", "<C-u>", "-20<CR>", "W", "A", "<C-u>", "0<CR>")
-  local points = paw.track("Lead"):lane("volume"):points()
+  local points = paw.part("Lead"):lane("volume"):points()
   eq(#points, 2, "two points of volume automation")
   eq(
     points[1][1] == 16 and points[1][2] == -20 and points[2][1] == 20 and points[2][2] == 0,

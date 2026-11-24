@@ -15,8 +15,8 @@ test("LV2 properties are listed, set as one undo step, and refused with a reason
   local kind = kind_of("lv2", "^LSP Impulse Responses Stereo$")
   if not kind then return "skipped: test plugins not found" end
   fresh()
-  local track = paw.add_track({ name = "ir" })
-  local fx = track:add_device(kind)
+  local part = paw.add_part({ name = "ir" })
+  local fx = part:add_device(kind)
   paw.flush()
   api.undo_checkpoint()
   local list = paw.json.decode(api.device_call(fx.id, "properties", ""))
@@ -67,7 +67,7 @@ test("LV2 properties are listed, set as one undo step, and refused with a reason
     "a preset and a call at once"
   )
 
-  local synth = track:add_device("synth")
+  local synth = part:add_device("synth")
   fails(
     function() api.device_call(synth.id, "properties", "") end,
     "takes no calls",

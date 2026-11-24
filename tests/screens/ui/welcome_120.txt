@@ -1,7 +1,7 @@
                      {1:A new project}
                      {2:Everything is driven from the keyboard. To begin:}
 
-                       {3:o}             add a track
+                       {3:o}             add a part
                        {3:a}             put an instrument on it
                        {3:i Enter}       enter notes: a clip opens to draw them (i alone: insert mode)
                        {3:then I}        play them on a MIDI keyboard (step input)

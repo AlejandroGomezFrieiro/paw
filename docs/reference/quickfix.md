@@ -3,7 +3,7 @@
 <!-- tags: quickfix-list qf -->
 
 As in Neovim, the quickfix list is one shared list of what is wrong, or
-found, in the project. Each entry gives a place, which is a clip, a note, a track, a
+found, in the project. Each entry gives a place, which is a clip, a note, a part, a
 point of a lane, a device or its parameter, or a bar, and it says what it
 is about and can have a fix. While the list has entries, the status line counts
 them as `qf E2 W5`, and as `qf 3/7 E2 W5` after you go to one.
@@ -26,7 +26,7 @@ the mix report and the messages. Extensions add entries (see
 
 | Keys or command | Effect |
 | --- | --- |
-| `]q` `[q` | Go to the next and the previous entry. A count goes further. The first `]q` goes to the first entry. The view that shows the entry gets the keyboard, and the cursor goes there. For an entry inside a subproject, the window goes inside that subproject first, and for an entry of a song track, back to the song. |
+| `]q` `[q` | Go to the next and the previous entry. A count goes further. The first `]q` goes to the first entry. The view that shows the entry gets the keyboard, and the cursor goes there. For an entry inside a subproject, the window goes inside that subproject first, and for an entry of a song part, back to the song. |
 | `]Q` `[Q` | Go to the last and the first entry. |
 | `:cnext` `:cprev` `:cfirst` `:clast` | The same as the keys. |
 | `:cc 3` | Goes to entry 3. `:cc` alone goes to the current entry. |
@@ -37,10 +37,10 @@ the mix report and the messages. Extensions add entries (see
 | `:colder` `:cnewer` | Show the list before and after in the history. paw keeps ten lists. |
 | `:chistory` | Lists all lists in the history. |
 | `:cdiag`, `:cdiag error` | Makes a list of the diagnostics (as `vim.diagnostic.setqflist`), or of the errors. |
-| `:cdo track.mute` | Runs a command on every entry. The cursor goes to each entry, and its address is the target of the command. All is one undo step. |
-| `:cfdo track.solo` | Runs a command one time for each track that has entries. All is one undo step. |
+| `:cdo part.mute` | Runs a command on every entry. The cursor goes to each entry, and its address is the target of the command. All is one undo step. |
+| `:cfdo part.solo` | Runs a command one time for each part that has entries. All is one undo step. |
 | `:cfix`, `:cfix .` | Does the fix of every entry that has one, as one undo step. Does the fix of the current entry. |
-| `:lopen` `:lnext` `]l` `[l` `:ldiag` and more | The same for the location list of the window. `:ldiag` lists what the window shows (the piano roll its clip, the mixer and the device panel the track). `:lopen` shows it below the window. |
+| `:lopen` `:lnext` `]l` `[l` `:ldiag` and more | The same for the location list of the window. `:ldiag` lists what the window shows (the piano roll its clip, the mixer and the device panel the part). `:lopen` shows it below the window. |
 
 The list is a buffer like any other buffer. `:vs quickfix` shows it next to
 the window, and `:e quickfix` in the window. A layout keeps its window. The

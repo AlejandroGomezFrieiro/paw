@@ -11,10 +11,10 @@ return {
 In this lesson, we make a synth brighter and darker, add an echo after it,
 and bypass the echo.
 
-Each track has a chain of devices. The first device is an instrument, which
+Each part has a chain of devices. The first device is an instrument, which
 makes sound from notes, and the effects come after it. Each effect changes
 the sound of the device before it. The device panel shows the chain of the
-track under the cursor, with the parameters of each device, and you use the
+part under the cursor, with the parameters of each device, and you use the
 same kind of keys there as in the other views.
 
 The built-in devices include `synth`, `drums`, `gain`, `delay` and `limiter`.
@@ -27,11 +27,11 @@ change a parameter by one step, and a count before them, e.g., `10+`,
 changes it by more steps.
 
 `a` adds a device, `x` removes one and `gc` bypasses one. `yy`, `dd` and
-`p` copy and move devices, also to other tracks. `<A-j>` and `<A-k>` change
+`p` copy and move devices, also to other parts. `<A-j>` and `<A-k>` change
 the order, and `ge` opens the window of a plugin.
 
 `<leader>dd` shows and hides the panel, and `<C-w>c` closes it. In the
-arrange view, `ge` opens the plugin window of the track.]],
+arrange view, `ge` opens the plugin window of the part.]],
   vim = [[
 `<C-w>c` closes a panel as it closes a window in Vim, and `yy` `dd` `p` work
 on devices as they work on lines. `+` and `-` change a value as `<C-a>` and
@@ -39,10 +39,10 @@ on devices as they work on lines. `+` and `-` change a value as `<C-a>` and
 a comment.]],
   setup = function(look)
     paw.project.tempo = 96
-    local drums = paw.add_track({ name = "Drums", volume = -6 })
+    local drums = paw.add_part({ name = "Drums", volume = -6 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 8, notes = look.drums(look.beat, 2) })
-    local lead = paw.add_track({ name = "Lead", volume = -6 })
+    local lead = paw.add_part({ name = "Lead", volume = -6 })
     lead:add_device("synth", { wave = 1, cutoff = 900, resonance = 0.3, release = 0.15 })
     lead:add_clip({
       name = "line",
@@ -52,7 +52,7 @@ a comment.]],
     })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,
-  at = function() paw.cursor.set_track(paw.track("Lead")) end,
+  at = function() paw.cursor.set_part(paw.part("Lead")) end,
   steps = {
     {
       say = "The cursor is on Lead. Press `<leader>dd` (the space bar, then d two times) to show its device panel on the right, and the panel gets the keys.",

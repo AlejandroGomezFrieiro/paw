@@ -88,7 +88,7 @@ fn check(keys: &str, expected: &[Event]) {
 ## 4. Assertions
 
 - Use `assert_eq!`, `assert!` and `assert_ne!`. Add a message that
-  tells what the value is: `assert_eq!(got, want, "the gain of track
+  tells what the value is: `assert_eq!(got, want, "the gain of part
   {n}")`.
 - paw does not use `googletest`. A new style of assertion is one more
   thing to learn.

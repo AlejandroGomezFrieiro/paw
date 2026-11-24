@@ -9,10 +9,10 @@ Each thing in the project has an address, which is a URI made from ids.
 | URI | What |
 | --- | --- |
 | `paw://project` | the project |
-| `paw://track/12` | a track. `paw://track/0` is the master |
-| `paw://track/12/device/3` | a device on the track |
-| `paw://track/12/device/3/param/cutoff` | a parameter of the device |
-| `paw://track/12/send/5` | the send of the track to track 5 |
+| `paw://part/12` | a part. `paw://part/0` is the master |
+| `paw://part/12/device/3` | a device on the part |
+| `paw://part/12/device/3/param/cutoff` | a parameter of the device |
+| `paw://part/12/send/5` | the send of the part to part 5 |
 | `paw://clip/7` | a clip |
 | `paw://clip/7/note/41` | a note, by its id (`note.id`). The id stays with the note through every edit |
 | `paw://clip/7/control/cc/74` | the moves of one controller in a clip |
@@ -27,9 +27,9 @@ Each thing in the project has an address, which is a URI made from ids.
 | `resolve(uri)` | the data of `paw.api` for the address. A note also gives its `place` |
 | `parent(uri)`, `children(uri)` | the address above, the addresses below |
 | `within(uri, ancestor)` | true when `uri` is below `ancestor` |
-| `track_of(uri)` | the track of an address |
+| `part_of(uri)` | the part of an address |
 | `matches(pattern, uri)` | `*` matches one level, `**` any number of levels |
-| `track(id)`, `device(id)`, `param(device, key)`, `clip(id)`, `note(clip, id)`, `render(path)`, and other | make an address |
+| `part(id)`, `device(id)`, `param(device, key)`, `clip(id)`, `note(clip, id)`, `render(path)`, and other | make an address |
 | `renders` | the rendered files, by path |
 | `edit(changes, label)` | an edit of the workspace. Each change is `{ uri, set = { ... } }`, `{ uri, insert = { ... } }` or `{ uri, delete = true }`. paw checks all the changes first, then makes them as one undo step. It returns nil and the reason when it cannot |
 
@@ -89,12 +89,12 @@ The events are `lsp.status` and `lsp.analysis`.
 - `address` is a `paw://` address, or a location.
 - `level` is `"error"`, `"warning"`, `"info"`, `"hint"` or nil.
 - `fix` is `{ title, edit = { changes } }`, `{ title, apply = function(entry) end }`, or a command line that runs with the cursor on the entry.
-- `nest` is the id of the subproject that the entry is about, for an address that names no track in it, such as `paw://project` for the name of a subproject. Without it, the subproject is the one of the track of the address.
+- `nest` is the id of the subproject that the entry is about, for an address that names no part in it, such as `paw://project` for the name of a subproject. Without it, the subproject is the one of the part of the address.
 
 ```lua
 paw.qf.feed("tuning", { { address = "paw://clip/4", text = "out of tune", level = "warning",
   fix = { title = "Tune it", apply = function(e) end } } })
-paw.qf.set({ { address = paw.address.track(3), text = "too quiet" } }, { title = "Levels" })
+paw.qf.set({ { address = paw.address.part(3), text = "too quiet" } }, { title = "Levels" })
 ```
 
 | Function | Effect |
@@ -104,7 +104,7 @@ paw.qf.set({ { address = paw.address.track(3), text = "too quiet" } }, { title =
 | `source(name, fn)`, `changed(name)` | paw asks `fn` for the entries of a source only when the list shows next |
 | `current(stack)`, `stack()`, `loc_stack(win)`, `fed(source)`, `count(list)` | read the lists |
 | `jump(n)`, `step(n)`, `first()`, `last()`, `older(n)`, `newer(n)`, `go(entry)`, `where(entry)` | move in the lists |
-| `cdo(line, { per_track })` | run a command at each entry. The command gets the address of the entry as `ctx.target` and its location as `ctx.location` |
+| `cdo(line, { per_part })` | run a command at each entry. The command gets the address of the entry as `ctx.target` and its location as `ctx.location` |
 | `fix(entries)` | apply the fixes |
 | `diagnostics(opts)` | a list of the diagnostics |
 | `open({ loc, height })`, `close(loc)` | show or hide the list |

@@ -199,7 +199,7 @@ end
 --- and each time that it changes. The first time that the window of a seat
 --- gives it, paw shows the device panel when the tab has its place, closed,
 --- as the default start layout has (`paw.layout.default_tree`): a window
---- shows the devices of the selected track next to the timeline unless the
+--- shows the devices of the selected part next to the timeline unless the
 --- user closes them. A start layout of the configuration's own is shown as
 --- it is.
 function M.area(width: number, height: number)

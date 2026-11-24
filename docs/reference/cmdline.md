@@ -10,7 +10,7 @@ While you type a command, a list above the command line shows what the line can 
 
 | Command | The list shows |
 | --- | --- |
-| `:send` | tracks, by name |
+| `:send` | parts, by name |
 | `:device.add` | devices |
 | `:open`, `:import`, `:export`, `:write` | files |
 | `:set` | options |
@@ -65,7 +65,7 @@ A name that is not an option gives the error `E518`. See [Options](options.md).
 
 ## Prompts
 
-Some keys open a prompt with the current value in it, for example `grn` (rename the track). The value is selected, so what you type replaces it, and you press `Left` or `Home` first to edit the value instead.
+Some keys open a prompt with the current value in it, for example `grn` (rename the part). The value is selected, so what you type replaces it, and you press `Left` or `Home` first to edit the value instead.
 
 Some prompts ask for a number, for example `grv`, `grp`, `grt`, and `c` on a parameter or on a point of automation. A number is the value with its sign, so `-6` is -6 dB and `+3` is +3 dB. To change the value by a step, put `=` after the sign, so `-=3` is 3 dB lower and `+=2` is 2 dB higher. The prompt shows this rule, and the Ex commands `:volume` and `:pan` use the same rule (`:t* volume -=3`).
 

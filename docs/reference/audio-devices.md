@@ -55,7 +55,7 @@ When the audio device goes away, for example because a USB interface is disconne
 
 - The transport stops, and a take that records is closed and kept.
 - paw says which device it lost and continues without sound, so you can still edit, save and render.
-- Every three seconds, paw looks for the device. When the device is back, paw opens it again with the same sample rate, block size and input, and says so. The tracks keep their inputs.
+- Every three seconds, paw looks for the device. When the device is back, paw opens it again with the same sample rate, block size and input, and says so. The parts keep their inputs.
 - `:audio.reconnect` tries immediately. `paw.opt.audio_reconnect = false` stops the automatic tries, and then only the command reconnects.
 - The engine indicator shows `lost: UR22mkII`, and
   `paw.api.engine_get().lost` names the device.

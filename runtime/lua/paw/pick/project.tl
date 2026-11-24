@@ -255,10 +255,10 @@ local function marker_source(kind: string): contracts.PickSource<MarkersModule.M
       end
       -- What plays there: the clips that start within a bar of it.
       lines[#lines + 1] = ""
-      for _, id in ipairs(api.track_list()) do
+      for _, id in ipairs(api.part_list()) do
         for _, c in ipairs(api.clip_list(id)) do
           if c.start <= m.beat + (m.length or 0) and c.start + c.length > m.beat then
-            lines[#lines + 1] = string.format("  %-16s %s", api.track_get(id).name, c.name)
+            lines[#lines + 1] = string.format("  %-16s %s", api.part_get(id).name, c.name)
           end
         end
       end
@@ -329,7 +329,7 @@ local notes: contracts.PickSource<QueryModule.Node> = {
     end
     return lines
   end,
-  -- Heard through its track: the note, with the others that start with it.
+  -- Heard through its part: the note, with the others that start with it.
   audition_key = "notes",
   audition = function(node: QueryModule.Node): string
     local n = node.data as types.Note
@@ -343,7 +343,7 @@ local notes: contracts.PickSource<QueryModule.Node> = {
       end
     end
     paw.audition.phrase(
-      node.track,
+      node.part,
       heard,
       {
         length = math.min(n.length, 2) + 0.5,
@@ -352,7 +352,7 @@ local notes: contracts.PickSource<QueryModule.Node> = {
         key = "note" .. node.clip .. ":" .. tostring(n.id),
       }
     )
-    return paw.music.name(n.pitch) .. " · " .. paw.audition.through(node.track)
+    return paw.music.name(n.pitch) .. " · " .. paw.audition.through(node.part)
   end,
 }
 
@@ -365,7 +365,7 @@ local media: contracts.PickSource<MediaItem> = {
   items = function(): {MediaItem}
     local out: {MediaItem} = {}
     local users: {string: {types.Clip}} = {}
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.part_list()) do
       for _, c in ipairs(api.clip_list(id)) do
         if c.file then
           local key = tostring(c.file)
@@ -395,11 +395,11 @@ local media: contracts.PickSource<MediaItem> = {
   end,
   location = function(f: MediaItem): contracts.Location return f.clips[1] and {uri = A.clip(f.clips[1].id)} or nil end,
   on_choose = function(f: MediaItem)
-    local track = paw.cursor.track()
-    if not track then
-      return paw.notify("no track selected", "warn")
+    local part = paw.cursor.part()
+    if not part then
+      return paw.notify("no part selected", "warn")
     end
-    track:add_clip({start = paw.cursor.beat, file = f.path})
+    part:add_clip({start = paw.cursor.beat, file = f.path})
   end,
   choose = "add at the cursor",
   audition_key = "files",

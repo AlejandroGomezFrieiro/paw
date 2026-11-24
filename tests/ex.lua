@@ -1,4 +1,4 @@
--- Tests of Ex: ranges over time and tracks, and the commands that take
+-- Tests of Ex: ranges over time and parts, and the commands that take
 -- them (`:5,8d`, `:%s/c4/d4/g`, `:g/vel<20/d`, `:t* volume -=3`), with the
 -- live preview, confirming each change, and undo. Loaded by
 -- tests/suite.lua with its helpers.
@@ -7,8 +7,8 @@ local test, eq, fails, keys = T.test, T.eq, T.fails, T.keys
 local api = paw.api
 local ex = paw.ex
 
---- Track T with clips a, b, c (bars 1 to 3, notes C4 D♭4 D4 E♭4 on the
---- beats of each), and track Drums with clip d over bars 1 and 2.
+--- Part T with clips a, b, c (bars 1 to 3, notes C4 D♭4 D4 E♭4 on the
+--- beats of each), and part Drums with clip d over bars 1 and 2.
 local function song()
   local t = T.three_clips()
   -- What a line opens to show a match (the piano roll) is closed again.
@@ -19,14 +19,14 @@ local function song()
     paw.ui.focus("arrange")
     paw.opt.gdefault = false
   end)
-  local drums = paw.add_track({ name = "Drums" })
+  local drums = paw.add_part({ name = "Drums" })
   drums:add_clip({
     name = "d",
     start = 0,
     length = 8,
     notes = { { 36, 0, 1 }, { 38, 1, 1, 30 }, { 36, 4, 1, 120 }, { 38, 5, 1 } },
   })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   api.undo_checkpoint()
   return t, drums
 end
@@ -85,35 +85,35 @@ test("ex: ranges name bars, beats, the cursor, the end, marks and offsets", func
   eq(err:find("`8,5`", 1, true) ~= nil, true, "a backwards range names itself: " .. err)
   _, _, err = ex.range("3.9d")
   eq(err:find("no beat 9", 1, true) ~= nil, true, "a beat a bar does not have: " .. err)
-  eq(ex.range("track.mute"), nil, "a command's name is no range")
+  eq(ex.range("part.mute"), nil, "a command's name is no range")
   eq(select(2, ex.range("tempo 120")), "tempo 120", "nor is a name that starts with t")
 end)
 
-test("ex: ranges of tracks by number, name, all of them and the cursor's, and with time", function()
+test("ex: ranges of parts by number, name, all of them and the cursor's, and with time", function()
   local t, drums = song()
   local r = ex.range("t2 mute")
-  eq(#r.tracks == 1 and r.tracks[1], drums.id, "t2 is the second track")
+  eq(#r.parts == 1 and r.parts[1], drums.id, "t2 is the second part")
   r = ex.range("t1,t2 mute")
-  eq(#r.tracks, 2, "t1,t2 both")
-  eq(#ex.range("t1,2 mute").tracks, 2, "and so is t1,2")
-  eq(#ex.range("t* mute").tracks, 2, "t* every track")
+  eq(#r.parts, 2, "t1,t2 both")
+  eq(#ex.range("t1,2 mute").parts, 2, "and so is t1,2")
+  eq(#ex.range("t* mute").parts, 2, "t* every part")
   r = ex.range("t/dru/ solo")
-  eq(r.tracks[1], drums.id, "t/dru/ the tracks whose names hold it")
+  eq(r.parts[1], drums.id, "t/dru/ the parts whose names hold it")
   r = ex.range("t. mute")
-  eq(r.tracks[1], t.id, "t. the cursor's track")
+  eq(r.parts[1], t.id, "t. the cursor's part")
   r = ex.range("t2 1,2d")
-  eq(r.tracks[1] .. " " .. r.from .. "-" .. r.to, drums.id .. " 0-8", "tracks then time: that time on those tracks")
+  eq(r.parts[1] .. " " .. r.from .. "-" .. r.to, drums.id .. " 0-8", "parts then time: that time on those parts")
   local _, _, err = ex.range("t5 mute")
-  eq(err:find("`t5`: there are 2 tracks", 1, true) ~= nil, true, err)
+  eq(err:find("`t5`: there are 2 parts", 1, true) ~= nil, true, err)
   _, _, err = ex.range("t/Bass/ mute")
-  eq(err:find("no track's name holds `Bass`", 1, true) ~= nil, true, err)
+  eq(err:find("no part's name holds `Bass`", 1, true) ~= nil, true, err)
 end)
 
 test("ex: d empties a range, d! takes the time out, and each line is one undo step named after it", function()
   local t, drums = song()
   keys(":2d")
   keys("<CR>")
-  eq(T.layout(t), "a@0+4 c@8+4", ":2d empties bar 2 of every track")
+  eq(T.layout(t), "a@0+4 c@8+4", ":2d empties bar 2 of every part")
   eq(T.layout(drums), "d@0+4", "the drum clip is cut there")
   eq(step_name(), ":2d", "one undo step, named after the line")
   eq(paw.keymap.getreg().kind, "range", "what was there is in the register")
@@ -123,11 +123,11 @@ test("ex: d empties a range, d! takes the time out, and each line is one undo st
   eq(T.layout(t), "a@0+4 c@4+4", ":2d! closes the gap")
   paw.undo()
   run("t2 2d")
-  eq(T.layout(t) .. " | " .. T.layout(drums), "a@0+4 b@4+4 c@8+4 | d@0+4", ":t2 2d only on track 2")
+  eq(T.layout(t) .. " | " .. T.layout(drums), "a@0+4 b@4+4 c@8+4 | d@0+4", ":t2 2d only on part 2")
   paw.undo()
   run("t2d")
-  eq(#paw.tracks(), 1, ":t2d deletes the track itself")
-  eq(paw.keymap.getreg().kind, "tracks", "into the register as a track")
+  eq(#paw.parts(), 1, ":t2d deletes the part itself")
+  eq(paw.keymap.getreg().kind, "parts", "into the register as a part")
 end)
 
 test("ex: co copies and m moves a range of bars, over what is there or making room", function()
@@ -236,10 +236,10 @@ test("ex: :g runs a command on every match, :v on the others, and with none fill
   eq(low, 3, ":cdo runs an Ex line on each entry")
 end)
 
-test("ex: track commands take ranges of tracks", function()
+test("ex: part commands take ranges of parts", function()
   local t, drums = song()
   run("t* volume -=3")
-  eq(t.volume .. " " .. drums.volume, "-3 -3", ":t* volume -=3 steps every track down")
+  eq(t.volume .. " " .. drums.volume, "-3 -3", ":t* volume -=3 steps every part down")
   run("t2 volume -12")
   eq(drums.volume, -12, "a number sets it")
   run("t2 volume =-11")
@@ -254,7 +254,7 @@ test("ex: track commands take ranges of tracks", function()
   eq(drums.pan, -0.5, "pan")
   run("2 mute")
   eq(T.layout(t), "a@0+4 b@4+4m c@8+4", "a stretch of time mutes the clips in it")
-  fails(function() paw.commands.exec("2volume -3") end, "takes tracks")
+  fails(function() paw.commands.exec("2volume -3") end, "takes parts")
 end)
 
 test("ex: transpose, quantize, > and j work on ranges", function()
@@ -314,19 +314,19 @@ test("ex: :%quantize moves the notes of several clips, and one u gives them all 
   eq(b:notes()[4].start, 3.2, "and the note of clip b")
 end)
 
-test("ex: the notes of a range come in the order of the song: by time, then pitch, then track", function()
+test("ex: the notes of a range come in the order of the song: by time, then pitch, then part", function()
   local _, drums = song()
-  -- A note of the drums at the time and pitch of one of track T.
+  -- A note of the drums at the time and pitch of one of part T.
   drums:clips()[1]:add_note({ pitch = 62, start = 2, length = 1 })
   local got = {}
   for _, item in ipairs(ex.items(ex.range("1,2"), "note")) do
-    got[#got + 1] = string.format("%s:%d@%g", paw.api.track_get(item.track).name, item.note.pitch, item.at)
+    got[#got + 1] = string.format("%s:%d@%g", paw.api.part_get(item.part).name, item.note.pitch, item.at)
   end
   eq(
     table.concat(got, " "),
     "Drums:36@0 T:60@0 Drums:38@1 T:61@1 T:62@2 Drums:62@2 T:63@3 "
       .. "Drums:36@4 T:60@4 Drums:38@5 T:61@5 T:62@6 T:63@7",
-    "in order across tracks and clips"
+    "in order across parts and clips"
   )
 end)
 
@@ -349,19 +349,19 @@ test("paw.notes.snap gives the start that paw.notes.quantize gives a note", func
   end
 end)
 
-test("ex: normal runs keys at each bar, track or match", function()
+test("ex: normal runs keys at each bar, part or match", function()
   song()
   local seen = {}
   paw.keymap.set(
     "Q",
-    function() seen[#seen + 1] = paw.cursor.track().name .. "@" .. paw.cursor.beat end,
+    function() seen[#seen + 1] = paw.cursor.part().name .. "@" .. paw.cursor.beat end,
     { view = "arrange" }
   )
   run("t1 1,3normal Q")
   eq(table.concat(seen, " "), "T@0 T@4 T@8", "at the start of each bar")
   seen = {}
   run("t* normal Q")
-  eq(#seen, 2, "at each track")
+  eq(#seen, 2, "at each part")
   eq(seen[2]:match("^Drums") ~= nil, true, "the cursor on each")
   seen = {}
   run("g/name:a|name:c/normal Q")
@@ -371,21 +371,21 @@ end)
 
 test("ex: in the piano roll a range is of its clip's notes, and '<,'> of the notes selected", function()
   local t, drums = song()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(4)
   keys("<CR>")
   eq(paw.ui.focused, "pianoroll", "the roll is open on clip b")
   run("%s/c4/d4/g")
   eq(pitches(t:clips()[2]), "62 61 62 63", "its C4 changed")
   eq(pitches(t:clips()[1]), "60 61 62 63", "the others' did not")
-  eq(pitches(drums:clips()[1]), "36 38 36 38", "nor another track's")
+  eq(pitches(drums:clips()[1]), "36 38 36 38", "nor another part's")
   paw.undo()
   run(".d")
   eq(#t:clips()[2]:notes(), 0, ":.d deletes the notes of the cursor's bar")
   eq(paw.keymap.getreg().kind, "notes", "into the register as notes")
   paw.undo()
   run("mute")
-  eq(api.track_get(t.id).mute, true, ":mute mutes the track of the clip it edits")
+  eq(api.part_get(t.id).mute, true, ":mute mutes the part of the clip it edits")
   paw.undo()
   paw.ui.views:get("pianoroll"):set(61, 1)
   keys("<C-v>k5l<Esc>")
@@ -452,7 +452,7 @@ test("ex: :s with c asks about each match, and what was said yes to is one undo 
   eq(pitches(t:clips()[3]), "62 61 62 63", "a: this and all the rest")
 end)
 
-test("ex: completion offers marks, tracks and pattern fields", function()
+test("ex: completion offers marks, parts and pattern fields", function()
   song()
   paw.cursor.set_beat(4)
   paw.keymap.mark("a")
@@ -466,7 +466,7 @@ test("ex: completion offers marks, tracks and pattern fields", function()
     "the selection and the marks after ': " .. table.concat(labels, " ")
   )
   local c = paw.commands.complete("t/dr")
-  eq(c[1] and c[1].text, "t/Drums/ ", "tracks after t/")
+  eq(c[1] and c[1].text, "t/Drums/ ", "parts after t/")
   c = paw.commands.complete("%s/ve")
   eq(c[1] and c[1].text, "%s/vel", "fields in a pattern")
   local found
@@ -524,11 +524,11 @@ test("ex: in a text buffer a line's ranges are lines, as the buffer reads them",
     end
     L.restore(before)
   end)
-  keys(":e paw://tracks<CR>")
+  keys(":e paw://parts<CR>")
   local tb = require("paw.textbuf")
   keys(":2d<CR>")
   eq(#tb.buf().state.text.lines, 1, ":2d deletes the second line of the buffer")
   eq(T.layout(t), "a@0+4 b@4+4 c@8+4", "not bar 2 of the song")
   keys(":%s/Drums/Kit/<CR>")
-  eq(api.track_get(api.track_list()[2]).name, "Drums", "and :s edits the text, not the notes, until :w")
+  eq(api.part_get(api.part_list()[2]).name, "Drums", "and :s edits the text, not the notes, until :w")
 end)

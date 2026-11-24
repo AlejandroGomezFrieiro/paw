@@ -5,7 +5,7 @@
 for _, part in ipairs({
   "transport",
   "cursor",
-  "tracks",
+  "parts",
   "clips",
   "devices",
   "automation",

@@ -42,8 +42,8 @@ of the C code only. To compare two allocators, build two binaries and use
 `allocator.sh`.
 
 The first run makes the large project with
-[profile/project.lua](profile/project.lua). It has 64 tracks with a synth
-each, 2 000 MIDI clips and 50 000 notes. Each fourth track has a volume
+[profile/project.lua](profile/project.lua). It has 64 parts with a synth
+each, 2 000 MIDI clips and 50 000 notes. Each fourth part has a volume
 lane.
 The results go to `$BENCH_TMP/profile` (`BENCH_TMP` is `/tmp/paw-bench`
 when it is not set), one JSON line for each measurement in
@@ -53,13 +53,13 @@ when it is not set), one JSON line for each measurement in
 | --- | --- | --- |
 | `startup` | Starts paw empty, then with the large project, `--reps` times each. | The time from the start to the first frame, the memory and the Lua heap after the start. |
 | `idle` | The large project open, nothing moves, `--secs` seconds (60). | The processor share of each thread, frames and bytes, memory. |
-| `idle-armed` | As `idle`, with a track armed on the test input of the null backend. | As `idle`. |
+| `idle-armed` | As `idle`, with a part armed on the test input of the null backend. | As `idle`. |
 | `keys` | Each key of a list in the large project: moves, scrolls, edits, undo, the piano roll, the mixer, pickers, help. | For each key: the processor time of the kernel thread, the time to the first frame and to the last frame, the bytes. A move is measured `--reps` times (5): the median, smallest and largest value. |
 | `play` | The large project plays in a loop for `--secs` seconds. | As `idle`, and the frames that the kernel drew (whole, live, unchanged). |
-| `record` | A take on a new armed track from the test input. | As `play`. |
+| `record` | A take on a new armed part from the test input. | As `play`. |
 | `long` | Edits, keys and playback in turns for `--secs` seconds (600). | Resident memory and the Lua heap every five rounds; the heap after a full collection; the undo history. |
 | `repeat` | The keys of `--keys` (comma-separated, with Python escapes), `--times` times. | The processor time of the kernel for each round, and the time from each key to its first frame (median, smallest and largest value). Use it with the probes to profile one key. |
-| `scope` | Adds regions (Intro, Verse with Verse A and Verse B in it, Chorus, End) and a group Strings of the first 16 tracks after the start. The project file does not change. Then the keys of a scope in order: `znar`, moves, `zfar`, `zm`, `zr`, `znn`, `zw`, `]z`, `:%quantize 1/4` and `u`, the piano roll, `zW`, `znag`, moves, `zw`. | As `keys`, with the path of the scope after each key. Also the time of a full frame (`paw.api.ui_snapshot`, 40 frames after `j` or `k`) in the song, in the region and in the group: the median, smallest and largest value. |
+| `scope` | Adds regions (Intro, Verse with Verse A and Verse B in it, Chorus, End) and a group Strings of the first 16 parts after the start. The project file does not change. Then the keys of a scope in order: `znar`, moves, `zfar`, `zm`, `zr`, `znn`, `zw`, `]z`, `:%quantize 1/4` and `u`, the piano roll, `zW`, `znag`, moves, `zw`. | As `keys`, with the path of the scope after each key. Also the time of a full frame (`paw.api.ui_snapshot`, 40 frames after `j` or `k`) in the song, in the region and in the group: the median, smallest and largest value. |
 | `scope-keys` | The regions and the group of `scope`, with the window in Verse B. Then the keys of `--keys` one after another, `--times` rounds. Give a key that changes the project with the key that takes the change back, for example `--keys ':%quantize 1/4\r,u'`. | For each key: the processor time of the kernel thread, the median, smallest and largest value. With `--budget`, the callbacks over it at the end. |
 
 The thread named `kernel` is the main thread: Lua, the views, the

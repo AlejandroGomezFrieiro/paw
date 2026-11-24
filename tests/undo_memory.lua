@@ -5,11 +5,11 @@ local T = ...
 local test, eq, fresh = T.test, T.eq, T.fresh
 local api = paw.api
 
---- A track with one clip of `count` notes, as an undo step of its own.
+--- A part with one clip of `count` notes, as an undo step of its own.
 local function big_clip(count)
   fresh()
-  local track = api.track_add({ name = "Big" })
-  local clip = api.clip_add(track, { start = 0, length = count / 4 })
+  local part = api.part_add({ name = "Big" })
+  local clip = api.clip_add(part, { start = 0, length = count / 4 })
   local notes = {}
   for i = 1, count do
     notes[i] = { start = (i - 1) / 4, length = 0.25, pitch = 36 + i % 48, velocity = 90 }
@@ -75,12 +75,12 @@ test("a one-note edit to a clip of many notes costs the undo history a few kilob
   end
 end)
 
-test("a clip moved on a track of thousands of clips costs what it moved, and undo and redo are exact", function()
+test("a clip moved on a part of thousands of clips costs what it moved, and undo and redo are exact", function()
   fresh()
-  local track = api.track_add({ name = "Many" })
+  local part = api.part_add({ name = "Many" })
   local ids = {}
   for i = 1, 3000 do
-    ids[i] = api.clip_add(track, { start = (i - 1) * 4, length = 4, notes = { { start = 0, length = 1, pitch = 60 } } })
+    ids[i] = api.clip_add(part, { start = (i - 1) * 4, length = 4, notes = { { start = 0, length = 1, pitch = 60 } } })
   end
   paw.flush()
   api.undo_checkpoint()
@@ -90,7 +90,7 @@ test("a clip moved on a track of thousands of clips costs what it moved, and und
     paw.on("clip.added", function() added = added + 1 end),
     paw.on("clip.removed", function() removed = removed + 1 end),
   }
-  -- A step holds about a run of the track's clips, not a pointer to each.
+  -- A step holds about a run of the part's clips, not a pointer to each.
   local moved = per_step(function(i) api.clip_set(ids[i * 97], "start", (i * 97 - 1) * 4 + 1) end, 30)
   eq(moved < 8 * 1024, true, string.format("one clip moved: %d bytes a step", moved))
   eq(#changed, 30, "each move says which clip changed")
@@ -98,7 +98,7 @@ test("a clip moved on a track of thousands of clips costs what it moved, and und
   local gone = per_step(function(i) api.clip_remove(ids[i * 13]) end, 10)
   eq(gone < 8 * 1024, true, string.format("one clip removed: %d bytes a step", gone))
   eq(removed, 10, "each removal is said")
-  api.clip_add(track, { start = 2, length = 1 })
+  api.clip_add(part, { start = 2, length = 1 })
   paw.flush()
   api.undo_checkpoint()
   eq(added, 1)
@@ -108,7 +108,7 @@ test("a clip moved on a track of thousands of clips costs what it moved, and und
 
   local function starts()
     local out = {}
-    for _, c in ipairs(api.clip_list(track)) do
+    for _, c in ipairs(api.clip_list(part)) do
       out[#out + 1] = c.id .. "@" .. c.start
     end
     return table.concat(out, " ")
@@ -118,7 +118,7 @@ test("a clip moved on a track of thousands of clips costs what it moved, and und
     api.undo()
   end
   paw.flush()
-  eq(#api.clip_list(track), 3000, "undone to the clips as they were made")
+  eq(#api.clip_list(part), 3000, "undone to the clips as they were made")
   eq(api.clip_get(ids[97]).start, 96 * 4, "and where they were")
   for _ = 1, 41 do
     api.redo()
@@ -132,7 +132,7 @@ test("the undo history keeps as many steps and as much memory as its options say
   local tree = api.undo_tree()
   eq(tree.limit, paw.opt.undo_steps, "the history keeps what the option says")
   eq(tree.byte_limit, paw.opt.undo_memory * 1024 * 1024, "in bytes")
-  local t = paw.add_track({ name = "Steps" })
+  local t = paw.add_part({ name = "Steps" })
   for i = 1, 30 do
     t.name = "Step " .. i
     api.undo_checkpoint()

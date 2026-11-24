@@ -1,6 +1,6 @@
 -- The vocal editor's window, curve panel: one singing curve at a time under
 -- the notes, in time with them, chosen from the tabs above it. A curve is
--- an automation lane on a parameter of the track's `utau` device (see the
+-- an automation lane on a parameter of the part's `utau` device (see the
 -- extension's README), so what is drawn here is that lane.
 --
 -- Drag to draw; right drag puts the curve back to its default over that
@@ -51,7 +51,7 @@ return function(gui)
     g:rect(0, cy, w, TABS, { fill = c.panel })
     -- The tabs, one per curve; a dot on those that have a lane.
     local lanes = {}
-    for _, lane in ipairs(api.lane_list(S.clip.track)) do
+    for _, lane in ipairs(api.lane_list(S.clip.part)) do
       if lane.target == "param" and lane.device == S.device and lane.point_count > 0 then lanes[lane.param] = true end
     end
     local x = gui.KEYS
@@ -86,7 +86,7 @@ return function(gui)
     area:line(0, dy, S.roll_w, dy, { color = c.text_3, width = 1 })
     -- The curve: its lane's points as they are joined, else the value the
     -- parameter holds.
-    local lane = notes.lane(S.clip.track, S.device, info.key)
+    local lane = notes.lane(S.clip.part, S.device, info.key)
     local points = lane and api.lane_points(lane) or {}
     local constant = api.device_get(S.device).params[info.key] or info.default
     local line = {}
@@ -193,7 +193,7 @@ return function(gui)
       if not device then return end
       if d.mode == "curve" and #d.samples >= 1 then
         table.sort(d.samples, function(a, b) return a[1] < b[1] end)
-        notes.stroke(clip.track, device, info.key, d.samples)
+        notes.stroke(clip.part, device, info.key, d.samples)
       elseif d.mode == "erase" then
         local a = clip.start + math.max(0, beat_at(math.min(d.x0, d.x1)))
         local b = clip.start + math.min(clip.length, beat_at(math.max(d.x0, d.x1)))
@@ -203,7 +203,7 @@ return function(gui)
             a, b = clip.start + note.start, clip.start + note.start + note.length
           end
         end
-        if b > a then notes.reset(clip.track, device, info.key, a, b) end
+        if b > a then notes.reset(clip.part, device, info.key, a, b) end
       end
     end
   end
@@ -218,7 +218,7 @@ return function(gui)
       gui.drag = nil
       local note = notes.near(clip.id, beat_at(x))
       if note then
-        notes.reset(clip.track, view:device(), info.key, clip.start + note.start, clip.start + note.start + note.length)
+        notes.reset(clip.part, view:device(), info.key, clip.start + note.start, clip.start + note.start + note.length)
       end
       return
     end

@@ -10,11 +10,11 @@ commands, see [Scopes](../reference/narrowing.md) and
 
 ## A scope is a view of the one project
 
-A project is a set of tracks over time, and a scope is a part of it: some
-tracks, some time, or both. The song is the scope with every track and
-all the time. A group is a scope with its tracks and all the time, and a
-region is a scope with every track and its time. A track, a selection of
-tracks, and a block of tracks over some bars are scopes too.
+A project is a set of parts over time, and a scope is a piece of it: some
+parts, some time, or both. The song is the scope with every part and
+all the time. A group is a scope with its parts and all the time, and a
+region is a scope with every part and its time. A part, a selection of
+parts, and a block of parts over some bars are scopes too.
 
 Scopes go inside each other. When you enter the strings inside the
 bridge, you see what both have in common, the strings in the time of the
@@ -35,7 +35,7 @@ same scope:
   start, and the loop is its time.
 - Folded: the window shows the scope in place, closed. A group folds
   into one row, and a region folds into one narrow column with its name
-  and its bars, for example `Bridge ▸ 8`. A block of some tracks in some
+  and its bars, for example `Bridge ▸ 8`. A block of some parts in some
   bars folds into one frame over them, with its name and its bars.
 - Open: the window shows the scope in place, as usual.
 
@@ -44,9 +44,9 @@ to another. `znn` on a closed fold enters it, and `zw` brings you back to
 the fold, still closed. The list of `<Space>zz` shows the folds of the
 window next to the groups and the regions, and `K` describes a closed
 fold as it describes an entered scope, by its path, its bars and its
-tracks. Groups and regions are scopes without
+parts. Groups and regions are scopes without
 any work from you, so you can enter or fold them at once, and `zf`
-makes a fold of any other tracks or bars.
+makes a fold of any other parts or bars.
 
 ## Why a fold is not an undo step
 
@@ -63,7 +63,7 @@ which is the list of places that you visited and not the list of edits.
 
 ## Why a scope never copies
 
-A scope shows the tracks and the clips of the song itself, and never a
+A scope shows the parts and the clips of the song itself, and never a
 copy of them. An edit in a scope is an edit of the project, so every other
 window shows it at once, and one undo tree holds the edits of every
 window. Nothing has to be copied back into the song, and no copy can get
@@ -78,10 +78,10 @@ often as you want, because no way of looking at it changes the data.
 ## What a subproject adds
 
 Sometimes a section needs something that a view of the song can't give.
-A section can need tracks of its own, for example a slow part with a
+A section can need parts of its own, for example a slow passage with a
 piano in a loud song, or a meter that runs beside the meter of the song,
 or one section that plays in two places. A subproject gives these
-things. It has its own tracks and its own timeline, and the song plays it
+things. It has its own parts and its own timeline, and the song plays it
 from a row of its own, the return row.
 
 A subproject is still a scope. You enter it with `znn`, leave it with

@@ -1,7 +1,7 @@
 -- Getting the singing out: OpenUtau's `.ustx`, UTAU's `.ust` and MIDI with
--- lyrics, and opening a track in OpenUtau.
+-- lyrics, and opening a part in OpenUtau.
 --
--- The vocal tracks are described as JSON (notes with the
+-- The vocal parts are described as JSON (notes with the
 -- payload the engine sings from, curves as knots in OpenUtau's ticks and
 -- units) and `paw-utau-engine --export` builds the OpenUtau project with the
 -- same mapping the live engine uses, then saves it with OpenUtau's own
@@ -16,20 +16,20 @@ local M = {}
 
 M.FORMATS = { ustx = true, ust = true, mid = true, midi = true }
 
---- The vocal tracks to export as the engine's JSON description. `opts`:
---- `tracks` (track ids; all vocal tracks when absent), `clip` (one clip).
+--- The vocal parts to export as the engine's JSON description. `opts`:
+--- `parts` (part ids; all vocal parts when absent), `clip` (one clip).
 function M.describe(opts)
   opts = opts or {}
   local snap = utau.snapshot()
   api.project_get()
   local wanted
-  if opts.tracks then
+  if opts.parts then
     wanted = {}
-    for _, id in ipairs(opts.tracks) do
+    for _, id in ipairs(opts.parts) do
       wanted[tostring(id)] = true
     end
   end
-  if opts.clip then wanted = { [tostring(api.clip_get(opts.clip).track)] = true } end
+  if opts.clip then wanted = { [tostring(api.clip_get(opts.clip).part)] = true } end
   local desc = {
     tempos = json.array((function()
       local out = {}
@@ -47,9 +47,9 @@ function M.describe(opts)
     end)()),
     tracks = json.array(),
   }
-  for _, t in ipairs(snap.tracks) do
+  for _, t in ipairs(snap.parts) do
     if not wanted or wanted[t.id] then
-      local track = {
+      local part = {
         name = t.name ~= "" and t.name or "Vocal",
         singer = t.config.singer or "",
         phonemizer = t.config.phonemizer or "",
@@ -57,11 +57,11 @@ function M.describe(opts)
         mute = t.muted and true or false,
         parts = json.array(),
       }
-      for _, p in ipairs(snap.parts) do
-        if p.track == t.id and (not opts.clip or p.clip == opts.clip) then
-          local part = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
+      for _, p in ipairs(snap.vparts) do
+        if p.part == t.id and (not opts.clip or p.clip == opts.clip) then
+          local vpart = { name = p.name or "", pos = p.pos, dur = p.dur, notes = json.array(), curves = json.array() }
           for _, n in ipairs(p.notes) do
-            part.notes[#part.notes + 1] = {
+            vpart.notes[#vpart.notes + 1] = {
               pos = n.pos,
               dur = n.dur,
               tone = n.tone,
@@ -74,13 +74,13 @@ function M.describe(opts)
               for i, k in ipairs(c.knots) do
                 knots[i] = { k[1], k[2], k[3] or 1, k[4] or 0 }
               end
-              part.curves[#part.curves + 1] = { abbr = c.abbr, knots = knots }
+              vpart.curves[#vpart.curves + 1] = { abbr = c.abbr, knots = knots }
             end
           end
-          track.parts[#track.parts + 1] = part
+          part.parts[#part.parts + 1] = vpart
         end
       end
-      desc.tracks[#desc.tracks + 1] = track
+      desc.tracks[#desc.tracks + 1] = part
     end
   end
   return desc
@@ -92,7 +92,7 @@ function M.write(path, opts)
   local ext = (path:match("%.(%w+)$") or ""):lower()
   if not M.FORMATS[ext] then error("export to .ustx, .ust or .mid, not `" .. path .. "`", 0) end
   local desc = M.describe(opts)
-  if #desc.tracks == 0 then error("no vocal track to export", 0) end
+  if #desc.parts == 0 then error("no vocal part to export", 0) end
   local input = engine.tmp(".json")
   local file = assert(io.open(input, "wb"))
   file:write(json.encode(desc))
@@ -148,12 +148,12 @@ function M.open_command(path)
   return argv
 end
 
---- Export the vocal tracks to a `.ustx` beside the project and start
+--- Export the vocal parts to a `.ustx` beside the project and start
 --- OpenUtau on it, unless `opts.dry`. Returns the file and the command.
 function M.open(opts)
   opts = opts or {}
   local path = opts.path or M.open_path()
-  M.write(path, { tracks = opts.tracks })
+  M.write(path, { parts = opts.parts })
   local argv = M.open_command(path)
   if not opts.dry then api.proc_spawn(argv, { log = engine.log_path() }) end
   return path, argv

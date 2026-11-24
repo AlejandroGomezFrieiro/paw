@@ -7,7 +7,7 @@
 --   keys   keys           { { "<leader>pu", desc = "Undo tree", mode = "n", view = "arrange" } }
 --   event  events         { "transport.play" }
 --   kind   keys of        { "drums", { registry = "pickers", key = "film" } }
---          registries     (a name alone: a kind of track or of clip)
+--          registries     (a name alone: a kind of part or of clip)
 --   view   views          { "undotree" }
 --   lazy   false loads it now, true waits even with no trigger
 --
@@ -24,8 +24,8 @@
 --
 -- A kind loads its extension when a part of paw asks its registry for the
 -- key (`registry.missing`): the clips of a project that opens ask for
--- their kinds, and a track header asks for the kind of its track. Before
--- that, the project plays as it is saved: a track keeps its kind in
+-- their kinds, and a part header asks for the kind of its part. Before
+-- that, the project plays as it is saved: a part keeps its kind in
 -- `meta.kind`, and a clip of a kind keeps what the kind compiled.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
@@ -154,7 +154,7 @@ local function triggers_of(manifest: contracts.Manifest, spec: contracts.Trigger
     end
   end
   out.event = list_of(field(function(t: contracts.Triggers): string | {string} return t.event end))
-  -- A kind as a name alone has no registry: a kind of track or of clip.
+  -- A kind as a name alone has no registry: a kind of part or of clip.
   out.kind = {}
   local kind = field(function(t: contracts.Triggers): string | {string | contracts.KindTrigger} return t.kind end)
   if kind is string then
@@ -213,12 +213,12 @@ local stub_prefixes: {string: string} = {}
 local kind_index: {string: string} = {}
 
 --- The keys of `kind_index` of a kind trigger. A name alone is a kind of
---- track or of clip.
+--- part or of clip.
 local function index_keys(k: contracts.KindTrigger): {string}
   if k.registry then
     return {k.registry .. "\0" .. k.key}
   end
-  return {"track_kinds\0" .. k.key, "clip_kinds\0" .. k.key}
+  return {"part_kinds\0" .. k.key, "clip_kinds\0" .. k.key}
 end
 
 local load_waiting: function(name: string, why: string): contracts.ExtEntry
@@ -438,16 +438,16 @@ table.insert(
 
 --- Loads the extension that waits for `key` of `reg` (its `kind`
 --- trigger), and gives true when it loaded, so that `reg:get(key)` gives
---- the entry that the extension put. The kind of a track loads its
---- extension when the track header asks for it, and the kind of a clip
+--- the entry that the extension put. The kind of a part loads its
+--- extension when the part header asks for it, and the kind of a clip
 --- loads its extension when the project opens.
 registry.missing = function(reg: registry.Owned, key: string): boolean
   local name = kind_index[reg.kind .. "\0" .. key]
   if not name or M.waiting[name].failed then
     return false
   end
-  -- The words of `describe`: a kind of track or of clip by its name alone.
-  local plain = reg.kind == "track_kinds" or reg.kind == "clip_kinds"
+  -- The words of `describe`: a kind of part or of clip by its name alone.
+  local plain = reg.kind == "part_kinds" or reg.kind == "clip_kinds"
   load_waiting(name, "kind " .. (plain and "" or reg.kind .. " ") .. key)
   return true
 end

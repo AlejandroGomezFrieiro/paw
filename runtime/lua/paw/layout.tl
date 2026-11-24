@@ -502,7 +502,7 @@ local function copy_folds(folds: {contracts.Fold}): {contracts.Fold}
     out[i] = {
       kind = f.kind as contracts.ScopeKind,
       id = f.id,
-      tracks = f.tracks and copy(f.tracks),
+      parts = f.parts and copy(f.parts),
       from = f.from,
       to = f.to,
       name = f.name,
@@ -1373,14 +1373,14 @@ end
 
 --- The clip a name of a window's thing stands for: an id (`7`), an
 --- address (`paw://clip/7`) or the name of a clip, the first in the order
---- of the tracks. Nil if there is none.
+--- of the parts. Nil if there is none.
 function M.clip_named(target: string | integer): objects.Clip
   local id = tonumber(target) or tonumber(tostring(target):match("^paw://clip/(%d+)"))
   if id then
     return pcall(api.clip_get, id as integer) and paw.clip(id as integer) or nil
   end
-  for _, track in ipairs(api.track_list({all = true})) do
-    for _, c in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(api.part_list({all = true})) do
+    for _, c in ipairs(api.clip_list(part)) do
       if c.name == target then
         return paw.clip(c.id)
       end
@@ -2710,7 +2710,7 @@ function M.scope_levels(s: contracts.Scope): {types.SavedScope}
   local out: {types.SavedScope} = {}
   while s do
     table.insert(
-      out, 1, {kind = s.kind, id = s.id, tracks = s.tracks, from = s.from, to = s.to, name = s.name, clip = s.clip}
+      out, 1, {kind = s.kind, id = s.id, parts = s.parts, from = s.from, to = s.to, name = s.name, clip = s.clip}
     )
     s = s.parent
   end
@@ -2725,7 +2725,7 @@ function M.scope_chain(levels: {types.SavedScope}): contracts.Scope
     s = {
       kind = level.kind as contracts.ScopeKind,
       id = level.id,
-      tracks = level.tracks,
+      parts = level.parts,
       from = level.from,
       to = level.to,
       name = level.name,
@@ -2739,7 +2739,7 @@ local scope_chain = M.scope_chain
 
 --- A tree of windows as plain data, for `paw.layouts` and to save. With
 --- `scopes`, each window's scope stack too: the project's screen keeps
---- them, a named layout does not (its tracks are another project's).
+--- them, a named layout does not (its parts are another project's).
 local function export(node: Node, scopes?: boolean): SpecNode
   local out: SpecNode = {size = node.size, weight = node.weight, min = node.min}
   if node.view then
@@ -3755,7 +3755,7 @@ function M.setup()
     kernel.project_loaded,
     function()
       -- The scopes, folds and heights were the last project's: its
-      -- tracks and regions.
+      -- parts and regions.
       local function wide()
         for _, tw in ipairs(M.all_windows()) do
           tw.win.scope, tw.win.folds, tw.win.foldlevel, tw.win.vzoom = nil, nil, nil, nil

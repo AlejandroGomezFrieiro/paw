@@ -6,7 +6,7 @@
 
 In this lesson, we change a short riff in the piano roll with the grammar of lesson 5.
 
-All the keys of the last lesson work in the piano roll, where notes take the place of clips and pitches take the place of tracks. For example, `w` goes to the next note, so `dw` deletes up to the next note. `in` is the note under the cursor, and `ic` is the notes that sound together at the cursor. `ie` is all the notes of the clip.
+All the keys of the last lesson work in the piano roll, where notes take the place of clips and pitches take the place of parts. For example, `w` goes to the next note, so `dw` deletes up to the next note. `in` is the note under the cursor, and `ic` is the notes that sound together at the cursor. `ie` is all the notes of the clip.
 
 `dd` deletes a whole row, which is all the notes of one pitch. `.` repeats, and `y` and `p` copy.
 

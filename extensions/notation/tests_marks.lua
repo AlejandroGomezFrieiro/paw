@@ -14,13 +14,13 @@ end
 
 local keys = T.keys
 
---- A track with an empty clip open as notation, `bars` bars long.
+--- A part with an empty clip open as notation, `bars` bars long.
 local function song(bars)
   fresh()
   local view = load()
-  local track = paw.add_track({ name = "Lead" })
-  track:add_device("synth")
-  local clip = track:add_clip({ start = 0, length = (bars or 2) * 4, name = "tune", notes = {} })
+  local part = paw.add_part({ name = "Lead" })
+  part:add_device("synth")
+  local clip = part:add_clip({ start = 0, length = (bars or 2) * 4, name = "tune", notes = {} })
   paw.flush()
   paw.keymap.set_mode("n")
   view:edit(clip)

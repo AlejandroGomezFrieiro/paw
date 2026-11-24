@@ -54,11 +54,11 @@ All keys start with `gz`.
 In normal mode, the count goes to the motion or the text object, not to
 the amount.
 
-### How to edit every clip of a track
+### How to edit every clip of a part
 
 In the arrange view, type the operator two times. For example, `gzkk` moves
-every clip of the track one scale step up, and `3gzkk` does it on three
-tracks.
+every clip of the part one scale step up, and `3gzkk` does it on three
+parts.
 
 ### How to apply a function to a full clip
 
@@ -82,7 +82,7 @@ An operator acts on what a motion, a text object or a selection covers:
 
 Typed two times, an operator takes the full row. In the piano roll, that
 is all the notes of the pitch under the cursor (`gzhh`), and in the arrange
-view, it is the full track. `.` repeats each operator, and macros record
+view, it is the full part. `.` repeats each operator, and macros record
 them.
 
 With a motion or a text object, the count belongs to the motion or the text
@@ -187,7 +187,7 @@ have no side effects.
 
 ```lua
 local mo = require("musicops")
-local clip = paw.tracks()[1]:clips()[1]
+local clip = paw.parts()[1]:clips()[1]
 clip:set_notes(mo.humanize(clip:notes(), { timing = 0.02, velocity = 8, seed = 7 }))
 clip:set_notes(mo.arpeggiate(clip:notes(), { mode = "updown", step = 0.25 }))
 clip:set_notes(mo.transpose_scale(clip:notes(), 2, "D minor"))
@@ -283,7 +283,7 @@ musicops`), and the tests cover the following:
   the amount. `3gzkip` moves three phrases a step up, not one phrase three
   steps, so use visual mode for an amount.
 - Typed two times is the full row. `gzhh`, `gzjj`, `gzkk`, `gzll`, `gzww`,
-  `gzbb` and `gzee` take full pitches (full tracks), as `>>` does, so the
+  `gzbb` and `gzee` take full pitches (full parts), as `>>` does, so the
   motions `h` `j` `k` `l` `w` `b` `e` cannot come directly after the
   operator with the same last key. No operator ends in `i` or `a`, because
   it would take the text objects.
@@ -309,7 +309,7 @@ musicops`), and the tests cover the following:
 An edit that a musician makes each day should be an operator, because then
 the grammar of Vim gives it all the regions that it can need, with no more
 code. Examples are a phrase, a chord, two bars, a selection and a full
-track.
+part.
 
 The scale lock puts mappings over the mappings of the runtime for its
 keys. While the lock is off, those mappings give the key back to the

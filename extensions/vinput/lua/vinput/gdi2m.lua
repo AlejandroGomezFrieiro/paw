@@ -9,7 +9,7 @@
 --   level    a gain ahead of the tracker, which was trained at one level
 --   tracker  gdi2m: when a note starts, and when it has ended
 --   notes    how hard, on which MIDI channel, split by pitch or not
---   port     the MIDI port of this program's that tracks take
+--   port     the MIDI port of this program's that parts take
 --
 -- gdi2m runs as a program of its own, takes the audio from the port itself
 -- and sends its notes to the input's MIDI port; nothing of it passes through

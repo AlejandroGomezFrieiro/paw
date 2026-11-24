@@ -9,11 +9,11 @@ In the arrange view, `i` starts insert mode, as in Vim, and the status line show
 | Key | Inserts | `Enter` after it |
 | --- | --- | --- |
 | `m` | An empty MIDI clip, as long as `paw.opt.clip_length`. | Opens the clip in the piano roll, in insert mode. |
-| `a` | An automation point at the value that the lane has there. On a lane row, the point goes on that lane. On a track, it goes on the volume lane. | Stops insert mode. |
+| `a` | An automation point at the value that the lane has there. On a lane row, the point goes on that lane. On a part, it goes on the volume lane. | Stops insert mode. |
 | `r` | A region, as long as `paw.opt.clip_length`. | Asks for the name of the region. |
 | `'` | A marker. | Asks for the name of the marker. |
 | `f` | A sound file or a MIDI file. paw asks for the file. | Stops insert mode. |
-| `u` | A vocal clip on a vocal track. Only with the utau extension. | Opens the vocal editor. |
+| `u` | A vocal clip on a vocal part. Only with the utau extension. | Opens the vocal editor. |
 
 The other keys of insert mode are in the table below.
 
@@ -23,7 +23,7 @@ The other keys of insert mode are in the table below.
 | `Enter` | Opens the item that you inserted last, and stops insert mode. If you inserted nothing, it opens the clip under the cursor in the piano roll to enter notes. If there is no clip, it makes one. |
 | `Backspace` | Removes the item that you inserted last. The cursor returns to its start. |
 | `K` | Tells what each key inserts. |
-| The arrow keys | Move the cursor one grid step, or one track. |
+| The arrow keys | Move the cursor one grid step, or one part. |
 | `Esc` | Stops insert mode. |
 
 - The cursor moves to the end of the item that you inserted, so `mmm` inserts three clips one after the other. After a marker or a point, it moves one grid step.
@@ -55,11 +55,11 @@ paw.insert.add("M", {
 | `kind` | What the key inserts: `midi`, `audio` (a file, which paw asks for), `region`, `marker`, `automation`, or the name of a kind of clip from `paw.clip_kinds`. |
 | `desc` | What the key inserts, in a few words. The box, `K` and `?` show it. |
 | `length` | How long the item is: beats as a number, or a text: `"2 bars"`, `"3 steps"` (grid steps), `"8 beats"`, or `"marker"` (to the next marker, or to the start or the end of a region). The default is `paw.opt.clip_length`. |
-| `name` | The name of the item. `%d` becomes a number: the number of the clip on its track, of the marker, or of the region. |
-| `notes` | The notes that a MIDI clip starts with, as `track:add_clip` takes them. |
+| `name` | The name of the item. `%d` becomes a number: the number of the clip on its part, of the marker, or of the region. |
+| `notes` | The notes that a MIDI clip starts with, as `part:add_clip` takes them. |
 | `args` | The words that a kind of clip gets in its `create`. |
-| `tracks` | The kinds of track that the key works on. `track` is a track of no kind. The default is every track. |
-| `per_track` | Changes for a kind of track: `{ vocal = { name = "Vocal %d" } }`. |
+| `parts` | The kinds of part that the key works on. `part` is a part of no kind. The default is every part. |
+| `per_part` | Changes for a kind of part: `{ vocal = { name = "Vocal %d" } }`. |
 | `insert(ctx)` | Inserts the item itself, in place of what `kind` does. It returns the item, or nil and why not. |
 | `open(ctx, item)` | What `Enter` does after the item: open it in its editor. |
 | `order` | The place of the key in `paw.opt.insertkeys`, and so in the box and the key bar, when `add` puts it there. A lower number comes first, and keys with the same number go by their names. The default is 50. The built-in keys have 10 (`m`), 20 (`a`), 30 (`r`), 40 (`'`) and 50 (`f`). |
@@ -69,8 +69,8 @@ paw.insert.add("M", {
 | Field | Meaning |
 | --- | --- |
 | `key` | The key. |
-| `spec` | The kind, with the changes of `per_track` for the track. |
-| `track` | The id of the track of the cursor. 0 on the master track. Nil when there is no track. |
+| `spec` | The kind, with the changes of `per_part` for the part. |
+| `part` | The id of the part of the cursor. 0 on the master part. Nil when there is no part. |
 | `lane` | The id of the automation lane, when the cursor is on a lane row. |
 | `beat` | Where the cursor is. |
 | `length` | The length in beats, from `length`. |

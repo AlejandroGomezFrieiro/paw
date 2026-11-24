@@ -1,4 +1,4 @@
--- The vocal editor: a piano roll for one clip of a vocal track that shows
+-- The vocal editor: a piano roll for one clip of a vocal part that shows
 -- each note's lyric, the phonemes the engine made of it, which phrases are
 -- rendered, and the pitch that is actually sung; plus the lyric sheet and the
 -- singer picker. Keys are in utau.commands.
@@ -202,17 +202,17 @@ function view:clip()
   self.clip_id = nil
 end
 
---- The vocal device of the clip's track.
+--- The vocal device of the clip's part.
 function view:device()
   local clip = self:clip()
-  return clip and utau.device_of(clip.track)
+  return clip and utau.device_of(clip.part)
 end
 
---- Open a MIDI clip of a vocal track in the editor.
+--- Open a MIDI clip of a vocal part in the editor.
 function view:edit(clip_id)
   local clip = api.clip_get(clip_id)
   if clip.kind ~= "midi" then return paw.notify("only MIDI clips can be sung", "warn") end
-  if not utau.device_of(clip.track) then return paw.notify("not a vocal track: `:utau.track` makes it one", "warn") end
+  if not utau.device_of(clip.part) then return paw.notify("not a vocal part: `:utau.part` makes it one", "warn") end
   if self.clip_id ~= clip_id then
     self.sel, self.ph = {}, nil
   end
@@ -470,7 +470,7 @@ function view:raise_curve(amount, abbr)
   if not clip or not device then return end
   abbr = abbr or self.curve
   local at = clip.start + self.beat
-  local value = notes.bend(clip.track, device, abbr, at, amount, paw.timegrid.step("note"))
+  local value = notes.bend(clip.part, device, abbr, at, amount, paw.timegrid.step("note"))
   local info = self:curve_info(abbr)
   paw.notify(
     string.format(
@@ -490,9 +490,9 @@ function view:flatten(whole, abbr)
   abbr = abbr or self.curve
   local note = self:note()
   if whole or not note then
-    notes.reset(clip.track, device, abbr, clip.start, clip.start + clip.length)
+    notes.reset(clip.part, device, abbr, clip.start, clip.start + clip.length)
   else
-    notes.reset(clip.track, device, abbr, clip.start + note.start, clip.start + note.start + note.length)
+    notes.reset(clip.part, device, abbr, clip.start + note.start, clip.start + note.start + note.length)
   end
 end
 
@@ -663,11 +663,11 @@ function view:render(buf, ctx)
   local clip = self:clip()
   if not clip then
     paw.ui.titlebar(buf, { name = "Vocal", focused = ctx.focused })
-    buf:text(2, 2, "No vocal clip open. Put the cursor on a clip of a vocal track and press", "Empty")
+    buf:text(2, 2, "No vocal clip open. Put the cursor on a clip of a vocal part and press", "Empty")
     buf:text(74, 2, "Enter", "EmptyKey")
     return
   end
-  local device = utau.device_of(clip.track)
+  local device = utau.device_of(clip.part)
   local zoom, grid = paw.opt.note_zoom, paw.timegrid.step("note")
   -- The chosen curve gets a few rows under the notes when there is room.
   local curve_rows = (device and h >= 16) and 4 or 0
@@ -693,25 +693,25 @@ function view:render(buf, ctx)
     chosen[i] = true
   end
 
-  -- Header: track, singer, render state, the cursor.
-  local track = api.track_get(clip.track)
-  local config = utau.config(clip.track)
+  -- Header: part, singer, render state, the cursor.
+  local part = api.part_get(clip.part)
+  local config = utau.config(clip.part)
   local singer = config.singer or "no singer (S to choose)"
   for _, s in ipairs(utau.singers) do
     if s.id == config.singer then singer = s.name end
   end
-  local state, counts = utau.status(clip.track)
+  local state, counts = utau.status(clip.part)
   local parts = {}
   for _, name in ipairs({ "final", "draft", "rendering", "pending", "error" }) do
     if counts[name] then parts[#parts + 1] = counts[name] .. " " .. name end
   end
   local detail = #parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""
-  -- The clip on its track's colour, as in the piano roll, then who sings
+  -- The clip on its part's colour, as in the piano roll, then who sings
   -- it and how far the engine has got.
-  local hue = paw.draw.track_hue(track)
+  local hue = paw.draw.part_hue(part)
   paw.ui.titlebar(buf, {
     pill = { (paw.opt.ascii and "" or "♪ ") .. clip.name, hue.pill },
-    name = track.name,
+    name = part.name,
     focused = ctx.focused,
     context = singer .. "  " .. state .. detail,
     right = string.format("%s %s", music.name(self.pitch), paw.time.format(clip.start + self.beat)),
@@ -721,7 +721,7 @@ function view:render(buf, ctx)
   local ruler = buf:sub(KEYS, 1, tw, 1)
   buf:fill(0, 1, w, 1, " ", "Ruler")
   local beat_of = paw.tempo.seconds_to_beats
-  local layout = utau.layouts[tostring(clip.track)]
+  local layout = utau.layouts[tostring(clip.part)]
   for _, p in ipairs(layout and layout.phrases or {}) do
     local x0 = x_of(self, beat_of(p.start) - clip.start, zoom)
     local x1 = x_of(self, beat_of(p.stop) - clip.start, zoom)
@@ -770,7 +770,7 @@ function view:render(buf, ctx)
   -- Where the terminal shows pictures, the pitch each note is sung on and
   -- the pitch the engine sang are lines in pixels under the notes.
   local win_id = ctx.win and ctx.win.id or "float"
-  local pitd_lane = device and notes.lane(clip.track, device, "pitd")
+  local pitd_lane = device and notes.lane(clip.part, device, "pitd")
   local scroll, top = self.scroll, self.top
   local pictured = roll:strip(0, 0, tw, rows, {
     key = "utau:roll#" .. win_id,
@@ -790,7 +790,7 @@ function view:render(buf, ctx)
 
   -- The pitch the user drew, as dots, and the pitch that is sung, as a line.
   if device and not pictured then
-    local lane = notes.lane(clip.track, device, "pitd")
+    local lane = notes.lane(clip.part, device, "pitd")
     local points = lane and api.lane_points(lane) or {}
     if #points > 0 then
       local over = notes.walker(list)
@@ -873,7 +873,7 @@ function view:render(buf, ctx)
     buf:fill(0, cy, w, curve_rows, " ", "UtauCurveBg")
     if info then
       self.curve = info.key
-      local lane = notes.lane(clip.track, device, info.key)
+      local lane = notes.lane(clip.part, device, info.key)
       local points = lane and api.lane_points(lane) or {}
       local constant = api.device_get(device).params[info.key] or info.default
       local value = #points > 0 and notes.sampler(points, info.default) or function() return constant end
@@ -970,7 +970,7 @@ function view:render(buf, ctx)
       info = " "
     end
     if device then
-      local pitd = notes.curve_at(clip.track, device, "pitd", clip.start + self.beat)
+      local pitd = notes.curve_at(clip.part, device, "pitd", clip.start + self.beat)
       if math.abs(pitd) >= 0.5 then info = info .. string.format("  pitch %+dc", math.floor(pitd + 0.5)) end
     end
   end
@@ -1027,7 +1027,7 @@ function sheet:clip()
   if clip then return clip end
   local at = paw.cursor.clip()
   local found = at and api.clip_get(at.id)
-  if found and found.kind == "midi" and utau.device_of(found.track) then return found end
+  if found and found.kind == "midi" and utau.device_of(found.part) then return found end
 end
 
 --- The line holding the note being sung, or under the editor's cursor.
@@ -1118,8 +1118,8 @@ function picker:matches()
   return out
 end
 
-function picker:open(track_id)
-  self.track, self.filter, self.row = track_id, "", 1
+function picker:open(part_id)
+  self.part, self.filter, self.row = part_id, "", 1
   if #utau.singers == 0 then
     return paw.notify("no singers yet: " .. (utau.engine.reason or ("the engine is " .. utau.engine.state)), "warn")
   end
@@ -1129,7 +1129,7 @@ end
 function picker:render(buf)
   local list = self:matches()
   self.row = util.clamp(self.row, 1, math.max(1, #list))
-  local current = self.track and utau.config(self.track).singer
+  local current = self.part and utau.config(self.part).singer
   buf:text(0, 0, "/" .. self.filter, "Accent")
   local rows = buf.height - 2
   local first = math.max(1, self.row - rows + 1)
@@ -1153,8 +1153,8 @@ function picker:on_key(key)
   elseif key == "<CR>" then
     local s = list[self.row]
     paw.ui.close()
-    if s and self.track then
-      utau.configure(self.track, { singer = s.id })
+    if s and self.part then
+      utau.configure(self.part, { singer = s.id })
       paw.notify("singer: " .. s.name)
     end
   elseif key == "<BS>" then

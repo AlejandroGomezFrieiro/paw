@@ -62,7 +62,7 @@ local function notation()
 end
 
 local function riff()
-  local t = paw.add_track({ name = "Keys" })
+  local t = paw.add_part({ name = "Keys" })
   local clip = t:add_clip({
     start = 0,
     length = 8,
@@ -70,7 +70,7 @@ local function riff()
     notes = { { pitch = 60, start = 0, length = 1 }, { pitch = 64, start = 1, length = 1 } },
   })
   local other = t:add_clip({ start = 8, length = 8, name = "hook", notes = { { pitch = 72, start = 0, length = 2 } } })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   return t, clip, other
 end
 
@@ -136,7 +136,7 @@ test("nohome: an empty tab shows the start page: the transport, recent projects 
   os.remove(list)
   paw.recent.use(list)
   T.after(function() paw.recent.use() end)
-  local t = paw.add_track({ name = "Bass" })
+  local t = paw.add_part({ name = "Bass" })
   t:add_clip({ start = 0, length = 4, notes = { { pitch = 40, start = 0, length = 1 } } })
   local path = T.scratch .. "/nohome-start.json"
   paw.project.save(path)
@@ -160,7 +160,7 @@ test("nohome: an empty tab shows the start page: the transport, recent projects 
   eq(table.concat(paw.ui.keybar.check(), ", "), "", "its keys on the bottom line are mapped")
   keys("<CR>")
   eq(api.project_get().path, path, "Enter opens the project under the cursor")
-  eq(#api.track_list(), 1, "with its track")
+  eq(#api.part_list(), 1, "with its part")
 end)
 
 test("nohome: :e, :vs and :tabnew open a clip in a view by name: roll://riff, roll://7, notation://hook", function()

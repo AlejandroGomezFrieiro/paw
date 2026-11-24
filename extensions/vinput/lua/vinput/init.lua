@@ -1,7 +1,7 @@
 -- Virtual inputs: what they are, and where they are kept.
 --
 -- A virtual input is a chain that ends in a MIDI port of the program's own
--- (`paw.midi.open_port`), so a track takes it like any other MIDI port, by
+-- (`paw.midi.open_port`), so a part takes it like any other MIDI port, by
 -- its name. What feeds the port is its `kind`: a table in `kinds` that says
 -- which stages the chain has, which settings each stage has, and how to run
 -- the program that does the work. `kinds.gdi2m` turns a guitar into MIDI.
@@ -9,7 +9,7 @@
 --   local vinput = require("vinput")
 --   vinput.add({ name = "Guitar", source = "Input 2", gain = 1.2 })
 --   vinput.set("Guitar", "threshold", 0.8)
---   track.midi_input = { port = "Guitar" }
+--   part.midi_input = { port = "Guitar" }
 --
 -- The inputs belong to the machine, not to a project: they name audio ports
 -- of this computer. They are kept in a file in the program's state
@@ -203,7 +203,7 @@ function M.add(spec)
 end
 
 --- Change one setting of an input; `name` renames it, `on` turns it on or
---- off. Tracks that take the input follow a new name.
+--- off. Parts that take the input follow a new name.
 function M.set(name, key, value)
   local input = M.get(name)
   if not input then error("no virtual input `" .. tostring(name) .. "`", 2) end
@@ -219,9 +219,9 @@ function M.set(name, key, value)
       paw.midi.close_port(old)
       input.name = new
       paw.midi.open_port(new)
-      for _, id in ipairs(api.track_list()) do
-        local midi = api.track_get(id, "midi_input")
-        if midi and midi.port == old then api.track_set(id, "midi_input", { port = new, channel = midi.channel }) end
+      for _, id in ipairs(api.part_list()) do
+        local midi = api.part_get(id, "midi_input")
+        if midi and midi.port == old then api.part_set(id, "midi_input", { port = new, channel = midi.channel }) end
       end
     end
   else
@@ -255,17 +255,17 @@ function M.remove(name)
   return true
 end
 
---- A track that takes the input and plays it: an instrument, the input
+--- A part that takes the input and plays it: an instrument, the input
 --- chosen, and monitoring on by being armed.
-function M.make_track(name, instrument)
+function M.make_part(name, instrument)
   local input = M.get(name)
   if not input then error("no virtual input `" .. tostring(name) .. "`", 2) end
-  local track = paw.add_track({ name = input.name, index = paw.cursor.index() and paw.cursor.index() + 1 or nil })
-  track:add_device(instrument or "synth")
-  track.midi_input = { port = input.name }
-  track.armed = true
-  paw.cursor.set_track(track.id)
-  return track
+  local part = paw.add_part({ name = input.name, index = paw.cursor.index() and paw.cursor.index() + 1 or nil })
+  part:add_device(instrument or "synth")
+  part.midi_input = { port = input.name }
+  part.armed = true
+  paw.cursor.set_part(part.id)
+  return part
 end
 
 --- What an input is doing: `{ state, text, level, notes, load, advice }`.

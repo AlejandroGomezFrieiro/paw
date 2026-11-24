@@ -63,21 +63,21 @@ end
 -- Error messages that are not a clean rejection of bad input.
 local BAD = { "panicked", "attempt to", "stack overflow", "unwrap", "RefCell", "already borrowed", "index out of" }
 
-local function tracks() return api.track_list() end
-local function any_track()
-  local list = tracks()
+local function parts() return api.part_list() end
+local function any_part()
+  local list = parts()
   if #list == 0 or chance(0.05) then return chance(0.5) and 0 or int(-5, 100000) end
   return pick(list)
 end
 local function all(kind)
   local out = {}
-  for _, t in ipairs(tracks()) do
-    local view = api.track_get(t)
+  for _, t in ipairs(parts()) do
+    local view = api.part_get(t)
     for _, id in ipairs(view[kind]) do
       out[#out + 1] = id
     end
   end
-  for _, id in ipairs(api.track_get(0)[kind]) do
+  for _, id in ipairs(api.part_get(0)[kind]) do
     out[#out + 1] = id
   end
   return out
@@ -89,7 +89,7 @@ local function any_of(kind)
 end
 local function any_lane()
   local out = {}
-  for _, t in ipairs(tracks()) do
+  for _, t in ipairs(parts()) do
     for _, l in ipairs(api.lane_list(t)) do
       out[#out + 1] = l.id
     end
@@ -114,24 +114,24 @@ end
 local ops = {
   {
     8,
-    "track_add",
+    "part_add",
     function()
       local opts = { name = chance(0.02) and string.rep("x", 10000) or "T" }
       if chance(0.2) then opts.volume = number(-60, 12) end
       if chance(0.2) then opts.pan = number(-1, 1) end
       if chance(0.1) then opts.index = int(-3, 30) end
-      if chance(0.1) then opts.output = any_track() end
+      if chance(0.1) then opts.output = any_part() end
       if chance(0.02) then opts.bogus = 1 end
       -- Keep projects small, except now and then.
-      if #tracks() > 12 and not chance(0.02) then return end
-      api.track_add(opts)
+      if #parts() > 12 and not chance(0.02) then return end
+      api.part_add(opts)
     end,
   },
-  { 2, "track_remove", function() api.track_remove(any_track()) end },
-  { 2, "track_move", function() api.track_move(any_track(), int(0, 20)) end },
+  { 2, "part_remove", function() api.part_remove(any_part()) end },
+  { 2, "part_move", function() api.part_move(any_part(), int(0, 20)) end },
   {
     10,
-    "track_set",
+    "part_set",
     function()
       local key = pick({
         "volume",
@@ -153,15 +153,15 @@ local ops = {
       elseif key == "mute" or key == "solo" or key == "armed" or key == "monitor" then
         value = chance(0.5)
       elseif key == "output" then
-        value = chance(0.3) and nil or any_track()
+        value = chance(0.3) and nil or any_part()
       elseif key == "sends" then
-        value = chance(0.3) and {} or { { target = any_track(), level = number(-60, 6) } }
+        value = chance(0.3) and {} or { { target = any_part(), level = number(-60, 6) } }
       elseif key == "input" then
         value = pick({ "1", "1/2", "2/3", "3", "0", "1/3", "", nil, 7, "x" })
       else
         value = chance(0.8) and "name" or 42
       end
-      api.track_set(any_track(), key, value)
+      api.part_set(any_part(), key, value)
     end,
   },
   {
@@ -173,11 +173,11 @@ local ops = {
       if chance(0.3) then opts = { params = { gain = number(-60, 12), cutoff = number(20, 20000) } } end
       if chance(0.1) then opts = { index = int(-2, 10) } end
       if chance(0.3) and kind ~= "nonexistent" then opts = nil end
-      api.device_add(any_track(), kind, opts)
+      api.device_add(any_part(), kind, opts)
     end,
   },
   { 2, "device_remove", function() api.device_remove(any_of("devices")) end },
-  { 2, "device_move", function() api.device_move(any_of("devices"), any_track(), int(0, 5)) end },
+  { 2, "device_move", function() api.device_move(any_of("devices"), any_part(), int(0, 5)) end },
   {
     8,
     "device_set_param",
@@ -217,7 +217,7 @@ local ops = {
         opts.notes = notes(int(0, chance(0.05) and 3000 or 20))
       end
       if chance(0.02) then opts.kind = "video" end
-      api.clip_add(any_track(), opts)
+      api.clip_add(any_part(), opts)
     end,
   },
   { 3, "clip_remove", function() api.clip_remove(any_of("clips")) end },
@@ -225,12 +225,12 @@ local ops = {
     8,
     "clip_set",
     function()
-      local key = pick({ "start", "length", "muted", "track", "gain", "offset", "name", "nope" })
+      local key = pick({ "start", "length", "muted", "part", "gain", "offset", "name", "nope" })
       local value
       if key == "muted" then
         value = chance(0.5)
-      elseif key == "track" then
-        value = any_track()
+      elseif key == "part" then
+        value = any_part()
       elseif key == "name" then
         value = "c"
       else
@@ -254,7 +254,7 @@ local ops = {
     4,
     "lane_add",
     function()
-      local track = any_track()
+      local part = any_part()
       local opts = { target = pick({ "volume", "pan", "param", "tempo" }), points = {} }
       for i = 1, int(0, 6) do
         opts.points[i] = { number(0, 16), number(-60, 6) }
@@ -263,7 +263,7 @@ local ops = {
         opts.device = any_of("devices")
         opts.param = pick({ "cutoff", "gain", "mix", "nope" })
       end
-      api.lane_add(track, opts)
+      api.lane_add(part, opts)
     end,
   },
   {
@@ -330,7 +330,7 @@ local ops = {
     "notes_live",
     function()
       if chance(0.5) then
-        api.note_on(any_track(), int(0, 127), chance(0.1) and weird_number() or int(0, 127))
+        api.note_on(any_part(), int(0, 127), chance(0.1) and weird_number() or int(0, 127))
       else
         api.midi_inject({ type = pick({ "note_on", "note_off", "cc" }), pitch = int(0, 140), velocity = int(0, 127) })
       end
@@ -401,10 +401,10 @@ local function dump()
   -- changed since, and how many edits (undo and redo count) it has seen.
   p.path, p.modified, p.edits = nil, nil, nil
   out[#out + 1] = fmt(p)
-  local list = api.track_list()
+  local list = api.part_list()
   list[#list + 1] = 0
   for _, t in ipairs(list) do
-    local view = api.track_get(t)
+    local view = api.part_get(t)
     out[#out + 1] = fmt(view)
     for _, d in ipairs(view.devices) do
       local dv = api.device_get(d)
@@ -448,12 +448,12 @@ end
 local function check_views(step)
   stats.checks.views = stats.checks.views + 1
   local seen = {}
-  local list = api.track_list()
+  local list = api.part_list()
   list[#list + 1] = 0
   for _, t in ipairs(list) do
     if seen[t] then fail(step, "views", "id " .. t .. " listed twice") end
     seen[t] = true
-    local view = api.track_get(t)
+    local view = api.part_get(t)
     for _, kind in ipairs({ "devices", "clips" }) do
       for _, id in ipairs(view[kind]) do
         if seen[id] then fail(step, "views", "id " .. id .. " listed twice") end

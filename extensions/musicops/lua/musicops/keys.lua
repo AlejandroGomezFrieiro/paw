@@ -54,21 +54,21 @@ function M.apply_to_clip(clip, pick, fn)
   return #inside
 end
 
---- Whether a clip is on a drum track (one with a drum map): its pitches
+--- Whether a clip is on a drum part (one with a drum map): its pitches
 --- name drum sounds, not notes, so pitch operators leave it alone.
-function M.on_drum_track(clip)
-  local ok, t = pcall(api.track_get, clip:get().track)
+function M.on_drum_part(clip)
+  local ok, t = pcall(api.part_get, clip:get().part)
   return ok and type(t.meta) == "table" and t.meta.drums ~= nil
 end
 
 --- Apply `fn(notes, index)` to the notes of the MIDI clips that a region of
---- the arrange view reaches: for whole tracks every note, otherwise the
+--- the arrange view reaches: for whole parts every note, otherwise the
 --- notes that start inside the region. Each clip is done on its own; clips
 --- that `skip(clip)` names are left as they are.
 function M.apply_arrange(region, fn, skip)
   local index, count = 0, 0
-  for _, track in ipairs(edit.arrange.tracks(region)) do
-    for _, c in ipairs(api.clip_list(track)) do
+  for _, part in ipairs(edit.arrange.parts(region)) do
+    for _, c in ipairs(api.clip_list(part)) do
       local whole = region.kind == "line"
       if
         c.kind == "midi"
@@ -94,16 +94,16 @@ function M.apply(view, region, fn, skip)
   if view == "arrange" then return M.apply_arrange(region, fn, skip) end
   -- The piano roll may edit several clips at once: each is done on its own,
   -- the region taken in its own beats, so that its notes stay in it.
-  local parts = view == "pianoroll" and paw.roll_clips and paw.roll_clips.parts() or {}
-  if #parts > 1 then
+  local portions = view == "pianoroll" and paw.roll_clips and paw.roll_clips.portions() or {}
+  if #portions > 1 then
     local count = 0
-    for i, part in ipairs(parts) do
-      if not (skip and skip(part.clip)) then
-        local mine = paw.util.merge(region, { c0 = region.c0 - part.offset, c1 = region.c1 - part.offset })
+    for i, portion in ipairs(portions) do
+      if not (skip and skip(portion.clip)) then
+        local mine = paw.util.merge(region, { c0 = region.c0 - portion.offset, c1 = region.c1 - portion.offset })
         count = count
           + M.apply_to_clip(
-            part.clip,
-            function(n) return edit.roll.inside(n, mine, part.clip.id) end,
+            portion.clip,
+            function(n) return edit.roll.inside(n, mine, portion.clip.id) end,
             function(notes) return fn(notes, i) end
           )
       end
@@ -127,7 +127,7 @@ M.operators = {}
 --- Define a musical operator: `fn(notes, amount, info)` returns the new
 --- notes; `amount` is the count typed in visual mode, or nil; `info.index`
 --- counts the clips done by one use (arrange regions reach several). A
---- `pitched` operator changes pitches and leaves drum tracks alone.
+--- `pitched` operator changes pitches and leaves drum parts alone.
 function M.operator(lhs, desc, views, fn, pitched)
   M.operators[#M.operators + 1] = { lhs = lhs, desc = desc, views = views, pitched = pitched }
   for _, view in ipairs(views) do
@@ -136,7 +136,7 @@ function M.operator(lhs, desc, views, fn, pitched)
       local drums = 0
       local skip = pitched
         and function(clip)
-          if not M.on_drum_track(clip) then return false end
+          if not M.on_drum_part(clip) then return false end
           drums = drums + 1
           return true
         end
@@ -149,7 +149,7 @@ function M.operator(lhs, desc, views, fn, pitched)
       if drums > 0 then
         paw.notify(
           string.format(
-            "left %d clip%s of drum tracks alone: their pitches are drum sounds",
+            "left %d clip%s of drum parts alone: their pitches are drum sounds",
             drums,
             drums == 1 and "" or "s"
           ),

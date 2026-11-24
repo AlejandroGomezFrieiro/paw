@@ -1,4 +1,4 @@
-//! One callback: cutting it into blocks, running the graph, and routing the tracks.
+//! One callback: cutting it into blocks, running the graph, and routing the parts.
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
@@ -7,7 +7,7 @@ use paw_types::TempoMap;
 use crate::device::ProcessCtx;
 use crate::midi_out::MidiOut;
 use crate::record::PUNCH_EPS;
-use crate::slot::TrackSlot;
+use crate::slot::PartSlot;
 
 use super::click::{CLICK_FRAMES, Count};
 use super::clock::Clock;
@@ -15,7 +15,7 @@ use super::device_rt::DeviceRt;
 use super::guarded::Guarded;
 use super::msg::Garbage;
 use super::schedule::{SchedEntry, Schedule};
-use super::track::{KeyRt, TrackRt};
+use super::part::{KeyRt, PartRt};
 use super::work::{Block, Work, fader};
 use super::{Engine, MAX_BLOCK, METER_FALL_SECONDS};
 
@@ -310,7 +310,7 @@ impl Engine {
         self.map = Some(map);
     }
 
-    /// What every track of the block `start..end` shares. Uses up the
+    /// What every part of the block `start..end` shares. Uses up the
     /// engine's wishes to chase, reapply and restate, while playing.
     fn block<'m>(
         &mut self,
@@ -352,13 +352,13 @@ impl Engine {
         }
     }
 
-    /// Silence the buffers the block's tracks are sent into, and on a
+    /// Silence the buffers the block's parts are sent into, and on a
     /// flush, what their delays still hold.
     fn clear_buffers(&mut self, schedule: &mut Schedule, n: usize, flush: bool) {
         for entry in schedule.entries.iter_mut() {
-            if let Some(track) = self.track_mut(entry.slot) {
-                track.buf[0][..n].fill(0.0);
-                track.buf[1][..n].fill(0.0);
+            if let Some(part) = self.part_mut(entry.slot) {
+                part.buf[0][..n].fill(0.0);
+                part.buf[1][..n].fill(0.0);
             }
             if flush {
                 // What was on its way when playback stopped or moved is not
@@ -392,9 +392,9 @@ impl Engine {
         }
     }
 
-    /// Make and route the tracks of the schedule, group by group.
+    /// Make and route the parts of the schedule, group by group.
     ///
-    /// The tracks of a group do not feed each other: each makes its own
+    /// The parts of a group do not feed each other: each makes its own
     /// sound, on whichever thread takes it. What they send on is then
     /// added up here, in the order of the entries, so the sums are the same
     /// however many threads ran.
@@ -437,7 +437,7 @@ impl Engine {
         }
     }
 
-    /// Make a group's tracks on the pool's threads, then route them in the
+    /// Make a group's parts on the pool's threads, then route them in the
     /// order of the entries. `more` tells whether a later group of the
     /// block is shared out too. Gives how many threads took part.
     fn run_shared(
@@ -456,13 +456,13 @@ impl Engine {
         let work = Work {
             block,
             entries,
-            tracks: &self.tracks,
+            parts: &self.parts,
             devices: &self.devices,
             inputs: &self.inputs[..self.input_count],
             shared: &self.shared,
             spent,
         };
-        pool.run(entries.len(), &|index| work.track(index));
+        pool.run(entries.len(), &|index| work.part(index));
         self.shared.shared_groups.fetch_add(1, Relaxed);
         // No more sharing in this block: the workers need not look for
         // any. A render goes on to the next block at once, where the
@@ -477,7 +477,7 @@ impl Engine {
         threads
     }
 
-    /// Make a group's tracks one by one on this thread. Alone, a track is
+    /// Make a group's parts one by one on this thread. Alone, a part is
     /// sent on while its block is still at hand.
     fn run_alone(
         &mut self,
@@ -491,18 +491,18 @@ impl Engine {
             Work {
                 block,
                 entries: std::slice::from_ref(entry),
-                tracks: &self.tracks,
+                parts: &self.parts,
                 devices: &self.devices,
                 inputs: &self.inputs[..self.input_count],
                 shared: &self.shared,
                 spent,
             }
-            .track(0);
+            .part(0);
             self.route(entry, block, out_l, out_r);
         }
     }
 
-    /// Send a processed track's block on: to its output and its sends, or
+    /// Send a processed part's block on: to its output and its sends, or
     /// out of the engine for the master.
     pub(super) fn route(
         &mut self,
@@ -512,31 +512,31 @@ impl Engine {
         out_r: &mut [f32],
     ) {
         let n = block.n;
-        let Some(mut track) = self
-            .tracks
+        let Some(mut part) = self
+            .parts
             .get_mut(entry.slot.index())
             .and_then(|t| t.get_mut().take())
         else {
             return;
         };
-        let t = &mut *track;
+        let t = &mut *part;
         self.send_midi_out(t);
         if entry.taps_pre() {
             self.route_pre_fader(entry, t, block);
         }
-        if entry.slot == TrackSlot::MASTER {
+        if entry.slot == PartSlot::MASTER {
             out_l.copy_from_slice(&t.buf[0][..n]);
             out_r.copy_from_slice(&t.buf[1][..n]);
         } else {
             self.route_post_fader(entry, t, n);
             self.route_outs(entry, n);
         }
-        *self.tracks[entry.slot.index()].get_mut() = Some(track);
+        *self.parts[entry.slot.index()].get_mut() = Some(part);
     }
 
-    /// What the track played goes out of its MIDI output port, as late as
+    /// What the part played goes out of its MIDI output port, as late as
     /// its block is heard.
-    fn send_midi_out(&mut self, t: &mut TrackRt) {
+    fn send_midi_out(&mut self, t: &mut PartRt) {
         if t.midi_out == 0 {
             return;
         }
@@ -560,7 +560,7 @@ impl Engine {
 
     /// Take the sends and side-chains from before the fader, then apply
     /// the fader, which was left for now so that they could be taken.
-    fn route_pre_fader(&mut self, entry: &mut SchedEntry, t: &mut TrackRt, block: &Block) {
+    fn route_pre_fader(&mut self, entry: &mut SchedEntry, t: &mut PartRt, block: &Block) {
         let n = block.n;
         // Sends from before the fader ignore it and the pan, but not the
         // mute.
@@ -569,7 +569,7 @@ impl Engine {
         t.applied_pre = pre;
         for send in entry.sends.iter_mut().filter(|send| send.pre) {
             if let Some(dst) = self
-                .tracks
+                .parts
                 .get_mut(send.target.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             {
@@ -589,16 +589,16 @@ impl Engine {
         fader(t, entry.slot, block, &self.shared);
     }
 
-    /// Send the track's faded block to its output, its sends from after
+    /// Send the part's faded block to its output, its sends from after
     /// the fader, and the side-chains that listen there.
-    fn route_post_fader(&mut self, entry: &mut SchedEntry, t: &mut TrackRt, n: usize) {
-        // A track silenced by another's solo is not heard, moving there
+    fn route_post_fader(&mut self, entry: &mut SchedEntry, t: &mut PartRt, n: usize) {
+        // A part silenced by another's solo is not heard, moving there
         // smoothly, but its side-chains are still taken from it.
         let heard = if t.quiet { 0.0 } else { 1.0 };
         let heard_from = std::mem::replace(&mut t.applied_heard, heard);
         let src = [&t.buf[0][..n], &t.buf[1][..n]];
         if let Some(dst) = self
-            .tracks
+            .parts
             .get_mut(entry.output.index())
             .and_then(|t| t.get_mut().as_deref_mut())
         {
@@ -609,7 +609,7 @@ impl Engine {
         }
         for send in entry.sends.iter_mut().filter(|send| !send.pre) {
             if let Some(dst) = self
-                .tracks
+                .parts
                 .get_mut(send.target.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             {
@@ -627,7 +627,7 @@ impl Engine {
         }
     }
 
-    /// Send the further output pairs of the track's devices where they go.
+    /// Send the further output pairs of the part's devices where they go.
     fn route_outs(&mut self, entry: &mut SchedEntry, n: usize) {
         for out in entry.outs.iter_mut() {
             let (Some(pair), Some(dst)) = (
@@ -636,7 +636,7 @@ impl Engine {
                     .and_then(|d| d.get_mut().as_mut())
                     .and_then(|d| d.outs.as_deref())
                     .and_then(|outs| outs.get(out.pair)?.as_ref()),
-                self.tracks
+                self.parts
                     .get_mut(out.target.index())
                     .and_then(|t| t.get_mut().as_deref_mut()),
             ) else {
@@ -653,7 +653,7 @@ impl Engine {
     }
 }
 
-/// Put a block of a track into the side-chain of a device that listens to it.
+/// Put a block of a part into the side-chain of a device that listens to it.
 pub(super) fn key_into(
     devices: &mut [Guarded<Option<DeviceRt>>],
     key: &mut KeyRt,

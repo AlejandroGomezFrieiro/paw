@@ -73,7 +73,7 @@ end
 
 --- Fill a clip with a beat, a bar at a time to its end, in place of what it
 --- had. One edit. Returns the hits written, and how many of the notes that
---- went were on no row of the track's drum map.
+--- went were on no row of the part's drum map.
 function M.apply(clip, name)
   if type(clip) == "number" then clip = paw.clip(clip) end
   local beat = M.list[name]
@@ -97,7 +97,7 @@ function M.apply(clip, name)
   -- Every note goes; those on no row of the drum map were not to be seen
   -- in the grid, so they are counted for the message.
   local rows = {}
-  local info = require("drums").info(clip:get().track)
+  local info = require("drums").info(clip:get().part)
   for _, r in ipairs(info and info.rows or {}) do
     rows[r.note] = true
   end

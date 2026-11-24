@@ -11,11 +11,11 @@ paw.ext.load("extensions/luafx")   -- or put the directory in ~/.config/paw/exte
 ## Try it
 
 1. Type `:ext.load luafx`.
-2. Put the cursor on a track with an instrument, and type `:device.add`.
+2. Put the cursor on a part with an instrument, and type `:device.add`.
    The device picker opens.
 3. Type `lua` in the picker. The four devices of the list below appear.
 4. Choose "Chords (Lua)".
-5. Play a note on the track. You hear a chord.
+5. Play a note on the part. You hear a chord.
 
 ## How to change one of the devices
 

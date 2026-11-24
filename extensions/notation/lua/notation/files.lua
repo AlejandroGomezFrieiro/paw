@@ -1,10 +1,10 @@
 -- MusicXML files and the project: scores brought in and taken out.
 --
---   :open song.musicxml            -- a new project: a track and a MIDI clip for each part
---   :import song.mxl               -- the parts on new tracks below the cursor's, at the cursor
+--   :open song.musicxml            -- a new project: a part and a MIDI clip for each part
+--   :import song.mxl               -- the parts on new parts below the cursor's, at the cursor
 --   :import song.mxl tempo=yes     -- and its tempo marks and time signatures from there on
 --   :notation.import song.xml      -- the same as :import
---   :notation.export song.musicxml -- the clip's score (`all`: every track's), `.mxl` zipped, `.ly` LilyPond
+--   :notation.export song.musicxml -- the clip's score (`all`: every part's), `.mxl` zipped, `.ly` LilyPond
 --
 -- A file opens as `paw.midifile` opens a MIDI file: a project of its own
 -- with no file (saving asks for a name, never writing over the score), the
@@ -74,38 +74,38 @@ local function put_tempo_map(file, at)
   paw.tempo.set_points(keep_t, keep_s)
 end
 
---- A track for each part below `index` (nil: at the end), each with a
+--- A part for each part of the score below `index` (nil: at the end), each with a
 --- MIDI clip of what the part plays whose first bar starts at beat `at`,
---- with what its score says kept as notation data. The track keeps the
---- part's staves (its clef, or a grand staff). Returns the tracks and how
+--- with what its score says kept as notation data. The part keeps the
+--- part's staves (its clef, or a grand staff). Returns the parts and how
 --- many notes they play.
 local function add_parts(file, at, index, name)
-  local tracks, notes = {}, 0
-  for i, part in ipairs(file.parts) do
-    local sc = part.score
+  local parts, notes = {}, 0
+  for i, xpart in ipairs(file.parts) do
+    local sc = xpart.score
     local f = D.frame(sc)
     local origin = D.origin(sc)
-    local track = paw.add_track({ name = part.name, index = index and index + i or nil })
-    if part.drums then track:add_device("drums") end
-    local meta = track.meta or {}
+    local part = paw.add_part({ name = xpart.name, index = index and index + i or nil })
+    if xpart.drums then part:add_device("drums") end
+    local meta = part.meta or {}
     meta.notation = util.merge(
       type(meta.notation) == "table" and meta.notation or {},
       { clef = #sc.staves == 2 and "grand" or sc.staves[1].clef }
     )
-    track.meta = meta
-    local controls = part.program and { { start = 0, type = "program", program = part.program, value = 0 } } or nil
-    local clip = track:add_clip({
+    part.meta = meta
+    local controls = xpart.program and { { start = 0, type = "program", program = xpart.program, value = 0 } } or nil
+    local clip = part:add_clip({
       start = at - origin / D.Q,
       length = math.max(1, (origin + f.finish) / D.Q),
-      name = #file.parts == 1 and name or part.name,
+      name = #file.parts == 1 and name or xpart.name,
       controls = controls,
     })
     view.store(clip, view.score_of(clip:get()), sc)
     notes = notes + #clip:notes()
-    tracks[#tracks + 1] = track
+    parts[#parts + 1] = part
   end
   view.cache = nil
-  return tracks, notes
+  return parts, notes
 end
 
 --- A marker in the song at each rehearsal mark (each place once).
@@ -130,7 +130,7 @@ local function read(path)
 end
 
 --- Open a MusicXML file as a new project with no file of its own (see
---- the top of this file). Returns { tracks, notes, skipped }; errors when
+--- the top of this file). Returns { parts, notes, skipped }; errors when
 --- the file cannot be read, leaving the open project alone.
 function F.open(path)
   local file = read(path)
@@ -142,37 +142,36 @@ function F.open(path)
   local first = file.parts[1].score.measures[1]
   if first and first.key and first.key.name then pcall(paw.harmony.set_key, first.key.name) end
   put_tempo_map(file, 0)
-  local tracks, notes = add_parts(file, 0, nil, stem(path))
+  local parts, notes = add_parts(file, 0, nil, stem(path))
   add_markers(file, 0)
   -- It opens as a project file does: nothing to undo, nothing changed yet.
   api.undo_reset()
-  if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  return { tracks = tracks, notes = notes, skipped = mx.skipped_text(file) }
+  if parts[1] then paw.cursor.set_part(parts[1]) end
+  return { parts = parts, notes = notes, skipped = mx.skipped_text(file) }
 end
 
---- Bring a MusicXML file into the project: its parts on new tracks below
+--- Bring a MusicXML file into the project: its parts on new paw parts below
 --- the cursor's, the first bar at the cursor (or `opts.start`). The tempo
---- map is left alone unless `opts.tempo`. Returns { tracks, clips, notes, skipped }.
+--- map is left alone unless `opts.tempo`. Returns { parts, clips, notes, skipped }.
 function F.import(path, opts)
   opts = opts or {}
   local file = read(path)
   local at = opts.start or paw.cursor.beat
   if opts.tempo then put_tempo_map(file, at) end
-  local tracks, notes = add_parts(file, at, paw.cursor.index(), stem(path))
+  local parts, notes = add_parts(file, at, paw.cursor.index(), stem(path))
   add_markers(file, at)
   local clips = {}
-  for _, t in ipairs(tracks) do
+  for _, t in ipairs(parts) do
     clips[#clips + 1] = t:clips()[1]
   end
-  if tracks[1] then paw.cursor.set_track(tracks[1]) end
-  return { tracks = tracks, clips = clips, notes = notes, skipped = mx.skipped_text(file) }
+  if parts[1] then paw.cursor.set_part(parts[1]) end
+  return { parts = parts, clips = clips, notes = notes, skipped = mx.skipped_text(file) }
 end
 
 --- What a file brought in or opened came to, said.
 function F.said(path, done)
   local name = path:match("([^/]+)$") or path
-  local text =
-    string.format("%s: %d notes on %d track%s", name, done.notes, #done.tracks, #done.tracks == 1 and "" or "s")
+  local text = string.format("%s: %d notes on %d part%s", name, done.notes, #done.parts, #done.parts == 1 and "" or "s")
   if done.skipped then text = text .. "; left out: " .. done.skipped end
   return text
 end
@@ -182,9 +181,9 @@ end
 --- The score of a clip: what its notes are written as.
 local function score_of_clip(clip) return view.score_of(clip:get()) end
 
---- Whether a track plays the drum kit.
-local function drums(track)
-  for _, d in ipairs(track:devices()) do
+--- Whether a part plays the drum kit.
+local function drums(part)
+  for _, d in ipairs(part:devices()) do
     if d.kind == "drums" or d.kind == "sampler" then return true end
   end
   return false
@@ -198,7 +197,7 @@ local function program(clip)
   end
 end
 
---- Parts for the clips (one a track), on one timeline: a part whose first
+--- Parts for the clips (one a part), on one timeline: a part whose first
 --- bar starts later than the first part's has empty bars before it, and
 --- every part as many bars as the longest. Returns the parts, and how
 --- many bars could not be lined up.
@@ -212,13 +211,13 @@ function F.parts(clips)
     local sc = D.copy(score_of_clip(clip))
     local beat = c.start + D.origin(sc) / D.Q
     parts[#parts + 1] = {
-      name = clip:track().name,
+      name = clip:part().name,
       score = sc,
       beat = beat,
       fifths = fifths,
       key_name = key_name,
       program = program(clip),
-      drums = drums(clip:track()),
+      drums = drums(clip:part()),
     }
     first = math.min(first, beat)
   end
@@ -271,12 +270,12 @@ function F.export(path, clips, opts)
   return #parts
 end
 
---- The clips `:notation.export … all` writes: on each track, its first
+--- The clips `:notation.export … all` writes: on each part, its first
 --- MIDI clip with notes.
 function F.all_clips()
   local out = {}
-  for _, track in ipairs(paw.tracks()) do
-    for _, clip in ipairs(track:clips()) do
+  for _, part in ipairs(paw.parts()) do
+    for _, clip in ipairs(part:clips()) do
       local c = clip:get()
       if c.kind == "midi" and c.note_count > 0 then
         out[#out + 1] = clip
@@ -314,14 +313,14 @@ paw.command("notation.import", function(ctx)
   return import_command(path, tempo or ctx.args.tempo)
 end, {
   raw = true,
-  desc = "Bring a MusicXML score in: a track for each part at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)",
+  desc = "Bring a MusicXML score in: a part for each part of the score at the cursor, each a MIDI clip with its notation: `notation.import song.musicxml`, `song.mxl tempo=yes` (its tempo marks and time signatures too)",
   complete = "files",
 })
 
 -- MusicXML is a format of `paw.formats`: `:import song.musicxml` brings
 -- its parts in at the cursor (`tempo=yes`: its tempo marks too), `:open`
 -- makes a new project of it, `:export song.musicxml` writes the first
--- clip of each track. LilyPond is written only.
+-- clip of each part. LilyPond is written only.
 local function heading() return require("notation.page").heading(paw.project.get().name or "score") end
 
 paw.formats.register({

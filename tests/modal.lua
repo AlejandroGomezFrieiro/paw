@@ -19,7 +19,7 @@ test("an operator takes a motion, a text object or a count", function()
   eq(layout(t), "c@8+4", "d2ib deletes two bars")
   paw.undo()
   keys("wd$")
-  eq(layout(t), "a@0+4", "d$ deletes to the end of the track")
+  eq(layout(t), "a@0+4", "d$ deletes to the end of the part")
   paw.undo()
   keys("0dic")
   eq(layout(t), "b@4+4 c@8+4", "dic deletes the clip")
@@ -27,7 +27,7 @@ test("an operator takes a motion, a text object or a count", function()
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "P puts it back at the cursor")
   eq(melody(t:clips()[1]), "60@0+1 61@1+1 62@2+1 63@3+1", "with its notes")
   keys("d3d")
-  eq(#paw.tracks(), 0, "d3d takes whole tracks, as many as there are")
+  eq(#paw.parts(), 0, "d3d takes whole parts, as many as there are")
   paw.undo()
   keys("dx")
   eq(paw.keymap.mode .. layout(t), "na@0+4 b@4+4 c@8+4", "a key that is no motion calls the operator off")
@@ -35,7 +35,7 @@ test("an operator takes a motion, a text object or a count", function()
   eq(paw.cursor.beat, 1, "and so does Escape")
 end)
 
-test("yank and paste work on clips, stretches of time and whole tracks", function()
+test("yank and paste work on clips, stretches of time and whole parts", function()
   local t = three_clips()
   keys("yicp")
   eq(layout(t), "a@0+4 a@4+4 c@8+4", "p puts the yanked clip after the one under the cursor, over what was there")
@@ -59,31 +59,31 @@ test("yank and paste work on clips, stretches of time and whole tracks", functio
   keys('"_dicP')
   eq(layout(t), "a@0+4 b@4+4 c@8+4", 'deleting into "_ leaves the unnamed register alone')
 
-  -- Whole tracks, with their devices, clips and automation.
+  -- Whole parts, with their devices, clips and automation.
   t:automate("volume"):set_points({ { 0, -12 }, { 4, 0 } })
   api.undo_checkpoint()
   keys("yyp")
-  eq(#paw.tracks(), 2, "yyp duplicates the track")
-  local copy = paw.cursor.track()
+  eq(#paw.parts(), 2, "yyp duplicates the part")
+  local copy = paw.cursor.part()
   eq(paw.cursor.index(), 2, "below, with the cursor on it")
   eq(layout(copy), layout(t), "with its clips")
   eq(copy:devices()[1].params.cutoff, 900, "its devices as they were set")
   eq(#copy:lane("volume"):points(), 2, "and its automation")
   keys("dd")
-  eq(#paw.tracks(), 1, "dd removes it")
+  eq(#paw.parts(), 1, "dd removes it")
   keys("P")
-  eq(paw.tracks()[1].id ~= t.id and layout(paw.tracks()[1]), layout(t), "P puts it back above")
+  eq(paw.parts()[1].id ~= t.id and layout(paw.parts()[1]), layout(t), "P puts it back above")
 
-  -- A stretch of time across tracks.
-  paw.cursor.set_track(paw.tracks()[1])
+  -- A stretch of time across parts.
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.set_beat(4)
   keys("vjWy")
   local value = paw.keymap.getreg()
-  eq(value.kind .. value.length .. #value.rows, "range42", "v with j selects the same stretch on two tracks")
+  eq(value.kind .. value.length .. #value.rows, "range42", "v with j selects the same stretch on two parts")
   keys("3Wk")
   keys("p")
   eq(
-    layout(paw.tracks()[1]) .. " | " .. layout(paw.tracks()[2]),
+    layout(paw.parts()[1]) .. " | " .. layout(paw.parts()[2]),
     "a@0+4 b@4+4 c@8+4 b@16+4 | a@0+4 b@4+4 c@8+4 b@16+4",
     "and it is pasted on both"
   )
@@ -91,15 +91,15 @@ test("yank and paste work on clips, stretches of time and whole tracks", functio
   paw.opt.ripple = true
   paw.cursor.set_beat(0)
   keys("dic")
-  eq(layout(paw.tracks()[1]), "b@0+4 c@4+4 b@12+4", "with ripple, deleting closes the gap")
+  eq(layout(paw.parts()[1]), "b@0+4 c@4+4 b@12+4", "with ripple, deleting closes the gap")
   keys("P")
-  eq(layout(paw.tracks()[1]), "a@0+4 b@4+4 c@8+4 b@16+4", "and pasting makes room")
+  eq(layout(paw.parts()[1]), "a@0+4 b@4+4 c@8+4 b@16+4", "and pasting makes room")
   paw.opt.ripple = false
 end)
 
-test("visual mode selects time, tracks, and what a text object names", function()
+test("visual mode selects time, parts, and what a text object names", function()
   local t = three_clips()
-  local other = paw.add_track({ name = "U" })
+  local other = paw.add_part({ name = "U" })
   other:add_clip({ name = "u", start = 0, length = 12 })
   api.undo_checkpoint()
   keys("v")
@@ -109,7 +109,7 @@ test("visual mode selects time, tracks, and what a text object names", function(
   sel = paw.keymap.selection()
   eq(sel.c0 .. "-" .. sel.c1 .. " rows " .. sel.r0 .. "-" .. sel.r1, "0-8 rows 1-1", "motions stretch it")
   keys("j")
-  eq(paw.keymap.selection().r1, 2, "onto other tracks too")
+  eq(paw.keymap.selection().r1, 2, "onto other parts too")
   keys("o")
   eq(paw.cursor.index() .. "@" .. paw.cursor.beat, "1@0", "o goes to the other end")
   keys("d")
@@ -128,9 +128,9 @@ test("visual mode selects time, tracks, and what a text object names", function(
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "and unmutes them")
 
   keys("0Vjgc")
-  eq(tostring(t.mute) .. tostring(other.mute), "truetrue", "V selects whole tracks; gc mutes them")
+  eq(tostring(t.mute) .. tostring(other.mute), "truetrue", "V selects whole parts; gc mutes them")
   keys("gcc")
-  eq(tostring(t.mute) .. tostring(other.mute), "falsetrue", "gcc is one track")
+  eq(tostring(t.mute) .. tostring(other.mute), "falsetrue", "gcc is one part")
   keys("jgcck")
 
   keys("vee<C-a>")
@@ -153,14 +153,14 @@ end)
 
 test("a transposition in the arrange view moves the notes of the selection only, and says what it moved", function()
   fresh()
-  -- Two tracks with a clip of three bars each: C C# D D# in each bar.
+  -- Two parts with a clip of three bars each: C C# D D# in each bar.
   local function riff(name, low)
-    local track = paw.add_track({ name = name })
+    local part = paw.add_part({ name = name })
     local notes = {}
     for beat = 0, 11 do
       notes[#notes + 1] = { pitch = low + beat % 4, start = beat, length = 1 }
     end
-    return track:add_clip({ name = name, start = 0, length = 12, notes = notes })
+    return part:add_clip({ name = name, start = 0, length = 12, notes = notes })
   end
   local keys_clip, bass_clip = riff("Keys", 60), riff("Bass", 36)
   api.undo_checkpoint()
@@ -168,7 +168,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
   local bar1, bar3 = "60@0+1 61@1+1 62@2+1 63@3+1", "60@8+1 61@9+1 62@10+1 63@11+1"
   local untouched = bar1 .. " 60@4+1 61@5+1 62@6+1 63@7+1 " .. bar3
   local bass = "36@0+1 37@1+1 38@2+1 39@3+1 36@4+1 37@5+1 38@6+1 39@7+1 36@8+1 37@9+1 38@10+1 39@11+1"
-  -- What each case types, from the Keys track at beat 4, and what it gives.
+  -- What each case types, from the Keys part at beat 4, and what it gives.
   local cases = {
     {
       typed = "vib12<C-a>",
@@ -194,7 +194,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
     },
   }
   for _, case in ipairs(cases) do
-    paw.cursor.set_track(paw.tracks()[1])
+    paw.cursor.set_part(paw.parts()[1])
     paw.cursor.set_beat(4)
     keys("<Esc>" .. case.typed)
     eq(melody(keys_clip), case.keys, case.typed .. ": the notes of the selection only")
@@ -210,7 +210,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
   eq(message(), "no notes to move there", "a selection past the clips")
 
   -- A looped clip plays one bar three times: a note moves when one of its repeats starts in the selection.
-  local loop = paw.add_track({ name = "Loop" }):add_clip({
+  local loop = paw.add_part({ name = "Loop" }):add_clip({
     name = "Loop",
     start = 0,
     length = 12,
@@ -218,7 +218,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
     loop_length = 4,
     notes = { { pitch = 48, start = 0, length = 1 }, { pitch = 50, start = 2, length = 1 } },
   })
-  paw.cursor.set_track(paw.tracks()[3])
+  paw.cursor.set_part(paw.parts()[3])
   paw.cursor.set_beat(6)
   keys("<Esc>vl<C-a>")
   eq(melody(loop), "48@0+1 51@2+1", "the repeat of the second note at beat 6 moves it")
@@ -227,7 +227,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
   local keys_option = paw.opt.keys
   T.after(function() paw.opt.keys = keys_option end)
   paw.opt.keys = "classic"
-  paw.cursor.set_track(paw.tracks()[1])
+  paw.cursor.set_part(paw.parts()[1])
   paw.cursor.set_beat(4)
   keys("<Esc><C-a>")
   eq(melody(keys_clip):sub(1, 13), "61@0+1 62@1+1", "classic <C-a>: the whole clip a semitone up")
@@ -235,7 +235,7 @@ test("a transposition in the arrange view moves the notes of the selection only,
   keys("12<C-a>")
   eq(melody(keys_clip):sub(1, 13), "73@0+1 74@1+1", "a count moves it by that many")
   eq(message(), "moved 12 notes up 12 semitones in Keys", "and says so")
-  eq(melody(bass_clip), bass, "the other track's clip stays")
+  eq(melody(bass_clip), bass, "the other part's clip stays")
 end)
 
 test("the other operators shift, quantize, loop and change", function()
@@ -248,7 +248,7 @@ test("the other operators shift, quantize, loop and change", function()
   )
   keys("u")
   keys("3>>")
-  eq(layout(t), "a@1+4 b@5+4 c@9+4", ">> moves every clip of the track")
+  eq(layout(t), "a@1+4 b@5+4 c@9+4", ">> moves every clip of the part")
   keys("<lt><lt>")
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "<< moves them back")
   t:clips()[2].start = 4.4
@@ -308,12 +308,12 @@ test("the dot, macros, marks, jumps and search repeat and find things", function
   paw.undo()
   paw.undo()
   eq(layout(t), "a@0+4 b@4+4 c@8+4", "a macro is undone in one step")
-  keys(":track.volume by=-2<CR>")
+  keys(":part.volume by=-2<CR>")
   keys("@:")
   eq(t.volume, -4, "@: runs the last command line again")
 
   paw.cursor.set_beat(0)
-  local other = paw.add_track({ name = "Other" })
+  local other = paw.add_part({ name = "Other" })
   other:add_clip({ name = "chorus", start = 16, length = 4 })
   api.undo_checkpoint()
   keys("WmaG$")
@@ -331,7 +331,7 @@ test("the dot, macros, marks, jumps and search repeat and find things", function
   keys("<C-o>")
   eq(paw.cursor.index() .. "@" .. paw.cursor.beat, "1@0", "<C-o> goes back to where the search began")
   keys("/other<CR>")
-  eq(paw.cursor.index(), 2, "/ finds a track by name")
+  eq(paw.cursor.index(), 2, "/ finds a part by name")
   keys("9|")
   eq(paw.cursor.beat, 32, "N| goes to a bar")
   keys(":3<CR>")
@@ -356,7 +356,7 @@ test("half-typed commands show what can follow, and are counted right", function
   eq(screen:find("Delete …", 1, true) ~= nil and screen:find("PENDING", 1, true) ~= nil, true, "on screen")
   paw.keymap.feed("l")
   eq(paw.keymap.pending() .. paw.keymap.mode, "n", "done")
-  eq(layout(paw.tracks()[1]), "b@6+2 c@8+4", "2d3l deleted six beats")
+  eq(layout(paw.parts()[1]), "b@6+2 c@8+4", "2d3l deleted six beats")
   paw.keymap.feed("g")
   hints = paw.keymap.hints()
   eq(hints ~= nil and #hints > 5, true, "a prefix lists its continuations")
@@ -390,7 +390,7 @@ local function riff(cursor, changes, length)
   for _, change in ipairs(changes or {}) do
     if change:sub(1, 1) == "+" then lines[#lines + 1] = change:sub(2) end
   end
-  return string.format("track T\n clip a 0+%g\n %s\n cursor %s", length or 4, table.concat(lines, "\n "), cursor)
+  return string.format("part T\n clip a 0+%g\n %s\n cursor %s", length or 4, table.concat(lines, "\n "), cursor)
 end
 
 test("the piano roll has the same grammar for notes", function()
@@ -434,7 +434,7 @@ end)
 test("devices are cut, yanked and pasted in the device panel", function()
   local t = three_clips()
   t:add_device("delay", { mix = 0.7 })
-  local other = paw.add_track({ name = "U" })
+  local other = paw.add_part({ name = "U" })
   api.undo_checkpoint()
   paw.ui.focus("devices")
   local panel = paw.ui.views:get("devices")
@@ -450,9 +450,9 @@ test("devices are cut, yanked and pasted in the device panel", function()
   eq(t:devices()[2].params.cutoff, 900, "with its settings")
   keys("dd")
   eq(#t:devices(), 2, "dd cuts it")
-  paw.cursor.set_track(other)
+  paw.cursor.set_part(other)
   keys("p")
-  eq(other:devices()[1].params.cutoff, 900, "and p puts it on another track")
+  eq(other:devices()[1].params.cutoff, 900, "and p puts it on another part")
   paw.ui.hide("devices")
   paw.ui.focus("arrange")
 end)
@@ -485,11 +485,11 @@ test("the screen draws what the project holds", function()
   fresh()
   local t = tone("Lead Synth", 4)
   t:add_device("delay")
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   local function screen(width, height) return table.concat(api.ui_snapshot(width, height), "\n") end
   local text = screen(100, 30)
-  eq(text:find("Lead Synth", 1, true) ~= nil, true, "track name is on screen")
-  eq(text:find("Master", 1, true) ~= nil, true, "master track is on screen")
+  eq(text:find("Lead Synth", 1, true) ~= nil, true, "part name is on screen")
+  eq(text:find("Master", 1, true) ~= nil, true, "master part is on screen")
   eq(text:find("120 bpm", 1, true) ~= nil, true, "status line shows the tempo")
   eq(text:find("render failed", 1, true), nil, "no view failed to draw")
   paw.ui.show("devices")

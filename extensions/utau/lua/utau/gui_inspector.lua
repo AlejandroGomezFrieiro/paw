@@ -4,7 +4,7 @@
 -- one of them; a right click puts it back to its default.
 --
 --   lyric, tuning in cents, the phonemizer for these notes, the vibrato and
---   its numbers, the transition, the per-note expressions the track's
+--   its numbers, the transition, the per-note expressions the part's
 --   renderer has (velocity, volume, attack, ...), and the note's phonemes.
 local util = paw.util
 local music = paw.music
@@ -33,10 +33,10 @@ local DEFAULT_EXPRESSIONS = {
 
 local M = {}
 
---- The per-note expressions of a vocal track's renderer: numbers, choices
+--- The per-note expressions of a vocal part's renderer: numbers, choices
 --- and switches (its curves are in the curve panel).
-function M.expressions(track_id)
-  local config = utau.config(track_id)
+function M.expressions(part_id)
+  local config = utau.config(part_id)
   local renderers = utau.renderers and utau.renderers.renderers or {}
   local chosen
   for _, r in ipairs(renderers) do
@@ -109,14 +109,14 @@ local function fields(view, S)
     get = function(n) return props(n).po or "" end,
     set = function(p, v) p.po = (v and v ~= "") and v or nil end,
     show = function(v)
-      if v == "" then return "the track's" end
+      if v == "" then return "the part's" end
       for _, ph in ipairs(utau.phonemizers) do
         if ph.id == v then return ph.name end
       end
       return v:match("([^%.]+)$") or v
     end,
     options = function()
-      local list = { { label = "the track's own", value = "" } }
+      local list = { { label = "the part's own", value = "" } }
       for _, ph in ipairs(utau.phonemizers) do
         list[#list + 1] = { label = ph.name, value = ph.id, detail = ph.tag }
       end
@@ -184,7 +184,7 @@ local function fields(view, S)
     end,
   })
   add({ section = "Expressions" })
-  for _, e in ipairs(M.expressions(S.clip.track)) do
+  for _, e in ipairs(M.expressions(S.clip.part)) do
     local f = {
       key = "ex:" .. e.abbr,
       label = e.name:sub(1, 1):upper() .. e.name:sub(2),

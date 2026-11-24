@@ -218,7 +218,7 @@ end)
 test("statusline: a winbar adds to the title bar of the window with the keys, and the others have their own", function()
   start()
   paw.ui.show("mixer")
-  paw.textbuf.open("paw://tracks")
+  paw.textbuf.open("paw://parts")
   sl.setup({
     winbar = { sections = { x = { function(ctx) return "focused:" .. tostring(ctx.focused) end } } },
     inactive_winbar = { sections = { x = { function() return "elsewhere" end } } },

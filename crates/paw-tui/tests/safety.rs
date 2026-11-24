@@ -41,7 +41,7 @@ const RECORD: &str = r#"
 local api = paw.api
 local dir = ...
 api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-local mic = paw.add_track({ name = "mic" })
+local mic = paw.add_part({ name = "mic" })
 mic.input, mic.armed = "1", true
 paw.project.save(dir .. "/song.json")
 "#;
@@ -146,15 +146,15 @@ local takes = paw.autosave.orphan_takes()
 print("orphans", #takes)
 local choices = paw.autosave.choices()
 for i, c in ipairs(choices) do print("choice", i, c.name, c.take and "take" or "copy") end
--- The safety copy puts the take back where it was, on its track.
+-- The safety copy puts the take back where it was, on its part.
 for i, c in ipairs(choices) do
   if not c.take and c.path == dir .. "/song.json" then
     paw.commands.exec("recover " .. i)
     break
   end
 end
-local clips = paw.tracks()[1]:clips()
-print("track", paw.tracks()[1].name)
+local clips = paw.parts()[1]:clips()
+print("part", paw.parts()[1].name)
 print("clips", #clips)
 print("beats", clips[1] and clips[1].length or 0)
 "#;
@@ -176,8 +176,8 @@ print("beats", clips[1] and clips[1].length or 0)
         "and named on opening:\n{stdout}"
     );
     assert!(
-        stdout.contains("track\tmic") && stdout.contains("clips\t1"),
-        "recovered onto its track:\n{stdout}"
+        stdout.contains("part\tmic") && stdout.contains("clips\t1"),
+        "recovered onto its part:\n{stdout}"
     );
     let beats: f64 = stdout
         .lines()
@@ -307,7 +307,7 @@ fn a_plugin_file_being_scanned_when_the_program_is_killed_is_skipped_next_time()
 fn a_panic_in_the_program_keeps_a_safety_copy() {
     let dir = scratch("panic");
     let script = r#"
-paw.add_track({ name = "Unsaved idea" })
+paw.add_part({ name = "Unsaved idea" })
 paw.flush()
 paw.api.test_panic("a bug in the program")
 "#;
@@ -336,12 +336,12 @@ paw.api.test_panic("a bug in the program")
 local list = paw.autosave.left_behind()
 print("left", #list)
 paw.commands.exec("recover 1")
-print("track", paw.tracks()[1].name)
+print("part", paw.parts()[1].name)
 "#;
     let out = paw(&dir, check, &[Path::new("--clean")]).output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("left\t1") && stdout.contains("track\tUnsaved idea"),
+        stdout.contains("left\t1") && stdout.contains("part\tUnsaved idea"),
         "{stdout}"
     );
 }
@@ -353,7 +353,7 @@ fn a_take_cut_off_by_a_kill_is_offered_after_the_folder_moved() {
     let script = r#"
 local dir = ...
 paw.api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-local mic = paw.add_track({ name = "mic" })
+local mic = paw.add_part({ name = "mic" })
 mic.input, mic.armed = "1", true
 paw.project.save(dir .. "/proj/song.json")
 paw.transport.record()
@@ -378,8 +378,8 @@ for _, m in ipairs(paw.ui.messages) do print("message", m.text) end
 local takes = paw.autosave.orphan_takes()
 print("orphans", #takes)
 if takes[1] then paw.autosave.import_take(takes[1].file) end
-local mic = paw.tracks()[1]
-print("track", mic.name, #mic:clips())
+local mic = paw.parts()[1]
+print("part", mic.name, #mic:clips())
 print("beats", mic:clips()[1] and mic:clips()[1].length or 0)
 "#;
     let song = dir.join("moved/song.json");
@@ -395,8 +395,8 @@ print("beats", mic:clips()[1] and mic:clips()[1].length or 0)
         "the take is offered:\n{stdout}"
     );
     assert!(
-        stdout.contains("track\tmic\t1"),
-        "and lands on its track:\n{stdout}"
+        stdout.contains("part\tmic\t1"),
+        "and lands on its part:\n{stdout}"
     );
     let beats: f64 = stdout
         .lines()

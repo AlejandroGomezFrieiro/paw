@@ -612,7 +612,7 @@ mod tests {
             let b = s.building.as_mut().unwrap();
             let props = serde_json::json!({ "value": -6 });
             let mut node = Node::new("fader@4,1", Kind::Role { role: "fader".into(), props }, [4.0, 1.0, 3.0, 3.0]);
-            node.hit = Some(serde_json::json!({ "kind": "fader", "track": 1 }));
+            node.hit = Some(serde_json::json!({ "kind": "fader", "part": 1 }));
             b.push(node);
             let map = Map::UNITS.inside(&b.scene.nodes["fader@4,1"]);
             b.open.push(Open { key: "fader@4,1".into(), map, with: false });
@@ -629,7 +629,7 @@ mod tests {
         let mut kept = Scene::default();
         kept.apply(&patch);
         assert_eq!(kept.to_cells().cells[2 * 10 + 4].ch, '━', "its cells where it drew them");
-        assert_eq!(kept.hit([5.5, 2.5]).map(|h| h.hit["track"].clone()), Some(serde_json::json!(1)));
+        assert_eq!(kept.hit([5.5, 2.5]).map(|h| h.hit["part"].clone()), Some(serde_json::json!(1)));
         // A frontend that draws faders itself is sent the role alone.
         s.roles.insert(2, ["fader".to_string()].into());
         draw(&mut s);

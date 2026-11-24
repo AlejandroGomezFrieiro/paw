@@ -110,19 +110,19 @@ end
 --- in silence) and how long it sounds (15), then from 16 the lowest pitch
 --- over time, three numbers for each piece: from, to and the pitch, in
 --- order. The parts of one stretch, or of stretches side by side, merge
---- into one (`merge`): the song's reading keeps a part for each track and
+--- into one (`merge`): the song's reading keeps a portion for each part and
 --- window, and adds up those of a window.
-local type Part = {number}
+local type Portion = {number}
 local TOTAL, LOWEST, LASTS, PIECES = 13, 14, 15, 16
 
 --- What `finish` calls for the part of a window's whole beat.
-local type BeatOf = function(): Part
+local type BeatOf = function(): Portion
 
 local record M
   type Quality = Quality
   type Run = Run
-  type Part = Part
-  EMPTY: Part
+  type Portion = Portion
+  EMPTY: Portion
   type Note = Note
   type Chord = Chord
   type Key = Key
@@ -239,17 +239,17 @@ function M.run(notes: {Note}): Run
 end
 
 -- A stretch where nothing sounds. It is shared: no one changes a part.
-local EMPTY: Part = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, math.huge, 0}
+local EMPTY: Portion = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, math.huge, 0}
 
 -- LuaJIT's `table.new`: a list made at its size. A part grown one piece at
 -- a time would take up to twice its room, and the reading keeps thousands.
 local record Globals
-  require: function(string): function(integer, integer): Part
+  require: function(string): function(integer, integer): Portion
 end
 local new_list = (_G as Globals).require("table.new")
 
 -- Where `part` and `merge` make a part before it is copied at its size.
-local work: Part = {}
+local work: Portion = {}
 
 local function start_work()
   for k = 1, 12 do
@@ -259,7 +259,7 @@ local function start_work()
 end
 
 --- The first `n` numbers of `work` as a part of its own.
-local function copy_work(n: integer): Part
+local function copy_work(n: integer): Portion
   local p = new_list(n, 0)
   for k = 1, n do
     p[k] = work[k]
@@ -272,7 +272,7 @@ M.EMPTY = EMPTY
 --- `to` (a `Part`). A note counts for how long it sounds there, a short
 --- note off the beat half; the lowest pitch over time is cut where a note
 --- starts or ends.
-function M.part(run: Run, offset: number, from: number, to: number): Part
+function M.portion(run: Run, offset: number, from: number, to: number): Portion
   local starts, lengths, pitches = run.start, run.length, run.pitch
   -- The first note that can sound at `from`.
   local lo, hi = 1, run.n + 1
@@ -469,14 +469,14 @@ local function lower(
   return n
 end
 
---- The parts of one stretch of time, or of stretches side by side, as
---- one part: the weights add up, and the lowest pitch over time is the
---- lowest of theirs. One part that sounds gives that part.
-function M.merge(parts: {Part}): Part
-  local first: Part
+--- The portions of one stretch of time, or of stretches side by side, as
+--- one portion: the weights add up, and the lowest pitch over time is the
+--- lowest of theirs. One portion that sounds gives that portion.
+function M.merge(portions: {Portion}): Portion
+  local first: Portion
   local more = false
-  for i_q = 1, #parts do
-    local q = parts[i_q]
+  for i_q = 1, #portions do
+    local q = portions[i_q]
     if q[TOTAL] > 0 then
       if first then
         more = true
@@ -495,8 +495,8 @@ function M.merge(parts: {Part}): Part
   local p = work
   local cur, cur_i, cur_n = first, PIECES, #first + 1
   local into = scratch_a
-  for i_q = 1, #parts do
-    local q = parts[i_q]
+  for i_q = 1, #portions do
+    local q = portions[i_q]
     if q[TOTAL] > 0 then
       for k = 1, 12 do
         p[k] = p[k] + q[k]
@@ -523,7 +523,7 @@ end
 --- The weights of a part with the bass's share, the bass, the total, and
 --- what the bass was read from (nil in silence). `span` is how long the
 --- stretch is.
-local function weights_of(p: Part, span: number): Weights, integer, number, Bass
+local function weights_of(p: Portion, span: number): Weights, integer, number, Bass
   local w: Weights = {}
   for pc = 0, 11 do
     w[pc] = p[pc + 1]
@@ -672,7 +672,7 @@ end
 --- from `at`, `length` beats long, with windows of `step` beats. `beat`
 --- gives the part of the window's whole beat, when the window needs it.
 --- `old`, a window that no one reads any more, gives its lists to the new one.
-function M.finish(p: Part, at: number, length: number, step: number, beat: BeatOf, old?: Window): Window
+function M.finish(p: Portion, at: number, length: number, step: number, beat: BeatOf, old?: Window): Window
   local w, bass, total, low = weights_of(p, length)
   local win: Window = {at = at, length = length, total = total, bass = low}
   -- One pitch alone is no chord: it is weighed with the rest of its beat
@@ -870,7 +870,11 @@ function M.chords(notes: {Note}, opts?: ChordOptions): {Chord}
     local beat = math.floor(at + 1e-9)
     local length = math.min(step, to - at)
     windows[#windows + 1] = M.finish(
-      M.part(run, 0, at, at + length), at, length, step, function(): Part return M.part(run, 0, beat, beat + 1) end
+      M.portion(run, 0, at, at + length),
+      at,
+      length,
+      step,
+      function(): Portion return M.portion(run, 0, beat, beat + 1) end
     )
     at = at + step
   end

@@ -1,13 +1,12 @@
 ---
 source: crates/paw-core/src/session/folder.rs
-assertion_line: 2051
 expression: "crate::golden::folder_text(dir.path())"
 ---
 == .gitattributes (23 bytes)
 *.midi2 diff=paw-midi2
 == master/devices.json (3 bytes)
 []
-== master/track.json (216 bytes)
+== master/part.json (216 bytes)
 {
   "armed": false,
   "clips": [],
@@ -27,34 +26,7 @@ expression: "crate::golden::folder_text(dir.path())"
 {
   "composer": "paw"
 }
-== project.toml (248 bytes)
-name = "untitled"
-sig_den = 4
-sig_num = 4
-tempo = 112.0
-tracks = [
-    "Lead",
-    "Reverb",
-]
-version = 2
-
-[transport]
-loop_enabled = false
-loop_end = 16.0
-loop_start = 0.0
-metronome = false
-punch_enabled = false
-punch_end = 0.0
-punch_start = 0.0
-== screen.json (56 bytes)
-{
-  "tabs": [
-    {
-      "view": "arrange"
-    }
-  ]
-}
-== tracks/Lead/automation/volume.json (237 bytes)
+== parts/Lead/automation/volume.json (237 bytes)
 {
   "enabled": true,
   "id": 31,
@@ -80,7 +52,7 @@ punch_start = 0.0
     "kind": "volume"
   }
 }
-== tracks/Lead/clips/melody.midi2 (440 bytes)
+== parts/Lead/clips/melody.midi2 (440 bytes)
 # 16 notes, 0 controller moves, 16 beats
          0  note A4    69  len 0.75  vel 83
          1  note C5    72  len 0.75  vel 96
@@ -98,7 +70,7 @@ punch_start = 0.0
         13  note D5    74  len 0.75  vel 102
         14  note C5    72  len 0.75  vel 115
         15  note B4    71  len 1  vel 78
-== tracks/Lead/devices.json (148 bytes)
+== parts/Lead/devices.json (148 bytes)
 [
   {
     "bypass": false,
@@ -111,13 +83,13 @@ punch_start = 0.0
     }
   }
 ]
-== tracks/Lead/track.json (556 bytes)
+== parts/Lead/part.json (555 bytes)
 {
   "armed": false,
   "clips": [
     {
       "content": {
-        "file": "tracks/Lead/clips/melody.midi2",
+        "file": "parts/Lead/clips/melody.midi2",
         "kind": "midi"
       },
       "id": 30,
@@ -148,7 +120,7 @@ punch_start = 0.0
   "solo": false,
   "volume": -6.0
 }
-== tracks/Reverb/devices.json (181 bytes)
+== parts/Reverb/devices.json (181 bytes)
 [
   {
     "bypass": false,
@@ -162,7 +134,7 @@ punch_start = 0.0
     }
   }
 ]
-== tracks/Reverb/track.json (217 bytes)
+== parts/Reverb/part.json (217 bytes)
 {
   "armed": false,
   "clips": [],
@@ -177,4 +149,31 @@ punch_start = 0.0
   "sends": [],
   "solo": false,
   "volume": 0.0
+}
+== project.toml (247 bytes)
+name = "untitled"
+parts = [
+    "Lead",
+    "Reverb",
+]
+sig_den = 4
+sig_num = 4
+tempo = 112.0
+version = 2
+
+[transport]
+loop_enabled = false
+loop_end = 16.0
+loop_start = 0.0
+metronome = false
+punch_enabled = false
+punch_end = 0.0
+punch_start = 0.0
+== screen.json (56 bytes)
+{
+  "tabs": [
+    {
+      "view": "arrange"
+    }
+  ]
 }

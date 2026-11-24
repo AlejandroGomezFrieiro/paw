@@ -12,13 +12,13 @@ and [Media files and audio clips](../reference/media.md).
 
 A project kept in one file is hard to merge, because version control sees
 one large file that changes at each save, so two people who change two
-different tracks change the same file, and a merge must take that file
+different parts change the same file, and a merge must take that file
 apart.
 
 paw keeps a project as a folder. The settings that you can edit by hand,
-e.g., the tempo, the meter and the order of the tracks, are in
-`project.toml`. Each track has a folder of its own with the name of the
-track. In the folder, `track.json` holds the track and its clips,
+e.g., the tempo, the meter and the order of the parts, are in
+`project.toml`. Each part has a folder of its own with the name of the
+part. In the folder, `part.json` holds the part and its clips,
 `devices.json` holds the chain, and each clip has a file of its own.
 
 Each file has a name that a person can read, with the usual extension,
@@ -27,11 +27,11 @@ own, so other programs and the tools of the shell can read each file.
 
 The rule is that each part that can be a file is a file, as long as a save
 and an open stay fast. One change then changes one or two small files, so a
-`git diff` shows what changed in which track, and a merge of two changes to
-two tracks needs no help.
+`git diff` shows what changed in which part, and a merge of two changes to
+two parts needs no help.
 
-A track folder has the name of the track, and it gets the new name when you
-rename the track. A clip file has the name of the clip. Version control
+A part folder has the name of the part, and it gets the new name when you
+rename the part. A clip file has the name of the clip. Version control
 then shows a rename as a rename, because the bytes of the files do not
 change.
 
@@ -77,18 +77,18 @@ complete.
 
 Before a save changes `project.toml`, paw keeps the old one as
 `project.toml.bak`. If another program damages `project.toml`, the `.bak`
-and the track folders still hold the project, and `:recover` opens them.
+and the part folders still hold the project, and `:recover` opens them.
 
 ## paw never deletes your files
 
 A save does not delete a file that the project no longer uses. Instead, it
 moves the file to the `unused` folder of the project, at the same path. For
-example, a clip that you removed is in `unused/tracks/<track>/clips`. paw
+example, a clip that you removed is in `unused/parts/<part>/clips`. paw
 never empties `unused`, so you decide when to delete it.
 
 When a file has the same bytes as a file that the save needs at another
 path, paw moves the file there, which is what happens when you rename a
-track.
+part.
 
 ## Repeats share one file
 
@@ -100,12 +100,12 @@ of the two clips, it gets a file of its own at the next save.
 
 A clip or a sound file can come from a file outside the project folder,
 e.g., a library of loops. The project names the file and keeps no copy, so
-many projects can use one library. A whole track can also come from
-outside, from the track folder of another project, and a chain of devices
+many projects can use one library. A whole part can also come from
+outside, from the part folder of another project, and a chain of devices
 can come from a `devices.json`. You can make a sound one time and use it in
 many songs.
 
-The first edit of such a clip, track or chain makes a copy that belongs to
+The first edit of such a clip, part or chain makes a copy that belongs to
 the project. paw tells you about the copy one time on the message line, and
 the copy remembers the file that it came from. An undo of the edit returns
 to the file outside. `:collect` copies every file from outside into the

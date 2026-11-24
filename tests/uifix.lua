@@ -22,14 +22,14 @@ end
 
 test("focus only ever goes to a view that is drawn", function()
   fresh()
-  paw.add_track({ name = "Lead" })
+  paw.add_part({ name = "Lead" })
   for _, line in ipairs({
-    "e paw://tracks",
+    "e paw://parts",
     "view.focus arrange",
     "bprevious",
     "view.focus mixer",
     "view.focus arrange",
-    "e paw://tracks",
+    "e paw://parts",
     "view.focus mixer",
     "bnext",
     "view.only",
@@ -47,7 +47,7 @@ test("focus only ever goes to a view that is drawn", function()
     "wincmd w",
     "close",
     "only",
-    "e paw://tracks",
+    "e paw://parts",
     "split",
     "view.focus mixer",
     "view.focus devices",
@@ -171,60 +171,57 @@ test("in insert mode a message goes beside the key line instead of hiding it", f
   eq(rows[#rows]:find("a message long", 1, true), nil, "gone with the message")
 end)
 
-test("the arrange view draws a volume curve only on the track the cursor is on", function()
+test("the arrange view draws a volume curve only on the part the cursor is on", function()
   fresh()
-  local pad = paw.add_track({ name = "Pad" })
-  local lead = paw.add_track({ name = "Lead" })
+  local pad = paw.add_part({ name = "Pad" })
+  local lead = paw.add_part({ name = "Lead" })
   lead:add_clip({ start = 0, length = 2, name = "tune", notes = { { pitch = 60, start = 0, length = 1 } } })
   pad:automate("volume"):set_points({ { beat = 0, value = -12 }, { beat = 8, value = 0 } })
-  paw.cursor.set_track(lead)
+  paw.cursor.set_part(lead)
   paw.ui.focus("arrange")
   local braille = "[\240][\159][\172-\175]"
-  eq(screen():find(braille) == nil, true, "no curve on a track the cursor is not on")
-  paw.cursor.set_track(pad)
-  eq(screen():find(braille) ~= nil, true, "the curve of the track the cursor is on")
+  eq(screen():find(braille) == nil, true, "no curve on a part the cursor is not on")
+  paw.cursor.set_part(pad)
+  eq(screen():find(braille) ~= nil, true, "the curve of the part the cursor is on")
 end)
 
-test(
-  "dd on a track names it in the removal of its devices, and the clips above draw their notes as they are",
-  function()
-    fresh()
-    local lead = paw.add_track({ name = "Lead" })
-    local pad = paw.add_track({ name = "Pad" })
-    local tune =
-      lead:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1 } } })
-    pad:add_device("synth")
-    paw.flush()
-    api.undo_checkpoint()
-    paw.cursor.set_track(lead)
-    paw.ui.focus("arrange")
-    -- The rows under the clip's name: its small piano roll.
-    local function roll()
-      local lines = api.ui_snapshot(160, 48)
-      for i, line in ipairs(lines) do
-        if line:find("tune", 1, true) then return table.concat(lines, "\n", i + 1, i + 2) end
-      end
+test("dd on a part names it in the removal of its devices, and the clips above draw their notes as they are", function()
+  fresh()
+  local lead = paw.add_part({ name = "Lead" })
+  local pad = paw.add_part({ name = "Pad" })
+  local tune =
+    lead:add_clip({ start = 0, length = 4, name = "tune", notes = { { pitch = 60, start = 0, length = 1 } } })
+  pad:add_device("synth")
+  paw.flush()
+  api.undo_checkpoint()
+  paw.cursor.set_part(lead)
+  paw.ui.focus("arrange")
+  -- The rows under the clip's name: its small piano roll.
+  local function roll()
+    local lines = api.ui_snapshot(160, 48)
+    for i, line in ipairs(lines) do
+      if line:find("tune", 1, true) then return table.concat(lines, "\n", i + 1, i + 2) end
     end
-    local before = roll()
-    local tracks = {}
-    local off = paw.on("device.removed", function(e) tracks[#tracks + 1] = e.track end)
-    paw.keymap.feed("<Esc>jdd")
-    paw.flush()
-    paw.off(off)
-    eq(#api.track_list(), 1, "the track the cursor was on is gone")
-    eq(table.concat(tracks, " "), tostring(pad.id), "the device's track is named")
-    paw.keymap.feed("u")
-    paw.flush()
-    eq(roll(), before, "the track back: the roll as it was")
-    -- The clip's notes change: its small roll draws them, not what was kept.
-    api.clip_set_notes(tune.id, { { pitch = 60, start = 2, length = 1 } })
-    paw.flush()
-    eq(roll() ~= before, true, "the moved note is drawn where it is now")
-    paw.keymap.feed("u")
-    paw.flush()
-    eq(roll(), before, "and back")
   end
-)
+  local before = roll()
+  local parts = {}
+  local off = paw.on("device.removed", function(e) parts[#parts + 1] = e.part end)
+  paw.keymap.feed("<Esc>jdd")
+  paw.flush()
+  paw.off(off)
+  eq(#api.part_list(), 1, "the part the cursor was on is gone")
+  eq(table.concat(parts, " "), tostring(pad.id), "the device's part is named")
+  paw.keymap.feed("u")
+  paw.flush()
+  eq(roll(), before, "the part back: the roll as it was")
+  -- The clip's notes change: its small roll draws them, not what was kept.
+  api.clip_set_notes(tune.id, { { pitch = 60, start = 2, length = 1 } })
+  paw.flush()
+  eq(roll() ~= before, true, "the moved note is drawn where it is now")
+  paw.keymap.feed("u")
+  paw.flush()
+  eq(roll(), before, "and back")
+end)
 
 test(
   "a picker's pane stops saying it is off the moment hearing is turned on, and marks what plays with a note",
@@ -261,8 +258,8 @@ test(
 
 test("the mixer's scale and every strip's fader cap agree, whatever the strip holds", function()
   fresh()
-  local plain = paw.add_track({ name = "Plain" })
-  local with_fx = paw.add_track({ name = "Fx" })
+  local plain = paw.add_part({ name = "Plain" })
+  local with_fx = paw.add_part({ name = "Fx" })
   with_fx:add_device("synth")
   with_fx.volume = -6
   plain.volume = 0
@@ -276,12 +273,12 @@ test("the mixer's scale and every strip's fader cap agree, whatever the strip ho
     if line:find("^%s*0%s") and line:find("━━━", 1, true) then zero = line end
     if line:find("^%s*%-6%s") and line:find("━━━", 1, true) then minus6 = line end
   end
-  eq(zero ~= nil and caps(zero), 2, "the 0 dB caps (the plain track, the master) are on the row the scale calls 0")
+  eq(zero ~= nil and caps(zero), 2, "the 0 dB caps (the plain part, the master) are on the row the scale calls 0")
   eq(minus6 ~= nil and caps(minus6), 1, "the -6 dB cap is on the row the scale calls -6")
   -- The cursor's row is lit across the strip, in a colour of its own.
   local theme = require("paw.theme").groups
   eq(
-    theme.CursorLine.bg ~= theme.Selected.bg and theme.CursorLine.bg ~= theme.TrackHeaderSel.bg,
+    theme.CursorLine.bg ~= theme.Selected.bg and theme.CursorLine.bg ~= theme.PartHeaderSel.bg,
     true,
     "brighter than the selected strip it is on"
   )
@@ -292,8 +289,8 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
   fresh()
   if not package.loaded["notation.keys"] then paw.ext.load("extensions/notation") end
   local view = require("notation")
-  local lead = paw.add_track({ name = "Lead" })
-  local drums = paw.add_track({ name = "Drums" })
+  local lead = paw.add_part({ name = "Lead" })
+  local drums = paw.add_part({ name = "Drums" })
   local melody = lead:add_clip({
     start = 0,
     length = 4,
@@ -303,7 +300,7 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
   drums:add_clip({ start = 0, length = 4, name = "beat", notes = { { pitch = 36, start = 0, length = 1 } } })
   paw.flush()
   local path = T.scratch .. "/uifix-export.pdf"
-  paw.cursor.set_track(lead)
+  paw.cursor.set_part(lead)
   paw.cursor.set_beat(1)
   paw.commands.exec("notation.export " .. path)
   eq(last_message(), "wrote 'melody' (Lead) to " .. path .. ", 1 page", "the clip under the arrange cursor")
@@ -317,7 +314,7 @@ test(":notation.export takes the focused notation view's clip, else the arrange 
     "a short score does not leave the page's empty foot: " .. table.concat(box, " ")
   )
   os.remove(path)
-  paw.cursor.set_track(drums)
+  paw.cursor.set_part(drums)
   paw.commands.exec("notation.export " .. T.scratch .. "/uifix-export.musicxml")
   eq(last_message():find("'beat' (Drums)", 1, true) ~= nil, true, last_message())
   view:edit(melody)

@@ -169,7 +169,7 @@ These are lenses for a review, not numbers to report.
 - **Hard conditions.** Many `and` and `or` in one condition, mixed
   negation, the same part twice, concerns that are not related in one
   condition.
-- **Combinations.** Modes, selections, options, kinds of track, states of
+- **Combinations.** Modes, selections, options, kinds of part, states of
   the transport: which combinations change the result, the effect or the
   error?
 - **Untested branches.** The `else`, the default, the error, the empty

@@ -42,7 +42,7 @@ output level, and each field and helper is in
    return dev
    ```
 
-2. Select a track and type `:device.add lua:tilt`. The device panel shows
+2. Select a part and type `:device.add lua:tilt`. The device panel shows
    Tilt with its two parameters.
 3. Play the song and change `tilt` with `+` and `-` in the device panel.
 4. To change the code, edit the file and save it. paw loads it again

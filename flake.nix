@@ -414,6 +414,23 @@
         touch $out
       '';
 
+      # tools/partlint.lua: no name, message, comment or page calls the
+      # container a track, outside tools/partlint-allowed.txt, which gives
+      # the reason of each other sense of the word.
+      partLint = pkgs: pkgs.runCommand "paw-partlint" {
+        src = nixpkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = nixpkgs.lib.fileset.unions [
+            ./README.md ./AGENTS.md ./CLAUDE.md ./.claude ./bench ./config ./crates ./docs ./examples
+            ./extensions ./fuzz ./runtime ./tests ./tools ./web
+          ];
+        };
+        nativeBuildInputs = [ pkgs.luajit pkgs.findutils ];
+      } ''
+        cd $src && luajit tools/partlint.lua
+        touch $out
+      '';
+
       # tools/chaindeps.lua: no crate of the chain language (crates/chain-*:
       # chain-syntax and chain-lsp) depends on a crate of paw, so the
       # language and its server stay generic. It reads the manifests as text.
@@ -493,7 +510,7 @@
       # luacheck on the Lua, how much the formatters would change, and the
       # check against tests that depend on time, the order of layers in
       # the runtime, and the chain crates that depend on no paw crate.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

@@ -5,29 +5,29 @@ use document::ClipField;
 
 impl Session {
     pub(crate) fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
-        if let Some((track, index)) = self.doc.project.find_cue_clip(id) {
-            let mut view = clip_json(&self.doc.project.track(track).unwrap().cues[index], track, self.files_there.after(self.doc.changes(), self.now));
+        if let Some((part, index)) = self.doc.project.find_cue_clip(id) {
+            let mut view = clip_json(&self.doc.project.part(part).unwrap().cues[index], part, self.files_there.after(self.doc.changes(), self.now));
             view.cue = Some(true);
             return Ok(view);
         }
-        let (track, _) = self
+        let (part, _) = self
             .doc.project
             .find_clip(id)
             .with_context(|| format!("no clip {id}"))?;
         let clip = self.doc.project.clip(id).unwrap();
-        let mut view = clip_json(clip, track, self.files_there.after(self.doc.changes(), self.now));
+        let mut view = clip_json(clip, part, self.files_there.after(self.doc.changes(), self.now));
         self.note_stretching(clip, &mut view);
         view.link_count = clip.link.as_deref().map(|name| self.doc.project.link_count(name));
         Ok(view)
     }
 
-    /// The clips on a track that overlap `span` (`from`, `to` in beats; all
+    /// The clips on a part that overlap `span` (`from`, `to` in beats; all
     /// of them with `None`), in timeline order, without their notes.
-    pub(crate) fn clip_list_in(&self, track: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
+    pub(crate) fn clip_list_in(&self, part: Id, span: Option<(f64, f64)>) -> Result<Vec<ClipView<'_>>> {
         let t = self
             .doc.project
-            .track(track)
-            .with_context(|| format!("no track {track}"))?;
+            .part(part)
+            .with_context(|| format!("no part {part}"))?;
         let mut clips: Vec<&Arc<Clip>> = t
             .clips
             .iter()
@@ -37,23 +37,23 @@ impl Session {
         Ok(clips
             .into_iter()
             .map(|c| {
-                let mut view = clip_json(c, track, self.files_there.after(self.doc.changes(), self.now));
+                let mut view = clip_json(c, part, self.files_there.after(self.doc.changes(), self.now));
                 self.note_stretching(c, &mut view);
                 view
             })
             .collect())
     }
 
-    /// Add a clip to `track` ([`Document::clip_add`]). A `.midi2` clip
+    /// Add a clip to `part` ([`Document::clip_add`]). A `.midi2` clip
     /// file in `opts`, and the sound file of an audio clip, are read here.
-    pub(crate) fn clip_add(&mut self, track: Id, mut opts: ClipOpts) -> Result<Id> {
+    pub(crate) fn clip_add(&mut self, part: Id, mut opts: ClipOpts) -> Result<Id> {
         // The master refuses a clip before its file is read.
-        document::check_clip_track(track)?;
+        document::check_clip_part(part)?;
         let source = Self::read_midi_source(&mut opts)?;
         // The clip keeps its sound file by the whole path.
         opts.file = opts.file.map(|file| std::path::absolute(&file).unwrap_or(file));
         let audio = &mut self.audio;
-        self.doc.clip_add(track, opts, source, |file| Ok(audio.load(file)?.seconds()))
+        self.doc.clip_add(part, opts, source, |file| Ok(audio.load(file)?.seconds()))
     }
 
     /// A MIDI clip file: a MIDI clip that refers to it, as long as it is
@@ -159,8 +159,8 @@ impl Session {
         );
         let quick = plain
             .then(|| {
-                let (track, index) = self.doc.project.find_clip(id)?;
-                self.doc.project.track(track)?.clips.get(index)
+                let (part, index) = self.doc.project.find_clip(id)?;
+                self.doc.project.part(part)?.clips.get(index)
             })
             .flatten();
         let held = match quick {

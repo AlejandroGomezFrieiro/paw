@@ -347,7 +347,7 @@ mod tests {
             on: BOLD,
             off: 0,
         };
-        grid.text(clip, 0, 0, "tracks", plain);
+        grid.text(clip, 0, 0, "parts", plain);
         grid.text(clip, 2, 1, "音楽 ok", loud);
         grid.fill(
             clip,

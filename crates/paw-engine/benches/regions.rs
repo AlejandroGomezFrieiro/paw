@@ -1,4 +1,4 @@
-//! What a block costs with many audio regions in one part against a few:
+//! What a block costs with many audio regions in one piece against a few:
 //! the same two regions sound under the playhead either way.
 //!
 //! `cargo bench -p paw-engine --bench regions -- <regions> [backward]`
@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use paw_engine::{
-    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, Part, SchedEntry, Schedule,
-    TrackRt, TrackSlot,
+    AudioData, AudioRegion, ClipSet, Engine, EngineHandle, Msg, Piece, SchedEntry, Schedule,
+    PartRt, PartSlot,
 };
 
 const SR: f64 = 48000.0;
@@ -58,15 +58,15 @@ fn main() {
         // In the order a long glue of slices is laid out in: not sorted.
         .rev()
         .collect();
-    let set = ClipSet::default().with_parts(vec![Part::new(1, 1, Arc::from([]), regions)], 4);
+    let set = ClipSet::default().with_pieces(vec![Piece::new(1, 1, Arc::from([]), regions)], 4);
     let (mut engine, mut handle) = Engine::new(SR);
     for msg in [
-        Msg::InsertTrack { slot: TrackSlot(1), track: TrackRt::new() },
-        Msg::SetClips { track: TrackSlot(1), clips: Box::new(set) },
+        Msg::InsertPart { slot: PartSlot(1), part: PartRt::new() },
+        Msg::SetClips { part: PartSlot(1), clips: Box::new(set) },
         Msg::SetSchedule(Box::new(Schedule::new(
             vec![
-                SchedEntry::new(TrackSlot(1), TrackSlot::MASTER),
-                SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                SchedEntry::new(PartSlot(1), PartSlot::MASTER),
+                SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
             ],
             0,
         ))),

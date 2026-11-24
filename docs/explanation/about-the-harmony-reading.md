@@ -56,13 +56,13 @@ changed:
 1. It keeps the notes of each clip with the stamp of the clip, and the
    stamp changes when the notes change. Copies of a clip with the same
    notes share one part.
-2. It keeps what each track sounds in each window, and what each track
+2. It keeps what each part sounds in each window, and what each part
    sounds in each bar. A window of the song adds up the parts of the
-   tracks.
+   parts.
 3. After an edit, it looks only at what the edit changed. A note edit
    reads its clip again and the windows that the clip covers. A mute of a
-   track takes the parts of that track out of the sums, and the parts of
-   the other tracks stay as they are. A change that does not change the
+   part takes the parts of that part out of the sums, and the parts of
+   the other parts stay as they are. A change that does not change the
    notes, e.g., a volume, a device or a selection, reads nothing.
 
 The choice of chords and keys over the windows is quick, so the reading

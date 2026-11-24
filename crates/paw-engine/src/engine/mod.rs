@@ -18,7 +18,7 @@ mod rest;
 mod schedule;
 mod shared;
 mod stats;
-mod track;
+mod part;
 mod work;
 
 use std::sync::Arc;
@@ -32,7 +32,7 @@ use crate::midi_out::MidiOut;
 use crate::pool::Pool;
 use crate::preview::Preview;
 use crate::record::{MidiCapture, Take};
-use crate::slot::{DeviceSlot, TrackSlot};
+use crate::slot::{DeviceSlot, PartSlot};
 
 use clock::PlayHead;
 
@@ -43,7 +43,7 @@ pub use rest::Waker;
 pub use schedule::{SchedEntry, Schedule};
 pub use shared::Shared;
 pub use stats::{BLOCK_BUCKETS, BLOCK_STATS_FLOOR_NS, BlockStats, BlockSummary};
-pub use track::{Delay, KeyRt, MAX_DELAY, OutRt, SendRt, TrackRt};
+pub use part::{Delay, KeyRt, MAX_DELAY, OutRt, SendRt, PartRt};
 
 pub(crate) use regions::mix_audio_constant;
 
@@ -55,7 +55,7 @@ use rest::Rest;
 
 /// Largest block handed to devices. Longer callbacks are split.
 pub const MAX_BLOCK: usize = 1024;
-pub const MAX_TRACKS: usize = 1024;
+pub const MAX_PARTS: usize = 1024;
 pub const MAX_DEVICES: usize = 8192;
 /// Input channels beyond this many are ignored.
 pub const MAX_INPUTS: usize = 32;
@@ -69,14 +69,14 @@ const PLAN_FADE_SECONDS: f64 = 0.005;
 
 pub struct Engine {
     sample_rate: f64,
-    tracks: Vec<Guarded<Option<Box<TrackRt>>>>,
+    parts: Vec<Guarded<Option<Box<PartRt>>>>,
     devices: Vec<Guarded<Option<DeviceRt>>>,
     pool: Option<Box<Pool>>,
     schedule: Option<Box<Schedule>>,
     rx: Consumer<Msg>,
     garbage: Producer<Garbage>,
     shared: Arc<Shared>,
-    /// Taken out while a block is processed, so that the tracks can read
+    /// Taken out while a block is processed, so that the parts can read
     /// it while the engine is borrowed; always there between blocks.
     map: Option<Box<TempoMap>>,
     playing: bool,
@@ -104,7 +104,7 @@ pub struct Engine {
     reapply: bool,
     /// The song starts to play: state lanes give their states again.
     restate: bool,
-    /// Some track has a state lane: blocks end on its points.
+    /// Some part has a state lane: blocks end on its points.
     has_states: bool,
     /// The devices hold their lanes' states already (see [`Msg::StatesHeld`]).
     states_held: bool,
@@ -115,11 +115,11 @@ pub struct Engine {
     input_count: usize,
     take: Option<Box<Take>>,
     midi_rx: Consumer<(u32, EventKind)>,
-    /// The controls of MIDI input that tracks do not get.
+    /// The controls of MIDI input that parts do not get.
     midi_filter: Box<MidiFilter>,
     /// A count-in under way, or whose last clicks are still to be heard.
     count: Option<Count>,
-    /// Where tracks' MIDI output goes, when something sends it on.
+    /// Where parts' MIDI output goes, when something sends it on.
     midi_out: Option<Box<Producer<MidiOut>>>,
     /// Where a copy of the output goes, while someone listens elsewhere.
     monitor: Option<Box<Producer<f32>>>,
@@ -127,7 +127,7 @@ pub struct Engine {
     ///
     /// [`midi_out::clock_ns`]: crate::midi_out::clock_ns
     heard_ns: u64,
-    /// Some track has a launch queued.
+    /// Some part has a launch queued.
     launching: bool,
     /// The sound file being heard on its own, and the one before it while
     /// it fades out.
@@ -142,7 +142,7 @@ pub struct Engine {
     quality: crate::Quality,
     /// How near the engine is to rest, or whether it rests.
     rest: Rest,
-    /// Some track hears an audio input: the engine does not rest.
+    /// Some part hears an audio input: the engine does not rest.
     listening: bool,
     /// Woken from outside the message queue (a plugin asked for a block):
     /// the next callback does not rest.
@@ -159,14 +159,14 @@ impl Engine {
         let (garbage_tx, garbage_rx) = RingBuffer::new(GARBAGE_CAPACITY);
         let (midi_tx, midi_rx) = RingBuffer::new(MIDI_IN_CAPACITY);
         let shared = Arc::new(Shared::new());
-        let mut tracks: Vec<Guarded<Option<Box<TrackRt>>>> =
-            (0..MAX_TRACKS).map(|_| Guarded::new(None)).collect();
-        *tracks[TrackSlot::MASTER.index()].get_mut() = Some(TrackRt::new());
-        let schedule = Schedule::new(vec![SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE)], 0);
+        let mut parts: Vec<Guarded<Option<Box<PartRt>>>> =
+            (0..MAX_PARTS).map(|_| Guarded::new(None)).collect();
+        *parts[PartSlot::MASTER.index()].get_mut() = Some(PartRt::new());
+        let schedule = Schedule::new(vec![SchedEntry::new(PartSlot::MASTER, PartSlot::NONE)], 0);
         let waker = Waker::default();
         let engine = Engine {
             sample_rate,
-            tracks,
+            parts,
             devices: (0..MAX_DEVICES).map(|_| Guarded::new(None)).collect(),
             pool: None,
             schedule: Some(Box::new(schedule)),
@@ -233,7 +233,7 @@ impl Engine {
         &self.shared
     }
 
-    /// Process tracks on the threads of a pool as well as on the calling
+    /// Process parts on the threads of a pool as well as on the calling
     /// thread, or with `None` on the calling thread alone. For an engine not
     /// yet handed to an audio thread; one that has been takes [`Msg::SetPool`].
     pub fn set_pool(&mut self, pool: Option<Box<Pool>>) -> Option<Box<Pool>> {
@@ -250,7 +250,7 @@ impl Engine {
     }
 
     /// Say that the engine renders to a file, as fast as it can, rather
-    /// than live: then tracks are shared between threads whenever that is
+    /// than live: then parts are shared between threads whenever that is
     /// faster, where live they are only when one thread would take a good
     /// part of the time a block has, and the other threads' time is saved.
     pub fn set_offline(&mut self, offline: bool) {
@@ -294,7 +294,7 @@ impl Engine {
         let Some(map) = self.map.take() else {
             return;
         };
-        for t in self.tracks.iter_mut() {
+        for t in self.parts.iter_mut() {
             if let Some(t) = t.get_mut().as_deref_mut() {
                 t.launcher.requantize(&map, beat);
             }
@@ -309,7 +309,7 @@ impl Engine {
         let (mut next, mut any) = (None::<f64>, false);
         for entry in &schedule.entries {
             if let Some(at) = self
-                .tracks
+                .parts
                 .get_mut(entry.slot.index())
                 .and_then(|t| t.get_mut().as_deref())
                 .and_then(|t| t.launcher.queued_at())
@@ -325,9 +325,9 @@ impl Engine {
         next
     }
 
-    /// Deliver a note from MIDI input to every track that takes it, and
+    /// Deliver a note from MIDI input to every part that takes it, and
     /// capture it for the take when recording. A control of the filter
-    /// reaches no track, except the release of a key that a track still
+    /// reaches no part, except the release of a key that a part still
     /// holds (the filter changed while it was down), so that no note hangs.
     fn midi_in(&mut self, port: u32, kind: EventKind) {
         let filtered = self.midi_filter.matches(port, &kind);
@@ -341,7 +341,7 @@ impl Engine {
             .filter(|take| self.playing && take.captures_at(position));
         for entry in &schedule.entries {
             let Some(t) = self
-                .tracks
+                .parts
                 .get_mut(entry.slot.index())
                 .and_then(|t| t.get_mut().as_deref_mut())
             else {
@@ -359,7 +359,7 @@ impl Engine {
             if t.live.len() < t.live.capacity() {
                 t.live.push(kind);
             }
-            // A track that is only monitored plays what comes in, but
+            // A part that is only monitored plays what comes in, but
             // records nothing.
             if let Some(take) = capture.as_deref_mut().filter(|_| t.armed) {
                 take.shared.begin(self.head.beat());
@@ -377,7 +377,7 @@ impl Engine {
     /// Copy `n` frames of input, starting at frame `at`, out of an interleaved buffer.
     ///
     /// Each channel's level is metered here, whatever takes it, so that a
-    /// signal can be seen arriving before a track is armed or monitored.
+    /// signal can be seen arriving before a part is armed or monitored.
     fn load_input(&mut self, input: &[f32], channels: usize, at: usize, n: usize) {
         self.input_count = channels.min(MAX_INPUTS);
         let fall = (-(n as f32) / (self.sample_rate as f32 * METER_FALL_SECONDS)).exp();
@@ -399,7 +399,7 @@ impl Engine {
         }
     }
 
-    /// Copy this block's input into the take, for every track it records.
+    /// Copy this block's input into the take, for every part it records.
     fn capture(&mut self, n: usize, start: f64) {
         let Self {
             take,
@@ -434,29 +434,29 @@ impl Engine {
         }
     }
 
-    fn track_mut(&mut self, slot: TrackSlot) -> Option<&mut TrackRt> {
-        self.tracks.get_mut(slot.index())?.get_mut().as_deref_mut()
+    fn part_mut(&mut self, slot: PartSlot) -> Option<&mut PartRt> {
+        self.parts.get_mut(slot.index())?.get_mut().as_deref_mut()
     }
 
     fn device_mut(&mut self, slot: DeviceSlot) -> Option<&mut DeviceRt> {
         self.devices.get_mut(slot.index())?.get_mut().as_mut()
     }
 
-    /// Look again whether any track has a state lane (after its
-    /// automation or the tracks changed): a message, not a block, does this.
+    /// Look again whether any part has a state lane (after its
+    /// automation or the parts changed): a message, not a block, does this.
     fn note_states(&mut self) {
-        self.has_states = self.tracks.iter_mut().any(|t| {
+        self.has_states = self.parts.iter_mut().any(|t| {
             t.get_mut()
                 .as_deref()
                 .is_some_and(|t| t.automation.states.iter().any(|s| !s.points.is_empty()))
         });
     }
 
-    /// The first point of a state lane after `beat`, on any track: a block
+    /// The first point of a state lane after `beat`, on any part: a block
     /// ends there, so that the state changes on the point's own frame.
     fn next_state_point(&self, beat: f64) -> Option<f64> {
         let mut next: Option<f64> = None;
-        for t in self.tracks.iter() {
+        for t in self.parts.iter() {
             let Some(claim) = t.claim() else { continue };
             let Some(t) = claim.as_deref() else { continue };
             for lane in &t.automation.states {
@@ -521,24 +521,24 @@ mod tests {
         }
     }
 
-    /// An engine with one monitored track that takes MIDI input.
-    fn engine() -> (Engine, EngineHandle, TrackSlot) {
+    /// An engine with one monitored part that takes MIDI input.
+    fn engine() -> (Engine, EngineHandle, PartSlot) {
         let (mut engine, mut handle) = Engine::new(48000.0);
-        let slot = TrackSlot(1);
+        let slot = PartSlot(1);
         for msg in [
-            Msg::InsertTrack {
+            Msg::InsertPart {
                 slot,
-                track: TrackRt::new(),
+                part: PartRt::new(),
             },
             Msg::SetSchedule(Box::new(Schedule::new(
                 vec![
-                    SchedEntry::new(slot, TrackSlot::MASTER),
-                    SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                    SchedEntry::new(slot, PartSlot::MASTER),
+                    SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
                 ],
                 0,
             ))),
             Msg::SetInput {
-                track: slot,
+                part: slot,
                 first: 0,
                 channels: 0,
                 monitor: true,
@@ -551,13 +551,13 @@ mod tests {
         (engine, handle, slot)
     }
 
-    fn live(engine: &mut Engine, slot: TrackSlot) -> Vec<EventKind> {
-        let track = engine.tracks[slot.index()].get_mut().as_deref_mut().unwrap();
-        track.live.drain(..).collect()
+    fn live(engine: &mut Engine, slot: PartSlot) -> Vec<EventKind> {
+        let part = engine.parts[slot.index()].get_mut().as_deref_mut().unwrap();
+        part.live.drain(..).collect()
     }
 
     #[test]
-    fn a_control_of_the_filter_reaches_no_track_but_a_held_key_is_released() {
+    fn a_control_of_the_filter_reaches_no_part_but_a_held_key_is_released() {
         let (mut engine, mut handle, slot) = engine();
         engine.midi_in(5, on(60));
         let pad = Rule {
@@ -584,12 +584,12 @@ mod tests {
     }
 
     /// A synth that plays notes into a saturation at 4x with 24 dB of
-    /// drive, on one track.
+    /// drive, on one part.
     fn saturated() -> (Engine, EngineHandle) {
         let (mut engine, mut handle) = Engine::new(48000.0);
         let registry = crate::Registry::with_builtins();
-        let slot = TrackSlot(1);
-        handle.send_while(Msg::InsertTrack { slot, track: TrackRt::new() }, &mut engine);
+        let slot = PartSlot(1);
+        handle.send_while(Msg::InsertPart { slot, part: PartRt::new() }, &mut engine);
         let mut chain = Vec::new();
         for (n, kind) in ["synth", "saturation"].into_iter().enumerate() {
             let device = registry.get(kind).unwrap().create(48000.0, MAX_BLOCK).unwrap().device;
@@ -609,11 +609,11 @@ mod tests {
             Msg::SetGraph { slot: slot.into(), plan: crate::GraphPlan::serial(&chain) },
             Msg::SetParam { device: DeviceSlot(1), param: 0, value: 24.0 },
             Msg::SetParam { device: DeviceSlot(1), param: 2, value: 1.0 },
-            Msg::SetClips { track: slot, clips: Box::new(clips) },
+            Msg::SetClips { part: slot, clips: Box::new(clips) },
             Msg::SetSchedule(Box::new(Schedule::new(
                 vec![
-                    SchedEntry::new(slot, TrackSlot::MASTER),
-                    SchedEntry::new(TrackSlot::MASTER, TrackSlot::NONE),
+                    SchedEntry::new(slot, PartSlot::MASTER),
+                    SchedEntry::new(PartSlot::MASTER, PartSlot::NONE),
                 ],
                 0,
             ))),

@@ -5,7 +5,7 @@ You can change what the status line shows with a few lines in your
 
 1. Open `~/.config/paw/init.lua`.
 2. Add a call to `paw.statusline.setup` with the sections to change.
-   The example puts the track and clip under the cursor in section `b`:
+   The example puts the part and clip under the cursor in section `b`:
 
    ```lua
    paw.statusline.setup({ sections = { b = { "cursor" } } })

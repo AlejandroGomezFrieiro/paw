@@ -51,11 +51,11 @@ function A.toggle_bypass(device: integer)
 end
 
 function A.add_device(kind: string, query?: string): integer
-  return paw.fx.add(assert(paw.cursor.track(), "no track selected"), kind, {query = query}).id
+  return paw.fx.add(assert(paw.cursor.part(), "no part selected"), kind, {query = query}).id
 end
 
---- Move a device one place earlier (-1) or later (1) in its track's chain.
+--- Move a device one place earlier (-1) or later (1) in its part's chain.
 function A.move_device(device: integer, by: integer)
   local d = api.device_get(device)
-  api.device_move(device, d.track, util.clamp(d.index + by, 1, #api.track_get(d.track).devices) as integer)
+  api.device_move(device, d.part, util.clamp(d.index + by, 1, #api.part_get(d.part).devices) as integer)
 end

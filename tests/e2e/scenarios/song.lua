@@ -29,9 +29,9 @@ local function phrase(r, count, beats, low, high)
   return out
 end
 
---- Add a track below track `after` (0: the first track of an empty
+--- Add a part below part `after` (0: the first part of an empty
 --- project), name it, and give it a device.
-local function add_track(E, after, name, device)
+local function add_part(E, after, name, device)
   local keys = after > 0 and E.go(after) or { "<Esc>" }
   for _, k in ipairs({ "o", "grn", "<C-u>" .. name .. "<CR>" }) do
     keys[#keys + 1] = k
@@ -41,17 +41,17 @@ local function add_track(E, after, name, device)
     keys[#keys + 1] = device .. "<CR>"
   end
   E:act({
-    name = "add the track " .. name,
+    name = "add the part " .. name,
     keys = keys,
     apply = function(m)
-      local t = M.new_track(name)
+      local t = M.new_part(name)
       if device then t.devices = { device } end
-      table.insert(m.tracks, after + 1, t)
+      table.insert(m.parts, after + 1, t)
     end,
   })
 end
 
---- Draw a phrase in a new clip of one bar on track `i` at bar `bar`.
+--- Draw a phrase in a new clip of one bar on part `i` at bar `bar`.
 local function draw(E, i, bar, notes, what)
   local keys = E.go(i, bar)
   local draw_keys, model_notes, beats = E.draw(notes)
@@ -60,11 +60,11 @@ local function draw(E, i, bar, notes, what)
   end
   keys[#keys + 1] = "<C-w>p"
   E:act({
-    name = what or ("draw notes on track " .. i .. " at bar " .. bar),
+    name = what or ("draw notes on part " .. i .. " at bar " .. bar),
     keys = keys,
     focus = "arrange",
     apply = function(m)
-      local t = m.tracks[i]
+      local t = m.parts[i]
       local length = math.max(4, math.ceil(beats / 4) * 4)
       t.clips[#t.clips + 1] = { kind = "midi", start = (bar - 1) * 4, length = length, notes = model_notes }
       table.sort(t.clips, function(a, b) return a.start < b.start end)
@@ -74,7 +74,7 @@ local function draw(E, i, bar, notes, what)
 end
 
 local function index_of(m, name)
-  local _, i = M.track(m, name)
+  local _, i = M.part(m, name)
   return i
 end
 
@@ -90,9 +90,9 @@ days[1] = function(E)
     says = tempo .. " bpm",
     apply = function(m) m.tempo = tempo end,
   })
-  add_track(E, 0, "Lead", "synth")
+  add_part(E, 0, "Lead", "synth")
   draw(E, 1, 1, phrase(r, r.int(4, 7), 4, 60, 72), "draw the lead's first bar")
-  add_track(E, 1, "Bass", "synth")
+  add_part(E, 1, "Bass", "synth")
   draw(E, 2, 1, phrase(r, r.int(2, 4), 4, 55, 60), "draw the bass")
   -- A second bar of lead that the user does not like: drawn, then undone.
   local keys = E.go(1, 2)
@@ -128,7 +128,7 @@ days[2] = function(E)
   local lib = E.workdir .. "/library/"
   local file = "bwv269-aus-meines-herzens-grunde.mid"
   local parts = M.read_midi(lib .. file)
-  local below = #E.model.tracks
+  local below = #E.model.parts
   local keys = E.go(below, 3)
   keys[#keys + 1] = ":import " .. lib .. file .. "<CR>"
   E:act({
@@ -138,13 +138,13 @@ days[2] = function(E)
     says = "imported",
     apply = function(m)
       for k, part in ipairs(parts) do
-        local t = M.new_track(part.name)
+        local t = M.new_part(part.name)
         t.clips = M.ANY
         for _, n in ipairs(part.notes) do
           t.notes[#t.notes + 1] = { pitch = n.pitch, start = 8 + n.start, length = n.length, velocity = n.velocity }
         end
         M.sort_notes(t.notes)
-        table.insert(m.tracks, below + k, t)
+        table.insert(m.parts, below + k, t)
       end
     end,
   })
@@ -162,13 +162,13 @@ days[2] = function(E)
       name = "give " .. part.name .. " a synth and the name " .. name,
       keys = keys2,
       apply = function(m)
-        m.tracks[i].devices = { "synth" }
-        m.tracks[i].name = name
+        m.parts[i].devices = { "synth" }
+        m.parts[i].name = name
       end,
     })
   end
-  -- A drum sample on a track of its own, under the cursor's track.
-  local at = r.int(1, #E.model.tracks)
+  -- A drum sample on a part of its own, under the cursor's part.
+  local at = r.int(1, #E.model.parts)
   keys = E.go(at, 1)
   keys[#keys + 1] = ":import " .. lib .. "drum-avk.wav<CR>"
   local seconds = M.wav_seconds(lib .. "drum-avk.wav")
@@ -178,18 +178,18 @@ days[2] = function(E)
     slow = true,
     says = "imported",
     apply = function(m)
-      local t = M.new_track("drum-avk")
+      local t = M.new_part("drum-avk")
       t.clips = { { kind = "audio", start = 0, length = seconds * m.tempo / 60, file = "drum-avk.wav" } }
-      table.insert(m.tracks, at + 1, t)
+      table.insert(m.parts, at + 1, t)
     end,
   })
-  -- Colors for two tracks.
+  -- Colors for two parts.
   for _ = 1, 2 do
-    local i, color = r.int(1, #E.model.tracks), r.pick(COLORS)
+    local i, color = r.int(1, #E.model.parts), r.pick(COLORS)
     keys = E.go(i)
     keys[#keys + 1] = "grC"
     keys[#keys + 1] = color .. "<CR>"
-    E:act({ name = "color track " .. i, keys = keys, apply = function(m) m.tracks[i].color = color end })
+    E:act({ name = "color part " .. i, keys = keys, apply = function(m) m.parts[i].color = color end })
   end
   -- The lead's bar again after it.
   local lead = index_of(E.model, "Lead")
@@ -199,7 +199,7 @@ days[2] = function(E)
     name = "repeat the lead's first bar",
     keys = keys,
     apply = function(m)
-      local t = m.tracks[lead]
+      local t = m.parts[lead]
       local c = t.clips[1]
       t.clips[#t.clips + 1] = { kind = "midi", start = c.start + c.length, length = c.length, notes = M.copy(c.notes) }
       M.renote(t)
@@ -213,38 +213,38 @@ days[2] = function(E)
   E:act({ name = "delete the bass clip by mistake, and undo", keys = keys })
   -- Levels by ear.
   for _ = 1, r.int(2, 3) do
-    local i, db, up = r.int(1, #E.model.tracks), r.int(1, 6), r.chance(0.3)
+    local i, db, up = r.int(1, #E.model.parts), r.int(1, 6), r.chance(0.3)
     keys = E.go(i)
     keys[#keys + 1] = db .. (up and "+" or "-")
     E:act({
-      name = (up and "raise" or "lower") .. " track " .. i .. " by " .. db .. " dB",
+      name = (up and "raise" or "lower") .. " part " .. i .. " by " .. db .. " dB",
       keys = keys,
       apply = function(m)
         -- The fader goes from -60 to +6 dB (docs/reference/mixer-view.md).
-        local v = m.tracks[i].volume + (up and db or -db)
-        m.tracks[i].volume = math.max(-60, math.min(6, v))
+        local v = m.parts[i].volume + (up and db or -db)
+        m.parts[i].volume = math.max(-60, math.min(6, v))
       end,
     })
   end
 end
 
--- Day 3: the mix and a first export. A reverb track with sends, pan and
+-- Day 3: the mix and a first export. A reverb part with sends, pan and
 -- levels typed in the mixer, a faster tempo, a marker, a WAV and a MIDI file.
 days[3] = function(E)
   M = E.Model
   local r = E.rng
-  local last = #E.model.tracks
-  add_track(E, last, "Verb", "reverb")
+  local last = #E.model.parts
+  add_part(E, last, "Verb", "reverb")
   local lead = index_of(E.model, "Lead")
   for _, i in ipairs({ lead, index_of(E.model, "Bass") }) do
     local level = -r.int(6, 18)
     local keys = E.go(i)
     keys[#keys + 1] = ":send Verb " .. level .. "<CR>"
     E:act({
-      name = "send track " .. i .. " to the reverb",
+      name = "send part " .. i .. " to the reverb",
       keys = keys,
       says = "Verb",
-      apply = function(m) m.tracks[i].sends = { { target = "Verb", level = level } } end,
+      apply = function(m) m.parts[i].sends = { { target = "Verb", level = level } } end,
     })
   end
   -- In the mixer: the strip of the lead, its pan and its level typed.
@@ -259,8 +259,8 @@ days[3] = function(E)
     keys = keys,
     focus = "mixer",
     apply = function(m)
-      m.tracks[lead].pan = -pan / 100
-      m.tracks[lead].volume = level
+      m.parts[lead].pan = -pan / 100
+      m.parts[lead].volume = level
     end,
   })
   E:act({ name = "close the mixer", keys = { "<Space>mm" }, focus = "arrange" })
@@ -272,7 +272,7 @@ days[3] = function(E)
     keys = { ":tempo " .. tempo .. "<CR>" },
     says = tempo .. " bpm",
     apply = function(m)
-      for _, t in ipairs(m.tracks) do
+      for _, t in ipairs(m.parts) do
         if t.clips ~= M.ANY then
           for _, c in ipairs(t.clips) do
             if c.kind == "audio" then c.length = c.length * tempo / m.tempo end
@@ -306,10 +306,10 @@ days[3] = function(E)
     keys = { ":export " .. mid .. "<CR>" },
     slow = true,
     check = function(self)
-      -- The file holds the notes of each MIDI track, read without paw.
+      -- The file holds the notes of each MIDI part, read without paw.
       local parts = M.read_midi(mid)
       local want = {}
-      for _, t in ipairs(self.model.tracks) do
+      for _, t in ipairs(self.model.parts) do
         if #t.notes > 0 then want[#want + 1] = { name = t.name, notes = t.notes } end
       end
       local diffs = M.diff(want, parts, "song-day3.mid")
@@ -318,7 +318,7 @@ days[3] = function(E)
   })
 end
 
---- The keys that open the clip at bar `bar` of track `i` in the piano roll.
+--- The keys that open the clip at bar `bar` of part `i` in the piano roll.
 local function roll(E, i, bar)
   local keys = E.go(i, bar)
   keys[#keys + 1] = "<CR>"
@@ -332,7 +332,7 @@ local function add(list, ...)
   return list
 end
 
---- The clip of a track that starts at `beat`, in the model.
+--- The clip of a part that starts at `beat`, in the model.
 local function clip_at(t, beat)
   for _, c in ipairs(t.clips) do
     if c.start == beat then return c end
@@ -354,7 +354,7 @@ days[4] = function(E)
     keys = keys,
     focus = "pianoroll",
     apply = function(m)
-      local t = m.tracks[lead]
+      local t = m.parts[lead]
       for _, n in ipairs(clip_at(t, 0).notes) do
         n.pitch = n.pitch + semis
         n.velocity = math.min(127, n.velocity + 10)
@@ -373,7 +373,7 @@ days[4] = function(E)
     keys = keys,
     focus = "arrange",
     apply = function(m)
-      local t = m.tracks[bass]
+      local t = m.parts[bass]
       for _, n in ipairs(clip_at(t, 0).notes) do
         n.pitch = n.pitch - 12
       end
@@ -382,15 +382,15 @@ days[4] = function(E)
   })
 end
 
--- Day 5: a part played in. A new track takes a keyboard (the test port of
+-- Day 5: a part played in. A new part takes a keyboard (the test port of
 -- the null backend); the person records four bars from bar 5, a little
 -- late on each note as people are, and quantizes the take.
 days[5] = function(E)
   M = E.Model
   local r = E.rng
-  local last = #E.model.tracks
-  add_track(E, last, "Keys", "synth")
-  local keys_track = last + 1
+  local last = #E.model.parts
+  add_part(E, last, "Keys", "synth")
+  local keys_part = last + 1
   -- A whole beat or two for each note: the grid of a beat in the roll
   -- takes the lateness of a loaded machine (up to half a beat) away.
   local played, at = {}, 0
@@ -404,11 +404,11 @@ days[5] = function(E)
     paw.api.engine_restart({ backend = "null", test_midi = { "Keys A" } })
   end
   E:act({
-    name = "choose the keyboard and arm the track",
-    keys = add(E.go(keys_track, 5), ":countin off<CR>", "IKeys A<CR>", "r"),
+    name = "choose the keyboard and arm the part",
+    keys = add(E.go(keys_part, 5), ":countin off<CR>", "IKeys A<CR>", "r"),
     focus = "arrange",
     check = function(self)
-      if not paw.tracks()[keys_track].armed then self:fail("arm", "the track is not armed") end
+      if not paw.parts()[keys_part].armed then self:fail("arm", "the part is not armed") end
     end,
   })
   E:act({
@@ -428,7 +428,7 @@ days[5] = function(E)
       self:until_(function() return not paw.transport.playing end, "the song to stop")
     end,
     apply = function(m)
-      local t = m.tracks[keys_track]
+      local t = m.parts[keys_part]
       -- The take's clip ends where the recording stopped: not known.
       t.clips = M.ANY
       for _, n in ipairs(played) do
@@ -440,10 +440,10 @@ days[5] = function(E)
   })
   E:act({
     name = "quantize the take to the beat",
-    keys = add(roll(E, keys_track, 5), "]g", "]g", "=ie", "<Esc>", "<C-w>p"),
+    keys = add(roll(E, keys_part, 5), "]g", "]g", "=ie", "<Esc>", "<C-w>p"),
     focus = "arrange",
     apply = function(m)
-      local t = m.tracks[keys_track]
+      local t = m.parts[keys_part]
       t.notes = {}
       for _, n in ipairs(played) do
         t.notes[#t.notes + 1] = { pitch = n.pitch, start = 16 + n.start, length = n.length, velocity = 100 }
@@ -451,7 +451,7 @@ days[5] = function(E)
       M.sort_notes(t.notes)
     end,
   })
-  E:act({ name = "disarm the track", keys = add(E.go(keys_track, 5), "r"), focus = "arrange" })
+  E:act({ name = "disarm the part", keys = add(E.go(keys_part, 5), "r"), focus = "arrange" })
   if E.live then paw.api.engine_restart({ backend = "null" }) end
 end
 
@@ -465,26 +465,26 @@ days[6] = function(E)
   E:act({
     name = "a volume point at the lead's start",
     keys = add(E.go(lead, 1), ":lane.add " .. low .. "<CR>"),
-    apply = function(m) M.automate(m.tracks[lead], "volume", 0, low) end,
+    apply = function(m) M.automate(m.parts[lead], "volume", 0, low) end,
   })
-  local top = E.model.tracks[lead].volume
+  local top = E.model.parts[lead].volume
   E:act({
     name = "a second point, typed after A",
     keys = add(E.go(lead, 3), "A", "<C-u>" .. top .. "<CR>"),
-    apply = function(m) M.automate(m.tracks[lead], "volume", 8, top) end,
+    apply = function(m) M.automate(m.parts[lead], "volume", 8, top) end,
   })
   local bass = index_of(E.model, "Bass")
   E:act({
     name = "the bass pans from left to right",
     keys = add(E.go(bass, 1), ":lane.add -0.5 target=pan<CR>", "4|", ":lane.add 0.5 target=pan<CR>"),
     apply = function(m)
-      M.automate(m.tracks[bass], "pan", 0, -0.5)
-      M.automate(m.tracks[bass], "pan", 12, 0.5)
+      M.automate(m.parts[bass], "pan", 0, -0.5)
+      M.automate(m.parts[bass], "pan", 12, 0.5)
     end,
   })
-  local i = r.int(1, #E.model.tracks)
+  local i = r.int(1, #E.model.parts)
   E:act({
-    name = "solo a track in the mixer, and take it back",
+    name = "solo a part in the mixer, and take it back",
     keys = { "<Esc>", "<Space>mm", "0", (i > 1 and (i - 1) .. "l" or "0"), "s", "s" },
     focus = "mixer",
   })
@@ -502,7 +502,7 @@ days[7] = function(E)
     name = "stretch the drum sample",
     keys = add(E.go(drum, 1), ":clip.stretch " .. factor .. "<CR>"),
     apply = function(m)
-      local c = m.tracks[drum].clips[1]
+      local c = m.parts[drum].clips[1]
       c.length = c.length * factor
     end,
   })
@@ -532,52 +532,52 @@ days[8] = function(E)
   M = E.Model
   local r = E.rng
   local voices = {}
-  for i, t in ipairs(E.model.tracks) do
+  for i, t in ipairs(E.model.parts) do
     if t.clips == M.ANY and t.devices[1] == "synth" and t.name ~= "Keys" then voices[#voices + 1] = i end
   end
   local first = r.pick(voices)
   E:act({ name = "delete a voice, and undo", keys = add(E.go(first), "dd", "u"), focus = "arrange" })
   local gone = voices[(r.int(0, #voices - 1) + 1)]
-  local name = E.model.tracks[gone].name
+  local name = E.model.parts[gone].name
   E:act({
     name = "delete the voice " .. name,
     keys = add(E.go(gone), "dd"),
     focus = "arrange",
-    apply = function(m) table.remove(m.tracks, gone) end,
+    apply = function(m) table.remove(m.parts, gone) end,
   })
 end
 
 -- Day 9: finding things. The files buffer brings the drum sample again on
--- a new track; the pickers find a track and a marker.
+-- a new part; the pickers find a part and a marker.
 days[9] = function(E)
   M = E.Model
   local lib = E.workdir .. "/library"
-  -- `go` puts the file on a new track below the cursor's: the last.
+  -- `go` puts the file on a new part below the cursor's: the last.
   E:act({
     name = "open the library in the files buffer",
-    keys = add(E.go(#E.model.tracks), ":files " .. lib .. "<CR>"),
+    keys = add(E.go(#E.model.parts), ":files " .. lib .. "<CR>"),
     focus = "textbuf",
   })
   local seconds = M.wav_seconds(lib .. "/drum-avk.wav")
   E:act({
-    name = "put the drum sample on a new track",
+    name = "put the drum sample on a new part",
     keys = { "/drum<CR>", "go" },
     slow = true,
     apply = function(m)
-      local t = M.new_track("drum-avk")
+      local t = M.new_part("drum-avk")
       t.clips = { { kind = "audio", start = 0, length = seconds * m.tempo / 60, file = "drum-avk.wav" } }
-      m.tracks[#m.tracks + 1] = t
+      m.parts[#m.parts + 1] = t
     end,
   })
   E:act({ name = "back to the arrange view", keys = { "<Esc>", ":b arrange<CR>" }, focus = "arrange" })
   local bass = index_of(E.model, "Bass")
   E:act({
-    name = "find the bass with the track picker",
+    name = "find the bass with the part picker",
     keys = { "<Esc>", "<Space>ft", "Bass<CR>" },
     focus = "arrange",
     check = function(self)
-      local t = paw.cursor.track()
-      if not t or t.name ~= "Bass" then self:fail("pick a track", "the cursor is on " .. tostring(t and t.name)) end
+      local t = paw.cursor.part()
+      if not t or t.name ~= "Bass" then self:fail("pick a part", "the cursor is on " .. tostring(t and t.name)) end
     end,
   })
   E:act({
@@ -593,9 +593,9 @@ days[9] = function(E)
     end,
   })
   E:act({
-    name = "mute the second drum track",
-    keys = add(E.go(#E.model.tracks), "M"),
-    apply = function(m) m.tracks[#m.tracks].mute = true end,
+    name = "mute the second drum part",
+    keys = add(E.go(#E.model.parts), "M"),
+    apply = function(m) m.parts[#m.parts].mute = true end,
   })
   E:act({ name = "look at the bass's notes", keys = add(E.go(bass, 1), "<CR>", "<Esc>", "<C-w>p"), focus = "arrange" })
 end
@@ -608,24 +608,24 @@ days[10] = function(E)
   local lead = index_of(E.model, "Lead")
   E:act({ name = "load the undo tree", keys = { ":ext.load undotree<CR>" } })
   local first, second = r.int(2, 5), r.int(1, 3)
-  local function level(db) return math.max(-60, math.min(6, E.model.tracks[lead].volume + db)) end
+  local function level(db) return math.max(-60, math.min(6, E.model.parts[lead].volume + db)) end
   local a = level(-first)
   E:act({
     name = "the lead " .. first .. " dB down",
     keys = add(E.go(lead), first .. "-"),
-    apply = function(m) m.tracks[lead].volume = a end,
+    apply = function(m) m.parts[lead].volume = a end,
   })
-  E:act({ name = "undo it", keys = { "u" }, apply = function(m) m.tracks[lead].volume = level(first) end })
+  E:act({ name = "undo it", keys = { "u" }, apply = function(m) m.parts[lead].volume = level(first) end })
   local b = level(second)
   E:act({
     name = "the lead " .. second .. " dB up instead",
     keys = { second .. "+" },
-    apply = function(m) m.tracks[lead].volume = b end,
+    apply = function(m) m.parts[lead].volume = b end,
   })
   E:act({
     name = "g- goes to the first idea, on the other branch",
     keys = { "g-" },
-    apply = function(m) m.tracks[lead].volume = a end,
+    apply = function(m) m.parts[lead].volume = a end,
   })
   E:act({ name = "the undo tree's window, and closed", keys = { "<Space>pu", "<Esc>" }, focus = "arrange" })
 end
@@ -638,7 +638,7 @@ days[11] = function(E)
     keys = { "<Esc>", ":media.collect<CR>" },
     slow = true,
     check = function(self)
-      for _, t in ipairs(paw.tracks()) do
+      for _, t in ipairs(paw.parts()) do
         for _, c in ipairs(t:clips()) do
           local file = c:get().file
           if file and not file:find(self.workdir .. "/project/media/", 1, true) then
@@ -648,19 +648,19 @@ days[11] = function(E)
       end
     end,
   })
-  -- A stem for each track that sounds: not muted, with clips. Its name is
-  -- the track's, in renders/tracks inside the project's folder.
+  -- A stem for each part that sounds: not muted, with clips. Its name is
+  -- the part's, in renders/parts inside the project's folder.
   E:act({
-    name = "export a stem for each track",
-    keys = { ":export tracks<CR>", "y" },
+    name = "export a stem for each part",
+    keys = { ":export parts<CR>", "y" },
     slow = true,
     check = function(self)
       local want = {}
-      for _, t in ipairs(self.model.tracks) do
+      for _, t in ipairs(self.model.parts) do
         if not t.mute and (t.clips == M.ANY or #t.clips > 0) then want[#want + 1] = t.name .. ".wav" end
       end
       table.sort(want)
-      local dir = self.workdir .. "/project/renders/tracks"
+      local dir = self.workdir .. "/project/renders/parts"
       local got
       self:until_(function()
         got = {}
@@ -675,7 +675,7 @@ days[11] = function(E)
       if table.concat(got, " ") ~= table.concat(want, " ") then
         self:fail(
           "stems",
-          "the stems are " .. table.concat(got, " ") .. ", the model's tracks " .. table.concat(want, " ")
+          "the stems are " .. table.concat(got, " ") .. ", the model's parts " .. table.concat(want, " ")
         )
       end
     end,
@@ -692,8 +692,8 @@ days[12] = function(E)
     name = "delete the bass clip",
     keys = add(E.go(bass, 1), "x"),
     apply = function(m)
-      table.remove(m.tracks[bass].clips, 1)
-      M.renote(m.tracks[bass])
+      table.remove(m.parts[bass].clips, 1)
+      M.renote(m.parts[bass])
     end,
   })
   draw(E, bass, 1, phrase(r, r.int(3, 5), 4, 48, 55), "draw a new bass")
@@ -702,7 +702,7 @@ days[12] = function(E)
     name = "delete the lead's second bar",
     keys = add(E.go(lead, 2), "x"),
     apply = function(m)
-      local t = m.tracks[lead]
+      local t = m.parts[lead]
       for k, c in ipairs(t.clips) do
         if c.start == 4 then
           table.remove(t.clips, k)
@@ -717,7 +717,7 @@ days[12] = function(E)
     name = "a slower tempo, typed with grt",
     keys = { "<Esc>", "grt", "<C-u>" .. tempo .. "<CR>" },
     apply = function(m)
-      for _, t in ipairs(m.tracks) do
+      for _, t in ipairs(m.parts) do
         if t.clips ~= M.ANY then
           for _, c in ipairs(t.clips) do
             if c.kind == "audio" then c.length = c.length * tempo / m.tempo end
@@ -738,7 +738,7 @@ days[13] = function(E)
     name = "repeat the lead's bar twice",
     keys = add(E.go(lead, 1), "2&"),
     apply = function(m)
-      local t = m.tracks[lead]
+      local t = m.parts[lead]
       local c = t.clips[1]
       for k = 1, 2 do
         t.clips[#t.clips + 1] =
@@ -751,7 +751,7 @@ days[13] = function(E)
   E:act({
     name = "mute the last copy",
     keys = add(E.go(lead, 3), "~"),
-    apply = function(m) clip_at(m.tracks[lead], 8).muted = true end,
+    apply = function(m) clip_at(m.parts[lead], 8).muted = true end,
   })
 end
 
@@ -761,11 +761,11 @@ days[14] = function(E)
   M = E.Model
   local r = E.rng
   for _ = 1, 2 do
-    local i, db = r.int(1, #E.model.tracks), r.int(1, 3)
+    local i, db = r.int(1, #E.model.parts), r.int(1, 3)
     E:act({
-      name = "lower track " .. i .. " by " .. db .. " dB",
+      name = "lower part " .. i .. " by " .. db .. " dB",
       keys = add(E.go(i), db .. "-"),
-      apply = function(m) m.tracks[i].volume = math.max(-60, m.tracks[i].volume - db) end,
+      apply = function(m) m.parts[i].volume = math.max(-60, m.parts[i].volume - db) end,
     })
   end
   E:act({ name = "read the help of :export", keys = { ":help :export<CR>" }, focus = "textbuf", slow = true })
@@ -785,7 +785,7 @@ days[14] = function(E)
     check = function(self)
       local parts = M.read_midi(mid)
       local want = {}
-      for _, t in ipairs(self.model.tracks) do
+      for _, t in ipairs(self.model.parts) do
         -- A muted clip is not in the file (docs/how-to/export-midi.md).
         local playing = M.copy(t)
         if t.clips ~= M.ANY then

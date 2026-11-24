@@ -34,19 +34,19 @@ local function surges()
   return out
 end
 
---- A track that holds A3 for `beats` through `kind`, with the cursor and
+--- A part that holds A3 for `beats` through `kind`, with the cursor and
 --- the device panel on the device.
 local function instrument(kind, beats)
-  local track = paw.add_track({ name = kind })
+  local part = paw.add_part({ name = kind })
   -- A note for each four beats: a state load can end the notes that sound.
   local notes = {}
   for at = 0, beats - 1, 4 do
     notes[#notes + 1] = { pitch = "A3", start = at, length = 4 }
   end
-  track:add_clip({ start = 0, length = beats, notes = notes })
-  local d = track:add_device(kind)
+  part:add_clip({ start = 0, length = beats, notes = notes })
+  local d = part:add_device(kind)
   paw.flush()
-  paw.cursor.set_track(track.id)
+  paw.cursor.set_part(part.id)
   paw.ui.focus("devices")
   paw.fx.select(d.id)
   api.undo_checkpoint()
@@ -103,8 +103,8 @@ end
 --- values that the plugin reports), as the current undo step holds them.
 local function own(d)
   if not has_param(d, "a_volume") then return { a_volume = 0.75 } end
-  for _, track in ipairs(api.undo_project().tracks) do
-    for _, device in ipairs(track.devices or {}) do
+  for _, part in ipairs(api.undo_project().parts) do
+    for _, device in ipairs(part.devices or {}) do
       if device.id == d.id then return device.params or {} end
     end
   end
@@ -196,8 +196,8 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
   fresh()
   -- A note, sixteen beats of silence (eight seconds: longer than the five
   -- seconds an LV2 plugin is given to ring), and a note again.
-  local track = paw.add_track({ name = "lv2" })
-  track:add_clip({
+  local part = paw.add_part({ name = "lv2" })
+  part:add_clip({
     start = 0,
     length = 24,
     notes = {
@@ -205,7 +205,7 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
       { pitch = "A3", start = 20, length = 1 },
     },
   })
-  track:add_device(surge)
+  part:add_device(surge)
   paw.flush()
   local awake = T.render({ tail = 0, sleep = false, bits = 16 })
   eq(awake.device_sleeps, 0, "with sleep off, the plugin runs each block")
@@ -219,7 +219,7 @@ test("an LV2 plugin sleeps once its tail went by in silence, and a note or a par
   -- Live and stopped: an effect with a latency sleeps too, and a
   -- parameter wakes it.
   fresh()
-  local fx = paw.add_track({ name = "fx" })
+  local fx = paw.add_part({ name = "fx" })
   fx:add_device("synth")
   local d = fx:add_device(limiter)
   paw.flush()
@@ -247,7 +247,7 @@ test("a state given while the engine rests reaches a plugin that takes it on in 
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
   T.after(function() paw.plugins.remove_dir(dir) end)
-  local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
+  local d = paw.add_part({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   api.undo_checkpoint()
   -- Stopped, with nothing that sounds: the stub sleeps, then the engine.
@@ -265,7 +265,7 @@ test("a plugin that asks for a block while the engine rests gets its next block"
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
   T.after(function() paw.plugins.remove_dir(dir) end)
-  local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
+  local d = paw.add_part({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   until_engine_rests()
   local runs = api.engine_get().device_runs
@@ -282,7 +282,7 @@ test("a move in a plugin's window right after a state is an edit, and the echo o
   os.execute("mkdir -p '" .. dir .. "' && cp '" .. built .. "' '" .. dir .. "/stub.clap'")
   paw.plugins.add_dir(dir, "stubs")
   T.after(function() paw.plugins.remove_dir(dir) end)
-  local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
+  local d = paw.add_part({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
   api.undo_checkpoint()
   local moves = {}

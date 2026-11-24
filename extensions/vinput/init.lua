@@ -1,4 +1,4 @@
--- Virtual inputs: chains that turn something else into an input a track can
+-- Virtual inputs: chains that turn something else into an input a part can
 -- take. The kind there is so far turns a guitar into MIDI with gdi2m.
 -- See README.md beside this file.
 paw.option.define("vinput_gdi2m", "") -- the gdi2m program; "" looks for it

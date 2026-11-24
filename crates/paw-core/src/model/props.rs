@@ -9,7 +9,7 @@ use proptest::prelude::*;
 use proptest::sample::Index;
 use serde_json::{Map, json};
 
-use super::{Clip, ClipContent, Note, Notes, Project, Track};
+use super::{Clip, ClipContent, Note, Notes, Project, Part};
 use crate::history::History;
 use crate::props::config;
 
@@ -43,85 +43,85 @@ fn midi_clip(id: u64, start: f64, notes: Vec<Note>) -> Clip {
     .expect("a MIDI clip")
 }
 
-/// A project of a few tracks; a track can have more clips than one run of
+/// A project of a few parts; a part can have more clips than one run of
 /// `Clips` holds.
 fn project() -> impl Strategy<Value = Project> {
-    let track = vec((0.0..64.0f64, notes()), 0..36);
-    vec(track, 1..4).prop_map(|tracks| {
+    let part = vec((0.0..64.0f64, notes()), 0..36);
+    vec(part, 1..4).prop_map(|parts| {
         let mut project = Project::default();
         let mut id = 1;
-        for clips in tracks {
-            let mut track = Track::new(id);
+        for clips in parts {
+            let mut part = Part::new(id);
             id += 1;
             for (start, notes) in clips {
-                track.clips.push(Arc::new(midi_clip(id, start, notes)));
+                part.clips.push(Arc::new(midi_clip(id, start, notes)));
                 id += 1;
             }
-            project.tracks.push(Arc::new(track));
+            project.parts.push(Arc::new(part));
         }
         project
     })
 }
 
 /// One change, as the session makes them: through `Arc::make_mut` and the
-/// methods of `Notes` and `Clips`. An index picks a track, a clip or a
+/// methods of `Notes` and `Clips`. An index picks a part, a clip or a
 /// note among those there are.
 #[derive(Clone, Debug)]
 enum Edit {
-    AddNote { track: Index, clip: Index, at: Index, note: Note },
-    RemoveNote { track: Index, clip: Index, at: Index },
-    ChangeNote { track: Index, clip: Index, at: Index, pitch: u8, start: f64 },
-    KeepNotesBelow { track: Index, clip: Index, pitch: u8 },
-    SortNotesByPitch { track: Index, clip: Index },
+    AddNote { part: Index, clip: Index, at: Index, note: Note },
+    RemoveNote { part: Index, clip: Index, at: Index },
+    ChangeNote { part: Index, clip: Index, at: Index, pitch: u8, start: f64 },
+    KeepNotesBelow { part: Index, clip: Index, pitch: u8 },
+    SortNotesByPitch { part: Index, clip: Index },
     /// The notes sent back whole with one changed and one taken out, as
     /// Lua sends them: `Notes::assign` keeps the runs that did not change.
-    AssignNotes { track: Index, clip: Index, at: Index, pitch: u8 },
-    AddClip { track: Index, at: Index, start: f64, notes: Vec<Note> },
-    RemoveClip { track: Index, at: Index },
-    MoveClip { track: Index, at: Index, start: f64 },
-    RenameTrack { track: Index, name: String },
-    SetVolume { track: Index, volume: f64 },
-    AddTrack,
-    RemoveTrack { track: Index },
+    AssignNotes { part: Index, clip: Index, at: Index, pitch: u8 },
+    AddClip { part: Index, at: Index, start: f64, notes: Vec<Note> },
+    RemoveClip { part: Index, at: Index },
+    MoveClip { part: Index, at: Index, start: f64 },
+    RenamePart { part: Index, name: String },
+    SetVolume { part: Index, volume: f64 },
+    AddPart,
+    RemovePart { part: Index },
     SetTempo { bpm: f64 },
 }
 
 fn edit() -> impl Strategy<Value = Edit> {
     let index = any::<Index>;
     prop_oneof![
-        (index(), index(), index(), note()).prop_map(|(track, clip, at, note)| Edit::AddNote { track, clip, at, note }),
-        (index(), index(), index()).prop_map(|(track, clip, at)| Edit::RemoveNote { track, clip, at }),
+        (index(), index(), index(), note()).prop_map(|(part, clip, at, note)| Edit::AddNote { part, clip, at, note }),
+        (index(), index(), index()).prop_map(|(part, clip, at)| Edit::RemoveNote { part, clip, at }),
         (index(), index(), index(), 0u8..=127, 0.0..16.0f64)
-            .prop_map(|(track, clip, at, pitch, start)| Edit::ChangeNote { track, clip, at, pitch, start }),
-        (index(), index(), 0u8..=127).prop_map(|(track, clip, pitch)| Edit::KeepNotesBelow { track, clip, pitch }),
-        (index(), index()).prop_map(|(track, clip)| Edit::SortNotesByPitch { track, clip }),
-        (index(), index(), index(), 0u8..=127).prop_map(|(track, clip, at, pitch)| Edit::AssignNotes { track, clip, at, pitch }),
+            .prop_map(|(part, clip, at, pitch, start)| Edit::ChangeNote { part, clip, at, pitch, start }),
+        (index(), index(), 0u8..=127).prop_map(|(part, clip, pitch)| Edit::KeepNotesBelow { part, clip, pitch }),
+        (index(), index()).prop_map(|(part, clip)| Edit::SortNotesByPitch { part, clip }),
+        (index(), index(), index(), 0u8..=127).prop_map(|(part, clip, at, pitch)| Edit::AssignNotes { part, clip, at, pitch }),
         (index(), index(), 0.0..64.0f64, vec(note(), 0..4))
-            .prop_map(|(track, at, start, notes)| Edit::AddClip { track, at, start, notes }),
-        (index(), index()).prop_map(|(track, at)| Edit::RemoveClip { track, at }),
-        (index(), index(), 0.0..64.0f64).prop_map(|(track, at, start)| Edit::MoveClip { track, at, start }),
-        (index(), "[a-z ]{0,8}").prop_map(|(track, name)| Edit::RenameTrack { track, name }),
-        (index(), -60.0..6.0f64).prop_map(|(track, volume)| Edit::SetVolume { track, volume }),
-        Just(Edit::AddTrack),
-        index().prop_map(|track| Edit::RemoveTrack { track }),
+            .prop_map(|(part, at, start, notes)| Edit::AddClip { part, at, start, notes }),
+        (index(), index()).prop_map(|(part, at)| Edit::RemoveClip { part, at }),
+        (index(), index(), 0.0..64.0f64).prop_map(|(part, at, start)| Edit::MoveClip { part, at, start }),
+        (index(), "[a-z ]{0,8}").prop_map(|(part, name)| Edit::RenamePart { part, name }),
+        (index(), -60.0..6.0f64).prop_map(|(part, volume)| Edit::SetVolume { part, volume }),
+        Just(Edit::AddPart),
+        index().prop_map(|part| Edit::RemovePart { part }),
         (20.0..300.0f64).prop_map(|bpm| Edit::SetTempo { bpm }),
     ]
 }
 
-/// The track that `track` picks, made the project's own to change.
-fn track_mut<'a>(project: &'a mut Project, track: &Index) -> Option<&'a mut Track> {
-    let tracks = project.tracks.len();
-    (tracks > 0).then(|| Arc::make_mut(&mut project.tracks[track.index(tracks)]))
+/// The part that `part` picks, made the project's own to change.
+fn part_mut<'a>(project: &'a mut Project, part: &Index) -> Option<&'a mut Part> {
+    let parts = project.parts.len();
+    (parts > 0).then(|| Arc::make_mut(&mut project.parts[part.index(parts)]))
 }
 
-/// The notes of the clip that `track` and `clip` pick.
-fn notes_mut<'a>(project: &'a mut Project, track: &Index, clip: &Index) -> Option<&'a mut Notes> {
-    let track = track_mut(project, track)?;
-    let clips = track.clips.len();
+/// The notes of the clip that `part` and `clip` pick.
+fn notes_mut<'a>(project: &'a mut Project, part: &Index, clip: &Index) -> Option<&'a mut Notes> {
+    let part = part_mut(project, part)?;
+    let clips = part.clips.len();
     if clips == 0 {
         return None;
     }
-    match &mut Arc::make_mut(&mut track.clips[clip.index(clips)]).content {
+    match &mut Arc::make_mut(&mut part.clips[clip.index(clips)]).content {
         ClipContent::Midi { notes, .. } => Some(notes),
         _ => None,
     }
@@ -131,34 +131,34 @@ fn notes_mut<'a>(project: &'a mut Project, track: &Index, clip: &Index) -> Optio
 /// changes nothing.
 fn apply(project: &mut Project, edit: &Edit) {
     match edit {
-        Edit::AddNote { track, clip, at, note } => {
-            if let Some(notes) = notes_mut(project, track, clip) {
+        Edit::AddNote { part, clip, at, note } => {
+            if let Some(notes) = notes_mut(project, part, clip) {
                 notes.insert(at.index(notes.len() + 1), note.clone());
             }
         }
-        Edit::RemoveNote { track, clip, at } => {
-            if let Some(notes) = notes_mut(project, track, clip).filter(|n| !n.is_empty()) {
+        Edit::RemoveNote { part, clip, at } => {
+            if let Some(notes) = notes_mut(project, part, clip).filter(|n| !n.is_empty()) {
                 notes.remove(at.index(notes.len()));
             }
         }
-        Edit::ChangeNote { track, clip, at, pitch, start } => {
-            if let Some(notes) = notes_mut(project, track, clip).filter(|n| !n.is_empty()) {
+        Edit::ChangeNote { part, clip, at, pitch, start } => {
+            if let Some(notes) = notes_mut(project, part, clip).filter(|n| !n.is_empty()) {
                 let note = notes.get_mut(at.index(notes.len())).expect("a note there");
                 (note.pitch, note.start) = (*pitch, *start);
             }
         }
-        Edit::KeepNotesBelow { track, clip, pitch } => {
-            if let Some(notes) = notes_mut(project, track, clip) {
+        Edit::KeepNotesBelow { part, clip, pitch } => {
+            if let Some(notes) = notes_mut(project, part, clip) {
                 notes.retain(|n| n.pitch < *pitch);
             }
         }
-        Edit::SortNotesByPitch { track, clip } => {
-            if let Some(notes) = notes_mut(project, track, clip) {
+        Edit::SortNotesByPitch { part, clip } => {
+            if let Some(notes) = notes_mut(project, part, clip) {
                 notes.sort_by(|a, b| a.pitch.cmp(&b.pitch));
             }
         }
-        Edit::AssignNotes { track, clip, at, pitch } => {
-            if let Some(notes) = notes_mut(project, track, clip).filter(|n| !n.is_empty()) {
+        Edit::AssignNotes { part, clip, at, pitch } => {
+            if let Some(notes) = notes_mut(project, part, clip).filter(|n| !n.is_empty()) {
                 let mut list = notes.to_vec();
                 let at = at.index(list.len());
                 list[at].pitch = *pitch;
@@ -166,42 +166,42 @@ fn apply(project: &mut Project, edit: &Edit) {
                 notes.assign(list);
             }
         }
-        Edit::AddClip { track, at, start, notes } => {
+        Edit::AddClip { part, at, start, notes } => {
             let id = project.max_id() + 1;
-            if let Some(track) = track_mut(project, track) {
-                let at = at.index(track.clips.len() + 1);
-                track.clips.insert(at, Arc::new(midi_clip(id, *start, notes.clone())));
+            if let Some(part) = part_mut(project, part) {
+                let at = at.index(part.clips.len() + 1);
+                part.clips.insert(at, Arc::new(midi_clip(id, *start, notes.clone())));
             }
         }
-        Edit::RemoveClip { track, at } => {
-            if let Some(track) = track_mut(project, track).filter(|t| !t.clips.is_empty()) {
-                track.clips.remove(at.index(track.clips.len()));
+        Edit::RemoveClip { part, at } => {
+            if let Some(part) = part_mut(project, part).filter(|t| !t.clips.is_empty()) {
+                part.clips.remove(at.index(part.clips.len()));
             }
         }
-        Edit::MoveClip { track, at, start } => {
-            if let Some(track) = track_mut(project, track).filter(|t| !t.clips.is_empty()) {
-                let at = at.index(track.clips.len());
-                Arc::make_mut(&mut track.clips[at]).start = *start;
+        Edit::MoveClip { part, at, start } => {
+            if let Some(part) = part_mut(project, part).filter(|t| !t.clips.is_empty()) {
+                let at = at.index(part.clips.len());
+                Arc::make_mut(&mut part.clips[at]).start = *start;
             }
         }
-        Edit::RenameTrack { track, name } => {
-            if let Some(track) = track_mut(project, track) {
-                track.name.clone_from(name);
+        Edit::RenamePart { part, name } => {
+            if let Some(part) = part_mut(project, part) {
+                part.name.clone_from(name);
             }
         }
-        Edit::SetVolume { track, volume } => {
-            if let Some(track) = track_mut(project, track) {
-                track.volume = *volume;
+        Edit::SetVolume { part, volume } => {
+            if let Some(part) = part_mut(project, part) {
+                part.volume = *volume;
             }
         }
-        Edit::AddTrack => {
+        Edit::AddPart => {
             let id = project.max_id() + 1;
-            project.tracks.push(Arc::new(Track::new(id)));
+            project.parts.push(Arc::new(Part::new(id)));
         }
-        Edit::RemoveTrack { track } => {
-            if !project.tracks.is_empty() {
-                let at = track.index(project.tracks.len());
-                project.tracks.remove(at);
+        Edit::RemovePart { part } => {
+            if !project.parts.is_empty() {
+                let at = part.index(project.parts.len());
+                project.parts.remove(at);
             }
         }
         Edit::SetTempo { bpm } => {

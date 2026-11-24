@@ -5,7 +5,7 @@
 -- technique text where a run of notes changes it (`text = "pizz."`, and
 -- `ord.` where the default comes back). A mark or a technique written in the
 -- score (the event `notation.marked`) sets the attribute of the notes when
--- the track's map has an articulation for it (`paw.opt.art_from_notation`).
+-- the part's map has an articulation for it (`paw.opt.art_from_notation`).
 local art = require("articulations")
 
 local M = {}
@@ -13,9 +13,9 @@ local M = {}
 --- The marks of a note's articulation: its mark, and its technique text.
 --- A note with no articulation of its own has the default's.
 function M.marks_of(note, clip)
-  local map = art.map_of(clip.track)
+  local map = art.map_of(clip.part)
   if not map then return nil end
-  local a = art.attr_of(note) and art.resolve(map, art.attr_of(note)) or art.default_of(clip.track, map)
+  local a = art.attr_of(note) and art.resolve(map, art.attr_of(note)) or art.default_of(clip.part, map)
   if not a then return nil end
   return { art = a.mark and { a.mark } or nil, text = a.text }
 end
@@ -59,7 +59,7 @@ paw.on(marked, function(what)
   if not paw.opt.art_from_notation or not what.clip then return end
   local clip = paw.clip(what.clip)
   local c = clip:get()
-  local map = art.map_of(c.track)
+  local map = art.map_of(c.part)
   if not map then return end
   local places = {}
   local choice

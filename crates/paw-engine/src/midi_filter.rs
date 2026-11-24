@@ -1,8 +1,8 @@
-//! Controls of MIDI input that tracks do not get.
+//! Controls of MIDI input that parts do not get.
 //!
 //! A script can take some keys, pads or pedals of a controller for itself:
 //! step input binds a pad to "rest", for example. What such a control sends
-//! must not sound on a track, and must not be recorded. The main thread
+//! must not sound on a part, and must not be recorded. The main thread
 //! makes a [`MidiFilter`] of those controls and sends it to the engine,
 //! which swaps it in between blocks and reads it for each message of MIDI
 //! input: a short list, read in place, with no lock and no allocation.
@@ -19,7 +19,7 @@ pub enum Control {
     Cc(u8),
 }
 
-/// One control of MIDI input that tracks do not get.
+/// One control of MIDI input that parts do not get.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Rule {
     /// The port's key ([`crate::midi::port_key`]), or 0 for every port.
@@ -56,7 +56,7 @@ impl Rule {
     }
 }
 
-/// The controls of MIDI input that tracks do not get. Empty by default.
+/// The controls of MIDI input that parts do not get. Empty by default.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MidiFilter {
     rules: Box<[Rule]>,
@@ -75,7 +75,7 @@ impl MidiFilter {
         &self.rules
     }
 
-    /// Whether tracks do not get this message from MIDI input on `port`.
+    /// Whether parts do not get this message from MIDI input on `port`.
     pub fn matches(&self, port: u32, kind: &EventKind) -> bool {
         self.rules.iter().any(|rule| rule.matches(port, kind))
     }

@@ -10,7 +10,7 @@ pub(super) struct EngineLink {
     pub handle: EngineHandle,
     pub map: Mapper,
     pub stream: Stream,
-    /// Threads to process tracks on, or 0 for as many as the machine has cores.
+    /// Threads to process parts on, or 0 for as many as the machine has cores.
     pub threads: usize,
     /// Devices at rest sleep through silent blocks (`paw.opt.device_sleep`).
     pub sleep: bool,
@@ -47,7 +47,7 @@ pub(crate) struct EngineView<'a> {
     pub midi: bool,
     pub blocks: BlockTimes,
     pub leaked: u32,
-    /// Threads tracks are processed on, counting the audio thread, and
+    /// Threads parts are processed on, counting the audio thread, and
     /// what was asked for (0 leaves it to the machine).
     pub threads: u32,
     pub threads_wanted: usize,
@@ -58,7 +58,7 @@ pub(crate) struct EngineView<'a> {
     pub device_sleeps: u64,
     /// Blocks in which the whole engine rested: stopped and silent.
     pub engine_rests: u64,
-    /// Groups of tracks shared out between threads since the engine
+    /// Groups of parts shared out between threads since the engine
     /// started: one with little work runs on the audio thread alone.
     pub shared_groups: u64,
     /// What went wrong while playing, for the status line: blocks plugins
@@ -134,8 +134,8 @@ impl Session {
         serde_json::to_value(self.engine_view()).unwrap_or(Value::Null)
     }
 
-    /// Process tracks on this many threads, counting the audio thread, or
-    /// with 0 on as many as the machine has cores. Tracks that do not feed
+    /// Process parts on this many threads, counting the audio thread, or
+    /// with 0 on as many as the machine has cores. Parts that do not feed
     /// each other are then processed side by side; the sound is the same.
     pub(crate) fn set_threads(&mut self, threads: usize) -> Result<()> {
         if threads > MAX_THREADS {
@@ -327,41 +327,41 @@ impl Session {
         self.engine.handle.shared.blocks.reset();
     }
 
-    /// Play a track from a sound file for now, as if it were frozen (see
+    /// Play a part from a sound file for now, as if it were frozen (see
     /// [`crate::freeze`]), or live again with `None`. The project is not
     /// changed: nothing is saved or undone, and renders play it live. A
-    /// track that is gone can be let go too.
-    pub(crate) fn hold(&mut self, track: Id, file: Option<PathBuf>) -> Result<()> {
+    /// part that is gone can be let go too.
+    pub(crate) fn hold(&mut self, part: Id, file: Option<PathBuf>) -> Result<()> {
         match file {
-            Some(_) if track == MASTER_ID || self.doc.project.track(track).is_none() => {
-                bail!("no track {track} to hold");
+            Some(_) if part == MASTER_ID || self.doc.project.part(part).is_none() => {
+                bail!("no part {part} to hold");
             }
-            Some(file) => self.engine.map.held_files.insert(track, file),
-            None => self.engine.map.held_files.remove(&track),
+            Some(file) => self.engine.map.held_files.insert(part, file),
+            None => self.engine.map.held_files.remove(&part),
         };
         self.doc.dirty = true;
         self.flush();
         Ok(())
     }
 
-    /// The tracks held by [`hold`](Self::hold).
+    /// The parts held by [`hold`](Self::hold).
     pub(crate) fn held(&self) -> Vec<Id> {
         let mut out: Vec<Id> = self.engine.map.held_files.keys().copied().collect();
         out.sort_unstable();
         out
     }
 
-    /// The track that plays MIDI input while no track is armed, as if it
+    /// The part that plays MIDI input while no part is armed, as if it
     /// were monitored, or none. The project does not change.
-    pub(crate) fn set_follow(&mut self, track: Option<Id>) {
-        self.set_follows(Follow { selected: track, ..self.engine.map.follow });
+    pub(crate) fn set_follow(&mut self, part: Option<Id>) {
+        self.set_follows(Follow { selected: part, ..self.engine.map.follow });
     }
 
-    /// The track that plays MIDI input as if it were monitored, also while
-    /// another track is armed, in place of [`set_follow`](Self::set_follow)'s
-    /// track; or none. The project does not change.
-    pub(crate) fn set_follow_always(&mut self, track: Option<Id>) {
-        self.set_follows(Follow { always: track, ..self.engine.map.follow });
+    /// The part that plays MIDI input as if it were monitored, also while
+    /// another part is armed, in place of [`set_follow`](Self::set_follow)'s
+    /// part; or none. The project does not change.
+    pub(crate) fn set_follow_always(&mut self, part: Option<Id>) {
+        self.set_follows(Follow { always: part, ..self.engine.map.follow });
     }
 
     fn set_follows(&mut self, follow: Follow) {
@@ -373,11 +373,11 @@ impl Session {
         self.flush();
     }
 
-    /// Let only these tracks be heard for now, with what they pass through
+    /// Let only these parts be heard for now, with what they pass through
     /// (as a solo would, without the project's solos changing), or every
-    /// track again with `None`.
-    pub(crate) fn set_audible(&mut self, tracks: Option<Vec<Id>>) {
-        self.engine.map.audible = tracks.map(|ids| ids.into_iter().collect());
+    /// part again with `None`.
+    pub(crate) fn set_audible(&mut self, parts: Option<Vec<Id>>) {
+        self.engine.map.audible = parts.map(|ids| ids.into_iter().collect());
         self.doc.dirty = true;
         self.flush();
     }

@@ -11,9 +11,9 @@ use serde_json::{Value, json};
 
 use super::mapper::Mapper;
 use super::{LiveDevice, SyncCtx};
-use crate::model::{ClipContent, DeviceInst, Project, Track};
+use crate::model::{ClipContent, DeviceInst, Project, Part};
 
-/// Whether a device takes its track's clips ([`paw_engine::device::CLIPS`]).
+/// Whether a device takes its part's clips ([`paw_engine::device::CLIPS`]).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum TakesClips {
     /// Not asked yet.
@@ -26,7 +26,7 @@ pub(crate) enum TakesClips {
 }
 
 /// Give each device that keeps files (a plugin an attachment took) the
-/// audio clips of its track and the tempo, when they changed since it was
+/// audio clips of its part and the tempo, when they changed since it was
 /// given them last; the first time, to find out whether it takes them.
 pub(crate) fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
     for (id, live) in ctx.live.iter_mut() {
@@ -36,13 +36,13 @@ pub(crate) fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
         let Some(controller) = live.controller.as_mut() else {
             continue;
         };
-        let Some(track) = project
+        let Some(part) = project
             .find_device(*id)
-            .and_then(|(track, _)| project.all_tracks().find(|t| t.id == track))
+            .and_then(|(part, _)| project.all_parts().find(|t| t.id == part))
         else {
             continue;
         };
-        let text = clips_json(project, track).to_string();
+        let text = clips_json(project, part).to_string();
         if live.clips == TakesClips::Given(text.clone()) {
             continue;
         }
@@ -58,12 +58,12 @@ pub(crate) fn deliver_clips(project: &Project, ctx: &mut SyncCtx) {
     }
 }
 
-/// A track's audio clips and the song's tempo, as a device that reads
+/// A part's audio clips and the song's tempo, as a device that reads
 /// whole clips (an ARA plugin) is given them: times in seconds from the
 /// start of the song, and the tempo as points of seconds and beats.
-pub(crate) fn clips_json(project: &Project, track: &Track) -> Value {
+pub(crate) fn clips_json(project: &Project, part: &Part) -> Value {
     let map = project.tempo_map();
-    let clips: Vec<Value> = track
+    let clips: Vec<Value> = part
         .clips
         .iter()
         .filter_map(|clip| {
@@ -89,7 +89,7 @@ pub(crate) fn clips_json(project: &Project, track: &Track) -> Value {
     // place every beat: the tempo between two points is constant, or a ramp
     // given by more points.
     let mut tempo = Vec::new();
-    let end = track
+    let end = part
         .clips
         .iter()
         .map(|c| c.start + c.length)
@@ -120,7 +120,7 @@ pub(crate) fn clips_json(project: &Project, track: &Track) -> Value {
         .map(|s| json!({ "beat": s.beat, "num": s.num, "den": s.den }))
         .collect();
     json!({
-        "track": { "id": track.id, "name": track.name },
+        "part": { "id": part.id, "name": part.name },
         "clips": clips,
         "tempo": tempo,
         "signatures": signatures,

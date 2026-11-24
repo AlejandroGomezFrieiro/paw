@@ -175,7 +175,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @return integer
         fn ui_redraws(_, sh, () => ()) { Ok(sh.redraws.get()) }
         // Tell paw which part of the song each window shows: a list of ranges of
-        // beats, each with the tracks shown (all tracks when `tracks` is nil). The
+        // beats, each with the parts shown (all parts when `parts` is nil). The
         // stretched clips there bake before the others. paw.derived sends this
         // after each frame.
         // @param ranges {types.ViewRange}

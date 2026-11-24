@@ -13,7 +13,7 @@ longer.
 ## Loop a selection
 
 1. Press `v` and move the cursor over the time to loop. In the arrange view,
-   `V` selects whole tracks, and the loop takes their time.
+   `V` selects whole parts, and the loop takes their time.
 2. Press `gl`. The message says what the loop is, for example
    `loop: bars 5 to 8, on`.
 3. Press `<Space><Space>` to play. At the end of the loop, the playhead

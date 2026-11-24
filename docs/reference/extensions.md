@@ -10,13 +10,13 @@ Each extension has a README. Its pictures are in `extensions/<name>/images`, and
 
 | Extension | What it adds | Needs |
 | --- | --- | --- |
-| [`ara`](../../extensions/ara/README.md) | ARA plugins on audio tracks: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project | `native` |
+| [`ara`](../../extensions/ara/README.md) | ARA plugins on audio parts: the plugin reads whole clips (Melodyne, audio to MIDI), and its edits stay in the project | `native` |
 | [`articulations`](../../extensions/articulations/README.md) | the articulation of each note as its MIDI 2.0 attribute, with names for each instrument from `.art.toml` maps, and keyswitches for MIDI 1.0 instruments. Maps from SFZ, Decent Sampler, folders and Reaticulate banks, and maps of plugins (MODO BASS 2, SINE Player) that bind themselves | none |
 | [`chainlsp`](../../extensions/chainlsp/README.md) | chain-lsp, the language server of the chain language, in `paw.lsp`: diagnostics of the chain files of the project | `processes` |
-| [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the track column: a color strip, clip counts, signs for takes and frozen tracks, other fold glyphs | none |
+| [`columnplus`](../../extensions/columnplus/README.md) | an example that personalizes the part column: a color strip, clip counts, signs for takes and frozen parts, other fold glyphs | none |
 | [`continue`](../../extensions/continue/README.md) | a small completion source: how the phrase before the cursor in the piano roll can continue | none |
 | [`doctor`](../../extensions/doctor/README.md) | a guided check of the hardware (audio, MIDI, recording, plugins), with a written report, also from the shell | `ffi` |
-| [`drums`](../../extensions/drums/README.md) | drum tracks in one step, and a grid of the pieces of the kit by name | none |
+| [`drums`](../../extensions/drums/README.md) | drum parts in one step, and a grid of the pieces of the kit by name | none |
 | [`interop`](../../extensions/interop/README.md) | opens and writes REAPER projects and DAWproject files (Bitwig Studio, Studio One, Cubase) with `:e`, `:import` and `:export`; the example of how to add a format of files | none |
 | [`launcher`](../../extensions/launcher/README.md) | the clip launcher: slots and scenes in the session view, launched on the beat while the song plays, and a capture of the performance into the timeline | none |
 | [`luafx`](../../extensions/luafx/README.md) | devices written in Lua, to use and to copy | `ffi` |
@@ -31,11 +31,11 @@ Each extension has a README. Its pictures are in `extensions/<name>/images`, and
 | [`sampler`](../../extensions/sampler/README.md) | the sample player of paw, a CLAP plugin written in Rust | `native` |
 | [`sections`](../../extensions/sections/README.md) | named sections of the song as text objects, and edits by section | none |
 | [`snippets`](../../extensions/snippets/README.md) | a set of snippets to start with: chords, parts and voices | none |
-| [`templates`](../../extensions/templates/README.md) | a track, a group of tracks or a chain of devices, saved under a name | none |
+| [`templates`](../../extensions/templates/README.md) | a part, a group of parts or a chain of devices, saved under a name | none |
 | [`tutor`](../../extensions/tutor/README.md) | a course for new users, inside the program | none |
 | [`undotree`](../../extensions/undotree/README.md) | a window on the undo tree, named checkpoints, A/B comparison | none |
-| [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal tracks, a vocal editor, the device that plays the voice and the engine that sings | `ffi`, `processes`, `native` |
-| [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any track takes | `processes` |
+| [`utau`](../../extensions/utau/README.md) | singing synthesis: vocal parts, a vocal editor, the device that plays the voice and the engine that sings | `ffi`, `processes`, `native` |
+| [`vinput`](../../extensions/vinput/README.md) | virtual inputs: a guitar heard as MIDI through gdi2m, as a port that any part takes | `processes` |
 
 The manifests of doctor, drums, mixdiag, notation, plugstate, templates and tutor name their commands, keys and views, so `paw.ext.use` makes them wait for their first use ([Load on first use](#load-on-first-use)). The other extensions load at once, for example articulations, which sends keyswitches while the song plays, and the extensions whose devices a project needs when it opens.
 
@@ -77,7 +77,7 @@ Files in `~/.config/paw/lua/` replace the built-in modules with the same name, s
 | `:ext.load name` | loads a bundled extension, or one that waits, now. Tab completes the names, and those that wait come first |
 | `:extensions` | lists the extensions that loaded, with the version, what loaded each one, what each registered, and the error of each extension that failed. It also lists the extensions that wait, with what each waits for |
 | `paw.ext.unload(name)`, `:ext.unload name` | unloads an extension |
-| `paw.ext.unload(name, { force = true })`, `:ext.unload! name` | unloads an extension when its devices are on tracks |
+| `paw.ext.unload(name, { force = true })`, `:ext.unload! name` | unloads an extension when its devices are on parts |
 | `paw.ext.loaded[name]` | the entry of a loaded extension: `version`, `ok`, `error`, and `loaded_by`, the words that say what loaded it (`at start`, `paw.ext.use`, `:ext.load`, `:notation`, `<leader>nn`, `event project.loaded`, `kind film`, `view tutor`, `required by tutor`) |
 | `paw.ext.lazy.waiting[name]` | the record of an extension that waits for its first use, with its `triggers` |
 | `paw.ext.bundled()` | the names of the bundled extensions, in `$PAW_HOME/extensions` or in `extensions` under the working directory |
@@ -94,7 +94,7 @@ An extension can wait until you first use it, so that paw starts faster. Its man
 | `cmd` | a name, or a list of names and of `{ name, desc = ... }`. A name that ends in `*` is a prefix (`"notation.*"`) | you run the command. Its stub completes and shows in `:help` with `desc`, or with the description of the manifest |
 | `keys` | a key, or a list of keys and of `{ lhs, mode = "n" or { "n", "x" }, view = name, desc = ... }` | you press the key. Its stub shows in the key hints with `desc` |
 | `event` | the name of an event, or a list of names or patterns (`"project.*"`) | paw sends the event. The handlers of the extension get the event that loaded it |
-| `kind` | a key of a registry, or a list of them. A name alone is a kind of clip or of track. `{ registry = "pickers", key = "film" }` is a key of any registry, by the `kind` of the registry | paw asks the registry for that key, for example when a project with a clip of that kind opens |
+| `kind` | a key of a registry, or a list of them. A name alone is a kind of clip or of part. `{ registry = "pickers", key = "film" }` is a key of any registry, by the `kind` of the registry | paw asks the registry for that key, for example when a project with a clip of that kind opens |
 | `view` | the name of a view, or a list of them | the view opens |
 | `lazy` | `false` | at once, even when the manifest gives triggers. `true` with no trigger waits for `:ext.load` |
 
@@ -115,9 +115,9 @@ paw.ext.use("~/code/euclid", { cmd = { "euclid.*" } })   -- one of your own
 
 paw records all that an extension registers while it loads, which includes the following:
 
-- commands, keys and key groups, the lines of the key bar (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, and kinds of track
+- commands, keys and key groups, the lines of the key bar (`paw.ui.keybar.set`), views, buffer types, kinds of text buffer, and kinds of part
 - picker sources, query fields, fields and views of `:s` and `:g`, completers, status line components, and grep sources
-- the parts and signs of the track column and the parts of the bar labels (`paw.trackcolumn`, `paw.ruler`), the bands under the ruler of the window (`paw.frontend.bands`), the keys of insert mode in the arrange view (`paw.insert`), and the parts and the keys of paw that it changes with `set`
+- the components and signs of the part column and the components of the bar labels (`paw.partcolumn`, `paw.ruler`), the bands under the ruler of the window (`paw.frontend.bands`), the keys of insert mode in the arrange view (`paw.insert`), and the parts and the keys of paw that it changes with `set`
 - curve providers, address schemes, completion sources, layers, language servers with their subjects and dialects (`paw.lsp.config`, `paw.lsp.subject`, `paw.lsp.adapter`), health checks, hooks (`paw.on`), options, and timers (`paw.every`, `paw.defer`)
 - its directory of devices written in Lua, and the plugin directories that it adds (`paw.plugins.add_dir`)
 
@@ -127,7 +127,7 @@ paw also records what the extension registers later, from a command, a handler o
 
 Two extensions can map the same key in the same view, or define the same command, and then the extension that loads last wins. `:checkhealth extensions` gives a warning for each such entry. To choose the other one, load the extensions in the other order, or map the key again in `init.lua`.
 
-An extension can also map a key of the core again. When the new mapping has a different description, `:checkhealth extensions` gives a warning, because a key has the same meaning in every view. A mapping that keeps the description gives no warning, for example when it adds to the action of the core, such as Enter on a vocal track.
+An extension can also map a key of the core again. When the new mapping has a different description, `:checkhealth extensions` gives a warning, because a key has the same meaning in every view. A mapping that keeps the description gives no warning, for example when it adds to the action of the core, such as Enter on a vocal part.
 
 ### Registries
 
@@ -140,7 +140,7 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.ui.views` | views |
 | `paw.layout.types` | buffer types |
 | `paw.textbuf.kinds` | kinds of text buffer |
-| `paw.track_kinds.kinds` | kinds of track |
+| `paw.part_kinds.kinds` | kinds of part |
 | `paw.clip_kinds.kinds` | kinds of clip |
 | `paw.nest.kinds` | kinds of subproject |
 | `paw.ui.roles` | roles |
@@ -150,8 +150,8 @@ A registry holds entries by name and records which extension put each entry ther
 | `paw.query.marks` | what gives the marks of a note, by a name: `function(note, clip)` gives `{ art = { "staccato" }, text = "pizz." }` or nil. Queries (`note[art=...]`), `:vimgrep` and the pickers find a note by its marks, and the score draws the marks of the other entries. The notation extension gives the marks written in the score, and the articulations extension gives those of each note's articulation |
 | `paw.ex.fields` | fields of `:s` and `:g` |
 | `paw.ex.views` | views of ranges |
-| `paw.trackcolumn.components` | parts of the track column |
-| `paw.trackcolumn.signs` | signs of the track column |
+| `paw.partcolumn.components` | components of the part column |
+| `paw.partcolumn.signs` | signs of the part column |
 | `paw.ruler.labels` | parts of the bar labels |
 | `paw.insert.kinds` | keys of insert mode in the arrange view |
 | `paw.grep.sources` | grep sources |
@@ -204,7 +204,7 @@ styles:put("swing", { amount = 0.6 })
 `paw.ext.unload(name)` removes all that the extension owns, in the following order.
 
 - paw removes its hooks and stops its timers first, so that its code does not run while paw removes the rest.
-- paw restores what the extension replaced, which is a key of the core that it mapped again, a command that it defined again, an option of the core with a different default, and a part of the track column or of the bar labels that it changed.
+- paw restores what the extension replaced, which is a key of the core that it mapped again, a command that it defined again, an option of the core with a different default, and a component of the part column or of the bar labels that it changed.
 - Its options go, with their values, and its timers stop.
 - paw no longer offers its devices in Lua and the plugins in its directories, and a script with the same name in another place takes their place.
 - paw forgets its modules, so when it loads again, it runs from the start.
@@ -213,7 +213,7 @@ styles:put("swing", { amount = 0.6 })
 paw does not unload an extension in two cases.
 
 - Another loaded extension requires it.
-- Its devices are on tracks. paw names the devices and the tracks, and `:ext.unload! name` unloads the extension anyway. The devices stay and play until you remove them, and a project saved with them opens without them when the extension is not there.
+- Its devices are on parts. paw names the devices and the parts, and `:ext.unload! name` unloads the extension anyway. The devices stay and play until you remove them, and a project saved with them opens without them when the extension is not there.
 
 `:reload` starts the full runtime again and does not need this.
 
@@ -343,22 +343,22 @@ The core has parts that let an extension own a full feature, and the utau extens
 - `paw.api.device_post(kind, topic, data)` sends data to every device of a kind, which means the devices that exist and each device made later. The devices of an offline render get it before their first block.
 - Large data goes in files. A device maps a file with `dsp.map(path)`, and all the devices that map a file share it.
 
-### Kinds of track
+### Kinds of part
 
-`paw.track_kinds.define(name, spec)` defines a kind of track.
+`paw.part_kinds.define(name, spec)` defines a kind of part.
 
 | Field | Value |
 | --- | --- |
 | `title` | the name of the kind |
-| `letter` | shown in the track header before the name |
-| `create(track, args)` | makes an ordinary track this kind, with its devices or a question |
+| `letter` | shown in the part header before the name |
+| `create(part, args)` | makes an ordinary part this kind, with its devices or a question |
 | `editor(clip)` | what Enter, a double click and `:clip.edit` open for its clips. It returns true when it opened an editor |
-| `describe(track)` | a few words for `K` and the track header of the graphical window |
-| `is(track)` | true for a track of the kind that does not say so |
+| `describe(part)` | a few words for `K` and the part header of the graphical window |
+| `is(part)` | true for a part of the kind that does not say so |
 
-After that, `:track.add <name> [words]`, `:track.new` (a list of every kind), the buttons and menus of the graphical window that make a track, the header, `K` and `:clip.edit` know the kind.
+After that, `:part.add <name> [words]`, `:part.new` (a list of every kind), the buttons and menus of the graphical window that make a part, the header, `K` and `:clip.edit` know the kind.
 
-The kind is in `meta.kind` of the track, and the project saves it. Without the extension, the track is an ordinary track, and `K` gives the kind that it was. Vocal tracks (utau) and drum tracks (drums) are kinds. `paw.track_kinds.add(name, opts)`, `set(track, name, args)`, `clear(track)`, `of(track)` and `describe(track)` are for scripts.
+The kind is in `meta.kind` of the part, and the project saves it. Without the extension, the part is an ordinary part, and `K` gives the kind that it was. Vocal parts (utau) and drum parts (drums) are kinds. `paw.part_kinds.add(name, opts)`, `set(part, name, args)`, `clear(part)`, `of(part)` and `describe(part)` are for scripts.
 
 ### Kinds of clip
 
@@ -391,7 +391,7 @@ The functions of a kind must be fast, and each one stops after `paw.opt.clip_kin
 
 | Function | Effect |
 | --- | --- |
-| `paw.clip_kinds.add(track, name, args, data)` | makes a clip of the kind, with `data` or with the data that `create` gives. One undo step |
+| `paw.clip_kinds.add(part, name, args, data)` | makes a clip of the kind, with `data` or with the data that `create` gives. One undo step |
 | `clip:data()` | gives the data of the clip |
 | `clip:set_data(data)`, `paw.clip_kinds.set(clip, data)` | changes the data and compiles it again. One undo step |
 | `paw.clip_kinds.compile(clip)` | compiles the data again. One undo step |
@@ -408,11 +408,11 @@ Each clip keeps the version of its data. When the project opens, and when the ki
 | --- | --- |
 | `title` | the name of the kind, which messages and `K` show |
 | `letter` | shown after `⧉` on the blocks of the subproject, for example `⧉D Groove`. The first letter of the name if not given |
-| `create(region)` | adds the tracks and clips of a new subproject, and gives the data of the kind, or nil and a reason to stop. `region` has `nest`, `row` and `clip` (the subproject, its return row and its block), `name`, and `from` and `to` in beats. A kind that adds no track gets one empty track |
+| `create(region)` | adds the parts and clips of a new subproject, and gives the data of the kind, or nil and a reason to stop. `region` has `nest`, `row` and `clip` (the subproject, its return row and its block), `name`, and `from` and `to` in beats. A kind that adds no part gets one empty part |
 | `enter(nest)` | runs when a window goes inside the subproject, for example to open the view of the kind in place of the arrange view |
 | `describe(nest)` | a few words for `K` on a block |
 
-The project keeps the kind in the `kind` of the subproject, and the data in its `meta` under the name of the kind. The tracks and the clips are the music: without the extension, the subproject plays, the arrange view edits it, and `K` gives the kind that it was. When `create` fails, `:nest.new` leaves the project as it was and shows the reason. When paw unloads the extension, its kinds go too.
+The project keeps the kind in the `kind` of the subproject, and the data in its `meta` under the name of the kind. The parts and the clips are the music: without the extension, the subproject plays, the arrange view edits it, and `K` gives the kind that it was. When `create` fails, `:nest.new` leaves the project as it was and shows the reason. When paw unloads the extension, its kinds go too.
 
 | Function | Effect |
 | --- | --- |
@@ -421,7 +421,7 @@ The project keeps the kind in the `kind` of the subproject, and the data in its 
 | `paw.nest.kind(nest)` | gives the spec of the kind of a subproject, or nil |
 | `paw.nest.letter(nest)` | gives the letter of the kind of a subproject, or nil |
 
-The events `nest.enter` and `nest.leave` come when a window goes inside a subproject and when it comes out, and `nest.changed` comes once for each undo step that changes the tracks, clips, devices or lanes of a subproject. See [Events](events.md).
+The events `nest.enter` and `nest.leave` come when a window goes inside a subproject and when it comes out, and `nest.changed` comes once for each undo step that changes the parts, clips, devices or lanes of a subproject. See [Events](events.md).
 
 ### Plugins of an extension
 

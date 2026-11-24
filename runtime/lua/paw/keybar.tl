@@ -203,7 +203,7 @@ set_all(
   {
     n = {
       {"<leader><Space>", "play"},
-      {"o", "track"},
+      {"o", "part"},
       {"a", "device"},
       {"i", "insert"},
       {"<CR>", "open clip"},

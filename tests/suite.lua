@@ -380,7 +380,7 @@ end
 
 --- Let the engine play `n` (1 if not given) whole blocks after this call,
 --- so that what was sent to it before is in effect: a parameter, a note,
---- a change to a track. Changes not yet sent are sent first. With
+--- a change to a part. Changes not yet sent are sent first. With
 --- `device`, count the blocks that this device ran: a device that sleeps
 --- through silence does not count them. On the stepped backend it plays
 --- exactly `n` blocks (and the clock moves by their time), or, with
@@ -526,18 +526,18 @@ local function advance_until(cond, what, ms)
 end
 
 --- Wait until no meter of the engine shows a level: the master's and each
---- track's are under the meters' floor (-60 dB). A meter falls as the
+--- part's are under the meters' floor (-60 dB). A meter falls as the
 --- engine plays its blocks, so the sound of a test before can still show
 --- when the next test draws a meter or waits for the engine to rest. A loud
 --- meter falls for longer than one wait of `until_` plays: the clock moves
 --- block by block, for at most five seconds. Then put out the peaks that the
 --- screen holds for two seconds of the clock, and the clip lights.
 local function until_meters_at_rest()
-  local ids = api.track_list({ all = true })
+  local ids = api.part_list({ all = true })
   ids[#ids + 1] = 0
   advance_until(function()
     for _, id in ipairs(ids) do
-      if math.max(api.track_meter(id)) >= 0.001 then return false end
+      if math.max(api.part_meter(id)) >= 0.001 then return false end
     end
     return true
   end, "the meters of the engine at rest", 5000)
@@ -546,7 +546,7 @@ local function until_meters_at_rest()
   end
 end
 
---- The level of the meter of `thing` (a track, or another thing with
+--- The level of the meter of `thing` (a part, or another thing with
 --- `:meter()`) after the blocks that the engine played last: left and
 --- right peaks, as linear gain. On the manual clock the engine must be on
 --- the stepped backend, so that the level is the same in each run: play
@@ -559,13 +559,13 @@ local function meter(thing)
   return thing:meter()
 end
 
---- The peak level of `track` once the engine ran one more block
+--- The peak level of `part` once the engine ran one more block
 --- (`next_block`): the left side, or the right with `side` 2. A test reads
 --- a level only after a block, never after a time: in a wait,
 --- `T.until_(function() return T.level(t) > 0.01 end, what)`.
-local function level(track, side)
+local function level(part, side)
   next_block(1)
-  return (select(side or 1, meter(track)))
+  return (select(side or 1, meter(part)))
 end
 
 --- Let the song play until the playhead, after it went round the loop
@@ -700,12 +700,12 @@ local function render(opts)
   return paw.render(scratch .. "/render" .. renders .. ".wav", opts)
 end
 
---- A track with a synth holding one note for `beats`.
+--- A part with a synth holding one note for `beats`.
 local function tone(name, beats, pitch)
-  local track = paw.add_track({ name = name })
-  track:add_device("synth", { attack = 0.001, release = 0.01 })
-  track:add_clip({ start = 0, length = beats, notes = { { pitch = pitch or "A3", start = 0, length = beats } } })
-  return track
+  local part = paw.add_part({ name = name })
+  part:add_device("synth", { attack = 0.001, release = 0.01 })
+  part:add_clip({ start = 0, length = beats, notes = { { pitch = pitch or "A3", start = 0, length = beats } } })
+  return part
 end
 
 --- Peak of each channel of a WAV file written by `paw.render` at 16 bits,
@@ -764,12 +764,12 @@ end
 
 -- Helpers of the modal editing tests ------------------------------------------
 
---- A track with a synth and three clips of four beats, a note on every beat.
+--- A part with a synth and three clips of four beats, a note on every beat.
 local function three_clips()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local t = paw.add_track({ name = "T" })
+  local t = paw.add_part({ name = "T" })
   t:add_device("synth", { cutoff = 900 })
   for i, name in ipairs({ "a", "b", "c" }) do
     local notes = {}
@@ -778,14 +778,14 @@ local function three_clips()
     end
     t:add_clip({ name = name, start = (i - 1) * 4, length = 4, notes = notes })
   end
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(0)
   paw.opt.grid, paw.opt.note_grid, paw.opt.ripple = 1, 0.25, false
   api.undo_checkpoint()
   return t
 end
 
---- Where a track's clips are: "a@0+4 b@4+4".
+--- Where a part's clips are: "a@0+4 b@4+4".
 local function layout(t)
   local out = {}
   for _, c in ipairs(api.clip_list(t.id)) do
@@ -956,20 +956,20 @@ local golden_unused = dofile("tests/tools/golden.lua")(T)
 -- `T.check_keys(fixture, keys, expected, what)` makes the project of
 -- `fixture` after `T.start()`, types `keys` with `T.keys`, and compares the
 -- project with `expected`. A failure prints the project as a fixture, ready
--- to paste. `T.fixture(text)` only makes the project (and gives its tracks
+-- to paste. `T.fixture(text)` only makes the project (and gives its parts
 -- by name), and `T.fixture_text()` gives the project as a fixture.
 -- tests/tools/fixture.lua holds them.
 --
 -- A fixture is a small project in a Lua string, one item on each line.
 -- The indent is for the eye; `--` starts a comment:
 --
---   track Lead            -- a track (with a synth), named Lead
+--   part Lead            -- a part (with a synth), named Lead
 --     clip a 0+4          -- a MIDI clip named a, at beat 0, 4 beats long
 --       60 0+0.5          -- a note: pitch 60, at beat 0 of the clip, half a beat
 --       64 0.5+0.5 *      -- `*`: the note is chosen (selected)
 --       cursor 64@0.5     -- the piano roll is open on this clip, with its
 --                         -- cursor at pitch 64, beat 0.5 of the roll
---     cursor @2           -- or: the arrange view, its cursor on this track at beat 2
+--     cursor @2           -- or: the arrange view, its cursor on this part at beat 2
 --   mode x v              -- the mode, when it is not normal (expected side only)
 --
 -- The project that a check prints has its clips and notes in the order they
@@ -1151,11 +1151,11 @@ local kernel = {
     end,
   },
   {
-    -- The tracks that the engine plays from a file (`api.engine_hold`).
+    -- The parts that the engine plays from a file (`api.engine_hold`).
     kind = "held",
     read = function()
       local ids = api.engine_held()
-      return "tracks {" .. table.concat(ids, ", ") .. "}", ids
+      return "parts {" .. table.concat(ids, ", ") .. "}", ids
     end,
     put = function(ids)
       local keep = {}

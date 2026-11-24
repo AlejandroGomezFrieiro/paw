@@ -984,7 +984,7 @@ end
 --- Write a score's change as MIDI: the score was `before` (derived from the
 --- clip) and an edit made it `after`. Only notes whose written form or
 --- decisions changed are touched. `own` is what the clip keeps for notation,
---- `fixed` the clef the track fixes, if any. Returns the MIDI ids the
+--- `fixed` the clef the part fixes, if any. Returns the MIDI ids the
 --- score's new notes were given, by their written ids.
 function M.sync(clip_id, before, after, own, fixed)
   local notes = api.clip_notes(clip_id)
@@ -1170,7 +1170,7 @@ function M.sync(clip_id, before, after, own, fixed)
   end
   -- What the clip keeps. The staves stay as notation wrote on them where
   -- the notes now would be given others (a treble staff after a note is
-  -- taken a little under it, say); where the track fixes them, the track's.
+  -- taken a little under it, say); where the part fixes them, the part's.
   local staves = own.staves
   if not fixed then
     -- The pitches the clip has now.

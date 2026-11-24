@@ -48,12 +48,12 @@ The limits page lists what paw does not do, and the known limits of what it does
   - Sources can say that they offer suggestions in the arrange view (whole clips) and the drum view (`views`), but only the piano roll asks for them and shows them.
   - paw writes the controller moves of a suggestion when you accept it, but it does not draw them before.
   - The badge has no list of the details of the alternatives.
-  - To play a suggestion, paw uses the live input of the track, so the timers of the kernel set its time and not the clock of the engine.
+  - To play a suggestion, paw uses the live input of the part, so the timers of the kernel set its time and not the clock of the engine.
 
 ## Keys, views and the terminal
 
 - Pickers that you can hear:
-  - `paw.opt.audition_level` sets the level of sound files only. A phrase plays through the track at the level of the track, to give the sound of the preset in the mix.
+  - `paw.opt.audition_level` sets the level of sound files only. A phrase plays through the part at the level of the part, to give the sound of the preset in the mix.
   - The timers of the kernel time a phrase, not the engine, so under load a phrase can be a few milliseconds uneven.
   - A factory preset of a plugin takes as long to try as to load. Some plugins stop the program for up to a third of a second.
   - You cannot hear the pickers of templates, UTAU presets and singers, sends and drum maps.
@@ -61,14 +61,14 @@ The limits page lists what paw does not do, and the known limits of what it does
 - The waveform of an audio clip in cells (`paw.opt.wave_scale`) shows the lowest to the highest sample of each column, and it does not show the loudness, because there is no darker inner band for the RMS. The graphical window draws the peaks of a clip from the same data as before (`paw.frontend.peaks`, which gives the lowest, the highest and the loudness of each point).
 - Windows, buffers and tabs:
   - The arrange view, the piano roll, the notation view, the mixer, the device panel and the session view of the clip launcher have a state for each window. The views of extensions that name no state for each window show in one window at a time.
-  - The edit cursor of the arrange view (the track and the time) and the selections are one for all the windows of a frontend.
+  - The edit cursor of the arrange view (the part and the time) and the selections are one for all the windows of a frontend.
   - Floats (help, pickers, pages) are not windows of a tab yet.
   - Each view draws its own window title bar (the winbar).
   - The project keeps a layout for each kind of seat (the graphical window, the terminal), not for each seat. Two terminals attached at the same time share one layout in the project, which is the layout of the terminal that saved it last.
   - `:new` starts a new project. `:vnew` and `Ctrl-w n` open an empty window.
 - The quickfix list:
   - `:g/pattern/` and `:vimgrep` fill it. paw has no `:grep` that runs a program on the files of the project folder. `/` does not fill it.
-  - `:cfdo` runs one time for each track, not for each file of the project folder.
+  - `:cfdo` runs one time for each part, not for each file of the project folder.
   - The project does not keep the lists, and they do not stay between runs.
   - A location list stays with the number of its window after the window closes.
   - The status bar of the graphical window does not count the entries.
@@ -77,15 +77,15 @@ The limits page lists what paw does not do, and the known limits of what it does
   - `:m`, `:co` and `:>` move notes as the piano roll does.
   - Notation does not keep the name of a note typed in a replacement (`:s/c4/db4/`). It spells the note by the key.
   - A term of a pattern has no spaces, so `name=` cannot name a clip with a space in its name.
-  - The `:t` of Vim (copy) is not there, because `t` starts a range of tracks. `:k`, `:j!`, `:retab` and similar commands are not there.
+  - The `:t` of Vim (copy) is not there, because `t` starts a range of parts. `:k`, `:j!`, `:retab` and similar commands are not there.
   - The graphical window shows the matches and ghosts of the piano roll as the terminal draws them. It gets the count (`prompt.note`), but does not show it yet. It does not shade the range or light clips in the arrange view.
 - Search:
   - The regex mode of the pickers and `:vimgrep` change the common kind of regular expression into Lua patterns, so a group cannot repeat (`(ab)+`), and there is no `\b`, no backreference and no lookaround.
   - The preview of a picker draws a clip as a piano roll or a waveform, not as a score (the notation extension draws staves only in its own view).
   - A picker over a hundred thousand notes takes most of a second to open.
   - The live grep of `<Space>fg` searches the text in the project, not the text that a plugin shows. It does not search the text of automation and of device parameters.
-  - `:select` chooses notes and clips. The tracks, devices, markers and points that it finds go only to the quickfix list.
-  - `]c` and `[c` stay on the track of the cursor.
+  - `:select` chooses notes and clips. The parts, devices, markers and points that it finds go only to the quickfix list.
+  - `]c` and `[c` stay on the part of the cursor.
   - In a picker, the keys that open a split open only the first marked line. A view shows in one window at a time.
 - Help (`:help`):
   - The pages are 78 columns wide, not the width of the window.
@@ -93,12 +93,12 @@ The limits page lists what paw does not do, and the known limits of what it does
   - paw has no `:helptags`. paw makes the tags in short steps when it has no other work after it starts, or the first time that you ask for help before then.
   - Help is only in English.
   - The Nix package installs the extensions next to the program, but not `docs/`, so an installed paw has the pages of the extensions but not the manual, unless `PAW_HOME` names a source tree.
-- Lists edited as text (`paw://tracks` and the others):
-  - The input, MIDI ports, height and automation of a track are not fields of its line. The side-chain, outputs and parameters of a device are not fields either. The place of a send among the sends of a track is not a field. A copy keeps all of them.
+- Lists edited as text (`paw://parts` and the others):
+  - The input, MIDI ports, height and automation of a part are not fields of its line. The side-chain, outputs and parameters of a device are not fields either. The place of a send among the sends of a part is not a field. A copy keeps all of them.
   - An edit of the name of a device does not rename or replace the device.
   - paw puts the lines in columns again only when it reads the buffer again (`:w`, `:e!`).
   - `:s` takes Lua patterns with `\d` `\s` `\w` `\(` `\)` of Vim, not the full syntax of Vim.
-  - These buffers have no `:g`, and they do not complete track and device names while you type.
+  - These buffers have no `:g`, and they do not complete part and device names while you type.
   - paw has no buffer of clips, lanes or notes yet.
   - The graphical frontend draws a text buffer as the terminal does, in the monospace font, not with its own widgets.
 - The key rule ([The key rule](key-rule.md)):
@@ -123,10 +123,10 @@ The limits page lists what paw does not do, and the known limits of what it does
 - The mouse in the terminal:
   - You cannot drag the fades and gain of an audio clip. The keys and the
     commands of the clip set them.
-  - You cannot drag the height of a track. The wheel with Alt, or with
-    Ctrl over the headers, changes the height of the tracks.
+  - You cannot drag the height of a part. The wheel with Alt, or with
+    Ctrl over the headers, changes the height of the parts.
   - You cannot edit with the pointer the volume curve drawn over the lane
-    of a track. You can edit its lane when it shows as a row.
+    of a part. You can edit its lane when it shows as a row.
   - Heights in a lane are as fine as its two lines. They are finer only
     when you drag a point.
   - Where the terminal keeps Shift for its own selection, Shift does not
@@ -141,7 +141,7 @@ The limits page lists what paw does not do, and the known limits of what it does
   - The file manager moves nothing between disks as a folder: it copies a
     file and then moves it.
   - The file manager has no undo of a file operation other than the trash.
-  - The file manager cannot drag a line into `paw://tracks`. To bring a
+  - The file manager cannot drag a line into `paw://parts`. To bring a
     file in, use `Enter` or `go`.
   - The graphical window shows a files buffer as any text buffer.
 
@@ -169,7 +169,7 @@ The limits page lists what paw does not do, and the known limits of what it does
   - A key is one to three rows, at the cell size of the graphical window,
     as in the terminal. A key of half a row, with two keys in one row, is
     not there.
-  - The tracks near the roll are in the `:roll.tracks` list, not in a side
+  - The parts near the roll are in the `:roll.parts` list, not in a side
     panel beside it.
   - The alternatives of a suggestion show with `Alt-1`…`Alt-9`, not as
     chips to click.
@@ -179,13 +179,13 @@ The limits page lists what paw does not do, and the known limits of what it does
 - The arrange view of the graphical window is the arrange view of the
   terminal, laid out in cells. Before, the window had its own drawing of
   it. These details of that drawing are not there now:
-  - A track's height is a whole number of lines.
+  - A part's height is a whole number of lines.
   - The timeline has no box of zoom buttons in its corner. `Ctrl -`,
     `Ctrl +`, `Ctrl 0` and the arrows with `Ctrl` do the same.
   - The ruler is one row. A drag along it loops. The lower half of the
     ruler of the old drawing moved the playhead.
-  - Automation shows the lanes of the selected track as rows, not one lane
-    of each track over its clips.
+  - Automation shows the lanes of the selected part as rows, not one lane
+    of each part over its clips.
   - The bar numbers, the names on the ruler and the text in the headers
     are in cells. The clips, the bar lines, the curves and the playhead
     are where they are, between cells. At a zoom that is not a whole
@@ -206,9 +206,9 @@ The limits page lists what paw does not do, and the known limits of what it does
     a device a favorite.
   - The heading of a device has a menu of presets, but no buttons for the
     next and the previous preset. `]p` and `[p` step through them.
-  - A drag of a device onto the header of a track does not move it to that
-    track. A drag in the panel moves it along the chain. `:device.move_to`
-    and `:device.copy_to` move it to a different track, and `dd` and `p`
+  - A drag of a device onto the header of a part does not move it to that
+    part. A drag in the panel moves it along the chain. `:device.move_to`
+    and `:device.copy_to` move it to a different part, and `dd` and `p`
     too.
   - The wheel over a slider moves the cursor from row to row. `Ctrl` and
     the wheel change the parameter, as in the terminal.
@@ -246,8 +246,8 @@ The limits page lists what paw does not do, and the known limits of what it does
   - The velocity of a note stays seven bits (1 to 127) in the project. The
     sixteen bits of MIDI 2.0 reach and leave the engine.
   - paw does not keep the attribute of a note-off (the endings of M2-123).
-  - The `attr_map` of a track does not change notes played on a MIDI
-    keyboard into keyswitches. It changes clips and `track:play_note`.
+  - The `attr_map` of a part does not change notes played on a MIDI
+    keyboard into keyswitches. It changes clips and `part:play_note`.
   - In a chord on one channel with different articulations, each keyswitch goes before its note, but a controller or a program change applies to the full chord (route one with `ch=`).
   - A MIDI file keeps the attribute in an event of paw, not in the NRPN
     form that some other programs read.
@@ -267,15 +267,15 @@ The limits page lists what paw does not do, and the known limits of what it does
   - paw does not import key signatures, sysex, text and copyright events,
     and SMPTE offsets. The message counts them. The project has no place
     for them.
-  - Lyrics go only on notes of their own track, so a karaoke file with its words in a separate track keeps no words.
-  - paw does not import controller moves on a channel or track with no
+  - Lyrics go only on notes of their own part, so a karaoke file with its words in a separate part keeps no words.
+  - paw does not import controller moves on a channel or part with no
     notes.
-  - A format 1 track that plays on several channels stays one track. Each
+  - A format 1 part that plays on several channels stays one part. Each
     note keeps its channel in `meta.channel`, and paw merges the controls.
-  - A melodic track gets no instrument. Only channel 10 gets the drum kit.
+  - A melodic part gets no instrument. Only channel 10 gets the drum kit.
   - `:export` writes only MIDI clips. It writes a looped clip one time, a
     tempo ramp as steps a sixteenth apart, and every control on the channel
-    of its track. It does not write the bend and controllers of a note
+    of its part. It does not write the bend and controllers of a note
     (MIDI 2.0).
 - Cues and the clip launcher:
   - No follow actions (a clip that launches the next clip, or a random
@@ -318,10 +318,10 @@ The limits page lists what paw does not do, and the known limits of what it does
   - Attachments take CLAP plugins only.
 - A freeze after the fader: paw takes a freeze before the fader, so the
   mix stays live (`:bounce` also renders the fader).
-  - A send from a track inside a frozen group to a track outside it is not
+  - A send from a part inside a frozen group to a part outside it is not
     heard while the group is frozen.
-  - paw does not render a frozen track again when the tempo changes.
-  - The graphical window does not draw `F` on the header of a frozen track
+  - paw does not render a frozen part again when the tempo changes.
+  - The graphical window does not draw `F` on the header of a frozen part
     yet. The terminal does, and `paw.freeze.state(id)` tells it.
 - Scopes:
   - `:layout save` does not keep the scope of a window, because the id of
@@ -346,21 +346,21 @@ The limits page lists what paw does not do, and the known limits of what it does
     looped clip over one of its edges: paw cannot cut those there yet.
   - A view inside a subproject saved as a subproject keeps its markers
     where they are.
-  - Promote of a subproject saved per track works when all of its blocks
+  - Promote of a subproject saved per part works when all of its blocks
     are at one place.
-  - The tracks that `za` shows under a return row find their clips at the
+  - The parts that `za` shows under a return row find their clips at the
     cursor. Keys that work on a time at the cursor (`i`, `p`, `d` with a
     motion) still work in the time of the song there.
 - VCAs:
   - No VCA over the own fader of a group, no VCA under a VCA, and no VCA
     gain on the master.
-  - A VCA is a track, so it shows in the arrange view as a row, with lanes
-    as any other track.
-  - A VCA moves the tracks assigned to it, not the tracks that they play
+  - A VCA is a part, so it shows in the arrange view as a row, with lanes
+    as any other part.
+  - A VCA moves the parts assigned to it, not the parts that they play
     into. The solo of a VCA makes its members the only sound. It does not
     solo what they feed.
-- Per-track loudness and spectrum in the painted mix report: the measurement
-  gives each track only its peak, so the track meters are peaks, not LUFS
+- Per-part loudness and spectrum in the painted mix report: the measurement
+  gives each part only its peak, so the part meters are peaks, not LUFS
   or RMS. What an extension draws on the terminal's arrange view shows in
   the window only as a band it adds too.
 - Lua devices do not have:
@@ -413,7 +413,7 @@ The limits page lists what paw does not do, and the known limits of what it does
   - To settle a conflict, you take one side whole. You cannot edit the two
     sides together.
   - Two sides can give different things the same id. Then paw renumbers
-    subprojects, tracks, devices, clips and lanes, with what points at them in
+    subprojects, parts, devices, clips and lanes, with what points at them in
     the own fields of the model only. It does not follow what an extension
     keeps in `meta` and points at ids with.
   - `:Pmerge` takes a file that git merged on its own as git merged it. When
@@ -426,20 +426,20 @@ The limits page lists what paw does not do, and the known limits of what it does
 
 - Language servers:
   - paw sends each document complete. It does not send incremental changes.
-  - paw keeps the related notes of other tracks that a diagnostic names,
+  - paw keeps the related notes of other parts that a diagnostic names,
     but does not draw them.
   - paw draws annotations on mixer strips, devices and the ruler, not yet
     on clips or notes.
   - A fix that renders again is not an undo step, because a render is not
     an edit of the project.
-  - The graphical window shows the marks only on notes, while the terminal marks tracks, devices, time and renders. The graphical window shows those through `:diagnostics` and the float.
+  - The graphical window shows the marks only on notes, while the terminal marks parts, devices, time and renders. The graphical window shows those through `:diagnostics` and the float.
   - The settings check of MIDI LSP names the render dialog of REAPER in its
     messages.
-- Kinds of track:
-  - A kind says how a track is made and how its clips open. It does not
+- Kinds of part:
+  - A kind says how a part is made and how its clips open. It does not
     say how a new clip on it starts. Kinds have no `new_clip`: a double click
-    makes an empty clip on any track.
-  - Commands of the extension change the kind of a track (`:utau.voice`, `:drums.map off`), and not a list.
+    makes an empty clip on any part.
+  - Commands of the extension change the kind of a part (`:utau.voice`, `:drums.map off`), and not a list.
   - The header shows the letter of a kind in the column before the name.
     Diagnostics mark the same column and draw over it.
   - An extension finds the CLAP and VST3 plugins of its own with
@@ -474,15 +474,15 @@ The limits page lists what paw does not do, and the known limits of what it does
   - Trills, mordents, turns and tremolos are written, not played. A fermata
     holds the whole value of its note, but it does not stop the time.
   - Techniques (`pizz.`, `con sord.`) switch an articulation only on a
-    track with an articulation map (extensions/articulations). They switch
+    part with an articulation map (extensions/articulations). They switch
     it only from where they are written to the end of the clip or the range.
   - paw does not render swing. It writes no CC1 or CC11 for sustained
     instruments.
   - `paw.harmony` does not read a key change after the first bar. The core
-    has no key track: the key that the score starts in is the key of the
+    has no key part: the key that the score starts in is the key of the
     project.
   - A time signature written in notation is the time signature of the
-    song, for every track.
+    song, for every part.
   - A mark writes the MIDI only when it is written. Notes that the piano
     roll moves under a dynamic later keep their velocities. A slur writes
     nothing (the notes are as long as they are).
@@ -495,16 +495,16 @@ The limits page lists what paw does not do, and the known limits of what it does
     choose others. So a note that the roll puts far below a treble staff
     does not make it a grand staff.
   - The notation window outlines the note of the roll only in the terminal.
-    The export of a track transcribes what the clips play.
+    The export of a part transcribes what the clips play.
   - Tuplets are read from the MIDI within a beat (and quarter-note triplets
     over two beats). Nine to a beat, five over two beats and similar
     tuplets are written only when you write them in notation.
   - The full score is at concert pitch only.
-  - A staff of the score and a part are every MIDI clip of their track.
+  - A staff of the score and a part are every MIDI clip of their part.
     But a tie does not join two clips.
   - In a clip that starts after the first clip of the score, the beat of a
     mark does not move with the clip.
-  - A note entered before the first clip of a track goes nowhere. A note
+  - A note entered before the first clip of a part goes nowhere. A note
     entered in a gap goes into the clip before.
   - In a transposed part, the keys and clefs of the popovers and `:s` go
     by the notes that sound (concert pitch).
@@ -515,7 +515,7 @@ The limits page lists what paw does not do, and the known limits of what it does
   - A condensed staff pairs two players, as two voices where they part. An
     edit applies to both only where they are written `a2` (`:score.split`
     parts them).
-  - `:score` takes the tracks of an arrange selection, not a selection of
+  - `:score` takes the parts of an arrange selection, not a selection of
     clips.
   - Cues are flagged, not beamed.
 - MusicXML in notation:

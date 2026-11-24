@@ -1,4 +1,4 @@
--- The edit cursor: a track and a position. Commands act on it and views
+-- The edit cursor: a part and a position. Commands act on it and views
 -- draw it. It survives a reload.
 --
 -- The position is a whole number of ticks (paw/timegrid.tl): `tick`, and
@@ -19,18 +19,18 @@ local type SeatsModule = require("paw.seats")
 local type types = require("paw.types")
 
 --- Where the cursor is: the payload of `cursor.changed`, and what it keeps
---- over a reload. `track` is 0 on the master; `lane` is the lane row it
+--- over a reload. `part` is 0 on the master; `lane` is the lane row it
 --- is on, if any.
 local record Place
-  track: integer
+  part: integer
   beat: number
   lane: integer
 end
 
 --- A row of the arrange view (`paw.groups.rows({ lanes = true })`): a
---- track, or a lane shown under it.
+--- part, or a lane shown under it.
 local record Row
-  track: integer
+  part: integer
   lane: integer
 end
 
@@ -47,7 +47,7 @@ local record Groups
 end
 local record Lanes
   any_open: function(): boolean
-  shown: function(track: integer): {types.Lane}
+  shown: function(part: integer): {types.Lane}
 end
 -- paw/ui.tl names this module's types (through paw/layout.tl and
 -- paw/commands.tl), so this one declares only the part of it that it reads.
@@ -60,7 +60,7 @@ local record Paw is partial.Paw
   seats: SeatsModule
   groups: Groups
   lanes: Lanes
-  track: function(which: number | string): objects.Track
+  part: function(which: number | string): objects.Part
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -78,14 +78,14 @@ local record M
   want: integer
   lens: function(): integer
   over: function(old: number, new: number): number
-  stop: function(track: integer, beat: number): integer
-  shift: function(track: integer, beat: number): number
+  stop: function(part: integer, beat: number): integer
+  shift: function(part: integer, beat: number): number
   master_reachable: function(): boolean
 end
 
 M.changed = events.event("cursor.changed")
 
-local track_id: integer
+local part_id: integer
 local lane_id: integer -- the automation lane row the cursor is on, if any
 local tick, want = 0, 0
 
@@ -119,7 +119,7 @@ setmetatable(
 do
   local saved = api.state_get("cursor") as Place
   if saved then
-    track_id, tick, lane_id = saved.track, timegrid.tick(saved.beat or 0), saved.lane
+    part_id, tick, lane_id = saved.part, timegrid.tick(saved.beat or 0), saved.lane
     want = tick
   end
 end
@@ -127,12 +127,12 @@ end
 -- Each seat has a cursor of its own, starting where the instance's is.
 paw.seats.keep(
   "cursor",
-  function(): number... return track_id, tick, lane_id, want end,
-  function(track: number, at: number, lane: number, wanted: number)
-    track_id, tick, lane_id, want = track as integer, at as integer, lane as integer, (wanted or at) as integer
+  function(): number... return part_id, tick, lane_id, want end,
+  function(part: number, at: number, lane: number, wanted: number)
+    part_id, tick, lane_id, want = part as integer, at as integer, lane as integer, (wanted or at) as integer
   end,
-  function(track: number, at: number, lane: number, wanted: number): number...
-    return track, at or 0, lane, wanted or at or 0
+  function(part: number, at: number, lane: number, wanted: number): number...
+    return part, at or 0, lane, wanted or at or 0
   end
 )
 
@@ -140,81 +140,81 @@ local function save()
   local beat = timegrid.beat(tick)
   -- The instance's own is the one that outlives a reload.
   if paw.seats.current == 0 then
-    api.state_set("cursor", {track = track_id, beat = beat, lane = lane_id} as Place)
+    api.state_set("cursor", {part = part_id, beat = beat, lane = lane_id} as Place)
   end
-  events.emit(M.changed, {track = track_id, beat = beat, lane = lane_id})
+  events.emit(M.changed, {part = part_id, beat = beat, lane = lane_id})
   api.ui_redraw()
 end
 
---- A function that gives the track that keys and commands act on in
---- place of the cursor's, or nil: a device panel pinned to a track
+--- A function that gives the part that keys and commands act on in
+--- place of the cursor's, or nil: a device panel pinned to a part
 --- (paw/views/devices.lua) sets it, for while its window has the keyboard.
 M.lens = nil
 
--- `track_get(id, "id")`: one field, which fails when the track is gone,
--- without the list of clips that the whole track has. `track_id` runs
+-- `part_get(id, "id")`: one field, which fails when the part is gone,
+-- without the list of clips that the whole part has. `part_id` runs
 -- many times in each frame.
-local track_id_of = api.track_get as function(integer, string): integer
+local part_id_of = api.part_get as function(integer, string): integer
 
---- The id of the track of the cursor, or of the first track when that track
---- does not exist now. Nil when the project has no tracks. 0 when the
---- cursor is on the master track (`on_master`).
-function M.track_id(): integer
+--- The id of the part of the cursor, or of the first part when that part
+--- does not exist now. Nil when the project has no parts. 0 when the
+--- cursor is on the master part (`on_master`).
+function M.part_id(): integer
   local lens = M.lens and M.lens()
   if lens then
     return lens
   end
-  if track_id == 0 then
+  if part_id == 0 then
     return 0
   end
-  if track_id and pcall(track_id_of, track_id, "id") then
-    return track_id
+  if part_id and pcall(part_id_of, part_id, "id") then
+    return part_id
   end
-  track_id = api.track_list()[1]
-  return track_id
+  part_id = api.part_list()[1]
+  return part_id
 end
 
---- True if the cursor is on the master track: the row after the last
---- track in the arrange view, the strip after the last in the mixer.
+--- True if the cursor is on the master part: the row after the last
+--- part in the arrange view, the strip after the last in the mixer.
 function M.on_master(): boolean
-  return track_id == 0
+  return part_id == 0
 end
 
---- True if a move of the cursor can go on from the last track to the
+--- True if a move of the cursor can go on from the last part to the
 --- master: a move of its own in normal mode, in the views that draw the
---- master after the tracks. After an operator or in a selection, only
---- tracks count.
+--- master after the parts. After an operator or in a selection, only
+--- parts count.
 local function master_reachable(): boolean
   local keymap = paw.keymap
   return keymap.mode == "n" and not keymap.motion_for and (paw.ui.focused == "arrange" or paw.ui.focused == "mixer")
 end
 M.master_reachable = master_reachable
 
---- The track the cursor is on, as a `paw.Track`, or nil.
-function M.track(): objects.Track
-  local id = M.track_id()
-  return id and paw.track(id) or nil
+--- The part the cursor is on, as a `paw.Part`, or nil.
+function M.part(): objects.Part
+  local id = M.part_id()
+  return id and paw.part(id) or nil
 end
 
-local nest_field = api.track_get as function(id: integer, key: string): integer
+local nest_field = api.part_get as function(id: integer, key: string): integer
 
---- 1-based position of the cursor track among the tracks of its place:
---- the song's, or its subproject's (as `paw.api.track_move` counts).
+--- 1-based position of the cursor part among the parts of its place:
+--- the song's, or its subproject's (as `paw.api.part_move` counts).
 function M.index(): integer
-  local id = M.track_id()
+  local id = M.part_id()
   local ok, nest = pcall(nest_field, id, "nest") as (boolean, integer)
-  for i, other in ipairs(api.track_list({nest = ok and nest or nil})) do
+  for i, other in ipairs(api.part_list({nest = ok and nest or nil})) do
     if other == id then
       return i
     end
   end
 end
 
---- 1-based row of the cursor track among the tracks that are drawn: the
+--- 1-based row of the cursor part among the parts that are drawn: the
 --- same as `index` until a group is folded. On the master, the row after
---- the last track.
+--- the last part.
 function M.row(): integer
-  local id = M.track_id()
+  local id = M.part_id()
   if id == 0 then
     return #paw.groups.rows() + 1
   end
@@ -225,13 +225,13 @@ function M.row(): integer
   end
 end
 
---- The automation lane row of the cursor: a lane of the cursor track that
---- shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
+--- The automation lane row of the cursor: a lane of the cursor part that
+--- shows as a row (see `paw.lanes`). Nil when the cursor is on the part.
 function M.lane_id(): integer
   if not lane_id then
     return nil
   end
-  local id = M.track_id()
+  local id = M.part_id()
   for _, lane in ipairs(id and paw.lanes.shown(id) or {}) do
     if lane.id == lane_id then
       return lane_id
@@ -241,34 +241,34 @@ end
 
 --- 1-based row of the cursor among every row drawn, lanes included.
 function M.line(): integer
-  local id, lane = M.track_id(), M.lane_id()
+  local id, lane = M.part_id(), M.lane_id()
   for i, line in ipairs(paw.groups.rows({lanes = true})) do
-    if line.track == id and line.lane == lane then
+    if line.part == id and line.lane == lane then
       return i
     end
   end
 end
 
---- Put the cursor on a track, or with `lane` on one of its lane rows.
-function M.set_track(track: integer | objects.Track, lane?: integer)
-  track_id = track is objects.Track and track.id or track as integer
+--- Put the cursor on a part, or with `lane` on one of its lane rows.
+function M.set_part(part: integer | objects.Part, lane?: integer)
+  part_id = part is objects.Part and part.id or part as integer
   lane_id = lane
   save()
 end
 
---- A function that gives the row that stands for a track at a beat for a
---- move by rows, or nil when the track is its own row: paw/folds.tl sets
+--- A function that gives the row that stands for a part at a beat for a
+--- move by rows, or nil when the part is its own row: paw/folds.tl sets
 --- it, so that a closed block fold is one row for `j` and `k`.
 M.stop = nil
 
---- The row that stands for a track in a move by rows (`M.stop`), or nil
---- when the track and its lane rows are rows of their own. After an
---- operator, every track is its own row, as an operator acts on tracks.
-local function stop_of(track: integer): integer
+--- The row that stands for a part in a move by rows (`M.stop`), or nil
+--- when the part and its lane rows are rows of their own. After an
+--- operator, every part is its own row, as an operator acts on parts.
+local function stop_of(part: integer): integer
   if not M.stop or paw.keymap.motion_for then
     return nil
   end
-  return M.stop(track, M.beat)
+  return M.stop(part, M.beat)
 end
 
 --- The rows a move by rows stops on: a row that stands for others once,
@@ -276,23 +276,23 @@ end
 local function stops(lines: {Row}): {Row}
   local out: {Row} = {}
   for _, line in ipairs(lines) do
-    local stop = stop_of(line.track)
+    local stop = stop_of(line.part)
     local last = out[#out]
     if not stop then
       out[#out + 1] = line
-    elseif not (last and last.track == stop and last.lane == nil) then
-      out[#out + 1] = {track = stop}
+    elseif not (last and last.part == stop and last.lane == nil) then
+      out[#out + 1] = {part = stop}
     end
   end
   return out
 end
 
 --- Move by rows. In normal mode, the rows of open automation lanes count.
---- After an operator or in a selection, only tracks count, as for `dj`.
---- From the last track, a move down goes on to the master, and from the
---- master a move up returns to the tracks. A closed block fold at the
+--- After an operator or in a selection, only parts count, as for `dj`.
+--- From the last part, a move down goes on to the master, and from the
+--- master a move up returns to the parts. A closed block fold at the
 --- cursor's beat is one row (`paw.cursor.stop`).
-function M.move_track(delta: integer)
+function M.move_part(delta: integer)
   local reach = master_reachable()
   local lanes = paw.lanes.any_open() and paw.keymap.mode == "n"
   local lines: {Row}
@@ -301,7 +301,7 @@ function M.move_track(delta: integer)
   else
     lines = {}
     for i, id in ipairs(paw.groups.rows()) do
-      lines[i] = {track = id}
+      lines[i] = {part = id}
     end
   end
   lines = stops(lines)
@@ -310,7 +310,7 @@ function M.move_track(delta: integer)
   end
   -- Where the cursor is among the stops: on the master after the last,
   -- on the row that stands for its own.
-  local id, lane = M.track_id(), lanes and M.lane_id() or nil
+  local id, lane = M.part_id(), lanes and M.lane_id() or nil
   local stop = stop_of(id)
   if stop then
     id, lane = stop, nil
@@ -320,7 +320,7 @@ function M.move_track(delta: integer)
     at = #lines + 1
   else
     for i, line in ipairs(lines) do
-      if line.track == id and line.lane == lane then
+      if line.part == id and line.lane == lane then
         at = i
         break
       end
@@ -328,10 +328,10 @@ function M.move_track(delta: integer)
   end
   at = at or 1
   if reach and at + delta > #lines then
-    return M.set_track(0)
+    return M.set_part(0)
   end
   local to = lines[util.clamp(at + delta, 1, #lines) as integer]
-  M.set_track(to.track, to.lane)
+  M.set_part(to.part, to.lane)
 end
 
 --- A function that gives where the cursor goes when it moves from one
@@ -366,8 +366,8 @@ function M.set_beat(beat: number)
   M.set_tick(timegrid.tick(beat))
 end
 
--- Another project starts at its start, on its first track.
-events.on(kernel.project_loaded, function() track_id, lane_id, tick, want = nil, nil, 0, 0; save() end)
+-- Another project starts at its start, on its first part.
+events.on(kernel.project_loaded, function() part_id, lane_id, tick, want = nil, nil, 0, 0; save() end)
 
 --- A position at the nearest line of the arrange grid.
 function M.snap(beat: number): number
@@ -385,20 +385,20 @@ function M.step(beat: number, n: integer, grid?: number): number
   return timegrid.beat(g:steps(timegrid.tick(beat), n))
 end
 
---- A function that gives, for a track whose clips the window draws later
+--- A function that gives, for a part whose clips the window draws later
 --- than their beats, how much later at a beat of the window; or nil:
---- paw/nest.tl sets it, for the tracks of a subproject open in place under
+--- paw/nest.tl sets it, for the parts of a subproject open in place under
 --- its return row (each block of the row draws them at its own place).
 M.shift = nil
 
 --- The clip under the cursor, if any.
 function M.clip(): objects.Clip
-  local track = M.track()
-  if not track then
+  local part = M.part()
+  if not part then
     return nil
   end
-  local shift = M.shift and M.shift(track.id, M.beat) or 0
-  return track:clip_at(M.beat - shift)
+  local shift = M.shift and M.shift(part.id, M.beat) or 0
+  return part:clip_at(M.beat - shift)
 end
 
 return M

@@ -74,7 +74,7 @@ test("pick: the call as other extensions make it", function()
   local chosen, cancelled
   local bass = { text = "Bass", id = 3 }
   paw.pick({
-    title = "Tracks",
+    title = "Parts",
     items = { bass, { text = "Drums", id = 4 }, "Lead" },
     on_choose = function(item) chosen = item end,
     on_cancel = function() cancelled = true end,
@@ -195,14 +195,14 @@ end)
 
 -- Sources --------------------------------------------------------------------
 
-test("pick: the letter after <leader>f is the domain's letter: fc clips, fr regions, fm markers, ft tracks", function()
+test("pick: the letter after <leader>f is the domain's letter: fc clips, fr regions, fm markers, ft parts", function()
   start()
-  paw.add_track({ name = "Bass" })
+  paw.add_part({ name = "Bass" })
   for keys, title in pairs({
     ["<Space>fc"] = "Clips",
     ["<Space>fr"] = "Regions",
     ["<Space>fm"] = "Markers",
-    ["<Space>ft"] = "Tracks",
+    ["<Space>ft"] = "Parts",
     ["<Space>f:"] = "Commands",
     ["<Space>da"] = "Add a device",
   }) do
@@ -233,39 +233,39 @@ test("pick: keys runs the mapping chosen", function()
   paw.keymap.del("gQ", { view = "arrange" })
 end)
 
-test("pick: tracks and clips move the cursor", function()
+test("pick: parts and clips move the cursor", function()
   start()
-  local bass = paw.add_track({ name = "Bass" })
-  local drums = paw.add_track({ name = "Drums" })
+  local bass = paw.add_part({ name = "Bass" })
+  local drums = paw.add_part({ name = "Drums" })
   bass:add_clip({ name = "verse", start = 8, length = 4 })
   drums:add_clip({ name = "fill", start = 12, length = 4 })
-  paw.cursor.set_track(bass)
-  choose("tracks", "drum")
-  eq(paw.cursor.track_id(), drums.id, "on the track")
+  paw.cursor.set_part(bass)
+  choose("parts", "drum")
+  eq(paw.cursor.part_id(), drums.id, "on the part")
   paw.cursor.set_beat(0)
   choose("clips", "verse")
-  eq(paw.cursor.track_id(), bass.id, "on the clip's track")
+  eq(paw.cursor.part_id(), bass.id, "on the clip's part")
   eq(paw.cursor.beat, 8, "at its start")
   paw.keymap.feed("<C-o>")
-  eq(paw.cursor.track_id(), drums.id, "and C-o goes back")
+  eq(paw.cursor.part_id(), drums.id, "and C-o goes back")
 end)
 
-test("pick: devices adds to the track, and device.add asks with it", function()
+test("pick: devices adds to the part, and device.add asks with it", function()
   start()
-  local track = paw.add_track({ name = "T" })
-  paw.cursor.set_track(track)
+  local part = paw.add_part({ name = "T" })
+  paw.cursor.set_part(part)
   choose("devices", "delay")
-  eq(track:devices()[1] and track:devices()[1].kind, "delay", "added the delay")
+  eq(part:devices()[1] and part:devices()[1].kind, "delay", "added the delay")
   paw.keymap.feed("a")
   eq(pick.state() and pick.state().title, "Add a device", "`a` opens the picker")
   paw.keymap.feed("synth<CR>")
-  eq(track:devices()[2].kind, "synth", "and adds what is chosen")
+  eq(part:devices()[2].kind, "synth", "and adds what is chosen")
   paw.cmd("device.add", { "gain" })
-  eq(track:devices()[3].kind, "gain", "device.add with a name still adds at once")
+  eq(part:devices()[3].kind, "gain", "device.add with a name still adds at once")
   eq(pick.state(), nil, "without a picker")
 
   paw.ui.focus("arrange")
-  choose("track_devices", "synth")
+  choose("part_devices", "synth")
   eq(paw.ui.focused, "devices", "the device panel")
   eq(paw.ui.views:get("devices"):selected().kind, "synth", "on the device chosen")
   paw.ui.focus("arrange")
@@ -273,25 +273,25 @@ end)
 
 test("pick: marks, registers and messages", function()
   start()
-  local a = paw.add_track({ name = "A" })
-  local b = paw.add_track({ name = "B" })
-  paw.cursor.set_track(b)
+  local a = paw.add_part({ name = "A" })
+  local b = paw.add_part({ name = "B" })
+  paw.cursor.set_part(b)
   paw.cursor.set_beat(5)
   paw.keymap.feed("mq")
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.cursor.set_beat(0)
   choose("marks", "q")
-  eq(paw.cursor.track_id(), b.id, "the mark's track")
+  eq(paw.cursor.part_id(), b.id, "the mark's part")
   eq(paw.cursor.beat, 5, "the mark's beat")
 
-  paw.cursor.set_track(a)
+  paw.cursor.set_part(a)
   paw.keymap.setreg({ kind = "keys", keys = "j" }, "m")
   choose("registers", "macro")
-  eq(paw.cursor.track_id(), b.id, "a macro plays")
-  paw.cursor.set_track(a)
+  eq(paw.cursor.part_id(), b.id, "a macro plays")
+  paw.cursor.set_part(a)
   paw.keymap.feed("yy")
   choose("registers", '"0')
-  eq(#api.track_list(), 3, "a register of tracks is pasted")
+  eq(#api.part_list(), 3, "a register of parts is pasted")
 
   paw.notify("zz picker message\nwith a second line")
   paw.pick("messages")
@@ -306,7 +306,7 @@ test("pick: files opens projects and imports audio", function()
   start()
   local dir = T.scratch .. "/pickfiles"
   os.execute("mkdir -p '" .. dir .. "/sub/.hidden'")
-  local t = paw.add_track({ name = "Saved" })
+  local t = paw.add_part({ name = "Saved" })
   paw.project.save(dir .. "/song.json")
   T.write_file(dir .. "/notes.json", '{"not": "a project"}')
   os.execute("cp tests/fixtures/tone-mono-8k.wav '" .. dir .. "/sub/take.wav'")
@@ -324,14 +324,14 @@ test("pick: files opens projects and imports audio", function()
 
   -- The real source walks the working directory, the repository here.
   paw.project.new()
-  t = paw.add_track({ name = "Import" })
+  t = paw.add_part({ name = "Import" })
   paw.pick("files")
   -- Until the walk is over: the note then says why it stopped, if it did
   -- (the repository has folders deeper than `files_depth`).
   while pick.state().note == "reading…" do
     advance(5)
   end
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(4)
   paw.keymap.feed("fixtures tone-mono-8k.wav<CR>")
   local clips = api.clip_list(t.id)
@@ -341,7 +341,7 @@ test("pick: files opens projects and imports audio", function()
 
   paw.project.save(dir .. "/import.json")
   paw.pick.sources:get("files").on_choose({ path = dir .. "/song.json", kind = "project" })
-  eq(paw.tracks()[1].name, "Saved", "a project opens")
+  eq(paw.parts()[1].name, "Saved", "a project opens")
 end)
 
 test("pick: files reads in slices, skips build folders and says when it stops", function()

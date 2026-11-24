@@ -13,10 +13,10 @@ keep the best part of each take, and add a fade.
 2. Start paw in your folder for songs. Type
    `:example make-music/3-guitar` and press Enter.
 
-   - paw opens the song of lesson 2, with the tracks Drums, Bass, Keys and
+   - paw opens the song of lesson 2, with the parts Drums, Bass, Keys and
      Lead.
 
-## Add the guitar track
+## Add the guitar part
 
 1. Press `G`, then `o`. Press `grn` and `<C-u>`, type `Guitar` and press
    Enter.
@@ -25,7 +25,7 @@ keep the best part of each take, and add a fade.
      `UR22mkII · 1` and `UR22mkII · 1/2`. The first line is input 1 alone.
 3. Press Enter.
    - paw says `Guitar ← UR22mkII · 1`, with the name of your interface.
-     The header of the track shows the input and its level.
+     The header of the part shows the input and its level.
 4. Press `<A-i>` (Alt and i) to monitor the input.
    - When you play some notes, you hear the clean guitar, and the level in
      the header moves.
@@ -60,7 +60,7 @@ interface.
 
 1. Press `0` (the start of the song), then `gl2W`.
    - The loop is over bars 1 and 2, and the status line shows `loop 1–2`.
-2. Press `r` to arm the track.
+2. Press `r` to arm the part.
 3. Press `R` and play the riff. When the loop starts again, play the riff
    a second time.
 4. When the playhead returns to bar 1 the third time, press `<Space><Space>`.
@@ -76,7 +76,7 @@ In this part, we keep bar 1 of the second take and bar 2 of the first
 take.
 
 1. Press `zt`.
-   - Two lanes show below the guitar track, one for each take. The take
+   - Two lanes show below the guitar part, one for each take. The take
      that plays is bright.
 2. Press `0` and `W` to put the cursor on bar 2.
 3. Press `v` to start a selection, and `W` to select bar 2.
@@ -93,7 +93,7 @@ take.
    - The cursor is on the second piece, at bar 2.
 2. Type `:clip.fade out=2` and press Enter.
    - The piece fades out over its last two beats.
-3. Press `r` to disarm the track, and `<A-i>` to stop the monitor.
+3. Press `r` to disarm the part, and `<A-i>` to stop the monitor.
 4. Press `gs` and `<Space><Space>`, and `<Space><Space>` to stop.
    - The guitar riff plays with the song and fades out at the end of bar 2.
 5. Type `:w with-guitar` and press Enter.

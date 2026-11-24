@@ -154,7 +154,7 @@ local function punched()
   fresh()
   paw.project.tempo = 120
   paw.project.save(T.scratch .. "/preroll.json")
-  local mic = paw.add_track({ name = "mic" })
+  local mic = paw.add_part({ name = "mic" })
   mic.input, mic.armed = "1", true
   paw.cmd("punch", { "3", "4" })
   return mic

@@ -72,16 +72,16 @@ end
 local function state()
   local project = api.project_get()
   project.edits = nil
-  local tracks = {}
-  for _, id in ipairs(api.track_list()) do
-    local t = api.track_get(id)
+  local parts = {}
+  for _, id in ipairs(api.part_list()) do
+    local t = api.part_get(id)
     t.clip_list = api.clip_list(id)
-    tracks[#tracks + 1] = t
+    parts[#parts + 1] = t
   end
   return paw.json.encode({
     project = project,
     tree = api.undo_tree(),
-    tracks = tracks,
+    parts = parts,
     transport = { position = api.transport_get().position, loop = api.transport_get().loop_enabled },
   })
 end
@@ -206,7 +206,7 @@ test("a project put aside comes back with its undo tree, and the scratch one is 
   load()
   null_backend()
   fresh()
-  local t = paw.add_track({ name = "Mine" })
+  local t = paw.add_part({ name = "Mine" })
   paw.flush()
   api.undo_checkpoint()
   t:add_clip({ start = 0, length = 4, notes = { { pitch = "C4", start = 0, length = 1 } } })
@@ -215,30 +215,30 @@ test("a project put aside comes back with its undo tree, and the scratch one is 
   local before = state()
   api.project_shelve()
   eq(api.project_shelved(), true, "put aside")
-  eq(#api.track_list(), 0, "an empty project in its place")
-  paw.add_track({ name = "scratch" })
+  eq(#api.part_list(), 0, "an empty project in its place")
+  paw.add_part({ name = "scratch" })
   paw.flush()
   api.project_unshelve()
   paw.flush()
   eq(api.project_shelved(), false, "back")
   eq(state(), before, "exactly as it was, undo tree and all")
-  eq(api.track_get(api.track_list()[1]).name, "Mine", "the track")
+  eq(api.part_get(api.part_list()[1]).name, "Mine", "the part")
   api.undo()
-  eq(#api.track_list(), 1, "undo goes back to the project's own earlier step, not the scratch one's")
+  eq(#api.part_list(), 1, "undo goes back to the project's own earlier step, not the scratch one's")
 end)
 
 test("a whole doctor run leaves the open project exactly as it was, and nothing behind", function()
   load()
   null_backend()
   fresh()
-  local t = paw.add_track({ name = "Keep" })
+  local t = paw.add_part({ name = "Keep" })
   t:add_device("synth")
   t:add_clip({
     start = 0,
     length = 4,
     notes = { { pitch = "C4", start = 0, length = 1 }, { pitch = "E4", start = 1, length = 1 } },
   })
-  paw.add_track({ name = "Other" })
+  paw.add_part({ name = "Other" })
   paw.flush()
   api.undo_checkpoint()
   paw.transport.seek(6)
@@ -267,7 +267,7 @@ test("a whole doctor run leaves the open project exactly as it was, and nothing 
   eq(#r.done >= 9, true, "every check ran")
   eq(r.running, false, "the run is over")
   eq(api.project_shelved(), false, "the person's project is back")
-  eq(state(), before, "and is exactly as it was: tracks, clips, undo history, playhead")
+  eq(state(), before, "and is exactly as it was: parts, clips, undo history, playhead")
   eq(listing(api.env().data_dir .. "/recordings"), recordings, "the recordings directory is as it was")
   eq(listing(T.scratch .. "/doctor"):find("tmp-", 1, true), nil, "the run's own files are gone")
   eq(listing(T.scratch .. "/doctor"):find("open-project", 1, true), nil, "and the safety copy of the project")
@@ -306,7 +306,7 @@ test("a doctor check that raises an error fails, and what it added is taken away
     id = "bad",
     name = "Bad",
     run = function(ctx)
-      ctx:track({ name = "left behind" })
+      ctx:part({ name = "left behind" })
       ctx:file(ctx:dir() .. "/x.wav")
       io.open(ctx:dir() .. "/x.wav", "w"):close()
       error("something broke")
@@ -317,7 +317,7 @@ test("a doctor check that raises an error fails, and what it added is taken away
     name = "After",
     run = function(ctx)
       ctx:scratch()
-      seen = #api.track_list()
+      seen = #api.part_list()
       return "ok", "looked"
     end,
   })
@@ -327,7 +327,7 @@ test("a doctor check that raises an error fails, and what it added is taken away
   eq(result(r, "bad").status, "fail", "the check failed")
   eq(result(r, "bad").summary:find("something broke", 1, true) ~= nil, true, result(r, "bad").summary)
   eq(result(r, "after").status, "ok", "the next one ran")
-  eq(seen, 0, "the track the first one added was removed")
+  eq(seen, 0, "the part the first one added was removed")
 end)
 
 test("a doctor check that waits too long is stopped at its limit", function()
@@ -345,7 +345,7 @@ test("cancelling a doctor run mid-question ends it, cleans up and writes the rep
   load()
   null_backend()
   fresh()
-  paw.add_track({ name = "Keep" })
+  paw.add_part({ name = "Keep" })
   paw.flush()
   api.undo_checkpoint()
   local before = state()
@@ -353,7 +353,7 @@ test("cancelling a doctor run mid-question ends it, cleans up and writes the rep
     id = "asks",
     name = "Asks",
     run = function(ctx)
-      ctx:track({ name = "temporary" })
+      ctx:part({ name = "temporary" })
       ctx:ask("Will you answer?")
       return "ok", "answered"
     end,

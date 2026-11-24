@@ -81,10 +81,10 @@ To remove a part, take its name out of `paw.opt.barlabel`, for example with
 
 The extension calls only the functions of `paw.ruler`, and paw records each
 part and change as belonging to the extension. When the extension unloads, paw
-removes its parts and puts back the part `number` as it was. [The track
-column and the bar labels](../../docs/reference/trackcolumn.md) describes
+removes its components and puts back the component `number` as it was. [The part
+column and the bar labels](../../docs/reference/partcolumn.md) describes
 each function, and
-[how to personalize the track column and the
-ruler](../../docs/how-to/personalize-the-track-column-and-the-ruler.md)
+[how to personalize the part column and the
+ruler](../../docs/how-to/personalize-the-part-column-and-the-ruler.md)
 shows how to write your own parts. [columnplus](../columnplus/README.md) is
-the matching example for the track column.
+the matching example for the part column.

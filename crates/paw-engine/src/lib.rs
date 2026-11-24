@@ -36,15 +36,15 @@ pub mod wav;
 pub use automation::{AutoLane, AutoTarget, Automation, StateChange, StateLane};
 pub use backend::no_denormals;
 pub use bell::Bell;
-pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Part, PartEdit, Switch};
+pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Piece, PieceEdit, Switch};
 pub use device::{
     Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,
     ParamInfo, Ports, ProcessCtx, Quality, Registry, Rest,
 };
 pub use engine::{
     BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MAX_BLOCK,
-    MAX_DELAY, MAX_DEVICES, MAX_INPUTS, MAX_TRACKS, Msg, OutBufs, OutRt, SchedEntry,
-    Schedule, SendRt, Shared, TrackRt, Waker, key_buf, out_bufs,
+    MAX_DELAY, MAX_DEVICES, MAX_INPUTS, MAX_PARTS, Msg, OutBufs, OutRt, SchedEntry,
+    Schedule, SendRt, Shared, PartRt, Waker, key_buf, out_bufs,
 };
 pub use event::{Event, EventBuf};
 pub use local_time::{LocalTime, Place};
@@ -52,7 +52,7 @@ pub use pool::Pool;
 pub use preview::Preview;
 pub use samples::{DiskStore, Samples, Sink, store_name};
 pub use plan::GraphPlan;
-pub use slot::{DeviceSlot, ProcessorSlot, TrackSlot};
+pub use slot::{DeviceSlot, ProcessorSlot, PartSlot};
 
 /// Convert decibels to linear gain. Anything at or below -120 dB is silence.
 pub fn db_to_gain(db: f64) -> f32 {

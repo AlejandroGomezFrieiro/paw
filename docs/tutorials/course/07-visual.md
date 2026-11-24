@@ -4,11 +4,11 @@
 
 *The lesson takes about ten minutes. To do it in paw, type `:ext.load tutor`, then `:tutor 7`.*
 
-In this lesson, we select clips and tracks first, and then we delete, copy, mute and transpose them.
+In this lesson, we select clips and parts first, and then we delete, copy, mute and transpose them.
 
 Visual mode lets you see the items before you change them, because it changes the order of the keys. First, you select with the motions that you know. Second, you press an operator, and it does its action on the selection.
 
-`v` selects a range of time, and `j` and `k` extend it across tracks. `V` selects whole tracks. In the piano roll, `<C-v>` selects a rectangle of pitches and time. In the practice project, each of the three tracks has four clips of one bar.
+`v` selects a range of time, and `j` and `k` extend it across parts. `V` selects whole parts. In the piano roll, `<C-v>` selects a rectangle of pitches and time. In the practice project, each of the three parts has four clips of one bar.
 
 ## The idea
 
@@ -18,7 +18,7 @@ In visual mode, the motions extend the selection, and `o` goes to its other end.
 
 ## If you know Vim
 
-`v` `V` `<C-v>`, `o`, `gv` and operators on a selection come from Vim. In visual mode, a count before `>` `<` or `<C-a>` is the amount, as in Vim. In the arrange view, `v` with `j` and `k` already selects a block of time on some tracks, and `V` selects whole tracks, as Vim selects whole lines.
+`v` `V` `<C-v>`, `o`, `gv` and operators on a selection come from Vim. In visual mode, a count before `>` `<` or `<C-a>` is the amount, as in Vim. In the arrange view, `v` with `j` and `k` already selects a block of time on some parts, and `V` selects whole parts, as Vim selects whole lines.
 
 ## Steps
 
@@ -26,21 +26,21 @@ The tutor opens a practice project for the lesson, and it checks each step when 
 
 1. Press `v` to start a selection, and the status line shows VISUAL. Then press `W` to extend the selection over the first bar.
    - ✓ The first bar of Drums is selected.
-2. `j` extends the selection down to the next track. Press `j`.
+2. `j` extends the selection down to the next part. Press `j`.
    - ✓ The first bar of Drums and Bass is selected.
 3. Now do an action on the selection. `x` deletes the selection, so press `x`.
-   - ✓ paw deleted the clips from the two tracks, and the mode is NORMAL again.
+   - ✓ paw deleted the clips from the two parts, and the mode is NORMAL again.
 4. Press `u` to undo the delete.
    - ✓ The clips are back.
-5. `V` selects whole tracks. Press `V`, and press `j` to select Drums and Bass. Then press `y` to yank (copy) them.
+5. `V` selects whole parts. Press `V`, and press `j` to select Drums and Bass. Then press `y` to yank (copy) them.
    - *Hint:* If the selection is wrong, press `<Esc>` to leave visual mode, and then press `gg` and start again.
-   - ✓ The register contains two tracks.
-6. `G` goes to the last track, and `p` pastes the tracks below it. Press `G`, then `p`.
-   - ✓ The song now has five tracks, with the copies of Drums and Bass at the bottom.
+   - ✓ The register contains two parts.
+6. `G` goes to the last part, and `p` pastes the parts below it. Press `G`, then `p`.
+   - ✓ The song now has five parts, with the copies of Drums and Bass at the bottom.
 7. Press `u` to remove the copies.
-   - ✓ The song has three tracks again.
-8. `gv` selects the last selection again, which is the two tracks. Press `gv`, then `~` to mute them.
-   - ✓ Drums and Bass are muted, and their `M` flags are lit. On whole tracks, `~` mutes the tracks, and on a range of time, it mutes the clips in the range.
+   - ✓ The song has three parts again.
+8. `gv` selects the last selection again, which is the two parts. Press `gv`, then `~` to mute them.
+   - ✓ Drums and Bass are muted, and their `M` flags are lit. On whole parts, `~` mutes the parts, and on a range of time, it mutes the clips in the range.
 9. Press `gv` and `~` again to unmute them.
    - ✓ `~` mutes and unmutes.
 10. Visual mode also works in the piano roll. Press `3G` to go to Keys, and press `<CR>` to open its first clip.

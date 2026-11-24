@@ -1,4 +1,4 @@
--- MIDI output: a track sends what it plays to a port (crates/paw-engine/src/midi_out.rs).
+-- MIDI output: a part sends what it plays to a port (crates/paw-engine/src/midi_out.rs).
 -- Read back through a port of the program's own MIDI input, on the null
 -- audio backend with the sequencer opened anyway.
 local T = ...
@@ -22,11 +22,11 @@ local function output_named(name)
 end
 
 --- Run `fn` with the sequencer open and a port of ours, "Loop", that the
---- tracks can send to and the test hears from. Nil and the reason when the
+--- parts can send to and the test hears from. Nil and the reason when the
 --- sequencer cannot be opened here.
 local function with_loop(fn)
   -- The sequencer is shared by every process of the machine: open no port
-  -- of others, so that only what our tracks send to our port arrives.
+  -- of others, so that only what our parts send to our port arrives.
   api.midi_select({})
   api.engine_restart({ midi = true })
   paw.midi.open_port(LOOP)
@@ -43,11 +43,11 @@ local function with_loop(fn)
   return err
 end
 
-test("a track sends its clip's notes to a MIDI port, on its channel, in order and in time", function()
+test("a part sends its clip's notes to a MIDI port, on its channel, in order and in time", function()
   fresh()
   return with_loop(function()
     paw.project.tempo = 120
-    local t = paw.add_track({ name = "Hardware" })
+    local t = paw.add_part({ name = "Hardware" })
     t:add_clip({
       start = 0,
       length = 8,
@@ -59,10 +59,10 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
       },
     })
     t.midi_output = { port = "paw: " .. LOOP, channel = 3 }
-    eq(t.midi_output.port .. " " .. t.midi_output.channel, "paw: " .. LOOP .. " 3", "the track names its output")
-    -- What comes back is recorded on a track that takes channel 3 of "Loop"
+    eq(t.midi_output.port .. " " .. t.midi_output.channel, "paw: " .. LOOP .. " 3", "the part names its output")
+    -- What comes back is recorded on a part that takes channel 3 of "Loop"
     -- alone: the notes are where they arrived, in beats.
-    local keys = paw.add_track({ name = "Keys" })
+    local keys = paw.add_part({ name = "Keys" })
     keys.midi_input = { port = LOOP, channel = 3 }
     keys.armed = true
     paw.transport.record_offset = 0
@@ -70,7 +70,7 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
     T.until_(function() return paw.transport.position >= 8.2 end, "the playhead", 15000)
     T.stop()
     local clip = keys:clips()[1]
-    eq(clip ~= nil, true, "what the track sent came back on its channel")
+    eq(clip ~= nil, true, "what the part sent came back on its channel")
     local notes = clip:notes()
     table.sort(notes, function(a, b) return a.start < b.start end)
     local pitches = {}
@@ -86,14 +86,14 @@ test("a track sends its clip's notes to a MIDI port, on its channel, in order an
   end)
 end, { live = LIVE })
 
-test("removing a track that sends MIDI ends the notes it left sounding", function()
+test("removing a part that sends MIDI ends the notes it left sounding", function()
   fresh()
   return with_loop(function()
     paw.project.tempo = 120
-    local t = paw.add_track({ name = "Hardware" })
+    local t = paw.add_part({ name = "Hardware" })
     t:add_clip({ start = 0, length = 8, notes = { { pitch = "C5", start = 0, length = 8 } } })
     t.midi_output = { port = "paw: " .. LOOP }
-    local keys = paw.add_track({ name = "Keys" })
+    local keys = paw.add_part({ name = "Keys" })
     keys.midi_input = { port = LOOP }
     keys.armed = true
     paw.transport.record_offset = 0
@@ -104,13 +104,13 @@ test("removing a track that sends MIDI ends the notes it left sounding", functio
     T.stop()
     local clip = keys:clips()[1]
     eq(clip ~= nil and #clip:notes(), 1, "the note came back")
-    near(clip:notes()[1].length, 2, 0.3, "and ended when its track went, not when the song stopped")
+    near(clip:notes()[1].length, 2, 0.3, "and ended when its part went, not when the song stopped")
   end)
 end, { live = LIVE })
 
-test("MIDI output: a track's port and channel are checked, saved and taken away with it", function()
+test("MIDI output: a part's port and channel are checked, saved and taken away with it", function()
   fresh()
-  local t = paw.add_track({ name = "Hardware" })
+  local t = paw.add_part({ name = "Hardware" })
   fails(function() t.midi_output = { port = "x", channel = 17 } end, "1 to 16", "a channel past 16")
   fails(function() t.midi_output = { channel = 2 } end, nil, "no port")
   t.midi_output = "Some synth"
@@ -129,18 +129,18 @@ test("MIDI output: a track's port and channel are checked, saved and taken away 
   local path = T.scratch .. "/midi_out.json"
   paw.project.save(path)
   paw.project.load(path)
-  eq(paw.track("Hardware").midi_output.channel, 10, "saved and loaded")
-  local copy = paw.track("Hardware"):duplicate()
+  eq(paw.part("Hardware").midi_output.channel, 10, "saved and loaded")
+  local copy = paw.part("Hardware"):duplicate()
   eq(copy.midi_output.port, "Some synth", "a copy sends where the original does")
-  paw.track("Hardware").midi_output = "none"
-  eq(paw.track("Hardware").midi_output, nil, "none takes it away")
+  paw.part("Hardware").midi_output = "none"
+  eq(paw.part("Hardware").midi_output, nil, "none takes it away")
   fresh()
-  paw.add_track({ name = "Plain" })
+  paw.add_part({ name = "Plain" })
   paw.project.save(path)
   eq(T.read_file(path):find("midi_output", 1, true), nil, "a project without it is written as before")
 end)
 
-test("the terminal and the window choose a track's MIDI output", function()
+test("the terminal and the window choose a part's MIDI output", function()
   fresh()
   return with_loop(function()
     paw.midi.open_output("To synth")
@@ -149,12 +149,12 @@ test("the terminal and the window choose a track's MIDI output", function()
       true,
       "a port of ours for others to read is listed"
     )
-    local t = paw.add_track({ name = "Hardware" })
-    paw.cursor.set_track(t)
-    paw.commands.exec("track.midi_out To synth 5")
-    eq(t.midi_output.port .. " " .. t.midi_output.channel, "To synth 5", ":track.midi_out sets port and channel")
-    paw.commands.exec("track.midi_out none")
-    eq(t.midi_output, nil, ":track.midi_out none takes it away")
+    local t = paw.add_part({ name = "Hardware" })
+    paw.cursor.set_part(t)
+    paw.commands.exec("part.midi_out To synth 5")
+    eq(t.midi_output.port .. " " .. t.midi_output.channel, "To synth 5", ":part.midi_out sets port and channel")
+    paw.commands.exec("part.midi_out none")
+    eq(t.midi_output, nil, ":part.midi_out none takes it away")
     local menu = paw.frontend.input_menu(t.id)
     local labels = {}
     for i, entry in ipairs(menu.midi_out) do
@@ -184,7 +184,7 @@ test("a script that waits hears what is played into a port", function()
     local handler = paw.on("midi.in", function(event)
       if event.type == "note_on" then heard[#heard + 1] = event.pitch .. "@" .. tostring(event.port) end
     end)
-    local t = paw.add_track({ name = "Hardware" })
+    local t = paw.add_part({ name = "Hardware" })
     t:add_clip({
       start = 0,
       length = 2,

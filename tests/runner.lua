@@ -98,7 +98,7 @@ end)
 test("a binary that lacks a function of the runtime's kernel API fails at the start", function()
   local printed, passed = run_fixture({
     ["four.lua"] = FOUR,
-    ["declarations.txt"] = "function paw.api.version_of_tomorrow(opts) end\nfunction paw.api.track_add(opts) end\n",
+    ["declarations.txt"] = "function paw.api.version_of_tomorrow(opts) end\nfunction paw.api.part_add(opts) end\n",
   })
   eq(
     printed:find("the paw binary is older than the runtime: it has no paw.api.version_of_tomorrow.", 1, true) ~= nil,

@@ -1,4 +1,4 @@
--- The drum grid: a clip of a drum track shown through its drum map, one row
+-- The drum grid: a clip of a drum part shown through its drum map, one row
 -- per piece with its name, one column per step, each hit drawn as tall as
 -- it is hard. It is a piano roll whose rows are the pieces of the kit, and
 -- takes the same grammar: motions, counts, operators, text objects, visual
@@ -48,16 +48,16 @@ function view:clip()
   self.clip_id = nil
 end
 
-function view:track_id()
+function view:part_id()
   local clip = self:clip()
-  return clip and api.clip_get(clip.id).track
+  return clip and api.clip_get(clip.id).part
 end
 
 --- The rows the open clip is shown with.
 function view:rows()
   local clip = self:clip()
   if not clip then return {} end
-  return drums.rows(self:track_id(), clip)
+  return drums.rows(self:part_id(), clip)
 end
 
 function view:step_size() return self.step or paw.opt.drums_step end
@@ -65,13 +65,13 @@ function view:step_size() return self.step or paw.opt.drums_step end
 --- The piece under the cursor: `{ note, name }`.
 function view:piece() return self:rows()[self.row] end
 
---- Open a clip of a drum track in the grid, with the cursor on its first hit.
+--- Open a clip of a drum part in the grid, with the cursor on its first hit.
 function view:edit(clip)
   if type(clip) == "number" then clip = paw.clip(clip) end
   if clip.kind ~= "midi" then return paw.notify("only MIDI clips open in the drum grid", "warn") end
   self.clip_id, self.beat, self.scroll, self.first, self.drag = clip.id, 0, 0, 1, nil
   self.row = 1
-  local rows = drums.rows(clip:get().track, clip)
+  local rows = drums.rows(clip:get().part, clip)
   local first = clip:notes()[1]
   if first then
     for i, row in ipairs(rows) do
@@ -104,7 +104,7 @@ paw.ui.role("step", {
 })
 
 -- A step with a hit: a step whose dot is a bar as tall as the hit is hard
--- (`velocity`), in the track's colour (`style`; `color` for a window), with
+-- (`velocity`), in the part's colour (`style`; `color` for a window), with
 -- a tick after it when it is off the grid (`off`).
 paw.ui.role("hit", {
   props = {
@@ -140,7 +140,7 @@ local function toolbar(buf, y, clip, step)
       y,
       w,
       1,
-      { text = " " .. text .. " ", on = on, style = "TrackInfo", on_style = "TitleBarFocus", hit = action }
+      { text = " " .. text .. " ", on = on, style = "PartInfo", on_style = "TitleBarFocus", hit = action }
     )
     x = x + w + 1
   end
@@ -162,7 +162,7 @@ local function toolbar(buf, y, clip, step)
   button("−", false, { kind = "tool", bars = -1 })
   local said = string.format(bars % 1 < EPS and "%d bar%s" or "%.2f bars", bars, bars == 1 and "" or "s")
   if x + #said <= buf.width then
-    buf:mark("label", x, y, api.str_width(said), 1, { text = said, style = "TrackInfo", tone = "text" })
+    buf:mark("label", x, y, api.str_width(said), 1, { text = said, style = "PartInfo", tone = "text" })
     x = x + api.str_width(said) + 1
   end
   button("+", false, { kind = "tool", bars = 1 })
@@ -175,21 +175,21 @@ function view:render(buf, ctx)
   buf:fill(0, 0, w, h, " ", "Normal")
   if not clip then
     paw.ui.titlebar(buf, { name = "Drum grid", focused = ctx.focused })
-    buf:text(2, 2, "No clip open. Put the cursor on a clip of a drum track and press", "Empty")
+    buf:text(2, 2, "No clip open. Put the cursor on a clip of a drum part and press", "Empty")
     buf:text(67, 2, "Enter", "EmptyKey")
-    buf:text(2, 4, ":drums.track", "EmptyKey")
-    buf:text(15, 4, "makes a drum track;", "Empty")
+    buf:text(2, 4, ":drums.part", "EmptyKey")
+    buf:text(15, 4, "makes a drum part;", "Empty")
     buf:text(35, 4, ":drums.map", "EmptyKey")
-    buf:text(46, 4, "makes any track one.", "Empty")
+    buf:text(46, 4, "makes any part one.", "Empty")
     return
   end
   local c = clip:get()
-  local track = api.track_get(c.track)
-  local hue = paw.draw.track_hue(track)
-  local colour = paw.draw.track_colour(track)
+  local part = api.part_get(c.part)
+  local hue = paw.draw.part_hue(part)
+  local colour = paw.draw.part_colour(part)
   local rows = self:rows()
   local step = self:step_size()
-  local info = drums.info(c.track)
+  local info = drums.info(c.part)
   self.row = util.clamp(self.row, 1, math.max(1, #rows))
 
   -- The names on the left: as wide as the longest, within reason.
@@ -218,7 +218,7 @@ function view:render(buf, ctx)
   self.first = math.max(1, self.first)
   self.geometry = { namew = namew, cells = cells, body = body, lane = lane, head = head }
 
-  -- Title: the clip in its track's colour, the piece and place under the cursor, the step.
+  -- Title: the clip in its part's colour, the piece and place under the cursor, the step.
   local piece = rows[self.row]
   local under = piece and E.hit(clip, piece.note, cur * step, step)
   local status = string.format(
@@ -230,7 +230,7 @@ function view:render(buf, ctx)
   )
   paw.ui.titlebar(buf, {
     pill = { c.name, hue.pill },
-    name = track.name,
+    name = part.name,
     focused = ctx.focused,
     context = string.format("%s  %s", piece and piece.name or "-", paw.time.format(c.start + self.beat)),
     right = status,
@@ -273,7 +273,7 @@ function view:render(buf, ctx)
     local y = head + r
     if not row then break end
     local on_row = index == self.row
-    buf:fill(0, y, namew, 1, " ", on_row and "TrackHeaderSel" or "TrackHeader")
+    buf:fill(0, y, namew, 1, " ", on_row and "PartHeaderSel" or "PartHeader")
     buf:text(1, y, row.name, row.extra and "Faint" or on_row and hue.fg or nil)
     buf:hit(0, y, namew, 1, { kind = "name", row = index, hint = row.name .. ": click to hear it" })
     for i = 0, cells - 1 do
@@ -430,8 +430,8 @@ function view:toggle()
 end
 
 function view:hear(note)
-  local track, piece = self:track_id(), self:piece()
-  if track and (note or piece) then drums.hear(track, note or piece.note) end
+  local part, piece = self:part_id(), self:piece()
+  if part and (note or piece) then drums.hear(part, note or piece.note) end
 end
 
 --- Harder (`by` > 0) or softer: the hit under the cursor.

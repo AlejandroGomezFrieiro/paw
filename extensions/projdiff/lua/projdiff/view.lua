@@ -1,6 +1,6 @@
 -- The difference between two versions of a project as text with folds, in a
 -- floating window, after fugitive's diff: a line for each change, a heading
--- over the changes inside a track, a clip or a device that folds them away.
+-- over the changes inside a part, a clip or a device that folds them away.
 local projdiff = require("projdiff")
 local diff = projdiff.diff
 local api = paw.api
@@ -25,7 +25,7 @@ local function is_open(n)
   return n.open
 end
 
---- Close what is deeper than the headings of tracks and clips, unless the
+--- Close what is deeper than the headings of parts and clips, unless the
 --- whole diff is short enough to read at once.
 local function default_folds(root)
   local total = 0
@@ -117,7 +117,7 @@ end
 
 --- Close the window and put the cursor where the change is. A change
 --- inside a subproject goes inside that subproject first, and says where
---- the window is. A change of a track of the song goes to the song, as a
+--- the window is. A change of a part of the song goes to the song, as a
 --- quickfix entry does (`paw.qf.go`).
 local function go()
   local row = selected()

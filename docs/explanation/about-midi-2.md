@@ -48,7 +48,7 @@ the same through MPE and through MIDI 2.0.
 
 ## Why the audio thread stamps MIDI output
 
-A hardware synth must sound at the same time as the tracks. The audio
+A hardware synth must sound at the same time as the parts. The audio
 thread knows when you hear each message, because it knows the output
 latency and the delay of the plugins. It puts the time on the message, and
 another thread schedules the message on a sequencer queue. The audio thread

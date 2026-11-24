@@ -10,8 +10,8 @@ local song = require("paw.harmony.song")
 --- The notes that sound, read from the project without the graph.
 local function sounding()
   local out = {}
-  for _, id in ipairs(api.track_list()) do
-    local t = api.track_get(id)
+  for _, id in ipairs(api.part_list()) do
+    local t = api.part_get(id)
     if not t.mute and not paw.harmony.is_drums(t) then
       for _, c in ipairs(api.clip_list(id)) do
         if c.kind == "midi" and not c.muted then
@@ -78,7 +78,7 @@ test("derived: after random edits, the chord reading is the reading of all the n
   end
   local function clips()
     local out = {}
-    for _, id in ipairs(api.track_list()) do
+    for _, id in ipairs(api.part_list()) do
       for _, c in ipairs(api.clip_list(id)) do
         out[#out + 1] = c
       end
@@ -106,9 +106,9 @@ test("derived: after random edits, the chord reading is the reading of all the n
     function(c) api.clip_set(c.id, { start = rand(0, 3) * 4 }) end,
     function(c) api.clip_set(c.id, { length = quarter(1, 8) }) end,
     function(c) api.clip_set(c.id, { muted = not c.muted }) end,
-    function(c) api.track_set(c.track, { mute = not api.track_get(c.track, "mute") }) end,
-    function(c) api.track_set(c.track, { volume = rand(-12, 0) }) end,
-    function(c) api.clip_add(c.track, { start = rand(0, 3) * 4, length = 4, notes = random_notes(4) }) end,
+    function(c) api.part_set(c.part, { mute = not api.part_get(c.part, "mute") }) end,
+    function(c) api.part_set(c.part, { volume = rand(-12, 0) }) end,
+    function(c) api.clip_add(c.part, { start = rand(0, 3) * 4, length = 4, notes = random_notes(4) }) end,
     function(c) api.clip_remove(c.id) end,
     function() api.project_set({ sig_num = rand(2, 5) }) end,
   }
@@ -118,7 +118,7 @@ test("derived: after random edits, the chord reading is the reading of all the n
     fresh()
     paw.opt.harmony_step = steps[set % #steps + 1]
     for t = 1, rand(1, 3) do
-      local id = api.track_add({ name = "Track " .. t })
+      local id = api.part_add({ name = "Part " .. t })
       for _ = 1, rand(1, 2) do
         local length = rand(1, 2) * 4
         api.clip_add(id, { start = rand(0, 2) * 4, length = length, notes = random_notes(length) })
@@ -148,39 +148,39 @@ test("derived: after random edits, the chord reading is the reading of all the n
   eq(read > 150, true, "chords were read in most sets: " .. read)
 end)
 
-test("derived: a mute reads again only the muted track's windows, and a volume change nothing", function()
+test("derived: a mute reads again only the muted part's windows, and a volume change nothing", function()
   fresh()
-  local tracks = {}
+  local parts = {}
   for t = 1, 4 do
     local notes = {}
     for beat = 0, 31.5, 0.5 do
       notes[#notes + 1] = { pitch = 48 + t * 5 + (beat * 2) % 7, start = beat, length = 0.5, velocity = 90 }
     end
-    tracks[t] = paw.add_track({ name = "Part " .. t })
-    tracks[t]:add_clip({ start = 0, length = 32, notes = notes })
+    parts[t] = paw.add_part({ name = "Part " .. t })
+    parts[t]:add_clip({ start = 0, length = 32, notes = notes })
   end
   paw.flush()
   song.update()
-  local windows = song.stats("harmony.track_window")
+  local windows = song.stats("harmony.part_window")
   local before = windows.made
   local count = 64 -- 32 beats in windows of half a beat
 
-  -- `M` in the arrange view mutes the track under the cursor.
+  -- `M` in the arrange view mutes the part under the cursor.
   paw.ui.focus("arrange")
-  paw.cursor.set_track(tracks[2].id)
+  paw.cursor.set_part(parts[2].id)
   paw.keymap.feed("M")
   paw.flush()
-  eq(api.track_get(tracks[2].id, "mute"), true, "M muted the track")
+  eq(api.part_get(parts[2].id, "mute"), true, "M muted the part")
   song.update()
-  eq(song.stats("harmony.track_window").made - before, count, "only the muted track's windows were made again")
+  eq(song.stats("harmony.part_window").made - before, count, "only the muted part's windows were made again")
 
-  local muted = song.stats("harmony.track_window").made
+  local muted = song.stats("harmony.part_window").made
   paw.keymap.feed("M")
   paw.flush()
   song.update()
-  eq(song.stats("harmony.track_window").made, muted, "the unmute gives the track's windows back as they were")
+  eq(song.stats("harmony.part_window").made, muted, "the unmute gives the part's windows back as they were")
 
-  api.track_set(tracks[3].id, { volume = -6 })
+  api.part_set(parts[3].id, { volume = -6 })
   api.undo_checkpoint()
   paw.flush()
   local all = made()
@@ -192,27 +192,27 @@ test("derived: a mute reads again only the muted track's windows, and a volume c
     said[#said + 1] = item.text
   end
   local text = table.concat(said, "\n")
-  eq(text:find("harmony.track_window (family): 256 values", 1, true) ~= nil, true, ":checkhealth derived:\n" .. text)
+  eq(text:find("harmony.part_window (family): 256 values", 1, true) ~= nil, true, ":checkhealth derived:\n" .. text)
 end)
 
 test("derived: after :quantize of one bar, the job reads only that bar's windows, a few entries at a time", function()
   fresh()
-  -- Four tracks of eight one-bar clips, with notes off the beat.
-  local tracks = {}
+  -- Four parts of eight one-bar clips, with notes off the beat.
+  local parts = {}
   for t = 1, 4 do
-    tracks[t] = paw.add_track({ name = "Part " .. t })
+    parts[t] = paw.add_part({ name = "Part " .. t })
     for bar = 0, 7 do
       local notes = {}
       for beat = 0, 3 do
         notes[#notes + 1] = { pitch = 50 + t * 4 + bar, start = beat + 0.1, length = 0.5, velocity = 90 }
       end
-      tracks[t]:add_clip({ start = bar * 4, length = 4, notes = notes })
+      parts[t]:add_clip({ start = bar * 4, length = 4, notes = notes })
     end
   end
   paw.flush()
   song.update()
-  local before = song.stats("harmony.track_window")
-  local bars_before = song.stats("harmony.track_bar").made
+  local before = song.stats("harmony.part_window")
+  local bars_before = song.stats("harmony.part_bar").made
 
   T.keys(":3quantize 1/4<CR>")
   paw.flush()
@@ -223,11 +223,11 @@ test("derived: after :quantize of one bar, the job reads only that bar's windows
     count = made()
   end
   widest = math.max(widest, made() - count)
-  local windows = song.stats("harmony.track_window")
+  local windows = song.stats("harmony.part_window")
   -- The window that ends where a moved note now starts is not read again.
-  eq(windows.made - before.made, 4 * 8, "only the 8 windows of bar 3 on each of the 4 tracks are made again")
+  eq(windows.made - before.made, 4 * 8, "only the 8 windows of bar 3 on each of the 4 parts are made again")
   eq(windows.hits - before.hits, 0, "no window of the other bars is looked at")
-  eq(song.stats("harmony.track_bar").made - bars_before, 4, "and of the bars for the key, only bar 3 of each track")
+  eq(song.stats("harmony.part_bar").made - bars_before, 4, "and of the bars for the key, only bar 3 of each part")
   eq(widest <= 8, true, "a slice makes a few entries, not the windows of the song: " .. widest)
   local got, want = both()
   eq(got, want, "and the reading is the one of all the notes")
@@ -235,26 +235,26 @@ end)
 
 test("derived: after :quantize, the spans compared grow with the bars changed, not with the song", function()
   --- The spans of the windows and bars compared with the change of the
-  --- tracks, after `:<range>quantize` on two tracks of one-bar clips.
+  --- parts, after `:<range>quantize` on two parts of one-bar clips.
   local function checked(bars, range)
     fresh()
     for t = 1, 2 do
-      local track = paw.add_track({ name = "Part " .. t })
+      local part = paw.add_part({ name = "Part " .. t })
       for bar = 0, bars - 1 do
         local notes = {}
         for beat = 0, 3 do
           notes[#notes + 1] = { pitch = 50 + t * 4 + bar % 12, start = beat + 0.1, length = 0.5, velocity = 90 }
         end
-        track:add_clip({ start = bar * 4, length = 4, notes = notes })
+        part:add_clip({ start = bar * 4, length = 4, notes = notes })
       end
     end
     paw.flush()
     song.update()
-    local before = song.stats("harmony.track").checked
+    local before = song.stats("harmony.part").checked
     T.keys(":" .. range .. "quantize 1/4<CR>")
     paw.flush()
     song.update()
-    return song.stats("harmony.track").checked - before
+    return song.stats("harmony.part").checked - before
   end
   local short, long = checked(8, "3"), checked(32, "3")
   eq(short > 0, true, "the change of bar 3 was compared with the spans that read it")
@@ -270,7 +270,7 @@ test("derived: an error deep in the job leaves no value half made: the next read
     for beat = 0, 7 do
       notes[#notes + 1] = { pitch = 48 + t * 4 + beat % 3, start = beat, length = 1, velocity = 90 }
     end
-    clips[t] = paw.add_track({ name = "Part " .. t }):add_clip({ start = 0, length = 8, notes = notes })
+    clips[t] = paw.add_part({ name = "Part " .. t }):add_clip({ start = 0, length = 8, notes = notes })
   end
   paw.flush()
   song.update()
@@ -298,7 +298,7 @@ test("derived: K on a note names its chord, and says the chord is being read aft
   for i, p in ipairs({ 48, 60, 64, 67, 53, 57, 60, 65 }) do
     notes[i] = { pitch = p, start = i <= 4 and 0 or 4, length = 4, velocity = 90 }
   end
-  local clip = paw.add_track({ name = "Piano" }):add_clip({ start = 0, length = 8, notes = notes })
+  local clip = paw.add_part({ name = "Piano" }):add_clip({ start = 0, length = 8, notes = notes })
   paw.flush()
   paw.harmony.chords()
   local roll = paw.ui.views:get("pianoroll")

@@ -3,13 +3,13 @@
 -- moves (`audition` in `paw.pick`), and scripts can too:
 --
 --   paw.audition.try(function() paw.fx.load(device, "Plate") end)  -- an edit that can be taken back
---   paw.audition.phrase(track.id, notes, { length = 4, label = "loop bar 5" })
+--   paw.audition.phrase(part.id, notes, { length = 4, label = "loop bar 5" })
 --   paw.audition.file("/samples/kick.wav")
 --   paw.audition.stop()                       -- silence, and take the edit back
 --
 -- A trial (`try`) makes its edits as any others, so that they are heard and
 -- seen; `revert` puts the project back exactly as it was, and `keep` makes
--- them one undo step. A phrase is played through a track as notes played
+-- them one undo step. A phrase is played through a part as notes played
 -- live, over and over until stopped, and is not played while the transport
 -- runs: the song is what is heard then. A file is heard on its own over
 -- everything else at `paw.opt.audition_level` dB.
@@ -27,21 +27,21 @@ local type objects = require("paw.objects")
 local type CursorModule = require("paw.cursor")
 
 --- A note of a phrase: `start` in beats from the start of the phrase. Its
---- own `track` wins over the phrase's.
+--- own `part` wins over the phrase's.
 local record PhraseNote
   pitch: integer
   start: number
   length: number
   velocity: number
-  track: integer
+  part: integer
   drum: boolean
 end
 
---- A phrase that plays: through `track`, `length` beats long, again and
+--- A phrase that plays: through `part`, `length` beats long, again and
 --- again unless `loop` is false, from beat `at` of the project at its
 --- tempo, or at its own `tempo`. `silent` says why it is not heard.
 local record Phrase
-  track: integer
+  part: integer
   notes: {PhraseNote}
   length: number
   label: string
@@ -52,7 +52,7 @@ local record Phrase
   silent: string
 end
 
---- What `phrase` takes besides the track and the notes.
+--- What `phrase` takes besides the part and the notes.
 local record PhraseOptions
   length: number
   label: string
@@ -62,7 +62,7 @@ local record PhraseOptions
   tempo: number
 end
 
---- What a track plays, as `builtin` and `track_phrase` give it.
+--- What a part plays, as `builtin` and `part_phrase` give it.
 local record Built
   notes: {PhraseNote}
   length: number
@@ -72,7 +72,7 @@ end
 
 --- A note played lately.
 local record Heard
-  track: integer
+  part: integer
   pitch: integer
   velocity: number
 end
@@ -82,7 +82,7 @@ end
 local record State
   kind: string
   label: string
-  track: integer
+  part: integer
   notes: {PhraseNote}
   length: number
   silent: string
@@ -107,7 +107,7 @@ local record Paw is partial.Paw
   midifile: MidifileModule
   time: objects.Time
   cursor: CursorModule
-  add_track: function(opts?: objects.TrackInput): objects.Track
+  add_part: function(opts?: objects.PartInput): objects.Part
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -145,7 +145,7 @@ options.define("audition_delay", 150) -- ms the selection rests on an item befor
 
 local EPS = 1e-9
 
--- What is heard now: `{ label, track, notes, length, key }` for a phrase.
+-- What is heard now: `{ label, part, notes, length, key }` for a phrase.
 local phrase: Phrase
 local timers, sounding: {integer}, {string: boolean} = {}, {}
 M.heard = {}
@@ -164,8 +164,8 @@ local function silence()
   end
   timers = {}
   for key in pairs(sounding) do
-    local track, pitch = key:match("^(%d+):(%d+)$")
-    pcall(api.note_off, tonumber(track) as integer, tonumber(pitch) as integer)
+    local part, pitch = key:match("^(%d+):(%d+)$")
+    pcall(api.note_off, tonumber(part) as integer, tonumber(pitch) as integer)
   end
   sounding = {}
 end
@@ -211,9 +211,9 @@ local function ms_between(from: number, to: number, tempo: number): number
   return math.max(0, (paw.time.to_seconds(to) - paw.time.to_seconds(from)) * 1000)
 end
 
-local function remember(track: integer, n: PhraseNote)
+local function remember(part: integer, n: PhraseNote)
   local heard = M.heard
-  heard[#heard + 1] = {track = track, pitch = n.pitch, velocity = n.velocity}
+  heard[#heard + 1] = {part = part, pitch = n.pitch, velocity = n.velocity}
   if #heard > 256 then
     table.remove(heard, 1)
   end
@@ -226,22 +226,22 @@ local function pass()
   end
   local at, tempo = p.at, p.tempo
   for _, n in ipairs(p.notes) do
-    local track = n.track or p.track
+    local part = n.part or p.part
     local on = ms_between(at, at + n.start, tempo)
     local off = math.max(on + 20, ms_between(at, at + math.min(n.start + n.length, p.length), tempo) - 5)
-    local key = track .. ":" .. n.pitch
+    local key = part .. ":" .. n.pitch
     timers[#timers + 1] = paw.defer(
       function()
         if phrase ~= p then
           return
         end
         sounding[key] = true
-        remember(track, n)
-        pcall(api.note_on, track, n.pitch, n.velocity)
+        remember(part, n)
+        pcall(api.note_on, part, n.pitch, n.velocity)
       end,
       on
     )
-    timers[#timers + 1] = paw.defer(function() sounding[key] = nil; pcall(api.note_off, track, n.pitch) end, off)
+    timers[#timers + 1] = paw.defer(function() sounding[key] = nil; pcall(api.note_off, part, n.pitch) end, off)
   end
   timers[#timers + 1] = paw.defer(
     function()
@@ -260,25 +260,25 @@ local function pass()
   )
 end
 
---- Play `notes` through a track, again each `opts.length` beats (or one
+--- Play `notes` through a part, again each `opts.length` beats (or one
 --- time with `loop = false`). The notes are `{ pitch, start, length,
 --- velocity }`, with `start` in beats from the start of the phrase. The
---- `track` of a note wins over the `track` of the phrase. `opts.label` tells
+--- `part` of a note wins over the `part` of the phrase. `opts.label` tells
 --- what the phrase is. A phrase with the same `opts.key` as the phrase that
 --- plays continues and does not start again. So only the sound changes.
 --- `opts.tempo` is its tempo. If not given, it is the tempo of the project
 --- at `opts.at` (the cursor). paw plays nothing while the transport runs.
-function M.phrase(track: integer, notes: {PhraseNote}, opts?: PhraseOptions): Phrase
+function M.phrase(part: integer, notes: {PhraseNote}, opts?: PhraseOptions): Phrase
   M.asked = M.asked + 1
   opts = opts or {}
   local length = opts.length or 4
-  if phrase and opts.key and phrase.key == opts.key and phrase.track == track then
+  if phrase and opts.key and phrase.key == opts.key and phrase.part == part then
     phrase.label = opts.label or phrase.label
     return phrase
   end
   silence()
   phrase = {
-    track = track,
+    part = part,
     notes = notes,
     length = length,
     label = opts.label,
@@ -295,7 +295,7 @@ function M.phrase(track: integer, notes: {PhraseNote}, opts?: PhraseOptions): Ph
   return phrase
 end
 
---- A bar of a pattern for a drum track, by General MIDI note.
+--- A bar of a pattern for a drum part, by General MIDI note.
 local DRUMS: {{integer, number, integer}} = {
   {36, 0, 110},
   {42, 0, 80},
@@ -312,21 +312,21 @@ local DRUMS: {{integer, number, integer}} = {
   {42, 3.5, 70},
 }
 
---- A phrase for a track with nothing to play. For a drum track, it is a bar
---- of a beat. For other tracks, it is the tonic chord of the key, held,
---- then as an arpeggio up and down, in the range of the track.
+--- A phrase for a part with nothing to play. For a drum part, it is a bar
+--- of a beat. For other parts, it is the tonic chord of the key, held,
+--- then as an arpeggio up and down, in the range of the part.
 --- `{ notes, length, label }`.
-function M.builtin(track?: integer, at?: number): Built
+function M.builtin(part?: integer, at?: number): Built
   at = at or paw.cursor.beat or 0
   local notes: {PhraseNote} = {}
-  if track and paw.harmony.is_drums(track) then
+  if part and paw.harmony.is_drums(part) then
     for i, d in ipairs(DRUMS) do
       notes[i] = {pitch = d[1], start = d[2], length = 0.25, velocity = d[3]}
     end
     return {notes = notes, length = 4, label = "a built-in beat"}
   end
   local key = paw.harmony.key(at)
-  local range = track and paw.harmony.range(track) or paw.harmony.default_range
+  local range = part and paw.harmony.range(part) or paw.harmony.default_range
   -- The tonic nearest the middle of the range, a third and a fifth above.
   local middle = math.floor((range.low + range.high) / 2)
   local root = middle - ((middle - key.root) % 12)
@@ -344,14 +344,14 @@ function M.builtin(track?: integer, at?: number): Built
   return {notes = notes, length = 4, label = "a built-in phrase in " .. paw.harmony.key_name(key)}
 end
 
---- What a track plays around the cursor, as a phrase. This is the bar of
+--- What a part plays around the cursor, as a phrase. This is the bar of
 --- its MIDI clip at the cursor. If not, it is the last bar with notes before
 --- the cursor. If not, it is the first bar with notes. It is `builtin` when
---- the track has no notes. `{ notes, length, label, at }`.
-function M.track_phrase(track?: integer): Built
+--- the part has no notes. `{ notes, length, label, at }`.
+function M.part_phrase(part?: integer): Built
   local cursor = paw.cursor.beat or 0
   local bars: {number: {PhraseNote}} = {}
-  for _, c in ipairs(track and api.clip_list(track) or {}) do
+  for _, c in ipairs(part and api.clip_list(part) or {}) do
     if c.kind == "midi" and not c.muted then
       local clip_notes = api.clip_notes(c.id)
       for _, n in ipairs(clip_notes) do
@@ -380,7 +380,7 @@ function M.track_phrase(track?: integer): Built
     chosen = before or first
   end
   if not chosen then
-    local b = M.builtin(track, cursor)
+    local b = M.builtin(part, cursor)
     b.at = cursor
     return b
   end
@@ -395,13 +395,13 @@ function M.track_phrase(track?: integer): Built
   return {notes = notes, length = length, at = chosen, label = "loop bar " .. paw.time.bar_of(chosen)}
 end
 
---- True if a track has an instrument to play notes.
-function M.has_instrument(track: integer): boolean
+--- True if a part has an instrument to play notes.
+function M.has_instrument(part: integer): boolean
   local category: {string: string} = {}
   for _, info in ipairs(paw.device_types()) do
     category[info.kind] = info.category
   end
-  for _, id in ipairs(api.track_get(track).devices) do
+  for _, id in ipairs(api.part_get(part).devices) do
     local ok, d = pcall(api.device_get, id)
     if ok and not d.bypass and category[d.kind] == "instrument" then
       return true
@@ -410,39 +410,39 @@ function M.has_instrument(track: integer): boolean
   return false
 end
 
---- Play what a track plays around the cursor, through the track, again and
---- again (`track_phrase`). So you hear a sound that you try on the track
+--- Play what a part plays around the cursor, through the part, again and
+--- again (`part_phrase`). So you hear a sound that you try on the part
 --- with its own notes. The loop continues while only the sound changes.
 --- Returns what you hear, in words.
-function M.through(track: integer): string
+function M.through(part: integer): string
   M.asked = M.asked + 1
   if api.transport_get().playing then
     silence()
     phrase = nil
     return "with the song"
   end
-  if not M.has_instrument(track) then
+  if not M.has_instrument(part) then
     silence()
     phrase = nil
     return "heard when the song plays"
   end
-  local p = M.track_phrase(track)
-  M.phrase(track, p.notes, {length = p.length, at = p.at, label = p.label, key = p.label .. "@" .. tostring(p.at)})
+  local p = M.part_phrase(part)
+  M.phrase(part, p.notes, {length = p.length, at = p.at, label = p.label, key = p.label .. "@" .. tostring(p.at)})
   return p.label
 end
 
---- A track to play notes through: the cursor's when it has an instrument,
+--- A part to play notes through: the cursor's when it has an instrument,
 --- else one added as a trial (with the built-in synth, or drums) that
 --- `revert` takes away. `drums` asks for a drum kit.
 function M.player(drums?: boolean): integer
-  local track = paw.cursor.track_id()
-  if track and M.has_instrument(track) and (not drums or paw.harmony.is_drums(track)) then
-    return track
+  local part = paw.cursor.part_id()
+  if part and M.has_instrument(part) and (not drums or paw.harmony.is_drums(part)) then
+    return part
   end
   if not api.trial_active() then
     api.trial_begin()
   end
-  local t = paw.add_track({name = drums and "Audition drums" or "Audition"})
+  local t = paw.add_part({name = drums and "Audition drums" or "Audition"})
   t:add_device(drums and "drums" or "synth")
   return t.id
 end
@@ -460,8 +460,8 @@ function M.midi_file(path: string, bars?: integer): string
   local length = (bars or 2) * sig.num * 4 / sig.den
   local tempo = file.tempos[1] and file.tempos[1].bpm or 120
   local notes, has: {PhraseNote}, {string: boolean} = {}, {}
-  for _, track in ipairs(file.tracks) do
-    for _, n in ipairs(track.notes) do
+  for _, file_track in ipairs(file.tracks) do
+    for _, n in ipairs(file_track.notes) do
       local start = n.tick / ppq
       if start < length then
         local drum = n.channel == 9
@@ -478,7 +478,7 @@ function M.midi_file(path: string, bars?: integer): string
   local pitched = has.notes and M.player(false)
   local kit = has.drums and M.player(true)
   for _, n in ipairs(notes) do
-    n.track = n.drum and kit or pitched
+    n.part = n.drum and kit or pitched
   end
   M.phrase(pitched or kit, notes, {length = length, loop = false, tempo = tempo})
   return string.format("first %d bars at %g BPM", bars or 2, tempo)
@@ -519,7 +519,7 @@ function M.stop()
   M.revert()
 end
 
---- What you hear now: `{ kind = "phrase", label, track, notes, length,
+--- What you hear now: `{ kind = "phrase", label, part, notes, length,
 --- silent }`, `{ kind = "file", file, state, position, length, outline }`
 --- or nil. `trial` is true while the edits of a trial stay.
 function M.state(): State
@@ -537,7 +537,7 @@ function M.state(): State
     out = {
       kind = "phrase",
       label = phrase.label,
-      track = phrase.track,
+      part = phrase.part,
       notes = phrase.notes,
       length = phrase.length,
       silent = phrase.silent,

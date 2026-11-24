@@ -169,7 +169,7 @@ impl HostPath {
         io: &mut Io,
     ) -> bool {
         let n = io.left.len().min(self.dry[0].len());
-        // A bypassed device holds nothing back: the track's lining up
+        // A bypassed device holds nothing back: the part's lining up
         // leaves it out (see the schedule).
         let delay = if bypass { 0 } else { self.latency };
         let len = self.ring[0].len;

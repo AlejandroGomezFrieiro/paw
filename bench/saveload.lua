@@ -1,6 +1,6 @@
 -- Saving and loading a large project.
---   paw --clean --no-plugins -l bench/saveload.lua <tracks> <clips per track> [json]
--- Each track has a synth and a delay and `clips` one-bar MIDI clips of 12
+--   paw --clean --no-plugins -l bench/saveload.lua <parts> <clips per part> [json]
+-- Each part has a synth and a delay and `clips` one-bar MIDI clips of 12
 -- notes, as in the Tracktion driver's `saveload`. The project is saved as a
 -- folder (`json` saves it in one file instead). `resave_ms` is a second
 -- save with nothing changed, which writes no file.
@@ -8,13 +8,13 @@ local paw = require("paw")
 local api = paw.api
 local B = dofile(debug.getinfo(1, "S").source:sub(2):match("(.*)/") .. "/lib.lua")
 
-local tracks, clips, form = ...
-tracks, clips = tonumber(tracks) or 100, tonumber(clips) or 8
+local parts, clips, form = ...
+parts, clips = tonumber(parts) or 100, tonumber(clips) or 8
 local one_file = form == "json"
 
 local function build()
-  for i = 0, tracks - 1 do
-    local id = api.track_add({ name = "T" .. i })
+  for i = 0, parts - 1 do
+    local id = api.part_add({ name = "T" .. i })
     api.device_add(id, "synth", { params = { wave = 1 } })
     api.device_add(id, "delay")
     for c = 0, clips - 1 do
@@ -55,20 +55,20 @@ local load_ms = B.time(function()
   api.project_load(path)
   paw.flush()
 end)
-local loaded = #api.track_list()
+local loaded = #api.part_list()
 os.execute("rm -rf '" .. path .. "'")
 B.emit({
   workload = "saveload",
   form = one_file and "json" or "folder",
-  tracks = tracks,
-  clips_per_track = clips,
+  parts = parts,
+  clips_per_part = clips,
   build_ms = build_ms,
   save_ms = save_ms,
   resave_ms = resave_ms,
   load_ms = load_ms,
   file_bytes = bytes,
   files = files,
-  loaded_tracks = loaded,
+  loaded_parts = loaded,
   rss_kb = B.rss(),
 })
 api.quit(0)

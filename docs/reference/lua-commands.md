@@ -6,7 +6,7 @@ The reference page describes how Lua defines commands, ranges, fields for `:s` a
 
 ```lua
 paw.command(name, function(ctx) end, { desc = "..." })   -- ctx.args, ctx.count
-paw.cmd("track.add", { "Bass", device = "synth" })       -- run a command
+paw.cmd("part.add", { "Bass", device = "synth" })       -- run a command
 paw.commands.exec("5,8bars.color red")                   -- run a line, as typed after `:`
 ```
 
@@ -21,11 +21,11 @@ The `complete` option says what the arguments complete to on the command line, a
 - A function that returns strings, or tables `{ text = ..., desc = ... }`.
 
 ```lua
-paw.command("send.to", fn, { complete = { "tracks" } })
+paw.command("send.to", fn, { complete = { "parts" } })
 paw.command("mood", fn, { complete = function(text, info) return { "calm", "loud" } end })
 ```
 
-The completers are `commands`, `tracks`, `devices`, `track_devices`,
+The completers are `commands`, `parts`, `devices`, `part_devices`,
 `options`, `views`, `pickers`, `files`, `audio_files` (sound and MIDI
 files), `projects` and `openable` (projects, MIDI files and sound files).
 You can add more with `paw.commands.completers:put(name, fn)`, and `paw.commands.complete(line)` lists the completions of a line.
@@ -50,7 +50,7 @@ A range before the name of a command gives the command a part of the project, as
 | --- | --- | --- |
 | `:'<,'>name` | `{ selection = true, region = ... }`: the last selection of the focused view, as an operator gets it | all |
 | `:5,8name`, `:5name`, `:%name`, `:'a,'bname`, `:.+4name` | `{ bars = { 5, 8 }, from, to }`: beats of the song, without `to` | only those made with `range = true` |
-| `:t2,t4name`, `t*`, `t/Drums/` | adds `tracks = { ids }` | `range = true`. Other commands run once on each track, with the cursor on it |
+| `:t2,t4name`, `t*`, `t/Drums/` | adds `parts = { ids }` | `range = true`. Other commands run once on each part, with the cursor on it |
 | `:g/pattern/name` | `{ items = <the matches> }` | all |
 
 `:` in visual mode starts the prompt with `'<,'>`, and while the command runs, `paw.keymap.selection()` gives the region of the selection, so a command that works on the selection takes the range without more code. `paw.commands.range(line)` separates the range from the rest of a line.
@@ -61,7 +61,7 @@ paw.command("bars.color", function(ctx) local r = ctx.range end, { range = true 
 
 ### Items of a range with `paw.ex`
 
-A range holds notes, clips or tracks. `paw.ex.items(range, kind)` gives the items of one kind (`"note"`, `"clip"` or `"track"`), and each item is `{ kind, track, clip, note, place, at }`, with `at` in beats of the song. A range of time alone holds the items of every track, and in the piano roll it holds the notes of the clips that the piano roll edits.
+A range holds notes, clips or parts. `paw.ex.items(range, kind)` gives the items of one kind (`"note"`, `"clip"` or `"part"`), and each item is `{ kind, part, clip, note, place, at }`, with `at` in beats of the song. A range of time alone holds the items of every part, and in the piano roll it holds the notes of the clips that the piano roll edits.
 
 ```lua
 paw.command("vel.half", function(ctx)
@@ -79,7 +79,7 @@ end, { range = true, desc = "Halve the velocity of the notes in a range" })
 
 | Key of `spec` | Value |
 | --- | --- |
-| `level` | what the field belongs to: `"note"`, `"clip"` or `"track"` |
+| `level` | what the field belongs to: `"note"`, `"clip"` or `"part"` |
 | `type` | `"number"`, `"beats"` (takes `1/8`), `"pitch"` or `"text"` |
 | `get(item)` | the value of the field |
 | `set(item, value, change)` | writes the value into `change`, in the form that `paw.api` keeps |
@@ -99,7 +99,7 @@ In an extension in Teal, the `ctx` of a command is a `paw.contracts.CommandConte
 
 ```lua
 paw.ex.view("myview", { song = function(col) return clip_start + col end,
-  clips = function() return { clip_id } end, track = function() return track_id end,
+  clips = function() return { clip_id } end, part = function() return part_id end,
   go = function(beat) end })                -- put the cursor at a beat of the song
 ```
 
@@ -124,8 +124,8 @@ An operator gets a region with rows `r0` to `r1`, beats `c0` to `c1`, and a kind
 
 ```lua
 paw.keymap.operator("gR", function(region, ctx)
-  for _, id in ipairs(paw.edit.arrange.tracks(region)) do
-    for _, clip in ipairs(paw.track(id):clips()) do
+  for _, id in ipairs(paw.edit.arrange.parts(region)) do
+    for _, clip in ipairs(paw.part(id):clips()) do
       if clip.start >= region.c0 and clip.start < region.c1 then clip.name = "take" end
     end
   end
@@ -184,6 +184,6 @@ The third argument of `paw.option.define`:
 | `min`, `max` | the range of a number |
 | `integer` | true for whole numbers only |
 | `values` | the only strings or booleans that the option takes |
-| `type` | a list of types, for an option such as `track_height` that is a number or `"auto"` |
+| `type` | a list of types, for an option such as `part_height` that is a number or `"auto"` |
 
 `paw.option.define` gives a handle of the option, where `handle:get()` gives the value and `handle:set(value)` sets it. In Teal, the handle has the type of the default. `paw.option.spec(name)` gives the third argument of an option, and `paw.option.check(name, value)` checks a value without setting it.

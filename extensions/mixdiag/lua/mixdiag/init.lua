@@ -17,7 +17,7 @@ local M = {
 M.done = paw.events.event("mixdiag.done")
 
 --- Delivery targets. `kind` says how a target treats loudness:
---- "normalize" (a service turns every track to `integrated`; louder or quieter
+--- "normalize" (a service turns every part to `integrated`; louder or quieter
 --- is a consequence to report, not an error), "deliver" (the programme must
 --- be within `tolerance` of `integrated`), or nil (no loudness verdict).
 --- Add your own: `require("mixdiag").targets.mine = { ... }`.
@@ -55,13 +55,13 @@ end
 local function project_length() return api.project_get().length end
 
 --- The stretch of the project a scope means: "song", "loop", "selection",
---- "track" (the cursor track's contribution to the song), a table
---- `{ start, ["end"], track }` in beats, or `{ file = path }`.
+--- "part" (the cursor part's contribution to the song), a table
+--- `{ start, ["end"], part }` in beats, or `{ file = path }`.
 function M.range(scope)
   scope = scope or "song"
   if type(scope) == "table" then
     local range = paw.util.merge({ label = scope.file and scope.file:match("[^/]+$") or "stretch" }, scope)
-    range.kind = range.file and "file" or range.track and "track" or "mix"
+    range.kind = range.file and "file" or range.part and "part" or "mix"
     return range
   end
   local length = project_length()
@@ -86,18 +86,18 @@ function M.range(scope)
       return { start = 0, ["end"] = length, label = "song", kind = "mix", whole = true }
     end
     return { start = sel.c0, ["end"] = sel.c1, label = "selection", kind = "mix" }
-  elseif scope == "track" then
-    local id = paw.cursor.track_id()
-    if not id then error("no track under the cursor", 0) end
+  elseif scope == "part" then
+    local id = paw.cursor.part_id()
+    if not id then error("no part under the cursor", 0) end
     if length <= 0 then error("the project has no clips to measure", 0) end
-    return { start = 0, ["end"] = length, track = id, label = api.track_get(id, "name"), kind = "track", whole = true }
+    return { start = 0, ["end"] = length, part = id, label = api.part_get(id, "name"), kind = "part", whole = true }
   end
-  error("unknown scope `" .. tostring(scope) .. "`: song, loop, selection or track", 0)
+  error("unknown scope `" .. tostring(scope) .. "`: song, loop, selection or part", 0)
 end
 
 local function measure_args(range)
   if range.file then return { file = range.file } end
-  return { start = range.start, ["end"] = range["end"], tail = range.tail or paw.opt.mixdiag_tail, track = range.track }
+  return { start = range.start, ["end"] = range["end"], tail = range.tail or paw.opt.mixdiag_tail, part = range.part }
 end
 
 --- Measure and diagnose. Without `opts.wait` the measurement runs on a
@@ -188,23 +188,23 @@ function M.context(result, range)
     if seconds then return string.format("%d:%04.1f", math.floor(seconds / 60), seconds % 60) end
     return ""
   end
-  function ctx.track_name(id)
+  function ctx.part_name(id)
     if id == 0 then return "the master" end
-    local ok, track = pcall(api.track_get, id)
-    return ok and track.name ~= "" and track.name or ("track " .. tostring(id))
+    local ok, part = pcall(api.part_get, id)
+    return ok and part.name ~= "" and part.name or ("part " .. tostring(id))
   end
   return ctx
 end
 
 local function sort_findings(list)
   local order = {}
-  for i, id in ipairs(api.track_list()) do
+  for i, id in ipairs(api.part_list()) do
     order[id] = i
   end
   table.sort(list, function(a, b)
     local ab, bb = a.beat or math.huge, b.beat or math.huge
     if ab ~= bb then return ab < bb end
-    local at, bt = order[a.track] or 0, order[b.track] or 0
+    local at, bt = order[a.part] or 0, order[b.part] or 0
     if at ~= bt then return at < bt end
     return M.rank[a.severity] < M.rank[b.severity]
   end)
@@ -310,7 +310,7 @@ end
 function M.marks()
   local out = {}
   for _, f in ipairs(M.findings) do
-    if f.beat then out[#out + 1] = { beat = f.beat, severity = f.severity, text = M.format(f), track = f.track } end
+    if f.beat then out[#out + 1] = { beat = f.beat, severity = f.severity, text = M.format(f), part = f.part } end
   end
   return out
 end
@@ -325,18 +325,18 @@ local function placed()
   return out
 end
 
---- Row of a finding's track in the arrange view, or nil for the master and
+--- Row of a finding's part in the arrange view, or nil for the master and
 --- findings about the whole mix.
 local function row_of(f)
-  if not f.track or f.track == 0 then return nil end
-  for i, id in ipairs(api.track_list()) do
-    if id == f.track then return i end
+  if not f.part or f.part == 0 then return nil end
+  for i, id in ipairs(api.part_list()) do
+    if id == f.part then return i end
   end
 end
 
 --- Put the cursor on a finding and show its message.
 function M.jump(f)
-  if f.track and f.track ~= 0 and pcall(api.track_get, f.track) then paw.cursor.set_track(f.track) end
+  if f.part and f.part ~= 0 and pcall(api.part_get, f.part) then paw.cursor.set_part(f.part) end
   if f.beat then paw.cursor.set_beat(math.max(0, f.beat)) end
   M.current = f
   paw.notify(
@@ -355,7 +355,7 @@ function M.step(dir, count)
   end
   local beat = paw.cursor.beat
   local row = paw.cursor.index() or 0
-  -- On a finding about the master, the cursor's track says nothing about
+  -- On a finding about the master, the cursor's part says nothing about
   -- where in the list we are: the finding last jumped to does.
   local current = M.current
   if current and current.beat and math.abs(current.beat - beat) <= 1e-6 then row = row_of(current) or 0 end
@@ -390,21 +390,21 @@ end
 
 -- The list -------------------------------------------------------------------
 
---- Items for a list of findings: { text, beat, track, finding }.
+--- Items for a list of findings: { text, beat, part, finding }.
 function M.items()
   local ctx = M.result and M.context(M.result, M.range_measured or { kind = "mix" })
   local items = {}
   for _, f in ipairs(M.findings) do
     local where = ctx and ctx.where(f.beat, f.seconds) or ""
-    local track = f.track and f.track ~= 0 and ctx and ctx.track_name(f.track) or ""
+    local part = f.part and f.part ~= 0 and ctx and ctx.part_name(f.part) or ""
     local text = string.format(
       "%-5s  %-9s %-10s %s",
       f.severity,
       where,
-      paw.util.fit and paw.util.fit(track, 10) or track,
+      paw.util.fit and paw.util.fit(part, 10) or part,
       M.format(f)
     )
-    items[#items + 1] = { text = text, beat = f.beat, track = f.track, finding = f, severity = f.severity }
+    items[#items + 1] = { text = text, beat = f.beat, part = f.part, finding = f, severity = f.severity }
   end
   return items
 end

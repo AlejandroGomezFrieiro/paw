@@ -106,39 +106,39 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.session.borrow().engine_reset_stats();
             Ok(())
         }
-        // Play a track from a sound file for now, as if it is frozen, or live
-        // again with nil. Nil also works for a track that is gone. Another
-        // project plays all its tracks live. The project does not change
+        // Play a part from a sound file for now, as if it is frozen, or live
+        // again with nil. Nil also works for a part that is gone. Another
+        // project plays all its parts live. The project does not change
         // (see `freeze.rs`).
         // @return nil
-        fn engine_hold(_, sh, (track, file) => (Id, Option<String>)) {
-            sh.session.borrow_mut().hold(track, file.map(PathBuf::from)).lua()
+        fn engine_hold(_, sh, (part, file) => (Id, Option<String>)) {
+            sh.session.borrow_mut().hold(part, file.map(PathBuf::from)).lua()
         }
         // @return {integer}
         fn engine_held(_, sh, () => ()) { Ok(sh.session.borrow().held()) }
-        // Only these tracks heard for now, as a solo would, or all with nil.
+        // Only these parts heard for now, as a solo would, or all with nil.
         // @return nil
-        fn engine_audible(_, sh, tracks => Option<Vec<Id>>) {
-            sh.session.borrow_mut().set_audible(tracks);
+        fn engine_audible(_, sh, parts => Option<Vec<Id>>) {
+            sh.session.borrow_mut().set_audible(parts);
             Ok(())
         }
-        // The track that plays MIDI input while no track is armed, as if
+        // The part that plays MIDI input while no part is armed, as if
         // monitored, or none with nil (`paw.opt.midi_follows_selection`).
         // @return nil
-        fn engine_follow(_, sh, track => Option<Id>) {
-            sh.session.borrow_mut().set_follow(track);
+        fn engine_follow(_, sh, part => Option<Id>) {
+            sh.session.borrow_mut().set_follow(part);
             Ok(())
         }
-        // The track that plays MIDI input as if monitored, also while another
-        // track is armed, or none with nil. While set, it takes the place of
-        // `engine_follow`'s track. Step input sets it to the track of the
+        // The part that plays MIDI input as if monitored, also while another
+        // part is armed, or none with nil. While set, it takes the place of
+        // `engine_follow`'s part. Step input sets it to the part of the
         // clip it enters into, so that the controller sounds there.
         // @return nil
-        fn engine_follow_always(_, sh, track => Option<Id>) {
-            sh.session.borrow_mut().set_follow_always(track);
+        fn engine_follow_always(_, sh, part => Option<Id>) {
+            sh.session.borrow_mut().set_follow_always(part);
             Ok(())
         }
-        // Controls of MIDI input that tracks do not get: they neither sound
+        // Controls of MIDI input that parts do not get: they neither sound
         // nor record. Scripts still hear them, as `midi.in` events with
         // `filtered = true`. Each `name` (`"step"`, `"learn"`) keeps its own
         // list beside the others; nil or an empty list removes it.
@@ -151,7 +151,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             };
             sh.session.borrow_mut().set_midi_filter(&name, rules).lua()
         }
-        // The number of threads that process tracks, with the audio thread. 0
+        // The number of threads that process parts, with the audio thread. 0
         // lets paw select the number. `engine_get().threads` gives the number in use.
         // @return nil
         fn engine_set_threads(_, sh, threads => usize) {

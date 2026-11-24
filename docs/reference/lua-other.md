@@ -11,7 +11,7 @@ The reference page describes the timers, the helper programs, the state of each 
 | `paw.cancel(handle)` | stops a timer |
 | `paw.timers.waiting` | the timers that wait: a registry, by handle (see [Registries](extensions.md#registries)) |
 | `paw.state.key = value` | a value that stays through `:reload` |
-| `project.meta`, `track.meta` | tables saved with the project, for the data of extensions |
+| `project.meta`, `part.meta` | tables saved with the project, for the data of extensions |
 
 ## Long work in slices
 
@@ -94,7 +94,7 @@ The event `proc.output` (`{ id }`) tells when there is output to read, so nothin
 | `paw.api.device_call(device, method, bytes)` | sends data to one device. A device in Lua answers with its `dev.call` (see "Writing a device in Lua" in [How to write a device in Lua](../how-to/write-a-device-in-lua.md)) |
 | `paw.api.device_post(kind, topic, bytes)` | sends data to every device of a kind, both the devices that exist now and each device made later. The devices of an offline render get the data before their first block |
 | `paw.api.device_alias(old, new)` | makes devices of a renamed kind as the new kind |
-| `paw.track_kinds` | defines kinds of track |
+| `paw.part_kinds` | defines kinds of part |
 | `paw.clip_kinds` | defines kinds of clip |
 
 [Extensions](extensions.md#what-the-core-gives-an-extension) describes the functions in the last two rows.

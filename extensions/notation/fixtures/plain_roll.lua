@@ -10,7 +10,7 @@ local ok, err = pcall(function()
   if package.loaded["notation"] or paw.ext.loaded.notation then wrong("the notation extension is loaded") end
   paw.cmd("open!", { os.getenv("PLAIN_IN") })
   paw.flush()
-  local clip = paw.tracks()[1]:clips()[1]
+  local clip = paw.parts()[1]:clips()[1]
   local roll = paw.ui.views:get("pianoroll")
   roll:edit(clip)
   paw.ui.focus("pianoroll")

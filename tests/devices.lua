@@ -41,7 +41,7 @@ end)
 
 test("devices: the equaliser reports its curve", function()
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   local e = t:add_device("eq", { b4_gain = 6, b4_freq = 1000, b4_q = 1 })
   paw.flush()
   local curve = paw.params.read(e, "curve", 64)
@@ -58,7 +58,7 @@ test("devices: the equaliser reports its curve", function()
   near(paw.params.read(e, "at", 1000)[1], -3, 0.001, "following its settings")
 end)
 
-test("devices: an equaliser in a track changes the render", function()
+test("devices: an equaliser in a part changes the render", function()
   fresh()
   local s = {}
   for i = 1, 48000 do
@@ -66,7 +66,7 @@ test("devices: an equaliser in a track changes the render", function()
   end
   local file = T.scratch .. "/sine1k.wav"
   T.write_wav(file, s, s, 48000)
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = file, start = 0, length = 2 })
   near(render({ tail = 0 }).peak, 0.25, 0.002, "a quarter to begin with")
   t:add_device("eq", { b4_gain = 6, b4_freq = 1000 })
@@ -92,11 +92,11 @@ local function loud_samples()
   return table.concat(out, " ")
 end
 
-test("devices: a compressor that looks ahead is lined up with the other tracks", function()
+test("devices: a compressor that looks ahead is lined up with the other parts", function()
   fresh()
   local file = click("click", 0.2)
-  local a = paw.add_track({ name = "Ahead" })
-  local b = paw.add_track({ name = "Plain" })
+  local a = paw.add_part({ name = "Ahead" })
+  local b = paw.add_part({ name = "Plain" })
   a:add_clip({ file = file, start = 0, length = 2 })
   b:add_clip({ file = file, start = 0, length = 2 })
   eq(loud_samples(), "12000:0.40", "two clicks land on one sample")
@@ -104,7 +104,7 @@ test("devices: a compressor that looks ahead is lined up with the other tracks",
   paw.flush()
   advance(50)
   near(api.engine_get().latency, 5, 0.01, "the engine knows the compressor is 5 ms late")
-  eq(loud_samples(), "12000:0.40", "and holds the other track back to match")
+  eq(loud_samples(), "12000:0.40", "and holds the other part back to match")
   c:set("lookahead", 2)
   paw.flush()
   advance(50)
@@ -125,7 +125,7 @@ test("devices: a compressor's meters and curve are read from scripts", function(
     s[i] = (i % 100 < 50) and 0.5 or -0.5
   end
   local file = T.write_wav(T.scratch .. "/square.wav", s)
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = file, start = 0, length = 4 })
   local c = t:add_device("compressor", { threshold = -20, ratio = 4, knee = 0 })
   paw.flush()
@@ -151,7 +151,7 @@ test("devices: the meter and the tuner are read while the song plays", function(
     s[i] = 0.1 * math.sin(2 * math.pi * 110 * (i - 1) / 48000)
   end
   local file = T.write_wav(T.scratch .. "/a110.wav", s, s, 48000)
-  local t = paw.add_track({ name = "Guitar" })
+  local t = paw.add_part({ name = "Guitar" })
   t:add_clip({ file = file, start = 0, length = 8 })
   local tuner = t:add_device("tuner")
   local meter = t:add_device("meter")
@@ -197,7 +197,7 @@ test("devices: every built-in preset names parameters its device has, inside the
   end
   eq(count >= 25, true, "presets for the effects: " .. count)
   fresh()
-  local t = paw.add_track()
+  local t = paw.add_part()
   local e = t:add_device("delay")
   paw.params.apply(e, "Dotted eighth")
   eq(paw.params.format(e:info().params[4], e:get().params.sync), "1/8.", "a choice set by name")
@@ -205,13 +205,13 @@ end)
 
 test("devices: the device panel draws what the effects are doing", function()
   fresh()
-  local t = paw.add_track({ name = "Vocal" })
+  local t = paw.add_part({ name = "Vocal" })
   t:add_device("eq", { b4_gain = 6 })
   t:add_device("compressor")
   t:add_device("tuner")
   t:add_device("meter")
   paw.flush()
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.ui.show("devices")
   local screen = table.concat(api.ui_snapshot(140, 160), "\n")
   eq(screen:find("+18 dB", 1, true) ~= nil, true, "the equaliser's curve with its scale")
@@ -224,10 +224,10 @@ end)
 
 test("devices: :eq, :tuner and :loudness open the effects' windows", function()
   fresh()
-  local t = paw.add_track({ name = "Vox" })
-  paw.cursor.set_track(t)
+  local t = paw.add_part({ name = "Vox" })
+  paw.cursor.set_part(t)
   paw.cmd("eq")
-  eq(#t:devices(), 1, "a track without an equaliser gets one")
+  eq(#t:devices(), 1, "a part without an equaliser gets one")
   eq(t:devices()[1]:get().kind, "eq", "an equaliser")
   paw.cmd("eq")
   eq(#t:devices(), 1, "and the second time opens the same one")
@@ -256,8 +256,8 @@ end)
 
 test("devices: dragging a band's dot in the EQ window moves the band", function()
   fresh()
-  local t = paw.add_track({ name = "Vox" })
-  paw.cursor.set_track(t)
+  local t = paw.add_part({ name = "Vox" })
+  paw.cursor.set_part(t)
   paw.cmd("eq")
   local e = t:devices()[1]
   paw.canvas.paint("eq_window", 900, 420)
@@ -288,7 +288,7 @@ test("devices: a synced delay follows a tempo change in the map", function()
     s[i] = 0
   end
   s[48000 * 4 + 1] = 0.5
-  local t = paw.add_track()
+  local t = paw.add_part()
   t:add_clip({ file = T.write_wav(T.scratch .. "/late-click.wav", s), start = 0, length = 9 })
   local quarter
   for i, name in ipairs(t:add_device("delay"):info().params[4].choices) do

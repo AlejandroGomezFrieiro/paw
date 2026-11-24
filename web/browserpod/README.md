@@ -154,7 +154,7 @@ The states that `open` takes:
 | State | paw starts with |
 | --- | --- |
 | `{ project: "demo-song" }` | A project of the image, from `/home/user/projects`. It's the default. |
-| `{ empty: true }` | A new project with no tracks. |
+| `{ empty: true }` | A new project with no parts. |
 | `{ lesson: 3 }`, `{ lesson: "visual" }` | A lesson of the course, from its start (`:tutor!`). |
 | `{ scope: "Melody" }` | With a project, the window narrowed to a region or a group (`:narrow`). The demo song has the regions `Chords` and `Melody`. |
 | `{ keys: "jj" }` | Keys typed after startup (`--keys`). |

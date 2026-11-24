@@ -27,17 +27,17 @@ end
 local function names(ids)
   local out = {}
   for i, id in ipairs(ids) do
-    out[i] = api.track_get(id).name
+    out[i] = api.part_get(id).name
   end
   return table.concat(out, " ")
 end
 
 --- Drums, a group Strings (Violins, Cellos), Bass, Keys and Pad.
 local function band()
-  local drums = paw.add_track({ name = "Drums" })
-  local violins, cellos = paw.add_track({ name = "Violins" }), paw.add_track({ name = "Cellos" })
+  local drums = paw.add_part({ name = "Drums" })
+  local violins, cellos = paw.add_part({ name = "Violins" }), paw.add_part({ name = "Cellos" })
   local bass, keys_, pad =
-    paw.add_track({ name = "Bass" }), paw.add_track({ name = "Keys" }), paw.add_track({ name = "Pad" })
+    paw.add_part({ name = "Bass" }), paw.add_part({ name = "Keys" }), paw.add_part({ name = "Pad" })
   local strings = paw.groups.make({ violins, cellos }, "Strings")
   paw.flush()
   api.undo_checkpoint()
@@ -60,7 +60,7 @@ test("za folds a group in one window only, makes no undo step, and the window's 
   keys(":vs<CR>")
   local right = L.current()
   eq(right ~= left, true, "a second window")
-  paw.cursor.set_track(b.strings)
+  paw.cursor.set_part(b.strings)
   keys("za")
   eq(names(paw.groups.rows()), "Drums Strings Bass Keys Pad", "folded in this window")
   eq(paw.folds.group_closed(b.strings.id, left), false, "the other window shows the group open")
@@ -72,7 +72,7 @@ end)
 test("a fold of a group comes back with the project, in its window; the group keeps no fold", function()
   start()
   local b = band()
-  paw.cursor.set_track(b.violins)
+  paw.cursor.set_part(b.violins)
   keys("za")
   eq(names(paw.groups.rows()), "Drums Strings Bass Keys Pad", "za on a member folds its group")
   local path = T.scratch .. "/folds-project"
@@ -81,18 +81,18 @@ test("a fold of a group comes back with the project, in its window; the group ke
   keys(":e " .. path .. "<CR>")
   eq(names(paw.groups.rows()), "Drums Strings Bass Keys Pad", "folded again when opened")
   local strings = paw.scope.named("Strings").id
-  eq(api.track_get(strings).meta.group_folded, nil, "nothing about the fold in the group's meta")
+  eq(api.part_get(strings).meta.group_folded, nil, "nothing about the fold in the group's meta")
   keys("zR")
   eq(#paw.groups.rows(), 7, "zR opens it")
 end)
 
-test("Vjjzf folds three tracks into a row named Fold 1; zd deletes the fold, zE every fold", function()
+test("Vjjzf folds three parts into a row named Fold 1; zd deletes the fold, zE every fold", function()
   start()
   local b = band()
-  paw.cursor.set_track(b.bass)
+  paw.cursor.set_part(b.bass)
   keys("Vjjzf")
   eq(names(paw.groups.rows()), "Drums Strings Violins Cellos Bass", "one row for the three")
-  eq(paw.cursor.track_id(), b.bass.id, "the cursor on the fold's row")
+  eq(paw.cursor.part_id(), b.bass.id, "the cursor on the fold's row")
   local text = table.concat(api.ui_snapshot(120, 30), "\n")
   eq(text:find("Fold 1 +3", 1, true) ~= nil, true, "the row has the fold's name:\n" .. text)
   keys("za")
@@ -101,56 +101,56 @@ test("Vjjzf folds three tracks into a row named Fold 1; zd deletes the fold, zE 
   eq(#paw.groups.rows(), 5, "and folds it again")
   keys("zd")
   eq(names(paw.groups.rows()), "Drums Strings Violins Cellos Bass Keys Pad", "zd: the fold is gone")
-  eq(#api.track_list(), 7, "and every track is there")
-  paw.cursor.set_track(b.drums)
+  eq(#api.part_list(), 7, "and every part is there")
+  paw.cursor.set_part(b.drums)
   keys("Vjzf")
-  paw.cursor.set_track(b.bass)
+  paw.cursor.set_part(b.bass)
   keys("Vjzf")
   eq(#paw.groups.rows(), 5, "two folds")
   keys("zE")
   eq(#paw.groups.rows(), 7, "zE deletes them both")
-  eq(#api.track_list(), 7, "the tracks stay")
+  eq(#api.part_list(), 7, "the parts stay")
 end)
 
 test("znn on a fold enters it, and zw comes back with the fold closed", function()
   start()
   local b = band()
-  paw.cursor.set_track(b.bass)
+  paw.cursor.set_part(b.bass)
   keys("Vjjzf")
   keys("znn")
   eq(paw.scope.breadcrumb(), "Song › Fold 1", "znn enters the fold")
-  eq(names(paw.groups.rows()), "Bass Keys Pad", "its tracks, open")
+  eq(names(paw.groups.rows()), "Bass Keys Pad", "its parts, open")
   keys("j")
   keys("zw")
   eq(paw.scope.current(), nil, "zw: the song again")
   eq(names(paw.groups.rows()), "Drums Strings Violins Cellos Bass", "the fold is closed as it was")
-  eq(paw.cursor.track_id(), b.bass.id, "the cursor on its row")
+  eq(paw.cursor.part_id(), b.bass.id, "the cursor on its row")
 end)
 
-test("K on a folded group: its name, its tracks, and that it is folded", function()
+test("K on a folded group: its name, its parts, and that it is folded", function()
   start()
   local b = band()
-  paw.cursor.set_track(b.strings)
+  paw.cursor.set_part(b.strings)
   keys("za")
   keys("K")
   local text = T.hover_text()
-  eq(text:find("Fold  Strings\n  Song › Strings · 3 tracks · folded", 1, true) ~= nil, true, text)
+  eq(text:find("Fold  Strings\n  Song › Strings · 3 parts · folded", 1, true) ~= nil, true, text)
 end)
 
 test("<Space>zz lists the window's folds, marked fold, with the path; choosing one enters it", function()
   start()
   local b = band()
-  paw.cursor.set_track(b.bass)
+  paw.cursor.set_part(b.bass)
   keys("Vjjzf")
   keys("<Space>zz")
   keys("Fold")
   local text = table.concat(api.ui_snapshot(160, 40), "\n")
   eq(text:find("fold%s+Fold 1") ~= nil, true, "marked fold:\n" .. text)
   eq(text:find("│ Song › Fold 1%s") ~= nil, true, "the path in the preview:\n" .. text)
-  eq(text:find("│ 3 tracks · folded%s") ~= nil, true, "and what it holds:\n" .. text)
+  eq(text:find("│ 3 parts · folded%s") ~= nil, true, "and what it holds:\n" .. text)
   keys("<CR>")
   eq(paw.scope.breadcrumb(), "Song › Fold 1", "entered")
-  eq(names(paw.groups.rows()), "Bass Keys Pad", "its tracks")
+  eq(names(paw.groups.rows()), "Bass Keys Pad", "its parts")
 end)
 
 -- Time folds -------------------------------------------------------------------------------
@@ -158,9 +158,9 @@ end)
 local W, H = 160, 40
 local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
---- Two tracks with a synth and a clip of 16 bars each, in 4/4, a region
+--- Two parts with a synth and a clip of 16 bars each, in 4/4, a region
 --- Bridge over bars 5 to 12 (beats 16 to 48), and the cursor on the first
---- track. A column a beat, the grid a beat.
+--- part. A column a beat, the grid a beat.
 local function song()
   start()
   api.engine_restart({})
@@ -171,14 +171,14 @@ local function song()
   paw.opt.zoom, paw.opt.grid = 1, 1
   paw.ui.views:get("arrange").scroll = 0
   for i, name in ipairs({ "Keys", "Bass" }) do
-    local t = paw.add_track({ name = name })
+    local t = paw.add_part({ name = name })
     t:add_device("synth", { attack = 0.001, release = 0.05 })
     local notes = {}
     for beat = 0, 62, 2 do
       notes[#notes + 1] = { pitch = 40 + 12 * i + beat % 7, start = beat, length = 1 }
     end
     t:add_clip({ name = name .. " part", start = 0, length = 64, notes = notes })
-    if i == 1 then paw.cursor.set_track(t) end
+    if i == 1 then paw.cursor.set_part(t) end
   end
   paw.markers.add(16, "Bridge", { length = 32 })
   paw.flush()
@@ -271,7 +271,7 @@ end)
 local function trio()
   song()
   paw.markers.remove(paw.markers.find("Bridge"))
-  local pad = paw.add_track({ name = "Pad" })
+  local pad = paw.add_part({ name = "Pad" })
   pad:add_device("synth", { attack = 0.001, release = 0.05 })
   pad:add_clip({ name = "Pad part", start = 0, length = 64, notes = { { pitch = 60, start = 0, length = 64 } } })
   paw.flush()
@@ -279,15 +279,15 @@ local function trio()
   paw.cursor.set_beat(16)
 end
 
---- The lines of the screen that a track's rows take: from its header to
---- the next track's header, or to the master.
+--- The lines of the screen that a part's rows take: from its header to
+--- the next part's header, or to the master.
 local function rows_of(text, name, next_name)
   local from = text:find("\n[^\n]*" .. name)
   local to = text:find("\n[^\n]*" .. (next_name or "master"), from + 1)
   return text:sub(from, to)
 end
 
-test("a visual block over two tracks and four bars, then zf, draws one cell; the other track shows its clip", function()
+test("a visual block over two parts and four bars, then zf, draws one cell; the other part shows its clip", function()
   trio()
   paw.opt.zoom = 2
   local open = render("block-open")
@@ -295,13 +295,13 @@ test("a visual block over two tracks and four bars, then zf, draws one cell; the
   local before = screen()
   keys("<C-v>j16lzf")
   local f = paw.folds.list()[1]
-  eq({ f.kind, #f.tracks, f.from, f.to, f.closed }, { "range", 2, 16, 32, true }, "a closed block of two tracks")
+  eq({ f.kind, #f.parts, f.from, f.to, f.closed }, { "range", 2, 16, 32, true }, "a closed block of two parts")
   local text = screen()
   local keys_rows = rows_of(text, "Keys", "Bass")
-  eq(keys_rows:find("Keys, Bass 5-8", 1, true) ~= nil, true, "one cell named by its tracks and bars:\n" .. keys_rows)
-  eq(rows_of(text, "Pad", "new track"), rows_of(before, "Pad", "new track"), "Pad shows its clip there as before")
+  eq(keys_rows:find("Keys, Bass 5-8", 1, true) ~= nil, true, "one cell named by its parts and bars:\n" .. keys_rows)
+  eq(rows_of(text, "Pad", "new part"), rows_of(before, "Pad", "new part"), "Pad shows its clip there as before")
   eq(scene(L.current()):find("Keys, Bass 5-8", 1, true) ~= nil, true, "the scene of the window carries the cell")
-  eq(#paw.folds.time_spans(), 0, "no column: the time of the other tracks stays")
+  eq(#paw.folds.time_spans(), 0, "no column: the time of the other parts stays")
   eq(render("block-closed") == open, true, "a render with the fold is the same, bit for bit")
   eq(api.project_get().edits, edits, "no edit of the project")
 
@@ -323,14 +323,14 @@ end)
 --- cursor is on Bass at bar 5, on the block.
 local function quartet()
   trio()
-  paw.add_track({ name = "Lead" })
+  paw.add_part({ name = "Lead" })
   paw.flush()
   api.undo_checkpoint()
-  paw.opt.zoom, paw.opt.grid, paw.opt.track_height = 2, 4, 3
+  paw.opt.zoom, paw.opt.grid, paw.opt.part_height = 2, 4, 3
   keys("j<C-v>j4lzf")
 end
 
-local function on() return api.track_get(paw.cursor.track_id()).name .. " " .. paw.cursor.beat end
+local function on() return api.part_get(paw.cursor.part_id()).name .. " " .. paw.cursor.beat end
 
 test("a closed block is one row for j and k and one step for l and h; an open block is not", function()
   quartet()
@@ -378,18 +378,18 @@ end)
 -- Overviews --------------------------------------------------------------------------------
 
 --- A group Drums of Kick and Snare, each with a clip of 8 bars, and Bass
---- with no clip; three rows a track, the cursor on Kick.
+--- with no clip; three rows a part, the cursor on Kick.
 local function drums()
   start()
   local saved = { zoom = paw.opt.zoom, grid = paw.opt.grid }
   T.after(function()
     paw.opt.zoom, paw.opt.grid = saved.zoom, saved.grid
   end)
-  paw.opt.zoom, paw.opt.grid, paw.opt.track_height = 1, 4, 3
+  paw.opt.zoom, paw.opt.grid, paw.opt.part_height = 1, 4, 3
   paw.ui.views:get("arrange").scroll = 0
   local members = {}
   for i, name in ipairs({ "Kick", "Snare" }) do
-    local t = paw.add_track({ name = name })
+    local t = paw.add_part({ name = name })
     local notes = {}
     for beat = 0, 30, 4 do
       notes[#notes + 1] = { pitch = 36 + 2 * i, start = beat + i - 1, length = 1 }
@@ -397,20 +397,20 @@ local function drums()
     t:add_clip({ name = name, start = 4 * i, length = 32, notes = notes })
     members[i] = t
   end
-  paw.add_track({ name = "Bass" })
+  paw.add_part({ name = "Bass" })
   paw.groups.make(members, "Drums")
   paw.flush()
   api.undo_checkpoint()
-  paw.cursor.set_track(members[1])
+  paw.cursor.set_part(members[1])
   paw.cursor.set_beat(0)
 end
 
-test("a group's row shows where its tracks have clips; a folded group lists its members with their notes", function()
+test("a group's row shows where its parts have clips; a folded group lists its members with their notes", function()
   drums()
   T.expect_screen("group_open", 100, 30, { rows = { 2, 13 }, styles = false })
   keys("za")
   T.expect_screen("group_folded", 100, 30, { rows = { 2, 7 }, styles = false })
-  paw.opt.track_height = 2
+  paw.opt.part_height = 2
   local text = table.concat(api.ui_snapshot(100, 30), "\n")
   eq(text:find("+2 more", 1, true) ~= nil, true, "two lines: the overview, then how many members:\n" .. text)
 end)

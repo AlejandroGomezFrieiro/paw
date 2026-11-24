@@ -4,13 +4,13 @@ return {
   title = "Move the cursor, and keys that change meaning",
   intro = [[
 In this lesson, we move the cursor through a song by steps, clips, bars and
-tracks. Then we use the same keys in a different mode and in a different view.
+parts. Then we use the same keys in a different mode and in a different view.
 
-In the arrange view, each track is a row, and time goes from left to right
+In the arrange view, each part is a row, and time goes from left to right
 along it. One grid step is one beat. The keys that move the cursor are
 called motions, and a number before a motion repeats it. Some motions move
 by small steps or by bars, others move to clips or to the ends of clips, and
-others move to other tracks.
+others move to other parts.
 
 A key can have a different meaning in a different mode, e.g., normal, visual
 or insert mode. It can also have a different meaning in a different view,
@@ -23,8 +23,8 @@ start of the next clip, the start of the current clip and the end of the
 current clip. `W` and `B` move by bars.
 
 `0` goes to the start of the project, and `^` goes to the first clip. `$`
-goes to the end of the last clip. `j` and `k` move by tracks, and `gg` and
-`G` go to the first and the last track. `5|` goes to bar 5. You type a
+goes to the end of the last clip. `j` and `k` move by parts, and `gg` and
+`G` go to the first and the last part. `5|` goes to bar 5. You type a
 count before the motion, e.g., `4l`, `2W` or `3j`.
 
 NORMAL mode is for moving and for actions, VISUAL mode (`v`) is for
@@ -38,15 +38,15 @@ of the project and `^` is the first clip. `|` and `:5` take a bar number,
 not a column or a line.]],
   setup = function(look)
     paw.project.tempo = 96
-    local drums = paw.add_track({ name = "Drums" })
+    local drums = paw.add_part({ name = "Drums" })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 28, notes = look.drums(look.beat, 7) })
-    local bass = paw.add_track({ name = "Bass", volume = -4 })
+    local bass = paw.add_part({ name = "Bass", volume = -4 })
     bass:add_device("synth", { wave = 2, cutoff = 700, release = 0.05 })
     bass:add_clip({ name = "verse", start = 0, length = 8, notes = look.pulse("D2", 8) })
     bass:add_clip({ name = "chorus", start = 12, length = 8, notes = look.pulse("G1", 8) })
     bass:add_clip({ name = "outro", start = 24, length = 4, notes = look.pulse("D2", 4) })
-    local lead = paw.add_track({ name = "Lead", volume = -8 })
+    local lead = paw.add_part({ name = "Lead", volume = -8 })
     lead:add_device("synth", { wave = 1, cutoff = 2500, release = 0.2 })
     lead:add_clip({
       name = "melody",
@@ -54,14 +54,14 @@ not a column or a line.]],
       length = 8,
       notes = look.notes("D5:0:1 F5:1:1 A5:2:2 G5:4:1 F5:5:1 E5:6:2"),
     })
-    local pad = paw.add_track({ name = "Pad", volume = -12 })
+    local pad = paw.add_part({ name = "Pad", volume = -12 })
     pad:add_device("synth", { wave = 3, attack = 0.3, release = 0.6, cutoff = 1500 })
     pad:add_clip({ name = "pad", start = 16, length = 12, notes = look.chord({ "D4", "F4", "A4" }, 12) })
   end,
-  at = function() paw.cursor.set_track(paw.track("Bass")) end,
+  at = function() paw.cursor.set_part(paw.part("Bass")) end,
   steps = {
     {
-      say = "The cursor is at the start of the Bass track. `l` moves it right one grid step (one beat), and `h` moves it left. Press `l` three times.",
+      say = "The cursor is at the start of the Bass part. `l` moves it right one grid step (one beat), and `h` moves it left. Press `l` three times.",
       keys = { "l", "l", "l" },
       check = function() return paw.cursor.beat == 3 end,
       done = "The cursor moved three beats. The clock at the top left of the arrange view shows 1.4.00, bar 1 beat 4.",
@@ -80,7 +80,7 @@ not a column or a line.]],
       done = "The cursor is at the start.",
     },
     {
-      say = "`w` moves to the start of the next clip on the track. Press `w`.",
+      say = "`w` moves to the start of the next clip on the part. Press `w`.",
       keys = { "w" },
       check = function() return paw.cursor.beat == 12 end,
       done = "The cursor is on `chorus`, which starts at beat 12 (bar 4).",
@@ -100,16 +100,16 @@ not a column or a line.]],
       done = "The cursor is on bar 6 (beat 20).",
     },
     {
-      say = "`$` moves to the end of the last clip of the track, and `^` moves to its first clip. Press `$`.",
+      say = "`$` moves to the end of the last clip of the part, and `^` moves to its first clip. Press `$`.",
       keys = { "$" },
       check = function() return paw.cursor.beat == 28 end,
       done = "The cursor is at the end of `outro`, where the song ends.",
     },
     {
-      say = "`G` moves to the last track, and `gg` moves to the first track. Press `G`.",
+      say = "`G` moves to the last part, and `gg` moves to the first part. Press `G`.",
       keys = { "G" },
-      check = function(_, look) return look.cursor_track() == "Pad" end,
-      done = "The cursor is on Pad, the last track. `3G` moves to track 3.",
+      check = function(_, look) return look.cursor_part() == "Pad" end,
+      done = "The cursor is on Pad, the last part. `3G` moves to part 3.",
     },
     {
       say = "`5|` moves to bar 5. `:5` and `<CR>` do the same. Press `5|`.",
@@ -135,10 +135,10 @@ not a column or a line.]],
       keys = { "<CR>" },
       check = function(_, look) return look.focused() == "pianoroll" end,
       done = "The piano roll now gets the keys.",
-      hint = "The cursor must be on a clip. Press `5|` on the Pad track to move it there.",
+      hint = "The cursor must be on a clip. Press `5|` on the Pad part to move it there.",
     },
     {
-      say = "In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one track. Press `k` two times, and you hear each pitch.",
+      say = "In the piano roll, the rows are pitches, so `k` moves up one semitone instead of one part. Press `k` two times, and you hear each pitch.",
       keys = { "k", "k" },
       start = function(ctx) ctx.pitch = paw.ui.views:get("pianoroll").pitch end,
       check = function(ctx, look)
@@ -156,5 +156,5 @@ not a column or a line.]],
       hint = "`<leader><Space>` alone plays from the cursor. `gp` puts the playhead there first, and `<S-CR>` plays from the playhead.",
     },
   },
-  outro = "We moved by steps, clips, bars and tracks, with counts. The same keys had other meanings in visual mode and in the piano roll.",
+  outro = "We moved by steps, clips, bars and parts, with counts. The same keys had other meanings in visual mode and in the piano roll.",
 }

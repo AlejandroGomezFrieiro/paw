@@ -4,13 +4,13 @@
 // paw offers each CLAP plugin that it makes to this library, after the
 // plugin's init and before its activate. A plugin with the ARA extension
 // gets a document of its own: one musical context (the song's tempo and
-// signatures), one region sequence (the track), and for each audio clip of
-// the track an audio source (the clip's file), an audio modification (the
+// signatures), one region sequence (the part), and for each audio clip of
+// the part an audio source (the clip's file), an audio modification (the
 // clip's edits in the plugin) and a playback region (where the clip plays).
 // The plugin instance is bound to the document with all three roles:
 // playback renderer, editor renderer and editor view.
 //
-// paw gives the track's clips as JSON (`paw.clips`) each time they change,
+// paw gives the part's clips as JSON (`paw.clips`) each time they change,
 // asks for the ARA archive when it saves the project (`paw.file.save`), and
 // gives it back when it makes the plugin again (`paw.file.load`). The
 // extension's Lua asks for the notes that the plugin found (`ara.notes`) and
@@ -61,7 +61,7 @@ struct Source {
     float progress = 0.0f;
 };
 
-// One clip of the track: its audio modification and playback region.
+// One clip of the part: its audio modification and playback region.
 struct Clip {
     int64_t id = 0;
     std::string name;
@@ -98,7 +98,7 @@ struct Bridge {
     const ARAPlugInExtensionInstance *instance = nullptr;
     ARAMusicalContextRef context = nullptr;
     ARARegionSequenceRef sequence = nullptr;
-    std::string trackName = "Track";
+    std::string partName = "Part";
     std::map<std::string, std::unique_ptr<Source>> sources;
     std::map<int64_t, std::unique_ptr<Clip>> clips;
     std::vector<ARAContentTempoEntry> tempo;
@@ -385,7 +385,7 @@ bool apply(Bridge *b, const json &doc, const std::vector<Wanted> &wanted) {
     auto api = b->api();
     auto ref = b->ref();
     std::string missing;
-    b->trackName = doc.value("track", json::object()).value("name", std::string("Track"));
+    b->partName = doc.value("part", json::object()).value("name", std::string("Part"));
     setTempo(b, doc);
 
     // Sources that no clip uses any more stop being read before they go.
@@ -402,7 +402,7 @@ bool apply(Bridge *b, const json &doc, const std::vector<Wanted> &wanted) {
     api->updateMusicalContextContent(ref, b->context, nullptr, kARAContentUpdateEverythingChanged);
     ARARegionSequenceProperties seq{};
     seq.structSize = ARA_IMPLEMENTED_STRUCT_SIZE(ARARegionSequenceProperties, color);
-    seq.name = b->trackName.c_str();
+    seq.name = b->partName.c_str();
     seq.musicalContextRef = b->context;
     api->updateRegionSequenceProperties(ref, b->sequence, &seq);
 
@@ -601,7 +601,7 @@ int onStatus(Bridge *b, void *out, paw_write_fn write) {
                    {"archive_id", b->factory->documentArchiveID ? b->factory->documentArchiveID : ""},
                    {"notes", std::find(types.begin(), types.end(), int(kARAContentTypeNotes)) != types.end()},
                    {"timestretch", (b->factory->supportedPlaybackTransformationFlags & kARAPlaybackTransformationTimestretch) != 0},
-                   {"track", b->trackName},
+                   {"part", b->partName},
                    {"sources", b->sources.size()},
                    {"clips", clips},
                    {"restored", b->restored},
@@ -655,7 +655,7 @@ void *attach(const paw_attach_host *host, const char *format, const void *plugin
     b->context = api->createMusicalContext(b->ref(), reinterpret_cast<ARAMusicalContextHostRef>(b.get()), &ctx);
     ARARegionSequenceProperties seq{};
     seq.structSize = ARA_IMPLEMENTED_STRUCT_SIZE(ARARegionSequenceProperties, color);
-    seq.name = b->trackName.c_str();
+    seq.name = b->partName.c_str();
     seq.musicalContextRef = b->context;
     b->sequence = api->createRegionSequence(b->ref(), reinterpret_cast<ARARegionSequenceHostRef>(b.get()), &seq);
     api->endEditing(b->ref());

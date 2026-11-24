@@ -1,8 +1,8 @@
 # launcher
 
-The clip launcher gives each track slots, which are a column of clips that
+The clip launcher gives each part slots, which are a column of clips that
 are not on the timeline. You start and stop these clips while the song
-plays, and a row of slots across the tracks is a scene. The session view
+plays, and a row of slots across the parts is a scene. The session view
 shows the slots and the scenes, in the terminal and in the graphical window.
 
 ```lua
@@ -15,16 +15,16 @@ the extension, because paw keeps the clips and plays the timeline.
 
 ## Try it
 
-1. Type `:ext.load launcher`, and open a song with a few tracks.
-2. Press `<Space>vs`. The session view opens under the arrange view. Each track is
+1. Type `:ext.load launcher`, and open a song with a few parts.
+2. Press `<Space>vs`. The session view opens under the arrange view. Each part is
    a column of slots, and the scenes are on the right.
 3. Press `o`. The slot under the cursor gets a MIDI clip of one bar. Press
    `i` and enter some notes in the piano roll, then press `<Space>vs` twice to go
    back to the session view.
 4. Press `<CR>`. The song starts and the clip loops. The clip is lit, and it
-   fills as it goes round its loop. The other tracks play their timelines.
-5. Press `S`. The clip stops at the next bar, and the track is silent.
-   Press `B`. The track plays its timeline again.
+   fills as it goes round its loop. The other parts play their timelines.
+5. Press `S`. The clip stops at the next bar, and the part is silent.
+   Press `B`. The part plays its timeline again.
 
 ## How to
 
@@ -37,17 +37,17 @@ the extension, because paw keeps the clips and plays the timeline.
    clip.
 5. To change parts, launch other slots, or press `L` to launch a full
    scene.
-6. To silence a track, press `S`. To play its timeline again, press `B`.
+6. To silence a part, press `S`. To play its timeline again, press `B`.
 7. Stop the song.
 
 paw writes each clip that played to the timeline as a looped copy, and the
-parts where a track was silent become empty. One `u` removes the capture.
+stretches where a part was silent become empty. One `u` removes the capture.
 To render the performance, render after the capture, because a render plays
 only the timeline.
 
 ### How to record a new loop into a slot
 
-1. Select a track with an input, and move to an empty slot.
+1. Select a part with an input, and move to an empty slot.
 2. Press `4R` to record four bars from the next boundary.
 3. Play. At the end of the four bars, the take becomes the clip of the slot
    and plays immediately.
@@ -58,7 +58,7 @@ only the timeline.
 1. In the session view, move to a slot.
 2. Type `:learn` and press a pad on your controller.
 3. To bind a pad to the scene of the row, type `:learn scene` and press the
-   pad. `:learn stop` binds a pad that stops the clip of the track, and
+   pad. `:learn stop` binds a pad that stops the clip of the part, and
    `:learn stop all` a pad that stops every clip.
 
 ## Reference
@@ -72,15 +72,15 @@ only the timeline.
   times the launch and not the Lua runtime.
 - A launch while the song is stopped starts the clip immediately, and the
   song starts too.
-- While a track plays a slot, the clips on its timeline are silent.
-- When you stop the clip, the track stays silent. The track plays its
+- While a part plays a slot, the clips on its timeline are silent.
+- When you stop the clip, the part stays silent. The part plays its
   timeline again when you send it back (`B`), or when the song stops, and a
-  stop of the song sends every track back.
+  stop of the song sends every part back.
 - A seek, or a turn of the loop, moves each queued launch to the next
   boundary after the new position. Clips that play keep their position in
   their loop.
-- A scene launches every clip in its row on one boundary. A track with no
-  clip in that row stops its clip. A track that plays its timeline does not
+- A scene launches every clip in its row on one boundary. A part with no
+  clip in that row stops its clip. A part that plays its timeline does not
   change.
 
 ### Quantize
@@ -112,22 +112,22 @@ start.
 ### Keys
 
 `<Space>vs` shows or hides the session view, and the keys below are the keys
-of the session view. The last row shows what each track plays, which is a
+of the session view. The last row shows what each part plays, which is a
 slot, nothing, or its timeline. A clip that plays is bright and fills as it
 goes round its loop, and a clip that waits for its boundary has a mark until
 it starts.
 
 | Keys | Effect |
 | --- | --- |
-| `h` `l`, `<Left>` `<Right>` | the previous track, the next track |
+| `h` `l`, `<Left>` `<Right>` | the previous part, the next part |
 | `j` `k`, `<Down>` `<Up>` | the next slot, the previous slot |
 | `gg` `G` | the first slot, the last slot with a clip (with a count: slot N) |
-| `0` `^` `$` | the first track, the last track |
-| `<CR>` | launch the slot (on an empty slot: stop the track) |
+| `0` `^` `$` | the first part, the last part |
+| `<CR>` | launch the slot (on an empty slot: stop the part) |
 | `L` | launch the scene of the row at the cursor |
-| `S` `gS` | stop the clip of the track, stop every clip |
-| `s` `M` `r` | solo the track, mute the track, arm the track (as in every view) |
-| `B` `gB` | send the track back to its timeline, send every track back |
+| `S` `gS` | stop the clip of the part, stop every clip |
+| `s` `M` `r` | solo the part, mute the part, arm the part (as in every view) |
+| `B` `gB` | send the part back to its timeline, send every part back |
 | `o` | make a MIDI clip of one bar in the slot (`:slot.new 2` for two bars) |
 | `i` | open the notes of the clip in the piano roll |
 | `x` `dd` | empty the slot |
@@ -150,7 +150,7 @@ graphical window. In the window, it is in More ▸ Session.
 
 | Gesture | Effect |
 | --- | --- |
-| Press the play mark at the left of a slot | Launch the clip, or stop the track on an empty slot. Release stops a gate clip. |
+| Press the play mark at the left of a slot | Launch the clip, or stop the part on an empty slot. Release stops a gate clip. |
 | Click a slot | Select the slot. |
 | Double click a slot | Open its notes in the piano roll. On an empty slot, make a MIDI clip of one bar first. |
 | Drag a clip to another slot | Move the clip. With Ctrl: copy it. |
@@ -158,8 +158,8 @@ graphical window. In the window, it is in More ▸ Session.
 | Click the dot of an empty slot | Record into the slot. |
 | Right click a clip | The menu of the clip. |
 | Click the name of a scene | Launch the scene. |
-| Click the last row | Stop the clip of the track. Under the scenes: stop every clip. |
-| The wheel | Scroll the rows. With Shift: the tracks. |
+| Click the last row | Stop the clip of the part. Under the scenes: stop every clip. |
+| The wheel | Scroll the rows. With Shift: the parts. |
 
 ### Record into a slot
 
@@ -167,9 +167,9 @@ graphical window. In the window, it is in More ▸ Session.
 at the next boundary of the quantize of the project, and it lasts one bar or
 the number of bars of the count (`4R`, `:slot.record 4`).
 
-- If the track is not armed, paw arms it. The track is silent from the
+- If the part is not armed, paw arms it. The part is silent from the
   boundary while it records.
-- The take uses the usual recording, through the input of the track.
+- The take uses the usual recording, through the input of the part.
 - At the end, the part of the take between the two boundaries becomes the
   clip of the slot. The take does not stay on the timeline.
 - The clip then plays immediately, in time, as if it started at the bar
@@ -186,10 +186,10 @@ A render plays the timeline, so a render does not include the launched
 clips. When capture is on (`C`, `:launch.capture`), a stop of the song writes
 the performance to the timeline:
 
-- Each part of the song where a track played a slot becomes a looped copy
-  of that clip on the timeline of the track. The copy goes from the
+- Each stretch of the song where a part played a slot becomes a looped copy
+  of that clip on the timeline of the part. The copy goes from the
   boundary where the clip started to the boundary where it stopped.
-- Each part where the track was stopped becomes empty on its timeline.
+- Each stretch where the part was stopped becomes empty on its timeline.
 - The capture is one undo step.
 
 ### Commands
@@ -197,9 +197,9 @@ the performance to the timeline:
 | Command | Effect |
 | --- | --- |
 | `:session` | show the session view and go to it |
-| `:launch`, `:launch 2` | launch the slot at the cursor, or the slot in row 2, of the selected track |
-| `:launch.stop`, `:launch.stop all` | stop the clip of the track, stop every clip |
-| `:launch.back`, `:launch.back all` | send the track back to its timeline, send every track back |
+| `:launch`, `:launch 2` | launch the slot at the cursor, or the slot in row 2, of the selected part |
+| `:launch.stop`, `:launch.stop all` | stop the clip of the part, stop every clip |
+| `:launch.back`, `:launch.back all` | send the part back to its timeline, send every part back |
 | `:launch.quantize 1/8` | set the quantize of the project (alone: say it) |
 | `:launch.capture` | start a capture, or stop it |
 | `:scene`, `:scene 2` | launch the scene at the cursor, or scene 2 |
@@ -221,9 +221,9 @@ of the manual, `:help learn`):
 
 | Target | A pad or a button |
 | --- | --- |
-| `launch` | launches a slot of a track: `:learn launch`, or `:learn` in the session view |
+| `launch` | launches a slot of a part: `:learn launch`, or `:learn` in the session view |
 | `scene` | launches the scene of a row: `:learn scene` |
-| `stop` | stops the clip of a track (`:learn stop`), or every clip (`:learn stop all`) |
+| `stop` | stops the clip of a part (`:learn stop`), or every clip (`:learn stop all`) |
 
 ### Options
 
@@ -250,17 +250,17 @@ In Lua, rows start at 0. On the screen and in commands, rows start at 1.
 
 ```lua
 local launcher = require("launcher")
-local id = launcher.add(track.id, 0, { length = 8, notes = { ... } })   -- as paw.api.clip_add takes them
+local id = launcher.add(part.id, 0, { length = 8, notes = { ... } })   -- as paw.api.clip_add takes them
 launcher.set(id, "mode", "gate")               -- also "quantize", "legato"
 launcher.move(id, other.id, 2)                 -- to another slot
-launcher.copy(clip.id, track.id, 1)            -- a copy of a clip in a slot
-launcher.slots(track.id)                       -- { [row] = clip }, each with slot, mode, quantize, legato
+launcher.copy(clip.id, part.id, 1)            -- a copy of a clip in a slot
+launcher.slots(part.id)                       -- { [row] = clip }, each with slot, mode, quantize, legato
 
-launcher.launch(track.id, 0)                   -- or press(track, row) / release(track, row), by its mode
+launcher.launch(part.id, 0)                   -- or press(part, row) / release(part, row), by its mode
 launcher.scene(1)
-launcher.stop(track.id)                        -- with no track, every clip
-launcher.back()                                -- every track back to its timeline
-launcher.state()                               -- by track: slot or stopped, phase, length, since, queued, at
+launcher.stop(part.id)                        -- with no part, every clip
+launcher.back()                                -- every part back to its timeline
+launcher.state()                               -- by part: slot or stopped, phase, length, since, queued, at
 launcher.set_quantize("1/8")
 launcher.set_scene_name(1, "Chorus")
 launcher.capture(true)

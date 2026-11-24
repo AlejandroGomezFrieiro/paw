@@ -2,7 +2,7 @@
 
 <!-- tags: export exporting render rendering stems bounce export-tags midi-export project-export -->
 
-An export writes the song, a part of it, or its tracks to files: sound
+An export writes the song, a stretch of it, or its parts to files: sound
 files, MIDI files, or a project folder. For the steps, see
 [How to export a song as WAV, FLAC or MP3](../how-to/export-a-song.md),
 [How to export stems](../how-to/export-stems.md) and
@@ -12,7 +12,7 @@ files, MIDI files, or a project folder. For the steps, see
 
 | Command | Effect |
 | --- | --- |
-| `:export` | Export the song, a part of it, or its tracks to sound files or MIDI files (see `:export`). |
+| `:export` | Export the song, a stretch of it, or its parts to sound files or MIDI files (see `:export`). |
 | `:export!` | The same, with no plan first, and it replaces files. |
 | `:export project out/` | Write what the window shows as a project folder (see Project folders). |
 | `:export.preset mine` | Save the words of the last export as the preset `mine` of the project (see Presets). |
@@ -20,17 +20,17 @@ files, MIDI files, or a project folder. For the steps, see
 | `:export.preset` | List the presets, and where each one comes from. |
 | `:export.cancel` | Stop the export and the files that wait after it. |
 | `:export.tags` | Show or set the tags of the project (see Tags). |
-| `:bounce` | Render tracks to a new audio track (see Bounce). |
+| `:bounce` | Render parts to a new audio part (see Bounce). |
 
 ## `:export`
 
 `:export` writes the mix of the song to `renders/<project>.wav` in the
-folder of the project. A range before the command chooses the tracks and
+folder of the project. A range before the command chooses the parts and
 the time, as it does for each command that takes a range (see
 [Ex commands](ex.md#ranges-of-time)), and the words after it choose the files:
 
 ```
-:[tracks] [time] export[!] [preset] [target] [word=value ...]
+:[parts] [time] export[!] [preset] [target] [word=value ...]
 ```
 
 | Line | What paw writes |
@@ -41,10 +41,10 @@ the time, as it does for each command that takes a range (see
 | `:export in=loop loop.wav` | the loop |
 | `:export in=Chorus` | the region Chorus |
 | `:t/Drums/export drums.wav` | the group Drums alone, through the master |
-| `:t2,t4export` | tracks 2 to 4 as one file, `renders/<names>.wav` |
-| `:'<,'>export` | the tracks and the time of the selection |
+| `:t2,t4export` | parts 2 to 4 as one file, `renders/<names>.wav` |
+| `:'<,'>export` | the parts and the time of the selection |
 | `:export stems` | one file for each group (a preset, see below) |
-| `:export tracks` | one file for each track |
+| `:export parts` | one file for each part |
 | `:export regions` | one file for each region |
 | `:export each=region,group` | one file for each group in each region |
 | `:export song.mid` | the song as a MIDI file (see MIDI files) |
@@ -61,7 +61,7 @@ files (see MIDI files). An ending of another program's file, such as
 
 | Word | Values | Default |
 | --- | --- | --- |
-| `each=` | `group`, `track`, `region`, `clip`, or two joined: `region,group` | one file |
+| `each=` | `group`, `part`, `region`, `clip`, or two joined: `region,group` | one file |
 | `tap=` | `pre`, `post`, `groups`, `master` (see the table of `tap` under Lua) | `master` |
 | `channels=` | `stereo`, `mono`, or `auto` (one channel when both sides are equal) | `stereo` |
 | `in=` | `loop`, or the name of a region | the song |
@@ -71,12 +71,12 @@ files (see MIDI files). An ending of another program's file, such as
 | `tail=`, `rate=`, `bits=`, `dither=`, `quality=`, `bitrate=`, `normalize=`, `loudness=`, and the tags | see Sound files | `tail=2` |
 
 - `each=group` makes one file for each group at the top level, and one for
-  each track outside a group. In a window narrowed to a group, the top
+  each part outside a group. In a window narrowed to a group, the top
   level is the inside of the group.
-- `each=track` makes one file for each track that has clips. With a range,
-  a group of the range gives the tracks inside it.
-- `tap=pre` and `tap=post` need tracks: a range of tracks, or
-  `each=group`, `each=track` or `each=clip`.
+- `each=part` makes one file for each part that has clips. With a range,
+  a group of the range gives the parts inside it.
+- `tap=pre` and `tap=post` need parts: a range of parts, or
+  `each=group`, `each=part` or `each=clip`.
 - A word typed after a preset changes the word of the preset:
   `:export stems format=flac`.
 
@@ -101,7 +101,7 @@ wins:
 | `mix` | none | `{project}.wav` |
 | `review` | `format=mp3 quality=high loudness=-14` | `{project}.mp3` |
 | `stems` | `each=group tap=master channels=auto` | `stems/{group}.wav` |
-| `tracks` | `each=track tap=post channels=auto` | `tracks/{track}.wav` |
+| `parts` | `each=part tap=post channels=auto` | `parts/{part}.wav` |
 | `regions` | `each=region` | `regions/{n} {region}.wav` |
 | `project` | `format=project` | `{project}-export/`, a project folder (see Project folders) |
 
@@ -146,8 +146,8 @@ The target is a file, a folder that ends in `/`, or a name with fields:
 | Field | What it holds |
 | --- | --- |
 | `{project}` | the name of the project |
-| `{track}`, `{group}` | the name of the track or group of the file |
-| `{tracks}` | the names of the range, joined with `+` |
+| `{part}`, `{group}` | the name of the part or group of the file |
+| `{parts}` | the names of the range, joined with `+` |
 | `{region}` | the name of the region, with the regions around it: `Chorus 2 - Verse A` |
 | `{n}` | the number of the file in the set, with two digits |
 | `{date}` | the date, as `2026-11-23` |
@@ -166,7 +166,7 @@ The target is a file, a folder that ends in `/`, or a name with fields:
 Before an export of more than one file, or one that replaces a file
 outside `renders/`, paw shows the plan in a float. The plan lists each
 file with what it holds, when, its tap and its channels. Below the files,
-it names the muted tracks that it leaves out, and it says when a
+it names the muted parts that it leaves out, and it says when a
 compressor, limiter or gate on a group or on the master makes the files
 differ a little from the mix.
 
@@ -176,7 +176,7 @@ differ a little from the mix.
 | `n`, `Esc` | close the plan, and write nothing |
 | `j`, `k` | scroll |
 
-A range of only muted tracks writes nothing, and the message says so.
+A range of only muted parts writes nothing, and the message says so.
 
 ### Progress and the result
 
@@ -192,19 +192,19 @@ renders/stems (3:21 each, peak -0.8 dB)`. `:messages` keeps it.
 | --- | --- |
 | `<Space>em` | `:export`, the mix |
 | `<Space>es` | `:export stems` |
-| `<Space>et` | `:export tracks` |
+| `<Space>et` | `:export parts` |
 | `<Space>er` | `:export regions` |
 | `<Space>ep` | pick a preset from a list: the preview shows its plan, and `Enter` exports it |
 | `<Space>ee` | the last export again |
 
 In visual mode, `<Space>em`, `<Space>es`, `<Space>et`, `<Space>er` and
-`<Space>ep` export the tracks and the time of the selection.
+`<Space>ep` export the parts and the time of the selection.
 
 ### Lua
 
 | Function | Result |
 | --- | --- |
-| `paw.export.plan(words, range)` | The plan of `:export` with these words: `{ renders, left_out, notes, confirm }`. Each render has its `file`, `tracks`, `from`, `to`, `when`, `tap` and `channels`. `range` is `paw.ex.range("t2,t4 5,8")`, or nil. |
+| `paw.export.plan(words, range)` | The plan of `:export` with these words: `{ renders, left_out, notes, confirm }`. Each render has its `file`, `parts`, `from`, `to`, `when`, `tap` and `channels`. `range` is `paw.ex.range("t2,t4 5,8")`, or nil. |
 | `paw.export.run(plan)` | Write the files of a plan. |
 | `paw.export.last()` | What the last export wrote: `{ results, failed, cancelled, message }`. |
 | `paw.export.cancel()` | Stop the export. |
@@ -321,26 +321,26 @@ A `bitrate` is constant for MP3, and the target for Opus and Vorbis.
 
 A target that ends in `.mid` (or `.midi`, `.smf`, `.kar`) writes a
 Standard MIDI file of type 1. The file has the tempo map, the time
-signatures and the markers, and one track for each track with notes. A
+signatures and the markers, and one part for each part with notes. A
 target that ends in `.midi2` writes one clip as the project keeps it (see
 [MIDI clip files](project-files.md#midi-clip-files)).
 
 | Line | What paw writes |
 | --- | --- |
-| `:export song.mid` | the song: each track that the window shows |
-| `:t2,t4export part.mid`, `:'<,'>export part.mid` | those tracks; a group gives the tracks inside it |
+| `:export song.mid` | the song: each part that the window shows |
+| `:t2,t4export part.mid`, `:'<,'>export part.mid` | those parts; a group gives the parts inside it |
 | `:17,32export bridge.mid`, `:export in=Chorus chorus.mid` | the notes and the controller moves that start in that time, at their place in the song |
 | `:export clip riff.mid` | the clip at the cursor |
-| `:export parts.mid each=track` | one file for each track, `parts Bass.mid` and the next files |
+| `:export parts.mid each=part` | one file for each part, `parts Bass.mid` and the next files |
 | `:t/Keys/export riff.mid each=clip` | one file for each clip of the range, `riff Keys 01.mid` and the next files |
 | `:export clip riff.midi2` | the clip at the cursor as a MIDI 2 clip file |
 | `:'<,'>export riff.midi2 each=clip` | each clip of the selection as a MIDI 2 clip file |
 
-- A MIDI file takes `each=track`, `each=clip` and `in=`. paw refuses the
+- A MIDI file takes `each=part`, `each=clip` and `in=`. paw refuses the
   words of sound by name: `tap= is for sound; song.mid is MIDI`.
 - A `.midi2` file holds one clip, so it needs `clip` or `each=clip`.
 - The names and folders work as for sound files: a name with no folder
-  goes into `renders/`, and the fields such as `{track}` fill in.
+  goes into `renders/`, and the fields such as `{part}` fill in.
 - paw replaces a MIDI file in `renders/` without a question. To replace a
   file in another folder, type `:export!`.
 - A muted clip is left out, and so is an audio clip.
@@ -357,10 +357,10 @@ change, and its folder stays the same. The folder must be new or empty.
 | The window shows | The project folder holds |
 | --- | --- |
 | the song | a copy of the whole project |
-| a subproject | the subproject: its tracks, its master, its markers and regions, and its tempo and meter as its first block plays them |
-| a view, such as a region after `znar` | copies of its tracks with their devices, the clips and lanes in its time from beat 0, the markers and regions inside, and the tempo and meter of its time |
+| a subproject | the subproject: its parts, its master, its markers and regions, and its tempo and meter as its first block plays them |
+| a view, such as a region after `znar` | copies of its parts with their devices, the clips and lanes in its time from beat 0, the markers and regions inside, and the tempo and meter of its time |
 
-- A view cuts each route to a track outside it: the track plays into the
+- A view cuts each route to a part outside it: the part plays into the
   master, and the message names each cut.
 - In a view, a clip that crosses an edge and cannot be cut there, such as
   an audio clip, is an error that names the clip.
@@ -373,13 +373,13 @@ change, and its folder stays the same. The folder must be new or empty.
 
 ## Tags
 
-A rendered file has a title, artist, album, track number, year, genre,
+A rendered file has a title, artist, album, part number, year, genre,
 comment and cover picture, when they are set. The tags belong to the
 project, which keeps them for each render (`project.meta.tags`, saved with
 it).
 
 ```
-:export.tags artist=Ana album="First one" track=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
+:export.tags artist=Ana album="First one" part=3/12 year=2026 genre=Ambient comment="a note" cover=cover.png
 :export.tags                  " what is set
 :export.tags genre=           " an empty value takes one out
 ```
@@ -392,7 +392,7 @@ it).
   replaces the tags of the project for that file.
 - The title of an MP3, Ogg or Opus file is the name of the project, unless
   you give one. The title of a stem in these formats is the name of its
-  track.
+  part.
 - A relative `cover` path starts at the directory of the project. The
   cover is a PNG or JPEG file of 8 MiB at most, and if paw cannot read it, it
   refuses the render before it renders anything.
@@ -427,9 +427,9 @@ cancels out. A mono render of the song is how it sounds on a mono speaker.
 The pan stays in the sound. paw pans with equal power, so a mono source
 panned hard left is 3 dB louder on the left than in the center and silent
 on the right, and its mono file is 3 dB quieter than in the center. To
-render a track without its pan, render it with `tap=pre`.
+render a part without its pan, render it with `tap=pre`.
 
-`auto` looks at the rendered sound, not at the files on the track. A mono
+`auto` looks at the rendered sound, not at the files on the part. A mono
 recording in the center gives a mono file. The same recording panned off
 center, or through a stereo device such as a reverb, gives a stereo file.
 The result of the render says how many channels the file has.
@@ -439,13 +439,13 @@ The result of the render says how many channels the file has.
 `:export stems` writes one file for each group, with the name of the
 group, into `renders/stems`:
 
-- each group at the top level, and each track outside a group that has
+- each group at the top level, and each part outside a group that has
   clips, each with all that its sound goes through, so these files add up
   to the mix.
-- First, paw shows the plan, which lists each file and its tracks. `y` or
+- First, paw shows the plan, which lists each file and its parts. `y` or
   `Enter` exports, and `n` or `Esc` cancels.
 
-`:export tracks` writes one file for each track, into `renders/tracks`.
+`:export parts` writes one file for each part, into `renders/parts`.
 The files add up to the mix exactly through sends, returns and buses that
 only filter, delay or mix. A compressor or a limiter on a shared bus hears
 each stem alone and acts on a stem differently than on the sum, so with
@@ -455,7 +455,7 @@ those the files differ a little from the mix, and the plan says so.
 | --- | --- |
 | `:export stems` | One file for each group, into `renders/stems`. |
 | `:export stems out/` | The same, into `out`. |
-| `:export tracks` | One file for each track, into `renders/tracks`. |
+| `:export parts` | One file for each part, into `renders/parts`. |
 | `:t/Strings/export` | One group, to `renders/Strings.wav`. |
 
 - In a window narrowed to a group, `:export stems` writes the parts of its
@@ -469,16 +469,16 @@ those the files differ a little from the mix, and the plan says so.
 
 ## Bounce
 
-`:bounce` renders the track at the cursor to audio, as one clip on a new
-track below it, and mutes the old track. The new track plays into the same
-track as the old one, and the message names it. One `u` undoes the bounce.
+`:bounce` renders the part at the cursor to audio, as one clip on a new
+part below it, and mutes the old part. The new part plays into the same
+part as the old one, and the message names it. One `u` undoes the bounce.
 
-A bounce of a range of time mutes only that time, and the old tracks go on
+A bounce of a range of time mutes only that time, and the old parts go on
 playing outside it. paw cuts each clip that crosses an edge of the range,
 and mutes the parts inside the range. The new clip starts where the range
 starts, right below the muted parts, and it holds the tail after the range
 too. A muted clip shows `⊘` before its name and a faint body, and `K` on a
-muted part names the track that now plays it. One `u` puts the clips back
+muted part names the part that now plays it. One `u` puts the clips back
 whole.
 
 Notes that cross an edge of the range play whole in the new clip, so the
@@ -488,26 +488,26 @@ to the new clip, which then starts where that note starts.
 
 | Command | Effect |
 | --- | --- |
-| `:bounce`, `<Space>tb` | Bounce the track at the cursor. In visual mode, `<Space>tb` bounces the selected tracks. |
-| `:t2,t4bounce`, `:t'<,'>bounce` | Bounce those tracks to one new track, and mute each of them. |
-| `:5,8bounce`, `:'<,'>bounce` | Bounce bars 5 to 8, or the time of the selection, and mute only those bars of the old track. |
+| `:bounce`, `<Space>tb` | Bounce the part at the cursor. In visual mode, `<Space>tb` bounces the selected parts. |
+| `:t2,t4bounce`, `:t'<,'>bounce` | Bounce those parts to one new part, and mute each of them. |
+| `:5,8bounce`, `:'<,'>bounce` | Bounce bars 5 to 8, or the time of the selection, and mute only those bars of the old part. |
 | `:bounce tap=pre` | Bounce before the fader (see below). |
 | `:bounce tail=4` | Render 4 seconds after the end (default: 2). |
 
 `tap=` is where the render listens (see [Lua](#lua)):
 
 - `tap=post` is the default. The file has the devices, fader and pan of
-  each track, but not its groups or the master. The new track starts at 0
+  each part, but not its groups or the master. The new part starts at 0
   dB in the center, so the song sounds the same through the groups and the
   master.
-- `tap=pre` renders before the fader. The new track gets the volume, pan
-  and sends of the old track, and the automation of its volume and pan, so
-  the fader stays live. It takes one track.
+- `tap=pre` renders before the fader. The new part gets the volume, pan
+  and sends of the old part, and the automation of its volume and pan, so
+  the fader stays live. It takes one part.
 
-In Lua, `paw.bounce(track, { tap = "pre", tail = 2, name = "Pad" })`
-bounces one track, and `paw.bounce.tracks({ id, ... }, opts)` bounces
+In Lua, `paw.bounce(part, { tap = "pre", tail = 2, name = "Pad" })`
+bounces one part, and `paw.bounce.parts({ id, ... }, opts)` bounces
 several. With `start` and `end` in beats, they bounce that time only. Both
-return the new track.
+return the new part.
 
 ## Regions
 
@@ -523,22 +523,22 @@ regions with no region inside.
 `paw.render(path, opts)` renders one file, with the options as a table. The fields are
 `range`, `start`, `end`, `tail`, `sample_rate` or `rate`, `bits`,
 `channels` (`"stereo"`, `"mono"`, `"auto"`), `quality`, `bitrate`, `ffmpeg`,
-`dither`, `normalize`, `loudness`, `gain`, `tracks = { id, ... }`, `tap`, `master`,
+`dither`, `normalize`, `loudness`, `gain`, `parts = { id, ... }`, `tap`, `master`,
 `threads`, `sleep`, `tags` and `freeze`. `range` is `"song"`, `"loop"`,
 `"selection"` or the name of a region. `gain` raises or lowers the whole
 file by that many dB, and it does not go with `normalize` or `loudness`.
 
-`tap` is the point in the sound of the tracks where the render listens.
+`tap` is the point in the sound of the parts where the render listens.
 Each point holds all the points before it.
 
 | `tap` | The file holds |
 | --- | --- |
-| `"pre"` | the clips and devices of the tracks, and of the tracks inside them, without the fader, pan or mute |
+| `"pre"` | the clips and devices of the parts, and of the parts inside them, without the fader, pan or mute |
 | `"post"` | the clips and devices with the fader, pan and mute, but not the groups, the sends or the master |
-| `"groups"` | the tracks as you hear them when they are soloed, through their groups and the returns of their sends, but not the master |
+| `"groups"` | the parts as you hear them when they are soloed, through their groups and the returns of their sends, but not the master |
 | `"master"` | the same as `"groups"`, and then the devices, fader and pan of the master. This is the default. |
 
-`"pre"` and `"post"` need `tracks`. Files rendered at `"groups"` or at
+`"pre"` and `"post"` need `parts`. Files rendered at `"groups"` or at
 `"master"` add up to the mix at that point. `master = false` is the same as
 `tap = "groups"`.
 
@@ -583,7 +583,7 @@ The graphical window finds the render in `paw.frontend.state().modal.render`.
 - Language servers can get each render as a subject, so a delivery or
   settings check can look at each render and show diagnostics with
   fixes. A server of the mix gets the fader, pan, sends and devices of each
-  track. See [Language servers and diagnostics](language-servers.md).
+  part. See [Language servers and diagnostics](language-servers.md).
 
 ### Plugins in a render
 

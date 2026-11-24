@@ -1,6 +1,6 @@
 -- A quartet of sixteen bars for the score and the parts: two flutes (in
 -- unison, the first alone, in thirds, resting), a clarinet in B flat, a
--- cello. The tracks come in an order a score would not keep, and the
+-- cello. The parts come in an order a score would not keep, and the
 -- clarinet's part has a cue from the first flute. Used for the pictures
 -- of `:help notation-parts`:
 --   paw --clean --no-plugins --audio null -e "dofile('extensions/notation/fixtures/quartet.lua')"
@@ -53,16 +53,16 @@ local cello = line(
     .. "G2:4 | G2:4 | C3:2 G2:2 | C2:4"
 )
 
-local tracks = {}
+local parts = {}
 for _, spec in ipairs({
   { "Violoncello", cello },
   { "Clarinet in Bb", clarinet },
   { "Flute 1", flute1 },
   { "Flute 2", flute2 },
 }) do
-  local track = paw.add_track({ name = spec[1] })
-  track:add_clip({ start = 0, length = 64, name = spec[1], notes = spec[2] })
-  tracks[spec[1]] = track
+  local part = paw.add_part({ name = spec[1] })
+  part:add_clip({ start = 0, length = 64, name = spec[1], notes = spec[2] })
+  parts[spec[1]] = part
 end
 local meta = api.project_get().meta or {}
 meta.title, meta.composer = "Quartet", "paw"
@@ -72,11 +72,11 @@ paw.flush()
 
 -- Marks written in notation: a tempo, dynamics, a rehearsal mark.
 local view = require("notation")
-view:edit(tracks["Flute 1"]:clips()[1])
+view:edit(parts["Flute 1"]:clips()[1])
 paw.commands.exec("1notation.tempo Andante q=96")
 paw.commands.exec("1notation.dyn mf")
 paw.commands.exec("9notation.rehearsal B")
-view:edit(tracks["Violoncello"]:clips()[1])
+view:edit(parts["Violoncello"]:clips()[1])
 paw.commands.exec("1notation.dyn p")
 -- The clarinet comes in at bar 5: the flute's bars 3 and 4 as a cue.
 paw.commands.exec("part Clarinet")

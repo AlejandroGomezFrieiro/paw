@@ -32,15 +32,15 @@ same name as a built-in module in `~/.config/paw/lua/` replaces the
 module.]],
   setup = function(look)
     paw.project.tempo = 100
-    local drums = paw.add_track({ name = "Drums", volume = -6 })
+    local drums = paw.add_part({ name = "Drums", volume = -6 })
     drums:add_device("drums")
     drums:add_clip({ name = "beat", start = 0, length = 8, notes = look.drums(look.beat, 2) })
-    local keys = paw.add_track({ name = "Keys", volume = -8 })
+    local keys = paw.add_part({ name = "Keys", volume = -8 })
     keys:add_device("synth", { wave = 3, attack = 0.02, release = 0.4, cutoff = 1800 })
     keys:add_clip({ name = "chords", start = 0, length = 8, notes = look.chord({ "E4", "G4", "B4" }, 8) })
     paw.transport.loop_start, paw.transport.loop_end, paw.transport.loop_enabled = 0, 8, true
   end,
-  at = function() paw.cursor.set_track(paw.track("Drums")) end,
+  at = function() paw.cursor.set_part(paw.part("Drums")) end,
   steps = {
     {
       say = "First, set an option. Type `:lua paw.opt.grid = 0.5` and `<CR>`, and then press `l`, and the cursor now moves half a beat.",

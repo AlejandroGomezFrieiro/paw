@@ -11,24 +11,24 @@
 --   :take.new             -- keep what the clip plays as a take and carry on in a copy
 --   :take.remove          -- throw the playing take away
 --   :take.keep            -- throw the others away
---   :take.explode         -- every take as a clip on a track of its own
+--   :take.explode         -- every take as a clip on a part of its own
 --
 -- Comping, choosing the best of each take: cut the clip where the choice
 -- changes (`S`, or select a stretch of time and say `:take 2`, which cuts
 -- at its ends) and choose a take for each piece. Every piece keeps all the
 -- takes, lined up, so a cut can be moved and a choice changed later.
--- `M.comp(track, take, from, to)` does it in one go, and joins pieces side
+-- `M.comp(part, take, from, to)` does it in one go, and joins pieces side
 -- by side that then play the same take back into one where that is exact.
 --
--- Take lanes: a track can show its takes as rows under its clips
--- (`:take.lanes`, `zt`), row k holding take k of every clip of the track
+-- Take lanes: a part can show its takes as rows under its clips
+-- (`:take.lanes`, `zt`), row k holding take k of every clip of the part
 -- that has takes, each over the clip's own stretch of time, so that the
 -- pieces of a comp line up into lanes. In the window a drag across row k
 -- makes take k play over that stretch (`paw.frontend.act.comp`). Which
--- tracks show them is kept for the session, like open automation lanes,
+-- parts show them is kept for the session, like open automation lanes,
 -- not in the project.
 --
---   :take.lanes           -- show or hide the take lanes of the cursor's track
+--   :take.lanes           -- show or hide the take lanes of the cursor's part
 --
 -- Where they are kept: `clip.meta.takes = { active, origin, list }`. The
 -- playing take is the clip's own content and its entry holds only a name;
@@ -83,8 +83,8 @@ end
 --- A clip: its id, or the clip (`paw.api.clip_get`, `paw.clip`).
 local type ClipRef = integer | types.Clip
 
---- A track: its id, or the track itself (`paw.track`).
-local type TrackRef = integer | contracts.TrackHandle
+--- A part: its id, or the part itself (`paw.part`).
+local type PartRef = integer | contracts.PartHandle
 
 --- A value that `copy` passes on and never reads.
 local record Value
@@ -126,8 +126,8 @@ local record Paw is partial.Paw
   stretch: Stretch
   edit: EditModule
   cursor: CursorModule
-  add_track: function(opts?: objects.TrackInput): objects.Track
-  restore_clip: function(snap: objects.ClipSnapshot, track: integer | objects.Track): objects.Clip
+  add_part: function(opts?: objects.PartInput): objects.Part
+  restore_clip: function(snap: objects.ClipSnapshot, part: integer | objects.Part): objects.Clip
 end
 local paw = (_G as {string: Paw}).paw
 
@@ -336,21 +336,21 @@ function M.keep(id: integer)
   end
 end
 
---- Each take as a separate clip, on new tracks below the track of the clip,
---- one take on each track. The clip keeps the take that plays. Returns the tracks.
-function M.explode(id: integer): {contracts.TrackHandle}
+--- Each take as a separate clip, on new parts below the part of the clip,
+--- one take on each part. The clip keeps the take that plays. Returns the parts.
+function M.explode(id: integer): {contracts.PartHandle}
   local c = api.clip_get(id)
   local takes = M.of(c)
   if not takes then
     error("the clip has no other takes", 2)
   end
-  local track = api.track_get(c.track)
+  local part = api.part_get(c.part)
   local shift = c.kind == "audio" and (c.offset - (takes.origin or c.offset)) or 0
-  local out, at: {contracts.TrackHandle}, integer = {}, track.index
+  local out, at: {contracts.PartHandle}, integer = {}, part.index
   for i, entry in ipairs(takes.list) do
     if i ~= takes.active then
       at = at + 1
-      local t = paw.add_track({name = entry.name or (track.name .. " take " .. i), index = at})
+      local t = paw.add_part({name = entry.name or (part.name .. " take " .. i), index = at})
       local snap: objects.ClipSnapshot = {
         name = entry.name or c.name, start = c.start, length = c.length, kind = c.kind
       }
@@ -616,7 +616,7 @@ local function loop_continues(a: types.Clip, b: types.Clip, ta: Takes, tb: Takes
 end
 
 --- Whether clip `b` carries straight on from clip `a`: side by side on the
---- track, alike in kind, name and mute, playing the same take of the same
+--- part, alike in kind, name and mute, playing the same take of the same
 --- list, stretched, shifted and looped alike, and for sound every take
 --- lined up across the join (the same file, gain and place in it), so that
 --- one clip in their place plays just what the two did. Looped clips join
@@ -749,15 +749,15 @@ local function join(a: types.Clip, b: types.Clip)
   api.clip_remove(b.id)
 end
 
---- Join the pieces of a track that continue exactly from one another (see
+--- Join the pieces of a part that continue exactly from one another (see
 --- `continues`). This applies to the pieces from beat `from` to `to`, with
 --- the pieces that touch each end. Returns the number of joins.
-function M.join_pieces(track: integer, from: number, to: number): integer
+function M.join_pieces(part: integer, from: number, to: number): integer
   local joins = 0
   local again = true
   while again do
     again = false
-    local list = api.clip_list(track)
+    local list = api.clip_list(part)
     table.sort(list, function(x: types.Clip, y: types.Clip): boolean return x.start < y.start end)
     for i = 1, #list - 1 do
       local a, b = list[i], list[i + 1]
@@ -772,8 +772,8 @@ function M.join_pieces(track: integer, from: number, to: number): integer
 end
 
 -- The pieces of a comp say the take they play, not the recording.
-local function name_pieces(track: integer)
-  for _, c in ipairs(api.clip_list(track)) do
+local function name_pieces(part: integer)
+  for _, c in ipairs(api.clip_list(part)) do
     local takes = M.of(c)
     local name = takes and takes.list[takes.active].name
     if name and c.name ~= name and M.named_by_take(c, takes) then
@@ -782,7 +782,7 @@ local function name_pieces(track: integer)
   end
 end
 
---- Make take `take` play on a track from beat `from` to `to`. paw cuts
+--- Make take `take` play on a part from beat `from` to `to`. paw cuts
 --- each clip there with that number of takes at the two ends where it goes
 --- across them. paw selects take `take` for each piece between them. Then
 --- it joins again the adjacent pieces that play the same take, where that
@@ -790,7 +790,7 @@ end
 --- the number of pieces that got the take, or 0 when no clip there has it.
 --- A piece named after its recording or its take is named after the take
 --- that it plays.
-function M.comp(track: integer, take: integer, from: number, to: number): integer
+function M.comp(part: integer, take: integer, from: number, to: number): integer
   take = math.floor(take)
   from, to = math.max(0, math.min(from, to)), math.max(from, to)
   local function has(c: types.Clip): boolean
@@ -799,15 +799,15 @@ function M.comp(track: integer, take: integer, from: number, to: number): intege
   end
   local function cut(at: number)
     local only: {integer: boolean} = {}
-    for _, c in ipairs(api.clip_list(track)) do
+    for _, c in ipairs(api.clip_list(part)) do
       if has(c) then
         only[c.id] = true
       end
     end
-    paw.edit.arrange.clear(track, at, at, only)
+    paw.edit.arrange.clear(part, at, at, only)
   end
   local some = false
-  for _, c in ipairs(api.clip_list(track)) do
+  for _, c in ipairs(api.clip_list(part)) do
     some = some or (has(c) and c.start < to - EPS and c.start + c.length > from + EPS)
   end
   if not some then
@@ -816,20 +816,20 @@ function M.comp(track: integer, take: integer, from: number, to: number): intege
   cut(from)
   cut(to)
   local n = 0
-  for _, c in ipairs(api.clip_list(track)) do
+  for _, c in ipairs(api.clip_list(part)) do
     if c.start >= from - EPS and c.start + c.length <= to + EPS and has(c) then
       M.select(c.id, take)
       n = n + 1
     end
   end
-  name_pieces(track)
-  M.join_pieces(track, from, to)
+  name_pieces(part)
+  M.join_pieces(part, from, to)
   return n
 end
 
---- The clip of a track at `beat` that has a take `take`, or nil.
-local function piece_at(track: integer, take: integer, beat: number): types.Clip
-  for _, c in ipairs(api.clip_list(track)) do
+--- The clip of a part at `beat` that has a take `take`, or nil.
+local function piece_at(part: integer, take: integer, beat: number): types.Clip
+  for _, c in ipairs(api.clip_list(part)) do
     local n = M.count(c)
     if beat >= c.start - EPS and beat < c.start + c.length - EPS and n > 1 and take <= n then
       return c
@@ -837,17 +837,17 @@ local function piece_at(track: integer, take: integer, beat: number): types.Clip
   end
 end
 
---- Make take `take` play in the piece of a track at `beat`, and join it to
+--- Make take `take` play in the piece of a part at `beat`, and join it to
 --- the pieces next to it where that is exact. Returns the clip, or nil if
 --- no piece there has such a take.
-function M.choose_at(track: integer, take: number, beat: number): types.Clip
-  local c = piece_at(track, math.floor(take), beat)
+function M.choose_at(part: integer, take: number, beat: number): types.Clip
+  local c = piece_at(part, math.floor(take), beat)
   if not c then
     return nil
   end
   M.select(c.id, math.floor(take))
-  name_pieces(track)
-  M.join_pieces(track, c.start, c.start + c.length)
+  name_pieces(part)
+  M.join_pieces(part, c.start, c.start + c.length)
   return c
 end
 
@@ -888,7 +888,7 @@ local function add_sounds(c: types.Clip, sounds: {Take}, playing: integer)
 end
 
 --- Make a new audio recording, clip `id`, the newest take of the audio
---- clips under it on its track, instead of a clip on top of them. paw cuts
+--- clips under it on its part, instead of a clip on top of them. paw cuts
 --- those clips where the recording starts and ends. Each piece gets all the
 --- takes of the recording, lined up, and plays the take that the recording
 --- plays. What the piece played before stays as a take. The part of the
@@ -899,11 +899,11 @@ function M.record_over(id: integer): integer
   if r.kind ~= "audio" then
     return 0
   end
-  local track, from, to = r.track, r.start, r.start + r.length
+  local part, from, to = r.part, r.start, r.start + r.length
   local function under(): {integer: boolean}, boolean
     local set: {integer: boolean} = {}
     local any = false
-    for _, c in ipairs(api.clip_list(track, from, to)) do
+    for _, c in ipairs(api.clip_list(part, from, to)) do
       if c.id ~= id and c.kind == "audio" and c.start < to - EPS and c.start + c.length > from + EPS then
         set[c.id], any = true, true
       end
@@ -927,11 +927,11 @@ function M.record_over(id: integer): integer
       gain = content.gain,
     }
   end
-  paw.edit.arrange.clear(track, from, from, set)
+  paw.edit.arrange.clear(part, from, from, set)
   set = under()
-  paw.edit.arrange.clear(track, to, to, set)
+  paw.edit.arrange.clear(part, to, to, set)
   local covered: {{number}} = {}
-  for _, c in ipairs(api.clip_list(track, from, to)) do
+  for _, c in ipairs(api.clip_list(part, from, to)) do
     if c.id ~= id and c.kind == "audio" and c.start >= from - EPS and c.start + c.length <= to + EPS then
       local by = paw.stretch.file_seconds(r, c.start - from)
       local lined: {Take} = {}
@@ -947,7 +947,7 @@ function M.record_over(id: integer): integer
   -- stretch back, so that what is left of it before keeps its id.
   table.sort(covered, function(a: {number}, b: {number}): boolean return a[1] > b[1] end)
   for _, span in ipairs(covered) do
-    paw.edit.arrange.clear(track, span[1], span[2], {[id] = true})
+    paw.edit.arrange.clear(part, span[1], span[2], {[id] = true})
   end
   return #covered
 end
@@ -980,34 +980,34 @@ local function save_lanes()
   events.emit(paw.lanes.changed, {})
 end
 
-local function id_of(track: TrackRef): integer
-  if track is contracts.TrackHandle then
-    return track.id
+local function id_of(part: PartRef): integer
+  if part is contracts.PartHandle then
+    return part.id
   end
-  return track
+  return part
 end
 
---- True if a track shows its take lanes.
-function M.lanes_shown(track: TrackRef): boolean
-  return lanes_open[id_of(track)] == true
+--- True if a part shows its take lanes.
+function M.lanes_shown(part: PartRef): boolean
+  return lanes_open[id_of(part)] == true
 end
 
---- Show a track's take lanes, or hide them (`on` false).
-function M.show_lanes(track: TrackRef, on?: boolean)
-  lanes_open[id_of(track)] = on ~= false or nil
+--- Show a part's take lanes, or hide them (`on` false).
+function M.show_lanes(part: PartRef, on?: boolean)
+  lanes_open[id_of(part)] = on ~= false or nil
   save_lanes()
 end
 
---- Show the take lanes of a track, or hide them. Returns true if they show.
-function M.toggle_lanes(track: TrackRef): boolean
-  M.show_lanes(track, not M.lanes_shown(track))
-  return M.lanes_shown(track)
+--- Show the take lanes of a part, or hide them. Returns true if they show.
+function M.toggle_lanes(part: PartRef): boolean
+  M.show_lanes(part, not M.lanes_shown(part))
+  return M.lanes_shown(part)
 end
 
---- The number of take lanes that a track shows: the highest number of takes
+--- The number of take lanes that a part shows: the highest number of takes
 --- of its clips. None while they are hidden or when no clip has takes.
-function M.lane_count(track: TrackRef): integer
-  local id = id_of(track)
+function M.lane_count(part: PartRef): integer
+  local id = id_of(part)
   if not lanes_open[id] then
     return 0
   end
@@ -1022,10 +1022,10 @@ function M.lane_count(track: TrackRef): integer
   return most
 end
 
--- A track that goes away takes its take lanes with it.
+-- A part that goes away takes its take lanes with it.
 events.on(
-  kernel.track_removed,
-  function(event: kernel.TrackId)
+  kernel.part_removed,
+  function(event: kernel.PartId)
     if lanes_open[event.id] then
       lanes_open[event.id] = nil
       save_lanes()
@@ -1054,15 +1054,15 @@ local function said(id: integer)
   paw.notify(string.format("take %d of %d: %s", active, n, takes and takes.list[active].name or ""))
 end
 
---- The cursor's track and the stretch of time selected on it, or nil when
+--- The cursor's part and the stretch of time selected on it, or nil when
 --- no stretch is selected.
 local function selected_stretch(): integer, number, number
   local sel = paw.keymap.selection()
-  local track = paw.cursor.track_id()
-  if not (sel and sel.kind ~= "line" and sel.c0 and sel.c1 and sel.c1 > sel.c0 and track) then
+  local part = paw.cursor.part_id()
+  if not (sel and sel.kind ~= "line" and sel.c0 and sel.c1 and sel.c1 > sel.c0 and part) then
     return nil
   end
-  return track, sel.c0, sel.c1
+  return part, sel.c0, sel.c1
 end
 
 --- A take in the list of `:take.list`.
@@ -1075,12 +1075,12 @@ command.define(
   "take",
   function(ctx: Context): Result
     local word = ctx.args[1] as string
-    local track, from, to: integer, number, number
+    local part, from, to: integer, number, number
     if word then
-      track, from, to = selected_stretch()
+      part, from, to = selected_stretch()
     end
     -- Comping: this take over the selected stretch, whatever plays around it.
-    if track and tonumber(word) and M.comp(track, tonumber(word) as integer, from, to) > 0 then
+    if part and tonumber(word) and M.comp(part, tonumber(word) as integer, from, to) > 0 then
       paw.keymap.set_mode("n")
       return paw.notify("take " .. word .. " over the selection")
     end
@@ -1180,30 +1180,30 @@ command.define(
 command.define(
   "take.lanes",
   function(ctx: Context): Result
-    local track = paw.cursor.track_id()
-    if not track then
-      return paw.notify("no track selected", "warn")
+    local part = paw.cursor.part_id()
+    if not part then
+      return paw.notify("no part selected", "warn")
     end
     local word = ctx.args[1]
     local on: boolean
     if word == "on" or word == "off" then
-      M.show_lanes(track, word == "on")
+      M.show_lanes(part, word == "on")
       on = word == "on"
     else
-      on = M.toggle_lanes(track)
+      on = M.toggle_lanes(part)
     end
     if not on then
       return paw.notify("take lanes hidden")
     end
-    local n = M.lane_count(track)
+    local n = M.lane_count(part)
     if n == 0 then
-      return paw.notify("take lanes shown: no clip of this track has takes yet")
+      return paw.notify("take lanes shown: no clip of this part has takes yet")
     end
     paw.notify(
       n .. " take lanes: a drag across one in the window makes that take play there; `:take 2` over a selection here"
     )
   end,
-  {desc = "Show the track's takes as lanes under its clips, or hide them: `take.lanes`, `take.lanes on`"}
+  {desc = "Show the part's takes as lanes under its clips, or hide them: `take.lanes`, `take.lanes on`"}
 )
 
 command.define(
@@ -1213,10 +1213,10 @@ command.define(
     if not clip then
       return
     end
-    local tracks = M.explode(clip.id)
-    paw.notify(#tracks .. " takes are clips on tracks of their own now")
+    local parts = M.explode(clip.id)
+    paw.notify(#parts .. " takes are clips on parts of their own now")
   end,
-  {desc = "Put every other take on a track of its own"}
+  {desc = "Put every other take on a part of its own"}
 )
 
 return M

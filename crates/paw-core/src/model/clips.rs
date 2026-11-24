@@ -1,16 +1,16 @@
-//! A track's clips, kept in runs that copies of the track share.
+//! A part's clips, kept in runs that copies of the part share.
 //!
-//! Every edit of a clip copies the track that holds it (the undo history
-//! keeps the track as it was), and a track that kept its clips as one list
-//! would copy a pointer for each clip it has: a track of 5000 clips would
+//! Every edit of a clip copies the part that holds it (the undo history
+//! keeps the part as it was), and a part that kept its clips as one list
+//! would copy a pointer for each clip it has: a part of 5000 clips would
 //! cost 5000 for each clip moved, and as much again to compare the copy
-//! with the track before it. Here the clips are kept in runs of a few dozen
-//! behind `Arc`. A copy of the track copies one pointer for each run, and a
-//! change copies only the run it lands in. Two states of a track compare
+//! with the part before it. Here the clips are kept in runs of a few dozen
+//! behind `Arc`. A copy of the part copies one pointer for each run, and a
+//! change copies only the run it lands in. Two states of a part compare
 //! by their runs first ([`Clips::changed`]), so what an edit costs depends
-//! on what it changed, not on the size of the track.
+//! on what it changed, not on the size of the part.
 //!
-//! The clips read as one list, in their order on the track: [`Clips::iter`],
+//! The clips read as one list, in their order on the part: [`Clips::iter`],
 //! [`Clips::get`] and indexing count across the runs.
 
 use std::ops::{Index, IndexMut, Range};
@@ -97,7 +97,7 @@ impl Clips {
     }
 
     /// A clip's place in the list to change, copying its run if a copy of
-    /// the track shares it.
+    /// the part shares it.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Item> {
         let (run, at) = self.locate(index)?;
         Arc::make_mut(&mut self.runs[run]).get_mut(at)
@@ -130,7 +130,7 @@ impl Clips {
         iter.take(count)
     }
 
-    /// Every clip to change: this copies every run a copy of the track
+    /// Every clip to change: this copies every run a copy of the part
     /// shares, so changes to a few clips go through [`Clips::get_mut`].
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Item> {
         self.runs.iter_mut().flat_map(|r| Arc::make_mut(r).iter_mut())
@@ -226,7 +226,7 @@ impl Clips {
         self.iter().position(pred)
     }
 
-    /// The places where this list and `before` (the same track in another
+    /// The places where this list and `before` (the same part in another
     /// state) may differ: every clip before `.0.start`/`.1.start` is the very
     /// same in both, and so is every clip from `.0.end` in `before` and
     /// `.1.end` in this list on. Found by the runs the two share, so it

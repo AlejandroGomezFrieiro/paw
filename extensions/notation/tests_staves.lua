@@ -37,7 +37,7 @@ local keys = T.keys
 local function quartet()
   fresh()
   local view = load()
-  local tracks, clips = {}, {}
+  local parts, clips = {}, {}
   local specs = {
     { "Flute 1", line(72, 4) },
     { "Flute 2", line(67, 4) },
@@ -55,13 +55,13 @@ local function quartet()
     { "Violoncello", line(48, 4) },
   }
   for _, spec in ipairs(specs) do
-    local t = paw.add_track({ name = spec[1] })
+    local t = paw.add_part({ name = spec[1] })
     t:add_device("synth")
-    tracks[spec[1]] = t
+    parts[spec[1]] = t
     clips[spec[1]] = t:add_clip({ start = 0, length = 16, name = spec[1], notes = spec[2] })
   end
-  paw.groups.make({ tracks["Flute 1"], tracks["Flute 2"], tracks["Clarinet"] }, "Woodwinds")
-  paw.groups.make({ tracks["Violoncello"] }, "Strings")
+  paw.groups.make({ parts["Flute 1"], parts["Flute 2"], parts["Clarinet"] }, "Woodwinds")
+  paw.groups.make({ parts["Violoncello"] }, "Strings")
   paw.flush()
   api.undo_checkpoint()
   keymap.set_mode("n")
@@ -69,11 +69,11 @@ local function quartet()
   view.value, view.dot = 1, false
   paw.commands.exec("score all")
   api.undo_checkpoint()
-  return view, clips, tracks
+  return view, clips, parts
 end
 
---- The track of the staff under the cursor.
-local function active(view) return api.track_get(view:clip():get().track).name end
+--- The part of the staff under the cursor.
+local function active(view) return api.part_get(view:clip():get().part).name end
 
 local function names(clip)
   local out = {}
@@ -119,7 +119,7 @@ test(
     local text = table.concat(api.ui_snapshot(140, 60), "\n")
     ok(
       text:find("Piano", 1, true) and text:find("the full score, staff 4 of 6", 1, true),
-      "the title names the active track and its staff"
+      "the title names the active part and its staff"
     )
     ok(text:find("▶", 1, true), "a mark at the active staff's start")
   end
@@ -263,18 +263,18 @@ test("Ex in a score: staves by number, by group, before or after the bars", func
 end)
 
 test(
-  ":score shows a group's score, or the arrange view's selected tracks; a click on a staff makes it active",
+  ":score shows a group's score, or the arrange view's selected parts; a click on a staff makes it active",
   function()
-    local view, clips, tracks = quartet()
+    local view, clips, parts = quartet()
     paw.commands.exec("score Strings")
     eq(#view:frame().layout.staves, 1, "the strings' score: the cello alone")
     eq(active(view), "Violoncello", "and its staff active")
     paw.commands.exec("score all")
-    -- The tracks of a selection in the arrange view.
+    -- The parts of a selection in the arrange view.
     paw.ui.focus("arrange")
-    paw.cursor.set_track(tracks["Clarinet"])
+    paw.cursor.set_part(parts["Clarinet"])
     keys("V")
-    paw.cursor.set_track(tracks["Piano"])
+    paw.cursor.set_part(parts["Piano"])
     paw.commands.exec("score selection")
     keymap.set_mode("n")
     eq(#view:frame().layout.units, 2, "the clarinet and the piano")
@@ -325,7 +325,7 @@ for _, case in ipairs({
       paw.commands.exec("part.transpose " .. key)
       paw.commands.exec("part Clarinet")
       api.undo_checkpoint()
-      eq(active(view), "Clarinet", "the part's track is the one edited")
+      eq(active(view), "Clarinet", "the shown part is the one edited")
       -- Bar 3 emptied, then the letters typed there from the part's C4.
       paw.commands.exec("3 s. d")
       api.undo_checkpoint()
@@ -418,18 +418,18 @@ test(":help notation-scores finds the score's section, and :help :score the comm
 end)
 
 test(
-  "a staff is every clip of its track: pasted clips in a row, a gap as rests, the cursor and edits going to the clip there",
+  "a staff is every clip of its part: pasted clips in a row, a gap as rests, the cursor and edits going to the clip there",
   function()
     fresh()
     local view = load()
-    local violin = paw.add_track({ name = "Violin" })
+    local violin = paw.add_part({ name = "Violin" })
     violin:add_device("synth")
     -- Four one-bar clips, as pasted in the arrange view, the fourth after a bar of nothing.
     local clips = {}
     for i, at in ipairs({ 0, 4, 8, 16 }) do
       clips[i] = violin:add_clip({ start = at, length = 4, name = "v" .. i, notes = line(72 + 2 * (i - 1), 1) })
     end
-    local cello = paw.add_track({ name = "Violoncello" })
+    local cello = paw.add_part({ name = "Violoncello" })
     cello:add_clip({ start = 0, length = 20, name = "vc", notes = line(48, 5) })
     paw.flush()
     api.undo_checkpoint()

@@ -1,4 +1,4 @@
--- The piano roll set up by a track's map: the playable range shaded, the
+-- The piano roll set up by a part's map: the playable range shaded, the
 -- keyswitch rows labelled with their articulations, each note's tag and
 -- colour, a band of the articulation in time above the ruler, the pen new
 -- notes are entered with, and `K` saying what a note plays.
@@ -48,38 +48,38 @@ function M.row(map, pitch)
   if map.comfortable and not inside(map.comfortable, pitch) then return { shade = "ArtUncomfortable" } end
 end
 
-roll.rows("articulations", function(pitch, track)
-  local map = art.map_of(track)
+roll.rows("articulations", function(pitch, part)
+  local map = art.map_of(part)
   return map and M.row(map, pitch)
 end)
 
 -- The tags and colours of the notes, over the roll's own notes.
 roll.layer("articulations", 22, function(L)
-  for _, part in ipairs(L.parts) do
-    local track = part.track
+  for _, portion in ipairs(L.portions) do
+    local part = portion.part
     local chosen = {}
-    for _, place in ipairs(paw.frontend.chosen_notes(part.id)) do
+    for _, place in ipairs(paw.frontend.chosen_notes(portion.id)) do
       chosen[place] = true
     end
-    local shown, places = part.clip:notes({
-      from = L.from - part.offset,
-      to = L.to - part.offset,
+    local shown, places = portion.clip:notes({
+      from = L.from - portion.offset,
+      to = L.to - portion.offset,
       low = math.max(0, L.top - L.rows + 1),
       high = L.top,
     })
     for k, note in ipairs(shown) do
       local attr = art.attr_of(note)
       if attr then
-        local tag, a = art.tag_of(track, note)
+        local tag, a = art.tag_of(part, note)
         local row = L.top - note.pitch
-        local x0, x1 = L.x(note.start + part.offset), L.x(note.start + part.offset + note.length)
+        local x0, x1 = L.x(note.start + portion.offset), L.x(note.start + portion.offset + note.length)
         local nw = math.max(1, x1 - x0)
-        local at_cursor = L.under_part and L.under_part.id == part.id and places[k] == L.under_place
+        local at_cursor = L.under_portion and L.under_portion.id == portion.id and places[k] == L.under_place
         local style
         if at_cursor then
           style = "NoteCursor"
         elseif chosen[places[k]] then
-          style = paw.draw.track_hue(api.track_get(track)).title_cur
+          style = paw.draw.part_hue(api.part_get(part)).title_cur
         else
           style = paw.draw.note_style(paw.draw.hue(a and a.colour or art.maps.colour()), note.velocity)
           L.roll:fill(x0, row, nw, 1, " ", style)
@@ -95,7 +95,7 @@ end)
 --- tag, art }` (roll beats): the top line's, a new segment where it changes.
 function M.segments(clip)
   local c = clip:get()
-  local default = art.default_of(c.track)
+  local default = art.default_of(c.part)
   local out = {}
   local notes = clip:notes()
   -- The top line: of the notes that start together, the highest.
@@ -109,7 +109,7 @@ function M.segments(clip)
     end
   end
   for _, n in ipairs(tops) do
-    local tag, a = art.tag_of(c.track, n)
+    local tag, a = art.tag_of(c.part, n)
     if not tag then
       tag, a = default and default.tag, default
     end
@@ -129,7 +129,7 @@ roll.band("articulations", 10, {
   title = "art",
   active = function(clip)
     local c = clip:get()
-    return art.map_of(c.track) ~= nil
+    return art.map_of(c.part) ~= nil
   end,
   paint = function(buf, B)
     buf:fill(0, 0, B.width, 1, " ", "ArtBand")
@@ -144,7 +144,7 @@ roll.band("articulations", 10, {
       end
     end
     -- The pen, at the right.
-    local pen = art.pen(B.data.track)
+    local pen = art.pen(B.data.part)
     if pen then
       local text = " pen " .. (pen.art and pen.art.tag or m2.code(pen.attr)) .. " "
       buf:text(math.max(0, B.width - api.str_width(text)), 0, text, "ArtBandEdge")
@@ -153,16 +153,16 @@ roll.band("articulations", 10, {
 })
 
 -- `K` on a note.
-roll.describer("articulations", function(note, part)
-  local track = part and part.track
-  if not track then return nil end
+roll.describer("articulations", function(note, portion)
+  local part = portion and portion.part
+  if not part then return nil end
   local attr = art.attr_of(note)
-  local map = art.map_of(track)
+  local map = art.map_of(part)
   -- Without a map the roll's own line says the attribute.
   if not map then return nil end
   if not attr then
-    local d = art.default_of(track, map)
-    local lines = { "  articulation  none: the track's default plays, " .. (d and d.name or "?"), articulation = true }
+    local d = art.default_of(part, map)
+    local lines = { "  articulation  none: the part's default plays, " .. (d and d.name or "?"), articulation = true }
     local delay = d and d.delay or map.delay
     if delay then lines[2] = "  delay         " .. art.maps.delay_text(delay) end
     return lines
@@ -172,7 +172,7 @@ roll.describer("articulations", function(note, part)
     return { "  articulation  " .. m2.describe(attr) .. ", which " .. map.name .. " cannot play", articulation = true }
   end
   -- As the map writes it; in paw's key names too when they differ (a map
-  -- whose `middle_c` is C3, a track whose keyswitches are shifted).
+  -- whose `middle_c` is C3, a part whose keyswitches are shifted).
   local send = a.send or a.out
   local sent = a.out ~= "" and ", sent as " .. a.out or ""
   if send ~= "" and send ~= a.out then
@@ -191,12 +191,12 @@ roll.describer("articulations", function(note, part)
 end)
 
 -- The piano roll's pencil (`a` in insert mode) takes its articulations
--- from here: the names of the track's map (or the words libraries use,
+-- from here: the names of the part's map (or the words libraries use,
 -- without a map), and the fields that give a note one.
 if paw.roll_draw and paw.roll_draw.articulation then
   paw.roll_draw.articulation({
-    names = function(track)
-      local map = art.map_of(track)
+    names = function(part)
+      local map = art.map_of(part)
       local out, seen = {}, {}
       local function add(name)
         if name and not seen[name] then
@@ -216,17 +216,17 @@ if paw.roll_draw and paw.roll_draw.articulation then
       add("none")
       return out
     end,
-    apply = function(track, text, note)
-      local choice, why = art.lookup(art.map_of(track), text)
+    apply = function(part, text, note)
+      local choice, why = art.lookup(art.map_of(part), text)
       if choice == nil then return nil, why end
       return art.attr_fields(note, choice and choice.attr or nil)
     end,
   })
 end
 
--- New notes take the pen of their track.
+-- New notes take the pen of their part.
 roll.entering("articulations", function(note, clip)
-  local pen = art.pen(clip:get().track)
+  local pen = art.pen(clip:get().part)
   if pen then
     for k, v in pairs(art.attr_fields(note, pen.attr)) do
       note[k] = v

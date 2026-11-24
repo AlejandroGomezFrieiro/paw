@@ -11,8 +11,8 @@ paw shows a folder as text, in the same way as it shows the [lists edited as tex
 | `:e some/folder`, `:files [folder]` | Shows the folder in this window: `paw://files/home/me/music`. `:files media` shows the `media` folder of the project. `:files` alone shows the folder of the buffer, else of the project, else the folder where paw started. |
 | `:Files [folder]`, `:files.tree` | Shows the folder as a tree in a split: `paw://tree/home/me/music`. |
 | `-` | Goes up to the folder above. In the tree, the tree shows that folder. |
-| `Enter` | On a folder, goes into it (in the tree, opens or closes it, as `za` does). On a project, opens it, and asks about unsaved work first. On a sound or MIDI file, puts it at the track and time of the cursor, or on a new track if the project has no tracks. |
-| `go` | Puts a sound or MIDI file on a new track. On a selection, it makes one track for each file. |
+| `Enter` | On a folder, goes into it (in the tree, opens or closes it, as `za` does). On a project, opens it, and asks about unsaved work first. On a sound or MIDI file, puts it at the part and time of the cursor, or on a new part if the project has no parts. |
+| `go` | Puts a sound or MIDI file on a new part. On a selection, it makes one part for each file. |
 | `gh` | Plays the sound file under the cursor (a MIDI file through an instrument). |
 | `gH` | Plays each sound file when the cursor stops on it for `paw.opt.audition_delay` ms (`paw.opt.files_hear`). |
 | `g.` | Shows or hides the files whose names start with a dot (`paw.opt.files_hidden`). |

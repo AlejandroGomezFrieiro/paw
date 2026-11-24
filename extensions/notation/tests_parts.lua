@@ -24,7 +24,7 @@ local function bar(notes, b, pitch)
   end
 end
 
---- A quartet in the track order a score would not keep: the cello first.
+--- A quartet in the part order a score would not keep: the cello first.
 --- Flutes 1 and 2 play the same in bar 1, flute 1 alone in bar 2,
 --- different lines in bar 3; the clarinet in B flat plays bars 1 and 6;
 --- the cello rests from bar 2 to 5.
@@ -45,15 +45,15 @@ local function quartet(bars)
   for b = 6, bars - 1 do
     bar(vc, b, 48)
   end
-  local tracks = {}
+  local parts = {}
   for _, spec in ipairs({ { "Violoncello", vc }, { "Flute 1", fl1 }, { "Flute 2", fl2 }, { "Clarinet in Bb", cl } }) do
-    local track = paw.add_track({ name = spec[1] })
-    track:add_clip({ start = 0, length = bars * 4, name = spec[1], notes = spec[2] })
-    tracks[spec[1]] = track
+    local part = paw.add_part({ name = spec[1] })
+    part:add_clip({ start = 0, length = bars * 4, name = spec[1], notes = spec[2] })
+    parts[spec[1]] = part
   end
   paw.flush()
   api.undo_checkpoint()
-  return view, P, tracks
+  return view, P, parts
 end
 
 local function pitches(evs)
@@ -90,7 +90,7 @@ test("the full score orders instruments as an orchestra does, a bracket over eac
 end)
 
 test("a part for an instrument in B flat is written a major second up, in its key", function()
-  local _, P, tracks = quartet()
+  local _, P, parts = quartet()
   local iv = P.interval("Bb")
   eq(iv.steps .. "," .. iv.semis .. "," .. iv.fifths, "1,2,2", "B flat: a second, two semitones, two sharps")
   iv = P.interval("Eb up")
@@ -103,7 +103,7 @@ test("a part for an instrument in B flat is written a major second up, in its ke
   eq(iv.steps .. "," .. iv.semis .. "," .. iv.fifths, "4,7,1", "a horn in F a fifth up")
   eq(P.interval("Bb octave").semis, 14, "a tenor sax a ninth up")
   eq(P.interval("C"), nil, "in C is not transposed")
-  local id = tracks["Clarinet in Bb"].id
+  local id = parts["Clarinet in Bb"].id
   eq(P.transposition(id).name, "Bb", "the name says the key")
   local layout = P.part_layout(id)
   eq(layout.fifths, 2, "D major's two sharps")
@@ -117,8 +117,8 @@ test("a part for an instrument in B flat is written a major second up, in its ke
 end)
 
 test("bars of rest in a part are one multi-measure rest, numbered on after it", function()
-  local _, P, tracks = quartet()
-  local layout = P.part_layout(tracks["Violoncello"].id)
+  local _, P, parts = quartet()
+  local layout = P.part_layout(parts["Violoncello"].id)
   eq(#layout.measures, 5, "bar 1, the rest, bars 6, 7 and 8")
   eq(layout.measures[2].multirest, 4, "four bars counted")
   eq(layout.measures[2].staves[1][1].multirest, 4, "a rest that says so")
@@ -126,25 +126,25 @@ test("bars of rest in a part are one multi-measure rest, numbered on after it", 
   eq(layout.measures[3].index, 3, "measures numbered again in order")
   -- A rehearsal mark breaks the rest where it is.
   local view = require("notation")
-  view:edit(tracks["Flute 1"]:clips()[1])
+  view:edit(parts["Flute 1"]:clips()[1])
   view:write(function(sc)
     sc.measures[4].rehearsal = "B"
     require("notation.doc").touch(sc, 4)
   end)
-  layout = P.part_layout(tracks["Violoncello"].id)
+  layout = P.part_layout(parts["Violoncello"].id)
   eq(layout.measures[2].multirest, 2, "two bars before the mark")
   eq(layout.measures[3].rehearsal, "B", "the score's rehearsal mark is in every part")
   eq(layout.measures[3].multirest, 2, "two after it")
 end)
 
 test("a cue writes another instrument's notes small in a part's rests", function()
-  local view, P, tracks = quartet()
-  view:edit(tracks["Violoncello"]:clips()[1])
+  local view, P, parts = quartet()
+  view:edit(parts["Violoncello"]:clips()[1])
   paw.commands.exec("part Violoncello")
   paw.commands.exec("2,3part.cue Flute 1")
-  local own = P.own(tracks["Violoncello"].id)
-  eq(#own.cues, 1, "kept with the track's part")
-  local layout = P.part_layout(tracks["Violoncello"].id)
+  local own = P.own(parts["Violoncello"].id)
+  eq(#own.cues, 1, "kept with the printed part")
+  local layout = P.part_layout(parts["Violoncello"].id)
   local cue = layout.measures[2].staves[1]
   local small = 0
   for _, ev in ipairs(cue) do
@@ -155,7 +155,7 @@ test("a cue writes another instrument's notes small in a part's rests", function
   eq(layout.measures[2].marks[1].value, "Fl. 1", "named over them")
   eq(layout.measures[4].multirest, 2, "the rest after the cue counts on")
   paw.commands.exec("2,3part.cue off")
-  eq(P.own(tracks["Violoncello"].id).cues, nil, "taken away")
+  eq(P.own(parts["Violoncello"].id).cues, nil, "taken away")
 end)
 
 test("a part's pages turn where it rests", function()
@@ -167,10 +167,10 @@ test("a part's pages turn where it rests", function()
   for b = 0, 159 do
     if b % 11 ~= 10 then bar(notes, b, 48) end
   end
-  local track = paw.add_track({ name = "Violoncello" })
-  track:add_clip({ start = 0, length = 160 * 4, name = "cello", notes = notes })
+  local part = paw.add_part({ name = "Violoncello" })
+  part:add_clip({ start = 0, length = 160 * 4, name = "cello", notes = notes })
   paw.flush()
-  local layout = P.part_layout(track.id)
+  local layout = P.part_layout(part.id)
   local st =
     engrave.style({ space = 10, cell = { w = 1, h = 1 }, ink = "#000000", paper = "#ffffff", accent = "#000000" })
   local geo = page.geometry(10)
@@ -223,8 +223,8 @@ test("a condensed score puts two flutes on one staff: a2, 1., and two voices", f
 end)
 
 test("parts and the score export as PDF pages and MusicXML with parts", function()
-  local view, P, tracks = quartet()
-  view:edit(tracks["Flute 1"]:clips()[1])
+  local view, P, parts = quartet()
+  view:edit(parts["Flute 1"]:clips()[1])
   local dir = T.scratch .. "/parts"
   os.execute("mkdir -p " .. dir)
   paw.commands.exec("part Flute 1")
@@ -255,8 +255,8 @@ test("parts and the score export as PDF pages and MusicXML with parts", function
 end)
 
 test("the terminal's cell view draws the score's names and a part's multi-measure rest", function()
-  local view, P, tracks = quartet()
-  view:edit(tracks["Violoncello"]:clips()[1])
+  local view, P, parts = quartet()
+  view:edit(parts["Violoncello"]:clips()[1])
   paw.ui.focus("notation")
   paw.keymap.set_mode("n")
   paw.keymap.feed("\\Ps")
@@ -274,7 +274,7 @@ test("the terminal's cell view draws the score's names and a part's multi-measur
   ok(text:find("part: Violoncello", 1, true), "the part named")
   paw.keymap.feed("\\Pn")
   api.undo_checkpoint()
-  eq(view.parts.track, P.instruments()[1].id, "\\Pn goes round to the first part")
+  eq(view.parts.part, P.instruments()[1].id, "\\Pn goes round to the first part")
   paw.keymap.feed("\\Po")
   api.undo_checkpoint()
   eq(view.parts, nil, "\\Po: the clip alone again")

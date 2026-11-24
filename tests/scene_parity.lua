@@ -130,32 +130,32 @@ local function lowered(name, width, height)
   -- The two drawings are made one after the other, and a meter falls and
   -- a held peak lets go in between (the sound of an earlier test, on a
   -- slow machine): the meters stand still while they are drawn.
-  local meter = api.track_meter
-  api.track_meter = function() return 0.5, 0.25 end
+  local meter = api.part_meter
+  api.part_meter = function() return 0.5, 0.25 end
   local draw = require("paw.draw")
   draw.clear_peak(0)
-  for _, id in ipairs(api.track_list()) do
+  for _, id in ipairs(api.part_list()) do
     draw.clear_peak(id)
   end
   paw.ui.pictures = {}
   local ok, snap = pcall(api.ui_view_snapshot, name, width, height)
   paw.ui.pictures = nil
   if not ok then
-    api.track_meter = meter
+    api.part_meter = meter
     error(snap, 0)
   end
   -- A view that cannot draw by itself (a buffer's, with no buffer) shows
   -- where it failed, which differs with who asked.
   for _, row in ipairs(snap.rows) do
     if row[1] and row[1].text:find("^stack traceback:") then
-      api.track_meter = meter
+      api.part_meter = meter
       return nil
     end
   end
   api.scene_forget(0)
   local err
   ok, err = pcall(scene_of, name, width, height)
-  api.track_meter = meter
+  api.part_meter = meter
   if not ok then error(err, 0) end
   return differs(snap, api.scene_cells(0, "parity"))
 end
@@ -251,8 +251,8 @@ test(
       paw.ui.hide("pianoroll")
       api.scene_forget(0)
     end)
-    local t = paw.add_track({ name = "keys" })
-    local u = paw.add_track({ name = "bass" })
+    local t = paw.add_part({ name = "keys" })
+    local u = paw.add_part({ name = "bass" })
     local a = t:add_clip({
       start = 0,
       length = 8,
@@ -300,8 +300,8 @@ test(
       paw.keymap.feed("<Esc><Esc>")
       api.scene_forget(0)
     end)
-    local t = paw.add_track({ name = "keys" })
-    local u = paw.add_track({ name = "loop" })
+    local t = paw.add_part({ name = "keys" })
+    local u = paw.add_part({ name = "loop" })
     local short = t:add_clip({
       start = 0.5,
       length = 3.3,

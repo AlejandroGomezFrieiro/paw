@@ -62,8 +62,8 @@ end
 
 --- The Teal types of a kernel function: of each `@type function(...)` line
 --- of its comment, which gives the whole type of each form of a function
---- whose result follows from its arguments (`track_get(id)` and
---- `track_get(id, key)`); else of one form, from the types of its
+--- whose result follows from its arguments (`part_get(id)` and
+--- `part_get(id, key)`); else of one form, from the types of its
 --- arguments and its `@return` line. With no `@return`, it returns `any...`.
 function teal_type.signatures(f: model.KernelFunction): {string}
   if #f.forms > 0 then

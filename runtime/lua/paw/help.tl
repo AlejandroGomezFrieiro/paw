@@ -21,7 +21,7 @@
 -- page's name for its title, the heading's words joined by `-` below it,
 -- after the extension's name or `course-N` in theirs), from `<!-- tags: a b
 -- -->` comments, and from every key, command (`:s`), option (`'timebind'`),
--- Lua name (`paw.qf.feed`) and address (`paw://tracks`) written as code:
+-- Lua name (`paw.qf.feed`) and address (`paw://parts`) written as code:
 -- each at the first place it is described (a table's first column, the
 -- start of a list item), else where it is first named.
 --
@@ -739,7 +739,7 @@ function M.tags_of_code(text: string, first?: boolean): {string}
   if text:match("^[%w_]+$") and option_known(text) and text:find("_") then
     out[#out + 1] = "'" .. text .. "'"
   end
-  -- A command's dotted name, alone or with its arguments (`drums.track [name]`).
+  -- A command's dotted name, alone or with its arguments (`drums.part [name]`).
   local word = text:match("^([%a][%w%._%-]*!?)")
   local cmd = word and word:find("%.") and commands.get((word:gsub("!$", "")))
   if cmd and (word == text or text:sub(#word + 1, #word + 1) == " ") then

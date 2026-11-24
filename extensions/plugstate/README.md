@@ -21,7 +21,7 @@ extensions/plugstate/
 
 ## Try it
 
-1. Add Neural Amp Modeler to a guitar track: `:device.add neural amp`.
+1. Add Neural Amp Modeler to a guitar part: `:device.add neural amp`.
 2. Put some `.nam` models in `~/.local/share/paw/models`.
 3. Open the device panel and put its row on the amp. Press `]m`, and paw loads
    the first model of the folder and says its name and what the model
@@ -39,7 +39,7 @@ Type `:plugstate.load` with a file, or with words that find it, as in
 `:plugstate.load ~/nam/deluxe.nam` or `:plugstate.load deluxe clean`. When
 the words find more than one file, a picker opens with them. When the
 selection stays on a file, paw loads it for a trial, and you hear it with
-what the track plays. Enter keeps the file, and Escape puts back what was there.
+what the part plays. Enter keeps the file, and Escape puts back what was there.
 
 ### How to add a folder of models or impulse responses
 
@@ -189,7 +189,7 @@ The keys below work in the device panel, and they act on the device of the row.
 
 - The commands act on the device of the row of the device panel when
   plugstate knows it, and otherwise they act on the first device of the cursor
-  track that plugstate knows.
+  part that plugstate knows.
 - A load and a recall are each one undo step. The parameters of the device
   stay as they are on a load, but a recall sets the parameters of the snapshot.
 - The project keeps the snapshots in `meta.plugstate` of the device, so a
@@ -365,7 +365,7 @@ The extension sends the events `plugstate.loaded` (`device`, `slot`,
   preset of a pack to `~/.local/share/paw/plugstate/<pack>`.
 - `:plugstate.tree`, `:plugstate.mark`, `:plugstate.changes`,
   `:plugstate.path` and `:plugstate.preset_write` act on the device of the
-  row of the device panel, else on the first plugin of the cursor track.
+  row of the device panel, else on the first plugin of the cursor part.
   `:plugstate.mark` keeps its state in memory and not in the project.
 - Surge XT as a VST3 plugin does not take a state from paw, but its presets
   load in CLAP and LV2.

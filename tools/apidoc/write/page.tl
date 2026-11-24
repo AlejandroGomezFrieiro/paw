@@ -12,7 +12,7 @@ local record Run
   lines: {string}
 end
 
--- How a function is called: `paw.Track:clips(...)` for a method.
+-- How a function is called: `paw.Part:clips(...)` for a method.
 local function signature(f: Function): string
   local name = f.method and (f.name:gsub("%.([%w_]+)$", ":%1")) or f.name
   return name .. "(" .. table.concat(f.params or {}, ", ") .. ")"

@@ -37,7 +37,7 @@ local function opened(notes)
   paw.opt.note_zoom, paw.opt.note_grid, paw.opt.note_snap = 8, 0.25, true
   -- The roll keeps the length of a step that an earlier test chose.
   roll:set_step(nil)
-  local t = paw.add_track({ name = "keys" })
+  local t = paw.add_part({ name = "keys" })
   local clip = t:add_clip({ name = "riff", start = 0, length = 8, notes = notes or {} })
   roll:edit(clip)
   roll.top, roll.scroll, roll.pitch, roll.beat = 72, 0, 60, 0
@@ -226,11 +226,7 @@ test("a wide roll's title row holds its tools as buttons, and a window gives it 
     if n.r[2] == 0 then buttons[#buttons + 1] = n.props.label end
   end
   local said = table.concat(buttons, " ")
-  eq(
-    said:find("Tracks Grid 1/16 Snap Note 1/16 Quantize Step List", 1, true) ~= nil,
-    true,
-    "in the title row: " .. said
-  )
+  eq(said:find("Parts Grid 1/16 Snap Note 1/16 Quantize Step List", 1, true) ~= nil, true, "in the title row: " .. said)
   eq(said:find("Window x", 1, true) ~= nil, true, "with its own window and close: " .. said)
   paw.ui.show("pianoroll")
   -- As a window's main area is: put back after, with the panel it shows.

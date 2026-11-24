@@ -58,18 +58,18 @@ test("an option takes values of its type and range, and :set says what it takes"
     has(err, "grid takes a number", "grid = " .. tostring(bad))
   end
   eq(paw.opt.grid, grid, "grid unchanged")
-  paw.add_track({ name = "Steps" })
+  paw.add_part({ name = "Steps" })
   T.keys(":set grid=0.5<CR>")
   eq(paw.opt.grid, 0.5, ":set grid=0.5")
   T.keys("l")
   eq(paw.cursor.beat, 0.5, "and l steps by it")
   paw.opt.grid = grid
-  T.keys(":set track_height=3<CR>")
-  eq(paw.opt.track_height, 3, 'a number where "auto" is the default')
-  T.keys(":set track_height=auto<CR>")
-  eq(paw.opt.track_height, "auto", '"auto" again')
-  T.keys(":set track_height=40<CR>")
-  has(said("error"), 'track_height takes a whole number from 1 to 12, or "auto"', "out of range")
+  T.keys(":set part_height=3<CR>")
+  eq(paw.opt.part_height, 3, 'a number where "auto" is the default')
+  T.keys(":set part_height=auto<CR>")
+  eq(paw.opt.part_height, "auto", '"auto" again')
+  T.keys(":set part_height=40<CR>")
+  has(said("error"), 'part_height takes a whole number from 1 to 12, or "auto"', "out of range")
   local ffmpeg = paw.opt.ffmpeg
   T.keys(":set ffmpeg=7<CR>")
   eq(paw.opt.ffmpeg, "7", "text stays text for an option that takes text")
@@ -104,8 +104,8 @@ test("an undo step is named by what changed the project, and a command line by t
   T.keys(":%d<CR>")
   eq(step().label, ":%d", "a command line is named by the line")
   paw.undo()
-  T.keys(":track.add<CR>")
-  eq(step().label, ":track.add", "a command without a range too")
+  T.keys(":part.add<CR>")
+  eq(step().label, ":part.add", "a command without a range too")
   for _, s in ipairs(api.undo_tree().states) do
     eq(s.label ~= "Type a command" and s.keys ~= "<CR>", true, "no step is named by the keys that typed a line")
   end
@@ -113,7 +113,7 @@ end)
 
 test("setting a value to what it already is makes no undo step", function()
   fresh()
-  local t = paw.add_track({ name = "Same" })
+  local t = paw.add_part({ name = "Same" })
   local clip = t:add_clip({ start = 4, length = 4 })
   t.volume = -6
   paw.project.meta = { a = 1 }
@@ -135,12 +135,12 @@ end)
 
 test("commands given what they cannot take say so and change nothing", function()
   fresh()
-  local a = paw.add_track({ name = "A" })
-  paw.add_track({ name = "B" })
-  paw.cursor.set_track(a)
+  local a = paw.add_part({ name = "A" })
+  paw.add_part({ name = "B" })
+  paw.cursor.set_part(a)
   local tempo = paw.project.tempo
   T.expect_error("^a tempo is from 1 to 999 bpm")
-  T.expect_error("^track.remove removes the track at the cursor and takes no argument")
+  T.expect_error("^part.remove removes the part at the cursor and takes no argument")
   T.expect_error("^clip.add puts a clip at the cursor and takes length= and name=")
   T.expect_error("^a clip's length is a number of beats above 0")
   for _, line in ipairs({ "tempo abc", "tempo 0", "tempo -1", "tempo by=abc" }) do
@@ -151,11 +151,11 @@ test("commands given what they cannot take say so and change nothing", function(
   T.keys(":tempo 133<CR>")
   eq(paw.project.tempo, 133, ":tempo 133 sets it")
   has(said("info"), "133 bpm", "and says so")
-  for _, line in ipairs({ "track.remove 99", "track.remove abc" }) do
+  for _, line in ipairs({ "part.remove 99", "part.remove abc" }) do
     T.keys(":" .. line .. "<CR>")
     has(said("error"), "takes no argument", ":" .. line)
   end
-  eq(#paw.tracks(), 2, "no track was removed")
+  eq(#paw.parts(), 2, "no part was removed")
   for line, why in pairs({
     ["clip.add -1 4"] = "takes length= and name=",
     ["clip.add abc"] = "takes length= and name=",
@@ -187,9 +187,9 @@ test("stems add up to the mix with buses and returns on the way", function()
     ffi.copy(buf, data:sub(at, at + n * 4 - 1), n * 4)
     return buf, n
   end
-  local bus = paw.add_track({ name = "Bus" })
+  local bus = paw.add_part({ name = "Bus" })
   bus.volume = -6
-  local ret = paw.add_track({ name = "Return" })
+  local ret = paw.add_part({ name = "Return" })
   ret.volume = -3
   T.tone("A", 4, "A3").output = bus.id
   T.tone("C", 4, "E4"):send(ret, -6)
@@ -199,11 +199,11 @@ test("stems add up to the mix with buses and returns on the way", function()
   paw.flush()
   local mix = T.render({ master = false, bits = 32, tail = 0 })
   local files = {}
-  paw.export.run(paw.export.plan(T.scratch .. "/bus-stems/ each=track tap=groups bits=32 tail=0 wait=true"))
+  paw.export.run(paw.export.plan(T.scratch .. "/bus-stems/ each=part tap=groups bits=32 tail=0 wait=true"))
   for i, r in ipairs(paw.export.last().results) do
     files[i] = r.path
   end
-  eq(#files, 3, "a stem for each track with clips")
+  eq(#files, 3, "a stem for each part with clips")
   local m, n = samples(mix.path)
   local sum = {}
   for i = 0, n - 1 do
@@ -224,20 +224,20 @@ end)
 
 test("a MIDI file cut short does not open as an empty project", function()
   fresh()
-  paw.add_track({ name = "Keep" })
+  paw.add_part({ name = "Keep" })
   api.undo_checkpoint()
-  -- A header that promises a track, and the track cut off after its start.
+  -- A header that promises a part, and the part cut off after its start.
   local path = T.scratch .. "/cut.mid"
   T.write_file(path, "MThd\0\0\0\6\0\1\0\1\1\224MTrk\0\0\1\0\0\255")
   T.keys(":open! " .. path .. "<CR>")
-  eq(paw.tracks()[1] and paw.tracks()[1].name, "Keep", "the project is as it was")
+  eq(paw.parts()[1] and paw.parts()[1].name, "Keep", "the project is as it was")
   has(said("error"), "no notes", "and it says why")
 end)
 
-test("thousands of tracks and the warnings they bring stay usable", function()
+test("thousands of parts and the warnings they bring stay usable", function()
   fresh()
   for i = 1, 1200 do
-    api.track_add({ name = "T" .. i })
+    api.part_add({ name = "T" .. i })
   end
   local said_count, notify = 0, paw.notify
   paw.notify = function(...)
@@ -248,31 +248,31 @@ test("thousands of tracks and the warnings they bring stay usable", function()
   paw.flush()
   paw.notify = notify
   eq(said_count >= 2 and said_count <= 6, true, "a few warnings and how many more, not hundreds: " .. said_count)
-  eq(#paw.tracks(), 1200, "paw.tracks() lists them all")
-  eq(#api.track_list(), 1200, "and so does the api")
+  eq(#paw.parts(), 1200, "paw.parts() lists them all")
+  eq(#api.part_list(), 1200, "and so does the api")
   fresh()
 end)
 
 test("muting twice says the second time that they were muted already", function()
   fresh()
   for i = 1, 4 do
-    paw.add_track({ name = "M" .. i })
+    paw.add_part({ name = "M" .. i })
   end
   T.keys(":t2,t4 mute<CR>")
-  eq(said("info"), "muted 3 tracks", "the first time")
+  eq(said("info"), "muted 3 parts", "the first time")
   T.keys(":t2,t4 mute<CR>")
-  eq(said("info"), "3 tracks were muted already", "the second time")
+  eq(said("info"), "3 parts were muted already", "the second time")
   T.keys(":t1,t2 mute<CR>")
-  eq(said("info"), "muted 1 track (1 was already)", "some of them")
+  eq(said("info"), "muted 1 part (1 was already)", "some of them")
 end)
 
 test("a yank and a paste say how many beats they took, in the singular for one", function()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local t = paw.add_track({ name = "Lead" })
+  local t = paw.add_part({ name = "Lead" })
   t:add_clip({ name = "tune", start = 16, length = 16, notes = { { pitch = 60, start = 0, length = 1 } } })
-  paw.cursor.set_track(t)
+  paw.cursor.set_part(t)
   paw.cursor.set_beat(20)
   paw.opt.grid, paw.opt.ripple = 1, false
   api.undo_checkpoint()
@@ -290,21 +290,21 @@ end)
 
 test("Ctrl-^ goes back to what the window showed before, from a text buffer too", function()
   fresh()
-  paw.add_track({ name = "Back" })
-  T.keys(":e paw://tracks<CR>")
-  eq(paw.layout.buf_of(paw.layout.current()).name, "paw://tracks", ":e shows the listing here")
+  paw.add_part({ name = "Back" })
+  T.keys(":e paw://parts<CR>")
+  eq(paw.layout.buf_of(paw.layout.current()).name, "paw://parts", ":e shows the listing here")
   T.keys("<C-^>")
   eq(paw.layout.current().view, "arrange", "Ctrl-^ goes back to the arrange view")
   T.keys(":b #<CR>")
-  eq(paw.layout.buf_of(paw.layout.current()).name, "paw://tracks", ":b # goes to the listing again")
+  eq(paw.layout.buf_of(paw.layout.current()).name, "paw://parts", ":b # goes to the listing again")
   T.keys("<C-^>")
   eq(paw.layout.current().view, "arrange", "and back")
 end)
 
 test(":vimgrep takes % as Vim does, for the whole project", function()
   fresh()
-  paw.add_track({ name = "Lead g3" })
-  paw.add_track({ name = "Bass" })
+  paw.add_part({ name = "Lead g3" })
+  paw.add_part({ name = "Bass" })
   T.keys(":vimgrep /g3/j %<CR>")
   local list = paw.qf.current(paw.qf.stack())
   eq(list and #list.entries, 1, "found with % as without")
@@ -312,14 +312,14 @@ end)
 
 test(":query in a tab narrowed to a group sees that group, as Ex ranges do", function()
   fresh()
-  local a, b = paw.add_track({ name = "Violins" }), paw.add_track({ name = "Cellos" })
-  paw.add_track({ name = "Drums" })
+  local a, b = paw.add_part({ name = "Violins" }), paw.add_part({ name = "Cellos" })
+  paw.add_part({ name = "Drums" })
   paw.groups.make({ a, b }, "Strings")
   paw.flush()
-  eq(#paw.query("track"), 4, "the whole song: the group and its tracks, and the drums")
+  eq(#paw.query("part"), 4, "the whole song: the group and its parts, and the drums")
   paw.scope.narrow("Strings")
   local names = {}
-  for _, n in ipairs(paw.query("track")) do
+  for _, n in ipairs(paw.query("part")) do
     names[#names + 1] = n.data.name
   end
   eq(table.concat(names, " "), "Strings Violins Cellos", "narrowed: the group's")

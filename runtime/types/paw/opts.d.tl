@@ -68,12 +68,14 @@ local record Opts
    mixer_height: number
    mouse: boolean
    native_dialogs: boolean
-   nest_track: string
+   nest_part: string
    note_grid: number | string
    note_snap: boolean
    note_zoom: number
    number: boolean
    on_external_change: string
+   part_height: integer | string
+   partcolumn: {string | number}
    phrase_rest: number
    pianoroll_height: number
    play_from: string
@@ -105,8 +107,6 @@ local record Opts
    termcolors: string | number
    threads: integer
    timeoutlen: number
-   track_height: integer | string
-   trackcolumn: {string | number}
    true_peak_target: number
    undo_memory: number
    undo_steps: integer

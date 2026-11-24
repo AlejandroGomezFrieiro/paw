@@ -21,7 +21,7 @@ impl Session {
     }
 
     /// Put `project` (in the form that `undo_project` gives) in place of
-    /// the open project's tracks, clips and settings, as one edit. The path
+    /// the open project's parts, clips and settings, as one edit. The path
     /// and the undo history stay. For a tool that changes the whole project
     /// at once, such as a merge (extensions/projdiff).
     pub(crate) fn project_replace(&mut self, project: Value) -> Result<()> {
@@ -37,7 +37,7 @@ impl Session {
 
 
     /// Put the open project aside, history and all, and open an empty
-    /// scratch project in its place, for something that needs tracks and
+    /// scratch project in its place, for something that needs parts and
     /// clips of its own (a hardware check) without touching the user's work.
     /// [`project_unshelve`](Self::project_unshelve) puts it back exactly as
     /// it was, undo tree included.
@@ -81,7 +81,7 @@ impl Session {
         };
         // The scratch project's takes end in it, before its history goes: a
         // take that closed later would be an undo step of the project that
-        // comes back, made from the scratch project's tracks.
+        // comes back, made from the scratch project's parts.
         self.stop();
         self.finish_takes_now();
         let limits = (self.doc.undo.history.limit(), self.doc.undo.history.byte_limit());
@@ -118,8 +118,8 @@ impl Session {
         project.join_links();
         self.apply_open_opts(&mut project);
         // Another project: a trial of this one's is over with it, and so
-        // are the files that played its tracks. A held id could name a
-        // track of the new project.
+        // are the files that played its parts. A held id could name a
+        // part of the new project.
         self.audition.trial = None;
         self.engine.map.held_files.clear();
         self.stop();
@@ -278,24 +278,24 @@ impl Session {
     /// there, and the devices' own ids of the parameters it names.
     pub(super) fn file_project(&self, path: &Path) -> Project {
         let mut project = media::for_file(&self.doc.project, path);
-        let tracks = project
-            .tracks
+        let parts = project
+            .parts
             .iter_mut()
             .chain(std::iter::once(&mut project.master));
-        for track in tracks {
-            self.keep_param_ids(track);
+        for part in parts {
+            self.keep_param_ids(part);
         }
         project
     }
 
-    /// Note in each device of a track that is about to be written the
+    /// Note in each device of a part that is about to be written the
     /// device's own id of each parameter key that it or its lanes use (see
     /// `DeviceInst::param_ids`), for every place a chain is written.
-    pub(crate) fn keep_param_ids(&self, track: &mut Arc<Track>) {
+    pub(crate) fn keep_param_ids(&self, part: &mut Arc<Part>) {
         let mut found = Vec::new();
-        for (at, d) in track.devices.iter().enumerate() {
+        for (at, d) in part.devices.iter().enumerate() {
             let Some(live) = self.live.get(&d.id) else { continue };
-            let lanes = track.lanes.iter().filter_map(|l| match &l.target {
+            let lanes = part.lanes.iter().filter_map(|l| match &l.target {
                 Target::Param { device, param } if *device == d.id => Some(param),
                 _ => None,
             });
@@ -313,9 +313,9 @@ impl Session {
         if found.is_empty() {
             return;
         }
-        let track = Arc::make_mut(track);
+        let part = Arc::make_mut(part);
         for (at, ids) in found {
-            Arc::make_mut(&mut track.devices[at]).param_ids = ids;
+            Arc::make_mut(&mut part.devices[at]).param_ids = ids;
         }
     }
 

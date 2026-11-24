@@ -101,7 +101,7 @@ end
 --- What a request is about (`paw.complete.context`).
 local record Context
   clip: integer
-  track: integer
+  part: integer
   start: number
   length: number
   at: number
@@ -235,7 +235,7 @@ end
 options.define("complete_auto", true) -- ask the sources by themselves after an idle pause
 options.define("complete_idle_ms", 1200) -- how long without an edit before that
 options.define("complete_deadline_ms", 300) -- how long a request waits before showing what has arrived
-options.define("complete_audition", false) -- play each alternative shown through the track
+options.define("complete_audition", false) -- play each alternative shown through the part
 
 local EPS = 1e-6
 
@@ -345,7 +345,7 @@ end
 
 --- What a request is about: the clip open in the piano roll, where the
 --- suggestion starts and what is chosen there. Nil without an open clip.
----   clip, track      ids
+---   clip, part      ids
 ---   start, length    where the clip is in the project, in beats
 ---   at, pitch        where the suggestion starts (clip beats) and the cursor's pitch
 ---   notes            the clip's notes, as `clip:notes()` gives them
@@ -399,7 +399,7 @@ function M.context(trigger?: Trigger): Context
   end
   return {
     clip = c.id,
-    track = c.track,
+    part = c.part,
     start = c.start,
     length = c.length,
     at = at,
@@ -866,7 +866,7 @@ end
 
 -- Audition --------------------------------------------------------------------
 
---- Play the alternative that shows through the track of the clip. It starts
+--- Play the alternative that shows through the part of the clip. It starts
 --- one bar before it, with the notes that are there, and the project does
 --- not change. Not while the transport runs.
 function M.audition()
@@ -903,7 +903,7 @@ function M.audition()
   local function ms(beat: number): number
     return math.max(0, (paw.time.to_seconds(c.start + beat) - origin) * 1000)
   end
-  local track = c.track
+  local part = c.part
   local timers: {integer} = {}
   local sounding: {integer: boolean} = {}
   local function stop()
@@ -911,7 +911,7 @@ function M.audition()
       paw.cancel(t)
     end
     for pitch in pairs(sounding) do
-      pcall(api.note_off, track, pitch)
+      pcall(api.note_off, part, pitch)
     end
     if audition_stop == stop then
       audition_stop = nil
@@ -920,11 +920,10 @@ function M.audition()
   audition_stop = stop
   for _, n in ipairs(heard) do
     timers[#timers + 1] = paw.defer(
-      function() sounding[n.pitch] = true; pcall(api.note_on, track, n.pitch, n.velocity); paw.ui.poke() end,
-      ms(n.start)
+      function() sounding[n.pitch] = true; pcall(api.note_on, part, n.pitch, n.velocity); paw.ui.poke() end, ms(n.start)
     )
     timers[#timers + 1] = paw.defer(
-      function() sounding[n.pitch] = nil; pcall(api.note_off, track, n.pitch) end,
+      function() sounding[n.pitch] = nil; pcall(api.note_off, part, n.pitch) end,
       math.max(ms(n.start) + 20, ms(n.start + n.length) - 5)
     )
   end
@@ -1038,10 +1037,10 @@ local function paint(l: Layer)
   if not cur or cur.clip ~= l.data.id then
     return
   end
-  local colour = paw.draw.track_colour(api.track_get(l.data.track))
+  local colour = paw.draw.part_colour(api.part_get(l.data.part))
   local style = ghost_style(colour)
   local g = paw.draw.g
-  -- Dashed, to tell them from notes that are there and from other tracks'.
+  -- Dashed, to tell them from notes that are there and from other parts'.
   local dash = opt.ascii and "-" or "┄"
   local highest: integer
   for _, n in ipairs(cur.item.notes) do

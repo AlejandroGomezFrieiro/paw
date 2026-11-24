@@ -72,7 +72,7 @@ from your disk, do one of the following:
 - Use File → Import…, where the desktop's file dialog shows your disk.
 
 The window sends the file into the media folder of the project on
-`studio`, and then paw imports it on a new track.
+`studio`, and then paw imports it on a new part.
 
 ## Related
 

@@ -1,5 +1,5 @@
 -- What the window's status bar is told: the key bar, the quickfix count,
--- the command line's candidates, a track's sends, and how a render's peak is
+-- the command line's candidates, a part's sends, and how a render's peak is
 -- worded. The window only draws these; the terminal shows the same.
 -- Loaded by tests/suite.lua with its helpers.
 local T = ...
@@ -81,12 +81,12 @@ test("the quickfix count is told for the status bar, worst level first", functio
   eq(qf.level, 2, "an error colours it")
 end)
 
-test("a track's sends are told with their target and level", function()
+test("a part's sends are told with their target and level", function()
   fresh()
-  local a, b = paw.add_track({ name = "a" }), paw.add_track({ name = "Reverb" })
-  api.track_set(a.id, "sends", { { target = b.id, level = -6 } })
+  local a, b = paw.add_part({ name = "a" }), paw.add_part({ name = "Reverb" })
+  api.part_set(a.id, "sends", { { target = b.id, level = -6 } })
   paw.flush()
-  local sends = paw.frontend.state(-1).tracks[1].sends
+  local sends = paw.frontend.state(-1).parts[1].sends
   eq(#sends, 1, "one send")
   eq(sends[1].name .. " " .. sends[1].level, "Reverb -6", "where to and how loud")
 end)
@@ -101,11 +101,11 @@ test("a render's peak keeps its sign and a clipping one is a warning", function(
   eq(paw.ui.message.level, "info", "not a warning")
 end)
 
-test("an Ex line being typed tells the window its range, tracks and the question it asks", function()
+test("an Ex line being typed tells the window its range, parts and the question it asks", function()
   fresh()
   paw.keymap.feed("<Esc><Esc>")
   paw.ui.focus("arrange")
-  local t = paw.add_track({ name = "Drums" })
+  local t = paw.add_part({ name = "Drums" })
   t:add_clip({
     start = 0,
     length = 8,
@@ -116,7 +116,7 @@ test("an Ex line being typed tells the window its range, tracks and the question
   local state = modal()
   eq(state.prompt.note ~= nil and state.prompt.note ~= "", true, "words for the right end of the line")
   eq(state.ex.from ~= nil and state.ex.to > state.ex.from, true, "the stretch of time")
-  eq(state.ex.tracks[1], t.id, "the track")
+  eq(state.ex.parts[1], t.id, "the part")
   paw.keymap.feed("<Esc>")
   eq(modal().ex, nil, "gone with the line")
   paw.keymap.feed(":%s/c4/d4/gc<CR>")

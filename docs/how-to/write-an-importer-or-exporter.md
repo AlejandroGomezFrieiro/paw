@@ -34,13 +34,13 @@ paw.formats.register({
       if pitch then notes[#notes + 1] = { pitch = tonumber(pitch), start = tonumber(start), length = tonumber(length) } end
     end
     if not opts.merge then paw.project.new() end
-    local track = paw.add_track({ name = path:match("([^/]+)%.notes$") })
-    track:add_clip({ start = 0, length = 8, notes = notes })
+    local part = paw.add_part({ name = path:match("([^/]+)%.notes$") })
+    part:add_clip({ start = 0, length = 8, notes = notes })
     return string.format("read %d notes from %s", #notes, path)
   end,
   export = function(path)
     local lines = {}
-    for _, clip in ipairs(paw.tracks()[1]:clips()) do
+    for _, clip in ipairs(paw.parts()[1]:clips()) do
       for _, n in ipairs(clip:notes()) do
         lines[#lines + 1] = string.format("%d %g %g", n.pitch, clip.start + n.start, n.length)
       end
@@ -74,7 +74,7 @@ details are in [How to write an extension in Teal](write-an-extension-in-teal.md
 
 ## Use it
 
-1. Type `:import song.notes`, and a track with the notes appears.
+1. Type `:import song.notes`, and a part with the notes appears.
 2. Type `:export copy.notes`, and paw writes the notes to `copy.notes`.
 3. Type `:help formats`. The list shows the new format, with the formats
    of paw and of the extensions that are loaded.

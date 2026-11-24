@@ -6,34 +6,34 @@ Automation lanes move a fader, a pan or a parameter while the song plays. The au
 
 ## Automation modes
 
-Each track has an automation mode: `track.automation`.
+Each part has an automation mode: `part.automation`.
 
 | Mode | While the song plays |
 | --- | --- |
 | `read` | Default. The lanes play. A move of a control writes nothing. |
 | `touch` | A control writes while you hold or move it. When you release it, the lane controls it again, and the written part joins the lane. |
 | `latch` | A control writes from its first move until the song stops. |
-| `write` | Each lane of the track is written from where the song starts to play, with or without a move. |
+| `write` | Each lane of the part is written from where the song starts to play, with or without a move. |
 | `off` | The lanes stay but do not play. The fader, the pan and the parameters stay where you set them. |
 
 | Keys, command | Effect |
 | --- | --- |
-| `:automation touch` | Set the mode of the track. |
-| `:automation read all` | Set the mode of every track. |
+| `:automation touch` | Set the mode of the part. |
+| `:automation read all` | Set the mode of every part. |
 | `:automation`, `<Space>am` | The next mode. |
 | `:lane.write`, `<Space>aw` | Write on, for the full song. Again: off. `:lane.write off`: off. |
 | `<Space>al` | Select what to automate, and show its lane. |
 
-In the graphical window, the `A` flag on the track header shows the mode.
+In the graphical window, the `A` flag on the part header shows the mode.
 
 ## Rules
 
 - A control is a fader, a pan or a parameter, and a move can come from the keyboard, a frontend, a MIDI controller or the editor of a plugin.
 - paw writes into the lane at the playhead, over what the lane had there, and it makes a lane if there is none.
 - In the graphical window, a control is held while the pointer holds it (`paw.api.automation_hold`). Any other control counts as held for a little more than half a second after its last move.
-- While `:lane.write` is on, each track that does not write in its own mode latches.
-- The track header in the terminal shows `T`, `L` or `W` in red while a
-  track writes, and `-` when its automation is off.
+- While `:lane.write` is on, each part that does not write in its own mode latches.
+- The part header in the terminal shows `T`, `L` or `W` in red while a
+  part writes, and `-` when its automation is off.
 
 ## State lanes
 
@@ -50,7 +50,7 @@ Each state has a `name` and one or more of the fields below.
 
 | Keys, command | Effect |
 | --- | --- |
-| `<Space>al`, then `state` | Make the state lane of a device of the track, and show its row. |
+| `<Space>al`, then `state` | Make the state lane of a device of the part, and show its row. |
 | `\s` on the lane's row, `:lane.state [name]` | Keep the device's state now (its saved state and its parameters) as a state of the lane, and give it from the cursor. The default name is the name of the device's preset, or the next free letter. |
 | `c` on the lane's row | Choose the state of the point under the cursor, or of a new point there, from a list. |
 | `+` `-` | Give the point under the cursor the next or the previous state. |
@@ -77,7 +77,7 @@ The row shows the name of each point's state, up to the next point.
 | `lane:add_state(state)` | Add a state, or replace the state with its name. Returns its index, from 0. |
 | `lane:set_state(beat, name)` | A point that gives the state from `beat` on. |
 | `lane:states()` | The states of the lane. |
-| `paw.api.lane_add(track, { target = "state", device = id, states = {...} })` | Make a state lane. |
+| `paw.api.lane_add(part, { target = "state", device = id, states = {...} })` | Make a state lane. |
 
 ## Undo of a control move
 

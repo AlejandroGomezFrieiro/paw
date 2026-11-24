@@ -10,12 +10,12 @@ local euclid = require("euclid")
 paw.command("euclid", function(ctx)
   local hits, steps = tonumber(ctx.args[1]), tonumber(ctx.args[2]) or 16
   if not hits then return paw.notify("usage: euclid <hits> [steps] [pitch=36] [step=0.25] [rotate=0]", "warn") end
-  local track = paw.cursor.track()
-  if not track then return paw.notify("no track selected", "warn") end
+  local part = paw.cursor.part()
+  if not part then return paw.notify("no part selected", "warn") end
 
   local step = tonumber(ctx.args.step) or 0.25
   local pitch = paw.music.pitch(ctx.args.pitch or 36)
-  local clip = paw.cursor.clip() or track:add_clip({ start = paw.cursor.beat, length = steps * step, name = "euclid" })
+  local clip = paw.cursor.clip() or part:add_clip({ start = paw.cursor.beat, length = steps * step, name = "euclid" })
 
   -- Replace this pitch's notes and keep the others, so that patterns layer.
   local notes = {}

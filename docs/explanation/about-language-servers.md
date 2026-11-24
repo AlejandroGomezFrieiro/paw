@@ -36,7 +36,7 @@ the same note, and its fix changes the same note.
 
 A server must not know the internal model of paw, so it gets a subject,
 which is a stable view of a part of the project. For example, a subject can
-be a clip in the format of MIDI LSP, a track, the mix or a render. When the
+be a clip in the format of MIDI LSP, a part, the mix or a render. When the
 model changes, only the projection changes, and the servers continue to
 work.
 

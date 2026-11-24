@@ -650,10 +650,10 @@ function M.shift(map, shift)
   return copy
 end
 
---- The maps whose `match` names a device of a track.
-function M.matching(track)
+--- The maps whose `match` names a device of a part.
+function M.matching(part)
   local devices = {}
-  for _, id in ipairs(api.track_get(track).devices or {}) do
+  for _, id in ipairs(api.part_get(part).devices or {}) do
     local ok, d = pcall(api.device_get, id)
     if ok then devices[#devices + 1] = d end
   end

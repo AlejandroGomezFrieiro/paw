@@ -170,14 +170,14 @@ end
 --- Run `fn` when the check is over, however it ends.
 function Ctx:cleanup(fn) table.insert(self.cleanups, fn) end
 
---- A track that is taken away when the check is over.
-function Ctx:track(opts)
+--- A part that is taken away when the check is over.
+function Ctx:part(opts)
   self:scratch()
-  local track = paw.add_track(opts)
+  local part = paw.add_part(opts)
   self:cleanup(function()
-    if track:exists() then track:remove() end
+    if part:exists() then part:remove() end
   end)
-  return track
+  return part
 end
 
 --- A file that is deleted when the check is over.
@@ -220,7 +220,7 @@ end
 
 --- Put the person's project away, with its undo history, and open an empty
 --- one to work in. The project is only ever put away, never changed: the
---- checks add and remove tracks in the scratch project, and `finish` brings
+--- checks add and remove parts in the scratch project, and `finish` brings
 --- the person's back exactly as it was. A copy of it is written to the
 --- doctor's directory meanwhile, in case the program dies in between.
 function M.open_scratch(run)

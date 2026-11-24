@@ -92,7 +92,7 @@ The method names are in `paw_engine::device::method`, where each host finds them
 
 | Way | Effect |
 | --- | --- |
-| `ge` on a track or on a device in the panel | show or hide the editor of the plugin |
+| `ge` on a part or on a device in the panel | show or hide the editor of the plugin |
 | `Enter` on a device row in the panel | the same |
 | the `edit` button in the graphical window | the same |
 | `device:open_editor()` | open the editor |
@@ -120,9 +120,9 @@ The method names are in `paw_engine::device::method`, where each host finds them
 
 Each plugin runs in a helper process, which is the `paw` program started again.
 
-- If a plugin crashes or hangs, paw loses only that plugin, and paw tells you which plugin and why. The track continues, so an effect that is gone lets the sound through and an instrument is silent.
+- If a plugin crashes or hangs, paw loses only that plugin, and paw tells you which plugin and why. The part continues, so an effect that is gone lets the sound through and an instrument is silent.
 - `:device.restart` (`gR` in the device panel, the Restart button in the graphical window) starts the plugin again, with its last state in the project.
-- The audio thread waits for a plugin for about the time of one block, so a slow plugin costs its own track a block of sound and does not cause a dropout for all tracks. The notes and controllers of that block are not lost, because the plugin gets them at the start of the next block that it takes.
+- The audio thread waits for a plugin for about the time of one block, so a slow plugin costs its own part a block of sound and does not cause a dropout for all parts. The notes and controllers of that block are not lost, because the plugin gets them at the start of the next block that it takes.
 - A plugin that gives no block for two seconds has hung, and paw stops it and reports it as a crash.
 - A render waits for a block of a plugin for 20 seconds at most, one time, and after that the render continues without the plugin and says so.
 - Each other request has a time limit, and if a plugin hangs while paw makes it or saves its state, paw stops it and reports it.
@@ -193,4 +193,4 @@ Devices written in Lua also run in a helper process. See
 
 ## The sampler extension
 
-`extensions/sampler` gives `paw sampler` (`clap:dev.paw.sampler`), which plays SFZ and Decent Sampler instruments and gives sampler tracks. A MIDI 2.0 attribute or a keyswitch selects the articulation of each note. See its [README](../../extensions/sampler/README.md).
+`extensions/sampler` gives `paw sampler` (`clap:dev.paw.sampler`), which plays SFZ and Decent Sampler instruments and gives sampler parts. A MIDI 2.0 attribute or a keyswitch selects the articulation of each note. See its [README](../../extensions/sampler/README.md).
