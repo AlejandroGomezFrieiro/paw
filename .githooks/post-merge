@@ -1,0 +1,7 @@
+#!/bin/sh
+# After a merge or a fast-forward of main: the tickets that the merges land
+# are set Done on the board (tools/board-sync.sh). On another branch it
+# does nothing.
+cd "$(git rev-parse --show-toplevel)" || exit 0
+[ -x tools/board-sync.sh ] && tools/board-sync.sh
+exit 0

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-24T14:20:00Z'
-updated_date: '2026-11-24T14:37:00Z'
+updated_date: '2026-11-24T14:38:00Z'
 labels:
   - bug
   - tests
@@ -33,3 +33,9 @@ ordinal: 440000
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Cause: test order dependence. The strip needs arrange geometry from a first paint; alone the test read it before. Fix: paint once in the test (branch mixdiag-flake, bf2d2ea7). Red alone 5/5 before, green repeat 5 and shuffle 3 after.
+<!-- SECTION:NOTES:END -->
