@@ -188,25 +188,6 @@ local function clip_at(self: Arrange, row: Row, tx: number, dy: number, fine: bo
   return found, part, index
 end
 
---- A tempo or signature flag on the ruler: its columns and its mark.
-local record Flag
-  x0: integer
-  x1: integer
-  mark: TempoModule.Mark
-end
-
---- The tempo and signature flags on the ruler, where they are drawn.
-local function ruler_marks(self: Arrange): {Flag}
-  local out: {Flag} = {}
-  for _, mark in ipairs(paw.tempo.marks(self.scroll, self:current_axis():beat_of(self.geometry.layout.tw))) do
-    -- The glyph is in the column of the beat, and the value follows it
-    -- (`ruler_tempo_marks` in paw/views/arrange.tl).
-    local x = self:current_axis():x_of(mark.beat)
-    out[#out + 1] = {x0 = x, x1 = x + 1 + api.str_width(mark.text), mark = mark}
-  end
-  return out
-end
-
 --- The marker or region whose name (or band) is under column `tx` of row
 --- `row` of the regions' lane (0 the first; paw/markers.tl).
 local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule.Marker
@@ -1119,7 +1100,7 @@ end
 --- double click turns the loop on or off.
 local function press_ruler(self: Arrange, e: MouseEvent, h: Hit)
   local tx = h.tx
-  for _, m in ipairs(ruler_marks(self)) do
+  for _, m in ipairs(self.geometry.flags) do
     if tx >= m.x0 and tx < m.x1 then
       return press_flag(self, e, m.mark)
     end
@@ -1312,7 +1293,7 @@ local function hover(self: Arrange, h: Hit)
   local text: string
   if h.area == "ruler" and h.timeline then
     text = hints.ruler
-    for _, m in ipairs(ruler_marks(self)) do
+    for _, m in ipairs(self.geometry.flags) do
       if h.tx >= m.x0 and h.tx < m.x1 then
         text = hints.flag
       end

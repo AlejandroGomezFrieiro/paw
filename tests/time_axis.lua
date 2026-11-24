@@ -340,6 +340,7 @@ local function marks_scenario()
   api.signature_set(25, 4, 4)
   api.tempo_set(12, 90)
   api.tempo_set(20, 100)
+  api.tempo_set(29.5, 105)
   api.tempo_set(30.5, 110)
   local piano = paw.add_part({ name = "Piano" })
   piano:add_clip({ name = "clipA", start = 16, length = 8, notes = { { pitch = 60, start = 0, length = 1 } } })
@@ -380,7 +381,7 @@ local function check_marks(what)
   -- A column with the marks of two kinds (zoomed far out, a cell holds many
   -- beats) shows the glyph of one: each glyph is in a column of its kind, and each
   -- column of a mark has a glyph.
-  local meter, tempo = shown({ 16, 25 }), shown({ 12, 20, 30.5 })
+  local meter, tempo = shown({ 16, 25 }), shown({ 12, 20, 29.5, 30.5 })
   local function kinds(columns)
     local set = {}
     for _, x in ipairs(columns) do
@@ -407,35 +408,96 @@ local function check_marks(what)
     eq(drawn[x] or false, true, "a tempo mark has its glyph at " .. x .. ", " .. where)
   end
   eq(glyph_columns(ruler, at, "▼"), shown({ 21.25 }), "the playhead's cap, " .. where)
-  -- A bar's number starts at its column. Next to a mark on a bar line the
-  -- number comes after the mark's value, so digits within 8 cells of a mark
-  -- glyph are not read.
-  local function near_mark(x)
-    for k = math.max(at + 1, x - 8), x - 1 do
-      if ruler[k][1] == "▾" or ruler[k][1] == "‖" then return true end
+  -- Each digit of the ruler is accounted for. A bar's number starts at its
+  -- column, or after the glyph and the whole value of the marks there (the
+  -- value, if it fits, then the number, if it fits whole). A value is whole
+  -- or absent. Any other digit fails.
+  local accounted = {}
+  local function spells(x, text)
+    local chars = {}
+    for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      chars[#chars + 1] = ch
     end
-    return false
+    for k, ch in ipairs(chars) do
+      local cell = ruler[at + 1 + x + k - 1]
+      if not cell or cell[1] ~= ch then return false end
+    end
+    for k = 1, #chars do
+      accounted[at + 1 + x + k - 1] = true
+    end
+    return #chars
+  end
+  --- Whether the number of bar `n` is written whole from column `x`, or cut by the ruler's end.
+  local function number_at(x, n)
+    local text = tostring(n)
+    local seen = 0
+    for k = 1, #text do
+      local cell = ruler[at + 1 + x + k - 1]
+      if not cell then break end
+      if cell[1] ~= text:sub(k, k) then return false end
+      seen = k
+    end
+    for k = 1, seen do
+      accounted[at + 1 + x + k - 1] = true
+    end
+    return seen > 0
+  end
+  -- The marks by column, as `paw.tempo.marks` gives them.
+  local columns, order = {}, {}
+  for _, mark in ipairs(paw.tempo.marks(0, 1e6)) do
+    local x = ax:x_of(mark.beat)
+    if x >= 0 and x < tw and not ax:fold_at(x) then
+      if not columns[x] then
+        columns[x], order[#order + 1] = {}, x
+      end
+      local glyph = mark.kind == "tempo" and "▾" or "‖"
+      local list = columns[x]
+      list[#list + 1] = (#list > 0 and glyph or "") .. mark.text
+    end
+  end
+  local bar_columns = {}
+  for bar = paw.time.bar_of(ax.scroll), paw.time.bar_of(ax:beat_of(tw)) do
+    local x = ax:x_of(paw.time.bar_start(bar))
+    -- Zoomed far out, bars share a cell: the one drawn is any of them.
+    if x >= 0 and x < tw then
+      bar_columns[x] = bar_columns[x] or {}
+      table.insert(bar_columns[x], bar)
+    end
+  end
+  local after_value = {}
+  for _, x in ipairs(order) do
+    local glyph = ruler[at + 1 + x][1]
+    if glyph == "▾" or glyph == "‖" then
+      local value = spells(x + 1, table.concat(columns[x], " "))
+      after_value[x] = x + 1 + (value or -1) + 1
+      if not value then after_value[x] = x + 1 end
+    end
+  end
+  for x, bars in pairs(bar_columns) do
+    local glyph = ruler[at + 1 + x][1]
+    local function written(from)
+      for _, bar in ipairs(bars) do
+        if number_at(from, bar) then return true end
+      end
+      return false
+    end
+    if after_value[x] then
+      -- Under a mark: the number follows the value after one cell (a space or a beat tick), or the glyph with no value.
+      local from = after_value[x]
+      if from == x + 1 or ruler[at + 1 + from - 1] and not ruler[at + 1 + from - 1][1]:match("^%d$") then
+        written(from)
+      end
+    elseif glyph:match("^%d$") and not accounted[at + 1 + x] then
+      eq(written(x), true, "a bar is written whole at column " .. x .. ", " .. where)
+    end
   end
   for x = at + 1, #ruler do
-    local before = ruler[x - 1][1]
-    local value = near_mark(x)
-    if
-      ruler[x][1]:match("^%d$")
-      and not value
-      and not before:match("^%d$")
-      and before ~= "▾"
-      and before ~= "‖"
-      and before ~= "/"
-    then
-      local digits = {}
-      for k = x, #ruler do
-        if not ruler[k][1]:match("^%d$") then break end
-        digits[#digits + 1] = ruler[k][1]
-      end
-      local number = tonumber(table.concat(digits))
-      if x + #digits <= #ruler then
-        eq(x - at - 1, ax:x_of(paw.time.bar_start(number)), "bar " .. number .. " on the ruler, " .. where)
-      end
+    if ruler[x][1]:match("^%d$") then
+      eq(
+        accounted[x] or false,
+        true,
+        "the digit " .. ruler[x][1] .. " at column " .. x - at - 1 .. " is a bar or a value, " .. where
+      )
     end
   end
   -- The section's first cell and its name, the marker, and the clip's first cell.
@@ -473,6 +535,7 @@ test("a meter change at a bar with a number keeps the column of its bar", functi
   paw.ui.focus("arrange")
   paw.project.tempo = 120
   api.signature_set(184, 6, 8)
+  api.tempo_set(187, 100)
   paw.markers.add(184, "Part A", { length = 24 })
   local piano = paw.add_part({ name = "Piano" })
   piano:add_clip({ name = "take", start = 184, length = 8, notes = { { pitch = 60, start = 0, length = 1 } } })
@@ -488,6 +551,8 @@ test("a meter change at a bar with a number keeps the column of its bar", functi
   eq(view.caret.x - at, column, "the cursor is in that column")
   local bar = rows[0]
   eq(bar[at + column + 2][1] .. bar[at + column + 3][1] .. bar[at + column + 4][1], "6/8", "the value follows the mark")
+  -- The tempo mark on the next bar line shows its value, where there is room.
+  eq(text_of(bar, at + 1 + view.axis:x_of(187)):sub(1, 6), "▾100", "the tempo value follows its glyph")
   T.expect_screen("meter_at_bar_47", 100, 16, { rows = { 1, 3 } })
 end)
 

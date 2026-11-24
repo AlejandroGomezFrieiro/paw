@@ -85,9 +85,25 @@ local record Layout
   band_y: integer
 end
 
---- What the last draw gave the pointer and the keys: its layout, too.
+--- A tempo or signature flag on the ruler: the columns it is drawn in
+--- (`x1` is the first one after it) and its mark.
+local record Flag
+  x0: integer
+  x1: integer
+  mark: TempoModule.Mark
+end
+
+--- The tempo and signature changes that share one column of the ruler.
+local record MarkGroup
+  x: integer
+  marks: {TempoModule.Mark}
+end
+
+--- What the last draw gave the pointer and the keys: its layout, and where
+--- it drew the flags of the ruler.
 local record Geometry is contracts.ArrangeGeometry
   layout: Layout
+  flags: {Flag}
 end
 
 --- A take lane dragged across with the pointer: from column `x0` to `x1`
@@ -128,6 +144,7 @@ local record Arrange is contracts.ArrangeView
   type Row = Row
   type Layout = Layout
   type Geometry = Geometry
+  type Flag = Flag
   type Comp = Comp
   --- The first part shown.
   top: integer
@@ -1507,16 +1524,9 @@ end
 --- beat of the song into the window's time; the bar and beat lines; the
 --- loop's columns (on or off) and the punch range's; the cursor's part
 --- and lane.
---- The tempo and signature changes that share one column of the ruler.
-local record MarkGroup
-  x: integer
-  --- Whether the column is a bar line.
-  bar: boolean
-  marks: {TempoModule.Mark}
-end
-
 local record Frame
   buf: Buf
+  flags: {Flag}
   headers: Buf
   --- The first column of `headers` in the view.
   headers_x: integer
@@ -1717,7 +1727,7 @@ local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {G
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
         labelled[#labelled + 1] = line
-        if marked[line.x] and marked[line.x].bar then
+        if marked[line.x] then
           free, deferred[line.x] = line.x + 1, line
         else
           -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl), in
@@ -1804,7 +1814,7 @@ local function tempo_mark_groups(F: Frame): {MarkGroup}
       if last and last.x == x then
         last.marks[#last.marks + 1] = mark
       else
-        groups[#groups + 1] = {x = x, bar = paw.tempo.is_bar_line(mark.beat), marks = {mark}}
+        groups[#groups + 1] = {x = x, marks = {mark}}
       end
     end
   end
@@ -1814,11 +1824,13 @@ end
 --- Tempo and signature changes on the ruler: a glyph in the column of the
 --- beat, never moved, and the value right after it. A value is shown whole
 --- or not at all: it stops a cell before the next bar's number or the next
---- change. On a bar line the bar's number follows the value, if it fits
---- whole after it, and is left out if not.
+--- change. At a bar line, or in the cell of a bar's number, the number
+--- follows the value if it fits whole after it, and is left out if not.
+--- Gives the columns each flag took, for the pointer.
 local function ruler_tempo_marks(
   F: Frame, label_end: {integer: integer}, groups: {MarkGroup}, deferred: {integer: GridLine}
-)
+): {Flag}
+  local flags: {Flag} = {}
   for i, group in ipairs(groups) do
     local x = group.x
     local glyphs: {string} = {}
@@ -1840,7 +1852,15 @@ local function ruler_tempo_marks(
     local after = x + 1
     if after + api.str_width(text) <= limit then
       F.ruler:text(after, 0, text, "RulerTempo")
+      local at = after
+      for k, mark in ipairs(group.marks) do
+        local width = api.str_width(texts[k])
+        flags[#flags + 1] = {x0 = k == 1 and x or at, x1 = at + width, mark = mark}
+        at = at + width + 1
+      end
       after = after + api.str_width(text) + 1
+    else
+      flags[#flags + 1] = {x0 = x, x1 = x + 1, mark = group.marks[1]}
     end
     local line = deferred[x]
     if line then
@@ -1853,6 +1873,7 @@ local function ruler_tempo_marks(
     end
     F.ruler:text(x, 0, glyphs[1], "RulerTempo")
   end
+  return flags
 end
 
 --- The bands of extensions under the ruler (`paw.frontend.bands`), a row
@@ -1896,7 +1917,7 @@ local function draw_ruler(self: Arrange, F: Frame)
   local mark_groups = tempo_mark_groups(F)
   local label_end, labelled, deferred = ruler_bars(F, mark_groups)
   ruler_edges(F)
-  ruler_tempo_marks(F, label_end, mark_groups, deferred)
+  F.flags = ruler_tempo_marks(F, label_end, mark_groups, deferred)
   if L.song_bars then
     song_bars(F, labelled)
   end
@@ -2575,7 +2596,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   -- The window's axis, at the scroll it has now: every row draws on it.
   local ax = axis.new(self.scroll, zoom, spans)
   self.axis, F.ax = ax, ax
-  self.geometry = {hw = hw, th = L.th, rows = #L.rows, zoom = zoom, span = F.span, layout = L, axis = ax}
+  self.geometry = {hw = hw, th = L.th, rows = #L.rows, zoom = zoom, span = F.span, layout = L, axis = ax, flags = {}}
   -- The beat at the right edge of the timeline.
   F.last = ax:beat_of(tw)
   -- What this window shows, in the song's beats, comes first: the chord
@@ -2602,6 +2623,7 @@ function view:render(buf: Buf, ctx: contracts.RenderContext)
   F.headers_x = cw
   buf:fill(0, 0, hw - 1, h, " ", "PartHeader")
   draw_ruler(self, F)
+  self.geometry.flags = F.flags
   draw_rows(self, F)
   if column then
     self:draw_column(column, L, F.cursor_part, F.cursor_lane)
