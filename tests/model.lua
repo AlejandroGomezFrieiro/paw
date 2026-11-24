@@ -353,7 +353,10 @@ test("a key that a setter does not know names the key", function()
   local nest = api.nest_add({ name = "verse" })
   fails(function() api.part_set(t.id, "loudness", 1) end, "parts have no settable field `loudness`")
   fails(function() api.part_set(t.id, "master", true) end, "parts have no settable field `master`")
-  fails(function() api.part_set(t.id, { midi_output = { prot = "x" } }) end, "bad value for `midi_output`: unknown field `prot`")
+  fails(
+    function() api.part_set(t.id, { midi_output = { prot = "x" } }) end,
+    "bad value for `midi_output`: unknown field `prot`"
+  )
   fails(function() api.project_set("bpm", 90) end, "the project has no settable field `bpm`")
   fails(function() api.nest_set(nest, "size", 4) end, "subprojects have no settable field `size`")
   local placed = api.clip_add(paw.add_part().id, { nest = nest, start = 0 })

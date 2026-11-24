@@ -35,6 +35,7 @@ function H.describe()
       max = s.max,
       default = s.default,
       unit = s.unit,
+      steps = s.steps,
       choices = s.choices or {},
     }
   end
