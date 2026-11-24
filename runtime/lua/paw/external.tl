@@ -35,6 +35,9 @@ local opt = options.opt
 local record M
 end
 
+-- One field of the project: the call with no key builds the whole view.
+local project_field = api.project_get as function(key: string): boolean
+
 options.define(
   "on_external_change", "ask", {type = "string", values = {"ask", "reload", "keep"}}
 ) -- when a file of the project changes outside paw: "ask", "reload" or "keep"
@@ -101,7 +104,7 @@ function M.act()
     M.keep()
     return
   end
-  if how == "reload" and not api.project_get().modified then
+  if how == "reload" and not project_field("modified") then
     M.reload()
     return
   end

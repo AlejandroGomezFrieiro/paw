@@ -79,6 +79,11 @@ end
 
 local env = api.env()
 
+-- One field of the project: the call with no key builds the whole view
+-- (every clip is counted), and the handlers of device events run once for
+-- each device.
+local project_field = api.project_get as function(key: string): string | boolean
+
 --- The directory the program keeps things about a project in, outside the
 --- project file: one per project file.
 function M.project_dir(path: string): string
@@ -138,7 +143,7 @@ end
 events.on(
   kernel.device_stopped,
   function(event: kernel.DeviceTrouble)
-    local path = api.project_get().path
+    local path = project_field("path") as string
     if not event.loading or not path then
       return
     end
@@ -157,7 +162,7 @@ events.on(
 events.on(
   kernel.device_ready,
   function(event: kernel.DeviceReady)
-    local path = api.project_get().path
+    local path = project_field("path") as string
     if not path then
       return
     end

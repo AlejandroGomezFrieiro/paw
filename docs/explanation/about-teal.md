@@ -1095,6 +1095,7 @@ a range, so the frontend still has a record for it.
 
 The module `paw.recent` read `time` from a file, and `os.date` takes a
 whole number or the time of now, so the picker rounds the time down in
-place of passing a fraction. The module `paw.loading` read one field of the
-project with `api.project_get("path")`. The call takes no argument in the
-types, so it reads the whole project and takes the field.
+place of passing a fraction. The modules `paw.loading` and `paw.external` read one
+field of the project with `api.project_get("path")`. The types of the call
+take no key, and a call with no key builds the whole view of the project,
+so the two modules keep the one-field read through one cast of the function.
