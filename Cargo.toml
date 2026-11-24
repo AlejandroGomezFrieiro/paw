@@ -77,6 +77,10 @@ bitflags = "2"
 serde = { version = "1", features = ["derive", "rc"] }
 # Exact round trips of every f64 through a saved project.
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# JSON Schemas of typed structs: the shapes of paw.api (Teal records) and
+# the parameters of built-in kinds (ParamSchema), and paw-mcp's tool
+# inputs. Already in Cargo.lock through rmcp.
+schemars = "1"
 # Command lines of the binaries.
 clap = { version = "4", features = ["derive"] }
 # I/O that waits (paw-crates.md): each crate adds the features it uses.

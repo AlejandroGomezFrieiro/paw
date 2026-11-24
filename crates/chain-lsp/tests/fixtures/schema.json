@@ -1,5 +1,5 @@
 {
-  "chain_schema": 2,
+  "chain_schema": 3,
   "host": "example",
   "streams": [{ "stream": "audio", "name": "Audio" }, { "stream": "midi", "name": "MIDI" }],
   "nodes": [
@@ -17,8 +17,8 @@
       "kind": "compressor",
       "name": "Compressor",
       "params": [
-        { "key": "threshold", "type": "number", "unit": "dB", "min": -60, "max": 0, "default": -18 },
-        { "key": "ratio", "type": "number", "min": 1, "max": 20, "default": 4 },
+        { "key": "threshold", "type": "number", "unit": "dB", "minimum": -60, "maximum": 0, "default": -18 },
+        { "key": "ratio", "type": "number", "minimum": 1, "maximum": 20, "default": 4 },
         { "key": "key", "type": "source" }
       ]
     },
@@ -26,8 +26,8 @@
       "kind": "saturation",
       "name": "Saturation",
       "params": [
-        { "key": "drive", "type": "number", "unit": "dB", "min": 0, "max": 36, "default": 6 },
-        { "key": "curve", "type": "choice", "choices": ["soft", "tube", "tape"], "default": "soft" }
+        { "key": "drive", "type": "number", "unit": "dB", "minimum": 0, "maximum": 36, "default": 6 },
+        { "key": "curve", "type": "string", "enum": ["soft", "tube", "tape"], "default": "soft" }
       ]
     }
   ],

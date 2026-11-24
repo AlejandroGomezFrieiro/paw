@@ -656,7 +656,7 @@ pub struct Clip {
 /// What an audio clip keeps when the tempo changes. Either way it keeps its
 /// length in seconds, so that a recording plays every sample at the time
 /// it was recorded at: its end beat follows from the tempo map.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Timebase {
     /// Its start stays at the same time in seconds (REAPER's default for

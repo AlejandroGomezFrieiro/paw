@@ -36,10 +36,10 @@ Parse a text, check it against your schema, and print the diagnostics:
 
 ```rust
 let schema = chain_syntax::Schema::from_json(r#"{
-    "chain_schema": 2,
+    "chain_schema": 3,
     "devices": [
         { "kind": "compressor", "params": [
-            { "key": "ratio", "type": "number", "min": 1, "max": 20, "default": 4 }
+            { "key": "ratio", "type": "number", "minimum": 1, "maximum": 20, "default": 4 }
         ] }
     ]
 }"#)?;

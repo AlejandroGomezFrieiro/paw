@@ -45,7 +45,7 @@ pub(crate) const MAX_DEPTH: usize = 8;
 
 /// A nest's own id, never reused in the project. Nests take their ids from
 /// the same counter as parts and clips.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(transparent)]
 pub struct NestId(pub u64);
 
@@ -118,8 +118,9 @@ pub(crate) enum NestMeter {
 }
 
 /// What a nest clip plays of its nest.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
+#[schemars(extend("x-teal" = "string | NestPart"))]
 pub enum NestPlay {
     /// The events of one part of the nest, through the devices of the
     /// part the clip is on.

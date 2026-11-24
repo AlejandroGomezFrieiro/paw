@@ -763,79 +763,127 @@ local record types
   --- `midi`, `audio`, or the name of a kind that an extension defines.
   type ClipKind = string
 
-  enum Timebase
-    "time"
-    "beats"
-    "stretch"
-  end
+  -- The records below come from paw.api.api_schema (tools/apidoc.lua): change the Rust types.
 
+  --- How an audio clip is stretched.
   enum StretchMode
     "auto"
     "tonal"
     "percussive"
   end
 
-  --- A warp marker of an audio clip: moments of its file in seconds; in a
-  --- clip's view, with the `beat` it plays on.
-  record WarpMarker
-    source: number
-    target: number
-    beat: number
+  --- What an audio clip keeps when the tempo changes. Either way it keeps its
+  --- length in seconds, so that a recording plays every sample at the time
+  --- it was recorded at: its end beat follows from the tempo map.
+  enum Timebase
+    "time"
+    "beats"
+    "stretch"
   end
 
-  --- `paw.api.clip_get(id)` and each entry of `clip_list` (`clip_json`),
-  --- without the notes. MIDI clips have `note_count`, `control_count` and
-  --- the stamps, which change when the notes or controls do; audio clips
-  --- have `file` and how they play it, and `edits`, the number of edits.
+  --- `paw.api.clip_get(id)` and each entry of `clip_list`, without the notes.
+  --- MIDI clips have `note_count`, `control_count` and the stamps, which
+  --- change when the notes or controls do; audio clips have `file` and how
+  --- they play it, and `edits`, the number of edits. What does not apply to
+  --- its kind is left out.
   record Clip
-    id: integer
-    name: string
-    start: number
-    length: number
-    muted: boolean
-    kind: ClipKind
-    part: integer
-    meta: Meta
-    cue: boolean
-    source: string
-    origin: string
-    offline: boolean
-    note_count: integer
+    bent: boolean
     control_count: integer
-    stamp: integer
+    --- The same for the controller moves.
     control_stamp: integer
+    cue: boolean
+    edits: integer
+    fade_in: number
+    fade_out: number
+    file: string
+    formants: boolean
+    gain: number
+    id: integer
+    kind: ClipKind
+    length: number
     --- A linked clip's link, and how many clips it has (`link_count` only
     --- from `clip_get`).
     link: string
     link_count: integer
+    loop: boolean
+    loop_length: number
+    loop_start: number
+    made: number
+    meta: Meta
+    muted: boolean
+    name: string
+    nest: integer
+    note_count: integer
+    offline: boolean
+    offset: number
+    origin: string
+    part: integer
+    pitch: number
+    play: string | NestPart
+    preview: boolean
+    source: string
+    source_tempo: number
+    --- Changes whenever the notes do (`model::Notes::stamp`).
+    stamp: integer
+    start: number
+    stretch: number
+    stretch_mode: StretchMode
+    stretching: boolean
+    timebase: Timebase
     --- A MIDI clip's overrides: semitones up (down below 0), and what is
-    --- added to the velocity of each note. They change what plays, not
-    --- the notes.
+    --- added to the velocity of each note. They change what plays, not the
+    --- notes.
     transpose: integer
     velocity: integer
-    edits: integer
-    file: string
-    offset: number
-    gain: number
-    fade_in: number
-    fade_out: number
-    timebase: Timebase
-    stretch: number
-    pitch: number
-    stretch_mode: StretchMode
-    source_tempo: number
-    loop: boolean
-    loop_start: number
-    loop_length: number
-    stretching: boolean
-    made: number
-    preview: boolean
-    bent: boolean
-    formants: boolean
     warp: {WarpMarker}
-    nest: integer
-    play: string | NestPart
   end
+
+  --- What `paw.api.clip_set` changes in a clip: each field as `clip_get` gives
+  --- it, and what is left out stays. Nil clears a field that has a default
+  --- (`clip_set(id, "loop_length", nil)`), and is refused for the others.
+  record ClipChanges
+    --- Beats an audio clip fades in over.
+    fade_in: number
+    --- Beats an audio clip fades out over.
+    fade_out: number
+    --- The sound file of an audio clip: another take of it.
+    file: string
+    formants: boolean
+    --- The gain of an audio clip in dB, from -120 to 24.
+    gain: number
+    length: number
+    loop: boolean
+    loop_length: number
+    loop_start: number
+    meta: Meta
+    muted: boolean
+    name: string
+    offset: number
+    --- Move the clip to the end of this part.
+    part: integer
+    pitch: number
+    source_tempo: number
+    start: number
+    stretch: number
+    stretch_mode: StretchMode
+    timebase: Timebase
+    --- Semitones up (down below 0), from -127 to 127.
+    transpose: number
+    --- What is added to the velocity of each note, from -127 to 127.
+    velocity: number
+    --- The markers of an audio clip; the `beat` of each is not read.
+    warp: {WarpMarker}
+  end
+
+  --- A warp marker of an audio clip: moments of its file in seconds; in a
+  --- clip's view, with the `beat` it plays on.
+  record WarpMarker
+    beat: number
+    source: number
+    target: number
+  end
+
+  -- The end of the records from paw.api.api_schema.
 
   --- What `paw.api.clip_add` takes (`ClipOpts`): `kind` follows from
   --- `file` when left out; `cue` keeps it off the timeline. A subproject's

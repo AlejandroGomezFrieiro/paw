@@ -47,7 +47,8 @@ use crate::resample::Stream;
 pub(crate) use crate::warp::Warp;
 
 /// How a clip is stretched: see the module's description.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
+#[schemars(rename = "StretchMode", description = "How an audio clip is stretched.")]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
     #[default]

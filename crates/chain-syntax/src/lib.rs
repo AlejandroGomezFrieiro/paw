@@ -7,6 +7,7 @@ mod diagnostic;
 mod format;
 mod graph;
 mod lex;
+mod param_schema;
 mod parse;
 mod print;
 mod schema;
@@ -21,6 +22,7 @@ pub use check::check;
 pub use context::{CONTEXT_VERSION, Context, ContextError, Lane, Outside, OutsideEnd};
 pub use diagnostic::{Code, Diagnostic, Severity, Span};
 pub use format::{format, format_with, normalize};
+pub use param_schema::{ParamError, ParamSchema, ParamType, params_of_json_schema};
 pub use parse::{Parsed, parse};
 pub use print::print;
 pub use schema::{

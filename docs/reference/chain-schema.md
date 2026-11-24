@@ -8,7 +8,7 @@ A host can also give a context for one text, which is a second JSON file. The co
 
 ```json
 {
-  "chain_schema": 2,
+  "chain_schema": 3,
   "host": "example",
   "streams": [
     {
@@ -16,7 +16,7 @@ A host can also give a context for one text, which is a second JSON file. The co
       "name": "Audio",
       "time": "samples",
       "records": true,
-      "props": [{ "key": "channels", "type": "number", "integer": true, "min": 1, "max": 64, "default": 2 }]
+      "props": [{ "key": "channels", "type": "integer", "minimum": 1, "maximum": 64, "default": 2 }]
     },
     { "stream": "midi", "name": "MIDI", "time": "beats", "records": true },
     { "stream": "curve", "name": "Curve", "time": "beats", "records": true, "control": true }
@@ -29,8 +29,8 @@ A host can also give a context for one text, which is a second JSON file. The co
     {
       "kind": "strip",
       "params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "pan", "type": "number", "minimum": -1, "maximum": 1, "default": 0 }
       ],
       "ports": [
         { "port": "in", "stream": "audio", "main": true },
@@ -38,22 +38,22 @@ A host can also give a context for one text, which is a second JSON file. The co
         { "port": "out", "stream": "audio", "main": true, "out": true }
       ]
     },
-    { "kind": "send", "params": [{ "key": "level", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }] }
+    { "kind": "send", "params": [{ "key": "level", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 }] }
   ],
   "devices": [
     {
       "kind": "compressor",
       "name": "Compressor",
       "params": [
-        { "key": "threshold", "type": "number", "unit": "dB", "min": -60, "max": 0, "default": -18 },
-        { "key": "ratio", "type": "number", "label": ":1", "min": 1, "max": 20, "default": 4 },
-        { "key": "detect", "type": "choice", "choices": ["peak", "rms"], "default": "peak" },
+        { "key": "threshold", "type": "number", "unit": "dB", "minimum": -60, "maximum": 0, "default": -18 },
+        { "key": "ratio", "label": ":1", "type": "number", "minimum": 1, "maximum": 20, "default": 4 },
+        { "key": "detect", "type": "string", "enum": ["peak", "rms"], "default": "peak" },
         { "key": "key", "type": "source", "stream": "audio" }
       ]
     },
     {
       "kind": "synth",
-      "params": [{ "key": "voices", "type": "number", "integer": true, "min": 1, "max": 32, "default": 8 }],
+      "params": [{ "key": "voices", "type": "integer", "minimum": 1, "maximum": 32, "default": 8 }],
       "ports": [
         { "port": "notes", "stream": "midi", "main": true },
         { "port": "out", "stream": "audio", "main": true, "out": true }
@@ -66,11 +66,11 @@ A host can also give a context for one text, which is a second JSON file. The co
       "kind": "band",
       "branches": { "min": 2, "max": 6 },
       "params": [
-        { "key": "xover", "type": "list", "unit": "Hz", "min": 20, "max": 20000, "count": { "min": 1, "max": 5 }, "ascending": true }
+        { "key": "xover", "type": "array", "items": { "type": "number", "unit": "Hz", "minimum": 20, "maximum": 20000 }, "minItems": 1, "maxItems": 5, "ascending": true }
       ],
       "branch_params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "mute", "type": "switch", "default": false }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "mute", "type": "boolean", "default": false }
       ]
     }
   ],
@@ -78,8 +78,8 @@ A host can also give a context for one text, which is a second JSON file. The co
     {
       "kind": "lfo",
       "params": [
-        { "key": "rate", "type": "number", "unit": "Hz", "min": 0.01, "max": 50, "default": 1 },
-        { "key": "sync", "type": "note" }
+        { "key": "rate", "type": "number", "unit": "Hz", "minimum": 0.01, "maximum": 50, "default": 1 },
+        { "key": "sync", "type": "string", "format": "note" }
       ]
     }
   ],
@@ -105,7 +105,7 @@ A host can also give a context for one text, which is a second JSON file. The co
 
 | Field | Value | Meaning |
 | --- | --- | --- |
-| `chain_schema` | A number | The version of the format. The version that this reference describes is `2`. A reader refuses a version that it does not know. |
+| `chain_schema` | A number | The version of the format. The version that this reference describes is `3`. A reader refuses a version that it does not know. |
 | `host` | A text | The host that wrote the schema, for people. The check does not read it. |
 | `streams` | A list of streams | The kinds of stream that ports, lanes and wires carry. With no streams, the check does not check the streams between inserts. |
 | `default_ports` | A list of ports | The ports of a kind that gives no `ports` of its own. |
@@ -166,30 +166,32 @@ A kind of device, modulator, producer and input or output, and a role in `nodes`
 
 ## A parameter
 
-Each parameter has a `key` and a `type`, and the type decides the other fields.
+Each parameter has a `key` and a `type`. The other fields are words of JSON Schema, with a few words that JSON Schema does not have, and the type decides which of them a parameter can have. A host that has a JSON Schema of its kinds can copy each property into a parameter.
 
 | Field | Value | Meaning |
 | --- | --- | --- |
 | `key` | A text | The key that a field names, such as `threshold` or `Input gain`. |
 | `type` | A text | One of the types below. |
 | `name` | A text | The name to show to people. |
+| `description` | A text | What the parameter does, for people. |
 | `label` | A text | A unit that the host shows and that the language does not have, such as `°` or `:1`. Values of the parameter have no unit. |
 
 | Type | The value in a chain | Its fields |
 | --- | --- | --- |
-| `number` | A number, with a unit when `unit` is given | `unit`, `min`, `max` and `default`, all in `unit`. `integer` is `true` when the parameter takes only whole numbers. |
-| `switch` | `on` or `off` | `default`: `true` for `on`. |
-| `choice` | One of the choices | `choices`, a list of texts, and `default`, one of them. |
-| `text` | Any word or quoted text | `default`. |
-| `note` | A note value, such as `1/4` | `default`, as a chain writes it. |
-| `list` | Numbers with commas between them | `unit`, `min` and `max` for each number. `count` is `{ "min": n, "max": n }`. `ascending` is `true` when each number must be greater than the one before it. |
-| `source` | `@id`, `@in`, an outside end `@"path"`, or a word or quoted text that the host gives a meaning to | `stream`, the kind of stream that an outside end must give. It can be left out. |
+| `number` | A number, with a unit when `unit` is given | `unit`, `minimum`, `maximum` and `default`, all in `unit`. |
+| `integer` | A whole number | The fields of `number`. |
+| `boolean` | `on` or `off` | `default`: `true` for `on`. |
+| `string` | One of the choices of `enum`, a note value such as `1/4` when `format` is `note`, or else any word or quoted text | `enum`, a list of texts, and `format`. `default` is one of the choices, or a note value as a chain writes it, or a text. |
+| `array` | Numbers with commas between them | `items` gives `unit`, `minimum` and `maximum` for each number. `minItems` and `maxItems` give how many numbers the list holds. `ascending` is `true` when each number must be greater than the one before it. |
+| `source` | `@id`, `@in`, an outside end `@"path"`, or a word or quoted text that the host gives a meaning to | `stream`, the kind of stream that an outside end must give, which can be left out. `main` is `true` when the source is the main input of the kind. |
+
+A field that the type does not take, such as `enum` on a `number`, stops the schema from loading, and the message names the parameter and the field. A `format` other than `note` is only for people, as in JSON Schema.
 
 A `unit` is one of `dB`, `Hz`, `kHz`, `ms`, `s`, `%` and `st`. The check accepts a value in another unit of the same measure, so a parameter in `Hz` takes `2.5kHz`.
 
 ## Defaults and the formatter
 
-With a schema, the formatter leaves out each field at the `default` of its parameter, and a host reads a missing field as its default. A parameter with no `default` is always written. A `list` and a `source` have no default.
+With a schema, the formatter leaves out each field at the `default` of its parameter, and a host reads a missing field as its default. A parameter with no `default` is always written. An `array` and a `source` have no default.
 
 ## The context
 
@@ -217,4 +219,4 @@ The context of a text tells the check the type of each lane and outside end that
 
 ## Versions
 
-A new version of the format gets a new number in `chain_schema`. A reader of version 2 refuses a schema of version 1, with a message that names both versions, and it does not guess.
+A new version of the format gets a new number in `chain_schema`. A reader of version 3 refuses a schema of version 2, with a message that names both versions, and it does not guess.

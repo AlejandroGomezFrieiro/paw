@@ -21,6 +21,7 @@ pub mod tls;
 
 pub use kernel::{Frontend, InputEvent, Kernel, KernelMsg, KernelOpts, KernelSender};
 
+mod api_schema;
 mod attr_map;
 mod bake;
 mod chain_schema;

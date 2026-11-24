@@ -40,6 +40,60 @@ pub(crate) fn de<T: DeserializeOwned>(key: &str, value: Value) -> Result<T> {
     serde_json::from_value(value).map_err(|err| anyhow!("bad value for `{key}`: {err}"))
 }
 
+/// One field of a patch (`ClipPatch`): left out, cleared with nil (the key
+/// form `clip_set(id, key, nil)` gives `null`), or set to a value.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) enum Patch<T> {
+    #[default]
+    Keep,
+    Clear,
+    Set(T),
+}
+
+impl<T> Patch<T> {
+    /// The new value of a field that has no empty state: nil is an error
+    /// that names `key`.
+    pub(crate) fn value(self, key: &str) -> Result<Option<T>> {
+        match self {
+            Self::Keep => Ok(None),
+            Self::Set(value) => Ok(Some(value)),
+            Self::Clear => bail!("bad value for `{key}`: it is not nil"),
+        }
+    }
+
+    /// The change of a field that nil clears: `Some(None)` clears it.
+    pub(crate) fn change(self) -> Option<Option<T>> {
+        match self {
+            Self::Keep => None,
+            Self::Clear => Some(None),
+            Self::Set(value) => Some(Some(value)),
+        }
+    }
+}
+
+/// A field that is given is read as an `Option`: `null` clears it. A field
+/// that is not given is `Keep`, by `#[serde(default)]` on the patch.
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Patch<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        Ok(Option::<T>::deserialize(deserializer)?.map_or(Self::Clear, Self::Set))
+    }
+}
+
+/// The schema of a field that is given: its value, or `null`.
+impl<T: schemars::JsonSchema> schemars::JsonSchema for Patch<T> {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        Option::<T>::schema_name()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        Option::<T>::json_schema(generator)
+    }
+}
+
 /// `value`, or an error naming `what` if it is NaN or infinite.
 pub(crate) fn finite(what: &str, value: f64) -> Result<f64> {
     if value.is_finite() {

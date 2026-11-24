@@ -919,7 +919,7 @@ fn describe(param: &Param) -> String {
                 range(*min, *max)
             )
         }
-        ParamValue::Source { stream } => {
+        ParamValue::Source { stream, .. } => {
             let stream = stream
                 .as_ref()
                 .map(|stream| format!(" of {stream}"))

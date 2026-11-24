@@ -91,6 +91,20 @@ local record model
     fields: {Field}
   end
 
+  --- A type of string choices of the kernel's schema.
+  record SchemaEnum
+    name: string
+    doc: {string}
+    values: {string}
+  end
+
+  --- What the kernel's schema (`paw.api.api_schema`) gives: records whose
+  --- fields have their Teal type in `teal`, and enums, each sorted by name.
+  record Schema
+    records: {Record}
+    enums: {SchemaEnum}
+  end
+
   --- What a Rust file of data gives: its records in order, and the
   --- variants of each `pub enum` by the enum's name.
   record RustFile
@@ -184,6 +198,7 @@ local record model
     options: {Option}
     events_rs: RustFile
     props_rs: RustFile
+    schema: Schema
     runtime_events: {Event}
     --- Whether runtime/lua/paw/types.tl is there.
     has_types: boolean

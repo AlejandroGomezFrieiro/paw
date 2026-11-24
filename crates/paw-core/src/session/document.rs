@@ -42,14 +42,14 @@ mod parts;
 mod undo_tree;
 mod values;
 pub(super) use automation::{check_lane_state, clean_points};
-pub(super) use clips::{ClipField, check_clip_part, check_pitch, check_ratio, check_tempo, check_warp};
-pub(crate) use clips::{ClipKind, ClipOpts, CustomSet};
+pub(super) use clips::{check_clip_part, check_pitch, check_ratio, check_tempo, check_warp};
+pub(crate) use clips::{ClipChange, ClipKind, ClipOpts, ClipPatch, CustomSet};
 pub(crate) use parts::PartListOpts;
 #[cfg(test)]
 pub(super) use parts::PartOpts;
 pub(super) use undo_tree::{Adjusting, new_history};
 use undo_tree::{SWEEP_GAP, Undo};
-pub(super) use values::{de, finite, holds, sorted};
+pub(super) use values::{de, finite, sorted};
 pub(crate) use chain::{Place, WrapOpts};
 
 /// The project, its undo tree, and what its edits report.

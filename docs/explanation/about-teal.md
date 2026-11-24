@@ -101,6 +101,15 @@ window paints, and the tool makes `runtime/types/paw/role_props.d.tl`
 from it. The window reads the props with the same Rust types, so the
 records agree with what the window reads.
 
+The kernel also gives a JSON Schema of some of its data, with
+`paw.api.api_schema()`. The crate `schemars` makes the schema from the Rust
+types that read and write the data, for example a clip as `clip_get` gives
+it and the changes that `clip_set` takes. The tool writes a record or an
+`enum` for each type of the schema in `types.tl`, between two marks, and the
+records outside the marks stay as people write them. A field that has a
+type of its own in `types.tl`, such as `Meta`, names it with the keyword
+`x-teal` in its schema.
+
 ### The global `paw`
 
 `runtime/types/paw.d.tl` gives `paw.api`, and it gives each module of the

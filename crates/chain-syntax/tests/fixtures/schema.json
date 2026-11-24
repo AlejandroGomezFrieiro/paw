@@ -1,5 +1,5 @@
 {
-  "chain_schema": 2,
+  "chain_schema": 3,
   "host": "example",
   "streams": [
     {
@@ -7,14 +7,14 @@
       "name": "Audio",
       "time": "samples",
       "records": true,
-      "props": [{ "key": "channels", "type": "number", "integer": true, "min": 1, "max": 64, "default": 2 }]
+      "props": [{ "key": "channels", "type": "integer", "minimum": 1, "maximum": 64, "default": 2 }]
     },
     {
       "stream": "midi",
       "name": "MIDI",
       "time": "beats",
       "records": true,
-      "props": [{ "key": "lyrics", "type": "switch", "default": false }]
+      "props": [{ "key": "lyrics", "type": "boolean", "default": false }]
     },
     { "stream": "curve", "name": "Curve", "time": "beats", "records": true, "control": true },
     { "stream": "keyframes", "name": "Keyframes", "time": "beats" },
@@ -29,10 +29,10 @@
       "kind": "strip",
       "name": "Strip",
       "params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 },
-        { "key": "mute", "type": "switch", "default": false },
-        { "key": "solo", "type": "switch", "default": false }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "pan", "type": "number", "minimum": -1, "maximum": 1, "default": 0 },
+        { "key": "mute", "type": "boolean", "default": false },
+        { "key": "solo", "type": "boolean", "default": false }
       ],
       "ports": [
         { "port": "in", "stream": "audio", "main": true },
@@ -44,27 +44,27 @@
       "kind": "bus",
       "name": "Bus",
       "params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "pan", "type": "number", "minimum": -1, "maximum": 1, "default": 0 }
       ]
     },
     {
       "kind": "master",
       "name": "Master",
-      "params": [{ "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }]
+      "params": [{ "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 }]
     },
     {
       "kind": "send",
       "name": "Send",
       "params": [
-        { "key": "level", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "pre", "type": "switch", "default": false }
+        { "key": "level", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "pre", "type": "boolean", "default": false }
       ]
     },
     {
       "kind": "vca",
       "name": "VCA",
-      "params": [{ "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }],
+      "params": [{ "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 }],
       "ports": [{ "port": "gain", "stream": "curve", "main": true, "out": true }]
     }
   ],
@@ -72,7 +72,7 @@
     {
       "kind": "synth",
       "name": "Synth",
-      "params": [{ "key": "voices", "type": "number", "integer": true, "min": 1, "max": 32, "default": 8 }],
+      "params": [{ "key": "voices", "type": "integer", "minimum": 1, "maximum": 32, "default": 8 }],
       "ports": [
         { "port": "notes", "stream": "midi", "main": true },
         { "port": "out", "stream": "audio", "main": true, "out": true }
@@ -81,7 +81,7 @@
     {
       "kind": "arp",
       "name": "Arpeggiator",
-      "params": [{ "key": "rate", "type": "note" }],
+      "params": [{ "key": "rate", "type": "string", "format": "note" }],
       "ports": [
         { "port": "notes", "stream": "midi", "main": true },
         { "port": "out", "stream": "midi", "main": true, "out": true }
@@ -91,21 +91,21 @@
       "kind": "eq",
       "name": "EQ",
       "params": [
-        { "key": "hp", "type": "number", "unit": "Hz", "min": 10, "max": 20000, "default": 10 },
-        { "key": "lp", "type": "number", "unit": "Hz", "min": 10, "max": 20000, "default": 20000 },
-        { "key": "b1.freq", "type": "number", "unit": "Hz", "min": 10, "max": 20000, "default": 1000 },
-        { "key": "b1.gain", "type": "number", "unit": "dB", "min": -24, "max": 24, "default": 0 }
+        { "key": "hp", "type": "number", "unit": "Hz", "minimum": 10, "maximum": 20000, "default": 10 },
+        { "key": "lp", "type": "number", "unit": "Hz", "minimum": 10, "maximum": 20000, "default": 20000 },
+        { "key": "b1.freq", "type": "number", "unit": "Hz", "minimum": 10, "maximum": 20000, "default": 1000 },
+        { "key": "b1.gain", "type": "number", "unit": "dB", "minimum": -24, "maximum": 24, "default": 0 }
       ]
     },
     {
       "kind": "compressor",
       "name": "Compressor",
       "params": [
-        { "key": "threshold", "type": "number", "unit": "dB", "min": -60, "max": 0, "default": -18 },
-        { "key": "ratio", "type": "number", "label": ":1", "min": 1, "max": 20, "default": 4 },
-        { "key": "attack", "type": "number", "unit": "ms", "min": 0.1, "max": 100, "default": 10 },
-        { "key": "release", "type": "number", "unit": "ms", "min": 10, "max": 1000, "default": 120 },
-        { "key": "makeup", "type": "number", "unit": "dB", "min": 0, "max": 24, "default": 0 },
+        { "key": "threshold", "type": "number", "unit": "dB", "minimum": -60, "maximum": 0, "default": -18 },
+        { "key": "ratio", "label": ":1", "type": "number", "minimum": 1, "maximum": 20, "default": 4 },
+        { "key": "attack", "type": "number", "unit": "ms", "minimum": 0.1, "maximum": 100, "default": 10 },
+        { "key": "release", "type": "number", "unit": "ms", "minimum": 10, "maximum": 1000, "default": 120 },
+        { "key": "makeup", "type": "number", "unit": "dB", "minimum": 0, "maximum": 24, "default": 0 },
         { "key": "key", "type": "source", "stream": "audio" }
       ]
     },
@@ -113,16 +113,16 @@
       "kind": "saturation",
       "name": "Saturation",
       "params": [
-        { "key": "drive", "type": "number", "unit": "dB", "min": 0, "max": 36, "default": 6 },
-        { "key": "curve", "type": "choice", "choices": ["soft", "tube", "tape"], "default": "soft" },
-        { "key": "mix", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 100 }
+        { "key": "drive", "type": "number", "unit": "dB", "minimum": 0, "maximum": 36, "default": 6 },
+        { "key": "curve", "type": "string", "enum": ["soft", "tube", "tape"], "default": "soft" },
+        { "key": "mix", "type": "number", "unit": "%", "minimum": 0, "maximum": 100, "default": 100 }
       ]
     },
     {
       "kind": "gate",
       "name": "Gate",
       "params": [
-        { "key": "threshold", "type": "number", "unit": "dB", "min": -80, "max": 0, "default": -40 },
+        { "key": "threshold", "type": "number", "unit": "dB", "minimum": -80, "maximum": 0, "default": -40 },
         { "key": "key", "type": "source" }
       ]
     },
@@ -130,16 +130,16 @@
       "kind": "delay",
       "name": "Delay",
       "params": [
-        { "key": "time", "type": "note", "default": "1/4" },
-        { "key": "feedback", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 30 },
-        { "key": "pingpong", "type": "switch", "default": false }
+        { "key": "time", "type": "string", "format": "note", "default": "1/4" },
+        { "key": "feedback", "type": "number", "unit": "%", "minimum": 0, "maximum": 100, "default": 30 },
+        { "key": "pingpong", "type": "boolean", "default": false }
       ]
     },
     {
       "kind": "limiter",
       "name": "Limiter",
       "params": [
-        { "key": "ceiling", "type": "number", "unit": "dB", "min": -24, "max": 0, "default": -1 }
+        { "key": "ceiling", "type": "number", "unit": "dB", "minimum": -24, "maximum": 0, "default": -1 }
       ]
     },
     { "kind": "sampler", "name": "Sampler", "open_params": true }
@@ -150,7 +150,7 @@
       "name": "Rack",
       "branches": { "min": 1, "max": 1 },
       "params": [
-        { "key": "mix", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 100 }
+        { "key": "mix", "type": "number", "unit": "%", "minimum": 0, "maximum": 100, "default": 100 }
       ]
     },
     {
@@ -158,12 +158,12 @@
       "name": "Layer",
       "branches": { "min": 1, "max": 16 },
       "params": [
-        { "key": "mix", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 100 }
+        { "key": "mix", "type": "number", "unit": "%", "minimum": 0, "maximum": 100, "default": 100 }
       ],
       "branch_params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 },
-        { "key": "pan", "type": "number", "min": -1, "max": 1, "default": 0 },
-        { "key": "mute", "type": "switch", "default": false }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 },
+        { "key": "pan", "type": "number", "minimum": -1, "maximum": 1, "default": 0 },
+        { "key": "mute", "type": "boolean", "default": false }
       ]
     },
     {
@@ -171,10 +171,10 @@
       "name": "Band split",
       "branches": { "min": 2, "max": 6 },
       "params": [
-        { "key": "xover", "type": "list", "unit": "Hz", "min": 20, "max": 20000, "count": { "min": 1, "max": 5 }, "ascending": true }
+        { "key": "xover", "type": "array", "items": { "type": "number", "unit": "Hz", "minimum": 20, "maximum": 20000 }, "minItems": 1, "maxItems": 5, "ascending": true }
       ],
       "branch_params": [
-        { "key": "gain", "type": "number", "unit": "dB", "min": -60, "max": 12, "default": 0 }
+        { "key": "gain", "type": "number", "unit": "dB", "minimum": -60, "maximum": 12, "default": 0 }
       ]
     }
   ],
@@ -183,16 +183,16 @@
       "kind": "macro",
       "name": "Macro",
       "params": [
-        { "key": "value", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 0 }
+        { "key": "value", "type": "number", "unit": "%", "minimum": 0, "maximum": 100, "default": 0 }
       ]
     },
     {
       "kind": "lfo",
       "name": "LFO",
       "params": [
-        { "key": "rate", "type": "number", "unit": "Hz", "min": 0.01, "max": 50, "default": 1 },
-        { "key": "sync", "type": "note" },
-        { "key": "shape", "type": "choice", "choices": ["sine", "triangle", "square"], "default": "sine" }
+        { "key": "rate", "type": "number", "unit": "Hz", "minimum": 0.01, "maximum": 50, "default": 1 },
+        { "key": "sync", "type": "string", "format": "note" },
+        { "key": "shape", "type": "string", "enum": ["sine", "triangle", "square"], "default": "sine" }
       ]
     }
   ],
@@ -210,7 +210,7 @@
       "kind": "midi-keys",
       "name": "Keyframes from MIDI",
       "tier": "kernel",
-      "params": [{ "key": "smooth", "type": "number", "unit": "ms", "min": 0, "max": 1000, "default": 0 }],
+      "params": [{ "key": "smooth", "type": "number", "unit": "ms", "minimum": 0, "maximum": 1000, "default": 0 }],
       "ports": [
         { "port": "notes", "stream": "midi", "main": true },
         { "port": "keys", "stream": "keyframes", "main": true, "out": true }
@@ -220,7 +220,7 @@
       "kind": "singer",
       "name": "Singer",
       "tier": "bake",
-      "params": [{ "key": "voice", "type": "text" }],
+      "params": [{ "key": "voice", "type": "string" }],
       "ports": [
         { "port": "notes", "stream": "midi", "props": { "lyrics": true }, "main": true },
         { "port": "out", "stream": "audio", "props": { "channels": 1 }, "main": true, "out": true }
@@ -241,7 +241,7 @@
       "tier": "bake",
       "params": [
         { "key": "camera", "type": "source", "stream": "video" },
-        { "key": "script", "type": "text" }
+        { "key": "script", "type": "string" }
       ],
       "ports": [
         { "port": "keys", "stream": "keyframes", "main": true },
@@ -272,13 +272,13 @@
     {
       "kind": "audio-in",
       "name": "Audio input",
-      "params": [{ "key": "channel", "type": "number", "integer": true, "min": 1, "max": 64, "default": 1 }],
+      "params": [{ "key": "channel", "type": "integer", "minimum": 1, "maximum": 64, "default": 1 }],
       "ports": [{ "port": "out", "stream": "audio", "props": { "channels": 1 }, "main": true, "out": true }]
     },
     {
       "kind": "midi-in",
       "name": "MIDI input",
-      "params": [{ "key": "device", "type": "text" }],
+      "params": [{ "key": "device", "type": "string" }],
       "ports": [{ "port": "out", "stream": "midi", "main": true, "out": true }]
     }
   ],

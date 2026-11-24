@@ -8,6 +8,7 @@ local type kernel_events = require("paw.events.kernel")
 local record api
    version: string
    limit_async: boolean
+   api_schema: function(): string
    audio_devices: function(): types.AudioDevices
    audio_reconnect: function(): boolean
    audio_test_device: function(opts?: types.TestDeviceOptions)
@@ -69,7 +70,7 @@ local record api
    clip_peaks: function(id: integer, n: integer): {types.Peak}
    clip_remove: function(id: integer)
    clip_reverse: function(id: integer): types.ClipEdits
-   clip_set: function(id: integer, patch: types.Clip)
+   clip_set: function(id: integer, patch: types.ClipChanges)
    clip_set: function(id: integer, key: string, value: nil)
    clip_set_controls: function(id: integer, controls: {types.Control})
    clip_set_custom: function(id: integer, set: types.CustomSet)

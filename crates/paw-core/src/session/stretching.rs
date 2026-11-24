@@ -17,10 +17,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use serde_json::Value;
 
-use super::document::{check_pitch, check_ratio, check_tempo, check_warp};
-use super::{ClipKind, MAX_PEAKS, Session, de};
+use super::document::{ClipChange, check_pitch, check_ratio, check_tempo, check_warp};
+use super::{ClipKind, MAX_PEAKS, Session};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
 use crate::bake::scheduler::{Busy, Priority, Status};
@@ -30,20 +29,6 @@ use crate::events::{BakeProgress, KernelEvent as E};
 use crate::stretched::{Key, SETTLE, ViewRange};
 use crate::media::Sources;
 use crate::warp;
-
-/// The clip fields set here rather than in `Session::clip_set`.
-const FIELDS: [&str; 10] = [
-    "stretch",
-    "pitch",
-    "stretch_mode",
-    "source_tempo",
-    "timebase",
-    "loop",
-    "loop_length",
-    "loop_start",
-    "warp",
-    "formants",
-];
 
 /// The refusal of an audio-only field (`what` is `have ...`) on a clip that
 /// has no audio sound: for a custom clip, it says what the clip has.
@@ -79,25 +64,15 @@ fn wanted(project: &Project, rate: u32, sources: &Sources) -> HashSet<Key> {
 }
 
 impl Session {
-    /// Set one of the [`FIELDS`] of a clip; `None` for any other field.
-    pub(super) fn clip_set_playing(
-        &mut self,
-        id: Id,
-        key: &str,
-        value: &Value,
-    ) -> Option<Result<()>> {
-        FIELDS
-            .contains(&key)
-            .then(|| self.set_playing(id, key, value.clone()))
-    }
-
-    fn set_playing(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+    /// Make a change of how clip `id` plays ([`ClipChange::is_playing`]).
+    pub(super) fn set_playing(&mut self, id: Id, change: ClipChange) -> Result<()> {
         let clip = self
             .doc.project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?
             .clone();
         let audio = matches!(clip.playable(), Some(ClipContent::Audio { .. }));
+        let key = change.key();
         if !audio && !key.starts_with("loop") {
             return Err(not_audio(&clip, &format!("have `{key}`")));
         }
@@ -105,39 +80,33 @@ impl Session {
         // What a loop turned on repeats unless it was given a length: a
         // MIDI clip what it holds now, an audio clip its file from where
         // it starts playing it.
-        let natural = match (key, &value) {
-            ("loop", Value::Bool(true)) if clip.loop_length.is_none() => Some(if audio {
+        let natural = match change {
+            ClipChange::Loop(true) if clip.loop_length.is_none() => Some(if audio {
                 self.clip_source_length(id)?
             } else {
                 clip.length
             }),
             _ => None,
         };
-        let number = |value: &Value| -> Result<Option<f64>> {
+        let finite = |value: Option<f64>| -> Result<Option<f64>> {
             match value {
-                Value::Null => Ok(None),
-                value => {
-                    let n: f64 = de(key, value.clone())?;
-                    if !n.is_finite() {
-                        bail!("`{key}` is a number, not {n}");
-                    }
-                    Ok(Some(n))
-                }
+                Some(n) if !n.is_finite() => bail!("`{key}` is a number, not {n}"),
+                value => Ok(value),
             }
         };
         self.doc.edit(|p| {
             let c = p.clip_mut(id).expect("the clip was found");
-            match key {
-                "stretch" => {
-                    c.stretch = check_ratio(number(&value)?.unwrap_or(1.0))?;
+            match change {
+                ClipChange::Stretch(ratio) => {
+                    c.stretch = check_ratio(finite(ratio)?.unwrap_or(1.0))?;
                     // Its sound's own tempo is as much faster as it is slowed.
                     if c.timebase == Some(Timebase::Stretch) {
                         c.source_tempo = Some(tempo * c.stretch);
                     }
                 }
-                "pitch" => c.pitch = check_pitch(number(&value)?.unwrap_or(0.0))?,
-                "stretch_mode" => c.stretch_mode = de(key, value)?,
-                "source_tempo" => match number(&value)? {
+                ClipChange::Pitch(semitones) => c.pitch = check_pitch(finite(semitones)?.unwrap_or(0.0))?,
+                ClipChange::StretchMode(mode) => c.stretch_mode = mode,
+                ClipChange::SourceTempo(bpm) => match finite(bpm)? {
                     None => c.source_tempo = None,
                     Some(bpm) => {
                         let bpm = check_tempo(bpm)?;
@@ -149,15 +118,13 @@ impl Session {
                         c.source_tempo = Some(bpm);
                     }
                 },
-                "timebase" => {
-                    let timebase: Timebase = de(key, value)?;
+                ClipChange::Timebase(timebase) => {
                     if timebase == Timebase::Stretch && c.source_tempo.is_none() {
                         c.source_tempo = Some(tempo * c.stretch);
                     }
                     c.timebase = Some(timebase);
                 }
-                "loop" => {
-                    let on: bool = de(key, value)?;
+                ClipChange::Loop(on) => {
                     if on && c.loop_length.is_none() {
                         let Some(beats) = natural.filter(|l| *l > 1e-9) else {
                             bail!("the clip has nothing to repeat");
@@ -166,23 +133,17 @@ impl Session {
                     }
                     c.looped = on;
                 }
-                "loop_length" => match number(&value)? {
+                ClipChange::LoopLength(beats) => match finite(beats)? {
                     Some(beats) if beats <= 0.0 => bail!("a loop is longer than 0 beats"),
                     beats => c.loop_length = beats,
                 },
-                "loop_start" => c.loop_start = number(&value)?.unwrap_or(0.0),
-                "warp" => {
-                    let markers: Vec<WarpMarker> = match value {
-                        // An empty Lua table is an empty object.
-                        Value::Null => Vec::new(),
-                        Value::Object(map) if map.is_empty() => Vec::new(),
-                        value => de(key, value)?,
-                    };
+                ClipChange::LoopStart(beats) => c.loop_start = finite(beats)?.unwrap_or(0.0),
+                ClipChange::Warp(markers) => {
                     check_warp(ClipKind::Audio, &markers)?;
                     c.warp = markers;
                 }
-                "formants" => c.formants = de(key, value)?,
-                _ => unreachable!("one of FIELDS"),
+                ClipChange::Formants(on) => c.formants = on,
+                other => unreachable!("`{}` is not a change of how a clip plays", other.key()),
             }
             Ok(())
         })
