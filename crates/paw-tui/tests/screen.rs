@@ -9,7 +9,7 @@ mod pty;
 mod sealed;
 
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::mpsc::{Receiver, channel};
 
@@ -43,6 +43,12 @@ impl Drop for Screen {
 impl Screen {
     /// Start paw with no project and wait for its first frame.
     fn start(name: &str) -> Self {
+        Self::start_with(name, |_, _| {})
+    }
+
+    /// The same, with what `change` does to the command first, in the
+    /// test's folder.
+    fn start_with(name: &str, change: impl FnOnce(&Path, &mut Command)) -> Self {
         // A short path: a Unix socket's must fit in 108 bytes.
         let dir = std::env::temp_dir().join(format!("paw-sc-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -50,6 +56,7 @@ impl Screen {
         let socket = dir.join("paw.sock");
         let (master, slave) = pty::pty();
         let mut command = Command::new(env!("CARGO_BIN_EXE_paw"));
+        change(&dir, &mut command);
         sealed::seal(&mut command, &dir);
         command
             .env("TERM", "xterm-256color")
@@ -139,6 +146,45 @@ fn what_plugins_libraries_and_child_processes_print_goes_to_the_log_and_not_on_t
     for line in ["stray-out", "stray-err", "stray-child", "stray-child-err"] {
         assert!(log.contains(line), "{line} is in the log:\n{log}");
     }
+}
+
+/// A device written in Lua runs in a plugin host, as a plugin does.
+const PRINTER: &str = r#"
+io.stdout:write("host-out\n")
+io.stdout:flush()
+io.stderr:write("host-err\n")
+local dsp = require("paw.dsp")
+local dev = dsp.device { name = "Printer" }
+function dev.process(b) end
+return dev
+"#;
+
+#[test]
+fn what_a_plugin_host_prints_goes_to_the_log_with_the_name_of_the_plugin() {
+    let mut screen = Screen::start("host");
+    let mut c = screen.connect();
+    let devices = screen.dir.join("devices");
+    std::fs::create_dir_all(&devices).unwrap();
+    std::fs::write(devices.join("printer.lua"), PRINTER).unwrap();
+    let add = "paw.luadev.add_dir(...) paw.add_part({ name = 'P' }):add_device('lua:printer')";
+    c.call("eval", json!([add, devices.to_string_lossy()])).unwrap();
+    // The reader of the host's pipe writes to the log on a thread of its
+    // own: each round trip lets it go on.
+    while !(screen.log().contains("plugin Printer: host-out") && screen.log().contains("plugin Printer: host-err")) {
+        c.call("eval", json!(["return true"])).unwrap();
+    }
+    sync(&mut screen, &mut c, "after-the-host");
+    assert!(!screen.text.contains("host-out") && !screen.text.contains("host-err"), "not on the screen:\n{:?}", screen.text);
+}
+
+#[test]
+fn with_no_log_paw_starts_and_says_that_plugin_output_can_come_on_the_screen() {
+    // A cache folder that cannot be made: its path is a file.
+    let mut screen = Screen::start_with("nolog", |dir, command| {
+        std::fs::write(dir.join("cache"), "").unwrap();
+        command.env("XDG_CACHE_HOME", dir.join("cache"));
+    });
+    screen.wait_for("the message", |text| visible(text).contains("no log for the output of plugins"));
 }
 
 #[test]

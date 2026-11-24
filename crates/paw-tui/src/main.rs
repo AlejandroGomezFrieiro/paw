@@ -81,6 +81,16 @@ fn output_log(start: LogStart) -> Result<std::fs::File> {
     Ok(file)
 }
 
+/// Point the output of the process at the log, before the terminal shows
+/// paw. When that fails (a cache folder that cannot be written), paw runs
+/// on without it: the result is the message that tells the user so.
+fn capture_output(start: LogStart) -> Option<String> {
+    let captured = output_log(start).and_then(|log| Ok(stdio::capture(&log)?));
+    captured.err().map(|err| {
+        format!("no log for the output of plugins, so it can come on the screen ({err:#}); <C-l> draws the screen again")
+    })
+}
+
 fn cache_dir() -> PathBuf {
     dirs().paw_cache()
 }
@@ -210,8 +220,9 @@ fn attach(options: &Attach) -> Result<()> {
     // so that the loop sleeps until there is one or the other.
     let (incoming, arrived) = std::sync::mpsc::channel();
     let typed = incoming.clone();
+    let no_log = capture_output(LogStart::Append);
     let (mut screen, width, height) =
-        terminal::Terminal::start(&output_log(LogStart::Append)?, move |event| typed.send(Incoming::Typed(event)).is_ok())?;
+        terminal::Terminal::start(move |event| typed.send(Incoming::Typed(event)).is_ok())?;
     let events = std::mem::replace(&mut connection.events, std::sync::mpsc::channel().1);
     // Ends when the connection does (its reader drops the sender) or when
     // this function returns (the channel's receiver is gone).
@@ -227,6 +238,9 @@ fn attach(options: &Attach) -> Result<()> {
         })
         .context("starting the thread that waits for the instance")?;
     connection.call("ui.attach", serde_json::json!([width, height, screen.caps().to_json()]))?;
+    if let Some(message) = no_log {
+        let _ = connection.notify("eval", serde_json::json!(["paw.notify(..., 'warn')", message]));
+    }
     let mut player = None;
     if hear.is_some() {
         listen(&mut connection, &mut player, hear.as_ref());
@@ -483,11 +497,18 @@ fn install_safety_copy_hook() {
     }));
 }
 
-/// Start the terminal and attach it to the kernel. Returns what the terminal
-/// said about itself, for the log.
-fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
+/// What the terminal said about itself, for the log, and the message to
+/// show when the output of the process has no log.
+struct Attached {
+    described: String,
+    no_log: Option<String>,
+}
+
+/// Start the terminal and attach it to the kernel.
+fn attach_terminal(kernel: &mut Kernel) -> Result<Attached> {
+    let no_log = capture_output(LogStart::Empty);
     let sender = kernel.sender();
-    let (terminal, width, height) = terminal::Terminal::start(&output_log(LogStart::Empty)?, move |event| {
+    let (terminal, width, height) = terminal::Terminal::start(move |event| {
         sender.send(paw_core::KernelMsg::Input(event)).is_ok()
     })?;
     // A panic message printed into the alternate screen would be lost.
@@ -505,7 +526,7 @@ fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
     kernel.set_caps(terminal.caps());
     let described = terminal.describe();
     kernel.attach(Box::new(terminal), width, height);
-    Ok(described)
+    Ok(Attached { described, no_log })
 }
 
 /// Tell the log, the notifications and the quickfix list what the plugin
@@ -676,12 +697,12 @@ fn run() -> Result<i32> {
 
     startuptime::event("kernel, engine, audio device");
     install_safety_copy_hook();
-    let described = if !scripted && !args.headless {
+    let attached = if !scripted && !args.headless {
         Some(attach_terminal(&mut kernel)?)
     } else {
         None
     };
-    if described.is_some() {
+    if attached.is_some() {
         startuptime::event("terminal");
     }
     kernel.boot()?;
@@ -689,8 +710,11 @@ fn run() -> Result<i32> {
         println!("{}", kernel.chain_schema());
         return Ok(0);
     }
-    if let Some(line) = &described {
-        kernel.eval("paw.api.log(...)", &[line])?;
+    if let Some(attached) = &attached {
+        kernel.eval("paw.api.log(...)", &[&attached.described])?;
+        if let Some(message) = &attached.no_log {
+            kernel.eval("paw.notify(..., 'warn')", &[message])?;
+        }
     }
     if !scripted {
         // Opening a project or adding a plugin does not wait for plugins

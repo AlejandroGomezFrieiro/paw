@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use crossterm::event::{
     self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,
@@ -83,10 +83,9 @@ fn on_signal(signal: i32) {
 impl Terminal {
     /// Take over the terminal and start handing its events to `send`, which
     /// says whether anyone is still listening: the kernel in this program,
-    /// or a connection to one somewhere else. From now on the standard
-    /// output and error of the process go to `log` (see [`stdio`]).
-    pub(crate) fn start(log: &std::fs::File, send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
-        stdio::capture(log).context("sending the output of plugins and libraries to the log")?;
+    /// or a connection to one somewhere else. Call [`stdio::capture`]
+    /// first, so that other output does not cover the frame.
+    pub(crate) fn start(send: impl Fn(InputEvent) -> bool + Send + 'static) -> Result<(Self, u16, u16)> {
         if let Ok(cooked) = termios::tcgetattr(rustix::stdio::stdin()) {
             let _ = COOKED.set(cooked);
         }

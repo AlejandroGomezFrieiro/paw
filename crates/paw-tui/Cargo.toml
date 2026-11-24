@@ -47,5 +47,6 @@ paw-scene.workspace = true
 libc = "0.2"
 # `paw chain schema` writes a schema that the chain language reads (tests/chain.rs).
 chain-syntax.workspace = true
+
 [lints]
 workspace = true
