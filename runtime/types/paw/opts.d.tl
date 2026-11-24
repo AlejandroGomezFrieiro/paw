@@ -42,7 +42,7 @@ local record Opts
    fps: number
    gdefault: boolean
    graphics: boolean
-   grid: number
+   grid: number | string
    harmony_step: number
    header_width: integer | string
    hint_delay: number
@@ -69,7 +69,7 @@ local record Opts
    mouse: boolean
    native_dialogs: boolean
    nest_track: string
-   note_grid: number
+   note_grid: number | string
    note_snap: boolean
    note_zoom: number
    number: boolean
@@ -101,6 +101,7 @@ local record Opts
    step_velocity: integer | string
    strum: number
    strum_dir: string
+   swing: number
    termcolors: string | number
    threads: integer
    timeoutlen: number

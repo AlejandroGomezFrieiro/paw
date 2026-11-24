@@ -20,10 +20,13 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use paw_engine::record::{self, AudioCapture, MidiCapture, TakeShared};
-use paw_engine::{EventKind, Msg, TempoMap, TrackSlot};
+use paw_engine::{Msg, TrackSlot};
+use paw_types::{EventKind, TempoMap};
 use rtrb::{Consumer, RingBuffer};
 
 use super::*;
+use crate::clock::Agenda;
+use crate::doorbell::Woken;
 use crate::events::{KernelEvent as E, Record, Recorded};
 
 /// What records takes: the take under way, the takes that close, how many
@@ -100,7 +103,7 @@ impl Take {
     /// Whether the take can become clips: the engine has let go of it, and
     /// each writer thread has finished its file.
     pub(super) fn is_done(&self) -> bool {
-        self.shared.closed() && self.audio.iter().all(|file| file.writer.is_finished())
+        self.shared.closed() && self.shared.writing() == 0
     }
 
     /// Take in what the engine captured since the last call: the times it
@@ -260,7 +263,7 @@ impl Session {
         self.flush();
         self.rec.takes += 1;
         let number = self.rec.takes;
-        let shared = Arc::new(TakeShared::default());
+        let shared = Arc::new(TakeShared::with_bell(self.bell.bell(Woken::TAKES)));
         let sample_rate = self.engine.handle.sample_rate as u32;
         let inputs = self.engine.stream.info.input_channels as usize;
         let dir = self.media_dir();
@@ -370,16 +373,30 @@ impl Session {
     }
 
     /// Make the clips of each closing take that is done, in the order the
-    /// takes stopped. Called regularly, from [`idle`](Self::idle).
-    pub(super) fn poll_takes(&mut self) {
+    /// takes stopped. Called regularly, from [`idle`](Self::idle). Gives
+    /// true when one was done.
+    pub(super) fn poll_takes(&mut self) -> bool {
         if !self.rec.closing.iter().any(Take::is_done) {
-            return;
+            return false;
         }
         let (done, waiting): (Vec<Take>, Vec<Take>) =
             std::mem::take(&mut self.rec.closing).into_iter().partition(Take::is_done);
         self.rec.closing = waiting;
         for take in done {
             self.finish_take(take);
+        }
+        true
+    }
+
+    /// What the closing takes leave for the loop: the writers that still
+    /// write are in flight, and while the engine has not let go of a take
+    /// (the audio thread only marks it), the loop looks each frame.
+    pub(super) fn takes_agenda(&self) -> Agenda {
+        let letting_go = self.rec.closing.iter().any(|take| !take.shared.closed());
+        Agenda {
+            in_flight: u32::try_from(self.takes_writing()).unwrap_or(u32::MAX),
+            tick: letting_go.then_some(super::upkeep::FRAME),
+            ..Agenda::default()
         }
     }
 
@@ -819,8 +836,9 @@ fn slot_track(tracks: &HashMap<Id, TrackSlot>, slot: TrackSlot) -> Option<Id> {
 
 #[cfg(test)]
 mod tests {
+    use paw_types::Attr;
+
     use super::*;
-    use paw_engine::event::Attr;
 
     const RATE: f64 = 48000.0;
     const TRACK: Id = 7;

@@ -33,8 +33,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use paw_engine::launch::Slots;
-use paw_engine::midi_form::Form;
 use paw_engine::{ClipSet, Controller, DeviceSlot, Msg, ParamInfo, Registry, TrackRt, TrackSlot, db_to_gain};
+use paw_types::midi_form::Form;
 
 pub use self::audio::AudioCache;
 pub(crate) use self::automation::is_active;
@@ -120,6 +120,10 @@ pub struct SyncCtx<'a> {
     /// ([`Controller::set_waker`](paw_engine::Controller::set_waker)), and
     /// a state given to a device wakes it.
     pub waker: paw_engine::Waker,
+    /// Tells the kernel's loop that a plugin asked for a call on the main
+    /// thread: each new controller keeps it
+    /// ([`Controller::set_bell`](paw_engine::Controller::set_bell)).
+    pub bell: paw_engine::Bell,
     /// The schedule time of the turn: a bake asked for waits its settle
     /// from it.
     pub now: crate::clock::ScheduleTime,
@@ -242,7 +246,7 @@ impl<'p> Pass<'p, '_, '_> {
             let map = if current {
                 (**new.tempo_map()).clone()
             } else {
-                paw_engine::TempoMap::new(&new.tempo_points(), &new.sig_points())
+                paw_types::TempoMap::new(&new.tempo_points(), &new.sig_points())
             };
             (self.send)(Msg::SetTempoMap(Box::new(map)));
         }

@@ -19,11 +19,13 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
+use super::document::{check_pitch, check_ratio, check_tempo, check_warp};
 use super::{ClipKind, MAX_PEAKS, Session, de};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
-use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 use crate::bake::scheduler::{Busy, Priority, Status};
+use crate::clock::Agenda;
+use crate::doorbell::Woken;
 use crate::events::{BakeProgress, KernelEvent as E};
 use crate::stretched::{Key, SETTLE, ViewRange};
 use crate::media::Sources;
@@ -54,66 +56,6 @@ pub(super) fn not_audio(clip: &Clip, what: &str) -> anyhow::Error {
         ),
         _ => anyhow::anyhow!("only audio clips {what}"),
     }
-}
-
-/// Check how a new clip of `kind` is to play.
-pub(super) fn check_playing(
-    kind: ClipKind,
-    stretch: f64,
-    pitch: f64,
-    source_tempo: Option<f64>,
-) -> Result<()> {
-    if kind != ClipKind::Audio && (stretch != 1.0 || pitch != 0.0) {
-        bail!("only audio clips are stretched or shifted");
-    }
-    check_ratio(stretch)?;
-    check_pitch(pitch)?;
-    if let Some(bpm) = source_tempo {
-        check_tempo(bpm)?;
-    }
-    Ok(())
-}
-
-fn check_ratio(ratio: f64) -> Result<f64> {
-    let (lo, hi) = RATIO_RANGE;
-    if !(lo..=hi).contains(&ratio) {
-        bail!("a clip is stretched to between {lo} and {hi} times its length, not {ratio}");
-    }
-    Ok(ratio)
-}
-
-fn check_pitch(semitones: f64) -> Result<f64> {
-    if !semitones.is_finite() || semitones.abs() > PITCH_RANGE {
-        bail!("a clip is shifted by at most {PITCH_RANGE} semitones either way, not {semitones}");
-    }
-    Ok(semitones)
-}
-
-fn check_tempo(bpm: f64) -> Result<f64> {
-    if !(1.0..=999.0).contains(&bpm) {
-        bail!("a tempo is between 1 and 999, not {bpm}");
-    }
-    Ok(bpm)
-}
-
-/// Check an audio clip's warp markers: in order of their moments of the
-/// file, and of where they play them.
-pub(super) fn check_warp(kind: ClipKind, warp: &[WarpMarker]) -> Result<()> {
-    if kind != ClipKind::Audio && !warp.is_empty() {
-        bail!("only audio clips have warp markers");
-    }
-    for m in warp {
-        if !m.source.is_finite() || !m.target.is_finite() || m.source < 0.0 {
-            bail!("a warp marker is a moment of the file from 0 on, and where it plays");
-        }
-    }
-    if warp
-        .windows(2)
-        .any(|w| w[1].source <= w[0].source || w[1].target <= w[0].target)
-    {
-        bail!("warp markers follow each other in the file and where they play it");
-    }
-    Ok(())
 }
 
 /// The seconds after the playhead whose bakes are made first.
@@ -475,8 +417,10 @@ impl Session {
         }
         let pins = self.bake_pins();
         let (tell, told) = std::sync::mpsc::channel();
+        let bell = self.bell.bell(Woken::BAKES);
         let thread = std::thread::Builder::new().name("tidy".into()).spawn(move || {
             let _ = tell.send(store.tidy(&pins));
+            bell.ring();
         });
         if thread.is_ok() {
             self.audio.upkeep.tidying = Some(told);
@@ -484,17 +428,17 @@ impl Session {
     }
 
     /// Take in a tidy that ended: when the pinned bakes alone are over
-    /// the cache's limit, say so, once.
-    fn poll_tidy(&mut self) {
+    /// the cache's limit, say so, once. Gives true when one ended.
+    fn poll_tidy(&mut self) -> bool {
         let Some(told) = &self.audio.upkeep.tidying else {
-            return;
+            return false;
         };
         let tidied = match told.try_recv() {
             Ok(tidied) => tidied,
-            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return false,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 self.audio.upkeep.tidying = None;
-                return;
+                return true;
             }
         };
         self.audio.upkeep.tidying = None;
@@ -512,6 +456,7 @@ impl Session {
         if std::mem::take(&mut self.audio.upkeep.tidy_again) {
             self.tidy_bakes();
         }
+        true
     }
 
     /// Send `bake.progress` when it changed: at most 4 times a second of
@@ -535,9 +480,11 @@ impl Session {
     /// Take in the bakes that ended or started, start those that have
     /// waited long enough, drop those no clip wants any more, and build
     /// again the tracks whose clips play one that changed. Called
-    /// regularly, from [`idle`](Self::idle).
-    pub(super) fn poll_bakes(&mut self) {
-        self.poll_tidy();
+    /// regularly, from [`idle`](Self::idle). Gives true when a bake or a
+    /// tidy ended, or a bake has sound to play: the news that they ring
+    /// for.
+    pub(super) fn poll_bakes(&mut self) -> bool {
+        let tidied = self.poll_tidy();
         if self.render_job.is_none() {
             self.audio.upkeep.exporting.clear();
         }
@@ -549,16 +496,16 @@ impl Session {
             .collect();
         let renders = &self.audio.renders;
         if !renders.busy() && renders.finished.is_empty() && hashed.is_empty() {
-            return;
+            return tidied;
         }
         let rate = self.engine.handle.sample_rate as u32;
         let wants = self.bake_wants();
-        self.audio.renders.poll(&wants, SETTLE, self.now);
+        let news = self.audio.renders.poll(&wants, SETTLE, self.now) || tidied;
         self.doc.warnings.append(&mut self.audio.renders.failures);
         self.report_bakes();
         let finished: HashSet<Key> = self.audio.renders.finished.drain(..).collect();
         if finished.is_empty() && hashed.is_empty() {
-            return;
+            return news;
         }
         if finished.iter().any(|k| self.audio.renders.status(k) == Status::Ready) {
             self.tidy_bakes();
@@ -592,6 +539,19 @@ impl Session {
         }
         self.doc.dirty = true;
         self.flush();
+        news
+    }
+
+    /// What the bakes leave for the loop: those on threads and in helpers
+    /// are in flight, with a tidy of the cache; those that wait for their
+    /// settle are due then.
+    pub(super) fn bakes_agenda(&self) -> Agenda {
+        let running = self.audio.renders.summary().running + usize::from(self.audio.upkeep.tidying.is_some());
+        Agenda {
+            in_flight: u32::try_from(running).unwrap_or(u32::MAX),
+            next_due: self.audio.renders.next_due(SETTLE),
+            ..Agenda::default()
+        }
     }
 
     /// Wait up to `limit` for every version `project`'s clips play at

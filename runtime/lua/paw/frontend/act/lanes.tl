@@ -3,15 +3,14 @@
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
-local options = require("paw.options")
 local util = require("paw.util")
 local type types = require("paw.types")
 local type objects = require("paw.objects")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
+local timegrid = require("paw.timegrid")
 
 local paw = host.paw
-local opt = options.opt
 local A = M.act
 local by_beat = host.by_beat
 local note_snap = host.note_snap
@@ -70,7 +69,7 @@ function A.draw_lane(lane: integer, points: {Point})
     return
   end
   table.sort(points, by_beat)
-  local step = opt.grid / 4
+  local step = timegrid.step() / 4
   local from, to = math.max(0, points[1][1]), math.max(0, points[#points][1])
   local out: {types.LanePoint} = {}
   for _, p in ipairs(api.lane_points(lane)) do
@@ -115,7 +114,7 @@ function A.draw_controls(clip: integer, kind: types.ControlType, number: integer
   end
   table.sort(points, by_beat)
   local c = paw.clip(clip)
-  local grid = opt.note_grid
+  local grid = timegrid.step("note")
   local from, to = note_snap(points[1][1]), note_snap(points[#points][1])
   local same = function(control: types.Control): boolean
     return control.type == kind and control.key == nil and (kind ~= "cc" or control.number == number)

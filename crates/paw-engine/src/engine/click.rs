@@ -1,6 +1,6 @@
 //! The metronome and the count-in.
 
-use crate::tempo::TempoMap;
+use paw_types::TempoMap;
 
 use super::Engine;
 use super::work::Block;

@@ -8,7 +8,7 @@
 //! input: a short list, read in place, with no lock and no allocation.
 //! Scripts still hear every message (the `midi.in` event).
 
-use crate::event::{Ctl, EventKind};
+use paw_types::{Ctl, EventKind};
 
 /// What a [`Rule`] takes of a port and channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -101,8 +101,10 @@ impl TryFrom<Vec<Rule>> for MidiFilter {
 
 #[cfg(test)]
 mod tests {
+
+    use paw_types::{Attr, NoteCtl};
+
     use super::*;
-    use crate::event::{Attr, NoteCtl};
 
     fn on(key: u8, ch: u8) -> EventKind {
         EventKind::NoteOn {

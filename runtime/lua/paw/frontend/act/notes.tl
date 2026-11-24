@@ -11,6 +11,7 @@ local type types = require("paw.types")
 local type objects = require("paw.objects")
 local M = require("paw.frontend.core")
 local host = require("paw.frontend.host")
+local timegrid = require("paw.timegrid")
 
 local paw = host.paw
 local opt = options.opt
@@ -262,7 +263,7 @@ function A.add_note(clip: integer, pitch: integer, start: number, length?: numbe
   if not length or length <= 0 then
     length = roll:step_length()
   else
-    length = math.max(free and 1 / 64 or opt.note_grid, snap_note(length, free))
+    length = math.max(free and 1 / 64 or timegrid.step("note"), snap_note(length, free))
     roll:set_step(length)
   end
   local index = c:add_note(
@@ -441,7 +442,7 @@ function A.drag_notes(clip: integer, index: integer, dbeat: number, dpitch?: num
     for _, place in ipairs(part.places) do
       local n = part.notes[place]
       by = math.max(by, -n.start)
-      by = math.min(by, part.length - n.start - math.min(n.length, opt.note_grid))
+      by = math.min(by, part.length - n.start - math.min(n.length, timegrid.step("note")))
       up = util.clamp(up, -n.pitch, 127 - n.pitch) as integer
     end
   end
@@ -484,7 +485,7 @@ function A.stretch_notes(clip: integer, index: integer, dstart?: number, dlength
     return
   end
   local parts = grabbed_parts(clip, grabbed(clip, index))
-  local least = (free or not opt.note_snap) and 1 / 64 or opt.note_grid
+  local least = (free or not opt.note_snap) and 1 / 64 or timegrid.step("note")
   -- The grabbed note's end lands on the grid; the others change by as much.
   if dstart and dstart ~= 0 then
     dstart = snap_note(held.start + dstart, free) - held.start
@@ -551,7 +552,7 @@ function A.move_note(clip: integer, index: integer, start: number, pitch: intege
 end
 
 function A.resize_note(clip: integer, index: integer, length: number)
-  paw.clip(clip):set_note(index, {length = math.max(opt.note_grid, note_snap(length))})
+  paw.clip(clip):set_note(index, {length = math.max(timegrid.step("note"), note_snap(length))})
 end
 
 --- How hard a note is played; with the note among the chosen, all of them.
@@ -727,7 +728,7 @@ function A.quantize_notes(clip: integer, strength?: number): integer
       picked[i] = notes[place]
     end
     -- On the grid of the clip, and each note stays inside it.
-    local moved = transform.quantize(picked, {grid = opt.note_grid, strength = strength, within = part.length})
+    local moved = transform.quantize(picked, {grid = timegrid.step("note"), strength = strength, within = part.length})
     for i, place in ipairs(places) do
       local n = moved[i]
       set[i] = {index = place, start = n.start, length = n.length}

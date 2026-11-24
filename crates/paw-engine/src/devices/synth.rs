@@ -3,9 +3,10 @@
 
 use std::f32::consts::{PI, TAU};
 
+use paw_types::{Ctl, EventKind, NOTE_BEND_RANGE, NoteCtl};
+
 use crate::db_to_gain;
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
-use crate::event::{Ctl, EventKind, NOTE_BEND_RANGE, NoteCtl};
 
 const VOICES: usize = 16;
 

@@ -1,33 +1,21 @@
 //! The session on the schedule clock: the time of the turn that runs,
 //! which its debounce delays and the watch of the devices wait on, the
-//! blocks of the stepped audio backend, which keep step with it, and the
-//! work that it has in flight or waiting for that clock
-//! (`paw.api.pending`).
+//! blocks of the stepped audio backend, which keep step with it, the work
+//! that waits for that clock (`paw.api.pending`), and the bells of its
+//! workers.
 
 use super::Session;
 use crate::clock::ScheduleTime;
-use crate::stretched::SETTLE;
+use crate::doorbell::{Doorbell, Woken};
 
-/// The work of the session that is not done yet. A test waits until no
-/// work is in flight (`T.settle`), and moves the clock to `next_due`.
+/// Work of the session that waits for the schedule clock: a test reads
+/// it (`paw.api.pending`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Work {
-    /// Bakes being made on other threads or in helper processes.
-    pub bakes_running: usize,
-    /// Bakes that wait for their settle on the schedule clock.
-    pub bakes_waiting: usize,
-    /// Files of stretched clips that are being hashed, or whose hash the
-    /// bakes have not taken in yet: their bakes are asked for after.
-    pub hashing: usize,
-    /// Plugins being made apart from the main loop, but for those that a
-    /// test holds back (`sandbox.hold`).
-    pub plugin_loads: usize,
-    /// Renders running on a thread of their own (0 or 1).
-    pub renders: usize,
+pub(crate) struct Waiting {
+    /// Bakes that wait for their settle.
+    pub bakes: usize,
     /// Files changed outside paw that wait for their settle.
     pub files: usize,
-    /// The first time on the schedule clock when waiting work is due.
-    pub next_due: Option<ScheduleTime>,
 }
 
 /// The stepped audio backend on the schedule clock.
@@ -72,35 +60,17 @@ impl Session {
         self.steps.since = self.now;
     }
 
-    /// The work in flight or waiting for the schedule clock.
-    pub(crate) fn work(&self) -> Work {
-        let bakes = self.audio.renders.summary();
-        let watch = self.watching().then(|| self.watch.next_due());
-        let next_due = [self.audio.renders.next_due(SETTLE), self.files_watch.next_due(), watch]
-            .into_iter()
-            .flatten()
-            .min();
-        Work {
-            bakes_running: bakes.running,
-            bakes_waiting: bakes.waiting,
-            hashing: self.stretch_hashing(),
-            plugin_loads: self.loads.in_flight(),
-            renders: usize::from(self.rendering()),
-            files: self.files_watch.waiting(),
-            next_due,
-        }
+    /// Give the workers of the session their bells: what they ring wakes
+    /// the kernel's loop. The kernel calls it once, at the start.
+    pub(crate) fn set_doorbell(&mut self, doorbell: Doorbell) {
+        self.audio.renders.set_bell(doorbell.bell(Woken::BAKES));
+        self.sources.set_bell(doorbell.bell(Woken::HASHES));
+        self.files_watch.doorbell = doorbell.clone();
+        self.bell = doorbell;
     }
 
-    /// The files of stretched clips with no hash in the bakes yet that are
-    /// still on their way: the worker hashes them, or it has, and the next
-    /// poll of the bakes takes the hash in. A file that the worker could
-    /// not read is not on its way.
-    fn stretch_hashing(&self) -> usize {
-        self.audio
-            .upkeep
-            .unhashed
-            .iter()
-            .filter(|file| self.sources.is_hashing(file) || self.sources.record(file).is_some())
-            .count()
+    /// The work that waits for the schedule clock.
+    pub(crate) fn waiting(&self) -> Waiting {
+        Waiting { bakes: self.audio.renders.summary().waiting, files: self.files_watch.waiting() }
     }
 }

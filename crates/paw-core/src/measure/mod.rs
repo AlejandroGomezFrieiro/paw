@@ -117,9 +117,14 @@ impl Drop for Job {
 /// The measurements whose thread still runs: `paw.api.pending()` counts
 /// them, so that a wait of the tests waits for them.
 #[derive(Clone, Default)]
-pub(crate) struct Running(Arc<AtomicUsize>);
+pub(crate) struct Running(Arc<AtomicUsize>, paw_engine::Bell);
 
 impl Running {
+    /// Measurements that ring `bell` as each ends.
+    pub(crate) fn with_bell(bell: paw_engine::Bell) -> Self {
+        Self(Arc::default(), bell)
+    }
+
     pub(crate) fn count(&self) -> usize {
         self.0.load(Relaxed)
     }
@@ -128,15 +133,16 @@ impl Running {
     /// of the thread (also when it fails).
     fn enter(&self) -> RunningToken {
         self.0.fetch_add(1, Relaxed);
-        RunningToken(self.0.clone())
+        RunningToken(self.clone())
     }
 }
 
-struct RunningToken(Arc<AtomicUsize>);
+struct RunningToken(Running);
 
 impl Drop for RunningToken {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Relaxed);
+        self.0.0.fetch_sub(1, Relaxed);
+        self.0.1.ring();
     }
 }
 
@@ -381,4 +387,22 @@ pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }))?,
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::doorbell::{Waiter, Woken};
+
+    #[test]
+    fn a_measurement_that_ends_rings_after_it_is_no_longer_counted() {
+        let waiter = Waiter::new().unwrap();
+        let running = Running::with_bell(waiter.doorbell().bell(Woken::MEASURES));
+        let token = running.enter();
+        assert_eq!(running.count(), 1);
+        std::thread::spawn(move || drop(token)).join().unwrap();
+        waiter.wait(None).unwrap();
+        assert_eq!(waiter.doorbell().take(), Woken::MEASURES);
+        assert_eq!(running.count(), 0);
+    }
 }

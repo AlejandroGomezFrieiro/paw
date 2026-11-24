@@ -195,8 +195,8 @@ impl Compiled {
 }
 
 /// A note's attribute as the engine has it.
-fn attr_of(note: &Note) -> paw_engine::Attr {
-    note.attr.map_or(paw_engine::Attr::NONE, Into::into)
+fn attr_of(note: &Note) -> paw_types::Attr {
+    note.attr.map_or(paw_types::Attr::NONE, Into::into)
 }
 
 /// Where each repeat of a looped clip begins and ends, from the clip's
@@ -257,7 +257,7 @@ fn audio_regions(
     data: Arc<AudioData>,
     offset: f64,
     gain: f32,
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     out: &mut Vec<AudioRegion>,
 ) {
     let seconds = tempo.seconds_between(clip.start, clip.start + clip.length);
@@ -427,7 +427,7 @@ fn parts_of(
     clip: &Arc<Clip>,
     order: u64,
     before: Option<&SentClip>,
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     compiled: &mut Compiled,
     ctx: &mut SyncCtx,
     out: &mut Vec<Part>,
@@ -481,7 +481,7 @@ fn mapped(track: &Track) -> bool {
 /// once gives, and nearly free when the clips follow each other in time).
 pub(super) fn build_clips(
     track: &Track,
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> ClipSet {
@@ -536,7 +536,7 @@ pub(super) fn build_clips(
 pub(super) fn edit_parts(
     prev: &Track,
     track: &Track,
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> Option<PartEdit> {
@@ -600,7 +600,7 @@ pub(super) fn edit_parts(
 }
 
 /// What the track's attribute map sends, put among its events.
-fn downgrade(track: &Track, set: &mut ClipSet, tempo: &paw_engine::TempoMap) {
+fn downgrade(track: &Track, set: &mut ClipSet, tempo: &paw_types::TempoMap) {
     // A map is checked when it is set; one that no longer reads (from a
     // file edited by hand) plays as if there were none.
     if let Some(plan) = track.attr_map.as_ref().and_then(|m| m.plan().ok()) {
@@ -612,7 +612,7 @@ fn downgrade(track: &Track, set: &mut ClipSet, tempo: &paw_engine::TempoMap) {
 fn clip_audio(
     clip: &Clip,
     (file, offset, gain): (&Path, f64, f64),
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     ctx: &mut SyncCtx,
     out: &mut Vec<AudioRegion>,
 ) {
@@ -643,7 +643,7 @@ fn clip_audio(
 
 /// What a frozen track plays: its file from the start of the song, as it
 /// was rendered, at unity gain and without fades.
-pub(super) fn frozen_clips(file: &Path, tempo: &paw_engine::TempoMap, ctx: &mut SyncCtx) -> ClipSet {
+pub(super) fn frozen_clips(file: &Path, tempo: &paw_types::TempoMap, ctx: &mut SyncCtx) -> ClipSet {
     let mut set = ClipSet::default();
     if let Some(data) = ctx.audio.get(file, ctx.sample_rate as u32, ctx.warnings) {
         let end = tempo.beat(tempo.seconds(0.0) + data.whole_seconds());
@@ -694,7 +694,7 @@ pub(super) fn cue_rows(mut rows: Vec<Option<Id>>, track: &Track) -> Vec<Option<I
 pub(super) fn build_cues(
     track: &Track,
     rows: &[Option<Id>],
-    tempo: &paw_engine::TempoMap,
+    tempo: &paw_types::TempoMap,
     map: &mut Mapper,
     ctx: &mut SyncCtx,
 ) -> Slots {

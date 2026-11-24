@@ -1,0 +1,21 @@
+# The grid arithmetic outside the grid of time (paw/timegrid.tl), the
+# options and the status line that stays, each with its reason
+# (tools/gridlint.lua). The list only gets shorter: `<file> <count> <reason>`.
+runtime/lua/paw/axis.tl 2 the cell of a press finds the step drawn there; the motion layer moves it to the grid of time
+runtime/lua/paw/curves.tl 1 a curve point snaps to the step of its own editor
+runtime/lua/paw/defaults/keys.lua 2 the piano roll quantizes on the step of its clip until the note editors are on the song's grid
+runtime/lua/paw/edit.tl 3 quantize of clips and the length of a recorded clip round to a step; the motion layer moves them
+runtime/lua/paw/frontend/host.tl 1 a note of the pointer snaps to the step of its clip until the note editors are on the song's grid
+runtime/lua/paw/notes.tl 2 quantize is a pure transform of notes with its own grid, swing and strength
+runtime/lua/paw/views/curve.lua 4 the curve editor has a grid of its own in each window
+runtime/lua/paw/views/pianoroll.tl 2 the piano roll steps on the grid of its clip until the note editors are on the song's grid
+runtime/lua/paw/views/pianoroll_mouse.tl 3 the grid menu of the piano roll sets the setting; a drag ends on a step of its clip
+extensions/musicops/lua/musicops/init.lua 1 quantize with swing is a transform of notes, with its own grid
+extensions/musicops/lua/musicops/keys.lua 1 the length of a clip after a transform, in steps of the note grid
+extensions/notation/fixtures/plain_roll.lua 1 a fixture sets the note grid of its piano roll
+extensions/notation/lua/notation/score.lua 1 the score rounds to the entry value of its own grid
+extensions/notation/lua/notation/tui.lua 1 the score rounds to the entry value of its own grid
+extensions/tutor/lua/tutor/init.lua 2 the tutor keeps and gives back the grid options around a lesson
+extensions/tutor/lua/tutor/lessons/your_own.lua 5 a lesson teaches how to set an option, with the grid
+extensions/utau/lua/utau/editor.lua 1 the vocal editor's cursor steps on its own grid, and moves to Rust
+extensions/utau/lua/utau/gui.lua 2 the vocal editor's window has a grid menu and its own snap, and moves to Rust

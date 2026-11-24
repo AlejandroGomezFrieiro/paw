@@ -33,6 +33,7 @@ impl Session {
             warnings: &mut self.doc.warnings,
             offline: false,
             waker: self.engine.handle.waker(),
+            bell: self.bell.bell(crate::doorbell::Woken::PLUGINS),
             now: self.now,
         };
         let handle = &mut self.engine.handle;
@@ -65,7 +66,7 @@ impl Session {
         if self.audition.trial.is_some() {
             return;
         }
-        if self.doc.checkpoint(self.now) {
+        if self.doc.checkpoint(self.now, history::now()) {
             self.trim_audio_now_and_then();
         }
     }

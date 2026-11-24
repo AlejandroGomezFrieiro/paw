@@ -14,7 +14,7 @@ paw does its work in turns, and each turn runs the same steps in the same order.
     2. paw sends the change events of the edits to their handlers. A handler can edit the project too, and paw then sends the events of those edits, for up to 64 rounds.
     3. paw sends `edit.before`, `edit.after`, `selection.changed`, `view.opened` and `view.closed`. Then it sends the scenes and the state to the connections.
     4. paw closes the undo step. The edits of the turn are one step.
-5. **Wait.** paw waits until a message comes or the next timer is due. While a plugin asks for idle calls, or work runs in the background, paw also takes a turn every 16 milliseconds.
+5. **Wait.** paw waits until a message comes, work in the background ends, or the next timer is due. Each background job wakes paw when it ends. While a plugin window is open or a plugin asks for a call, paw also takes a turn about 60 times a second. When nothing is due and nothing runs, paw sleeps until something happens.
 
 After a turn that changed the screen, paw draws it again on each terminal.
 

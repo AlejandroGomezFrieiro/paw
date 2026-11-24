@@ -320,6 +320,9 @@ paw.tempolane = {}
 ---@class paw.textbuf
 paw.textbuf = {}
 
+---@class paw.timegrid
+paw.timegrid = {}
+
 ---@class paw.timers
 paw.timers = {}
 
@@ -2200,9 +2203,6 @@ function paw.controls.select_box(clip, kind, number, beat0, low, beat1, high, mo
 ---@param fraction any
 function paw.controls.value(kind, fraction) end
 
---- The time the cursor stays in: the current scope's.
-function paw.cursor.bounds() end
-
 --- The clip under the cursor, if any.
 function paw.cursor.clip() end
 
@@ -2253,9 +2253,16 @@ function paw.cursor.over(old, new) end
 --- the last track.
 function paw.cursor.row() end
 
---- Put the cursor at a beat (not before 0, and in the scope's time).
+--- Put the cursor at a beat: the nearest tick, as `set_tick`.
 ---@param beat any
 function paw.cursor.set_beat(beat) end
+
+--- Put the cursor at a tick: not before 0, in the scope's time
+--- (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want`
+--- becomes the tick asked for. A tick with a fraction is an error in the
+--- tests, and is rounded else.
+---@param at any
+function paw.cursor.set_tick(at) end
 
 --- Put the cursor on a track, or with `lane` on one of its lane rows.
 ---@param track any
@@ -2271,16 +2278,15 @@ function paw.cursor.set_track(track, lane) end
 ---@param beat any
 function paw.cursor.shift(track, beat) end
 
---- Round a position to the arrange grid.
+--- A position at the nearest line of the arrange grid.
 ---@param beat any
 function paw.cursor.snap(beat) end
 
---- `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid
---- when nil). paw counts the new place as a whole number of steps from 0,
---- plus how far `beat` is after the grid line before it. So a long run of
---- steps gives the exact beat, and a beat on a grid line stays on one. A
---- place between two lines (the end of a take) keeps its distance from
---- the line.
+--- `beat` moved by `n` lines of the arrange grid (of a grid of `grid`
+--- beats, when given), with the same offset after its line
+--- (`paw.timegrid` `steps`). A beat on a line stays on one, a long run of
+--- steps gives the exact beat, and a place between two lines (the end of
+--- a take) keeps its distance from the line.
 ---@param beat any
 ---@param n any
 ---@param grid any
@@ -9064,7 +9070,7 @@ function paw.stretch.warp_near(c, beat) end
 function paw.stretch.warp_remove(id, index) end
 
 --- Move every warp marker of a clip onto the nearest line of a grid of
---- `step` beats (`paw.opt.grid` when left out), from the first on.
+--- `step` beats (`paw.timegrid.step()` when left out), from the first on.
 ---@param id any
 ---@param step any
 function paw.stretch.warp_snap(id, step) end
@@ -9562,6 +9568,65 @@ function paw.textbuf.width(s) end
 ---@param buf any
 ---@param force any
 function paw.textbuf.write(buf, force) end
+
+--- Ticks as a beat, for the API and the kernel.
+---@param tick any
+function paw.timegrid.beat(tick) end
+
+--- The time the cursor and the grid stay in: the current scope's.
+function paw.timegrid.bounds() end
+
+--- A value checked as a tick: with a fraction, an error when `strict`
+--- (the tests), else rounded. `what` names the value in the error.
+---@param value any
+---@param what any
+function paw.timegrid.checked(value, what) end
+
+--- True if a value is a whole number of ticks.
+---@param value any
+function paw.timegrid.is_tick(value) end
+
+--- The window's grid setting as text, for the status line and the
+--- messages: `1/8t`, `bar`, or a number of beats as a note value. `which`
+--- is "note" for the note editors' grid.
+---@param which any
+function paw.timegrid.label(which) end
+
+--- A grid from a spec. A setting that is no setting is an error.
+---@param spec any
+function paw.timegrid.new(spec) end
+
+--- A number of beats as a note value: 1 is `1/4`, 0.25 is `1/16`, and
+--- one that is no note value is `0.3 beats`.
+---@param beats any
+function paw.timegrid.note_text(beats) end
+
+--- What a grid setting stands for, or nil and what a setting can be.
+---@param value any
+function paw.timegrid.parse(value) end
+
+--- The closed time folds of the window: the grid takes each as one cell.
+function paw.timegrid.spans() end
+
+--- The step of the window's grid in beats, for code that needs a number:
+--- a number setting as it is, a note value's step, else the width of the
+--- cell at beat `at` (the start when not given). `which` is "note" for the
+--- note editors' grid.
+---@param which any
+---@param at any
+function paw.timegrid.step(which, at) end
+
+--- A beat as ticks: the nearest tick. The one place where a beat from the
+--- API, the kernel or the pointer becomes a tick.
+---@param beat any
+function paw.timegrid.tick(beat) end
+
+--- The grid of the window with the keys: its setting (`paw.opt.grid`, or
+--- `paw.opt.note_grid` with `opts.note`), the meter of its time, the swing
+--- (`paw.opt.swing`), its closed folds and its scope (not with
+--- `opts.bare`), and the tempo map for a grid of frames or seconds.
+---@param opts any
+function paw.timegrid.window(opts) end
 
 paw.timers.cancel = paw.cancel
 

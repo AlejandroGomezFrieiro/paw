@@ -12,7 +12,7 @@ use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
-use paw_engine::{SigPoint, TempoMap, TempoPoint};
+use paw_types::{SigPoint, TempoMap, TempoPoint};
 use serde_json::{Map, Value};
 
 use super::time::song_tempos_from;

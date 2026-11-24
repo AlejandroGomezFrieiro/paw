@@ -3,11 +3,12 @@
 //! the song is stopped and nothing sounds, the whole engine rests.
 
 use paw_engine::host::HostPath;
-use paw_engine::launch::{Launch, Quantize, Target};
+use paw_engine::launch::{Launch, Target};
 use paw_engine::{
-    Attr, ClipSet, DeviceSlot, Engine, EngineHandle, EventKind, MAX_BLOCK, Msg, Registry,
-    SchedEntry, Schedule, SendRt, TrackRt, TrackSlot,
+    ClipSet, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,
+    SendRt, TrackRt, TrackSlot,
 };
+use paw_types::{Attr, EventKind, Quantize};
 
 use crate::common::SR;
 

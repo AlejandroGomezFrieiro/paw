@@ -283,7 +283,7 @@ example a bake, the loading of a plugin or a render.
 
 | Helper | What it does |
 | --- | --- |
-| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads, renders and measurements of the mix have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. A job that looks again and again at no delay doesn't count as work. |
+| `T.settle()` | Runs the loop of the kernel until the timers that are due have fired, and the bakes, plugin loads, renders and measurements of the mix have ended. It also waits until the files of stretched clips are hashed, so the stretches that wait for them are asked for. The clock doesn't move. Work that paw does when it has nothing else to do, such as the collector of garbage, doesn't count as work. A job that looks again and again at no delay doesn't count either. |
 | `T.advance(ms)` | Moves the clock by `ms` milliseconds. Each timer and delay that comes due in that time runs in its order, the audio engine plays the blocks of that time, and then the kernel settles. |
 | `T.next_block(n)` | Plays `n` blocks of sound, so that a change that the test made is heard. The clock moves by the time of the blocks. |
 | `T.meter(track)` | Gives the left and right levels of the meter of a track after the blocks that played last. |
@@ -292,6 +292,11 @@ example a bake, the loading of a plugin or a render.
 | `T.advance_until(cond, what, ms)` | Moves the clock from one timer or delay to the next until `cond` holds. When no timer waits, or while a helper program works or the song plays, the clock moves by one audio block at a time. While a helper program owes an answer, or works until it ends, the clock doesn't move: the wait is for the program. It fails when `ms` milliseconds have passed on the clock. |
 | `T.until_beat(beat)` | Plays the song until the playhead gets to `beat`. |
 | `T.until_meters_at_rest()` | Waits until no meter of the audio engine shows a level. The engine lets a meter fall in its own blocks, in real time, so the sound of an earlier test can still show. Then it puts out the peaks that the screen holds and the clip lights. Use it before a test draws or compares a meter. |
+
+A test fails with `missed wakes` when work on another thread ended and
+paw found it only on its safety check, a quarter of a second later.
+The bug is in paw, not in the test: the thread did not wake paw when
+it ended. The `:messages` log names the kind of work.
 
 For example, a test of a delay of 150 ms checks the state after
 `T.advance(149)` and again after `T.advance(1)`. On this clock,

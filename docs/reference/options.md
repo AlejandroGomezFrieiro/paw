@@ -24,8 +24,9 @@ An extension adds options of its own with `paw.option.define(name, default, spec
 
 | Option | Default | Effect |
 | --- | --- | --- |
-| `paw.opt.grid` | `1` | The step and snap of the arrange cursor, in beats. |
-| `paw.opt.note_grid` | `0.25` | The step and snap of the piano roll, in beats. |
+| `paw.opt.grid` | `1` | The grid of the arrange view: where the cursor steps and what it snaps to. It is a number of beats, or text: a note value (`"1/8"`), a triplet (`"1/8t"`), `"bar"` for the bar lines, `"auto"` for the finest note value that is two columns wide or more at the zoom, `"frame"` for the frames of video, or a time (`"1s"`, `"500ms"`). The lines start again at each bar line. `:grid 1/8t` sets it. |
+| `paw.opt.note_grid` | `0.25` | The grid of the piano roll, with the same values as `grid`. |
+| `paw.opt.swing` | `50` | Swing in percent, from 50 to 75: every second line of the grid in a bar moves later. 50 is no swing, and 75 moves the line half a step. |
 | `paw.opt.phrase_rest` | `0.5` | A rest in the piano roll longer than this, in beats, ends a phrase, which sets the phrase that `ip`, `ap`, `(` and `)` use. |
 | `paw.opt.note_snap` | `true` | Notes drawn with the pointer go on the grid of the piano roll. |
 | `paw.opt.ripple` | `false` | When `true`, deleting time closes the gap, and pasting moves the music after it. |

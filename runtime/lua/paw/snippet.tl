@@ -37,6 +37,7 @@ local seats = require("paw.seats")
 local limit = require("paw.limit")
 local util = require("paw.util")
 local music = require("paw.music")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -573,7 +574,7 @@ function M.context(opts?: ContextOptions): Ctx, string
       pitch = roll.pitch,
       start = c.start,
       harmony = harmony,
-      grid = opt.note_grid,
+      grid = timegrid.step("note"),
       count = opts.count or 1,
       opt = opt,
       range = harmony.range(c.track),

@@ -79,6 +79,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
             warnings: &mut warnings,
             offline: true,
             waker: Default::default(),
+            bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
         };
         let mut sent = Vec::new();
@@ -317,6 +318,7 @@ fn follows(follow: Follow) -> bool {
         warnings: &mut warnings,
         offline: true,
         waker: Default::default(),
+        bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
     };
     let mut map = Mapper::new();
@@ -421,6 +423,7 @@ fn compiles(states: &[&Project]) -> (Mapper, usize) {
             warnings: &mut warnings,
             offline: true,
             waker: Default::default(),
+            bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
         };
         let before = clips::COMPILES.with(|c| c.get());
@@ -1074,6 +1077,7 @@ fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
         warnings: &mut warnings,
         offline,
         waker: Default::default(),
+        bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
     };
     let mut sent = Vec::new();

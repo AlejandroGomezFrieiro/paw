@@ -540,7 +540,6 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.cursor
 
-- `paw.cursor.bounds()`: The time the cursor stays in: the current scope's.
 - `paw.cursor.clip()`: The clip under the cursor, if any.
 - `paw.cursor.index()`: 1-based position of the cursor track among the tracks of its place: the song's, or its subproject's (as `paw.api.track_move` counts).
 - `paw.cursor.lane_id()`: The automation lane row of the cursor: a lane of the cursor track that shows as a row (see `paw.lanes`). Nil when the cursor is on the track.
@@ -551,11 +550,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.cursor.on_master()`: True if the cursor is on the master track: the row after the last track in the arrange view, the strip after the last in the mixer.
 - `paw.cursor.over(old, new)`: Where the cursor goes when it moves from beat `old` to `new`: a beat inside a closed time fold is its start, or its end when the cursor moves on from its start, so that a motion takes a fold as one step. A closed block fold on the cursor's track is one step in the same way.
 - `paw.cursor.row()`: 1-based row of the cursor track among the tracks that are drawn: the same as `index` until a group is folded. On the master, the row after the last track.
-- `paw.cursor.set_beat(beat)`: Put the cursor at a beat (not before 0, and in the scope's time).
+- `paw.cursor.set_beat(beat)`: Put the cursor at a beat: the nearest tick, as `set_tick`.
+- `paw.cursor.set_tick(at)`: Put the cursor at a tick: not before 0, in the scope's time (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want` becomes the tick asked for. A tick with a fraction is an error in the tests, and is rounded else.
 - `paw.cursor.set_track(track, lane)`: Put the cursor on a track, or with `lane` on one of its lane rows.
 - `paw.cursor.shift(track, beat)`: For a track of a subproject shown in place under its return row: the beat of the window where the subproject's beat 0 is, for the block of the row at `beat` (the first block when none is there). Nil for any other track. The arrange view draws its clips that much later, and the cursor finds them there.
-- `paw.cursor.snap(beat)`: Round a position to the arrange grid.
-- `paw.cursor.step(beat, n, grid)`: `beat` moved by `n` steps of a grid of `grid` beats (the arrange grid when nil). paw counts the new place as a whole number of steps from 0, plus how far `beat` is after the grid line before it. So a long run of steps gives the exact beat, and a beat on a grid line stays on one. A place between two lines (the end of a take) keeps its distance from the line.
+- `paw.cursor.snap(beat)`: A position at the nearest line of the arrange grid.
+- `paw.cursor.step(beat, n, grid)`: `beat` moved by `n` lines of the arrange grid (of a grid of `grid` beats, when given), with the same offset after its line (`paw.timegrid` `steps`). A beat on a line stays on one, a long run of steps gives the exact beat, and a place between two lines (the end of a take) keeps its distance from the line.
 - `paw.cursor.stop(id, beat)`: The row that stands for a track at a beat when the cursor moves by rows: the first row of the closed block fold that holds the track there, or nil when no closed block holds it. A closed block is one row for `j` and `k`, as a closed fold is one line in Vim.
 - `paw.cursor.track()`: The track the cursor is on, as a `paw.Track`, or nil.
 - `paw.cursor.track_id()`: The id of the track of the cursor, or of the first track when that track does not exist now. Nil when the project has no tracks. 0 when the cursor is on the master track (`on_master`).
@@ -2145,7 +2145,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 ## Module paw.slices
 
 - `paw.slices.job(name)`: The job `name` while it runs, or nil.
-- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
+- `paw.slices.run(name, step, opts)`: Call `step(ms)` again and again, each time from a timer of its own, until it returns true. The step works for at most `ms` milliseconds (`opts.ms`, 4) and keeps its place for the next call. The keys that wait run between two calls. `opts.after` is the time before the first call (0). With `opts.idle`, the job is idle work: a wait of a test does not wait for it. A job of the same name stops first. An error in the step shows as a message and ends the job. Returns the job.
 - `paw.slices.running()`: The jobs that run, by name.
 - `paw.slices.stop(name)`: Stop the job `name`. Returns true if it was running.
 
@@ -2244,7 +2244,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.stretch.warp_move(id, index, beat)`: Move warp marker `index` of a clip to play at `beat`. The sound between it and the markers next to it stretches, and the start and the end of the clip do not move. The stretch on each side stays between 0.25 and 4. Returns its index, which can be different.
 - `paw.stretch.warp_near(c, beat)`: The index of a clip's warp marker nearest `beat`, and how far it is.
 - `paw.stretch.warp_remove(id, index)`: Take warp marker `index` off a clip.
-- `paw.stretch.warp_snap(id, step)`: Move every warp marker of a clip onto the nearest line of a grid of `step` beats (`paw.opt.grid` when left out), from the first on.
+- `paw.stretch.warp_snap(id, step)`: Move every warp marker of a clip onto the nearest line of a grid of `step` beats (`paw.timegrid.step()` when left out), from the first on.
 
 ## Module paw.takes
 
@@ -2354,6 +2354,21 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.textbuf.unquote(cell)`: A cell's text without the quotes `quote` put round it.
 - `paw.textbuf.width(s)`: How many characters a string has (UTF-8).
 - `paw.textbuf.write(buf, force)`: `:w` in a text buffer: the plan, to confirm. With `force`, also when the project changed after paw read the buffer.
+
+## Module paw.timegrid
+
+- `paw.timegrid.beat(tick)`: Ticks as a beat, for the API and the kernel.
+- `paw.timegrid.bounds()`: The time the cursor and the grid stay in: the current scope's.
+- `paw.timegrid.checked(value, what)`: A value checked as a tick: with a fraction, an error when `strict` (the tests), else rounded. `what` names the value in the error.
+- `paw.timegrid.is_tick(value)`: True if a value is a whole number of ticks.
+- `paw.timegrid.label(which)`: The window's grid setting as text, for the status line and the messages: `1/8t`, `bar`, or a number of beats as a note value. `which` is "note" for the note editors' grid.
+- `paw.timegrid.new(spec)`: A grid from a spec. A setting that is no setting is an error.
+- `paw.timegrid.note_text(beats)`: A number of beats as a note value: 1 is `1/4`, 0.25 is `1/16`, and one that is no note value is `0.3 beats`.
+- `paw.timegrid.parse(value)`: What a grid setting stands for, or nil and what a setting can be.
+- `paw.timegrid.spans()`: The closed time folds of the window: the grid takes each as one cell.
+- `paw.timegrid.step(which, at)`: The step of the window's grid in beats, for code that needs a number: a number setting as it is, a note value's step, else the width of the cell at beat `at` (the start when not given). `which` is "note" for the note editors' grid.
+- `paw.timegrid.tick(beat)`: A beat as ticks: the nearest tick. The one place where a beat from the API, the kernel or the pointer becomes a tick.
+- `paw.timegrid.window(opts)`: The grid of the window with the keys: its setting (`paw.opt.grid`, or `paw.opt.note_grid` with `opts.note`), the meter of its time, the swing (`paw.opt.swing`), its closed folds and its scope (not with `opts.bare`), and the tempo map for a grid of frames or seconds.
 
 ## Module paw.timers
 
@@ -2691,6 +2706,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_warp_add(id, beat)`: Warp markers of an audio clip (`session/stretching.rs`), counted from 1.
 - `paw.api.clip_warp_move(id, index, beat)`
 - `paw.api.clip_warp_remove(id, index)`
+- `paw.api.clock()`: The schedule clock of the process: "manual" when it moves only when a script waits (`paw --clock manual`, the tests), else "wall".
 - `paw.api.crc32(data)`: The CRC-32 of bytes, as zip and gzip use it.
 - `paw.api.cue(list)`: `{ { track =, clip = id }, { track =, stop = true }, { track =, timeline = true }, ... }`, each with `quantize` (`bar` when not given: off 1/16 1/8 1/4 beat bar 2bars 4bars), `legato` and `from`: all on their boundary, timed together by the engine.
 - `paw.api.cue_list(track)`: --- cues (session/cues.rs) --- A clip goes off the timeline with `clip_add(track, { cue = true, ... })`: it starts at 0, loops over its length, and plays only when cued. You edit it as a usual clip; `clip_set(id, "track", other)` moves it.
@@ -2841,7 +2857,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.note_on(track, pitch, velocity, attr)`: Play a note on a track, with a MIDI 2.0 attribute if one is given.
 - `paw.api.notes_set(columns)`: Many notes of many clips at once, as one edit, given as lists of the same length: `{ clip = { 4, 4, 7 }, place = { 1, 2, 1 }, start = { 0, 0.5, 2 } }`. Entry i is about the note at place `place[i]` of clip `clip[i]`, its place before the call. A list left out of `start`, `length`, `pitch` and `velocity` keeps that value of each note.
 - `paw.api.now()`: The schedule time in milliseconds since paw started: the time that timers, delays and throttles wait for. In a test that runs with `paw --clock manual`, it moves only when the test waits. To measure how long work takes, use `real_ms`.
-- `paw.api.pending()`: The work that is not done yet, by kind: timers due now and all the timers, the time until the next timer or delay is due (`next_ms`), bakes, files of stretched clips being hashed, plugins being loaded, renders, measurements, changed files, MIDI that came in, and helper processes. A test waits until nothing is in flight.
+- `paw.api.pending()`: The work that is not done yet: whether the next turn has work (`ready`), whether only due times are left (`quiet`), the time until the next timer or delay is due (`next_ms`), the work in flight on other threads and processes by kind (`in_flight`), the timers, the bakes and changed files that wait for their settle, MIDI that came in, helper processes, and the wakes that a worker missed (`missed_wakes`).
 - `paw.api.plugins_add_dir(dir)`: Find CLAP and VST3 plugins in one more directory from now on (the directory of an extension), and register the plugins in it. Returns `{ kinds, notes }`: the device kinds found there and the files that paw cannot use. Returns nil where paw cannot find plugins.
 - `paw.api.plugins_attach(path)`: Load an attachment: a native library that an extension ships, which paw offers each CLAP plugin that it makes from now on (see `crates/paw-plugins/include/paw_attach.h`). Returns the name of the attachment.
 - `paw.api.plugins_dirs()`: The folders where paw looks for plugins, for each format, in the order that paw looks in them: `{ clap = {...}, lv2 = {...}, vst3 = {...} }`. They include the folders that `plugins_add_dir` added. Returns nil where paw cannot find plugins.
@@ -2916,6 +2932,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.scene_picture(rect, opts)`: A drawing (`paw.canvas` operations) over a rectangle of the scene: `opts` `ops`, `px` (`{ w, h }` it was drawn at), `under` (the cells drawn there go over it), `clip` (the part that shows).
 - `paw.api.scene_roles(client, roles)`: The roles `client` draws itself: in what it is sent from now on, such a role goes without the cells that draw it for a terminal.
 - `paw.api.scope_export(opts, dir)`: Write a view as a project folder of its own at `dir`, a new or empty folder: copies of `tracks` with their devices, their clips and lanes from `from` to `to` (beats of their place) from beat 0, the markers and regions inside, and the tempo and meter of the time. A route to a track outside the view is cut, and `changes` tells each cut. The song does not change. Returns what `nest_export` returns.
+- `paw.api.settle()`: Turn the loop until nothing is ready and no work is in flight: the timers due now fire, and the loop waits for the bakes, the hashes, the plugin loads, the renders and the other work of threads and processes to end. No schedule time passes, and an idle timer is not waited for. Gives what `pending` gives then. It fails when work is still in flight after 30 seconds.
 - `paw.api.signature_remove(beat)`
 - `paw.api.signature_set(beat, num, den)`
 - `paw.api.sleep(ms)`
@@ -2956,7 +2973,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.tempo_signature(beat)`
 - `paw.api.test_devices()`: Add devices that fail on purpose (`test.panic`, `test.nan`). Tests use them to see what a bad device does to the other devices.
 - `paw.api.test_panic(why, inside)`: Panic, as a bug in the program does. Tests use it to see what paw keeps. The panic ends the program, as a bug outside `paw.api` does, and paw writes a safety copy. With `inside`, it is a bug in this function: the call gives an error, and the program goes on.
-- `paw.api.timer_start(ms, repeat, func)`: --- timers ---
+- `paw.api.timer_start(ms, repeat, func, idle)`: Start a timer: `func` runs after `ms` milliseconds, and again each `ms` when `repeat` is true. An `idle` timer is idle work (the collector of garbage): when it is due, a wait of a test (`settle`) does not wait for it, and `pending().quiet` holds.
 - `paw.api.timer_stop(id)`
 - `paw.api.toml_decode(text)`: The table of a TOML text, or nil and what is wrong (`line 4: ...`). Each table keeps the order of its keys in its metatable, `getmetatable(t).__keys`. A date or a time is its text.
 - `paw.api.toml_encode(value, inline)`: The TOML text of a table; with `inline`, of any value on one line (`{ a = 1, b = "x" }`). The keys of a table come in the order of its metatable's `__keys`, then the others by name. A list of tables is an array of tables.

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use paw_engine::{Ctl, EventKind, NoteCtl, SigPoint, TempoMap, TempoPoint};
+use paw_types::{Ctl, EventKind, NoteCtl, SigPoint, TempoMap, TempoPoint};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -241,8 +241,8 @@ pub(crate) enum Quantize {
 }
 
 impl Quantize {
-    pub(crate) fn engine(self) -> paw_engine::launch::Quantize {
-        use paw_engine::launch::Quantize as Q;
+    pub(crate) fn engine(self) -> paw_types::Quantize {
+        use paw_types::Quantize as Q;
         match self {
             Quantize::Off => Q::Off,
             Quantize::Sixteenth => Q::Grid(0.25),
@@ -325,7 +325,7 @@ pub(crate) struct MidiOutput {
 }
 
 /// What a MIDI output sends where the port takes no MIDI 2.0 (see
-/// `paw_engine::midi_form`).
+/// `paw_types::midi_form`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum OutForm {
@@ -348,8 +348,8 @@ impl OutForm {
 
 impl MidiOutput {
     /// The form as the engine takes it.
-    pub(crate) fn engine_form(&self) -> paw_engine::midi_form::Form {
-        use paw_engine::midi_form::Form;
+    pub(crate) fn engine_form(&self) -> paw_types::midi_form::Form {
+        use paw_types::midi_form::Form;
         match self.form {
             OutForm::Auto => Form::Auto,
             OutForm::Plain => Form::Plain,
@@ -976,9 +976,9 @@ pub struct NoteAttr {
     pub data: u16,
 }
 
-impl From<NoteAttr> for paw_engine::Attr {
+impl From<NoteAttr> for paw_types::Attr {
     fn from(a: NoteAttr) -> Self {
-        paw_engine::Attr {
+        paw_types::Attr {
             kind: a.kind,
             data: a.data,
         }
@@ -987,7 +987,7 @@ impl From<NoteAttr> for paw_engine::Attr {
 
 impl NoteAttr {
     /// The attribute of an engine event's note-on, `None` for none.
-    pub fn of(attr: paw_engine::Attr) -> Option<Self> {
+    pub fn of(attr: paw_types::Attr) -> Option<Self> {
         (!attr.is_none()).then_some(NoteAttr {
             kind: attr.kind,
             data: attr.data,
@@ -2212,8 +2212,9 @@ mod by_key {
 
 #[cfg(test)]
 mod lane_shapes {
+    use paw_types::automation::value_at;
+
     use super::*;
-    use paw_engine::automation::value_at;
 
     fn lane(shapes: Vec<Segment>) -> Lane {
         Lane { id: 1, target: Target::Volume, enabled: true, points: vec![(0.0, -12.0), (4.0, 0.0), (8.0, -6.0)], shapes, states: Vec::new() }

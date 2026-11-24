@@ -201,7 +201,7 @@ pub(super) fn vca_volume_lane(track: &Track, project: &Project) -> Option<Vec<(f
     for b in beats {
         // The value as a beat is reached, and as it is left (they differ at a jump).
         let before = sum(&|p| value_before(p, b));
-        let after = sum(&|p| paw_engine::automation::value_at(p, b).unwrap_or(0.0));
+        let after = sum(&|p| paw_types::automation::value_at(p, b).unwrap_or(0.0));
         if before != after {
             out.push((b, before));
         }

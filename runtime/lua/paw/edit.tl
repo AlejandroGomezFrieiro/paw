@@ -25,6 +25,7 @@ local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
 local transform = require("paw.notes")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type registers = require("paw.keymap.registers")
@@ -461,7 +462,7 @@ end
 --- Snap the clips that start in a region to the grid, and the notes in them
 --- to the piano roll's.
 function A.quantize(region: Region)
-  local grid, note_grid = options.opt.grid, options.opt.note_grid
+  local grid, note_grid = timegrid.step(), timegrid.step("note")
   for _, id in ipairs(A.tracks(region)) do
     for _, c in ipairs(starting_in(id, region)) do
       api.clip_set(c.id, {start = util.round(c.start, grid)})
@@ -804,7 +805,7 @@ local function put(clip: objects.Clip, add: {YankedNote}, finish: number)
       end
     end
   end
-  local note_grid = options.opt.note_grid
+  local note_grid = timegrid.step("note")
   if finish > clip.length + EPS then
     clip.length = math.ceil(finish / note_grid - EPS) * note_grid
   end

@@ -63,6 +63,8 @@ paw.axis
 # The project and what the user edits in it: tracks, clips, notes, time,
 # devices, files.
 paw.objects
+# The grid of time: ticks and the lines that grid motions stop on.
+paw.timegrid
 paw.cursor
 paw.edit
 # The registers hold what a yank took: paw.edit's records are registers.

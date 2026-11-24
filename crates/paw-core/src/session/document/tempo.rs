@@ -1,8 +1,7 @@
 //! Editing the tempo map: tempo and signature points along the song.
 
 use anyhow::{Result, bail};
-use paw_engine::tempo::EPS;
-use paw_engine::{SigPoint, TempoMap, TempoPoint};
+use paw_types::{SigPoint, TempoMap, TempoPoint, tempo::EPS};
 
 use super::Document;
 

@@ -83,6 +83,7 @@ local type TakesModule = require("paw.takes")
 local type TempoModule = require("paw.tempo")
 local type TempolaneModule = require("paw.tempolane")
 local type TextbufModule = require("paw.textbuf")
+local type TimegridModule = require("paw.timegrid")
 local type TimersModule = require("paw.timers")
 local type TrackcolumnModule = require("paw.trackcolumn")
 local type UiModule = require("paw.ui")
@@ -233,6 +234,7 @@ global record paw
    tempolane: TempolaneModule
    textbuf: TextbufModule
    time: ObjectsModule.Time
+   timegrid: TimegridModule
    timers: TimersModule
    toml: Untyped
    track: function(which: number | string): ObjectsModule.Track

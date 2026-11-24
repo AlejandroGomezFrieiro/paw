@@ -5,36 +5,7 @@ use anyhow::{Result, bail};
 use paw_engine::midi_out::MidiOutputs;
 use serde_json::{Value, json};
 
-use super::{Session, de};
-use crate::model::MidiOutput;
-
-/// A track's MIDI output from what a script gives: a port's name, a table
-/// `{ port, channel, form, members }`, or nil (or "none") for none.
-pub(super) fn parse(value: Value) -> Result<Option<MidiOutput>> {
-    let out = match value {
-        Value::Null => return Ok(None),
-        Value::String(s) if s.is_empty() || s == "none" => return Ok(None),
-        Value::String(port) => MidiOutput {
-            port,
-            channel: None,
-            form: Default::default(),
-            members: None,
-        },
-        // An empty Lua table arrives as an empty list.
-        Value::Array(a) if a.is_empty() => return Ok(None),
-        value => de::<MidiOutput>("midi_output", value)?,
-    };
-    if out.port.is_empty() {
-        bail!("a MIDI output needs a port: one of paw.midi.outputs()");
-    }
-    if out.channel.is_some_and(|ch| !(1..=16).contains(&ch)) {
-        bail!("a MIDI channel is from 1 to 16");
-    }
-    if out.members.is_some_and(|n| !(1..=15).contains(&n)) {
-        bail!("an MPE zone has 1 to 15 member channels");
-    }
-    Ok(Some(out))
-}
+use super::Session;
 
 impl Session {
     /// Start sending MIDI to the ports, from the current engine.

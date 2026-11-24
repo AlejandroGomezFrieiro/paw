@@ -17,6 +17,7 @@ local util = require("paw.util")
 local music = require("paw.music")
 local statusline = require("paw.statusline")
 local clips = require("paw.roll_clips")
+local timegrid = require("paw.timegrid")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -884,7 +885,7 @@ local function tool_list(self: PianoRoll, titled: boolean): {ToolButton}
     },
     {
       name = "grid",
-      text = "Grid " .. grid_text(opt.note_grid),
+      text = "Grid " .. timegrid.label("note"),
       menu = true,
       tip = "the grid notes snap to and the lines it draws (also :grid)",
     },
@@ -1051,7 +1052,7 @@ local function frame_of(buf: Buf, clip: objects.Clip): Frame
     bands = bands,
     bar = bar,
     tw = tw,
-    grid = opt.note_grid,
+    grid = timegrid.step("note"),
     lo = lo,
     hi = hi,
   }
@@ -1509,7 +1510,7 @@ function view:move(dbeat: number, dpitch: integer)
   local lo, hi = self:span()
   -- Whole steps of the grid count from its lines, so that no sum of
   -- steps drifts off them (paw/cursor.tl `step`).
-  local grid = opt.note_grid
+  local grid = timegrid.step("note")
   local steps = math.floor(dbeat / grid + 0.5)
   local to = math.abs(dbeat - steps * grid) < grid * 1e-6 and paw.cursor.step(self.beat, steps, grid)
     or self.beat + dbeat
@@ -1695,7 +1696,7 @@ end
 
 --- How long a new note is: the note length, or a grid step when it is unset.
 function view:step_length(): number
-  return self.length or opt.note_grid
+  return self.length or timegrid.step("note")
 end
 
 function view:set_step(length?: number)
@@ -1708,7 +1709,8 @@ view.grid = {
   down = -1,
   get = function(): number, number return view.pitch, view.beat end,
   set = function(row: number, col: number) view:set(row as integer, col) end,
-  step = function(): number return opt.note_grid end,
+  step = function(): number return timegrid.step("note") end,
+  label = function(): string return timegrid.label("note") end,
   -- A selection takes in the note under its far end, as Vim's takes in the
   -- character under the cursor.
   extent = function(row: number, col: number): number
@@ -1742,7 +1744,7 @@ function view:toggle_note()
     part = clips.target(self.beat)
     part.clip:add_note(
       view.new_note(
-        part.clip, {pitch = self.pitch, start = self.beat - part.offset, length = self.length or opt.note_grid}
+        part.clip, {pitch = self.pitch, start = self.beat - part.offset, length = self.length or timegrid.step("note")}
       )
     )
     self:audition()

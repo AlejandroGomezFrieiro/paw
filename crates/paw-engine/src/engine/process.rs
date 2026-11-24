@@ -2,11 +2,12 @@
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
+use paw_types::TempoMap;
+
 use crate::device::ProcessCtx;
 use crate::midi_out::MidiOut;
 use crate::record::PUNCH_EPS;
 use crate::slot::TrackSlot;
-use crate::tempo::TempoMap;
 
 use super::click::{CLICK_FRAMES, Count};
 use super::clock::Clock;

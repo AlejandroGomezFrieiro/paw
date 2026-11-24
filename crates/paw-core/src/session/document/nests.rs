@@ -10,10 +10,10 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use super::Document;
+use super::values::{de, de_meta, holds};
 use crate::model::{
     Clip, ClipContent, DeviceInst, Id, Lane, Nest, NestId, NestMeter, NestPlay, NestTempo, Target, Track,
 };
-use crate::session::{de, de_meta, holds};
 
 /// The length of a nest made with none: 8 bars of 4/4.
 const DEFAULT_LENGTH: f64 = 32.0;
@@ -267,7 +267,7 @@ impl Document {
     /// Copies of a track's devices and lanes, with new ids: a lane of a
     /// device follows its copy, and the side-chains and output pairs of the
     /// devices go to the tracks `tracks` names (by old id), else stay.
-    pub(in crate::session) fn copy_devices_and_lanes(&mut self, t: &Track, tracks: &HashMap<Id, Id>) -> (Vec<Arc<DeviceInst>>, Vec<Arc<Lane>>) {
+    pub(crate) fn copy_devices_and_lanes(&mut self, t: &Track, tracks: &HashMap<Id, Id>) -> (Vec<Arc<DeviceInst>>, Vec<Arc<Lane>>) {
         let track = |id: Id| tracks.get(&id).copied().unwrap_or(id);
         let mut ids: HashMap<Id, Id> = HashMap::new();
         let devices = t

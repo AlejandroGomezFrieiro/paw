@@ -50,7 +50,7 @@ test("an option takes values of its type and range, and :set says what it takes"
   fresh()
   local grid = paw.opt.grid
   T.keys(":set grid=abc<CR>")
-  has(said("error"), 'grid takes a number from 0.0078125 to 64, not "abc"', ":set grid=abc")
+  has(said("error"), "grid takes a number of beats, a note value (1/8, 1/8t), bar, auto, frame", ":set grid=abc")
   eq(paw.opt.grid, grid, "and grid keeps what it had")
   for _, bad in ipairs({ 0, -1, 1e-9, 1e300, 0 / 0, "2", true }) do
     local ok, err = pcall(function() paw.opt.grid = bad end)

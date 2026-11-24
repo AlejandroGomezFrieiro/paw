@@ -19,12 +19,13 @@ pub mod stretch;
 pub mod sync;
 pub mod tls;
 
-pub use kernel::{Frontend, InputEvent, Kernel, KernelMsg, KernelOpts};
+pub use kernel::{Frontend, InputEvent, Kernel, KernelMsg, KernelOpts, KernelSender};
 
 mod attr_map;
 mod bake;
 mod chain_schema;
 mod codec;
+mod doorbell;
 mod edits;
 mod events;
 mod ext_api;

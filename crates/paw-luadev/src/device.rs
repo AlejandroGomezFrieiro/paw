@@ -12,8 +12,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
 use paw_engine::device::{Category, Controller, Device, Instance, Io, ParamInfo, Ports};
-use paw_engine::{Attr, Ctl, Event, EventKind, ProcessCtx};
+use paw_engine::{Event, ProcessCtx};
 use mlua::{Function, HookTriggers, LightUserData, Lua, Table, VmState};
+use paw_types::{Attr, Ctl, EventKind};
 use serde::{Deserialize, Serialize};
 
 /// Events a block may carry each way.

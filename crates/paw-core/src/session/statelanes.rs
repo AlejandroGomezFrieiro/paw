@@ -68,7 +68,7 @@ fn main_lanes<'a>(project: &'a Project, map: &'a Mapper) -> Vec<MainLane<'a>> {
 
 /// The index of the state a lane gives at `beat`.
 fn index_at(lane: &Lane, beat: f64) -> Option<usize> {
-    paw_engine::automation::value_at(&lane.played(), beat).map(|v| v.round().max(0.0) as usize)
+    paw_types::automation::value_at(&lane.played(), beat).map(|v| v.round().max(0.0) as usize)
 }
 
 /// The devices that an active state lane drives: the project does not

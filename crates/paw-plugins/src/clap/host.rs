@@ -18,7 +18,7 @@ use clack_host::prelude::{
     ClapId, HostError, HostExtensions, HostHandlers, MainThreadHandler, SharedHandler,
 };
 use clap_sys::id::clap_id;
-use paw_engine::Waker;
+use paw_engine::{Bell, Waker};
 
 use crate::echo::Blocks;
 use crate::is_main_thread;
@@ -38,6 +38,9 @@ pub(super) struct HostFlags {
     /// The engine the device is in, which [`wake`](Self::wake) wakes from
     /// rest. Set once, on the main thread, as the device goes in.
     pub(super) engine: OnceLock<Waker>,
+    /// Tells the main loop that the plugin asked for a call on the main
+    /// thread. Set once, on the main thread, as the device goes in.
+    pub(super) bell: OnceLock<Bell>,
     /// The plugin says its parameter values changed behind the host's back.
     pub(super) rescan: AtomicBool,
     /// Blocks the plugin has processed, to tell when it has taken on a
@@ -63,6 +66,7 @@ impl HostFlags {
             restart: AtomicBool::new(false),
             wake: AtomicBool::new(false),
             engine: OnceLock::new(),
+            bell: OnceLock::new(),
             rescan: AtomicBool::new(false),
             blocks: Blocks::default(),
             loads: AtomicU64::new(0),
@@ -80,6 +84,15 @@ impl HostFlags {
         self.wake.store(true, Relaxed);
         if let Some(engine) = self.engine.get() {
             engine.wake();
+        }
+    }
+
+    /// Tell the main loop that the plugin asked for something on the main
+    /// thread. From any thread, also the audio thread: a mark, no system
+    /// call.
+    fn mark(&self) {
+        if let Some(bell) = self.bell.get() {
+            bell.mark();
         }
     }
 }
@@ -119,6 +132,7 @@ impl HostHandlers for PawHost {
 impl SharedHandler<'_> for HostShared {
     fn request_restart(&self) {
         self.flags.restart.store(true, Relaxed);
+        self.flags.mark();
     }
 
     fn request_process(&self) {
@@ -127,6 +141,7 @@ impl SharedHandler<'_> for HostShared {
 
     fn request_callback(&self) {
         self.flags.callback.store(true, Relaxed);
+        self.flags.mark();
     }
 }
 

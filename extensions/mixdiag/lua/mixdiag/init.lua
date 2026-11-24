@@ -78,7 +78,7 @@ function M.range(scope)
       local last = paw.keymap.last_visual
       if last and last.view == "arrange" then
         sel = { c0 = math.min(last.col, last.cursor_col), c1 = math.max(last.col, last.cursor_col), kind = last.kind }
-        if sel.c1 - sel.c0 < 1e-9 then sel.c1 = sel.c0 + paw.opt.grid end
+        if sel.c1 - sel.c0 < 1e-9 then sel.c1 = sel.c0 + paw.timegrid.step() end
       end
     end
     if not sel then error("nothing selected: select a stretch with `v` first", 0) end

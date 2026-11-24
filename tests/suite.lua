@@ -260,17 +260,17 @@ end
 -- The suite runs paw with `--clock manual --audio step`
 -- (tests/tools/suite.sh): schedule time (`api.now()`, the timers, the
 -- settle delays) moves only when a test lets it pass with `T.advance`, so a
--- test steps each timer in its order and does not race it. The manual clock
--- reads 0 until something waits, so the runner knows it at its start. The
--- audio engine runs on the stepped backend: it plays a block only when the
+-- test steps each timer in its order and does not race it (`api.clock()`
+-- says which clock runs). The audio engine runs on the stepped backend: it plays a block only when the
 -- clock gets to its end, so the sound, the meters and the playhead are one time with the
 -- clock, and a test that reads a meter after `T.next_block(n)` reads the
 -- same value in each run. Work on other threads and in other processes
 -- (bakes, plugin loads, renders) still takes wall time: a wait for it is
--- a wait for an event, and the one limit of wall time is the stall guard.
--- A test that needs real time is live (`T.live`), and runs in a second paw
--- on the wall clock and the null backend.
-local MANUAL = api.now() == 0
+-- a wait for their bell (`api.settle`), and the one limit of wall time is
+-- the stall guard. A test that needs real time is live (`T.live`), and
+-- runs in a second paw on the wall clock and the null backend.
+local MANUAL = api.clock() == "manual"
+
 -- The stall guard: the wall time that one wait may take. It shows a fault,
 -- not a speed.
 local STALL_MS = 30000
@@ -278,21 +278,6 @@ local STALL_MS = 30000
 --- Whether the engine plays only as the clock moves. A test can start it
 --- on another backend (the `test` device), which plays on the wall clock.
 local function stepped() return MANUAL and api.engine_get().backend == "step" end
-
--- Work that a turn or another thread does now: a settle waits for it. The
--- job `collector` (paw.collector) is idle work that each turn can start
--- again: its timer is not work left.
-local function working(p)
-  local idle = paw.slices.job("collector") and 1 or 0
-  return math.max(0, p.timers_due - idle)
-      + p.bakes_running
-      + p.hashing
-      + p.plugin_loads
-      + p.renders
-      + p.measures
-      + p.midi
-    > 0
-end
 
 --- Whether the engine plays: the song plays or records, a take is being
 --- closed, or a sound file plays. It changes the state as it plays: on the
@@ -306,18 +291,9 @@ local function engine_plays()
     or (preview ~= nil and (preview.state == "playing" or preview.state == "loading"))
 end
 
--- Something that goes on and can change the state while the test waits:
--- the engine that plays, and helper processes that still write.
-local function busy(p) return p.helpers > 0 or engine_plays() end
-
 local function stalled(what, level)
   error(string.format("stalled: %s after %d ms of wall time", what, STALL_MS), level + 1)
 end
-
--- The turns in a row with only timers due, after which they are a poll: a
--- job that looks again and again, at no delay, for a state that a timer
--- later on makes. A poll is not work left.
-local POLL_TURNS = 1000
 
 -- The schedule time that one test may take on the manual clock, ten
 -- minutes: each wait of `T` has its own limit, and this one stops a test
@@ -329,27 +305,15 @@ local test_began
 
 --- Turn the loop until nothing is ready and no work is in flight: the
 --- timers that are due fired, and the bakes, plugin loads and renders
---- ended. No schedule time passes. Gives what `api.pending()` gives then.
+--- ended (`api.settle`, which waits for their bells, and fails after 30
+--- seconds of wall time). No schedule time passes, and idle work (the
+--- collector of garbage) is not waited for. Gives what `api.pending()`
+--- gives then.
 local function settle()
   if MANUAL and test_began and api.now() - test_began > TEST_CLOCK_MS then
     error(string.format("the test ran more than %d ms of the clock", TEST_CLOCK_MS), 2)
   end
-  local guard = api.real_ms() + STALL_MS
-  local only_timers = 0
-  while true do
-    api.step()
-    local p = api.pending()
-    if not working(p) then return p end
-    if p.bakes_running + p.hashing + p.plugin_loads + p.renders + p.measures + p.midi == 0 then
-      only_timers = only_timers + 1
-      if only_timers >= POLL_TURNS then return p end
-    else
-      only_timers = 0
-    end
-    if api.real_ms() > guard then stalled("the work in flight (" .. paw.inspect(p) .. ")", 2) end
-    -- Another thread works: let it.
-    if p.timers_due == 0 then api.sleep(1) end
-  end
+  return api.settle()
 end
 
 --- The time of one audio block in whole milliseconds, rounded up: the
@@ -466,14 +430,14 @@ local ENGINE_BLOCKS = 200
 
 --- Settle, then let the engine play up to ENGINE_BLOCKS blocks, until
 --- `cond()` holds. Gives the value of `cond()`, or false when nothing is
---- left to do and it is still false, or nil when something is still busy
---- (a helper process, or the engine that plays).
+--- left to do and it is still false, or nil when the kernel is not quiet
+--- (a helper process works, or the engine plays).
 local function quiet(cond)
   for _ = 1, ENGINE_BLOCKS do
     local p = settle()
     local value = cond()
     if value then return value end
-    if busy(p) then return nil end
+    if not p.quiet then return nil end
     if stepped() then
       one_block()
     elseif not catch_up_on_the_wall(1) then
@@ -484,7 +448,7 @@ local function quiet(cond)
   local p = settle()
   local value = cond()
   if value then return value end
-  if busy(p) then return nil end
+  if not p.quiet then return nil end
   return false
 end
 
@@ -571,7 +535,7 @@ local function advance_until(cond, what, ms)
       guard = guard or api.real_ms() + STALL_MS
       if api.real_ms() > guard then stalled(what .. ": a helper process does not answer", 2) end
       api.sleep(1)
-    elseif busy(p) or not p.next_ms then
+    elseif not p.quiet or not p.next_ms then
       guard = nil
       one_block()
     else
@@ -1411,6 +1375,9 @@ end
 -- one drew other cells with the same stamp (paw/ui.tl). It is set
 -- before the snapshot of the options, so each test gets it back.
 paw.opt.check_stamps = true
+-- A position with a fraction of a tick is an error, not rounded
+-- (paw/timegrid.tl): the motions must give whole ticks.
+paw.timegrid.strict = true
 local start_options = paw.option.snapshot()
 local base = fingerprint()
 local leaked = {}
@@ -1500,6 +1467,9 @@ local function stamps_kept(fn)
   return skipped
 end
 
+-- The wakes that workers missed before the test that runs.
+local missed_wakes = api.pending().missed_wakes
+
 -- Run one test, and report its result.
 local function run(t)
   -- An error that came between two tests is of no test.
@@ -1515,7 +1485,16 @@ local function run(t)
   note_kernel(t)
   -- A test that skips did not reach what it expects; a test that failed
   -- also names the errors, which can be why.
-  local errors = table.concat(unexpected_errors(), "\n")
+  local errors = unexpected_errors()
+  -- A worker that did not ring the loop when its work ended: a bug, which
+  -- the safety tick hid (the log of `:messages` names its kind).
+  local missed = api.pending().missed_wakes
+  if missed > missed_wakes then
+    errors[#errors + 1] =
+      string.format("%d missed wakes: a worker did not ring when its work ended", missed - missed_wakes)
+    missed_wakes = missed
+  end
+  errors = table.concat(errors, "\n")
   if ok and type(err) ~= "string" and errors ~= "" then
     ok, err = false, errors
   elseif not ok and errors ~= "" then

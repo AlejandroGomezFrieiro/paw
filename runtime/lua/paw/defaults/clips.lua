@@ -428,14 +428,14 @@ end, { desc = "Mute or unmute the clip" })
 command("clip.move", function(ctx)
   local clip = need_clip()
   if not clip then return end
-  local by = (ctx.args.by or 1) * (ctx.count or 1) * paw.opt.grid
+  local by = (ctx.args.by or 1) * (ctx.count or 1) * paw.timegrid.step()
   clip.start = math.max(0, clip.start + by)
   cursor.set_beat(math.max(0, cursor.beat + by))
 end, { desc = "Move the clip by grid steps: `clip.move by=-1`" })
 command("clip.resize", function(ctx)
   local clip = need_clip()
   if not clip then return end
-  local length = clip.length + (ctx.args.by or 1) * (ctx.count or 1) * paw.opt.grid
+  local length = clip.length + (ctx.args.by or 1) * (ctx.count or 1) * paw.timegrid.step()
   if length > 0 then clip.length = length end
 end, { desc = "Lengthen or shorten the clip by grid steps: `clip.resize by=-1`" })
 command("clip.split", function()
@@ -576,7 +576,7 @@ command("clip.insert", function()
   clip = clip or track:add_clip({ start = cursor.beat, length = paw.opt.clip_length })
   local at = cursor.beat - clip.start
   roll:edit(clip)
-  roll:set(nil, math.floor(at / paw.opt.note_grid + 1e-9) * paw.opt.note_grid)
+  roll:set(nil, math.floor(at / paw.timegrid.step("note") + 1e-9) * paw.timegrid.step("note"))
   keymap.set_mode("i")
 end, { desc = "Enter notes at the cursor from the keyboard, in a new clip if there is none" })
 command("clip.fade", function(ctx)
@@ -642,7 +642,7 @@ command("clip.crossfade", function(ctx)
   end
   -- Let this clip run on under the start of the next for as long as its
   -- file has sound, and fade the two across each other there.
-  local beats = tonumber(ctx.args[1]) or ctx.count or paw.opt.grid
+  local beats = tonumber(ctx.args[1]) or ctx.count or paw.timegrid.step()
   local overlap = math.min(beats, next_clip.length)
   local file_end = clip.start + api.clip_source_length(clip.id)
   local reach = math.min(next_clip.start + overlap, file_end)

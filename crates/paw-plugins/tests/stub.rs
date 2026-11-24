@@ -2,8 +2,9 @@
 //! directory added while the program runs, given notes with attributes as
 //! MIDI 2.0, asked what it calls its keys, and told when a render is offline.
 
-use paw_engine::{Attr, Event, EventBuf, EventKind, Instance, Io, ProcessCtx, Registry};
+use paw_engine::{Event, EventBuf, Instance, Io, ProcessCtx, Registry};
 use paw_plugins::PluginDirs;
+use paw_types::{Attr, EventKind};
 use tempfile::TempDir;
 
 /// A directory holding the stub, as `stub.clap`. `cargo test` builds the

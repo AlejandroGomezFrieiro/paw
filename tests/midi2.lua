@@ -1,4 +1,4 @@
--- MIDI 2.0 on the way out (crates/paw-engine/src/midi_form.rs): the form a
+-- MIDI 2.0 on the way out (crates/paw-types/src/midi_form.rs): the form a
 -- route sends in where the port takes no MIDI 2.0, heard back through a
 -- port of the program's own MIDI input; and the editor for controller
 -- moves, in the piano roll's strip and in the event list.

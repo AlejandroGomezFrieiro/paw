@@ -23,6 +23,7 @@ local music = require("paw.music")
 local mouse = require("paw.mouse")
 local axis = require("paw.axis")
 local menus = require("paw.mouse_menus")
+local timegrid = require("paw.timegrid")
 local strip = require("paw.views.pianoroll_strip")
 local type contracts = require("paw.contracts")
 local type objects = require("paw.objects")
@@ -54,7 +55,7 @@ local function start_at(self: PianoRoll, tx: number, free: boolean): number
   if free then
     return beat_at(self, tx)
   end
-  return axis_of(self):step_at(math.floor(tx), opt.note_grid)
+  return axis_of(self):step_at(math.floor(tx), timegrid.step("note"))
 end
 
 --- Where the grid step under the pointer ends: a drag to a column takes in
@@ -65,7 +66,7 @@ local function end_at(self: PianoRoll, tx: number, free: boolean, fine: boolean)
   if free then
     return beat
   end
-  local grid = opt.note_grid
+  local grid = timegrid.step("note")
   return math.ceil(beat / grid - 1e-6) * grid
 end
 
@@ -455,7 +456,7 @@ function view:follow()
   local g = self.geometry
   local span = g.span or 1
   self.pitch = math.floor(util.clamp(self.pitch, self.top - g.rows + 1, self.top))
-  self.beat = util.clamp(self.beat, self.scroll, math.max(self.scroll, self.scroll + span - 2 * opt.note_grid))
+  self.beat = util.clamp(self.beat, self.scroll, math.max(self.scroll, self.scroll + span - 2 * timegrid.step("note")))
   api.ui_redraw()
 end
 
@@ -560,7 +561,9 @@ local function pointer(self: PianoRoll, e: MouseEvent): boolean
 end
 
 --- A menu of choices, the one standing ticked.
-local function choices(list: {Roll.GridChoice}, now: number, choose: function(value: number)): {contracts.MenuEntry}
+local function choices(
+  list: {Roll.GridChoice}, now: number | string, choose: function(value: number)
+): {contracts.MenuEntry}
   local items: {contracts.MenuEntry} = {}
   for _, c in ipairs(list) do
     local value = c[2] as number

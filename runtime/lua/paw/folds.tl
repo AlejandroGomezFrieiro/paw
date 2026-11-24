@@ -33,6 +33,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local events = require("paw.events")
+local timegrid = require("paw.timegrid")
 local type axis = require("paw.axis")
 local type contracts = require("paw.contracts")
 local type partial = require("paw.partial")
@@ -945,6 +946,8 @@ end
 -- The cursor takes a folded span and a closed block as one step (`l`,
 -- `w`, `b`, `e`), and a closed block as one row (`j`, `k`).
 paw.cursor.over = M.over
+--- The closed time folds of the window: the grid takes each as one cell.
+timegrid.spans = function(): {axis.Folded} return M.time_spans() end
 paw.cursor.stop = M.row_stop
 
 -- Back from a scope, the cursor goes to the row of the fold it is in.

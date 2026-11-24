@@ -122,7 +122,7 @@ impl Session {
             .map(|&track| Launch {
                 track,
                 target: Target::Arrangement,
-                quantize: paw_engine::launch::Quantize::Off,
+                quantize: paw_types::Quantize::Off,
                 legato: false,
                 from: None,
             })

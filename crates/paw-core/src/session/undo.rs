@@ -19,86 +19,18 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use super::document::Adjusting;
 use super::{FILE_VERSION, Session};
-use crate::clock::ScheduleTime;
 use crate::history::{self, History, StateId};
 use crate::model::{Clip, ClipContent, CustomContent, DeviceInst, Id, Lane, Note, Notes, Project, Target, Track};
 
 /// Readable lines in a diff, at most.
 const DIFF_ITEMS: usize = 200;
-
-/// How many steps the undo history keeps until told otherwise
-/// (`paw.opt.undo_steps`).
-const UNDO_LIMIT: usize = 1000;
-/// And at most about this many bytes of what its steps changed
-/// (`paw.opt.undo_memory`): a step that changes one note of a big clip keeps
-/// a copy of the run of notes it changed (`model::Notes`).
-const UNDO_BYTES: usize = 1 << 30;
-
-/// An undo tree for a project, from `project` on, keeping at most `limit`
-/// steps and about `bytes` bytes.
-pub(super) fn new_history(project: Project, (limit, bytes): (usize, usize)) -> History<Project> {
-    History::new(project, history::now(), limit).weigh_with(Project::weight_over, bytes)
-}
-/// The edits of the open undo step: how many, how many of them moved a
-/// control, and which control if they all moved the same one.
-#[derive(Default)]
-pub(super) struct Sweep {
-    pub edits: u32,
-    pub moves: u32,
-    pub key: Option<String>,
-    pub mixed: bool,
-}
-
-/// Moves of one control closer together than this, in schedule time, are
-/// one undo step.
-pub(super) const SWEEP_GAP: Duration = Duration::from_millis(1000);
-
-/// The undo tree and the step being made: what the project was at the last
-/// step, how the open step's edits are joined, and whether a flush reports a
-/// state put back.
-pub(super) struct Undo {
-    /// The project at the last undo step.
-    pub checkpoint: Project,
-    /// Every undo step, as a tree: see [`crate::history`].
-    pub history: History<Project>,
-    /// Edits were made since the last undo step: the open step has
-    /// something in it.
-    pub touched: bool,
-    /// What the open undo step is made of, to tell a control being moved
-    /// (a fader dragged, a knob turned on a controller) from other edits:
-    /// its moves become one undo step, not one each.
-    pub sweep: Sweep,
-    /// The control the last undo step moved, when it did nothing else, and
-    /// the schedule time of that step.
-    pub last_sweep: Option<(String, ScheduleTime, StateId)>,
-    /// The next flush reports a state put back (undo, redo, a file opened)
-    /// rather than an edit: its events carry `restored = true`.
-    pub restoring: bool,
-    /// The undo state the edits of this turn join instead of making a step
-    /// of their own, set by `undo_join`.
-    pub join: Option<StateId>,
-    /// Counts every change to the project, undo and redo included.
-    pub edits: u64,
-    /// The undo file of the project: see `session/undo_file.rs`.
-    pub file: super::undo_file::UndoFile,
-    /// While a command is run again in place of its step
-    /// ([`Session::undo_adjust`]): the step as it was, to put back when the
-    /// command fails.
-    pub adjusting: Option<Adjusting>,
-}
-
-/// A step that a command is being run again for.
-pub(super) struct Adjusting {
-    pub project: Project,
-    pub label: Option<String>,
-}
 
 /// Whether the last step can be made again with other parameters.
 #[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -119,24 +51,6 @@ pub(crate) enum AdjustStatus {
 pub(crate) struct AdjustStart {
     pub status: AdjustStatus,
     pub label: Option<String>,
-}
-
-impl Undo {
-    /// No steps yet: the tree starts at `project`.
-    pub(super) fn new(project: &Project) -> Self {
-        Self {
-            checkpoint: project.clone(),
-            history: new_history(project.clone(), (UNDO_LIMIT, UNDO_BYTES)),
-            touched: false,
-            sweep: Sweep::default(),
-            last_sweep: None,
-            restoring: false,
-            join: None,
-            edits: 0,
-            adjusting: None,
-            file: Default::default(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -175,6 +89,12 @@ impl Session {
 
 
 
+
+    /// Start the undo tree again from the project as it is now
+    /// ([`Document::undo_reset`](super::Document::undo_reset)).
+    pub(crate) fn undo_reset(&mut self) {
+        self.doc.undo_reset(history::now());
+    }
 
     /// Go to any state in the tree. False when there is no such state.
     pub(crate) fn undo_goto(&mut self, id: StateId) -> bool {

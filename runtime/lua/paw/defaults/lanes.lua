@@ -27,7 +27,7 @@ local function cursor_lane()
 end
 
 --- How near the cursor a point must be to be the one under it.
-local function reach() return paw.opt.grid / 2 - 1e-9 end
+local function reach() return paw.timegrid.step() / 2 - 1e-9 end
 
 command("lane.pick", function()
   local track = need_track()
@@ -306,7 +306,7 @@ lx("x", remove_points, "Remove the points selected")
 lx("d", remove_points, "Remove the points selected")
 local function move_points(steps)
   return function(id, region, ctx)
-    local by = steps * (ctx.count or 1) * paw.opt.grid
+    local by = steps * (ctx.count or 1) * paw.timegrid.step()
     local chosen = {}
     for _, i in ipairs(points_in(id, region)) do
       chosen[i] = true

@@ -19,7 +19,7 @@ use std::time::Duration;
 use crate::clock::ScheduleTime;
 
 use anyhow::Result;
-use paw_engine::automation::value_at;
+use paw_types::automation::value_at;
 
 use super::{LaneKind, LaneOpts, Session};
 use crate::model::{AutoMode, Id, Target};
@@ -347,7 +347,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::session::TrackOpts;
+    use crate::session::document::TrackOpts;
 
     /// A session on the null backend, playing, with one track in touch mode.
     fn touching() -> (Session, Id) {

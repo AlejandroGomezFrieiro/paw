@@ -6,7 +6,8 @@
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 
-use paw_engine::{Ctl, EventKind, NOTE_BEND_RANGE, NoteCtl, ProcessCtx};
+use paw_engine::ProcessCtx;
+use paw_types::{Ctl, EventKind, NOTE_BEND_RANGE, NoteCtl};
 use vst3::Steinberg::Vst::*;
 use vst3::Steinberg::*;
 use vst3::{Class, ComWrapper};

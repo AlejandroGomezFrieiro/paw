@@ -397,16 +397,20 @@
       # tools/zoomlint.lua: no code of the runtime or of an extension turns
       # beats into columns by its own `* zoom` or `/ zoom`, outside the time
       # axis (runtime/lua/paw/axis.tl) and tools/zoomlint-allowed.txt.
+      # tools/gridlint.lua: no such code does grid arithmetic of its own,
+      # outside the grid of time (runtime/lua/paw/timegrid.tl) and
+      # tools/gridlint-allowed.txt.
       zoomLint = pkgs: pkgs.runCommand "paw-zoomlint" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
           fileset = nixpkgs.lib.fileset.unions [
-            ./tools/zoomlint.lua ./tools/zoomlint-allowed.txt ./runtime ./extensions
+            ./tools/zoomlint.lua ./tools/zoomlint-allowed.txt
+            ./tools/gridlint.lua ./tools/gridlint-allowed.txt ./runtime ./extensions
           ];
         };
         nativeBuildInputs = [ pkgs.luajit pkgs.findutils ];
       } ''
-        cd $src && luajit tools/zoomlint.lua
+        cd $src && luajit tools/zoomlint.lua && luajit tools/gridlint.lua
         touch $out
       '';
 

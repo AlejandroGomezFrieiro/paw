@@ -47,7 +47,7 @@ function M.apply_to_clip(clip, pick, fn)
     finish = math.max(finish, n.start + n.length)
   end
   if finish > clip.length + EPS then
-    local grid = paw.opt.note_grid
+    local grid = paw.timegrid.step("note")
     clip.length = math.ceil(finish / grid - EPS) * grid
   end
   clip:set_notes(keep)
@@ -210,7 +210,7 @@ for lhs, mode in pairs({ gzp = "up", gzP = "down", gzb = "updown", gzB = "played
     function(notes, amount)
       return mo.arpeggiate(notes, {
         mode = mode,
-        step = amount and 1 / amount or opt("arp_step") or paw.opt.note_grid,
+        step = amount and 1 / amount or opt("arp_step") or paw.timegrid.step("note"),
         gate = opt("arp_gate"),
         tolerance = opt("together"),
       })
@@ -235,7 +235,7 @@ op(
   ALL,
   function(notes, amount)
     return mo.quantize(notes, {
-      grid = paw.opt.note_grid,
+      grid = paw.timegrid.step("note"),
       strength = pct(amount) or opt("strength"),
       swing = opt("swing"),
     })
@@ -247,7 +247,7 @@ op(
   ALL,
   function(notes, amount)
     return mo.quantize(notes, {
-      grid = paw.opt.note_grid,
+      grid = paw.timegrid.step("note"),
       strength = opt("strength"),
       swing = pct(amount) or opt("swing_amount"),
     })

@@ -11,7 +11,8 @@ use clack_host::prelude::{ClapId, EventHeader, UnknownEvent};
 use clack_host::utils::{Cookie, FixedPoint};
 use clap_sys::events::*;
 use clap_sys::id::clap_id;
-use paw_engine::{Event, EventKind, NOTE_BEND_RANGE, NoteCtl, ProcessCtx, ump};
+use paw_engine::{Event, ProcessCtx};
+use paw_types::{EventKind, NOTE_BEND_RANGE, NoteCtl, ump};
 
 use crate::HeldNotes;
 
