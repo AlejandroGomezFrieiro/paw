@@ -108,10 +108,10 @@ The key gets a changed copy, and `paw.insert.add(key, old)`, with the table that
 
 ## Kinds of clip
 
-A kind of clip (`paw.clip_kinds.define`) with an `insert` key gets that key in insert mode, and `Enter` after it calls the `editor` of the kind.
+A kind of clip (`paw.kinds.define("clip", ...)`) with an `insert` key gets that key in insert mode, and `Enter` after it calls the `editor` of the kind.
 
 ```lua
-paw.clip_kinds.define("cue", { title = "Cue clip", insert = "c", ... })
+paw.kinds.define("clip", "cue", { title = "Cue clip", insert = "c", ... })
 ```
 
 ## Other functions

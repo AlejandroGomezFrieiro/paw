@@ -210,7 +210,7 @@ A file that opens as a project gives these results:
 - one part for each part of the file that has notes (paw splits a format 0 file by channel), with the name of the part, or "Channel N"
 - one clip on each part, over the bars that it plays, where the controllers, pitch bend, pressure and program changes become controller moves of the clip (the curve editor shows them at `paw://clip/C/control/cc/N`)
 - the tempo map, time signatures and markers of the file
-- the lyrics, on the notes where they start (`note.meta.lyric`)
+- the lyrics, on the notes where they start (`note.lyric`). A lyric at a place where no note starts goes on the next note, and a lyric after the last note is dropped. The message names each lyric that moved or was dropped
 - the built-in drum kit on a part that plays only on channel 10, while the other parts have no instrument, as a new part has none
 
 The new project has no file, so `:w` asks for a path and never writes over the `.mid` file. paw does not import what has no place in paw (sysex, key signatures, text), and the message says how much it left out. In Lua, use `paw.midifile` (see [The Lua interface](scripting.md)).

@@ -217,7 +217,7 @@ before they move to Teal, and a module in Teal can require the contracts.
 In an extension, the contracts are `paw.contracts.View`,
 `paw.contracts.PickSource<T>` and the others. The functions that take a
 contract take it with its type. They are `paw.ui.view`, `paw.buftype`,
-`paw.textbuf.kind`, `paw.part_kinds.define`, `paw.clip_kinds.define`,
+`paw.textbuf.kind`, `paw.kinds.define`,
 `paw.roles.define`, `paw.statusline.component`, `paw.query.field`,
 `paw.grep.source`, `paw.health.register`, `paw.pick`, `paw.pick.sources`
 and `paw.ui.menu`. The checker therefore finds a field with a wrong name,

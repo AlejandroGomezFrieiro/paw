@@ -50,10 +50,12 @@ A note also has an id, `note.id`, and the id stays with the note through every e
 
 ### `meta` for the data of an extension
 
-`note.meta` and `clip.meta` are tables for data that MIDI cannot hold, e.g., a lyric or the letter name of a pitch. Each extension writes under a key of its own (`meta.lyric`, `meta.notation`). The core keeps `meta` with the note through moves, copies, undo and project files, and it does not read the contents.
+`note.meta` and `clip.meta` are tables for data that MIDI cannot hold, e.g., the letter name of a pitch or the phonemes of a sung note. Each extension writes under a key of its own (`meta.notation`, `meta.utau`) and declares the key with `paw.meta.define(key, spec)`. The core keeps `meta` with the note through moves, copies, undo and project files, and it does not read the contents. A key that no loaded extension declares stays as it is, and `:checkhealth meta` lists it.
+
+A note's lyric is a field of the note, `note.lyric`, which is plain text. MIDI files keep it as a lyric event.
 
 ```lua
-clip:add_note({ pitch = 60, start = 0, meta = { lyric = "la" } })
+clip:add_note({ pitch = 60, start = 0, lyric = "la", meta = { notation = { letter = "C" } } })
 ```
 
 The project saves `project.meta` and `part.meta` too. See [About MIDI as the truth](../explanation/about-midi-as-the-truth.md).

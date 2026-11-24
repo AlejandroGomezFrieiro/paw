@@ -41,7 +41,8 @@ take out what your extension adds. An extension's README follows
    recipe plus its kept result. A project opens and plays without the
    extension or program that made a derived lane. An extension never owns
    the data of a source lane (today: the notes and clips of a part).
-   Keep extension data in `meta` (note/clip/part/project) or files; the
+   Keep extension data in `meta` (note/clip/part/project), under keys that
+   you declare with `paw.meta.define`, or in files; the
    project must open, play and edit without the extension (notation and
    articulations are the models: notation is a *view* over MIDI). A kind
    of clip saves what it compiles, so its clips play without it. Lanes of
@@ -102,7 +103,7 @@ with the Lua cached in `~/.cache/paw/lang`. No build step. Read
   (`h:get()`, `h:set(v)`).
 - No `any` where a value has a shape: a record for each options table, each
   event payload (`paw.on("project.saved", function(p: Saved) ... end)`) and
-  each `meta` entry of yours (`note.meta.lyric as Lyric`).
+  each `meta` entry of yours (`note.meta.fingering as Fingering`).
 - Check: `nix develop -c tools/tlcheck.sh`, or `paw.lang.check(files)` in
   paw; the suite runs the check over every `.tl` file (tests/teal.lua).
   The loader checks too, as it compiles (the Lua of `x is F` depends on the
@@ -168,9 +169,11 @@ paw.keymap.set("]e", fn, { view = "pianoroll", motion = true, desc = "Next onset
 paw.ui.view("euclid", { render = function(self, buf, ctx) end, on_key = …, title = "Euclid" })
 paw.buftype("tally", { … })                    -- a buffer type with its own keys/motions/K/status
 paw.textbuf.kind("clips", { … })               -- a listing edited as text, :w shows a plan
-paw.part_kinds.define("euclid", { head = "euclid", … })  -- a kind of part (create, editor, describe, head)
+paw.kinds.define("part", "euclid", { head = "euclid", … })  -- a kind of part (create, editor, describe, head)
 paw.heads.define("euclid", { rows = …, render = function(ctx) end, keys = { … } })  -- the header of its parts (docs/reference/extensions.md)
-paw.clip_kinds.define("lyric", { … })          -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
+paw.kinds.define("clip", "cues", { gives = "midi", schema = { … }, … })  -- a kind of clip: own data, compiled to sound/signals (docs/reference/extensions.md)
+paw.kinds.define("stream", "euclid.hits", { time = "beats", props = { … } })  -- a kind of stream that lanes and clips carry
+paw.meta.define("euclid", { title = "The rhythm of a part", version = 1 })  -- declare each key of meta that you keep; K names you as its owner
 paw.nest.define_kind("drums.pattern", { … })   -- a kind of subproject: create(region), enter(nest), describe(nest)
 paw.chain.define_kind("drums.transient", { min = 2, max = 2, first = 2 })  -- a kind of split in a chain; edit a chain with paw.chain.of({ part = id })
 paw.on("edit.after", function(payload) end)    -- hooks: see docs/reference/events.md

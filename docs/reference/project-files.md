@@ -107,6 +107,19 @@ song/
   saves it again with the same bytes. A data file that is missing, or that
   is not JSON, makes `:e` fail with the name of the file and the line and
   column of the error.
+- A part of a kind has `"kind": "vocal"` in `part.json`, and a part in a
+  group has `"parent"`, the id of the group. A group can be in another
+  group, to any depth. A part of a kind that no loaded extension defines
+  keeps its kind, its clips, its lanes and its devices, and paw saves them
+  as it read them.
+- The `meta` of the project, of a part, of a clip and of a note keeps the
+  data of extensions by key. paw saves a key that no loaded extension
+  declares as it read it, and `:checkhealth meta` lists such keys with the
+  files that hold them.
+- A project saved by an older paw kept the kind of a part, its group and
+  the lyric of a note in `meta` (`kind`, `group` and `lyric`). paw moves
+  them to their fields when it opens the project, and saves only the
+  fields.
 - `media.json` has one entry for each media file that the project uses,
   sorted by the path that the clips give: the BLAKE3 hash of its bytes
   (`b3:` and 64 hexadecimal digits), its size in bytes, and its streams
@@ -216,9 +229,10 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 - Notes are MIDI 2.0 note-on and note-off messages with velocities of 16
   bits and their attribute. Controller moves are MIDI 2.0 messages with
   values of 32 bits.
-- The `meta` of a note, its id (when the ids are not 1, 2, 3 in order),
-  and the start of a note before the start of the clip are in Flex Data
-  text that starts with `paw:`.
+- The lyric of a note, its `meta`, its id (when the ids are not 1, 2, 3
+  in order), and the start of a note before the start of the clip are in
+  Flex Data text that starts with `paw:`. `paw clip cat` shows a lyric as
+  `lyric "la"`.
 - End of Clip is at the length of the clip.
 - paw also reads MIDI 1.0 messages in a clip file, and a file with a
   different number of ticks to a beat. It tells what it left out.

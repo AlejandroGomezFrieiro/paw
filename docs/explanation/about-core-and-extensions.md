@@ -45,7 +45,8 @@ When two extensions need the same thing, they do not each keep a copy. If
 the core or other extensions read some data of an extension, e.g., the key
 of the song, the data moves into the project model. When extensions read
 and write the same file format, e.g., ZIP or base64, the codec moves into
-the core. An extension keeps only its own data in `meta`.
+the core. An extension keeps only its own data in `meta`, under keys that
+it declares.
 
 Sometimes an extension needed something that only the core could give,
 e.g., a fast measurement of loudness, a tree of undo states, or data for
@@ -88,7 +89,9 @@ extensions/utau/
 The core gives the extension parts that any extension can use:
 
 - Devices in Lua that get data from scripts, and helper programs.
-- Kinds of part, and renamed kinds of device.
+- Kinds of streams, clips, parts and keys of `meta`, which
+  `paw.kinds.define` defines (see [About kinds](about-kinds.md)), and
+  renamed kinds of device.
 - Plugins in folders of the extension.
 - Nix packages with parts to build.
 
@@ -96,6 +99,11 @@ The utau device shows how the parts work together. The extension writes
 each phrase from the engine to a file, and it posts the list of files of
 each voice to all the utau devices. Each device plays the files at their
 place, so playback and a render give the same result, bit for bit.
+
+The core defines no kind of part. The vocal part is a kind of the utau
+extension, and the part keeps the name of its kind. Without the
+extension, the part shows that name, plays, and keeps its clips and
+devices, so a project opens on a computer that has no utau.
 
 ## Why Lua has a time limit
 

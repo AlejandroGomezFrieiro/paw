@@ -9,8 +9,8 @@ own vocal editor.
 local vocal = paw.part_kinds.add("vocal", { name = "Vocal", ask = false })
 require("utau").configure(vocal.id, { singer = "Kitane sno act5 VCV" })
 vocal:add_clip({ start = 0, length = 4, notes = {
-  { pitch = "A3", start = 0, length = 1, meta = { lyric = "- あ" } },
-  { pitch = "C4", start = 1, length = 1, meta = { lyric = "- い" } },
+  { pitch = "A3", start = 0, length = 1, lyric = "- あ" },
+  { pitch = "C4", start = 1, length = 1, lyric = "- い" },
 } })
 paw.render("vocal.wav")   -- waits until every phrase is sung at final quality
 ```
@@ -291,10 +291,10 @@ applies to it.
 
 | Data | Where |
 | --- | --- |
-| Notes | the notes of the clip. The lyric of a note is `note.meta.lyric`, and a note without one sings `paw.opt.utau_default_lyric` (`a`). `R` is a rest |
+| Notes | the notes of the clip. The lyric of a note is its `lyric` field, and a note without one sings `paw.opt.utau_default_lyric` (`a`). `R` is a rest |
 | Note properties (tuning, vibrato, pitch transitions, phoneme overrides, expressions, phonemizer override) | `note.meta.utau`, in the shape that `paw-utau-engine --convert` writes (see `lua/utau/payload.lua`) |
 | Curves (pitch deviation `pitd`, dynamics `dyn`, tension, breathiness, gender, voicing, tone shift, growl, cross synthesis) | the parameters of the `utau` device (`lua:utau`). An automation lane on a parameter is that curve, and a parameter with no lane holds the curve at its value |
-| The kind | `part.meta.kind = "vocal"`. A part with the device and no kind (made before kinds of part) is a vocal part too, and a project saved when the device was a piece of the program (kind `utau`) gets the device in Lua |
+| The kind | `part.kind = "vocal"`. A part with the device and no kind (made before kinds of part) is a vocal part too, and a project saved when the device was a piece of the program (kind `utau`) gets the device in Lua |
 | The voice (singer, phonemizer, renderer, resampler, wavtool, voice color, other options of the engine) | `device.meta.utau`, which also holds the curve of the renderer that each slot `x1` to `x8` draws (`curves`) and, for a frozen part, its audio part (`frozen`) |
 | The id of a vocal clip | `clip.meta.utau_clip`, which lets a copy know its original |
 | The voice that a device plays | the `voice` parameter of the device, and the extension numbers the voices |
