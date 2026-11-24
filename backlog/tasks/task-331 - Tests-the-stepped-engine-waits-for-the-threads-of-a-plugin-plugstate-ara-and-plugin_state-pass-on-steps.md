@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-23T20:11:00Z'
-updated_date: '2026-11-24T08:00:00Z'
+updated_date: '2026-11-24T16:08:00Z'
 labels:
   - tests
   - plugins
@@ -57,4 +57,6 @@ PO 2026-11-24: EL1 (TASK-292) is on main. Dependency on EL2 (TASK-294) added: EL
 Wave 23 (2026-11-24), base 9cecbfdc (batches 20-22 + W1).
 
 Sweep add-on (2026-11-24): CORE-4 (no sleep loops on the kernel thread: session.rs settle_plugins, statelanes.rs:353, devices.rs:481, loading.rs:313,325, io.rs:477; MIDI input queue). Resumes after TASK-342 lands, because TASK-342 edits paw-engine and paw-plugins.
+
+Builder report 2026-11-24 (branch stepped-plugins): six causes. 1 device_load slept, so no block ran on the stepped engine. 2 quiet did not count a plugin's own threads. 3 Surge reports values from its own thread after the state is set. 4 a parameter reaches the plugin only in its next block. 5 the ARA test plug-in sleeps while it analyzes (new attachment method paw.busy). 6 vinput is not a plugin case. Fix: the session reads plugin state back after the plugin's next blocks (proposed ADR 0040), and the stepped engine waits for plugin threads and paw.busy. AC1: Surge snapshot 5/5 (repeat 5, not 20); ara 20/20. AC3: one shuffle seed (11) only.
 <!-- SECTION:NOTES:END -->

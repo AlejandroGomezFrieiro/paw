@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-24T03:00:00Z'
-updated_date: '2026-11-24T14:37:00Z'
+updated_date: '2026-11-24T16:08:00Z'
 labels:
   - agent:worker
 milestone: m-12
@@ -37,3 +37,9 @@ Seen by the EL2 agent on 2026-11-24 in 'tests/tools/suite.sh plugins' (scratch H
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Builder report 2026-11-24: the failures had the same causes as TASK-331. suite.sh plugins with seed 11: 2109 ok, 2 failures, both order leaks outside plugins (snippet.lua:212, ex.lua:82).
+<!-- SECTION:NOTES:END -->
