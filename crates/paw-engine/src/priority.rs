@@ -66,16 +66,27 @@ pub fn current() -> Scheduling {
 
 /// Give the calling thread a scheduling. Says whether the system took it: a
 /// user without the right to run real-time gets `false`.
+///
+/// On Linux a real-time policy gets `SCHED_RESET_ON_FORK` again, which
+/// [`current`] clears: a thread or a process that a plugin starts from its
+/// audio thread then does not run real-time.
 #[cfg(unix)]
 pub fn set(scheduling: Scheduling) -> bool {
+    #[cfg(target_os = "linux")]
+    let policy = if scheduling.is_realtime() {
+        scheduling.policy | libc::SCHED_RESET_ON_FORK
+    } else {
+        scheduling.policy
+    };
+    #[cfg(not(target_os = "linux"))]
+    let policy = scheduling.policy;
     // SAFETY: `sched_param` is a plain C struct of integers; all zeros is one.
     let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
     param.sched_priority = scheduling.priority;
     // SAFETY: the calling thread exists, and `param` is a live local. A
     // policy or priority that the system does not take is an error, not UB.
-    let result = unsafe {
-        libc::pthread_setschedparam(libc::pthread_self(), scheduling.policy, &raw const param)
-    };
+    let result =
+        unsafe { libc::pthread_setschedparam(libc::pthread_self(), policy, &raw const param) };
     result == 0
 }
 
@@ -87,4 +98,38 @@ pub fn current() -> Scheduling {
 #[cfg(not(unix))]
 pub fn set(_scheduling: Scheduling) -> bool {
     true
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    /// The children of a thread made real-time do not inherit its policy.
+    #[test]
+    fn a_real_time_thread_does_not_pass_its_policy_to_its_children() {
+        let flags = std::thread::spawn(|| {
+            let fifo = Scheduling {
+                policy: libc::SCHED_FIFO,
+                priority: 5,
+            };
+            if !set(fifo) {
+                return None;
+            }
+            // SAFETY: 0 is the calling thread, which exists.
+            let policy = unsafe { libc::sched_getscheduler(0) };
+            Some((policy, current()))
+        })
+        .join()
+        .unwrap();
+        let Some((policy, now)) = flags else {
+            eprintln!("skipped: this user may not make a thread real-time");
+            return;
+        };
+        assert_eq!(policy, libc::SCHED_FIFO | libc::SCHED_RESET_ON_FORK);
+        assert_eq!(
+            now.policy,
+            libc::SCHED_FIFO,
+            "current gives the policy without the flag"
+        );
+    }
 }
