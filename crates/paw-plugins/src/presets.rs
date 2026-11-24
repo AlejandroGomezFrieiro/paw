@@ -5,9 +5,7 @@
 //! Each format's controller answers two calls with these: `presets` gives a
 //! JSON list of `{ id, name, category }`, and `preset.load` takes an `id`
 //! from it. Ids are stable across runs, so a project or a script can keep one.
-#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 #![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
-#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use crate::bytes::{le_i32, le_i64};
 use std::cell::Cell;
