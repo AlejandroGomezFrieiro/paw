@@ -273,6 +273,8 @@ end)
 
 test("pick: marks, registers and messages", function()
   start()
+  -- The mark outlives the project: other tests expect `q` unset.
+  T.after(function() paw.keymap.delmarks("q") end)
   local a = paw.add_part({ name = "A" })
   local b = paw.add_part({ name = "B" })
   paw.cursor.set_part(b)
