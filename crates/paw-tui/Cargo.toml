@@ -21,7 +21,7 @@ anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 crossterm = "0.29"
-# dup and dup2 of stderr in main.rs.
+# dup and dup2 of stdout and stderr in stdio.rs.
 # The terminal's settings, the poll of /dev/tty, and the writes of the
 # signal handler.
 rustix = { version = "1", default-features = false, features = ["std", "event", "stdio", "termios"] }
@@ -47,6 +47,5 @@ paw-scene.workspace = true
 libc = "0.2"
 # `paw chain schema` writes a schema that the chain language reads (tests/chain.rs).
 chain-syntax.workspace = true
-
 [lints]
 workspace = true

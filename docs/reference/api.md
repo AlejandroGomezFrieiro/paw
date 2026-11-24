@@ -3069,6 +3069,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.ui_redraw_line()`: The prompt on the command line changed, or a key only waits for the next one: draw the live parts again (the status line, the command line and its list), on the frame drawn last, and tell the windows that show state that something moved. Cheaper than `ui_redraw`: the views under it are not drawn again.
 - `paw.api.ui_redraw_live()`: Draw only the live parts of the screen again (the playhead, the meters, the status line), on the frame drawn last; a whole frame when one is asked for too, or the runtime says it is needed.
 - `paw.api.ui_redraws()`
+- `paw.api.ui_repaint()`: Draw the whole screen of the seat whose turn it is again, every cell, also those that did not change: text that another program wrote on the terminal goes away (`<C-l>`).
 - `paw.api.ui_seat(seat)`
 - `paw.api.ui_size()`
 - `paw.api.ui_snapshot(width, height)`

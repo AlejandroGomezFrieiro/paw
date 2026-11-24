@@ -401,6 +401,7 @@ Stop half way through a sequence and the keys that can follow are listed.
 | `zi` `zo` `[g` `]g` | zoom in, out; finer, coarser grid |
 | `<C-=>` `<C-->` `<C-0>`, `z+` `z-` `z=` | taller rows, shorter rows, rows as tall as the options say: parts in the arrange view (on a selection or with a count, those parts), the lane at the cursor, keys in the piano roll. Most terminals don't send `Ctrl` with `=` `-` `0`: `z+` `z-` `z=` work in each one |
 | `<C-s>` `:w` | save |
+| `<C-l>` | draw the whole screen again, over text that another program wrote on the terminal |
 | `ZZ` `ZQ` `:q` | save and quit, quit, close the window (quit in the last one) |
 
 ## Edit lists as text (`:e paw://parts`)

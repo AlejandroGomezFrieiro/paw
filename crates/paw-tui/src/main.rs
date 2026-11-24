@@ -5,6 +5,7 @@
 mod args;
 mod graphics;
 mod plugins;
+mod stdio;
 mod terminal;
 
 use std::path::{Path, PathBuf};
@@ -52,33 +53,32 @@ fn config_dir() -> PathBuf {
     base.join("paw")
 }
 
-/// The terminal's stderr, kept while fd 2 points at a log file.
-static REAL_STDERR: std::sync::Mutex<Option<std::os::fd::OwnedFd>> = std::sync::Mutex::new(None);
-
-/// Send everything written to stderr into a file instead of the terminal.
-fn quiet_stderr(log: &std::path::Path) {
-    if let Some(dir) = log.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let Ok(file) = std::fs::File::create(log) else {
-        return;
-    };
-    let Ok(saved) = rustix::io::dup(rustix::stdio::stderr()) else {
-        return;
-    };
-    // Descriptor 2 is replaced on purpose; the old one is saved first.
-    if rustix::stdio::dup2_stderr(&file).is_ok() {
-        *REAL_STDERR.lock().unwrap_or_else(|e| e.into_inner()) = Some(saved);
-    }
+/// How [`output_log`] opens the log.
+enum LogStart {
+    /// Empty: an instance starts its log again.
+    Empty,
+    /// At its end: a terminal of `paw attach`, while an instance on this
+    /// machine can have the log open.
+    Append,
 }
 
-/// Undo [`quiet_stderr`], so that a final error message reaches the terminal.
-fn restore_stderr() {
-    let saved = REAL_STDERR.lock().unwrap_or_else(|e| e.into_inner()).take();
-    if let Some(saved) = saved {
-        // Dropping `saved` closes the duplicate `quiet_stderr` made, once.
-        let _ = rustix::stdio::dup2_stderr(&saved);
+/// The log that takes the standard output and error of the process while
+/// the terminal shows paw: what plugins, libraries and child processes
+/// print (see `stdio.rs`).
+fn output_log(start: LogStart) -> Result<std::fs::File> {
+    let path = cache_dir().join("stderr.log");
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("making {}", dir.display()))?;
     }
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .with_context(|| format!("opening {}", path.display()))?;
+    if matches!(start, LogStart::Empty) {
+        file.set_len(0).with_context(|| format!("emptying {}", path.display()))?;
+    }
+    Ok(file)
 }
 
 fn cache_dir() -> PathBuf {
@@ -211,7 +211,7 @@ fn attach(options: &Attach) -> Result<()> {
     let (incoming, arrived) = std::sync::mpsc::channel();
     let typed = incoming.clone();
     let (mut screen, width, height) =
-        terminal::Terminal::start(move |event| typed.send(Incoming::Typed(event)).is_ok())?;
+        terminal::Terminal::start(&output_log(LogStart::Append)?, move |event| typed.send(Incoming::Typed(event)).is_ok())?;
     let events = std::mem::replace(&mut connection.events, std::sync::mpsc::channel().1);
     // Ends when the connection does (its reader drops the sender) or when
     // this function returns (the channel's receiver is gone).
@@ -243,6 +243,11 @@ fn attach(options: &Attach) -> Result<()> {
                 "ui.grid" => {
                     let cursor = paw_core::remote::apply(&mut grid, &payload)?;
                     fetch_pixels(&mut connection, &grid);
+                    // A whole screen (`<C-l>`, or a new size): every cell
+                    // is written again, over what else is on the terminal.
+                    if payload["full"].as_bool() == Some(true) {
+                        screen.repaint();
+                    }
                     screen.present(&grid, cursor)?;
                 }
                 "ui.detached" => return Ok(()),
@@ -481,11 +486,8 @@ fn install_safety_copy_hook() {
 /// Start the terminal and attach it to the kernel. Returns what the terminal
 /// said about itself, for the log.
 fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
-    // Plugins write to stderr whenever they like, which would land in the
-    // middle of the screen.
-    quiet_stderr(&cache_dir().join("stderr.log"));
     let sender = kernel.sender();
-    let (terminal, width, height) = terminal::Terminal::start(move |event| {
+    let (terminal, width, height) = terminal::Terminal::start(&output_log(LogStart::Empty)?, move |event| {
         sender.send(paw_core::KernelMsg::Input(event)).is_ok()
     })?;
     // A panic message printed into the alternate screen would be lost.
@@ -496,7 +498,7 @@ fn attach_terminal(kernel: &mut Kernel) -> Result<String> {
         let caught = paw_engine::guard::in_device() || paw_core::api::in_call();
         if !caught && std::thread::current().name() == Some("main") {
             terminal::restore();
-            restore_stderr();
+            stdio::release();
         }
         hook(info);
     }));
@@ -709,7 +711,7 @@ fn run() -> Result<i32> {
 
 fn main() -> ExitCode {
     let result = run();
-    restore_stderr();
+    stdio::release();
     match result {
         Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
         Err(err) => {

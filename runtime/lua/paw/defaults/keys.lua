@@ -198,6 +198,8 @@ map("<Del>", function() keymap.normal("d") end, { mode = "x", desc = "Delete the
 map("<C-z>", "undo", { mode = nx, desc = "Undo", repeatable = false })
 map("<C-y>", "redo", { mode = nx, desc = "Redo", repeatable = false })
 map("<C-s>", "write", { mode = nx, desc = "Save the project" })
+-- As in Vim: text that another program wrote on the terminal goes away.
+map("<C-l>", function() api.ui_repaint() end, { mode = nx, desc = "Draw the whole screen again", repeatable = false })
 map("ZZ", "wq", { desc = "Save and quit" })
 map("ZQ", "quit!", { desc = "Quit without saving" })
 map("zi", "zoom by=2", { mode = nx, desc = "Zoom in" })
