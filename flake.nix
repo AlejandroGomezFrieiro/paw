@@ -442,6 +442,16 @@
         touch $out
       '';
 
+      # tools/rustlint.sh: the checks of the Rust code that clippy does not
+      # do (constant functions, one-value helpers, the layers of the model).
+      rustlint = pkgs: pkgs.runCommand "paw-rustlint" {
+        src = ./.;
+        nativeBuildInputs = [ pkgs.findutils pkgs.gnugrep pkgs.gawk ];
+      } ''
+        cd $src && sh tools/rustlint.sh
+        touch $out
+      '';
+
       # tools/chaindeps.lua: no crate of the chain language (crates/chain-*:
       # chain-syntax and chain-lsp) depends on a crate of paw, so the
       # language and its server stay generic. It reads the manifests as text.
@@ -521,7 +531,7 @@
       # luacheck on the Lua, how much the formatters would change, and the
       # check against tests that depend on time, the order of layers in
       # the runtime, and the chain crates that depend on no paw crate.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; hygiene = hygiene pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; hygiene = hygiene pkgs; rustlint = rustlint pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {
