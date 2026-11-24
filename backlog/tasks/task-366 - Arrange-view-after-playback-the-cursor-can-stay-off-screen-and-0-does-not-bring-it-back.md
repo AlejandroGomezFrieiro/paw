@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-24T13:45:00Z'
-updated_date: '2026-11-24T14:21:00Z'
+updated_date: '2026-11-24T14:30:00Z'
 labels:
   - bug
   - ux
@@ -34,3 +34,9 @@ Found 2026-11-24 while making tui-mixer.gif. Cursor at bar 1, Space Space plays,
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Orchestrator 2026-11-24: merged in d6f4b482; review MERGE (soft: options wording fixed in c0f4600f); checks in the merge tree: clippy -D warnings clean, rustlint clean, nextest 727 passed, apidoc, hygiene, tl check, lints, mcpscore 163, render gate 7 bit-identical; Lua part arrange passed; mixdiag fails as on main (TASK-371).
+<!-- SECTION:NOTES:END -->
