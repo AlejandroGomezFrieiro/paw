@@ -326,7 +326,9 @@ test("pick: files opens projects and imports audio", function()
   paw.project.new()
   t = paw.add_track({ name = "Import" })
   paw.pick("files")
-  while pick.state().note do
+  -- Until the walk is over: the note then says why it stopped, if it did
+  -- (the repository has folders deeper than `files_depth`).
+  while pick.state().note == "reading…" do
     advance(5)
   end
   paw.cursor.set_track(t)
