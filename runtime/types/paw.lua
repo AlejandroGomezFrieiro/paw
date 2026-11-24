@@ -8640,8 +8640,9 @@ function paw.slices.job(name) end
 --- until it returns true. The step works for at most `ms` milliseconds
 --- (`opts.ms`, 4) and keeps its place for the next call. The keys that
 --- wait run between two calls. `opts.after` is the time before the first
---- call (0). A job of the same name stops first. An error in the step
---- shows as a message and ends the job. Returns the job.
+--- call (0). With `opts.idle`, the job is idle work: a wait of a test does
+--- not wait for it. A job of the same name stops first. An error in the
+--- step shows as a message and ends the job. Returns the job.
 ---@param name any
 ---@param step any
 ---@param opts any
@@ -10911,6 +10912,10 @@ function paw.api.clip_warp_move(id, index, beat) end
 ---@param index integer
 function paw.api.clip_warp_remove(id, index) end
 
+--- The schedule clock of the process: "manual" when it moves only
+--- when a script waits (`paw --clock manual`, the tests), else "wall".
+function paw.api.clock() end
+
 --- The CRC-32 of bytes, as zip and gzip use it.
 ---@param data any
 function paw.api.crc32(data) end
@@ -11759,11 +11764,13 @@ function paw.api.notes_set(columns) end
 --- measure how long work takes, use `real_ms`.
 function paw.api.now() end
 
---- The work that is not done yet, by kind: timers due now and all the
---- timers, the time until the next timer or delay is due (`next_ms`),
---- bakes, files of stretched clips being hashed, plugins being loaded,
---- renders, measurements, changed files, MIDI that came in, and helper
---- processes. A test waits until nothing is in flight.
+--- The work that is not done yet: whether the next turn has work
+--- (`ready`), whether only due times are left (`quiet`), the time
+--- until the next timer or delay is due (`next_ms`), the work in
+--- flight on other threads and processes by kind (`in_flight`), the
+--- timers, the bakes and changed files that wait for their settle,
+--- MIDI that came in, helper processes, and the wakes that a worker
+--- missed (`missed_wakes`).
 function paw.api.pending() end
 
 --- Find CLAP and VST3 plugins in one more directory from now on (the
@@ -12147,6 +12154,14 @@ function paw.api.scene_roles(client, roles) end
 ---@param dir string
 function paw.api.scope_export(opts, dir) end
 
+--- Turn the loop until nothing is ready and no work is in flight:
+--- the timers due now fire, and the loop waits for the bakes, the
+--- hashes, the plugin loads, the renders and the other work of
+--- threads and processes to end. No schedule time passes, and an
+--- idle timer is not waited for. Gives what `pending` gives then. It
+--- fails when work is still in flight after 30 seconds.
+function paw.api.settle() end
+
 ---@param beat number
 function paw.api.signature_remove(beat) end
 
@@ -12331,11 +12346,15 @@ function paw.api.test_devices() end
 ---@param inside boolean?
 function paw.api.test_panic(why, inside) end
 
---- --- timers ---
+--- Start a timer: `func` runs after `ms` milliseconds, and again
+--- each `ms` when `repeat` is true. An `idle` timer is idle work (the
+--- collector of garbage): when it is due, a wait of a test
+--- (`settle`) does not wait for it, and `pending().quiet` holds.
 ---@param ms number
 ---@param repeat boolean
 ---@param func function
-function paw.api.timer_start(ms, repeat, func) end
+---@param idle boolean?
+function paw.api.timer_start(ms, repeat, func, idle) end
 
 ---@param id integer
 function paw.api.timer_stop(id) end
