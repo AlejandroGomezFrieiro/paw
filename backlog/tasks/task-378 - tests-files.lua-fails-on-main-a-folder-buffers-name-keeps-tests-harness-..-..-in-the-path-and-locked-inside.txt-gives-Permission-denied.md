@@ -3,10 +3,10 @@ id: TASK-378
 title: >-
   tests/files.lua fails on main: a folder buffer's name keeps
   tests/harness/../.. in the path, and locked/inside.txt gives Permission denied
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T15:47:00Z'
-updated_date: '2026-11-24T16:49:00Z'
+updated_date: '2026-11-24T16:58:00Z'
 labels:
   - bug
   - tests
@@ -41,4 +41,6 @@ ordinal: 447000
 2026-11-24 later: in the full merge-check suite run (suite.sh, all parts) tests/files.lua PASSED; it fails when run alone with cargo nextest -p paw-lua-suite --profile lua -E 'test(=tests/files.lua)'. So the failure depends on how the part is started (the scratch path: tests/harness/../.. vs target/merge-scratch), not on the product.
 
 Started 2026-11-24: branch files-path, base 1e19cb1c.
+
+On main in merge ad348a05 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
