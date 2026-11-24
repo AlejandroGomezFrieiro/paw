@@ -81,7 +81,10 @@ mkdir -p "$PAW_TEST_SCRATCH/root"
 report=$PAW_TEST_SCRATCH/report.txt
 "${uvx[@]}" --exclude-newer "$PINNED_DATE" "mcpscore==$VERSION" \
   --stdio "$MCP_BIN" --spawn --paw "$KERNEL_BIN" --root "$PAW_TEST_SCRATCH/root" \
-  -- --audio null --clean --no-plugins 2>&1 | tee "$report"
+  -- --audio null --clean --no-plugins 2>&1 | tee "$report" || {
+  echo "mcpscore: the audit did not run (exit $?): uv, the network to PyPI or the server failed; see the lines above" >&2
+  exit 1
+}
 
 score=$(sed -n 's|^Audit finished\. Final score: \([0-9]*\)/[0-9]*$|\1|p' "$report")
 if [ -z "$score" ]; then
