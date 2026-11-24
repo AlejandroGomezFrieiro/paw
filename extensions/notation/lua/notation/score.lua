@@ -361,6 +361,7 @@ function M.transcribe(notes, ctx)
         len = n.length,
         velocity = n.velocity,
         meta = n.meta,
+        lyric = n.lyric,
         own = own,
         written = written,
         exact = exact(n.start) and (written ~= nil or exact(n.start + n.length)),
@@ -963,15 +964,29 @@ function M.transcribe(notes, ctx)
       notes = {},
     }
     for j, x in ipairs(c.items) do
-      ev.notes[j] =
-        { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
+      ev.notes[j] = {
+        index = x.index,
+        pitch = x.pitch,
+        meta = x.meta,
+        lyric = x.lyric,
+        velocity = x.velocity,
+        offset = x.s - c.q,
+        played = x.len,
+      }
     end
     if c.grace then
       sort(c.grace, by_s_pitch)
       ev.grace = {}
       for j, x in ipairs(c.grace) do
-        ev.grace[j] =
-          { index = x.index, pitch = x.pitch, meta = x.meta, velocity = x.velocity, offset = x.s - c.q, played = x.len }
+        ev.grace[j] = {
+          index = x.index,
+          pitch = x.pitch,
+          meta = x.meta,
+          lyric = x.lyric,
+          velocity = x.velocity,
+          offset = x.s - c.q,
+          played = x.len,
+        }
       end
     end
     events[#events + 1] = ev
@@ -997,6 +1012,7 @@ function M.raw(notes, ctx)
         index = index,
         pitch = n.pitch,
         meta = n.meta,
+        lyric = n.lyric,
         velocity = n.velocity,
         s = qs,
         e = math.min(qe, finish),
@@ -1030,6 +1046,7 @@ function M.raw(notes, ctx)
           index = n.index,
           pitch = n.pitch,
           meta = n.meta,
+          lyric = n.lyric,
           velocity = n.velocity,
           offset = n.start - c.s,
           played = n.len,

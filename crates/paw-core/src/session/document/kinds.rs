@@ -99,14 +99,25 @@ impl FamilyName {
         })
     }
 
-    /// The owner of an entry that the core put (Lua gives no owner).
-    fn core(self) -> Owner {
-        Owner::Paw(match self {
+    /// The name of the core's feature that puts the built-in kinds of
+    /// the family.
+    fn core(self) -> &'static str {
+        match self {
             Self::Stream => "paw.streams",
             Self::Clip => "paw.clips",
             Self::Part => "paw.parts",
             Self::Meta => "paw.meta",
-        })
+        }
+    }
+
+    /// The owner that Lua names: the core's feature, an extension, or the
+    /// user (no name).
+    fn owner(self, name: Option<String>) -> Owner {
+        match name {
+            None => Owner::User,
+            Some(name) if name == self.core() => Owner::Paw(self.core()),
+            Some(name) => Owner::Extension(name.into()),
+        }
     }
 }
 
@@ -191,11 +202,11 @@ fn schema_json<'a>(props: impl IntoIterator<Item = (&'a str, &'a ParamValue)>) -
 
 impl KindBook {
     /// The kind `name` of `family` is now `spec` (a table as Lua gave it)
-    /// of `owner` (an extension; `None` for the core), or no kind when
-    /// `spec` is `None`.
+    /// of `owner` (an extension, `paw.<family>s` for a built-in kind, or
+    /// `None` for the user), or no kind when `spec` is `None`.
     pub(crate) fn put(&mut self, family: &str, name: &str, spec: Option<Value>, owner: Option<String>) -> Result<()> {
         let family = FamilyName::parse(family)?;
-        let owner = owner.map_or_else(|| family.core(), |name| Owner::Extension(name.into()));
+        let owner = family.owner(owner);
         match family {
             FamilyName::Stream => {
                 let given = spec.map(|spec| read::<StreamGiven>(family, name, spec)).transpose()?;
@@ -355,8 +366,9 @@ mod tests {
     #[test]
     fn a_clip_kind_gives_a_stream_kind_and_only_an_extensions_kind_takes_data() {
         let mut book = book_with_video();
-        book.put("stream", "midi", Some(json!({ "title": "MIDI" })), None).unwrap();
-        book.put("clip", "midi", Some(json!({ "gives": "midi" })), None).unwrap();
+        book.put("stream", "midi", Some(json!({ "title": "MIDI" })), Some("paw.streams".into())).unwrap();
+        book.put("clip", "midi", Some(json!({ "gives": "midi" })), Some("paw.clips".into())).unwrap();
+        book.put("clip", "cues", Some(json!({ "gives": "midi" })), None).unwrap();
         book.put("clip", "film", Some(json!({ "gives": "video", "schema": { "file": { "type": "string" } } })), Some("film".into()))
             .unwrap();
         let wrong = book.put("clip", "lyrics", Some(json!({ "gives": "text" })), Some("lyrics".into())).unwrap_err();
@@ -365,10 +377,11 @@ mod tests {
         assert_eq!(book.data_clip(&kind("film")).unwrap().gives.as_str(), "video");
         assert!(book.data_clip(&kind("midi")).unwrap_err().to_string().starts_with("`midi` is a built-in kind of clip"));
         assert!(book.data_clip(&kind("lyrics")).unwrap_err().to_string().starts_with("no clip kind `lyrics`"));
+        assert!(book.data_clip(&kind("cues")).is_ok(), "a kind of the user's config takes data");
         let listed = serde_json::to_value(book.list(Some("clip")).unwrap()).unwrap();
-        assert_eq!(listed[0]["name"], "film");
-        assert_eq!(listed[0]["gives"], "video");
-        assert_eq!(listed[1]["owner"], "paw.clips");
-        assert_eq!(listed[1]["writable"], false, "a kind with no schema is read only for a tool");
+        let owners: Vec<&str> = listed.as_array().unwrap().iter().map(|k| k["owner"].as_str().unwrap()).collect();
+        assert_eq!(owners, ["the user", "film", "paw.clips"], "cues, film and midi, by name");
+        assert_eq!(listed[1]["gives"], "video");
+        assert_eq!(listed[2]["writable"], false, "a kind with no schema is read only for a tool");
     }
 }

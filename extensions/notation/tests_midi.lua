@@ -579,7 +579,7 @@ test(
         {},
       })[rnd(7) + 1]
       n.meta = next(own) and { notation = own } or nil
-      if chance(12) then n.meta = { notation = own, lyric = "la" } end
+      if chance(12) then n.lyric = "la" end
     end
     for _, n in ipairs(notes) do
       if chance(6) then decide(n) end

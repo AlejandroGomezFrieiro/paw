@@ -22,7 +22,7 @@ local function notes(at)
   return {
     { start = at, length = 0.5, pitch = 60, velocity = 100 },
     { start = at + 0.5, length = 0.25, pitch = 64, velocity = 90 },
-    { start = at + 1, length = 1, pitch = 67, velocity = 80, meta = { lyric = "la" } },
+    { start = at + 1, length = 1, pitch = 67, velocity = 80, lyric = "la" },
   }
 end
 
@@ -97,7 +97,7 @@ test("a project saved to a folder name writes a folder of files and opens again 
     end
   end
   local riff = api.clip_list(parts[1])[1]
-  eq(api.clip_notes(riff.id)[3].meta.lyric, "la", "a note's meta")
+  eq(api.clip_notes(riff.id)[3].lyric, "la", "a note's meta")
   eq(api.clip_controls(riff.id)[1].value, 0.25, "a controller move")
   eq(api.project_get().modified, false, "not changed by opening")
   local _ = keys

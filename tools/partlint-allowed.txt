@@ -38,12 +38,12 @@ extensions/utau/lua/utau/singer_presets.lua 1 the bridgetrack option of a singer
 extensions/utau/tests.lua 1 the tracks of an OpenUtau project
 runtime/lua/paw/audition.tl 3 the tracks of a MIDI file
 runtime/lua/paw/export.tl 1 the number of a track on an album (the TRACKNUMBER tag, the ID3 TRCK frame)
-runtime/lua/paw/midifile.tl 122 the tracks of a MIDI file
+runtime/lua/paw/midifile.tl 121 the tracks of a MIDI file
 runtime/lua/paw/render.tl 3 the number of a track on an album (the TRACKNUMBER tag, the ID3 TRCK frame)
 runtime/types/paw.lua 9 generated: the tracks of a MIDI file (paw.midifile), and the track number of the album tags (paw.render_tags)
 tests/attr.lua 1 the tracks of a MIDI file
 tests/clip_overrides.lua 1 the tracks of a MIDI file
 tests/e2e/model.lua 4 the tracks of a MIDI file
-tests/midifile.lua 43 the tracks of a MIDI file
+tests/midifile.lua 47 the tracks of a MIDI file
 tests/partlint.lua 5 the test of the check writes the word that it looks for
 tests/tags.lua 9 the number of a track on an album (the TRACKNUMBER tag, the ID3 TRCK frame)

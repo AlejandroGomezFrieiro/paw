@@ -955,6 +955,63 @@
     ],
     "type": "string"
   },
+  "KindInfo": {
+    "description": "One kind as `paw.api.kinds_list` gives it.",
+    "properties": {
+      "family": {
+        "description": "The family: `stream`, `clip`, `part` or `meta`.",
+        "type": "string"
+      },
+      "gives": {
+        "description": "The stream that the clips of a clip kind give to their lane.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "owner": {
+        "description": "The extension that defined the kind, or `paw.<feature>` for the core.",
+        "type": "string"
+      },
+      "schema": {
+        "additionalProperties": {
+          "$ref": "#/$defs/ParamSchema"
+        },
+        "description": "The words of each field of the data of the kind (of a stream kind:\nof each property). Nil when the kind gave none.",
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "title": {
+        "type": "string"
+      },
+      "version": {
+        "description": "The version of the data of a `meta` key.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "writable": {
+        "description": "A tool may write the data of the kind: the kind gave a schema.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "family",
+      "name",
+      "owner",
+      "title",
+      "writable"
+    ],
+    "type": "object"
+  },
   "Lane": {
     "description": "A lane as `paw.api.lane_get` gives it, without its points.",
     "properties": {
@@ -1250,9 +1307,16 @@
         "format": "double",
         "type": "number"
       },
+      "lyric": {
+        "description": "The words sung on the note, as plain text: a syllable, a word, or a\nphrase. A MIDI file keeps it as a lyric event at the note's start.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "meta": {
         "additionalProperties": true,
-        "description": "Free-form data for extensions, such as a lyric. It travels with the\nnote through edits, unlike data kept beside the clip's note list.",
+        "description": "Free-form data for extensions, such as the phonemes of a voice. It\ntravels with the note through edits, unlike data kept beside the\nclip's note list.",
         "type": "object",
         "x-teal": "Meta"
       },
@@ -1646,6 +1710,13 @@
           "null"
         ]
       },
+      "kind": {
+        "description": "The kind of the part (`paw.kinds.define(\"part\", ...)`); nil for\nan ordinary part.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "listens": {
         "description": "The parts that devices on this one listen to as side-chains.",
         "items": {
@@ -1732,6 +1803,15 @@
       "pan": {
         "format": "double",
         "type": "number"
+      },
+      "parent": {
+        "description": "The group that the part is in; nil at the top level.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
       },
       "sends": {
         "items": {
@@ -1822,6 +1902,13 @@
         ],
         "x-teal": "string | integer"
       },
+      "kind": {
+        "description": "The kind of the part: the name of a part kind, or nil for an\nordinary part. A kind that no extension defines is kept.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "meta": {
         "additionalProperties": true,
         "type": [
@@ -1887,6 +1974,15 @@
         "format": "double",
         "type": [
           "number",
+          "null"
+        ]
+      },
+      "parent": {
+        "description": "The group that the part is in, or nil for the top level. A group\ncannot be put inside itself.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
           "null"
         ]
       },

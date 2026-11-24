@@ -170,6 +170,9 @@ paw.keymap = {}
 ---@class paw.keyrule
 paw.keyrule = {}
 
+---@class paw.kinds
+paw.kinds = {}
+
 ---@class paw.lanes
 paw.lanes = {}
 
@@ -205,6 +208,9 @@ paw.markers = {}
 
 ---@class paw.media
 paw.media = {}
+
+---@class paw.meta
+paw.meta = {}
 
 ---@class paw.midifile
 paw.midifile = {}
@@ -1848,14 +1854,6 @@ function paw.clip_kinds.compile(clip) end
 ---@param clip any
 function paw.clip_kinds.data(clip) end
 
---- Define a kind of clip (see above). `name` is a lowercase word that is
---- not a built-in kind (`midi`, `audio`): what a clip of the kind keeps.
---- Defining a kind again replaces it. Clips of an older version of its
---- data are migrated.
----@param name any
----@param spec any
-function paw.clip_kinds.define(name, spec) end
-
 --- A few words on a clip of a kind, for `K`: `Film clip · intro.mp4`, or
 --- "film (no extension here defines it)". Nil for a MIDI or audio clip.
 ---@param clip any
@@ -1876,11 +1874,6 @@ function paw.clip_kinds.look(clip, ctx) end
 --- stays as it was, with a message. Gives how many moved.
 ---@param name any
 function paw.clip_kinds.migrate(name) end
-
---- Forget a kind: no new clips of it. The clips of it that the project
---- has stay as they are, data and all, until something defines it again.
----@param name any
-function paw.clip_kinds.remove(name) end
 
 --- Give a clip of a kind new data: the kind checks it and compiles it
 --- again, and the data, sound, signals and files change together, as one
@@ -4177,7 +4170,8 @@ function paw.grep.source(name, fn) end
 function paw.grep.vimgrep(line, opts) end
 
 --- Put a part into a group: it then sounds through the group, unless it
---- was sent somewhere of its own.
+--- was sent somewhere of its own. A group cannot go inside itself, nor
+--- inside a group that it holds: the error says so.
 ---@param part any
 ---@param group any
 function paw.groups.add(part, group) end
@@ -5261,6 +5255,56 @@ function paw.keyrule.broken() end
 
 --- Named groups of keys that lead to no key, as "scope keys (name)".
 function paw.keyrule.lost_groups() end
+
+--- True when `name` is a kind of `family` that the core defines.
+---@param family any
+---@param name any
+function paw.kinds.builtin(family, name) end
+
+--- Mark the kind `name` of `family` as the core's, before the core
+--- defines it: the kernel then names the core as its owner (`paw.meta`).
+---@param family any
+---@param name any
+function paw.kinds.core(family, name) end
+
+--- Define the kind `name` of `family` (`stream`, `clip`, `part` or
+--- `meta`) with `spec`. `name` is a lowercase word, or words joined by
+--- dots. Defining a kind again replaces it, and an extension's kind goes
+--- when the extension unloads. Gives the spec as the family completed it.
+---@param family any
+---@param name any
+---@param spec any
+function paw.kinds.define(family, name, spec) end
+
+--- Give `family` to `paw.kinds`: `define` then reaches it.
+---@param name any
+---@param family any
+function paw.kinds.family(name, family) end
+
+--- The kind `name` of `family` as defined, or nil.
+---@param family any
+---@param name any
+function paw.kinds.get(family, name) end
+
+--- The kinds of `family` (of every family when nil) as the kernel keeps
+--- them, sorted by family and name, each with its owner and the schema of
+--- its data.
+---@param family any
+function paw.kinds.list(family) end
+
+--- Give the kind `name` of `family` to the kernel: the fields that it
+--- keeps, and its owner. A nil `fields` takes the kind away.
+---@param family any
+---@param name any
+---@param fields any
+---@param owner any
+function paw.kinds.mirror(family, name, fields, owner) end
+
+--- Take away the kind `name` of `family`: things of the kind that the
+--- project holds keep it, and the kind below comes back if there is one.
+---@param family any
+---@param name any
+function paw.kinds.remove(family, name) end
 
 --- True if a part has its lanes open.
 function paw.lanes.any_open() end
@@ -6492,6 +6536,23 @@ function paw.media.reverse(clip) end
 ---@param dir any
 function paw.media.search(dir) end
 
+--- Declare the key `key` of `meta` (`paw.kinds.define("meta", key, spec)`).
+--- `spec.title` says what it holds, and `spec.version` (1 if not given)
+--- is the version of its data.
+---@param key any
+---@param spec any
+function paw.meta.define(key, spec) end
+
+--- Who keeps the key `key`: the extension that declared it, `paw` for a
+--- key of the core, `the user's config` for a key that the config
+--- declared, or nil for a key that no loaded module declares.
+---@param key any
+function paw.meta.owner(key) end
+
+--- Each key of `meta` in the project that no loaded module declares,
+--- sorted by key, with the things and the files that hold it.
+function paw.meta.undeclared() end
+
 --- The bytes of a Standard MIDI File from the shape that `parse` returns
 --- (`format` 0 or 1, `ppq`, `tracks`, and `tempos`, `signatures` and
 --- `markers`, which go in the first track). Ticks can be fractions. paw
@@ -7306,12 +7367,6 @@ function paw.part_kinds.add(name, opts) end
 ---@param which any
 function paw.part_kinds.clear(which) end
 
---- Define a kind of part (see above). `name` is a word: what is typed
---- after `:part.add` and kept in the part's `meta.kind`.
----@param name any
----@param spec any
-function paw.part_kinds.define(name, spec) end
-
 --- A few words on a part's kind, for `K` and the part header:
 --- `Vocal part · Kitane`, "vocal (no extension here defines it)", or nil.
 ---@param which any
@@ -7332,13 +7387,9 @@ function paw.part_kinds.of(which) end
 ---@param clip any
 function paw.part_kinds.open(clip) end
 
---- Forget a kind: no longer offered, nor in the menus. Parts that keep
---- it are ordinary parts again until something defines it.
----@param name any
-function paw.part_kinds.remove(name) end
-
 --- Make a part of `name`'s kind: keep the kind on it, then let the kind
---- make it what it is. `args` go to `create`.
+--- make it what it is. `args` go to `create`. The lanes, clips and
+--- devices that the part has stay.
 ---@param which any
 ---@param name any
 ---@param args any
@@ -11067,18 +11118,6 @@ function paw.api.clip_get(id) end
 ---@param ids integer[]
 function paw.api.clip_glue(ids) end
 
---- Let `clip_add` make clips of the kind `name`: a lowercase word that
---- is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
----@param name string
-function paw.api.clip_kind_define(name) end
-
---- Stop making clips of the kind `name`. Clips of it that the project has stay.
----@param name string
-function paw.api.clip_kind_remove(name) end
-
---- The kinds of clip that extensions defined, by name (sorted).
-function paw.api.clip_kinds() end
-
 --- Put a linked copy of a MIDI clip right after it, and return the
 --- id of the copy. The clips of a link share their notes and
 --- controller moves: an edit of one changes all of them. A clip that
@@ -11667,6 +11706,21 @@ function paw.api.json_decode(text) end
 ---@param value any
 ---@param pretty boolean?
 function paw.api.json_encode(value, pretty) end
+
+--- The kinds of `family` (of every family when nil), each with its
+--- owner and the schema of its data.
+---@param family string?
+function paw.api.kinds_list(family) end
+
+--- --- kinds ---
+--- The kind `name` of `family` is now `spec`, put by the extension
+--- `owner` (nil for the core). A nil `spec` takes the kind away.
+--- `paw.kinds` calls it each time the entry on top of a kind changes.
+---@param family string
+---@param name string
+---@param spec any
+---@param owner string?
+function paw.api.kinds_put(family, name, spec, owner) end
 
 ---@param part integer
 ---@param opts any
@@ -12632,6 +12686,11 @@ function paw.api.step() end
 
 ---@param text any
 function paw.api.str_width(text) end
+
+--- Check a stream type `{ base, props }` against its stream kind. The
+--- error names a property that the kind does not take.
+---@param ty any
+function paw.api.stream_check(ty) end
 
 ---@param beat number
 function paw.api.tempo_at(beat) end

@@ -358,7 +358,7 @@ return function(gui)
         local k = 0
         notes.change(view.clip_id, function(n)
           k = k + 1
-          n.meta.lyric = words[math.min(k, #words)]
+          n.lyric = words[math.min(k, #words)]
           return true
         end, which)
       else

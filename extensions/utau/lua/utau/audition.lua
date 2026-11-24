@@ -69,7 +69,7 @@ function M.note(clip_id, index)
   local clip = api.clip_get(clip_id)
   local note = api.clip_notes(clip_id)[index]
   if not note then return end
-  local lyric = note.meta and note.meta.lyric or paw.opt.utau_default_lyric
+  local lyric = note.lyric or paw.opt.utau_default_lyric
   if lyric == "R" or lyric == "r" then return end
   local ms = paw.time.seconds(note.length, clip.start + note.start) * 1000
   return M.play(clip.part, note.pitch, lyric, ms)

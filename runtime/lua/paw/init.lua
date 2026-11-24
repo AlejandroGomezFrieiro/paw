@@ -129,6 +129,10 @@ paw.edit = require("paw.edit")
 paw.lang = require("paw.lang")
 -- Entries by key with the extension that put each one (paw/registry.tl).
 paw.registry = require("paw.registry")
+-- The kinds of each family: stream, clip, part and meta (paw/kinds.tl), and
+-- the declared keys of `meta` (paw/meta.tl).
+paw.kinds = require("paw.kinds")
+paw.meta = require("paw.meta")
 paw.ext = require("paw.ext")
 paw.vca = require("paw.vca")
 paw.groups = require("paw.groups")

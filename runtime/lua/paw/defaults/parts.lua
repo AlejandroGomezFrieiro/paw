@@ -75,6 +75,33 @@ command("part.new", function()
 end, {
   desc = "Add a part of a kind chosen from a list: an ordinary one, or one an extension defines (a vocal part, a drum part)",
 })
+command("part.kind", function(ctx)
+  local part = need_part()
+  if not part then return end
+  local name = ctx.args[1] and tostring(ctx.args[1])
+  local was = paw.part_kinds.of(part.id)
+  if not name then
+    if not was then return paw.notify(part.name .. " has no kind") end
+    paw.part_kinds.clear(part)
+    return paw.notify(part.name .. " is an ordinary part again: its clips, lanes and devices stay")
+  end
+  if not paw.part_kinds.kinds:get(name) then
+    return paw.notify("no kind of part `" .. name .. "`" .. paw.part_kinds.known_words(), "warn")
+  end
+  paw.part_kinds.set(part, name)
+  paw.notify(
+    part.name .. " is a " .. paw.part_kinds.kinds:get(name).title:lower() .. (was and " (was " .. was .. ")" or "")
+  )
+end, {
+  desc = "Change the kind of the part, keeping its clips, lanes and devices: `part.kind vocal`; `part.kind` alone makes it an ordinary part",
+  complete = function()
+    local out = {}
+    for _, spec in ipairs(paw.part_kinds.list()) do
+      out[#out + 1] = { text = spec.name, desc = spec.title }
+    end
+    return out
+  end,
+})
 command("part.remove", function(ctx)
   -- Never the cursor's part when another was meant.
   if ctx.args[1] ~= nil then

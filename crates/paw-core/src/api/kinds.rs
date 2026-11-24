@@ -13,7 +13,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // The kind `name` of `family` is now `spec`, put by the extension
         // `owner` (nil for the core). A nil `spec` takes the kind away.
         // `paw.kinds` calls it each time the entry on top of a kind changes.
-        // @return nil
+        // @type function(family: string, name: string, spec: types.KindSpec, owner?: string)
         fn kinds_put(lua, sh, (family, name, spec, owner) => (String, String, LuaValue, Option<String>)) {
             let spec: Option<Value> = if spec.is_nil() { None } else { Some(from_lua(lua, spec)?) };
             sh.session.borrow_mut().doc.kinds.put(&family, &name, spec, owner).lua()

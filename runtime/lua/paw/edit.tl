@@ -56,6 +56,7 @@ local record YankedNote
   pitch: integer
   velocity: integer
   id: integer
+  lyric: string
   meta: types.Meta
   attr: types.NoteAttr
   clip: integer

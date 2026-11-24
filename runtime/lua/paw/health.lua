@@ -363,6 +363,16 @@ M.register("events", function(h)
   end
 end, { desc = "the names of the events that handlers wait for" })
 
+M.register("meta", function(h)
+  local undeclared = paw.meta.undeclared()
+  if #undeclared == 0 then return h.ok("each key of meta in the project has a module that declares it") end
+  for _, entry in ipairs(undeclared) do
+    local files = #entry.files > 0 and " (" .. table.concat(entry.files, ", ") .. ")" or ""
+    h.info("`" .. entry.key .. "` on " .. table.concat(entry.places, ", ") .. files)
+  end
+  h.info(#undeclared .. " keys of meta that no loaded module declares: paw keeps them as they are")
+end, { desc = "the keys of meta in the project that no loaded module declares" })
+
 M.register("derived", function(h) require("paw.derived").health(h) end, {
   desc = "the data paw derives from the project (the chords of the song): values, memory and limits",
 })

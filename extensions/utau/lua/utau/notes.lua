@@ -14,7 +14,7 @@ function M.list(clip_id) return api.clip_notes(clip_id) end
 --- Whether a lyric is a rest, which is not sung (UTAU's `R`).
 function M.is_rest(lyric) return lyric == "R" or lyric == "r" end
 
-function M.lyric(note) return note.meta and note.meta.lyric or nil end
+function M.lyric(note) return note.lyric or nil end
 
 --- Change some notes of a clip with `fn(note, index)`, which returns true for
 --- each note it changed. One edit for all of them. Returns how many changed.
@@ -35,8 +35,8 @@ end
 --- Set the lyric of the note at `index`.
 function M.set_lyric(clip_id, index, lyric)
   return M.change(clip_id, function(note)
-    if note.meta.lyric == lyric then return false end
-    note.meta.lyric = lyric ~= "" and lyric or nil
+    if note.lyric == lyric then return false end
+    note.lyric = lyric ~= "" and lyric or nil
     return true
   end, { [index] = true })
 end

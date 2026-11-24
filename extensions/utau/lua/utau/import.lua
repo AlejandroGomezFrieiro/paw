@@ -88,7 +88,8 @@ function M.add(project, opts)
           start = n.pos / resolution,
           length = n.dur / resolution,
           velocity = 100,
-          meta = { lyric = n.lyric, utau = next(props) and props or nil },
+          lyric = n.lyric,
+          meta = next(props) and { utau = props } or nil,
         }
       end
       api.clip_add(part, {

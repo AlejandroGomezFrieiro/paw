@@ -87,6 +87,8 @@ paw.lanes
 paw.takes
 paw.stretch
 paw.routes
+paw.kinds
+paw.meta
 paw.clip_kinds
 paw.part_kinds
 paw.controls

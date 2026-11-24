@@ -170,7 +170,7 @@ end
 function M.timing(clip_id, take, which, range)
   local notes = require("utau.notes")
   return notes.change_props(clip_id, function(props, note, index)
-    local lyric = note.meta.lyric
+    local lyric = note.lyric
     if lyric == "R" or lyric == "r" or lyric == "+" or lyric == "-" then return false end
     local offset = take and take > 0 and M.timing_offset(index, take, range) or nil
     if offset == 0 then offset = nil end

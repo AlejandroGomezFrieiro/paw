@@ -66,11 +66,11 @@ end
 --- without its clips unless `clips` is set.
 local function portable(part, clips)
   local snap = part:snapshot()
-  snap.output, snap.sends = nil, {}
+  snap.output, snap.sends, snap.parent = nil, {}, nil
   unrouted(snap.devices)
   if not clips then snap.clips = {} end
   if snap.meta then
-    snap.meta.group, snap.meta.group_head = nil, nil
+    snap.meta.group_head = nil
     if next(snap.meta) == nil then snap.meta = nil end
   end
   return snap

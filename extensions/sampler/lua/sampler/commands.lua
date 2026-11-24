@@ -81,7 +81,7 @@ end
 -- A sampler part is a kind of part (`paw.part_kinds`): `:part.add
 -- sampler`, `:part.new`, the window's menus that make a part, the
 -- header's `S` and `K` come from here. Its clips open in the piano roll.
-paw.part_kinds.define("sampler", {
+paw.kinds.define("part", "sampler", {
   title = "Sampler part",
   letter = "S",
   desc = "an SFZ or Decent Sampler instrument, played by paw's sampler",

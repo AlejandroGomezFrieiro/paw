@@ -11,7 +11,7 @@ local function screen() return table.concat(api.ui_snapshot(120, 30), "\n") end
 --- the kind's editor, which says so.
 local function define()
   local opened = {}
-  paw.part_kinds.define("bleep", {
+  paw.kinds.define("part", "bleep", {
     title = "Bleep part",
     letter = "B",
     desc = "a synth that bleeps",
@@ -36,7 +36,7 @@ test("a kind of part is made by part.add and from the list of kinds, and says wh
   eq(part.name, "Bleep loud", "made by the kind, with the words after it")
   eq(part:devices()[1].kind, "synth", "and its device")
   eq(paw.part_kinds.of(part.id), "bleep", "the part is of the kind")
-  eq(part.meta.kind, "bleep", "kept on the part")
+  eq(part:get().kind, "bleep", "kept on the part, in its field")
   eq(paw.cursor.part_id(), part.id, "the cursor goes to it")
   eq(
     screen():find(" B Bleep loud", 1, true) ~= nil,

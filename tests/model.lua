@@ -193,13 +193,13 @@ test("notes carry extension data through edits, undo and saving", function()
     start = 0,
     length = 4,
     notes = {
-      { pitch = 60, start = 1, length = 1, meta = { lyric = "la", extra = { 1, 2 } } },
+      { pitch = 60, start = 1, length = 1, lyric = "la", meta = { extra = { 1, 2 } } },
       { pitch = 62, start = 0, length = 1 },
     },
   })
   local notes = clip:notes()
   eq(notes[1].meta, nil, "a note without data has no meta")
-  eq(notes[2].meta.lyric, "la", "the data is kept, and stays with its note when the list is sorted")
+  eq(notes[2].lyric, "la", "the data is kept, and stays with its note when the list is sorted")
   api.undo_checkpoint()
   -- Changing a note the way the piano roll does keeps its data.
   notes[2].start = 2
@@ -207,12 +207,12 @@ test("notes carry extension data through edits, undo and saving", function()
   eq(clip:notes()[2].meta.extra[2], 2, "kept when the note moves")
   paw.undo()
   eq(clip:notes()[2].start, 1, "undone")
-  eq(clip:notes()[2].meta.lyric, "la", "and the data with it")
+  eq(clip:notes()[2].lyric, "la", "and the data with it")
   local path = paw.project.save(scratch .. "/words.json")
   eq(read_file(path):find('"lyric": "la"', 1, true) ~= nil, true, "saved in the project file")
   fresh()
   paw.project.load(path)
-  eq(paw.parts()[1]:clips()[1]:notes()[2].meta.lyric, "la", "loaded")
+  eq(paw.parts()[1]:clips()[1]:notes()[2].lyric, "la", "loaded")
 end)
 
 test("saving and loading keeps every number exactly", function()

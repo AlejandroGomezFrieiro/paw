@@ -68,10 +68,10 @@ function M.clear_map(which)
   local meta = part.meta or {}
   if meta.drums == nil then return end
   meta.drums = nil
-  if meta.kind == "drums" then meta.kind = nil end
   -- An empty table would cross over as a list; one key keeps it a table.
   if next(meta) == nil then meta = { drums_was = true } end
   part.meta = meta
+  if paw.api.part_get(part.id, "kind") == "drums" then paw.api.part_set(part.id, "kind", nil) end
 end
 
 --- The names of the maps there are, sorted.

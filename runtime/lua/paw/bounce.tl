@@ -142,7 +142,15 @@ local EPS = 1e-9
 
 --- A copy of a note at another place and length.
 local function with_note(n: types.Note, start: number, length: number): types.Note
-  return {start = start, length = length, pitch = n.pitch, velocity = n.velocity, meta = n.meta, attr = n.attr}
+  return {
+    start = start,
+    length = length,
+    pitch = n.pitch,
+    velocity = n.velocity,
+    lyric = n.lyric,
+    meta = n.meta,
+    attr = n.attr,
+  }
 end
 
 --- Set `muted` on each clip of `ids`.

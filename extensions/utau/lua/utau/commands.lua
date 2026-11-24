@@ -34,10 +34,16 @@ local function set_singer(part, words)
   end
 end
 
+-- The keys of meta that the extension keeps: the voice of each note
+-- (phonemes, tuning, vibrato, expressions), the voice of a device, and the
+-- id of a vocal clip. A note's lyric is the note's own field.
+paw.meta.define("utau", { title = "The voice of a note or a device: phonemes, tuning, the singer" })
+paw.meta.define("utau_clip", { title = "The id of a vocal clip, which a copy keeps" })
+
 -- A vocal part is a kind of part (`paw.part_kinds`): `:part.add vocal`,
 -- `:part.new`, the window's menus that make a part, the header's `V`, `K`
 -- and Enter on its clips all come from here.
-paw.part_kinds.define("vocal", {
+paw.kinds.define("part", "vocal", {
   title = "Vocal part",
   letter = "V",
   desc = "sung by a singer of OpenUtau's",

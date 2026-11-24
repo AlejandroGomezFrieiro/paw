@@ -189,9 +189,9 @@ function M.run(id, clip_id, params, which)
   if not op then error("no batch edit `" .. tostring(id) .. "`", 2) end
   if op.lyric then
     return notes.change(clip_id, function(note)
-      local s = op.lyric(note.meta.lyric or "", params)
-      if not s or s == "" or s == note.meta.lyric then return false end
-      note.meta.lyric = s
+      local s = op.lyric(note.lyric or "", params)
+      if not s or s == "" or s == note.lyric then return false end
+      note.lyric = s
       return true
     end, which)
   elseif op.props then

@@ -117,8 +117,8 @@ function M.apply(clip_id, text, opts)
   local first, last = opts.first or 1, opts.last or math.huge
   local changed = notes.change(clip_id, function(note, index)
     local word = index <= last and words[index - first + 1]
-    if not word or note.meta.lyric == word then return false end
-    note.meta.lyric = word
+    if not word or note.lyric == word then return false end
+    note.lyric = word
     return true
   end)
   return changed, #words

@@ -57,9 +57,6 @@ local record api
    clip_edits_clear: function(id: integer): integer
    clip_get: function(id: integer): types.Clip
    clip_glue: function(ids: {integer}): types.ClipGlued
-   clip_kind_define: function(name: string)
-   clip_kind_remove: function(name: string)
-   clip_kinds: function(): {string}
    clip_link: function(id: integer): integer
    clip_list: function(part: integer, from?: number, to?: number): {types.Clip}
    clip_normalize: function(id: integer, level?: number): number
@@ -158,6 +155,8 @@ local record api
    json_array: function<T>(t?: {T}): {T}
    json_decode: function(text: string): any, string
    json_encode: function(value: any, pretty?: boolean): string
+   kinds_list: function(family?: string): {types.KindInfo}
+   kinds_put: function(family: string, name: string, spec: types.KindSpec, owner?: string)
    lane_add: function(part: integer, opts: types.LaneOptions): integer
    lane_add_point: function(id: integer, beat: number, value: number)
    lane_add_state: function(id: integer, state: types.LaneState): integer
@@ -348,6 +347,7 @@ local record api
    state_set: function(key: string, value: any)
    step: function()
    str_width: function(text: string): integer
+   stream_check: function(ty: types.StreamType)
    tempo_at: function(beat: number): number
    tempo_bar_length: function(beat: number): number
    tempo_bar_of: function(beat: number): integer

@@ -1,7 +1,7 @@
 -- The heads of the arrange view's rows: the cells left of the rule that
 -- show a part (later a lane, or a part with its one lane). A head is a
 -- record in a registry by name. A kind of part (`head` in
--- `paw.part_kinds.define`) or a kind of clip names one, and paw takes the
+-- `paw.kinds.define("part", ...)`) names one, and paw takes the
 -- first name that is registered, the default head last:
 --
 --   paw.heads.define("vocal", {

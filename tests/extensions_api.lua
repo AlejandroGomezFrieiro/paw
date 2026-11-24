@@ -176,7 +176,7 @@ test("what an extension registers is its own, and unloading it takes all of it a
     paw.ui.view("ownerview", { render = function(_, buf) buf:text(0, 0, "owned") end })
     paw.buftype("ownerbuf", { create = function() return {} end, render = function() end })
     paw.textbuf.kind("owned", { pattern = "^paw://owned$", read = function() return {} end, format = function() return {} end })
-    paw.part_kinds.define("ownedkind", { title = "Owned part" })
+    paw.kinds.define("part", "ownedkind", { title = "Owned part" })
     paw.pick.sources:put("owned", { items = function() return {} end })
     paw.query.field("part", "ownedness", function() return 1 end)
     paw.statusline.component("owned", function() return "O" end)
@@ -578,10 +578,10 @@ local registries = {
     put = "paw.buftype(%q, { create = function() return {} end, render = function() end })",
   },
   { reg = paw.textbuf.kinds, core = "history", put = "paw.textbuf.kind(%q, { read = function() return {} end })" },
-  { reg = paw.part_kinds.kinds, put = "paw.part_kinds.define(%q, { title = 'Mine' })" },
+  { reg = paw.part_kinds.kinds, put = "paw.kinds.define('part', %q, { title = 'Mine' })" },
   {
     reg = paw.clip_kinds.kinds,
-    put = "paw.clip_kinds.define(%q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
+    put = "paw.kinds.define('clip', %q, { serialize = function(d) return d end, deserialize = function(d) return d end })",
   },
   { reg = paw.nest.kinds, put = "paw.nest.define_kind(%q, { title = 'Mine' })" },
   { reg = paw.roles.registry, core = "chip", put = "paw.ui.role(%q, { cells = function() end })" },

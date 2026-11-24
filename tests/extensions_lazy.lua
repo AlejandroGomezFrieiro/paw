@@ -131,7 +131,7 @@ test(
       "lazyfilm",
       'return { kind = "film" }',
       [[
-    paw.clip_kinds.define("film", {
+    paw.kinds.define("clip", "film", {
       serialize = function(d) return d end,
       deserialize = function(s) return s end,
       create = function() return { scenes = 2 } end,

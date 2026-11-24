@@ -341,8 +341,9 @@ tb.kind("parts", {
             if e.fields.solo then api.part_set(part.id, "solo", true) end
             if e.fields.armed then api.part_set(part.id, "armed", true) end
             local meta = api.part_get(part.id, "meta") or {}
-            meta.group_head, meta.group = e.fields.head or nil, nil
+            meta.group_head = e.fields.head or nil
             api.part_set(part.id, "meta", meta)
+            api.part_set(part.id, "parent", nil)
           end
         )
       elseif not e.id then

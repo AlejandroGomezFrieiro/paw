@@ -119,7 +119,6 @@ end
 
 --- A note's meta, as far as this module reads it.
 local record NoteMeta
-  lyric: string
   comment: string
   channel: integer
   articulation: string | {string}
@@ -242,7 +241,6 @@ end
 
 --- What this module reads of a part's `meta` (paw/groups.tl).
 local record GroupMeta
-  group: integer
   group_head: boolean
 end
 
@@ -265,7 +263,7 @@ local function part_tree(cache: Cache): Parts
     data[id] = api.part_get(id)
   end
   for _, id in ipairs(ids) do
-    local g = group_meta(data[id]).group
+    local g = data[id].parent
     if g and data[g] and group_meta(data[g]).group_head then
       members[g] = members[g] or {}
       members[g][#members[g] + 1] = id
@@ -495,8 +493,7 @@ function M.describe(node: Node): string
   if k == "note" then
     local d = node.data as types.Note
     local c = clip_of(node)
-    local m = d.meta as NoteMeta
-    local lyric = type(m) == "table" and type(m.lyric) == "string" and " “" .. m.lyric .. "”" or ""
+    local lyric = d.lyric and " “" .. d.lyric .. "”" or ""
     return string.format(
       "%s vel %d len %g%s at %s · %s",
       paw.music.name(d.pitch),
@@ -621,7 +618,7 @@ local note_fields: {string: Field} = {
   ["end"] = function(n: Node): Value return note(n).start + note(n).length end,
   at = function(n: Node): Value return song_beat(n) end,
   bar = function(n: Node): Value return paw.time.bar_of(song_beat(n)) end,
-  lyric = function(n: Node): Value return meta(n).lyric end,
+  lyric = function(n: Node): Value return (n.data as types.Note).lyric end,
   art = function(n: Node): Value return articulations(n) end,
   channel = function(n: Node): Value return meta(n).channel or 1 end,
 }

@@ -976,8 +976,7 @@ test("tablature: a guitar part gets strings and frets, and the guitar's clef", f
 end)
 
 test("several parts: a staff each, the open clip's the one edited; lyrics under the notes", function()
-  local view, clip =
-    song({ { pitch = 72, start = 0, length = 1, velocity = 90, meta = { lyric = "la" } }, N(74, 1, 1) }, 4)
+  local view, clip = song({ { pitch = 72, start = 0, length = 1, velocity = 90, lyric = "la" }, N(74, 1, 1) }, 4)
   local bass = paw.add_part({ name = "Bass" })
   local low = bass:add_clip({ start = 0, length = 4, notes = { N(40, 0, 2), N(43, 2, 2) } })
   paw.flush()

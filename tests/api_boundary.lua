@@ -67,7 +67,6 @@ local SHAPES = {
 -- The ones whose good value is a name or a folder that the test gives.
 for name, remove in pairs({
   engine_midi_filter = function(key) api.engine_midi_filter(key, nil) end,
-  clip_kind_define = api.clip_kind_remove,
   lua_devices_add = api.lua_devices_remove,
   state_set = function(key) api.state_set(key, nil) end,
 }) do

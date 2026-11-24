@@ -59,8 +59,8 @@ local function song()
     start = 0,
     length = 8,
     notes = {
-      { pitch = "C4", start = 0, length = 1, meta = { lyric = "la", notation = { art = { staccato = true } } } },
-      { pitch = "E4", start = 1, length = 1, meta = { lyric = "lo" } },
+      { pitch = "C4", start = 0, length = 1, lyric = "la", meta = { notation = { art = { staccato = true } } } },
+      { pitch = "E4", start = 1, length = 1, lyric = "lo" },
       { pitch = "G4", start = 2, length = 1 },
     },
   })
