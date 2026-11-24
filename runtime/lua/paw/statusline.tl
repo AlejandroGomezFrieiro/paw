@@ -1084,8 +1084,12 @@ local function evaluate(entry: SectionEntry, ctx: Context, base: string, letter:
   local pieces: StatusText
   local key = component.key and component.key(ctx)
   local keep = key ~= nil and cached[component]
+  -- The glyphs are part of what a component gives (`ctx.g`): plain ASCII
+  -- while `paw.opt.ascii` is on.
   local mark = key ~= nil
-    and tostring(key) .. "|" .. ctx.width .. "|" .. ctx.which .. "|" .. tostring(ctx.mode) .. "|" .. tostring(ctx.view)
+    and table.concat(
+      {tostring(key), tostring(ctx.width), ctx.which, tostring(ctx.mode), tostring(ctx.view), tostring(opt.ascii)}, "|"
+    )
   if keep and keep.mark == mark then
     M.stats.cached = M.stats.cached + 1
     pieces = keep.pieces

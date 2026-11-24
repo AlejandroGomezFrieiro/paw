@@ -273,8 +273,10 @@ test("a selection made with the keys covers the cells of its beats", function()
 end)
 
 test("the cursor keeps its exact beat and the ruler's column over a long run of keys", function()
+  -- Back to the backend that ran before: the next test plays on it.
+  local backend = api.engine_get().backend
   api.engine_restart({ backend = "null", test_input = { frequency = 440, level = -12, channels = 2 } })
-  T.after(function() api.engine_restart({ backend = "null" }) end)
+  T.after(function() api.engine_restart({ backend = backend }) end)
   T.start()
   paw.ui.focus("arrange")
   paw.project.tempo = 120

@@ -503,12 +503,21 @@ test("the audio devices are chosen from the engine's menu", function()
     act.choose_engine("block", 4)
     eq(api.engine_get().buffer_size, 128, "a block size is chosen")
     eq(labels(paw.frontend.engine_menu().block):find("*128 frames", 1, true) ~= nil, true, "and shown as chosen")
-    eq(paw.frontend.state(-1).project.engine, "null · 48 kHz", "the indicator in the transport bar")
+    eq(
+      paw.frontend.state(-1).project.engine,
+      api.engine_get().backend .. " · 48 kHz",
+      "the indicator in the transport bar: the backend that runs, and no device"
+    )
   end)
 end)
 
 test("notes are drawn, chosen with clicks and a box, and moved and stretched together", function()
   fresh()
+  -- A drawn length becomes the piano roll's note length, which a new
+  -- project keeps: the next test enters notes with the one it had.
+  local roll = paw.ui.views:get("pianoroll")
+  local length = roll.length
+  T.after(function() roll:set_step(length) end)
   local track = paw.add_track({ name = "Keys" })
   track:add_device("synth")
   local clip = track:add_clip({

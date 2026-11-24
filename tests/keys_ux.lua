@@ -25,6 +25,13 @@ test("a named group shows its name in the hints, and an unnamed one how many key
   paw.opt.hint_delay = 0
   paw.keymap.set("<leader>yq1", "noop", { desc = "one" })
   paw.keymap.set("<leader>yq2", "noop", { desc = "two" })
+  -- The name of a group is no function of a test file: the runner does not
+  -- take it away, and the key rule's check of named groups would find it.
+  T.after(function()
+    paw.keymap.del("<leader>yq1")
+    paw.keymap.del("<leader>yq2")
+    paw.keymap.group_registry:remove("global <leader>y")
+  end)
   paw.keymap.feed("<leader>")
   eq(hint_of("y"), "+2 more", "counted until it has a name")
   paw.keymap.feed("<Esc>")
@@ -38,9 +45,6 @@ test("a named group shows its name in the hints, and an unnamed one how many key
   eq(hint_of("a"), "+automation", "the built-in groups have names")
   eq(hint_of("c"), "+clip", "for what the prefix holds in this view")
   paw.keymap.feed("<Esc>")
-  paw.keymap.del("<leader>yq1")
-  paw.keymap.del("<leader>yq2")
-  paw.opt.hint_delay = 500
 end)
 
 test("a sequence that matches nothing says so and drops what follows it", function()

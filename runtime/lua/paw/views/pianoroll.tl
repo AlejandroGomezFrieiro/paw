@@ -13,6 +13,7 @@ local axis = require("paw.axis")
 local type CursorModule = require("paw.cursor")
 local events = require("paw.events")
 local options = require("paw.options")
+local registry = require("paw.registry")
 local util = require("paw.util")
 local music = require("paw.music")
 local statusline = require("paw.statusline")
@@ -90,13 +91,6 @@ local record Layer
   row: function(pitch: integer): integer
 end
 
---- A layer of the roll: `paint(layer)` draws it, from back to front by `order`.
-local record LayerEntry
-  name: string
-  order: number
-  paint: function(layer: Layer)
-end
-
 --- A switch that a module adds to the row of tools (`view:tool`): its
 --- label, whether it is on, what the pointer over it says, and the name of
 --- the `paw.frontend.act` function that a click calls with the clip.
@@ -137,6 +131,11 @@ end
 local interface Provided
   name: string
   order: number
+end
+
+--- A layer of the roll: `paint(layer)` draws it, from back to front by `order`.
+local record LayerEntry is Provided
+  paint: function(layer: Layer)
 end
 
 --- What a module says about a row of the keyboard (`view.rows`): `label`
@@ -653,12 +652,73 @@ function view:subscope(): string | {string}
   return #out > 0 and out or nil
 end
 
+-- The layers and providers of the roll (`view.layer`, `view.rows`,
+-- `view.band`, `view.describer`, `view.entering`) are entries of one
+-- registry, keyed by the list and the name. The registry knows the
+-- extension that put each one: its unload takes them away, and
+-- `:extensions` lists them. A list is made again from the registry when an
+-- entry of it changes.
+local lists: {string: {Provided}} = {}
+
+--- The list that the key of an entry is in, and the entry's name.
+local function split_key(key: string): string, string
+  return key:match("^(%S+) (.*)$")
+end
+
+local providers: registry.Registry<Provided>
+providers = registry.new(
+  "roll",
+  "piano roll layers and providers",
+  {
+    label = function(key: string): string local list, name = split_key(key); return name .. " (" .. list .. ")" end,
+    changed = function(key: string)
+      local which = split_key(key)
+      local list = lists[which]
+      for i = #list, 1, -1 do
+        list[i] = nil
+      end
+      for k, entry in pairs(providers:entries()) do
+        if split_key(k) == which then
+          list[#list + 1] = entry
+        end
+      end
+      table.sort(
+        list,
+        function(a: Provided, b: Provided): boolean
+          if (a.order or 0) ~= (b.order or 0) then
+            return (a.order or 0) < (b.order or 0)
+          end
+          return a.name < b.name
+        end
+      )
+      api.ui_redraw()
+    end,
+  }
+)
+
+--- Put `entry` in `list` as `name` (nil removes it), in the order of `order`.
+local function provide<T is Provided>(list: {T}, name: string, entry: T)
+  local which: string
+  for key, known in pairs(lists) do
+    if known == list as {Provided} then
+      which = key
+    end
+  end
+  if entry then
+    entry.name = name
+    providers:put(which .. " " .. name, entry)
+  else
+    providers:remove(which .. " " .. name)
+  end
+end
+
 -- Layers that modules draw over the roll, from back to front by `order`:
 -- other tracks' notes ("context", 10), the notes of the clips edited
 -- ("notes", 20), diagnostics 30, the notes insert mode is drawing
 -- ("draw", 35), a snippet's marks 40, suggestions 50; the
 -- selection and the cursor last of all.
 view.layers = {}
+lists.layers = view.layers as {Provided}
 
 --- Draw `paint(p)` as a layer of the roll, replacing one of the same name
 --- (nil removes it). `p` holds `roll` and `ruler` (cell buffers), `plane`
@@ -676,12 +736,7 @@ view.layers = {}
 --- a click calls `paw.frontend.act[name](clip, arg)`, and `tip` is what the
 --- pointer over it says. A failing layer is skipped.
 function view.layer(name: string, order: number, paint: function(layer: Layer))
-  drop(view.layers, name, function(l: LayerEntry): string return l.name end)
-  if paint then
-    view.layers[#view.layers + 1] = {name = name, order = order, paint = paint}
-  end
-  table.sort(view.layers, function(a: LayerEntry, b: LayerEntry): boolean return a.order < b.order end)
-  api.ui_redraw()
+  provide(view.layers, name, paint and {order = order, paint = paint} as LayerEntry)
 end
 
 local function paint_layers(p: Layer)
@@ -709,17 +764,8 @@ end
 --                            about to enter (keys, insert mode, the mouse)
 -- The first provider with something to say about a row wins. nil removes one.
 view.row_providers, view.bands, view.describers, view.enterers = {}, {}, {}, {}
-
---- Put `entry` in `list` as `name` (nil removes it), in the order of `order`.
-local function provide<T is Provided>(list: {T}, name: string, entry: T)
-  drop(list, name, function(e: T): string return e.name end)
-  if entry then
-    entry.name = name
-    list[#list + 1] = entry
-  end
-  table.sort(list, function(a: T, b: T): boolean return (a.order or 0) < (b.order or 0) end)
-  api.ui_redraw()
-end
+lists.rows, lists.bands = view.row_providers as {Provided}, view.bands as {Provided}
+lists.describers, lists.enterers = view.describers as {Provided}, view.enterers as {Provided}
 
 function view.rows(name: string, fn: function(pitch: integer, track: integer): RowLook)
   provide(view.row_providers, name, fn and {fn = fn} as RowProvider)
