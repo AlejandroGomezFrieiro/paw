@@ -56,3 +56,36 @@ test("ruler-everything: inside a subproject, the bars of the scope over the song
   T.settle()
   T.expect_screen("subproject", 100, 18, { rows = { 1, 13 } })
 end)
+
+test("paw.marks: del, clear and get keep the marks of a namespace in the order of their beats", function()
+  T.fresh()
+  local ns = paw.marks.namespace("test.todo", {})
+  T.after(function() paw.marks.namespaces:remove("test.todo") end)
+  paw.marks.set(ns, 32, { label = "late" })
+  local early = paw.marks.set(ns, 4, { label = "early" })
+  local middle = paw.marks.set("test.todo", 16, { label = "middle" })
+  local function labels()
+    local out = {}
+    for _, m in ipairs(paw.marks.get(ns)) do
+      out[#out + 1] = m.label
+    end
+    return table.concat(out, ",")
+  end
+  T.eq(labels(), "early,middle,late", "get: by beat")
+  paw.marks.set(ns, 40, { id = early, label = "early" })
+  T.eq(labels(), "middle,late,early", "set with an id moves the mark")
+  T.eq(paw.marks.del(ns, middle), true, "del: the mark was there")
+  T.eq(paw.marks.del(ns, middle), false, "del: it is gone")
+  T.eq(labels(), "late,early", "del")
+  paw.marks.clear(ns, 30, 40)
+  T.eq(labels(), "early", "clear from 30 up to 40 keeps beat 40")
+  paw.marks.set(ns, 8, { label = "again" })
+  paw.marks.clear(ns)
+  T.eq(labels(), "", "clear with no time")
+end)
+
+test("paw.ruler.route: a route that is not row: or over: gives a clear message", function()
+  local ok, err = pcall(paw.ruler.route, "paw.cues", 5)
+  T.eq(ok, false, "refused")
+  T.eq(tostring(err):find('a route is "row:<row>" or "over:<row>", not 5', 1, true) ~= nil, true, tostring(err))
+end)

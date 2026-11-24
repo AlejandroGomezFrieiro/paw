@@ -33,6 +33,44 @@ local ids: {string: integer} = {}
 local names: {string} = {}
 local next_mark = 0
 
+--- The kept marks of a namespace in the order of their beats, and the
+--- length of its longest stretch, by the table of its marks (which a
+--- copy of the namespace shares): made again after a change.
+local record Sorted
+  list: {Mark}
+  longest: number
+end
+local sorted: {{integer: Mark}: Sorted} = setmetatable({}, {__mode = "k"})
+
+local function by_beat(a: Mark, b: Mark): boolean
+  if a.beat ~= b.beat then
+    return a.beat < b.beat
+  end
+  return a.id < b.id
+end
+
+local function sorted_of(space: Namespace): Sorted
+  local s = sorted[space.marks]
+  if not s then
+    s = {list = {}, longest = 0}
+    for _, mark in pairs(space.marks) do
+      s.list[#s.list + 1] = mark
+      if mark.to then
+        s.longest = math.max(s.longest, mark.to - mark.beat)
+      end
+    end
+    table.sort(s.list, by_beat)
+    sorted[space.marks] = s
+  end
+  return s
+end
+
+--- The marks of `space` changed: sort them again, and draw.
+local function changed(space: Namespace)
+  sorted[space.marks] = nil
+  api.ui_redraw()
+end
+
 --- A copy of a mark, which the ruler places at the window's time.
 function M.copy(m: Mark): Mark
   return {
@@ -98,7 +136,8 @@ end
 --- Put a mark at `beat` of the song in namespace `ns` (its id or name), or
 --- change the mark with the id `spec.id`. The fields of `spec` are those
 --- of a mark (`sign`, `label`, `priority`, `style`, `to`, `row` or
---- `over`, ...). The table becomes the mark. Gives the id of the mark.
+--- `over`, ...). The table becomes the mark: change it with
+--- `paw.marks.set` again. Gives the id of the mark.
 ---   paw.marks.set(ns, 32, { sign = "◆", label = "drop" })
 function M.set(ns: integer | string, beat: number, spec?: Mark): integer
   local space = M.of(ns)
@@ -110,7 +149,7 @@ function M.set(ns: integer | string, beat: number, spec?: Mark): integer
   end
   mark.ns, mark.beat = space.name, beat
   space.marks[mark.id] = mark
-  api.ui_redraw()
+  changed(space)
   return mark.id
 end
 
@@ -119,7 +158,7 @@ function M.del(ns: integer | string, id: integer): boolean
   local space = M.of(ns)
   local had = space.marks[id] ~= nil
   space.marks[id] = nil
-  api.ui_redraw()
+  changed(space)
   return had
 end
 
@@ -132,25 +171,49 @@ function M.clear(ns: integer | string, from?: number, to?: number)
       space.marks[id] = nil
     end
   end
-  api.ui_redraw()
+  changed(space)
 end
 
 --- The marks of namespace `ns` that `paw.marks.set` put, in the order of
 --- their beats.
 function M.get(ns: integer | string): {Mark}
   local out: {Mark} = {}
-  for _, mark in pairs(M.of(ns).marks) do
-    out[#out + 1] = mark
+  for i, mark in ipairs(sorted_of(M.of(ns)).list) do
+    out[i] = mark
   end
-  table.sort(
-    out,
-    function(a: Mark, b: Mark): boolean
-      if a.beat ~= b.beat then
-        return a.beat < b.beat
-      end
-      return a.id < b.id
+  return out
+end
+
+--- The marks of namespace `ns` that `paw.marks.set` put and whose time
+--- meets `lo` to `hi`, in the order of their beats. `here(beat)` gives a
+--- beat of the song in the beats of `lo` and `hi` and keeps their order
+--- (the beats of the song when not given).
+---   paw.marks.within("cues", 0, 64)
+function M.within(ns: integer | string, lo: number, hi: number, here?: function(number): number): {Mark}
+  here = here or function(beat: number): number return beat end
+  local s = sorted_of(M.of(ns))
+  local list = s.list
+  -- The first mark whose stretch can reach `lo`.
+  local a, b = 1, #list + 1
+  while a < b do
+    local mid = math.floor((a + b) / 2)
+    if here(list[mid].beat + s.longest) < lo - 1e-9 then
+      a = mid + 1
+    else
+      b = mid
     end
-  )
+  end
+  local out: {Mark} = {}
+  for i = a, #list do
+    local m = list[i]
+    local x = here(m.beat)
+    if x > hi + 1e-9 then
+      break
+    end
+    if x >= lo - 1e-9 or (m.to and here(m.to) > lo + 1e-9) then
+      out[#out + 1] = m
+    end
+  end
   return out
 end
 

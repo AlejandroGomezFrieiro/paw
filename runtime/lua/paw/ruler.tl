@@ -17,10 +17,12 @@
 --   (`axis:x_of`). A column of a line has one sign: the sign of the
 --   highest priority.
 -- - The labels of one column follow the sign, joined in the order of
---   their priority. A label never covers a sign of its own priority or a
---   higher one, nor the label of a higher priority, and it keeps one free
---   cell before them. A name gets shorter with `…`; a whole label (a
---   number) is shown whole or not at all.
+--   their priority. A label never covers a hard sign, of any priority. It
+--   covers a soft sign (a beat tick, an edge of the loop) of a lower
+--   priority. It never covers the label of a higher priority, and keeps
+--   one free cell before it, but it can end in the cell just before a
+--   sign. A name gets shorter with `…`; a whole label (a number) is shown
+--   whole or not at all.
 -- - A mark with `to` colors the background of its stretch.
 -- - `K` lists all the marks of a column, also those that are not shown.
 --
@@ -190,7 +192,7 @@ end
 ---   paw.ruler.route("paw.cues", "over:bars")
 function M.route(ns: integer | string, where?: string)
   local space = marks.of(ns)
-  if where ~= nil and not (where is string and where:match("^row:.") or where:match("^over:.")) then
+  if where ~= nil and not (where is string and (where:match("^row:.") or where:match("^over:."))) then
     error("a route is \"row:<row>\" or \"over:<row>\", not " .. tostring(where), 2)
   end
   M.routes[space.name] = where
@@ -303,8 +305,9 @@ end
 
 --- The marks of a namespace for `ctx`, in beats of the window: what its
 --- source computes (unless `kept_only`), and the marks that
---- `paw.marks.set` put, from beats of the song. A mark outside the time of
---- the window's scope is not there, and a stretch is cut at its edges.
+--- `paw.marks.set` put, from beats of the song, in the time in sight
+--- (`ctx.left` to `ctx.right`). A mark outside the time of the window's
+--- scope is not there, and a stretch is cut at its edges.
 --- Gives the error of the source too, if it fails.
 local function namespace_marks(ns: Namespace, ctx: Context, kept_only?: boolean): {Mark}, string
   local out: {Mark} = {}
@@ -321,7 +324,7 @@ local function namespace_marks(ns: Namespace, ctx: Context, kept_only?: boolean)
       err = ns.name .. ": " .. tostring(list)
     end
   end
-  for _, m in pairs(ns.marks) do
+  for _, m in ipairs(marks.within(ns.name, ctx.left or -math.huge, ctx.right or math.huge, ctx.here)) do
     local a = ctx.here(m.beat)
     local b = m.to and ctx.here(m.to) or nil
     local inside = true
@@ -360,18 +363,19 @@ end
 --- `over` has none, and a row of no lines now is left out. A row takes
 --- what its `height` gives (one line when it has none), and at least a
 --- line for each line of the marks of a namespace sent to it with
---- `row:name`. `ctx` is the time of the window (`paw.ruler.time()`).
+--- `row:name`. `ctx` is the time of the window (`paw.ruler.time()`), with
+--- the time in sight as `left` and `right`, when it is known.
 --- Gives the places and the number of lines.
 function M.places(ctx: Context): {M.Place}, integer
   -- The lines that the namespaces sent to a row need there: all the
-  -- marks of a namespace sent to a row, in the time of the scope, and
-  -- the kept marks that name a row themselves.
+  -- marks of a namespace sent to a row, in the time in sight, and the
+  -- kept marks that name a row themselves.
   local wanted: {string: integer} = {}
-  local whole = own(ctx, nil, nil)
-  whole.left, whole.right = ctx.from or -1e12, ctx.to or 1e12
+  local seen = own(ctx, nil, nil)
+  seen.left, seen.right = ctx.left or ctx.from, ctx.right or ctx.to
   for _, ns in pairs(marks.namespaces:entries()) do
     local sent = (M.routes[ns.name] or ns.route or ""):match("^(%a+):")
-    for _, m in ipairs((namespace_marks(ns, whole, sent ~= "row"))) do
+    for _, m in ipairs((namespace_marks(ns, seen, sent ~= "row"))) do
       local how, target = target_of(ns, m)
       if how == "row" then
         wanted[target] = math.max(wanted[target] or 0, (m.line or 0) + 1)
@@ -471,9 +475,6 @@ local function place_line(list: {M.Placed}, width: integer, blocked: function(x:
       return a.x < b.x
     end
   )
-  --- Whether a label of the column `home`, of `priority`, can take cell
-  --- `x`: a label never covers a sign of another column, but a soft one
-  --- of a lower priority.
   --- Whether a label of `priority` may cover the signs of column `x`:
   --- each is soft and of a lower priority.
   local function coverable(x: integer, priority: integer): boolean

@@ -31,8 +31,8 @@ numbers.
 3. Type `:reload` in paw. The row shows under the bar numbers.
 
 paw puts each label in the column of its bar, and it gives a label less
-room, or none, when the bar is narrow. Press `K` on the ruler to see what
-has no room. To give a label more room than the others, give it a higher
+room, or none, when the bar is narrow. To see what has no room, put the
+cursor between clips in the column and press `K`. To give a label more room than the others, give it a higher
 `priority`.
 
 ## Put marks in a namespace

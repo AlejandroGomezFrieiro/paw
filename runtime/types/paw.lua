@@ -6449,12 +6449,24 @@ function paw.marks.of(ns) end
 --- Put a mark at `beat` of the song in namespace `ns` (its id or name), or
 --- change the mark with the id `spec.id`. The fields of `spec` are those
 --- of a mark (`sign`, `label`, `priority`, `style`, `to`, `row` or
---- `over`, ...). The table becomes the mark. Gives the id of the mark.
+--- `over`, ...). The table becomes the mark: change it with
+--- `paw.marks.set` again. Gives the id of the mark.
 ---   paw.marks.set(ns, 32, { sign = "◆", label = "drop" })
 ---@param ns any
 ---@param beat any
 ---@param spec any
 function paw.marks.set(ns, beat, spec) end
+
+--- The marks of namespace `ns` that `paw.marks.set` put and whose time
+--- meets `lo` to `hi`, in the order of their beats. `here(beat)` gives a
+--- beat of the song in the beats of `lo` and `hi` and keeps their order
+--- (the beats of the song when not given).
+---   paw.marks.within("cues", 0, 64)
+---@param ns any
+---@param lo any
+---@param hi any
+---@param here any
+function paw.marks.within(ns, lo, hi, here) end
 
 --- Take away an audio clip's edit list. Returns how many edits it had.
 ---@param clip any
@@ -8651,7 +8663,8 @@ function paw.ruler.paint(buf, header, comp) end
 --- `over` has none, and a row of no lines now is left out. A row takes
 --- what its `height` gives (one line when it has none), and at least a
 --- line for each line of the marks of a namespace sent to it with
---- `row:name`. `ctx` is the time of the window (`paw.ruler.time()`).
+--- `row:name`. `ctx` is the time of the window (`paw.ruler.time()`), with
+--- the time in sight as `left` and `right`, when it is known.
 --- Gives the places and the number of lines.
 ---@param ctx any
 function paw.ruler.places(ctx) end

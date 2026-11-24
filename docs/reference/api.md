@@ -1535,10 +1535,15 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
   local ns = paw.marks.namespace("cues", { route = "row:regions" })
   ```
 - `paw.marks.of(ns)`: The namespace that `ns` names: its id or its name. An error names a namespace that does not exist.
-- `paw.marks.set(ns, beat, spec)`: Put a mark at `beat` of the song in namespace `ns` (its id or name), or change the mark with the id `spec.id`. The fields of `spec` are those of a mark (`sign`, `label`, `priority`, `style`, `to`, `row` or `over`, ...). The table becomes the mark. Gives the id of the mark.
+- `paw.marks.set(ns, beat, spec)`: Put a mark at `beat` of the song in namespace `ns` (its id or name), or change the mark with the id `spec.id`. The fields of `spec` are those of a mark (`sign`, `label`, `priority`, `style`, `to`, `row` or `over`, ...). The table becomes the mark: change it with `paw.marks.set` again. Gives the id of the mark.
 
   ```lua
   paw.marks.set(ns, 32, { sign = "◆", label = "drop" })
+  ```
+- `paw.marks.within(ns, lo, hi, here)`: The marks of namespace `ns` that `paw.marks.set` put and whose time meets `lo` to `hi`, in the order of their beats. `here(beat)` gives a beat of the song in the beats of `lo` and `hi` and keeps their order (the beats of the song when not given).
+
+  ```lua
+  paw.marks.within("cues", 0, 64)
   ```
 
 ## Module paw.media
@@ -2152,7 +2157,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.ruler.describe(comp, x)`: What `K` says of a column of the ruler: each mark there, on each row, also those that are not shown, and why. Nil when the column has only the number of its bar and the ticks of its beats.
 - `paw.ruler.loop_text(from, to, on)`: What a message says of the loop: `bars 5 to 8, on`, `bar 5, off`. `from` and `to` are the loop's edges in beats of the song.
 - `paw.ruler.paint(buf, header, comp)`: Draw a composition on `buf`, the ruler's lines over the timeline, and the rows that draw themselves, with `header` (the ruler's lines over the part headers) for their headers.
-- `paw.ruler.places(ctx)`: The places of the rows shown, from the top of the ruler: a row with `over` has none, and a row of no lines now is left out. A row takes what its `height` gives (one line when it has none), and at least a line for each line of the marks of a namespace sent to it with `row:name`. `ctx` is the time of the window (`paw.ruler.time()`). Gives the places and the number of lines.
+- `paw.ruler.places(ctx)`: The places of the rows shown, from the top of the ruler: a row with `over` has none, and a row of no lines now is left out. A row takes what its `height` gives (one line when it has none), and at least a line for each line of the marks of a namespace sent to it with `row:name`. `ctx` is the time of the window (`paw.ruler.time()`), with the time in sight as `left` and `right`, when it is known. Gives the places and the number of lines.
 - `paw.ruler.relative(bar, beat)`: How many `W` (ahead) or `B` (behind) reach bar `bar` from the cursor at `beat`: from inside a bar, the first `B` goes to its own start (paw/defaults/cursor.lua). Nil for the cursor's own bar.
 - `paw.ruler.remove(name)`: Take a row away, and its name out of `paw.opt.rulerrows`. The row that it replaced, if any, comes back.
 - `paw.ruler.route(ns, where)`: Send the marks of a namespace (its id or name) to a row: `"row:name"` gives them a line of that row, `"over:name"` draws them on it. Nil gives back the namespace's own place.

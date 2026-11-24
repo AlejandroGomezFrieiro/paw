@@ -404,7 +404,11 @@ function view:layout(w: integer, h: integer): Layout
   -- The ruler: the lines of its rows (paw/ruler.tl), then a line for each
   -- band of an extension (`paw.frontend.bands`) that has entries.
   local bands = paw.frontend.band_state()
+  -- The time in sight, which the rows need lines for: at the zoom and
+  -- the folds of the last frame.
   local time = paw.ruler.time()
+  local seen = axis.new(self.scroll, paw.opt.zoom, self.axis and self.axis.spans)
+  time.left, time.right = self.scroll, seen:beat_of(math.max(1, w - hw))
   local places, band_y = paw.ruler.places(time)
   local ruler_rows = band_y + bands.rows
   local master_rows = 2
