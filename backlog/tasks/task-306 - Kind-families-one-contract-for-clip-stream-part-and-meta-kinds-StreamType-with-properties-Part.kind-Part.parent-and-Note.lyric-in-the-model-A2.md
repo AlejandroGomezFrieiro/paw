@@ -3,10 +3,10 @@ id: TASK-306
 title: >-
   Kind families: one contract for clip, stream, part and meta kinds; StreamType
   with properties; Part.kind, Part.parent and Note.lyric in the model (A2)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T15:28:00Z'
+updated_date: '2026-11-24T17:19:00Z'
 labels:
   - agent:builder
   - architecture
@@ -51,6 +51,15 @@ Size: L. One family for each commit, each with a round trip test of the folder.
 - [ ] #7 Each family moves in its own commit with a round trip test of the project folder
 - [ ] #8 Docs: about-core-and-extensions.md, the project files reference and the extension skill are true; an explanation page About kinds exists; Vale reports 0 alerts
 - [ ] #9 model/kinds.rs moves to paw-types/src/kinds.rs; the inherent impl on Kinds<SplitFamily, SplitImpl> in model/chain/kinds.rs becomes a trait or free functions; paw-types gets serde, serde_json and thiserror, and the wasm32 check still passes
+- [ ] #10 A kind spec may give a data schema (ParamSchema words); paw.api lists each kind with its schema for paw-mcp; a kind with no schema is read only for MCP (the MCP tools themselves are TASK-376)
+- [ ] #11 No part kind in core: drums, sampler and utau own theirs; a part of an absent kind shows its kind name as a label, plays what it keeps, and a save keeps all of it (test with the extension unloaded)
+- [ ] #12 Part.parent: groups nest to any depth; a move that makes a cycle is refused with a message; a group is a full part (lanes, chain) that sums its children; tests for depth 3 and for the cycle
+- [ ] #13 paw.meta.define: a key no one declared is kept with no message; :checkhealth lists such keys and their files
+- [ ] #14 On open, a converter moves meta.kind, meta.group and meta.lyric into Part.kind, Part.parent and Note.lyric; the next save writes only the new fields; a comment and a TASK in m-18 say it goes at the first release
+- [ ] #15 paw.clip_kinds.define and paw.part_kinds.define are gone with no aliases (git grep); drums, sampler and utau use paw.kinds.define
+- [ ] #16 MIDI export writes Note.lyric as lyric events; MIDI import puts each lyric event on the note at its tick (or the next note), and its report names each lyric moved or dropped; a round trip test
+- [ ] #17 Note.lyric is plain text; utau keeps phonemes and voice data in meta keys that it declares
+- [ ] #18 A part's kind can change (a command such as :part.kind <name>, and clear) in one undo step; lanes, clips and devices stay; test with real keys
 <!-- AC:END -->
 
 ## Definition of Done
@@ -71,4 +80,8 @@ Size: L. One family for each commit, each with a round trip test of the folder.
 Lane heads (HD, TASK-323): move the field head from paw.track_kinds and paw.clip_kinds to the part and clip families of paw.kinds; the Head record does not change (design: backlog/docs/designs/lane-heads.md)
 
 Owner question for the A2 interview (2026-11-24): when an extension registers a clip, lane or part kind, it also gives the schema of its data, so paw-mcp can list kinds and add_clip/get_clip can take kind + data checked against that schema (today MCP sees only MIDI and audio clips).
+
+Owner interview 2026-11-24: all 11 recommended answers accepted; recorded in architecture/13-roadmap.md, section The A2 interview. ACs #10 to #18 added from it.
+
+Started 2026-11-24: branch kind-families, base 582ae3a5.
 <!-- SECTION:NOTES:END -->
