@@ -1,10 +1,10 @@
 ---
 id: TASK-391
 title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and plugins'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T18:06:00Z'
+updated_date: '2026-11-24T18:17:00Z'
 labels:
   - agent:builder
 dependencies:

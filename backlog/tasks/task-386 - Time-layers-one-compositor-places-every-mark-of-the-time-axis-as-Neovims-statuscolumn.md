@@ -3,10 +3,10 @@ id: TASK-386
 title: >-
   Ruler rows and marks: one compositor places every row and mark of the ruler
   (as statuscolumn and extmarks)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T17:41:00Z'
-updated_date: '2026-11-24T17:52:00Z'
+updated_date: '2026-11-24T18:17:00Z'
 labels:
   - design
   - ux
