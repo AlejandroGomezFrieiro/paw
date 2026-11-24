@@ -19,41 +19,42 @@ end
 local runs = 0
 
 --- Run the runner on a fixture folder that holds `files` (name -> text),
---- with `env` (name -> value) in its environment. Gives what it printed,
---- whether it passed, and the folder of the files of the run.
-local function run_fixture(files, env)
+--- with `env` (name -> value) in its environment, and `words` (the words of
+--- `only`, one on each line) if given. In a value of `env`, `<dir>` is the
+--- fixture folder. Gives what it printed, and whether it passed.
+local function run_fixture(files, env, words)
   runs = runs + 1
   local dir = T.scratch .. "/runner-" .. runs
-  local out = dir .. "/out"
-  os.execute("mkdir -p '" .. out .. "' '" .. dir .. "/home'")
+  os.execute("mkdir -p '" .. dir .. "/home'")
   for name, text in pairs(files) do
     T.write_file(dir .. "/" .. name, text)
   end
   -- The child gets folders of its own, and none of the settings of this run.
   local vars = {
-    "env -u PAW_TEST_SHARD -u PAW_TEST_LIVE -u PAW_TEST_REPEAT -u PAW_TEST_SHUFFLE -u PAW_BLESS",
+    "env -u PAW_TEST_PART -u PAW_TEST_LIST -u PAW_TEST_LIVE -u PAW_TEST_REPEAT -u PAW_TEST_SHUFFLE -u PAW_BLESS",
     "PAW_TEST_FIXTURE='" .. dir .. "'",
-    "PAW_TEST_OUT='" .. out .. "'",
     "HOME='" .. dir .. "/home'",
   }
   for _, name in ipairs({ "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME" }) do
     vars[#vars + 1] = name .. "='" .. dir .. "/" .. name:lower() .. "'"
   end
   for name, value in pairs(env or {}) do
-    vars[#vars + 1] = name .. "='" .. value .. "'"
+    vars[#vars + 1] = name .. "='" .. value:gsub("<dir>", dir) .. "'"
   end
   local pipe = io.popen(
     table.concat(vars, " ")
       .. " '"
       .. this_paw()
-      .. '\' --clean --no-plugins --audio null --clock manual -l tests/suite.lua 2>&1; echo "exit $?"'
+      .. "' --clean --no-plugins --audio null --clock manual -l tests/suite.lua"
+      .. (words and (" '" .. words .. "'") or "")
+      .. ' 2>&1; echo "exit $?"'
   )
   -- LuaJIT's close of a pipe does not give the code of the process: the
   -- shell prints it on the last line.
   local printed = pipe:read("*a")
   pipe:close()
   local code = printed:match("\nexit (%d+)\n$")
-  return printed, code == "0", out
+  return printed, code == "0"
 end
 
 -- A fixture file: a test that passes, a test that skips, a test that always
@@ -109,32 +110,36 @@ test("a binary that lacks a function of the runtime's kernel API fails at the st
   eq(passed, false, "the run fails")
 end)
 
-test("the TAP file lists each test with its result and the reason of a skip", function()
-  local _, _, out = run_fixture({
-    ["four.lua"] = FOUR,
-    ["quarantine.txt"] = "a test that always fails\tthe fix\n",
-  })
-  local tap = T.read_file(out .. "/tap.lines")
-  local results = {}
-  for line in tap:gmatch("[^\n]+") do
-    if line:match("ok %- a ") then results[#results + 1] = line end
-  end
-  eq(results, {
-    "ok - a test that passes",
-    "ok - a test that skips # SKIP no such tool here",
-    "not ok - a test that always fails # TODO quarantined, waits for: the fix",
-    "ok - a quarantined test that passes",
-  }, "the results")
+-- Two parts: the harness of cargo nextest runs each one in a paw of its own.
+local TWO_PARTS = {
+  ["a.lua"] = 'local T = ...\nT.test("a test of part a", function() end)\n'
+    .. 'T.test("a live test of part a", function() end, { live = "it needs the wall clock" })\n',
+  ["b.lua"] = 'local T = ...\nT.test("a test of part b", function() end)\n',
+}
+
+test("PAW_TEST_PART runs the tests of one part, and names the live tests it leaves", function()
+  local printed, passed = run_fixture(TWO_PARTS, { PAW_TEST_PART = "<dir>/a.lua" })
+  eq(passed, true, printed)
+  eq(printed:find("ok    a test of part a", 1, true) ~= nil, true, printed)
+  eq(printed:find("part b", 1, true), nil, "the test of the other part: " .. printed)
+  eq(printed:match("live tests: %d+"), "live tests: 1", "the live tests for the live pass")
 end)
 
-test("times.txt has one line for each test file", function()
-  local _, _, out = run_fixture({ ["a.lua"] = FOUR, ["b.lua"] = FOUR })
-  local files = {}
-  for name in T.read_file(out .. "/times.txt"):gmatch("%d+\t([^\n]+)") do
-    files[#files + 1] = name:match("[^/]+$")
+test("a part with no test file fails the run, and names the part", function()
+  local printed, passed = run_fixture(TWO_PARTS, { PAW_TEST_PART = "<dir>/c.lua" })
+  eq(passed, false, "the run fails")
+  eq(printed:find("c.lua, and no test file is in that part", 1, true) ~= nil, true, printed)
+end)
+
+test("the list gives each part that has a test of the words, and runs no test", function()
+  local printed, passed = run_fixture(TWO_PARTS, { PAW_TEST_LIST = "1" }, "live test\nnothing")
+  eq(passed, true, printed)
+  local parts = {}
+  for part in printed:gmatch("part\t[^\n]*/([^/\n]+)\n") do
+    parts[#parts + 1] = part
   end
-  table.sort(files)
-  eq(files, { "a.lua", "b.lua" }, "the files")
+  eq(parts, { "a.lua" }, "the parts: " .. printed)
+  eq(printed:find("ok    ", 1, true), nil, "no test ran")
 end)
 
 test("repeat stops at the first run that fails, and names it", function()
@@ -198,15 +203,48 @@ end)
   end
 end)
 
-test("a shard of suite.sh refuses to start shards of its own", function()
-  -- The limit on processes stops the machine from a flood of shards if
-  -- the guard goes. Linux counts the threads of this user against it: the
-  -- threads of now and 200 more.
+-- The harness of nextest (tests/harness) gives each paw of a run its path.
+local harness = os.getenv("PAW_TEST_HARNESS")
+
+--- Run the harness binary with `args`, after the shell text `env`. Gives
+--- what it printed (with its errors) and its exit code on the last line.
+local function run_harness(env, args)
+  local pipe = io.popen(env .. " '" .. harness .. "' " .. args .. ' 2>&1; echo "exit $?"')
+  local printed = pipe:read("*a")
+  pipe:close()
+  return printed
+end
+
+test("the harness of the suite refuses to start inside a run of the suite", function()
+  if not harness then return "the run did not start from the harness of nextest" end
+  eq(
+    run_harness("PAW_TEST_IN_SUITE=1", "--list"),
+    "the Lua suite does not start inside a run of the Lua suite (PAW_TEST_IN_SUITE is set)\nexit 2\n",
+    "what it printed"
+  )
+end)
+
+test("the harness lists the parts of the runner", function()
+  if not harness then return "the run did not start from the harness of nextest" end
+  -- With no words, the list reads the folders and starts no paw.
+  local printed = run_harness("env -u PAW_TEST_IN_SUITE -u PAW_TEST_WORDS", "--list --format terse")
+  local listed = {}
+  for part in printed:gmatch("([^\n]+): test\n") do
+    listed[#listed + 1] = part
+  end
+  eq(listed, T.parts(), "the parts of the harness and of tests/suite.lua")
+end)
+
+test("tests/tools/suite.sh refuses to start inside a run of the suite", function()
+  -- A paw of the suite has PAW_TEST_IN_SUITE: a test that starts the suite
+  -- again would start paw processes without end. The limit on processes
+  -- stops the machine from a flood if the guard goes. Linux counts the
+  -- threads of this user against it: the threads of now and 200 more.
   local pipe = io.popen(
     '(ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )); '
-      .. 'PAW_TEST_SHARD=1/2 tests/tools/suite.sh -j 2 only x) 2>&1; echo "exit $?"'
+      .. 'PAW_TEST_IN_SUITE=1 tests/tools/suite.sh only x) 2>&1; echo "exit $?"'
   )
   local printed = pipe:read("*a")
   pipe:close()
-  eq(printed, "suite.sh: a shard does not start shards\nexit 2\n", "what it printed")
+  eq(printed, "suite.sh: the suite does not start inside a run of the suite\nexit 2\n", "what it printed")
 end)

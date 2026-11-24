@@ -17,26 +17,39 @@ other projects.
 ## 1. The runner
 
 - `tests/suite.lua` is the runner. paw runs it as a `-l` script, in the
-  kernel. All test files run in one process, in order: `tests/*.lua`,
-  then `extensions/<name>/tests*.lua` for each extension.
+  kernel. The test files are `tests/*.lua`, then
+  `extensions/<name>/tests*.lua` for each extension. A part is one file
+  of `tests/`, or all the test files of one extension.
+- `tests/tools/suite.sh` runs the suite under cargo-nextest. The test
+  binary `paw-lua-suite::lua` (`tests/harness`) gives nextest one test
+  for each part. Each part runs in a paw of its own
+  (`PAW_TEST_PART`), with its own scratch folders under
+  `target/test-scratch/parts/<part>`, and then its live tests in a
+  second paw. The profiles `lua` and `lua-one` of `.config/nextest.toml`
+  give the number of parts at a time. A part that hangs fails with
+  `TIMEOUT`, and a part that leaves a process fails with `LEAK-FAIL`.
+- With `only`, a paw first lists the parts that hold a test of the words
+  (`PAW_TEST_LIST`). Then each of them runs only the tests of the words.
+  `cargo nextest run -p paw-lua-suite --profile lua -E 'test(/modal/)'`
+  runs the parts whose name holds `modal`.
+- A paw of the suite has `PAW_TEST_IN_SUITE`. `suite.sh` and the
+  harness refuse to start when it is set, so a test cannot start the
+  suite again.
 - Each file starts with `local T = ...` and takes the helpers from `T`.
 - `T.test(name, fn)` adds a test. `T.last(name, fn)` adds a test that
-  runs after all the others.
+  runs after the other tests of its part.
 - The name is a sentence about the behavior, for example "a double
   click on empty space selects the phrase there". `only` filters by the
   words of the name.
-- `cargo test -p paw-tui --test suite` runs `tests/tools/suite.sh`. The
-  two use one runner, one set of folders and the same passes.
 - At the start, the runner compares the binary with the runtime. Each
   function of `paw.api` that `runtime/types/paw.lua` declares must be in
   the binary. An old binary (`PAW_TEST_BIN`) with a new runtime fails
   "the binary has the kernel API of the runtime", and no test runs.
   Build paw again, or use a binary of the same commit.
-- Each run writes `target/test-scratch/times.txt`: the wall time of each
-  test file, the slowest first. It is information only. A time does not
+- Each run writes `target/test-scratch/suite.out` (each test, its
+  result and the reason of each skip) and `target/nextest/lua/junit.xml`
+  for CI (each part with its result and its wall time). A time does not
   fail a test.
-- Each run writes `target/test-scratch/suite.tap` for CI: each test with
-  its result, and the reason of each skip.
 - `tests/runner.lua` tests the runner. It runs a second paw on test
   files in a scratch folder (`PAW_TEST_FIXTURE`, see `tests/suite.lua`).
 
@@ -269,8 +282,8 @@ T.check_keys(
   too: after ten minutes of schedule time its next wait fails with "the
   test ran more than 600000 ms of the clock".
 - A test that needs real time is live: `T.test(name, fn, { live = "why" })`.
-  The suite runs the live tests after the others, in a second paw on the
-  wall clock (`PAW_TEST_LIVE=1`). Keep them few (about 3 % of the tests),
+  The suite runs the live tests of a part after its other tests, in a
+  second paw on the wall clock (`PAW_TEST_LIVE=1`). Keep them few (about 3 % of the tests),
   and check outcomes only.
 - Do not use `api.now()` for a deadline in a test. The waits of `T`
   have one limit, the same for all tests.
@@ -316,13 +329,14 @@ T.check_keys(
 - Find the cause: time, an order of tests, state that an earlier test
   left. Run the test alone, and under `only` filters that run it after
   other files.
-- `suite.sh repeat 20 only "<words>"` runs the tests 20 times in one
-  paw. It stops after the first run that fails, and prints
+- `suite.sh repeat 20 only "<words>"` runs the tests 20 times in the
+  paw of each part. It stops after the first run that fails, and prints
   "repeat: run N of 20 failed". Each run loads the test files again. A
   test that depends on the order or on state that it leaves in the kernel
   fails in its second run.
-- `suite.sh --shuffle <seed>` runs the test files, and the tests in each
-  file, in the order of the seed. It prints the seed on its first line.
+- `suite.sh --shuffle <seed>` runs the tests of each part in the order
+  of the seed. The parts need no order: each one runs in a paw of its
+  own. It prints the seed on its first line.
   The same seed gives the same order. With no number, it takes a new
   seed. The tests of `T.last` stay last.
 - If you cannot fix it now, put it in `tests/quarantine.txt`: the full
@@ -350,8 +364,8 @@ part 7, gives the tier of each command.
 tools/dev-runtime.sh                                   # target/dev-runtime
 PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
   tests/tools/suite.sh only "<words>" "<more>"         # the tests that hold any of the words
-tests/tools/suite.sh                                   # all tests in 4 processes (the orchestrator, before a push)
-tests/tools/suite.sh -j 1                              # the same in 1 process (1 to 4); only, plugins and repeat use 1 if no -j
+tests/tools/suite.sh                                   # all tests, 4 parts at a time (the orchestrator, before a push)
+tests/tools/suite.sh -j 1                              # the same, 1 part at a time (1 to 4); only and repeat use 1 if no -j
 tests/tools/suite.sh repeat 20 only "<words>"          # find a flaky test
 tests/tools/suite.sh --shuffle 7                       # the order of the seed 7
 tests/tools/suite.sh plugins "<words>"                 # with the test plugins

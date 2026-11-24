@@ -1,0 +1,22 @@
+[package]
+name = "paw-lua-suite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Runs the Lua suite under cargo-nextest: one test for each part of tests/suite.lua, each part in a paw of its own."
+
+# The suite: a test binary with its own main. It lists the parts and runs
+# one part (libtest-mimic speaks the test protocol of cargo-nextest).
+[[test]]
+name = "lua"
+harness = false
+
+[dev-dependencies]
+libtest-mimic = "0.8"
+# A scratch folder for the unit tests of the list of parts.
+tempfile = "3"
+
+[lints]
+workspace = true

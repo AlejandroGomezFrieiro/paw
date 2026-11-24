@@ -471,7 +471,7 @@ cargo nextest run -p <crate> -E 'test(word)'  # some tests
 cargo test --doc -p <crate>                   # doc tests
 cargo nextest run --workspace --profile gate  # before a push
 tests/tools/quarantine.sh                     # before a push: run and report the quarantined tests
-cargo test -p paw-tui --test suite            # the Lua suite, through tests/tools/suite.sh
+tests/tools/suite.sh                          # the Lua suite, under cargo nextest (tests/harness)
 cargo insta test -p <crate>                   # run the tests, keep new snapshots as .snap.new
 cargo insta review                            # read and accept snapshots
 PAW_BLESS=1 tests/tools/suite.sh only "<words>"  # accept the golden screens (Lua)

@@ -291,7 +291,7 @@ Remove what a test adds with `T.after(fn)`. Do not add lines to
 
 ```sh
 nix develop -c cargo build --release -j 8      # the runtime Lua is embedded: rebuild first
-nix develop -c tests/tools/suite.sh            # all tests (output in target/test-scratch/suite.out)
+nix develop -c tests/tools/suite.sh            # all tests (output in target/test-scratch/suite.out and parts/)
 nix develop -c tests/tools/suite.sh only euclid  # only the tests whose name holds "euclid"
 nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check  # API docs current
 ```

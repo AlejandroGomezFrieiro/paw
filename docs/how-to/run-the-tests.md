@@ -13,12 +13,13 @@ build.
 3. Read the last line, which is `all passed` or the number of failed
    tests.
 
-The suite writes its full output to `target/test-scratch/suite.out`. It
-also writes `target/test-scratch/times.txt`, with the time that each test
-file took, the slowest file first, and `target/test-scratch/suite.tap`,
-which lists each test with its result and the reason for each skip in the
-TAP format that CI tools read. The times are there to help you find a slow
-file, and they never make a test fail.
+The suite writes its full output to `target/test-scratch/suite.out`, and
+the output of each part to `target/test-scratch/parts/<part>/suite.out`.
+A part is a test file of `tests/`, or all the test files of one extension.
+cargo-nextest runs the suite, and it writes
+`target/nextest/lua/junit.xml`, which lists each part with its result and
+its time in the JUnit format that CI tools read. The times are there to
+help you find a slow part, and they never make a test fail.
 
 The tests never use your own files or plugins. Each test run gets a scratch
 home folder and empty plugin folders under `target/test-scratch`, so your
@@ -55,24 +56,37 @@ loads each of the test files, in the order of their names.
   that the binary doesn't have. Build paw again, or use a binary of the
   same commit.
 
-## Run the suite in more than one process
+## Run the parts of the suite at the same time
 
-A run of all the tests uses four paw processes by default. A run with
-`only`, `plugins` or `repeat` uses one process by default. To use another
-number of processes, give `-j` and a number from 1 to 4 before the other
-words:
-`tests/tools/suite.sh -j 1` runs all the tests in one process, one after
-the other, and `tests/tools/suite.sh -j 2 plugins` runs them in two. With
-`-j 2`, each process gets every second test file of `tests/`, and every
-second extension with all of its test files. Each process has its own scratch home, plugin and XDG folders under
-`target/test-scratch/shard<N>`. The script puts the outputs together in
-`target/test-scratch/suite.out`, and the last line is the same as with one
-process.
+`tests/tools/suite.sh` runs the suite with cargo-nextest. The test binary
+of `tests/harness` gives nextest one test for each part, and each part
+runs in a paw of its own, with its own scratch home, plugin and XDG
+folders under `target/test-scratch/parts/<part>`. A part that has live
+tests then runs them in a second paw.
 
-The script runs one full suite at a time on the machine, and up to three
-runs of `only` beside it. A run that finds no free slot says so and waits
-for one. Set `PAW_SUITE_SLOTS` to change the number of `only` runs. Too
-many paw processes at once can use up the threads of the machine.
+A run of all the tests runs four parts at a time by default. A run with
+`only` or `repeat` runs one part at a time. To run another number of
+parts at a time, give `-j` and a number from 1 to 4 before the other
+words: `tests/tools/suite.sh -j 1` runs the parts one after the other.
+The `plugins` run doesn't use nextest, and it runs all the tests in one
+paw.
+
+The profiles `lua` and `lua-one` of `.config/nextest.toml` hold these
+numbers, and the test group `lua` lets no more than four parts run at a
+time, whatever the command asks. A part that runs for ten minutes is
+stopped and fails with `TIMEOUT`. A part that leaves a process behind
+fails with `LEAK-FAIL`.
+
+Each part also takes one of four slots of the machine before it starts
+paw, so two runs at the same time share the four slots, and a part waits
+for a free one. The slots are lock files in `/tmp/paw-suite-locks`. Set
+`PAW_SUITE_LOCKS` to use another folder, and `PAW_SUITE_SLOTS` to change
+the number. If a part can't take a slot, it fails and says why.
+
+You can also run the suite with cargo-nextest itself, for example to run
+the parts whose name holds a word:
+`cargo nextest run -p paw-lua-suite --profile lua -E 'test(/modal/)'`.
+It uses the binary of `PAW_TEST_BIN`, or `target/release/paw`.
 
 On a machine that other people or programs use, give a smaller `-j`, so
 that the suite leaves some processor cores free. The load doesn't change
@@ -87,7 +101,7 @@ the order of the tests, on state that an earlier test left, or on time.
 The suite has two options that help you find one, and you give them
 before the other words.
 
-- To run some tests many times in each paw process, give `repeat` and a
+- To run some tests many times in the paw of each part, give `repeat` and a
   number: `tests/tools/suite.sh repeat 20 only "loop on"`. The suite stops
   after the first run that fails, and its output says which run it was, for
   example `repeat: run 2 of 20 failed`. Each run loads the test files
@@ -95,8 +109,9 @@ before the other words.
 - To run the tests in another order, give `--shuffle` and a seed:
   `tests/tools/suite.sh --shuffle 7`. The suite prints the seed on its first
   line, and the same seed always gives the same order, so you can run a
-  failed order again. With no number, the suite picks a new seed. The test
-  files move as a whole, and the tests in each file change places.
+  failed order again. With no number, the suite picks a new seed. The tests
+  of each part change places. The parts don't need an order, because each
+  one runs in a paw of its own.
 
 When you can't fix a flaky test at once, put it in `tests/quarantine.txt`.
 Each line has the full name of the test, a tab, and the fix that it waits
@@ -177,7 +192,7 @@ T.keys(":tempo 0<CR>")
 ## Write a test that runs in any order
 
 A test makes all the state that it reads, so it gives the same result
-alone, under each `only` filter, and in each process of `-j`. The rules
+alone, under each `only` filter, and in any order of the tests of its part. The rules
 below keep a test independent of the tests that ran before it:
 
 - Start with `T.fresh()` or `T.start()`, and set each option that the
@@ -324,8 +339,8 @@ the clock`.
 
 A test that needs real time is a live test. Mark it with a third argument,
 for example `T.test(name, fn, { live = "it plays in real time" })`. After
-the other tests, `tests/tools/suite.sh` runs the live tests in a second
-paw on the real clock (`PAW_TEST_LIVE=1`). Keep the live tests few, and
+the other tests of a part, the suite runs its live tests in a second paw
+on the real clock (`PAW_TEST_LIVE=1`). Keep the live tests few, and
 say in `live` what needs real time. A file can hold only live tests, for
 example `tests/live_limits.lua`, so that the reads of the clock stay out of
 the other test files.
@@ -346,10 +361,11 @@ uses `T.home()`, which gives the test a home folder of its own.
 
 ## Run the Rust tests
 
-1. Run `cargo test`, which also runs the Lua suite through
-   `tests/tools/suite.sh`, from `crates/paw-tui/tests/suite.rs`. Its files
-   are in `target/tmp/lua-suite`.
-2. To test one crate, run `cargo test -p <crate>`.
+1. To test one crate, run `cargo nextest run -p <crate>`.
+2. To run all the Rust tests, run
+   `cargo nextest run --workspace --exclude paw-gui --profile gate`. The
+   profile `gate` leaves out the Lua suite, which `tests/tools/suite.sh`
+   runs.
 3. If a test of a file format fails because its output changed, run
    `cargo insta review`. It shows the difference from the saved file in
    a `snapshots/` folder. Accept the change only when the new output is
