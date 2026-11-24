@@ -30,6 +30,14 @@ fn type_json(info: &paw_engine::DeviceInfo) -> Value {
     })
 }
 
+/// The value now of `p`, the parameter at `i` of device `d`: what the
+/// project sets, else what the plugin reports (from its own state), else
+/// the default.
+fn value_now(d: &crate::model::DeviceInst, live: Option<&crate::sync::LiveDevice>, i: usize, p: &ParamInfo) -> f64 {
+    let reported = || live.and_then(|l| l.controller.as_ref()).and_then(|c| c.value(i));
+    d.params.get(&p.key).copied().or_else(reported).unwrap_or(f64::from(p.default))
+}
+
 impl Session {
     pub(crate) fn device_types(&self) -> Value {
         Value::Array(self.registry.iter().map(|f| type_json(f.info())).collect())
@@ -93,8 +101,7 @@ impl Session {
         d: &'a crate::model::DeviceInst,
         live: Option<&'a crate::sync::LiveDevice>,
     ) -> (BTreeMap<&'a str, f64>, Vec<ParamView<'a>>) {
-        // Every parameter with its current value: what the project sets,
-        // else what the plugin reports (from its own state), else the default.
+        // Every parameter with its current value (`value_now`).
         let mut params = BTreeMap::new();
         let mut infos = Vec::new();
         // The parameters a lane of the part moves.
@@ -111,23 +118,8 @@ impl Session {
                 _ => None,
             })
             .collect();
-        for (i, p) in live
-            .map(|l| l.params.as_slice())
-            .unwrap_or(&[])
-            .iter()
-            .enumerate()
-        {
-            let reported = || {
-                live.and_then(|l| l.controller.as_ref())
-                    .and_then(|c| c.value(i))
-            };
-            let value = d
-                .params
-                .get(&p.key)
-                .copied()
-                .or_else(reported)
-                .unwrap_or(p.default as f64);
-            params.insert(p.key.as_str(), value);
+        for (i, p) in live.map(|l| l.params.as_slice()).unwrap_or(&[]).iter().enumerate() {
+            params.insert(p.key.as_str(), value_now(d, live, i, p));
             infos.push(ParamView::at(p, i, automated.contains(&p.key.as_str())));
         }
         (params, infos)
@@ -280,13 +272,15 @@ impl Session {
     /// that value as the device writes it. [`param_view`](Self::param_view)
     /// gives it with its description.
     pub(crate) fn device_param(&mut self, id: Id, name: &str) -> Result<ParamNow> {
-        let param = self.param_info(id, name)?;
-        let value = self
-            .device_view(id)?
-            .param(&param.key)
-            .unwrap_or(param.default as f64);
-        let text = self.param_text(id, &param.key, value)?;
-        Ok(ParamNow { key: param.key, value, text })
+        let key = self.param_info(id, name)?.key;
+        let value = {
+            let d = self.doc.project.device(id).with_context(|| format!("no device {id}"))?;
+            let live = self.live.get(&id).context("the device is not loaded")?;
+            let at = live.params.iter().position(|p| p.key == key).context("the parameter is gone")?;
+            value_now(d, Some(live), at, &live.params[at])
+        };
+        let text = self.param_text(id, &key, value)?;
+        Ok(ParamNow { key, value, text })
     }
 
     /// The parameter that [`device_param`](Self::device_param) read, as the

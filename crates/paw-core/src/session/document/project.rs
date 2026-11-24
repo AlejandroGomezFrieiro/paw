@@ -9,7 +9,7 @@ use anyhow::{Result, bail};
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{patch, view};
+use super::values::{Lazy, patch, view};
 use crate::model::{Project, SigChange, TempoChange};
 
 view! {
@@ -30,7 +30,7 @@ view! {
         /// The project's file; nil before it is saved.
         path: Option<&'a Path>,
         /// The end of the last clip, in beats.
-        length: SongLength<'a>,
+        length: Lazy<&'a Project, f64>,
         #[schemars(extend("x-teal" = "Meta"))]
         meta: &'a Map<String, Value>,
         #[schemars(extend("x-teal" = "ProjectExport"))]
@@ -42,31 +42,7 @@ view! {
         edits: u64,
         /// A hash of the tempo and signature points, the same for the same
         /// points (after an undo too).
-        tempo_stamp: u64,
-    }
-}
-
-/// The end of the last clip of a project, found when it is written: the
-/// view of another field does not look at every clip.
-struct SongLength<'a>(&'a Project);
-
-impl serde::Serialize for SongLength<'_> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_f64(self.0.end())
-    }
-}
-
-impl schemars::JsonSchema for SongLength<'_> {
-    fn inline_schema() -> bool {
-        true
-    }
-
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        "SongLength".into()
-    }
-
-    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        f64::json_schema(generator)
+        tempo_stamp: Lazy<&'a Project, u64>,
     }
 }
 
@@ -108,12 +84,12 @@ impl Document {
             sig_changes: &p.sig_changes,
             key: p.key.as_deref(),
             path,
-            length: SongLength(p),
+            length: Lazy::new(p, |p| p.end()),
             meta: &p.meta,
             export: &p.export,
             modified: self.undo.touched || !self.undo.history.at_saved(),
             edits: self.changes(),
-            tempo_stamp: p.tempo_stamp(),
+            tempo_stamp: Lazy::new(p, |p| p.tempo_stamp()),
         }
     }
 

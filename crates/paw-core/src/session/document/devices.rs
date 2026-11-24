@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{Given, NoTable, patch};
+use super::values::{Given, NoTable, patch, whole};
 use crate::model::{Id, MASTER_ID, Project};
 
 impl Document {
@@ -115,7 +115,7 @@ impl Document {
             let (part, _) = p.find_device(id).with_context(|| format!("no device {id}"))?;
             match change {
                 DeviceChange::Sidechain(given) => {
-                    let source = Given::id(given, "a side-chain's part")?;
+                    let source = given.map(|g| g.id("a side-chain's part")).transpose()?.flatten();
                     if let Some(source) = source {
                         check_sidechain(p, part, source)?;
                     }
@@ -212,8 +212,10 @@ struct PairNumber(u32);
 impl<'de> Deserialize<'de> for PairNumber {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         match Given::<NoTable>::deserialize(deserializer)? {
-            #[expect(clippy::cast_sign_loss, reason = "a whole number from 1 up")]
-            Given::Number(n) if n >= 1.0 && n.fract() == 0.0 && n <= f64::from(u32::MAX) => Ok(PairNumber(n as u32)),
+            Given::Number(n) => match whole(n) {
+                Some(pair) if pair >= 1 => Ok(PairNumber(pair)),
+                _ => Err(serde::de::Error::custom("output pairs are numbered from 1")),
+            },
             Given::Word(word) => word
                 .parse()
                 .map(PairNumber)

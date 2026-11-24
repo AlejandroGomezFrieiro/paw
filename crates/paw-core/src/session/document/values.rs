@@ -2,7 +2,7 @@
 //! from JSON, whether it changes anything, numbers, notes, controller moves
 //! and fades.
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
@@ -270,16 +270,24 @@ impl<'de> serde::Deserialize<'de> for NoTable {
 }
 
 impl<T> Given<T> {
-    /// A whole number from 0 up that a script gave, or none for nothing
-    /// (nil or an empty table); `what` names it in the error.
-    pub(crate) fn id(given: Option<Self>, what: &str) -> anyhow::Result<Option<u64>> {
-        match given {
-            None | Some(Given::Empty) => Ok(None),
-            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a whole number from 0 up")]
-            Some(Given::Number(n)) if n >= 0.0 && n.fract() == 0.0 => Ok(Some(n as u64)),
-            Some(_) => bail!("{what} is given by its id"),
+    /// The id that a script gave, or none for an empty table; `what` names
+    /// it in the error.
+    pub(crate) fn id(self, what: &str) -> anyhow::Result<Option<u64>> {
+        match self {
+            Given::Empty => Ok(None),
+            Given::Number(n) => whole(n).map(Some).with_context(|| format!("{what} is given by its id, a whole number")),
+            _ => bail!("{what} is given by its id"),
         }
     }
+}
+
+/// `n` as a whole number that fits `N`, or none for another number.
+pub(crate) fn whole<N: TryFrom<u64>>(n: f64) -> Option<N> {
+    // 2^64: the first whole f64 that `u64` does not hold.
+    const PAST_U64: f64 = 18_446_744_073_709_551_616.0;
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a whole number in the range of u64")]
+    let n = ((0.0..PAST_U64).contains(&n) && n.fract() == 0.0).then_some(n as u64)?;
+    N::try_from(n).ok()
 }
 
 /// A map that notes whether it gave a key.
@@ -340,6 +348,52 @@ macro_rules! view {
     };
 }
 pub(crate) use view;
+
+/// A field of a view that is found only when it is written: the view of
+/// another field (`part_get(id, "name")`) does not pay for a scan. Its JSON
+/// Schema is the one of `T`.
+pub(crate) struct Lazy<C, T> {
+    of: C,
+    find: fn(&C) -> T,
+}
+
+impl<C, T> Lazy<C, T> {
+    pub(crate) fn new(of: C, find: fn(&C) -> T) -> Self {
+        Self { of, find }
+    }
+}
+
+impl<C, T: serde::Serialize> serde::Serialize for Lazy<C, T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        (self.find)(&self.of).serialize(serializer)
+    }
+}
+
+impl<C, T: schemars::JsonSchema> schemars::JsonSchema for Lazy<C, T> {
+    fn inline_schema() -> bool {
+        T::inline_schema()
+    }
+
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        T::schema_name()
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        T::schema_id()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        T::json_schema(generator)
+    }
+
+    fn _schemars_private_non_optional_json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        T::_schemars_private_non_optional_json_schema(generator)
+    }
+
+    fn _schemars_private_is_option() -> bool {
+        T::_schemars_private_is_option()
+    }
+}
 
 /// `value`, or an error naming `what` if it is NaN or infinite.
 pub(crate) fn finite(what: &str, value: f64) -> Result<f64> {

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{Given, NoTable, finite, patch, view};
+use super::values::{Given, Lazy, NoTable, finite, patch, view};
 use crate::attr_map::AttrMap;
 use crate::model::{
     AutoMode, Clips, DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, OutForm, Part,
@@ -71,7 +71,7 @@ view! {
         color: Option<&'a str>,
         #[schemars(extend("x-teal" = "Meta"))]
         meta: &'a Map<String, Value>,
-        index: Option<usize>,
+        index: Lazy<(&'a Project, Id), Option<usize>>,
         master: bool,
         #[schemars(with = "Option<String>")]
         input: Option<InputChannels>,
@@ -83,9 +83,9 @@ view! {
         #[schemars(with = "Option<Value>", extend("x-teal" = "AttrMap"))]
         attr_map: Option<&'a AttrMap>,
         /// The parts that devices on this one listen to as side-chains.
-        listens: BTreeSet<Id>,
+        listens: Lazy<&'a Part, BTreeSet<Id>>,
         /// The parts that further output pairs of its devices play into.
-        pairs_into: BTreeSet<Id>,
+        pairs_into: Lazy<&'a Part, BTreeSet<Id>>,
         /// A part read from a part folder outside the project's folder.
         source: Option<&'a Path>,
         /// The part folder outside the project that the part was copied from.
@@ -148,7 +148,7 @@ impl schemars::JsonSchema for ClipIds<'_> {
 
 impl<'a> PartView<'a> {
     /// The view of part `t` of project `p`.
-    fn of(p: &Project, t: &'a Part) -> Self {
+    fn of(p: &'a Project, t: &'a Part) -> Self {
         Self {
             id: t.id,
             name: &t.name,
@@ -163,7 +163,7 @@ impl<'a> PartView<'a> {
             clips: ClipIds(&t.clips),
             color: t.color.as_deref(),
             meta: &t.meta,
-            index: p.parts.iter().position(|x| x.id == t.id).map(|i| i + 1),
+            index: Lazy::new((p, t.id), |(p, id)| p.parts.iter().position(|x| x.id == *id).map(|i| i + 1)),
             master: t.id == MASTER_ID,
             input: t.input,
             monitor: t.monitor,
@@ -172,8 +172,8 @@ impl<'a> PartView<'a> {
             height: t.height,
             automation: t.automation,
             attr_map: t.attr_map.as_ref(),
-            listens: t.devices.iter().filter_map(|d| d.sidechain).collect(),
-            pairs_into: t.devices.iter().flat_map(|d| d.outputs.values().copied()).collect(),
+            listens: Lazy::new(t, |t| t.devices.iter().filter_map(|d| d.sidechain).collect()),
+            pairs_into: Lazy::new(t, |t| t.devices.iter().flat_map(|d| d.outputs.values().copied()).collect()),
             source: t.source.as_deref(),
             origin: t.origin.as_deref(),
             chain_source: t.chain_source.as_deref(),
@@ -453,24 +453,16 @@ impl PartChange {
 
     /// Make the change to part `id`, which is in `p`.
     fn set(self, p: &mut Project, id: Id) -> Result<()> {
-        match self {
-            // Routing looks at the other parts before it changes this one.
-            Self::Output(output) => {
-                let output = checked_output(p, id, output)?;
-                p.part_in(id)?.output = output;
-            }
-            Self::Sends(sends) => {
-                let sends = checked_sends(p, id, sends)?;
-                p.part_in(id)?.sends = sends;
-            }
-            own => own.set_own(p.part_in(id)?, id)?,
-        }
-        Ok(())
-    }
-
-    /// Make a change that only the part's own state decides.
-    fn set_own(self, t: &mut Part, id: Id) -> Result<()> {
-        match self {
+        // Routing looks at the other parts before it changes this one.
+        let change = match self {
+            Self::Output(output) => Self::Output(checked_output(p, id, output)?),
+            Self::Sends(sends) => Self::Sends(checked_sends(p, id, sends)?),
+            own => own,
+        };
+        let t = p.part_in(id)?;
+        match change {
+            Self::Output(output) => t.output = output,
+            Self::Sends(sends) => t.sends = sends,
             Self::Name(name) => t.name = name,
             Self::Volume(volume) => t.volume = finite("volume", volume)?.clamp(-120.0, 24.0),
             Self::Pan(pan) => t.pan = finite("pan", pan)?.clamp(-1.0, 1.0),
@@ -492,7 +484,6 @@ impl PartChange {
             Self::MidiInput(given) => t.midi_input = check_input(id, midi_input_of(given)?)?,
             Self::MidiOutput(given) => t.midi_output = midi_output_of(given)?,
             Self::AttrMap(given) => t.attr_map = attr_map_of(given)?,
-            Self::Output(_) | Self::Sends(_) => unreachable!("`set` sets the routing"),
         }
         Ok(())
     }
