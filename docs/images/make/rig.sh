@@ -45,6 +45,9 @@ D=$WORK/home
 rm -rf "$D"; mkdir -p "$D/home" "$WORK"
 # Sockets need a short path: the folder of the checkout can be too deep.
 RUN=$(mktemp -d "${TMPDIR:-/tmp}/paw-rig.XXXXXX") || exit 1
+# A scene that stops before rig_start (it is skipped) removes $RUN too.
+# rig_start replaces this trap with rig_stop.
+trap 'rm -rf "$RUN"' EXIT
 export XDG_CACHE_HOME=$D XDG_STATE_HOME=$D XDG_DATA_HOME=$D XDG_RUNTIME_DIR=$RUN XDG_CONFIG_HOME=$D/config
 export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/bus
 unset WAYLAND_DISPLAY DISPLAY XAUTHORITY SSH_AUTH_SOCK TMUX
