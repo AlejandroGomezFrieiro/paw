@@ -48,8 +48,8 @@ plugins.
 > [!NOTE]
 > paw is a personal project that one person made for their own music, and
 > it isn't complete. It runs on Linux (PipeWire, ALSA or JACK) and hosts
-> CLAP, LV2 and VST3 plugins. paw has about 1,700 tests in Lua that drive
-> the whole program and 500 tests in Rust, and most of the tests use
+> CLAP, LV2 and VST3 plugins. paw has about 2,100 tests in Lua that drive
+> the whole program and 700 tests in Rust, and most of the tests use
 > stand-ins instead of real hardware. paw can change without notice, and
 > the page [what paw does not do](docs/reference/limits.md) lists its
 > limits.
