@@ -102,6 +102,8 @@ local record model
   --- fields have their Teal type in `teal`, and enums, each sorted by name.
   record Schema
     records: {Record}
+    --- The JSON text as the kernel gives it.
+    json: string
     enums: {SchemaEnum}
   end
 

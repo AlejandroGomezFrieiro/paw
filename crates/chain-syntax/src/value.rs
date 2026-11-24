@@ -32,6 +32,7 @@ pub enum Dimension {
 
 /// A unit that a number can have in the text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Unit {
     #[serde(rename = "dB")]
     Decibel,

@@ -297,7 +297,7 @@ fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
         started,
         context: json!({
             "start": start, "tempo": tempo, "end": render.end, "tail": render.tail,
-            "part": solo, "edits": shared.session.borrow().project_view()["edits"],
+            "part": solo, "edits": shared.session.borrow().doc.changes(),
         }),
     })
 }

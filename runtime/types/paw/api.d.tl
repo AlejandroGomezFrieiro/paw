@@ -106,7 +106,7 @@ local record api
    device_post: function(kind: string, topic: string, data?: string): {types.DeviceRefusal}
    device_remove: function(id: integer)
    device_restart: function(id: integer)
-   device_set: function(id: integer, patch: types.Device)
+   device_set: function(id: integer, patch: types.DeviceChanges)
    device_set: function(id: integer, key: string, value: nil)
    device_set_param: function(id: integer, name: string, value: number | string)
    device_state: function(id: integer): string
@@ -165,7 +165,7 @@ local record api
    lane_list: function(part: integer): {types.Lane}
    lane_points: function(id: integer): {types.LanePoint}
    lane_remove: function(id: integer)
-   lane_set: function(id: integer, patch: types.Lane)
+   lane_set: function(id: integer, patch: types.LaneChanges)
    lane_set: function(id: integer, key: string, value: nil)
    lane_set_points: function(id: integer, points: {types.LanePoint})
    lane_set_shapes: function(id: integer, shapes: {types.LaneSegment})
@@ -248,7 +248,7 @@ local record api
    part_meter: function(id: integer): number, number
    part_move: function(id: integer, index: integer)
    part_remove: function(id: integer)
-   part_set: function(id: integer, patch: types.Part)
+   part_set: function(id: integer, patch: types.PartChanges)
    part_set: function(id: integer, key: string, value: nil)
    pending: function(): types.Pending
    plugins_add_dir: function(dir: string): types.PluginDir
@@ -286,7 +286,7 @@ local record api
    project_save_files: function(paths: {string}): {string}
    project_screen: function(): types.ProjectScreen
    project_screen_set: function(value: types.ProjectScreen)
-   project_set: function(patch: types.Project)
+   project_set: function(patch: types.ProjectChanges)
    project_set: function(key: string, value: nil)
    project_shelve: function()
    project_shelved: function(): boolean
@@ -376,7 +376,7 @@ local record api
    transport_playhead: function(): boolean, number, integer, integer
    transport_record: function()
    transport_seek: function(beats: number)
-   transport_set: function(patch: types.Transport)
+   transport_set: function(patch: types.TransportChanges)
    transport_set: function(key: string, value: nil)
    transport_stop: function()
    trial_active: function(): boolean

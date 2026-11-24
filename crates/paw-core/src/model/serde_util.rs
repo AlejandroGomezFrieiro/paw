@@ -30,7 +30,7 @@ impl Default for Factor {
 /// The velocity of a note, 1 to 127, and 100 by default. The files write
 /// it as a plain number. The check of a project (`check_notes`) refuses a
 /// velocity above 127.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(transparent)]
 pub struct Velocity(pub u8);
 

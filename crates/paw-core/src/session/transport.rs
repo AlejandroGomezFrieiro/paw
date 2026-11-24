@@ -166,7 +166,7 @@ impl Session {
 
     /// Turn on recording and play.
     pub(crate) fn record(&mut self) -> Result<()> {
-        self.transport_set("recording", Value::Bool(true))?;
+        self.transport_set(TransportChange::Recording(true))?;
         if !self.play.playing {
             self.play();
         }

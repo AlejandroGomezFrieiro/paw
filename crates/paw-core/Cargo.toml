@@ -8,19 +8,19 @@ description = "The kernel: project model, engine sync, Lua host, cell grid, even
 
 [dependencies]
 paw-types.workspace = true
-paw-engine.workspace = true
+paw-engine = { workspace = true, features = ["schemars"] }
 paw-luadev.workspace = true
 paw-measure.workspace = true
 paw-proto.workspace = true
 paw-raster.workspace = true
 paw-scene.workspace = true
 # The chain language: the schema of paw's kinds (`paw chain schema`).
-chain-syntax.workspace = true
+chain-syntax = { workspace = true, features = ["schemars"] }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # The JSON Schemas of the shapes of paw.api and of the parameters of the
-# built-in kinds (api/shapes.rs, chain_schema.rs).
+# built-in kinds (src/api_schema.rs, src/chain_schema.rs).
 schemars.workspace = true
 thiserror.workspace = true
 hex.workspace = true

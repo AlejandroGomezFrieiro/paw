@@ -381,6 +381,20 @@ impl Instance {
     }
 }
 
+/// What kind of value a parameter takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum ParamKind {
+    /// Off or on.
+    Boolean,
+    /// Named steps.
+    Enum,
+    /// Whole steps.
+    Stepped,
+    Continuous,
+}
+
 /// One parameter of a device, described the same way for every kind of
 /// device: built-in, CLAP, VST3, LV2 or a Lua device.
 ///
@@ -519,17 +533,16 @@ impl ParamInfo {
         }
     }
 
-    /// What kind of value it takes: `boolean`, `enum` (named steps),
-    /// `stepped` (whole steps) or `continuous`.
-    pub fn kind(&self) -> &'static str {
+    /// What kind of value it takes.
+    pub fn kind(&self) -> ParamKind {
         if self.boolean {
-            "boolean"
+            ParamKind::Boolean
         } else if self.enumeration || !self.choices.is_empty() {
-            "enum"
+            ParamKind::Enum
         } else if self.steps > 0 {
-            "stepped"
+            ParamKind::Stepped
         } else {
-            "continuous"
+            ParamKind::Continuous
         }
     }
 
@@ -1178,22 +1191,22 @@ mod tests {
     #[test]
     fn a_parameter_says_what_kind_of_value_it_takes() {
         let gain = ParamInfo::new("Gain").range(-24.0, 24.0).default_value(0.0).unit("dB");
-        assert_eq!(gain.kind(), "continuous");
+        assert_eq!(gain.kind(), ParamKind::Continuous);
         assert_eq!(gain.stable_id(), "Gain", "a built-in parameter's id is its key");
         assert!(gain.automatable);
         let wave = ParamInfo::choice("Wave", &["Sine", "Saw", "Square"], 1);
-        assert_eq!((wave.kind(), wave.steps), ("enum", 2));
+        assert_eq!((wave.kind(), wave.steps), (ParamKind::Enum, 2));
         let switch = ParamInfo {
             boolean: true,
             steps: 1,
             ..ParamInfo::new("On").range(0.0, 1.0).default_value(0.0)
         };
-        assert_eq!(switch.kind(), "boolean");
+        assert_eq!(switch.kind(), ParamKind::Boolean);
         let voices = ParamInfo {
             steps: 15,
             ..ParamInfo::new("Voices").range(1.0, 16.0).default_value(8.0)
         };
-        assert_eq!(voices.kind(), "stepped");
+        assert_eq!(voices.kind(), ParamKind::Stepped);
     }
 
     #[test]

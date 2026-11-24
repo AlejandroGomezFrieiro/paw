@@ -1,0 +1,2488 @@
+{
+  "AutoMode": {
+    "description": "How a part treats its automation.",
+    "oneOf": [
+      {
+        "const": "read",
+        "description": "The lanes play; moving a control writes nothing.",
+        "type": "string"
+      },
+      {
+        "const": "touch",
+        "description": "A control writes while it is held or being moved, and the lane\ntakes over again when it is let go.",
+        "type": "string"
+      },
+      {
+        "const": "latch",
+        "description": "A control writes from when it is first moved until the song stops.",
+        "type": "string"
+      },
+      {
+        "const": "write",
+        "description": "Everything the part's lanes move is written over from where the\nsong starts playing until it stops, moved or not.",
+        "type": "string"
+      },
+      {
+        "const": "off",
+        "description": "The lanes are kept but do not play.",
+        "type": "string"
+      }
+    ]
+  },
+  "Clip": {
+    "description": "`paw.api.clip_get(id)` and each entry of `clip_list`, without the notes.\nMIDI clips have `note_count`, `control_count` and the stamps, which\nchange when the notes or controls do; audio clips have `file` and how\nthey play it, and `edits`, the number of edits. What does not apply to\nits kind is left out.",
+    "properties": {
+      "bent": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "control_count": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "control_stamp": {
+        "description": "The same for the controller moves.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "cue": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "edits": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "fade_in": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "fade_out": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "file": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "formants": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "gain": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "id": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "kind": {
+        "type": "string",
+        "x-teal": "ClipKind"
+      },
+      "length": {
+        "format": "double",
+        "type": "number"
+      },
+      "link": {
+        "description": "A linked clip's link, and how many clips it has (`link_count` only\nfrom `clip_get`).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "link_count": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "loop": {
+        "type": "boolean"
+      },
+      "loop_length": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "loop_start": {
+        "format": "double",
+        "type": "number"
+      },
+      "made": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": "object",
+        "x-teal": "Meta"
+      },
+      "modifiers": {
+        "description": "A MIDI clip's modifiers, top to bottom (`model/modifiers.rs`).",
+        "items": {
+          "$ref": "#/$defs/Modifier"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "muted": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "nest": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/NestId"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "note_count": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "offline": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "offset": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "origin": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "part": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "pitch": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "play": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/NestPlay"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "preview": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "source_tempo": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "stamp": {
+        "description": "Changes whenever the notes do (`model::Notes::stamp`).",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "start": {
+        "format": "double",
+        "type": "number"
+      },
+      "stretch": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "stretch_mode": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/StretchMode"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stretching": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "timebase": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Timebase"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "warp": {
+        "items": {
+          "$ref": "#/$defs/WarpMarker"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "start",
+      "length",
+      "muted",
+      "kind",
+      "part",
+      "meta",
+      "loop",
+      "loop_start"
+    ],
+    "type": "object"
+  },
+  "ClipChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.clip_set` changes in a clip: each field as `clip_get`\ngives it, and what is left out stays. Nil clears a field that has a\ndefault (`clip_set(id, \"loop_length\", nil)`), and is refused for the\nothers.",
+    "properties": {
+      "fade_in": {
+        "description": "Beats an audio clip fades in over.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "fade_out": {
+        "description": "Beats an audio clip fades out over.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "file": {
+        "description": "The sound file of an audio clip: another take of it.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "formants": {
+        "description": "An audio clip keeps the formants of the voice when it is shifted.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "gain": {
+        "description": "The gain of an audio clip in dB, from -120 to 24.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "length": {
+        "description": "The length of the clip in beats.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "loop": {
+        "description": "The clip repeats over its length.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "loop_length": {
+        "description": "Beats of one repeat; nil for the clip's content.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "loop_start": {
+        "description": "Where a repeat starts in the clip's content, in beats.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "Meta"
+      },
+      "modifiers": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Stack"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The modifiers of a MIDI clip, top to bottom. Nil or an empty list\ntakes all of them away."
+      },
+      "muted": {
+        "description": "The clip is silent.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "name": {
+        "description": "The name of the clip.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "offset": {
+        "description": "Where an audio clip starts in its file, in seconds, or where a\nclip of another kind starts in its content.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "part": {
+        "description": "Move the clip to the end of this part.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "pitch": {
+        "description": "Semitones an audio clip is shifted by.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "source_tempo": {
+        "description": "The tempo that an audio clip was recorded at.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "start": {
+        "description": "Where the clip starts on the timeline, in beats.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "stretch": {
+        "description": "How many times its length an audio clip is stretched to.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "stretch_mode": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/StretchMode"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timebase": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Timebase"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "warp": {
+        "description": "The markers of an audio clip; the `beat` of each is not read.",
+        "items": {
+          "$ref": "#/$defs/WarpMarker"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "Control": {
+    "description": "A controller moving to a value at a point in a MIDI clip: a control\nchange, the pitch wheel, pressure, a registered or assignable controller,\nor a program change. With `key` it belongs to the note on that key\nalone, as MIDI 2.0 has it: that note's own pitch bend, pressure or\ncontroller.",
+    "oneOf": [
+      {
+        "description": "A control change by number: 1 is the modulation wheel, 64 the\nsustain pedal. With a key, the registered per-note controller of\nthat number.",
+        "properties": {
+          "number": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "const": "cc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "number"
+        ],
+        "type": "object"
+      },
+      {
+        "properties": {
+          "type": {
+            "const": "bend",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "properties": {
+          "type": {
+            "const": "pressure",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      {
+        "description": "A registered controller (RPN) by bank and index; per note, by index.",
+        "properties": {
+          "bank": {
+            "default": 0,
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "index": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "const": "registered",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "index"
+        ],
+        "type": "object"
+      },
+      {
+        "description": "An assignable controller (NRPN) by bank and index; per note, by index.",
+        "properties": {
+          "bank": {
+            "default": 0,
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "index": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "const": "assignable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "index"
+        ],
+        "type": "object"
+      },
+      {
+        "description": "Choose a sound, with its bank (fourteen bits) if that is given.",
+        "properties": {
+          "bank": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "program": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "const": "program",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "program"
+        ],
+        "type": "object"
+      }
+    ],
+    "properties": {
+      "key": {
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "start": {
+        "default": 0.0,
+        "description": "Beats from the start of the clip; below 0 it is hidden before the\nclip's start and not played.",
+        "format": "double",
+        "type": "number"
+      },
+      "value": {
+        "default": 0.0,
+        "description": "0 to 1, or -1 to 1 for pitch bend. Kept as a fraction, so nothing of\na 32-bit value is lost.",
+        "format": "double",
+        "type": "number"
+      }
+    },
+    "type": "object"
+  },
+  "Device": {
+    "description": "A device on a part.",
+    "properties": {
+      "bypass": {
+        "type": "boolean"
+      },
+      "editor": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/EditorState"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Whether its own window shows; nil for a device with no window."
+      },
+      "format": {
+        "type": "string"
+      },
+      "id": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "index": {
+        "description": "Its place in the chain of its part, from 1.",
+        "format": "uint",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": "object",
+        "x-teal": "Meta"
+      },
+      "missing": {
+        "description": "Not running: not installed, not made yet, or made and gone.",
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "offline": {
+        "type": "boolean"
+      },
+      "outputs": {
+        "additionalProperties": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "description": "The part that each further output pair plays into, by the pair's\nnumber as text.",
+        "type": "object"
+      },
+      "overrides": {
+        "additionalProperties": {
+          "format": "double",
+          "type": "number"
+        },
+        "description": "The parameters that the project sets, over what the plugin's state\nsays.",
+        "type": "object"
+      },
+      "param_info": {
+        "items": {
+          "$ref": "#/$defs/ParamInfo"
+        },
+        "type": "array"
+      },
+      "params": {
+        "additionalProperties": {
+          "format": "double",
+          "type": "number"
+        },
+        "description": "The value now of each parameter, by key.",
+        "type": "object"
+      },
+      "part": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "plugin": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DevicePlugin"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Who made it and which it is, as its format names it; nil for a\ndevice of paw."
+      },
+      "ports": {
+        "$ref": "#/$defs/DevicePorts"
+      },
+      "sidechain": {
+        "description": "The part it listens to.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sidechain_pre": {
+        "type": "boolean"
+      },
+      "status": {
+        "$ref": "#/$defs/DeviceStatus"
+      },
+      "stopped": {
+        "description": "Why the device has stopped working, for a plugin that crashed, hung\nor could not be made.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "kind",
+      "name",
+      "offline",
+      "format",
+      "part",
+      "index",
+      "bypass",
+      "params",
+      "overrides",
+      "param_info",
+      "meta",
+      "missing",
+      "status",
+      "sidechain_pre",
+      "outputs",
+      "ports"
+    ],
+    "type": "object"
+  },
+  "DeviceChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.device_set` changes in a device: each field as\n`device_get` gives it, and what is left out stays.",
+    "properties": {
+      "bypass": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "Meta"
+      },
+      "offline": {
+        "description": "The device is not made: it keeps its state and plays nothing.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "outputs": {
+        "additionalProperties": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "description": "The part that each further output pair plays into, by the\npair's number from 2; nil or an empty table for none.",
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "{integer | string: integer}"
+      },
+      "sidechain": {
+        "description": "The part it listens to; nil for none.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sidechain_pre": {
+        "description": "It listens to the side-chain before the fader of its part.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "state": {
+        "description": "The plugin's state in base64, as `device_state` gives it; nil for\nnone.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "DevicePlugin": {
+    "description": "Who made a plugin and which it is.",
+    "properties": {
+      "format": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "vendor": {
+        "type": "string"
+      },
+      "version": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "format",
+      "id",
+      "name",
+      "vendor",
+      "version"
+    ],
+    "type": "object"
+  },
+  "DevicePorts": {
+    "description": "What a running device takes and gives besides its main pair.",
+    "properties": {
+      "outputs": {
+        "description": "The names of its output pairs, the main one first.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "sidechain": {
+        "description": "It listens to a side-chain.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "sidechain",
+      "outputs"
+    ],
+    "type": "object"
+  },
+  "DeviceStatus": {
+    "description": "Whether a device runs, and why not.",
+    "oneOf": [
+      {
+        "enum": [
+          "running",
+          "stopped"
+        ],
+        "type": "string"
+      },
+      {
+        "const": "loading",
+        "description": "Being made apart (session/loading.rs).",
+        "type": "string"
+      },
+      {
+        "const": "offline",
+        "description": "Set so: not made at all.",
+        "type": "string"
+      },
+      {
+        "const": "missing",
+        "description": "Not installed.",
+        "type": "string"
+      }
+    ]
+  },
+  "EditorState": {
+    "description": "Whether a device's own window shows.",
+    "enum": [
+      "open",
+      "closed"
+    ],
+    "type": "string"
+  },
+  "Lane": {
+    "description": "A lane as `paw.api.lane_get` gives it, without its points.",
+    "properties": {
+      "device": {
+        "description": "The device of a parameter or state lane.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "enabled": {
+        "description": "A lane that is off keeps its points but does not move its target.",
+        "type": "boolean"
+      },
+      "id": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "max": {
+        "description": "The highest value of the target.",
+        "format": "double",
+        "type": "number"
+      },
+      "min": {
+        "description": "The lowest value of the target.",
+        "format": "double",
+        "type": "number"
+      },
+      "param": {
+        "description": "The key of the parameter of a parameter lane.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "part": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "point_count": {
+        "format": "uint",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "states": {
+        "description": "The names of the states of a state lane.",
+        "items": {
+          "type": "string"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "target": {
+        "$ref": "#/$defs/LaneTarget"
+      }
+    },
+    "required": [
+      "id",
+      "part",
+      "enabled",
+      "point_count",
+      "min",
+      "max",
+      "target"
+    ],
+    "type": "object"
+  },
+  "LaneChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.lane_set` changes in a lane.",
+    "properties": {
+      "enabled": {
+        "description": "A lane that is off keeps its points but does not move its target.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "LaneTarget": {
+    "description": "What a lane moves.",
+    "enum": [
+      "volume",
+      "pan",
+      "param",
+      "state"
+    ],
+    "type": "string"
+  },
+  "MidiInput": {
+    "description": "MIDI from one port, by its name, and optionally one channel of it.",
+    "properties": {
+      "channel": {
+        "description": "From 1 to 16, or `None` for every channel.",
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "port": {
+        "description": "The port's name as the system gives it (`paw.midi.inputs()`), or\n`None` for every port.",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "MidiOutForm": {
+    "description": "What a MIDI output sends where the port takes no MIDI 2.0 (see\n`paw_types::midi_form`).",
+    "oneOf": [
+      {
+        "const": "auto",
+        "description": "MIDI 2.0 where the port takes it, else plain MIDI 1.0.",
+        "type": "string"
+      },
+      {
+        "const": "plain",
+        "description": "MIDI 1.0 as each message has it.",
+        "type": "string"
+      },
+      {
+        "const": "mpe",
+        "description": "MIDI Polyphonic Expression: a channel to each note.",
+        "type": "string"
+      },
+      {
+        "const": "cc14",
+        "description": "Control changes 0 to 31 in fourteen bits.",
+        "type": "string"
+      }
+    ]
+  },
+  "MidiOutput": {
+    "description": "MIDI to one output port, by its name, on a channel or on each\nmessage's own, in a form for ports that take no MIDI 2.0.",
+    "properties": {
+      "channel": {
+        "description": "From 1 to 16, or `None` for the channel each message has.",
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "form": {
+        "$ref": "#/$defs/MidiOutForm"
+      },
+      "members": {
+        "description": "The member channels of an MPE zone, 1 to 15; `None` for 15.",
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "port": {
+        "description": "The port's name as `paw.midi.outputs()` gives it.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "port"
+    ],
+    "type": "object"
+  },
+  "Modifier": {
+    "description": "One modifier of a clip's stack: its kind, its values, whether it is off,\nthe beats that it changes, and the version of its values.",
+    "properties": {
+      "kind": {
+        "description": "`transpose`, `velocity`, or a kind of an extension.",
+        "type": "string"
+      },
+      "off": {
+        "description": "The entry is off and changes nothing. The file leaves `off` out for\nan entry that is on.",
+        "type": "boolean"
+      },
+      "params": {
+        "description": "The values of the kind, as the file has them. The file leaves\n`params` out when there are none.",
+        "x-teal": "Meta"
+      },
+      "scope": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ModifierScope"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The beats of the clip that the entry changes. Left out, the entry\nchanges all of the clip."
+      },
+      "version": {
+        "description": "The version of the kind's values; left out for 1.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "kind"
+    ],
+    "type": "object"
+  },
+  "ModifierScope": {
+    "description": "The beats of a clip, from `from` up to `to`, in which an entry changes\nthe notes and the controller moves that start there.",
+    "properties": {
+      "from": {
+        "format": "double",
+        "type": "number"
+      },
+      "to": {
+        "format": "double",
+        "type": "number"
+      }
+    },
+    "required": [
+      "from",
+      "to"
+    ],
+    "type": "object"
+  },
+  "NestId": {
+    "description": "A nest's own id, never reused in the project. Nests take their ids from\nthe same counter as parts and clips.",
+    "format": "uint64",
+    "minimum": 0,
+    "type": "integer"
+  },
+  "NestPlay": {
+    "description": "What a nest clip plays of its nest.",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "description": "The events of one part of the nest, through the devices of the\npart the clip is on.",
+        "properties": {
+          "part": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "type": "object"
+      },
+      {
+        "const": "master",
+        "description": "The nest's mix: what its master plays.",
+        "type": "string"
+      }
+    ],
+    "x-teal": "string | NestPart"
+  },
+  "Note": {
+    "properties": {
+      "attr": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/NoteAttr"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The MIDI 2.0 attribute its note-on carries, such as an articulation\nof the orchestral articulation profile (M2-123); `None` for none."
+      },
+      "id": {
+        "description": "What names the note within its clip for as long as it lives, however\nit is moved or changed (`paw://clip/7/note/41`). 0 until the session\ngives it one, which it does to every note that has none, or shares\none with a note before it, before the edit is played or kept.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "length": {
+        "format": "double",
+        "type": "number"
+      },
+      "meta": {
+        "additionalProperties": true,
+        "description": "Free-form data for extensions, such as a lyric. It travels with the\nnote through edits, unlike data kept beside the clip's note list.",
+        "type": "object",
+        "x-teal": "Meta"
+      },
+      "pitch": {
+        "description": "MIDI note number, 60 is middle C.",
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "start": {
+        "description": "Beats from the start of the clip. A note before 0 (or from the clip's\nlength on) is hidden by a trim of the clip's edge: kept, but not\nplayed until the edge is dragged out over it again.",
+        "format": "double",
+        "type": "number"
+      },
+      "velocity": {
+        "$ref": "#/$defs/Velocity",
+        "default": 100,
+        "description": "1 to 127."
+      }
+    },
+    "required": [
+      "start",
+      "length",
+      "pitch"
+    ],
+    "type": "object"
+  },
+  "NoteAttr": {
+    "additionalProperties": false,
+    "description": "A note's MIDI 2.0 attribute: `{ \"type\": 17, \"data\": 40960 }`. Type 0\nmeans none, and a note never keeps it.",
+    "properties": {
+      "data": {
+        "default": 0,
+        "format": "uint16",
+        "maximum": 65535,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": {
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "ParamInfo": {
+    "description": "A parameter of a device, as `param_info` lists it.",
+    "properties": {
+      "automatable": {
+        "type": "boolean"
+      },
+      "automated": {
+        "description": "A lane of the part moves it.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "choices": {
+        "description": "The names of its steps, for a parameter of named steps.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "default": {
+        "format": "float",
+        "type": "number"
+      },
+      "group": {
+        "type": "string"
+      },
+      "id": {
+        "description": "The device's own id for it, or its key.",
+        "type": "string"
+      },
+      "index": {
+        "description": "Its place in the device's list, from 1.",
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "key": {
+        "description": "The key that scripts and lanes name it by.",
+        "type": "string"
+      },
+      "kind": {
+        "$ref": "#/$defs/ParamKind"
+      },
+      "max": {
+        "format": "float",
+        "type": "number"
+      },
+      "min": {
+        "format": "float",
+        "type": "number"
+      },
+      "name": {
+        "type": "string"
+      },
+      "per_note": {
+        "type": "boolean"
+      },
+      "read_only": {
+        "type": "boolean"
+      },
+      "steps": {
+        "description": "The number of its steps; 0 for a continuous one.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "text": {
+        "description": "Its value now as the device writes it (`device_param`).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "unit": {
+        "type": "string"
+      },
+      "value": {
+        "description": "Its value now (`device_param`).",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "key",
+      "id",
+      "name",
+      "group",
+      "min",
+      "max",
+      "default",
+      "unit",
+      "choices",
+      "kind",
+      "steps",
+      "automatable",
+      "read_only",
+      "per_note"
+    ],
+    "type": "object"
+  },
+  "ParamKind": {
+    "description": "What kind of value a parameter takes.",
+    "oneOf": [
+      {
+        "enum": [
+          "continuous"
+        ],
+        "type": "string"
+      },
+      {
+        "const": "boolean",
+        "description": "Off or on.",
+        "type": "string"
+      },
+      {
+        "const": "enum",
+        "description": "Named steps.",
+        "type": "string"
+      },
+      {
+        "const": "stepped",
+        "description": "Whole steps.",
+        "type": "string"
+      }
+    ]
+  },
+  "ParamSchema": {
+    "description": "What a parameter takes, as JSON Schema words.",
+    "properties": {
+      "ascending": {
+        "description": "Each number of a list is greater than the one before it.",
+        "type": "boolean"
+      },
+      "default": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/PropValue"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "enum": {
+        "description": "The choices of a text.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "format": {
+        "description": "`note` for a note value such as `1/4`. Other formats are only for\npeople, as in JSON Schema.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ParamSchema"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "What each number of a list takes."
+      },
+      "main": {
+        "description": "The source is the main input of its kind: a wire with no port\nfeeds it.",
+        "type": "boolean"
+      },
+      "maxItems": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "maximum": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "minItems": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "minimum": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "stream": {
+        "description": "The kind of stream that a source must give. None takes any.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": {
+        "$ref": "#/$defs/ParamType"
+      },
+      "unit": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Unit"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The unit of a number, and of `minimum`, `maximum` and `default`."
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "ParamType": {
+    "description": "The type of a parameter: a JSON Schema type, or `source`.",
+    "oneOf": [
+      {
+        "enum": [
+          "number",
+          "boolean"
+        ],
+        "type": "string"
+      },
+      {
+        "const": "integer",
+        "description": "A number with no fraction.",
+        "type": "string"
+      },
+      {
+        "const": "string",
+        "description": "A text, one of an `enum`, or a note value with `format: \"note\"`.",
+        "type": "string"
+      },
+      {
+        "const": "array",
+        "description": "A list of numbers, each as its `items` says.",
+        "type": "string"
+      },
+      {
+        "const": "source",
+        "description": "Where a signal comes from: `@id`, `@in`, `@\"path\"` or a word.",
+        "type": "string"
+      }
+    ]
+  },
+  "Part": {
+    "description": "`paw.api.part_get(id)`. `volume` in dB, `pan` -1 to 1, `output` the\npart it feeds (nil for the master), `index` from 1 among all parts.\n`devices` and `clips` are ids.",
+    "properties": {
+      "armed": {
+        "type": "boolean"
+      },
+      "attr_map": {
+        "x-teal": "AttrMap"
+      },
+      "automation": {
+        "$ref": "#/$defs/AutoMode"
+      },
+      "chain_origin": {
+        "description": "The chain file outside the project that the chain was copied from.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "chain_source": {
+        "description": "A chain read from a chain file outside the project's folder.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "clips": {
+        "items": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "color": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "devices": {
+        "items": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "height": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "id": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "index": {
+        "format": "uint",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "input": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "listens": {
+        "description": "The parts that devices on this one listen to as side-chains.",
+        "items": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array",
+        "uniqueItems": true
+      },
+      "master": {
+        "type": "boolean"
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": "object",
+        "x-teal": "Meta"
+      },
+      "midi_input": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/MidiInput"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "midi_output": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/MidiOutput"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "monitor": {
+        "type": "boolean"
+      },
+      "mute": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "nest": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/NestId"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The subproject that the part belongs to; nil for the song's."
+      },
+      "origin": {
+        "description": "The part folder outside the project that the part was copied from.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "output": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "pairs_into": {
+        "description": "The parts that further output pairs of its devices play into.",
+        "items": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array",
+        "uniqueItems": true
+      },
+      "pan": {
+        "format": "double",
+        "type": "number"
+      },
+      "sends": {
+        "items": {
+          "$ref": "#/$defs/Send"
+        },
+        "type": "array"
+      },
+      "solo": {
+        "type": "boolean"
+      },
+      "source": {
+        "description": "A part read from a part folder outside the project's folder.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "volume": {
+        "format": "double",
+        "type": "number"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "volume",
+      "pan",
+      "mute",
+      "solo",
+      "armed",
+      "sends",
+      "devices",
+      "clips",
+      "meta",
+      "master",
+      "monitor",
+      "automation",
+      "listens",
+      "pairs_into"
+    ],
+    "type": "object"
+  },
+  "PartChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.part_set` changes in a part: each field as `part_get`\ngives it, and what is left out stays. Nil clears a field that can be\nempty (`part_set(id, \"output\", nil)`), and is refused for the others.",
+    "properties": {
+      "armed": {
+        "description": "The part records when the song records.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "attr_map": {
+        "description": "How the MIDI 2.0 attributes of its notes reach an instrument that\ndoes not take them. Nil, false or an empty table for none.",
+        "x-teal": "AttrMap"
+      },
+      "automation": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/AutoMode"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "What a move of a control does to the part's automation while the\nsong plays."
+      },
+      "color": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "height": {
+        "description": "A share of the height of every part, from a quarter to eight\ntimes; nil or 1 for that height.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "input": {
+        "description": "An audio input: a channel such as \"1\", a pair such as \"1/2\", or\nnil or \"none\" for none.",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-teal": "string | integer"
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "Meta"
+      },
+      "midi_input": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/MidiInput"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The MIDI the part plays when armed: a port's name, a table of\n`port` and `channel`, or nil or \"all\" for every port.",
+        "x-teal": "string | MidiInput"
+      },
+      "midi_output": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/MidiOutput"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Where the part sends MIDI: a port's name, a table of `port`,\n`channel`, `form` and `members`, or nil or \"none\" for none.",
+        "x-teal": "string | MidiOutput"
+      },
+      "monitor": {
+        "description": "Hear the input even when the part is not armed.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "mute": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "output": {
+        "description": "The part it feeds; nil for the master.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "pan": {
+        "description": "From -1 (left) to 1 (right).",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "sends": {
+        "description": "Its sends, each with a `level` in dB.",
+        "items": {
+          "$ref": "#/$defs/Send"
+        },
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "solo": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "volume": {
+        "description": "The fader in dB, from -120 to 24.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "Project": {
+    "description": "`paw.api.project_get()`.",
+    "properties": {
+      "edits": {
+        "description": "Goes up with each change: compare two readings to see whether\nsomething in between edited the project.",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "export": {
+        "additionalProperties": true,
+        "type": "object",
+        "x-teal": "ProjectExport"
+      },
+      "key": {
+        "description": "The song's key, such as \"D minor\".",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "length": {
+        "description": "The end of the last clip, in beats.",
+        "format": "double",
+        "type": "number"
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": "object",
+        "x-teal": "Meta"
+      },
+      "modified": {
+        "description": "The project has changes that are not saved.",
+        "type": "boolean"
+      },
+      "name": {
+        "type": "string"
+      },
+      "path": {
+        "description": "The project's file; nil before it is saved.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sig_changes": {
+        "items": {
+          "$ref": "#/$defs/SigChange"
+        },
+        "type": "array"
+      },
+      "sig_den": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "sig_num": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "tempo": {
+        "description": "Beats (quarter notes) per minute at the start of the song.",
+        "format": "double",
+        "type": "number"
+      },
+      "tempo_changes": {
+        "items": {
+          "$ref": "#/$defs/TempoChange"
+        },
+        "type": "array"
+      },
+      "tempo_ramp": {
+        "description": "The tempo ramps from the start to the first tempo change.",
+        "type": "boolean"
+      },
+      "tempo_stamp": {
+        "description": "A hash of the tempo and signature points, the same for the same\npoints (after an undo too).",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "name",
+      "tempo",
+      "sig_num",
+      "sig_den",
+      "tempo_ramp",
+      "tempo_changes",
+      "sig_changes",
+      "length",
+      "meta",
+      "export",
+      "modified",
+      "edits",
+      "tempo_stamp"
+    ],
+    "type": "object"
+  },
+  "ProjectChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.project_set` changes in the project: each field as\n`project_get` gives it, and what is left out stays.",
+    "properties": {
+      "export": {
+        "additionalProperties": true,
+        "description": "The project's export presets by name.",
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "ProjectExport"
+      },
+      "key": {
+        "description": "The song's key, such as \"D minor\"; nil for none.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "meta": {
+        "additionalProperties": true,
+        "type": [
+          "object",
+          "null"
+        ],
+        "x-teal": "Meta"
+      },
+      "name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sig_den": {
+        "description": "The lower number of the time signature at the start: 1, 2, 4,\n8, 16, 32 or 64.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sig_num": {
+        "description": "The upper number of the time signature at the start, 1 to 64.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "tempo": {
+        "description": "The tempo at the start, from 1 to 999 beats per minute.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "PropValue": {
+    "anyOf": [
+      {
+        "type": "boolean"
+      },
+      {
+        "format": "double",
+        "type": "number"
+      },
+      {
+        "type": "string"
+      }
+    ],
+    "description": "The value of a property of a stream."
+  },
+  "Send": {
+    "properties": {
+      "level": {
+        "description": "Send level in dB.",
+        "format": "double",
+        "type": "number"
+      },
+      "pre": {
+        "description": "Taken after the part's devices but before its fader, pan and mute,\nso that the send does not follow the fader.",
+        "type": "boolean"
+      },
+      "target": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "target",
+      "level"
+    ],
+    "type": "object"
+  },
+  "SigChange": {
+    "description": "A time signature starting a bar at a beat.",
+    "properties": {
+      "beat": {
+        "format": "double",
+        "type": "number"
+      },
+      "den": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "num": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "beat",
+      "num",
+      "den"
+    ],
+    "type": "object"
+  },
+  "Stack": {
+    "description": "The modifiers of a clip, top to bottom: the first entry changes the\nnotes first.",
+    "items": {
+      "$ref": "#/$defs/Modifier"
+    },
+    "type": "array"
+  },
+  "StretchMode": {
+    "description": "How an audio clip is stretched.",
+    "enum": [
+      "auto",
+      "tonal",
+      "percussive"
+    ],
+    "type": "string"
+  },
+  "TempoChange": {
+    "description": "A tempo change along the song.",
+    "properties": {
+      "beat": {
+        "format": "double",
+        "type": "number"
+      },
+      "bpm": {
+        "format": "double",
+        "type": "number"
+      },
+      "ramp": {
+        "description": "Ramp to the next change's tempo instead of holding this one.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "beat",
+      "bpm"
+    ],
+    "type": "object"
+  },
+  "Timebase": {
+    "description": "What an audio clip keeps when the tempo changes. Either way it keeps its\nlength in seconds, so that a recording plays every sample at the time\nit was recorded at: its end beat follows from the tempo map.",
+    "oneOf": [
+      {
+        "const": "time",
+        "description": "Its start stays at the same time in seconds (REAPER's default for\naudio items), moving in beats when the tempo before it changes.",
+        "type": "string"
+      },
+      {
+        "const": "beats",
+        "description": "Its start stays on its beat.",
+        "type": "string"
+      },
+      {
+        "const": "stretch",
+        "description": "Its start and its length stay on their beats: the sound is\nstretched to fit, from the tempo it is at (`source_tempo`).",
+        "type": "string"
+      }
+    ]
+  },
+  "Transport": {
+    "description": "The transport as Lua reads it (`paw.api.transport_get`).",
+    "properties": {
+      "click_accent": {
+        "type": "boolean"
+      },
+      "click_level": {
+        "format": "double",
+        "type": "number"
+      },
+      "click_output": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "closing": {
+        "description": "Takes that stopped and are not clips yet: each becomes clips a\nmoment after it stops (`transport.recorded`).",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "count_in": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "counting": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "loop_enabled": {
+        "type": "boolean"
+      },
+      "loop_end": {
+        "format": "double",
+        "type": "number"
+      },
+      "loop_start": {
+        "format": "double",
+        "type": "number"
+      },
+      "metronome": {
+        "type": "boolean"
+      },
+      "playing": {
+        "type": "boolean"
+      },
+      "position": {
+        "format": "double",
+        "type": "number"
+      },
+      "pre_roll": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "pre_roll_seconds": {
+        "format": "double",
+        "type": "number"
+      },
+      "punch_enabled": {
+        "type": "boolean"
+      },
+      "punch_end": {
+        "format": "double",
+        "type": "number"
+      },
+      "punch_start": {
+        "format": "double",
+        "type": "number"
+      },
+      "record_offset": {
+        "format": "double",
+        "type": "number"
+      },
+      "recording": {
+        "type": "boolean"
+      },
+      "take": {
+        "description": "The number of the take being recorded.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "tempo": {
+        "format": "double",
+        "type": "number"
+      },
+      "write": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "playing",
+      "position",
+      "tempo",
+      "loop_enabled",
+      "loop_start",
+      "loop_end",
+      "metronome",
+      "recording",
+      "punch_enabled",
+      "punch_start",
+      "punch_end",
+      "count_in",
+      "counting",
+      "pre_roll",
+      "pre_roll_seconds",
+      "click_level",
+      "click_accent",
+      "click_output",
+      "record_offset",
+      "write",
+      "closing"
+    ],
+    "type": "object"
+  },
+  "TransportChanges": {
+    "additionalProperties": false,
+    "description": "What `paw.api.transport_set` changes in the transport: each field as\n`transport_get` gives it, and what is left out stays.",
+    "properties": {
+      "click_accent": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "click_level": {
+        "description": "The click's level, from -60 to 12 dB.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "click_output": {
+        "description": "The output channel of the click, from 1 to 64, or 0 for with the\nsong.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "count_in": {
+        "description": "Bars of count-in before a recording, 0 to 16.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "loop_enabled": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "loop_end": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "loop_start": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "metronome": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "pre_roll": {
+        "description": "Bars that play before the start of playback, 0 to 16.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "pre_roll_seconds": {
+        "description": "Seconds that play before the start of playback, 0 to 30.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "punch_enabled": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "punch_end": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "punch_start": {
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "record_offset": {
+        "description": "Milliseconds that a recorded take moves to make up for the\nlatency of the input.",
+        "format": "double",
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "recording": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "write": {
+        "description": "Moves of the controls write automation while the song plays.",
+        "type": [
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "Unit": {
+    "description": "A unit that a number can have in the text.",
+    "enum": [
+      "dB",
+      "Hz",
+      "kHz",
+      "ms",
+      "s",
+      "%",
+      "st"
+    ],
+    "type": "string"
+  },
+  "Velocity": {
+    "description": "The velocity of a note, 1 to 127, and 100 by default. The files write\nit as a plain number. The check of a project (`check_notes`) refuses a\nvelocity above 127.",
+    "format": "uint8",
+    "maximum": 255,
+    "minimum": 0,
+    "type": "integer"
+  },
+  "WarpMarker": {
+    "description": "A warp marker of an audio clip: moments of its file in seconds; in a\nclip's view, with the `beat` it plays on.",
+    "properties": {
+      "beat": {
+        "format": "double",
+        "type": "number"
+      },
+      "source": {
+        "format": "double",
+        "type": "number"
+      },
+      "target": {
+        "format": "double",
+        "type": "number"
+      }
+    },
+    "required": [
+      "source",
+      "target",
+      "beat"
+    ],
+    "type": "object"
+  }
+}

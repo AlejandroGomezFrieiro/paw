@@ -6,7 +6,7 @@ use mlua::{Lua, Table, Value as LuaValue};
 
 use crate::model::Id;
 
-use super::{LuaResult, Shared, changes, from_lua, to_lua};
+use super::{LuaResult, Shared, from_lua, patch, to_lua};
 
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
@@ -25,14 +25,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Change a lane: a table of the entries to change, as `lane_get`
         // gives them, or one `key` and its value. Only the key form clears
         // an entry (`nil`).
-        // @type function(id: integer, patch: types.Lane)
+        // @type function(id: integer, patch: types.LaneChanges)
         // @type function(id: integer, key: string, value: nil)
         fn lane_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                session.lane_set(id, &key, from_lua(lua, value)?).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::LanePatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().lane_patch(id, patch).lua()
         }
         // @return {types.LanePoint}
         fn lane_points(lua, sh, id => Id) { to_lua(lua, &sh.session.borrow().doc.lane_points(id).lua()?) }

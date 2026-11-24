@@ -350,12 +350,17 @@ mod tests {
     use super::*;
     use crate::session::document::PartOpts;
 
+    /// Change part `part` as `paw.api.part_set` does with the table `patch`.
+    fn set(session: &mut Session, part: Id, patch: serde_json::Value) {
+        session.part_patch(part, serde_json::from_value(patch).unwrap()).unwrap();
+    }
+
     /// A session on the null backend, playing, with one part in touch mode.
     fn touching() -> (Session, Id) {
         let backend = BackendOptions { backend: BackendChoice::Null, ..Default::default() };
         let mut session = Session::new(&backend, Registry::with_builtins()).unwrap();
         let part = session.doc.part_add(PartOpts::default()).unwrap();
-        session.part_set(part, "automation", json!("touch")).unwrap();
+        set(&mut session, part, json!({ "automation": "touch" }));
         session.play.playing = true;
         (session, part)
     }
@@ -365,12 +370,12 @@ mod tests {
         let (mut session, part) = touching();
         let at = |ms| ScheduleTime::from_start(Duration::from_millis(ms));
         session.set_now(at(0));
-        session.part_set(part, "volume", json!(-6.0)).unwrap();
+        set(&mut session, part, json!({ "volume": -6.0 }));
         session.write_automation();
         assert_eq!(session.writing.latched.len(), 1, "a move holds the control");
 
         session.set_now(at(400));
-        session.part_set(part, "volume", json!(-3.0)).unwrap();
+        set(&mut session, part, json!({ "volume": -3.0 }));
         session.set_now(at(400) + (TOUCH_RELEASE - Duration::from_millis(1)));
         session.write_automation();
         assert_eq!(session.writing.latched.len(), 1, "the pause counts from the last move");

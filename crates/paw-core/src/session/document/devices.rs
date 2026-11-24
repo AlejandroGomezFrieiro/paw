@@ -9,10 +9,11 @@ use anyhow::{Context, Result, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use paw_engine::MAX_PAIRS;
-use serde_json::Value;
+use serde::Deserialize;
+use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{de, de_meta};
+use super::values::{Given, NoTable, patch, whole};
 use crate::model::{Id, MASTER_ID, Project};
 
 impl Document {
@@ -71,107 +72,157 @@ impl Document {
             Ok(())
         })
     }
+}
 
-    pub(crate) fn device_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
+patch! {
+    /// What `paw.api.device_set` changes in a device: each field as
+    /// `device_get` gives it, and what is left out stays.
+    #[schemars(rename = "DeviceChanges")]
+    pub(crate) struct DevicePatch => DeviceChange, "devices have no settable field" {
+        "bypass" bypass: bool => Bypass value,
+        #[schemars(extend("x-teal" = "Meta"))]
+        "meta" meta: Map<String, Value> => Meta default,
+        /// The device is not made: it keeps its state and plays nothing.
+        "offline" offline: bool => Offline value,
+        /// The part that each further output pair plays into, by the
+        /// pair's number from 2; nil or an empty table for none.
+        #[schemars(with = "Option<BTreeMap<String, Id>>", extend("x-teal" = "{integer | string: integer}"))]
+        "outputs" outputs: PairOutputs => Outputs default,
+        /// The part it listens to; nil for none.
+        #[schemars(with = "Option<Id>")]
+        "sidechain" sidechain: Given<NoTable> => Sidechain clear,
+        /// It listens to the side-chain before the fader of its part.
+        "sidechain_pre" sidechain_pre: bool => SidechainPre value,
+        /// The plugin's state in base64, as `device_state` gives it; nil for
+        /// none.
+        "state" state: String => State clear,
+    }
+}
+
+impl Document {
+    /// Make the changes of `patch` to device `id`, in the order of their
+    /// keys.
+    pub(crate) fn device_patch(&mut self, id: Id, patch: DevicePatch) -> Result<()> {
+        for change in patch.changes()? {
+            self.device_set(id, change)?;
+        }
+        Ok(())
+    }
+
+    /// Make one change of device `id`.
+    pub(crate) fn device_set(&mut self, id: Id, change: DeviceChange) -> Result<()> {
         self.edit(|p| {
-            if key == "sidechain" {
-                let (part, _) = p
-                    .find_device(id)
-                    .with_context(|| format!("no device {id}"))?;
-                // An empty Lua table arrives as an empty list.
-                let source: Option<Id> = match value {
-                    Value::Array(a) if a.is_empty() => None,
-                    value => de(key, value)?,
-                };
-                if let Some(source) = source {
-                    if p.part(source).is_none() {
-                        bail!("no part {source} to take a side-chain from");
+            let (part, _) = p.find_device(id).with_context(|| format!("no device {id}"))?;
+            match change {
+                DeviceChange::Sidechain(given) => {
+                    let source = given.map(|g| g.id("a side-chain's part")).transpose()?.flatten();
+                    if let Some(source) = source {
+                        check_sidechain(p, part, source)?;
                     }
-                    if source == MASTER_ID {
-                        bail!("the master part feeds nothing, so it cannot be a side-chain");
-                    }
-                    if source == part {
-                        bail!("a device cannot take a side-chain from its own part");
-                    }
-                    if p.would_cycle(source, part) {
-                        bail!(
-                            "a side-chain from part {source} to part {part} would make a loop"
-                        );
-                    }
-                    p.check_route(source, part, crate::model::Route::SideChain)?;
+                    p.device_in(id)?.sidechain = source;
                 }
-                p.device_in(id)?.sidechain = source;
-                return Ok(());
-            }
-            if key == "outputs" {
-                let (part, _) = p
-                    .find_device(id)
-                    .with_context(|| format!("no device {id}"))?;
-                let outputs = parse_outputs(value)?;
-                for (pair, to) in &outputs {
-                    check_output(p, part, *pair, *to)?;
+                DeviceChange::Outputs(PairOutputs(outputs)) => {
+                    for (pair, to) in &outputs {
+                        check_output(p, part, *pair, *to)?;
+                    }
+                    p.device_in(id)?.outputs = outputs;
                 }
-                p.device_in(id)?.outputs = outputs;
-                return Ok(());
-            }
-            let d = p.device_in(id)?;
-            match key {
-                "sidechain_pre" => d.sidechain_pre = de(key, value)?,
-                "bypass" => d.bypass = de(key, value)?,
-                "offline" => d.offline = de(key, value)?,
-                "meta" => d.meta = de_meta(key, value)?,
-                // Base64, as `device_state` gives it; nil for none.
-                "state" => {
-                    let state: Option<String> = de(key, value)?;
+                DeviceChange::SidechainPre(on) => p.device_in(id)?.sidechain_pre = on,
+                DeviceChange::Bypass(on) => p.device_in(id)?.bypass = on,
+                DeviceChange::Offline(on) => p.device_in(id)?.offline = on,
+                DeviceChange::Meta(meta) => p.device_in(id)?.meta = meta,
+                DeviceChange::State(state) => {
                     if let Some(text) = &state {
                         BASE64
                             .decode(text)
                             .context("a device's state is given in base64")?;
                     }
-                    d.state = state;
+                    p.device_in(id)?.state = state;
                 }
-                _ => bail!("devices have no settable field `{key}`"),
             }
             Ok(())
         })
     }
 }
 
-/// A device's routed output pairs from what a script gives: a table of
-/// pair number to part (`{ [2] = 5 }`, which may arrive as a list with
-/// holes), or nil for none.
-fn parse_outputs(value: Value) -> Result<BTreeMap<u32, Id>> {
-    let mut out = BTreeMap::new();
-    let mut put = |pair: u32, to: &Value| -> Result<()> {
-        match to {
-            Value::Null => {}
-            to => match to.as_u64() {
-                Some(to) => {
-                    out.insert(pair, to as Id);
-                }
-                None => bail!("an output pair goes to a part, by its id"),
-            },
-        }
-        Ok(())
-    };
-    match value {
-        Value::Null => {}
-        Value::Array(list) => {
-            for (i, to) in list.iter().enumerate() {
-                put(i as u32 + 1, to)?;
-            }
-        }
-        Value::Object(map) => {
-            for (pair, to) in &map {
-                let Ok(pair) = pair.parse::<u32>() else {
-                    bail!("output pairs are numbered: `{pair}` is not a number");
-                };
-                put(pair, to)?;
-            }
-        }
-        _ => bail!("a device's outputs are a table of pair number to part"),
+/// Whether a device on `part` may listen to part `source`.
+fn check_sidechain(p: &Project, part: Id, source: Id) -> Result<()> {
+    if p.part(source).is_none() {
+        bail!("no part {source} to take a side-chain from");
     }
-    Ok(out)
+    if source == MASTER_ID {
+        bail!("the master part feeds nothing, so it cannot be a side-chain");
+    }
+    if source == part {
+        bail!("a device cannot take a side-chain from its own part");
+    }
+    if p.would_cycle(source, part) {
+        bail!("a side-chain from part {source} to part {part} would make a loop");
+    }
+    p.check_route(source, part, crate::model::Route::SideChain)
+}
+
+/// A device's routed output pairs as a script gives them: a table of pair
+/// number to part (`{ [2] = 5 }`, which may arrive as a list with holes or
+/// with the numbers as text), or nil for none.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct PairOutputs(BTreeMap<u32, Id>);
+
+impl<'de> Deserialize<'de> for PairOutputs {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        deserializer.deserialize_any(PairsVisitor)
+    }
+}
+
+struct PairsVisitor;
+
+impl<'de> serde::de::Visitor<'de> for PairsVisitor {
+    type Value = PairOutputs;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("a table of pair number to part")
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<PairOutputs, A::Error> {
+        let mut out = BTreeMap::new();
+        let mut pair = 0;
+        while let Some(to) = seq.next_element::<Option<Id>>()? {
+            pair += 1;
+            if let Some(to) = to {
+                out.insert(pair, to);
+            }
+        }
+        Ok(PairOutputs(out))
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> std::result::Result<PairOutputs, A::Error> {
+        let mut out = BTreeMap::new();
+        while let Some(PairNumber(pair)) = map.next_key()? {
+            if let Some(to) = map.next_value::<Option<Id>>()? {
+                out.insert(pair, to);
+            }
+        }
+        Ok(PairOutputs(out))
+    }
+}
+
+/// The number of an output pair, as a number or as text.
+struct PairNumber(u32);
+
+impl<'de> Deserialize<'de> for PairNumber {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        match Given::<NoTable>::deserialize(deserializer)? {
+            Given::Number(n) => match whole(n) {
+                Some(pair) if pair >= 1 => Ok(PairNumber(pair)),
+                _ => Err(serde::de::Error::custom("output pairs are numbered from 1")),
+            },
+            Given::Word(word) => word
+                .parse()
+                .map(PairNumber)
+                .map_err(|_| serde::de::Error::custom(format!("output pairs are numbered: `{word}` is not a number"))),
+            _ => Err(serde::de::Error::custom("output pairs are numbered from 1")),
+        }
+    }
 }
 
 /// Whether a device on `part` may play its pair `pair` into part `to`.

@@ -6,6 +6,7 @@
 
 use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched, StateApplied};
 use paw_engine::DeviceFormat;
+use super::device_view::{DevicePlugin, DeviceStatus, EditorState, PairOutputs};
 use super::*;
 
 /// What `paw.api.device_find` looks for; each part is optional.
@@ -21,12 +22,20 @@ pub(crate) struct DeviceQuery {
 }
 
 fn type_json(info: &paw_engine::DeviceInfo) -> Value {
-    let params: Vec<Value> = info.params.iter().map(param_json).collect();
+    let params: Vec<ParamView> = info.params.iter().map(ParamView::of).collect();
     json!({
         "kind": info.kind, "name": info.name, "category": info.category,
         "format": info.format, "vendor": info.vendor, "params": params,
         "id": info.id, "version": info.version, "features": info.features,
     })
+}
+
+/// The value now of `p`, the parameter at `i` of device `d`: what the
+/// project sets, else what the plugin reports (from its own state), else
+/// the default.
+fn value_now(d: &crate::model::DeviceInst, live: Option<&crate::sync::LiveDevice>, i: usize, p: &ParamInfo) -> f64 {
+    let reported = || live.and_then(|l| l.controller.as_ref()).and_then(|c| c.value(i));
+    d.params.get(&p.key).copied().or_else(reported).unwrap_or(f64::from(p.default))
 }
 
 impl Session {
@@ -85,16 +94,15 @@ impl Session {
 
     /// Every parameter of a device with its current value, and its
     /// description.
-    fn device_params(
-        &self,
+    fn device_params<'a>(
+        &'a self,
         id: Id,
         part: Id,
-        d: &crate::model::DeviceInst,
-        live: Option<&crate::sync::LiveDevice>,
-    ) -> (serde_json::Map<String, Value>, Vec<Value>) {
-        // Every parameter with its current value: what the project sets,
-        // else what the plugin reports (from its own state), else the default.
-        let mut params = serde_json::Map::new();
+        d: &'a crate::model::DeviceInst,
+        live: Option<&'a crate::sync::LiveDevice>,
+    ) -> (BTreeMap<&'a str, f64>, Vec<ParamView<'a>>) {
+        // Every parameter with its current value (`value_now`).
+        let mut params = BTreeMap::new();
         let mut infos = Vec::new();
         // The parameters a lane of the part moves.
         let automated: Vec<&str> = self
@@ -110,32 +118,14 @@ impl Session {
                 _ => None,
             })
             .collect();
-        for (i, p) in live
-            .map(|l| l.params.as_slice())
-            .unwrap_or(&[])
-            .iter()
-            .enumerate()
-        {
-            let reported = || {
-                live.and_then(|l| l.controller.as_ref())
-                    .and_then(|c| c.value(i))
-            };
-            let value = d
-                .params
-                .get(&p.key)
-                .copied()
-                .or_else(reported)
-                .unwrap_or(p.default as f64);
-            params.insert(p.key.clone(), json!(value));
-            let mut info = param_json(p);
-            info["index"] = json!(i + 1);
-            info["automated"] = json!(automated.contains(&p.key.as_str()));
-            infos.push(info);
+        for (i, p) in live.map(|l| l.params.as_slice()).unwrap_or(&[]).iter().enumerate() {
+            params.insert(p.key.as_str(), value_now(d, live, i, p));
+            infos.push(ParamView::at(p, i, automated.contains(&p.key.as_str())));
         }
         (params, infos)
     }
 
-    pub(crate) fn device_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn device_view(&self, id: Id) -> Result<DeviceView<'_>> {
         let (part, index) = self
             .doc.project
             .find_device(id)
@@ -143,65 +133,57 @@ impl Session {
         let d = &self.doc.project.part(part).with_context(|| format!("no part {part}"))?.devices[index];
         let info = self.registry.get(&d.kind).map(|f| f.info());
         let live = self.live.get(&id);
-        let (mut params, infos) = self.device_params(id, part, d, live);
-        // `running`, `loading` (being made apart: see session/loading.rs),
-        // `stopped`, `offline` (set so: not made at all) or `missing` (not
-        // installed).
+        let (mut params, param_info) = self.device_params(id, part, d, live);
         let loading = self.loads.loading(id);
         let stopped = live
             .and_then(|l| l.stopped.clone())
             .or_else(|| self.loads.failed(id).map(str::to_string));
         let status = if d.offline {
-            "offline"
+            DeviceStatus::Offline
         } else if info.is_none() {
-            "missing"
+            DeviceStatus::Missing
         } else if loading {
-            "loading"
+            DeviceStatus::Loading
         } else if stopped.is_some() || live.is_none() {
-            "stopped"
+            DeviceStatus::Stopped
         } else {
-            "running"
+            DeviceStatus::Running
         };
-        // Whether the device has a window of its own, and whether it is showing.
         let editor = live
             .and_then(|l| l.controller.as_ref())
             .filter(|c| c.has_editor())
-            .map(|c| if c.editor_open() { "open" } else { "closed" });
+            .map(|c| if c.editor_open() { EditorState::Open } else { EditorState::Closed });
         // A device that is not running still has the values the project
         // keeps for it.
         if live.is_none() {
             for (key, value) in &d.params {
-                params.insert(key.clone(), json!(value));
+                params.insert(key.as_str(), *value);
             }
         }
         let name = info.map(|i| &i.name).or(d.name.as_ref()).unwrap_or(&d.kind);
-        // Who made it and which it is, as its format names it.
-        let plugin = info.filter(|i| !i.id.is_empty()).map(|i| {
-            json!({
-                "format": i.format, "id": i.id, "name": i.name, "vendor": i.vendor,
-                "version": i.version,
-            })
-        });
-        Ok(json!({
-            "plugin": plugin,
-            "id": d.id, "kind": d.kind, "name": name, "offline": d.offline,
-            "format": info.map_or("", |i| i.format.as_str()),
-            "part": part, "index": index + 1, "bypass": d.bypass, "params": params,
-            // The parameters the project sets, over what the plugin's state says.
-            "overrides": d.params,
-            "param_info": infos, "meta": d.meta, "editor": editor,
-            // Not running: not installed, not made yet, or made and gone.
-            "missing": live.is_none() && !loading && !d.offline,
-            // Why the device has stopped working, for a plugin that crashed,
-            // hung, or could not be made.
-            "stopped": stopped,
-            "status": status,
-            // The part it listens to, and whether it can listen at all.
-            "sidechain": d.sidechain, "sidechain_pre": d.sidechain_pre,
-            // Where its further output pairs play, by pair number.
-            "outputs": d.outputs,
-            "ports": ports::ports_json(&self.device_ports(id)),
-        }))
+        Ok(DeviceView {
+            plugin: info.and_then(DevicePlugin::of),
+            id: d.id,
+            kind: &d.kind,
+            name,
+            offline: d.offline,
+            format: info.map_or("", |i| i.format.as_str()),
+            part,
+            index: index + 1,
+            bypass: d.bypass,
+            params,
+            overrides: &d.params,
+            param_info,
+            meta: &d.meta,
+            editor,
+            missing: live.is_none() && !loading && !d.offline,
+            stopped,
+            status,
+            sidechain: d.sidechain,
+            sidechain_pre: d.sidechain_pre,
+            outputs: PairOutputs(&d.outputs),
+            ports: self.device_ports(id).into(),
+        })
     }
 
     pub(crate) fn device_add(&mut self, part: Id, kind: &str, opts: DeviceOpts) -> Result<Id> {
@@ -286,20 +268,27 @@ impl Session {
             .with_context(|| format!("device `{kind}` has no parameter `{name}`"))
     }
 
-    /// A parameter of a loaded device as [`param_json`] describes it, with
-    /// its value now and that value as the device writes it.
-    pub(crate) fn device_param(&mut self, id: Id, name: &str) -> Result<Value> {
-        let param = self.param_info(id, name)?;
+    /// A parameter of a loaded device, by key or name: its value now and
+    /// that value as the device writes it. [`param_view`](Self::param_view)
+    /// gives it with its description.
+    pub(crate) fn device_param(&mut self, id: Id, name: &str) -> Result<ParamNow> {
+        let key = self.param_info(id, name)?.key;
+        let value = {
+            let d = self.doc.project.device(id).with_context(|| format!("no device {id}"))?;
+            let live = self.live.get(&id).context("the device is not loaded")?;
+            let at = live.params.iter().position(|p| p.key == key).context("the parameter is gone")?;
+            value_now(d, Some(live), at, &live.params[at])
+        };
+        let text = self.param_text(id, &key, value)?;
+        Ok(ParamNow { key, value, text })
+    }
+
+    /// The parameter that [`device_param`](Self::device_param) read, as the
+    /// device's `param_info` lists it, with its value.
+    pub(crate) fn param_view(&self, id: Id, now: ParamNow) -> Result<ParamView<'_>> {
         let view = self.device_view(id)?;
-        let at = view["param_info"]
-            .as_array()
-            .and_then(|list| list.iter().position(|p| p["key"] == json!(param.key)))
-            .context("the parameter is gone")?;
-        let mut out = view["param_info"][at].clone();
-        let value = view["params"][&param.key].as_f64().unwrap_or(param.default as f64);
-        out["value"] = json!(value);
-        out["text"] = json!(self.param_text(id, &param.key, value)?);
-        Ok(out)
+        let param = view.into_param(&now.key).context("the parameter is gone")?;
+        Ok(param.with_value(now.value, now.text))
     }
 
     /// A value of a parameter as text: as the device writes it (a plugin's
@@ -346,7 +335,7 @@ impl Session {
             && let Some((part, _)) = self.doc.project.find_device(id)
             && self.auto_mode(part).writes()
         {
-            let before = self.device_view(id)?["params"][&key].as_f64();
+            let before = self.device_view(id)?.param(&key);
             let target = Target::Param {
                 device: id,
                 param: key.clone(),

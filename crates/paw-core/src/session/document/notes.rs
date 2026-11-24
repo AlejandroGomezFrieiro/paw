@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
+use super::values::Patch;
 use crate::model::check_notes;
 use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, Velocity, de_attr};
 
@@ -26,12 +27,15 @@ use crate::model::{ClipContent, Id, Note, NoteAttr, Notes, Project, Velocity, de
 pub(crate) struct NoteChange {
     /// Which note, in [`NotesEdit::set`].
     pub index: Option<usize>,
-    pub start: Option<f64>,
-    pub length: Option<f64>,
-    pub pitch: Option<u8>,
-    pub velocity: Option<u8>,
-    pub meta: Option<Map<String, Value>>,
-    /// A new attribute, or none (`false`) to take it away.
+    pub start: Patch<f64>,
+    pub length: Patch<f64>,
+    pub pitch: Patch<u8>,
+    pub velocity: Patch<Velocity>,
+    /// Nil gives the note no meta.
+    pub meta: Patch<Map<String, Value>>,
+    /// A new attribute, or none (`false`, or nil in the key form) to take
+    /// it away. `false` is not a `NoteAttr`, so serde reads the field with
+    /// `de_attr`, and a value left out keeps the attribute.
     #[serde(deserialize_with = "some_attr")]
     pub attr: Option<Option<NoteAttr>>,
 }
@@ -41,26 +45,31 @@ fn some_attr<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<Not
     de_attr(d).map(Some)
 }
 
+/// Put the value of `patch` in `slot`: a field that has no empty state
+/// refuses nil, which names `key`.
+fn put<T: Clone>(patch: &Patch<T>, key: &str, slot: &mut T) -> Result<()> {
+    match patch {
+        Patch::Keep => {}
+        Patch::Clear => bail!("`{key}` cannot be nil"),
+        Patch::Set(value) => *slot = value.clone(),
+    }
+    Ok(())
+}
+
 impl NoteChange {
-    fn apply(&self, note: &mut Note) {
-        if let Some(start) = self.start {
-            note.start = start;
-        }
-        if let Some(length) = self.length {
-            note.length = length;
-        }
-        if let Some(pitch) = self.pitch {
-            note.pitch = pitch;
-        }
-        if let Some(velocity) = self.velocity {
-            note.velocity = Velocity(velocity);
-        }
-        if let Some(meta) = &self.meta {
-            note.meta = meta.clone();
+    fn apply(&self, note: &mut Note) -> Result<()> {
+        put(&self.start, "start", &mut note.start)?;
+        put(&self.length, "length", &mut note.length)?;
+        put(&self.pitch, "pitch", &mut note.pitch)?;
+        put(&self.velocity, "velocity", &mut note.velocity)?;
+        match &self.meta {
+            Patch::Clear => note.meta = Map::new(),
+            meta => put(meta, "meta", &mut note.meta)?,
         }
         if let Some(attr) = self.attr {
             note.attr = attr;
         }
+        Ok(())
     }
 }
 
@@ -281,7 +290,7 @@ impl Document {
             .get(index)
             .ok_or_else(|| no_note(id, index, notes.len()))?;
         let mut note = before.clone();
-        change.apply(&mut note);
+        change.apply(&mut note)?;
         let stays = order(before, &note) == Ordering::Equal;
         check_notes(std::slice::from_ref(&note))?;
         self.edit_named(|p| {
@@ -320,7 +329,7 @@ impl Document {
                 .get(index)
                 .ok_or_else(|| no_note(id, index, count))?
                 .clone();
-            change.apply(&mut note);
+            change.apply(&mut note)?;
             changed.push((index, note));
         }
         if let Some(&index) = edit.remove.iter().find(|i| **i >= count) {

@@ -53,6 +53,49 @@ test("a device written in Lua is listed among the devices, as lua:<file>", funct
   eq(info.params[1].key .. " " .. info.params[1].unit, "gain dB", "with its parameters")
 end)
 
+test("a Lua device's parameters take the words of the kernel's parameter schema", function()
+  fresh()
+  scripts({
+    ["schema_words.lua"] = [[
+local dsp = require("paw.dsp")
+local dev = dsp.device {
+  params = {
+    { key = "freq", type = "number", minimum = 20, maximum = 20000, default = 440, unit = "Hz" },
+    { key = "mode", type = "string", enum = { "soft", "hard" }, default = "hard" },
+    { key = "on", type = "boolean", default = true },
+    { key = "voices", type = "integer", minimum = 1, maximum = 8, default = 4 },
+  },
+}
+function dev.process() end
+return dev
+]],
+  })
+  local info
+  for _, t in ipairs(paw.device_types()) do
+    if t.kind == "lua:schema_words" then info = t end
+  end
+  local function shown(s) return table.concat({ s.kind, s.min, s.max, s.default, s.steps, s.unit }, " ") end
+  eq(shown(info.params[1]), "continuous 20 20000 440 0 Hz", "a number: its range, default and unit")
+  eq(
+    shown(info.params[2]) .. " " .. info.params[2].choices[2],
+    "enum 0 1 1 1  hard",
+    "a text of choices: the default by name"
+  )
+  eq(shown(info.params[3]) .. " " .. info.params[3].choices[2], "enum 0 1 1 1  on", "a boolean: off and on")
+  eq(shown(info.params[4]), "stepped 1 8 4 7 ", "an integer: whole steps")
+  local dsp = require("paw.dsp")
+  fails(
+    function() dsp.device({ params = { { key = "path", type = "source" } } }) end,
+    "type source",
+    "a type a device has not"
+  )
+  fails(
+    function() dsp.device({ params = { { key = "path", type = "string" } } }) end,
+    "needs its choices",
+    "a text with no choices"
+  )
+end)
+
 test("a Lua device changes the sound by the numbers it says", function()
   fresh()
   scripts({

@@ -10,36 +10,102 @@ use std::sync::Arc;
 use anyhow::{Context, Result, bail};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use serde_json::{Value, json};
+use serde::Serialize;
 
 use super::Document;
-use super::values::{de, holds};
+use super::values::patch;
 use crate::model::{Id, Lane, LaneState, Segment, Shape, Target};
 
 /// The lowest and highest value of a plugin's parameter (device, key),
 /// or none when the plugin is not there to say.
 pub(crate) type ParamRange<'a> = &'a dyn Fn(Id, &str) -> Option<(f64, f64)>;
 
+/// A lane as `paw.api.lane_get` gives it, without its points.
+#[derive(Serialize, schemars::JsonSchema)]
+#[schemars(rename = "Lane")]
+pub(crate) struct LaneView<'a> {
+    id: Id,
+    part: Id,
+    /// A lane that is off keeps its points but does not move its target.
+    enabled: bool,
+    point_count: usize,
+    /// The lowest value of the target.
+    min: f64,
+    /// The highest value of the target.
+    max: f64,
+    target: LaneTarget,
+    /// The device of a parameter or state lane.
+    device: Option<Id>,
+    /// The key of the parameter of a parameter lane.
+    param: Option<&'a str>,
+    /// The names of the states of a state lane.
+    states: Option<Vec<&'a str>>,
+}
+
+/// What a lane moves.
+#[derive(Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum LaneTarget {
+    Volume,
+    Pan,
+    Param,
+    State,
+}
+
+impl<'a> LaneView<'a> {
+    fn of(l: &'a Lane, part: Id, param_range: ParamRange) -> Self {
+        let (min, max) = target_range(&l.target, l.states.len(), param_range);
+        let (target, device, param, states) = match &l.target {
+            Target::Volume => (LaneTarget::Volume, None, None, None),
+            Target::Pan => (LaneTarget::Pan, None, None, None),
+            Target::Param { device, param } => (LaneTarget::Param, Some(*device), Some(param.as_str()), None),
+            Target::State { device } => {
+                let states = l.states.iter().map(|s| s.name.as_str()).collect();
+                (LaneTarget::State, Some(*device), None, Some(states))
+            }
+        };
+        LaneView {
+            id: l.id,
+            part,
+            enabled: l.enabled,
+            point_count: l.points.len(),
+            min,
+            max,
+            target,
+            device,
+            param,
+            states,
+        }
+    }
+}
+
+patch! {
+    /// What `paw.api.lane_set` changes in a lane.
+    #[schemars(rename = "LaneChanges")]
+    pub(crate) struct LanePatch => LaneChange, "lanes have no settable field" {
+        /// A lane that is off keeps its points but does not move its target.
+        "enabled" enabled: bool => Enabled value,
+    }
+}
+
 impl Document {
     /// A lane as a table, without its points.
-    pub(crate) fn lane_view(&self, id: Id, param_range: ParamRange) -> Result<Value> {
+    pub(crate) fn lane_view<'a>(&'a self, id: Id, param_range: ParamRange) -> Result<LaneView<'a>> {
         let (part, _) = self
             .project
             .find_lane(id)
             .with_context(|| format!("no lane {id}"))?;
         let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
-        Ok(lane_json(lane, part, param_range))
+        Ok(LaneView::of(lane, part, param_range))
     }
 
     /// The automation lanes of a part, without their points.
-    pub(crate) fn lane_list(&self, part: Id, param_range: ParamRange) -> Result<Value> {
+    pub(crate) fn lane_list<'a>(&'a self, part: Id, param_range: ParamRange) -> Result<Vec<LaneView<'a>>> {
         let t = self
             .project
             .part(part)
             .with_context(|| format!("no part {part}"))?;
-        Ok(Value::Array(
-            t.lanes.iter().map(|l| lane_json(l, part, param_range)).collect(),
-        ))
+        Ok(t.lanes.iter().map(|l| LaneView::of(l, part, param_range)).collect())
     }
 
     pub(crate) fn lane_remove(&mut self, id: Id) -> Result<()> {
@@ -50,16 +116,16 @@ impl Document {
         })
     }
 
-    pub(crate) fn lane_set(&mut self, id: Id, key: &str, value: Value, param_range: ParamRange) -> Result<()> {
-        if holds(&self.lane_view(id, param_range), key, &value) {
+    /// Make one change of lane `id`. A value that it already holds is no
+    /// change.
+    pub(crate) fn lane_set(&mut self, id: Id, change: LaneChange) -> Result<()> {
+        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
+        let LaneChange::Enabled(on) = change;
+        if lane.enabled == on {
             return Ok(());
         }
         self.edit(|p| {
-            let l = p.lane_mut(id).with_context(|| format!("no lane {id}"))?;
-            match key {
-                "enabled" => l.enabled = de(key, value)?,
-                _ => bail!("lanes have no settable field `{key}`"),
-            }
+            p.lane_in(id)?.enabled = on;
             Ok(())
         })
     }
@@ -237,29 +303,6 @@ pub(crate) fn clean_points(
         .collect::<Result<Vec<_>>>()?;
     points.sort_by(|a, b| a.0.total_cmp(&b.0));
     Ok(points)
-}
-
-fn lane_json(l: &Lane, part: Id, param_range: ParamRange) -> Value {
-    let (min, max) = target_range(&l.target, l.states.len(), param_range);
-    let mut v = json!({
-        "id": l.id, "part": part, "enabled": l.enabled, "point_count": l.points.len(),
-        "min": min, "max": max,
-    });
-    match &l.target {
-        Target::Volume => v["target"] = json!("volume"),
-        Target::Pan => v["target"] = json!("pan"),
-        Target::Param { device, param } => {
-            v["target"] = json!("param");
-            v["device"] = json!(device);
-            v["param"] = json!(param);
-        }
-        Target::State { device } => {
-            v["target"] = json!("state");
-            v["device"] = json!(device);
-            v["states"] = json!(l.states.iter().map(|s| s.name.as_str()).collect::<Vec<_>>());
-        }
-    }
-    v
 }
 
 /// A state for a state lane, checked: a name, a state that is base64,

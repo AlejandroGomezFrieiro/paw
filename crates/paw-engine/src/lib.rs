@@ -40,7 +40,7 @@ pub use bell::Bell;
 pub use clip::{AudioData, AudioRegion, ClipSet, Direction, MidiEv, Piece, PieceEdit, Switch};
 pub use device::{
     Category, Controller, Device, DeviceFactory, DeviceFormat, DeviceInfo, Instance, Io, MAX_PAIRS,
-    ParamInfo, Ports, ProcessCtx, Quality, Registry, Rest,
+    ParamInfo, ParamKind, Ports, ProcessCtx, Quality, Registry, Rest,
 };
 pub use engine::{
     BlockStats, BlockSummary, Delay, Engine, EngineHandle, KeyBuf, KeyRt, MAX_BLOCK,

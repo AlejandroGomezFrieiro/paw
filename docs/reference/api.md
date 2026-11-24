@@ -2689,7 +2689,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 
 ## Module paw.api
 
-- `paw.api.api_schema()`: The JSON Schema of the data of `paw.api` that has one, as JSON text: its definitions by the name of their Teal record (`types.Clip`), from the Rust types that read and write the data.
+- `paw.api.api_schema()`: The JSON Schema of the data of `paw.api` that has one, as JSON text with indents: its definitions by the name of their Teal record (`types.Clip`), from the Rust types that read and write the data.
 - `paw.api.audio_devices()`: The audio devices the system offers, and which are open.
 - `paw.api.audio_reconnect()`: Try to open again the device that went away. Returns true when it is open.
 - `paw.api.audio_test_device(opts)`: The simulated device of the `test` backend. `{ present = false }` disconnects it. `fail_after = n` disconnects it after n blocks of the next stream. `back_after = ms` connects it again `ms` after it goes.

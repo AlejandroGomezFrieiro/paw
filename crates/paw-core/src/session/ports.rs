@@ -4,7 +4,6 @@
 //! document's (`document/devices.rs`).
 
 use paw_engine::Ports;
-use serde_json::{Value, json};
 
 use super::Session;
 use crate::model::Id;
@@ -26,8 +25,4 @@ impl Session {
                 .unwrap_or_default(),
         }
     }
-}
-
-pub(super) fn ports_json(ports: &Ports) -> Value {
-    json!({ "sidechain": ports.sidechain, "outputs": ports.outputs })
 }

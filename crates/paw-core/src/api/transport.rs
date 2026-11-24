@@ -7,7 +7,7 @@ use paw_types::EventKind;
 
 use crate::model::Id;
 
-use super::{LuaResult, Shared, attr_from_lua, changes, from_lua, to_lua};
+use super::{LuaResult, Shared, attr_from_lua, patch, to_lua};
 use super::midi::live_velocity;
 
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
@@ -23,14 +23,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Change the transport: a table of the entries to change, as
         // `transport_get` gives them (`{ loop_enabled = true }`), or one `key` and
         // its value. Only the key form clears an entry (`nil`).
-        // @type function(patch: types.Transport)
+        // @type function(patch: types.TransportChanges)
         // @type function(key: string, value: nil)
         fn transport_set(lua, sh, (key, value) => (LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                session.transport_set(&key, from_lua(lua, value)?).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::TransportPatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().transport_patch(patch).lua()
         }
         // @return nil
         fn transport_play(_, sh, () => ()) {

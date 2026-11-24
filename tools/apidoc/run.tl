@@ -28,6 +28,7 @@ run.WRITERS = {
   require("apidoc.write.kernel_events"),
   require("apidoc.write.role_props"),
   require("apidoc.write.types_schema"),
+  require("apidoc.write.mcp_schema"),
   require("apidoc.write.events_page"),
   require("apidoc.write.any_allowed"),
 }

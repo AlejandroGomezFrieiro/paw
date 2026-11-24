@@ -6,18 +6,17 @@ use super::*;
 
 impl Session {
     /// The project's fields as a table ([`Document::project_view`]).
-    pub(crate) fn project_view(&self) -> Value {
+    pub(crate) fn project_view(&self) -> ProjectView<'_> {
         self.doc.project_view(self.path.as_deref())
     }
 
-    /// One entry of [`project_view`](Self::project_view)
-    /// ([`Document::project_field`]).
-    pub(crate) fn project_field(&self, key: &str) -> Value {
-        self.doc.project_field(key, self.path.as_deref())
-    }
-
-    pub(crate) fn project_set(&mut self, key: &str, value: Value) -> Result<()> {
-        self.doc.project_set(key, value, self.path.as_deref())
+    /// Make the changes of `patch` to the project, in the order of their
+    /// keys ([`Document::project_set`]).
+    pub(crate) fn project_patch(&mut self, patch: ProjectPatch) -> Result<()> {
+        for change in patch.changes()? {
+            self.doc.project_set(change)?;
+        }
+        Ok(())
     }
 
     /// Put `project` (in the form that `undo_project` gives) in place of

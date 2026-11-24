@@ -10777,7 +10777,7 @@ function paw.zip.read(data) end
 function paw.zip.write(entries) end
 
 --- The JSON Schema of the data of `paw.api` that has one, as JSON
---- text: its definitions by the name of their Teal record
+--- text with indents: its definitions by the name of their Teal record
 --- (`types.Clip`), from the Rust types that read and write the data.
 function paw.api.api_schema() end
 

@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 
 use crate::model::Id;
 
-use super::{LuaResult, Shared, changes, from_lua, options, to_lua};
+use super::{LuaResult, Shared, from_lua, options, patch, to_lua};
 
 #[expect(
     clippy::too_many_lines,
@@ -76,14 +76,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Change a device: a table of the entries to change, as `device_get`
         // gives them, or one `key` and its value. Only the key form clears
         // an entry (`nil`).
-        // @type function(id: integer, patch: types.Device)
+        // @type function(id: integer, patch: types.DeviceChanges)
         // @type function(id: integer, key: string, value: nil)
         fn device_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                session.doc.device_set(id, &key, from_lua(lua, value)?).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::DevicePatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().doc.device_patch(id, patch).lua()
         }
         // Set a parameter of a device, named by its key, the device's own id for
         // it or its name. The value is a number, or text as the device reads it
@@ -105,7 +102,8 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         fn device_param(lua, sh, (id, name) => (Id, String)) {
             let mut session = sh.session.borrow_mut();
             session.flush();
-            to_lua(lua, &session.device_param(id, &name).lua()?)
+            let now = session.device_param(id, &name).lua()?;
+            to_lua(lua, &session.param_view(id, now).lua()?)
         }
         // A value of a parameter as text, as the device writes it ("440 Hz").
         // Without a value, the value now.
@@ -115,7 +113,7 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             session.flush();
             let value = match value {
                 Some(value) => value,
-                None => session.device_param(id, &name).lua()?["value"].as_f64().unwrap_or_default(),
+                None => session.device_param(id, &name).lua()?.value,
             };
             session.param_text(id, &name, value).lua()
         }

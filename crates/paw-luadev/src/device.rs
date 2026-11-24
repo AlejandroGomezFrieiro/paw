@@ -90,6 +90,10 @@ pub struct Param {
     pub default: f32,
     pub unit: String,
     pub choices: Vec<String>,
+    /// The number of whole steps of a parameter of whole numbers; 0 for a
+    /// continuous one. A parameter of choices takes one step for each.
+    #[serde(default)]
+    pub steps: u32,
 }
 
 impl Param {
@@ -101,7 +105,7 @@ impl Param {
             max: self.max,
             default: self.default,
             unit: self.unit.clone(),
-            steps: self.choices.len().saturating_sub(1) as u32,
+            steps: if self.choices.is_empty() { self.steps } else { self.choices.len().saturating_sub(1) as u32 },
             choices: self.choices.clone(),
             ..ParamInfo::default()
         }
@@ -183,6 +187,7 @@ fn descriptor(host: &Table) -> mlua::Result<Descriptor> {
             max: number("max")?,
             default: number("default")?,
             unit: p.get::<Option<String>>("unit")?.unwrap_or_default(),
+            steps: p.get::<Option<u32>>("steps")?.unwrap_or(0),
             choices: p
                 .get::<Table>("choices")?
                 .sequence_values::<String>()

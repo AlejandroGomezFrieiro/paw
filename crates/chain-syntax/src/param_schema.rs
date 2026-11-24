@@ -15,6 +15,7 @@ use crate::value::Unit;
 
 /// The type of a parameter: a JSON Schema type, or `source`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum ParamType {
     Number,
@@ -29,8 +30,23 @@ pub enum ParamType {
     Source,
 }
 
+impl ParamType {
+    /// The word of the type in a schema: `number`, `source`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Number => "number",
+            Self::Integer => "integer",
+            Self::Boolean => "boolean",
+            Self::String => "string",
+            Self::Array => "array",
+            Self::Source => "source",
+        }
+    }
+}
+
 /// What a parameter takes, as JSON Schema words.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ParamSchema {
     #[serde(rename = "type")]
     pub kind: ParamType,
@@ -73,8 +89,8 @@ pub struct ParamSchema {
 #[derive(Debug, PartialEq, thiserror::Error)]
 #[non_exhaustive]
 pub enum ParamError {
-    #[error("a parameter of the type {kind} has no `{}`", .words.join("`, `"))]
-    Misplaced { kind: String, words: Vec<&'static str> },
+    #[error("a parameter of the type {} has no `{}`", kind.as_str(), words.join("`, `"))]
+    Misplaced { kind: ParamType, words: Vec<&'static str> },
     #[error("the default `{shown}` is not {want}")]
     Default { shown: String, want: &'static str },
     #[error("the `items` of a list are numbers")]
@@ -147,7 +163,7 @@ impl TryFrom<ParamSchema> for ParamValue {
     fn try_from(schema: ParamSchema) -> Result<Self, ParamError> {
         let words = schema.misplaced();
         if !words.is_empty() {
-            let kind = serde_json::to_value(schema.kind).unwrap_or_default().to_string();
+            let kind = schema.kind;
             return Err(ParamError::Misplaced { kind, words });
         }
         let ParamSchema { kind, minimum, maximum, choices, default, format, items, min_items, max_items, ascending, unit, stream, main } = schema;
@@ -294,7 +310,13 @@ mod tests {
     fn a_word_that_the_type_does_not_take_is_refused_by_name() {
         let schema: ParamSchema = serde_json::from_str(r#"{"type": "number", "enum": ["a"]}"#).unwrap();
         let error = ParamValue::try_from(schema).unwrap_err();
-        assert_eq!(error.to_string(), "a parameter of the type \"number\" has no `enum`");
+        assert_eq!(error.to_string(), "a parameter of the type number has no `enum`");
+        let host = format!(
+            r#"{{"chain_schema": {}, "host": "h", "devices": [{{"kind": "eq", "params": [{{"key": "gain", "type": "number", "enum": ["a"]}}]}}]}}"#,
+            crate::schema::SCHEMA_VERSION
+        );
+        let error = crate::Schema::from_json(&host).unwrap_err().to_string();
+        assert!(error.contains("parameter `gain`") && error.contains("type number has no `enum`"), "{error}");
         let schema: ParamSchema = serde_json::from_str(r#"{"type": "boolean", "default": 3}"#).unwrap();
         let error = ParamValue::try_from(schema).unwrap_err();
         assert_eq!(error.to_string(), "the default `3` is not `true` or `false`");

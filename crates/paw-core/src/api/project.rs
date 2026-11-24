@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::model::Id;
 
-use super::{LuaResult, Shared, changes, from_lua, options, to_lua};
+use super::{LuaResult, Shared, field_to_lua, from_lua, options, patch, to_lua};
 
 #[expect(
     clippy::too_many_lines,
@@ -25,22 +25,20 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @type function(): types.Project
         fn project_get(lua, sh, key => Option<String>) {
             let session = sh.session.borrow();
+            let view = session.project_view();
             match key {
-                Some(key) => to_lua(lua, &session.project_field(&key)),
-                None => to_lua(lua, &session.project_view()),
+                Some(key) => field_to_lua(lua, |lua| view.field(&key, lua)),
+                None => to_lua(lua, &view),
             }
         }
         // Change the project: a table of the entries to change, as
         // `project_get` gives them (`{ name = "Song", tempo = 96 }`), or one
         // `key` and its value. Only the key form clears an entry (`nil`).
-        // @type function(patch: types.Project)
+        // @type function(patch: types.ProjectChanges)
         // @type function(key: string, value: nil)
         fn project_set(lua, sh, (key, value) => (LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                session.project_set(&key, from_lua(lua, value)?).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::ProjectPatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().project_patch(patch).lua()
         }
         // Put the open project aside, with its undo history, and open an empty
         // project. `project_unshelve` brings the first project back exactly as it

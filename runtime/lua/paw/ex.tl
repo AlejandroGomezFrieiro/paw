@@ -1912,7 +1912,7 @@ end
 
 --- Set a field of the parts a command works on: `read` makes the patch
 --- of each from the part as it is.
-local function set_parts(ctx: Context, name: string, read: function(types.Part): types.Part): {integer}
+local function set_parts(ctx: Context, name: string, read: function(types.Part): types.PartChanges): {integer}
   local ids = parts_in(ctx, name)
   for _, id in ipairs(ids) do
     api.part_set(id, read(api.part_get(id)))
@@ -2399,7 +2399,7 @@ ex(
     local ids = set_parts(
       ctx,
       "volume",
-      function(t: types.Part): types.Part
+      function(t: types.Part): types.PartChanges
         local v = read(text, t.volume)
         if not v then
           fail("`%s`: not a volume: `-6`, `+=2`, `-=3`", text)
@@ -2419,7 +2419,7 @@ ex(
     local ids = set_parts(
       ctx,
       "pan",
-      function(t: types.Part): types.Part
+      function(t: types.Part): types.PartChanges
         local v = read(text, t.pan)
         if not v then
           fail("`%s`: not a pan: `-0.5`, `+=0.1`, `0`", text)

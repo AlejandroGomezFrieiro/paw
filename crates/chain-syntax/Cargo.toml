@@ -29,6 +29,12 @@ thiserror = "2"
 # "Did you mean" for an unknown kind or parameter. Already in Cargo.lock
 # through clap.
 strsim = "0.11"
+# The JSON Schema of the words of a parameter (`ParamSchema`), for a host
+# that makes its own types from it. Only with the feature `schemars`.
+schemars = { version = "1", optional = true }
+
+[features]
+schemars = ["dep:schemars"]
 
 [dev-dependencies]
 proptest.workspace = true
