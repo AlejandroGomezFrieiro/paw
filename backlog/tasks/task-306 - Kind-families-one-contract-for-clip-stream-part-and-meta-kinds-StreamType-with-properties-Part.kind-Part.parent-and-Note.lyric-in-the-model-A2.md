@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T19:22:00Z'
+updated_date: '2026-11-24T20:25:00Z'
 labels:
   - agent:builder
   - architecture
@@ -92,4 +92,6 @@ STATE 2026-11-24 (session paused, tokens): branch kind-families, head 4e2ac17d (
 Merge check of main+4e2ac17d: 755 of 756 Rust tests pass; paw-mcp reference::tests::every_file_of_the_api_is_read fails (likely the new runtime file paw/kinds.tl or a doc page not listed in the MCP reference index): fix in the next A2 commit. Lua parts and render gate: rerun after the fix.
 
 Builder done: head c0044a2a (2nd review fixed: lyric binds to the next note-on at its tick and address, fallbacks, per-address buffers, group lyrics, stray lyric reported on open, TempDir, kinds.put restore). 351 Rust and 22 Lua parts pass on its build. NEXT: fix paw-mcp every_file_of_the_api_is_read if still failing, merge c0044a2a on main in the merge tree, build, merge check, render gate, ff main.
+
+Merge check (main+A2+ruler+logging) found scope.lua:177 and nest.lua:406 failing: scope.parts did not watch part:<id>:parent, nest stems read meta.group. Fixed in d1cd8e7c (38 Lua parts, 21 nest Rust tests). NEXT: merge d1cd8e7c after the ruler and logging land.
 <!-- SECTION:NOTES:END -->
