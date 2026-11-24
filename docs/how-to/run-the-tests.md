@@ -410,6 +410,22 @@ which the dev shell doesn't have, so they are meant for CI.
 3. If a target fails, its input is in `fuzz/artifacts/<target>/`. Write a
    plain test in the crate that crashed, from that input, and fix the code.
 
+## Check that the sound did not change
+
+The render gate renders the demo song, the song of the render tests, the
+saved demo project and four songs of the lessons. It hashes each file and
+compares the hashes with `tests/render-gate/hashes.sha256`. It takes a few
+seconds.
+
+1. Run `tools/render-gate.sh`. It says that the files render bit-identical,
+   or it names each file that changed and exits with 1.
+2. If you meant to change the sound, run `tools/render-gate.sh --update`.
+   Commit the new hashes with the change, and write in the message why the
+   sound changed.
+
+The gate does not cover the end-to-end scenarios. They build their
+projects with keys and keep no project file.
+
 ## Run the end-to-end scenarios
 
 The end-to-end scenarios act as a person who works on a song for many
