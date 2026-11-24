@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T18:54:00Z'
+updated_date: '2026-11-24T19:22:00Z'
 labels:
   - agent:builder
   - architecture
@@ -86,4 +86,8 @@ Owner interview 2026-11-24: all 11 recommended answers accepted; recorded in arc
 Started 2026-11-24: branch kind-families, base 582ae3a5.
 
 Owner, 2026-11-24: lyrics are standard MIDI (SMF FF 05, MIDI 2.0 Flex Data Performance Text Events / Lyrics). They stay core MIDI data that notation, search and .mid import and export share, and the .midi2 clip file saves them as standard Flex Data Lyrics messages at the note-on, not in paw's private paw: text. utau keeps only its own data (phonemes, pitch curves, flags) in a kind or meta keys that extend midi. Added to the A2 fix round.
+
+STATE 2026-11-24 (session paused, tokens): branch kind-families, head 4e2ac17d (543791bf + review fixes + standard Flex Data Lyrics). Merge check on main+4e2ac17d done (see below). OPEN: the builder is fixing the 2nd review: chord lyric binding (clipfile.rs:547-557, bind to the next note-on after the Lyrics message; fallback first note), per-address text buffers, group-addressed lyrics, unmatched lyric not lost on open, TempDir in project.rs:396, kinds.tl M.put restore on refusal. NEXT: when its commit lands, merge it on main in the merge tree, build, merge-check with words kind lyric group meta 'midi file' utau notation drum template extension search folder launcher linked, render gate, ff main. Then apply 'Changes for the orchestrator': architecture/08-concepts.md (Kinds and registries; meta row; stream props; clip file keeps a lyric as a MIDI 2.0 Lyrics message, read rule), 13-roadmap A2 merged, 12-glossary 'Kind family'; tickets: remove old_meta converter at first release (m-18); port part_kinds.lua to Teal.
+
+Merge check of main+4e2ac17d: 755 of 756 Rust tests pass; paw-mcp reference::tests::every_file_of_the_api_is_read fails (likely the new runtime file paw/kinds.tl or a doc page not listed in the MCP reference index): fix in the next A2 commit. Lua parts and render gate: rerun after the fix.
 <!-- SECTION:NOTES:END -->

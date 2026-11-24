@@ -4,7 +4,7 @@ title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and p
 status: In Progress
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T19:13:00Z'
+updated_date: '2026-11-24T19:21:00Z'
 labels:
   - agent:builder
 dependencies:
@@ -68,4 +68,6 @@ Owner, 2026-11-24: the default log level must be enough to trace crashes and bug
 - No secrets in the log: no environment dump, paths under the home folder written as ~.
 
 Owner, 2026-11-24: ADR 0043 accepted, with a lock so that a second session at the same time writes its own file (paw.2.log) and never rotates a live session's log. loglevel stays text in the RUST_LOG syntax, the same for the option and PAW_LOG. Work: 4e4462db on worktree-agent-a498b74dcaa5c1ddc. Follow-up: flake.nix sets PAW_COMMIT so the start header names the commit.
+
+STATE 2026-11-24 (session paused): branch worktree-agent-a498b74dcaa5c1ddc, head 4e4462db. ADR 0043 accepted (architecture/decisions/0043-one-log.md; update it with the lock when the builder's draft lands). OPEN: the builder adds the session lock (flock on paw.log.lock; a second session writes paw.2.log, never rotates a live log; stderr.log fold per session), loads teal/lua-testing/rust-testing and fixes what they find, and runs tests/clock.lua 30x under -j4 (one failure seen: timers_due 1, want 0). NEXT: opus review (contract: tracing crate, paw.api.log level, :log, loglevel, PAW_LOG, audio counters, panic hook), merge check, then the OWNER fast-forwards because the branch changes .claude/skills/rust-skills/paw-crates.md: git merge --ff-only <sha> in the main checkout. Then architecture: 06-runtime, 08-concepts, 10-quality items; decisions/README.md and 09-decisions.md rows for 0043.
 <!-- SECTION:NOTES:END -->
