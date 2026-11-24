@@ -9,10 +9,11 @@
 //! Clip, at the clip's length.
 //!
 //! paw writes [`TPQ`] ticks to a beat, notes and controllers as MIDI 2.0
-//! channel voice messages on group 1, channel 1, and what MIDI has no
-//! message for (a note's `meta` and lyric, its id when the ids are not 1, 2, 3, ...
-//! in order, notes that start before the clip) as Flex Data text that
-//! starts with `paw:`, which other programs pass over. So a clip written and
+//! channel voice messages on group 1, channel 1, a note's lyric as a Flex
+//! Data Lyrics message at its start, and what MIDI has no message for (a
+//! note's `meta`, its id when the ids are not 1, 2, 3, ... in order, notes
+//! that start before the clip) as Flex Data text that starts with `paw:`,
+//! which other programs pass over. So a clip written and
 //! read again is the same clip, but for times, which are rounded to a tick.
 //! It reads MIDI 1.0 channel voice messages as well, and any number of ticks
 //! to a beat.
@@ -76,9 +77,34 @@ fn clockstamps(out: &mut Vec<u32>, mut delta: u64) {
     }
 }
 
-/// Flex Data text (status bank 1, metadata; status 0, unknown) of any length,
-/// in packets of twelve bytes.
+/// The first word of a Flex Data packet of `paw:` text, but for its form:
+/// to the group (addrs 1), status bank 1 (metadata), status 0 (unknown).
+const PAW_TEXT: u32 = 0xD << 28 | 1 << 20 | 0x01 << 8;
+
+/// The first word of a Flex Data Lyrics packet, but for its form: to
+/// channel 1 of group 1 (addrs 0, group 0, channel 0), where paw writes the
+/// notes; status bank 2 (performance text events), status 1 (lyrics).
+const LYRICS: u32 = 0xD << 28 | 0x02 << 8 | 0x01;
+
+/// The status bank and status of a Flex Data packet.
+fn flex_status(w0: u32) -> u32 {
+    w0 & 0xffff
+}
+
+/// The group and channel of a packet, as bits 24 to 27 and 16 to 19 give
+/// them in a Flex Data packet and in a channel voice message.
+fn address(w0: u32) -> u32 {
+    (w0 >> 16) & 0x0f0f
+}
+
+/// `paw:` text of any length.
 fn flex_text(out: &mut Vec<u32>, text: &str) {
+    flex_message(out, PAW_TEXT, text);
+}
+
+/// A Flex Data message of text of any length, in packets of twelve bytes:
+/// `head` is the first word of each packet but for its form.
+fn flex_message(out: &mut Vec<u32>, head: u32, text: &str) {
     let bytes = text.as_bytes();
     let chunks: Vec<&[u8]> = bytes.chunks(12).collect();
     let count = chunks.len().max(1);
@@ -91,8 +117,7 @@ fn flex_text(out: &mut Vec<u32>, text: &str) {
             (n, i) if i + 1 == n => 3,
             _ => 2,
         };
-        // Addressed to the group (addrs 1), status bank 1, status 0.
-        out.push(0xD << 28 | form << 22 | 1 << 20 | 0x01 << 8);
+        out.push(head | form << 22);
         let mut words = [0u32; 3];
         for (j, b) in chunk.iter().enumerate() {
             words[j / 4] |= (*b as u32) << (24 - 8 * (j % 4));
@@ -213,8 +238,8 @@ fn notes_needing_length(notes: &[&Note]) -> Vec<bool> {
     needs_length
 }
 
-/// The note-on (with its `paw:` text when it has one) and the note-off of
-/// each note, as `(tick, order, words)`.
+/// The note-on (after its lyric and its `paw:` text, when it has them)
+/// and the note-off of each note, as `(tick, order, words)`.
 fn note_messages(notes: &[&Note], out: &mut Vec<(i64, Order, Vec<u32>)>) {
     // Ids are written only when they are not what reading gives anyway.
     let plain_ids = notes.iter().enumerate().all(|(i, n)| n.id == i as u64 + 1)
@@ -229,16 +254,17 @@ fn note_messages(notes: &[&Note], out: &mut Vec<(i64, Order, Vec<u32>)>) {
         if !n.meta.is_empty() {
             extra.insert("meta".into(), Value::Object(n.meta.clone()));
         }
-        if let Some(lyric) = &n.lyric {
-            extra.insert("lyric".into(), json!(lyric));
-        }
         if needs_length[i] {
             extra.insert("len".into(), json!(end - start));
         }
         let mut words = Vec::new();
+        // Each message has its own clockstamp after it, of 0 ticks.
+        if let Some(lyric) = &n.lyric {
+            flex_message(&mut words, LYRICS, lyric);
+            words.push(utility(0x4, 0));
+        }
         if !extra.is_empty() {
             flex_text(&mut words, &format!("paw:{}", Value::Object(extra)));
-            // Its own clockstamp follows, of 0 ticks.
             words.push(utility(0x4, 0));
         }
         let vel = scale_up(u32::from(n.velocity.0.clamp(1, 127)), 7, 16);
@@ -301,6 +327,16 @@ struct Open {
     note: Note,
     /// The tick it ends at, when the file said so.
     end: Option<i64>,
+    /// Its group and channel ([`address`]).
+    address: u32,
+}
+
+/// A Lyrics message: its tick, its group and channel ([`address`]), and
+/// its text.
+struct Lyric {
+    tick: i64,
+    address: u32,
+    text: String,
 }
 
 /// What reading a file has seen so far.
@@ -312,7 +348,9 @@ struct Reader {
     ended: Option<i64>,
     clip: Clip,
     open: HashMap<u8, Vec<Open>>,
-    done: Vec<(usize, Note)>,
+    /// The notes that ended, with their length.
+    done: Vec<Open>,
+    lyrics: Vec<Lyric>,
     count: usize,
     /// The bytes of the Flex Data text read so far. Bytes, not characters:
     /// a character of UTF-8 can be cut between two packets.
@@ -332,6 +370,7 @@ impl Reader {
             clip: Clip::default(),
             open: HashMap::new(),
             done: Vec::new(),
+            lyrics: Vec::new(),
             count: 0,
             text: Vec::new(),
             pending: None,
@@ -374,13 +413,13 @@ impl Reader {
         false
     }
 
-    /// A Flex Data packet: text of `paw:` that goes before a note or the
-    /// clip's origin.
+    /// A Flex Data packet: a lyric, or text of `paw:` that goes before a
+    /// note or the clip's origin.
     fn flex_data(&mut self, packet: &[u32]) {
         let w0 = packet[0];
         let form = (w0 >> 22) & 3;
-        let bank = (w0 >> 8) & 0xff;
-        if bank != 0x01 || w0 & 0xff != 0 {
+        let status = flex_status(w0);
+        if status != flex_status(PAW_TEXT) && status != flex_status(LYRICS) {
             return;
         }
         if form == 0 || form == 1 {
@@ -393,7 +432,11 @@ impl Reader {
                 }
             }
         }
-        if form == 0 || form == 3 {
+        if (form == 0 || form == 3) && status == flex_status(LYRICS) {
+            let text = String::from_utf8_lossy(&self.text).into_owned();
+            self.lyrics.push(Lyric { tick: self.tick, address: address(w0), text });
+            self.text.clear();
+        } else if form == 0 || form == 3 {
             if let Some(json) = self.text.strip_prefix(b"paw:")
                 && let Ok(Value::Object(map)) = serde_json::from_slice::<Value>(json)
             {
@@ -420,14 +463,14 @@ impl Reader {
                 } else {
                     (packet[0] & 0x7f) as u8
                 };
-                self.note_on(key, vel, attr);
+                self.note_on(key, vel, attr, address(packet[0]));
             }
             EventKind::NoteOff { key, .. } => self.note_off(key),
             other => self.control(other),
         }
     }
 
-    fn note_on(&mut self, key: u8, vel: u8, attr: paw_types::Attr) {
+    fn note_on(&mut self, key: u8, vel: u8, attr: paw_types::Attr, address: u32) {
         let extra = self.pending.take().unwrap_or_default();
         let note = Note {
             start: self.beat(self.tick),
@@ -438,7 +481,7 @@ impl Reader {
                 Some(Value::Object(m)) => m.clone(),
                 _ => Map::new(),
             },
-            lyric: extra.get("lyric").and_then(Value::as_str).map(str::to_owned),
+            lyric: crate::session::folder::old_meta::clip_lyric(&extra),
             id: extra.get("id").and_then(Value::as_u64).unwrap_or(0),
             attr: NoteAttr::of(attr),
         };
@@ -451,6 +494,7 @@ impl Reader {
             tick: self.tick,
             note,
             end,
+            address,
         });
         self.count += 1;
     }
@@ -465,7 +509,7 @@ impl Reader {
         if let Some(pos) = pos {
             let mut o = queue.remove(pos);
             o.note.length = self.beat(tick.saturating_sub(o.tick));
-            self.done.push((o.seq, o.note));
+            self.done.push(o);
         }
     }
 
@@ -492,18 +536,29 @@ impl Reader {
         // Notes still sounding at the end end there.
         let end_tick = self.ended.unwrap_or(self.tick);
         for (_, queue) in std::mem::take(&mut self.open) {
-            for o in queue {
-                let mut note = o.note;
+            for mut o in queue {
                 let end = o.end.unwrap_or(end_tick);
-                note.length = self.beat(end.saturating_sub(o.tick));
-                self.done.push((o.seq, note));
+                o.note.length = self.beat(end.saturating_sub(o.tick));
+                self.done.push(o);
             }
         }
         // In the order they started.
-        self.done.sort_by_key(|(seq, _)| *seq);
+        self.done.sort_by_key(|o| o.seq);
+        // A lyric goes to the first note, in the file's order, that starts
+        // at its tick in its group and channel and has no lyric yet.
+        for lyric in std::mem::take(&mut self.lyrics) {
+            let note = self
+                .done
+                .iter_mut()
+                .find(|o| o.tick == lyric.tick && o.address == lyric.address && o.note.lyric.is_none());
+            match note {
+                Some(o) => o.note.lyric = Some(lyric.text),
+                None => self.skip("lyrics with no note that starts with them"),
+            }
+        }
         let length = self.beat(end_tick).max(0.0);
         let mut clip = self.clip;
-        clip.notes = self.done.into_iter().map(|(_, n)| n).collect();
+        clip.notes = self.done.into_iter().map(|o| o.note).collect();
         // A file that gives no ids has the ids 1, 2, 3 in order, as the
         // session would give them: nothing is left to name after reading.
         if clip.notes.iter().all(|n| n.id == 0) {
@@ -858,6 +913,70 @@ mod tests {
             bytes.extend_from_slice(&w.to_be_bytes());
         }
         bytes
+    }
+
+    /// The words of one note-on at `tick` ticks after the last, of key
+    /// 60, on group 1 and channel 1.
+    fn note_on_after(tick: u32) -> [u32; 3] {
+        [utility(0x4, tick), 0x4090_3C00, 0x8000_0000]
+    }
+
+    #[test]
+    fn a_lyric_is_a_flex_data_lyrics_message_at_the_start_of_its_note() {
+        let mut notes = named(vec![note(0.0, 1.0, 60)]);
+        notes[0].lyric = Some("la".into());
+        let bytes = encode(&notes, &[], 1.0).unwrap();
+        let lines = packets(&bytes);
+        // Flex Data (D), group 1 (0), form complete (0), to a channel (0),
+        // channel 1 (0), status bank 2, status 1, then "la" and zeros.
+        assert!(lines.contains("d0000201 6c610000 00000000 00000000\n00400000\n4090"), "{lines}");
+        assert!(!lines.contains("7061773a"), "no `paw:` text: {lines}");
+    }
+
+    #[test]
+    fn a_long_lyric_of_any_letters_spans_several_packets_and_comes_back() {
+        let lyric = "ありがとう ございます";
+        let mut notes = named(vec![note(0.0, 1.0, 60), note(1.0, 1.0, 62)]);
+        notes[1].lyric = Some(lyric.into());
+        let bytes = encode(&notes, &[], 2.0).unwrap();
+        let forms: Vec<u32> = packets(&bytes)
+            .lines()
+            .filter(|l| l.starts_with('d') && l[4..8] == *"0201")
+            .map(|l| (u32::from_str_radix(&l[..8], 16).unwrap() >> 22) & 3)
+            .collect();
+        // Start, continue, end: 31 bytes in packets of 12.
+        assert_eq!(forms, [1, 2, 3]);
+        let clip = decode(&bytes).unwrap();
+        assert_eq!(clip.notes[0].lyric, None);
+        assert_eq!(clip.notes[1].lyric.as_deref(), Some(lyric));
+        assert_eq!(encode(&clip.notes, &[], clip.length).unwrap(), bytes);
+    }
+
+    #[test]
+    fn a_lyric_of_a_chord_goes_to_the_first_note_of_its_tick_and_channel() {
+        let mut body = Vec::new();
+        flex_message(&mut body, LYRICS, "oh");
+        body.extend(note_on_after(0));
+        body.extend([utility(0x4, 0), 0x4090_4000, 0x8000_0000]);
+        // On channel 2: not this lyric's note.
+        let mut other = Vec::new();
+        flex_message(&mut other, LYRICS | 1 << 16, "ah");
+        body.extend([utility(0x4, 1)]);
+        body.extend(other);
+        body.extend(note_on_after(0));
+        let clip = decode(&file_with("", &body)).unwrap();
+        let lyrics: Vec<Option<&str>> = clip.notes.iter().map(|n| n.lyric.as_deref()).collect();
+        assert_eq!(lyrics, [Some("oh"), None, None]);
+        assert_eq!(clip.skipped, ["1 lyrics with no note that starts with them"]);
+    }
+
+    #[test]
+    fn a_lyric_in_the_paw_text_of_an_older_file_still_reads() {
+        let mut body = vec![utility(0x4, 0)];
+        flex_text(&mut body, "paw:{\"lyric\":\"la\"}");
+        body.extend(note_on_after(0));
+        let clip = decode(&file_with("", &body)).unwrap();
+        assert_eq!(clip.notes[0].lyric.as_deref(), Some("la"));
     }
 
     // Found while writing the fuzz target `clip_file`: ticks

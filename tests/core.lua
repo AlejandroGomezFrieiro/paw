@@ -1354,7 +1354,11 @@ test("parts are grouped: members sound through the group, stand under it, and fo
   -- A group inside a group, and no loops.
   local section = groups.make({ strings, t[5] }, "Orchestra")
   eq(order(), "Drums Orchestra >Strings >>Violins >>Cellos >>Violas >Bass", "a group holds groups")
-  T.fails(function() groups.add(section, strings) end, "inside itself", "a group put into one of its own")
+  T.fails(
+    function() groups.add(section, strings) end,
+    "`Orchestra` cannot go into `Strings`: it holds that group",
+    "a group put into one of its own"
+  )
 
   -- Out again.
   groups.remove(t[3])

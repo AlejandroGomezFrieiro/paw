@@ -956,7 +956,12 @@ function M.restore_part(snap: PartSnapshot, index?: integer): Part
   end
   -- In its group again, when the project still has the group.
   if snap.parent then
-    pcall(api.part_set, part.id, {parent = snap.parent})
+    for _, id in ipairs(api.part_list({all = true})) do
+      if id == snap.parent then
+        api.part_set(part.id, {parent = snap.parent})
+        break
+      end
+    end
   end
   local devices: {Device} = {}
   for i, d in ipairs(snap.devices or {}) do

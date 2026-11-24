@@ -78,7 +78,7 @@ local function define_kind(name, spec)
   spec.name = name
   spec.title = spec.title or (name:sub(1, 1):upper() .. name:sub(2) .. " part")
   spec.letter = spec.letter or name:sub(1, 1):upper()
-  M.kinds:put(name, spec)
+  kinds.put(M.kinds, name, spec)
   return spec
 end
 local function remove_kind(name) M.kinds:remove(name) end

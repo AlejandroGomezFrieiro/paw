@@ -187,21 +187,15 @@ pub enum ModImpl {
     Extern { version: Version, local: bool },
 }
 
-/// The verbs of the registry of modifier kinds. A trait, because the
-/// registry type [`Kinds`] is of `paw-types`.
-pub trait ModRegistry: Sized {
-    /// The registry with the built-in kinds, of owner `paw.modifiers`.
-    fn builtin() -> Self;
-}
-
-impl ModRegistry for ModKinds {
-    fn builtin() -> Self {
-        let mut kinds = Self::default();
-        for builtin in BuiltinKind::ALL {
-            kinds.put(builtin.kind(), ModImpl::Builtin(builtin), PAW);
-        }
-        kinds
+/// The registry of modifier kinds with the built-in kinds, of owner
+/// `paw.modifiers`.
+#[must_use]
+pub fn builtin_kinds() -> ModKinds {
+    let mut kinds = ModKinds::default();
+    for builtin in BuiltinKind::ALL {
+        kinds.put(builtin.kind(), ModImpl::Builtin(builtin), PAW);
     }
+    kinds
 }
 
 /// The highest change of a transpose or a velocity: a note goes at most

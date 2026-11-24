@@ -1053,7 +1053,7 @@ test("utau: a double sings the same notes, a little apart in timing and tuning",
   for i, n in ipairs(made:clips()[1]:notes()) do
     local src = clip:notes()[i]
     same = same and n.pitch == src.pitch and n.start == src.start
-    local p = n.meta.utau or {}
+    local p = (n.meta or {}).utau or {}
     if p.tu then
       tuned = tuned + 1
       eq(math.abs(p.tu) <= 8, true, "tuning within 8 cents")
@@ -1215,7 +1215,7 @@ test("utau: a timing take moves note onsets, and take 0 puts them back", functio
   eq(table.concat(same, " "), table.concat(offsets, " "), "the same take is the same")
   r.timing(clip.id, 0)
   for _, note in ipairs(clip:notes()) do
-    eq(note.meta.utau and note.meta.utau.ph, nil, "take 0 takes the offsets away")
+    eq(((note.meta or {}).utau or {}).ph, nil, "take 0 takes the offsets away")
   end
   eq(part ~= nil, true, "")
 end)

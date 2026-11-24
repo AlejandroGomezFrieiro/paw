@@ -328,7 +328,7 @@ function M.add(part: PartRef, group: PartRef)
   local old = M.of(tid)
   local ok, err = pcall(set_parent, tid, gid) as (boolean, string)
   if not ok then
-    error((tostring(err):gsub("^[^:]*:%d+: ", "")), 2)
+    error((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), 2)
   end
   local t = api.part_get(tid)
   if t.output == nil or t.output == old then

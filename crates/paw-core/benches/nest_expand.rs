@@ -28,7 +28,6 @@
 #![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use paw_core::model::chain::SplitRegistry as _;
-use paw_core::model::modifiers::ModRegistry as _;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -203,7 +202,7 @@ impl Syncer {
             bell: Default::default(),
             now: paw_core::clock::ScheduleTime::ZERO,
             kinds: &paw_core::model::chain::SplitKinds::builtin(),
-            modifiers: &paw_core::model::modifiers::ModKinds::builtin(),
+            modifiers: &paw_core::model::modifiers::builtin_kinds(),
         };
         sync(old, new, &mut self.map, &mut ctx, &mut |m| sent.push(m), &mut Vec::new());
     }

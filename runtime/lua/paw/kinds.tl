@@ -66,6 +66,19 @@ function M.mirror(family: string, name: string, fields: types.KindSpec, owner: s
   api.kinds_put(family, name, fields, owner)
 end
 
+--- Put `spec` at `name` in `reg`, the registry of a family. When the
+--- kernel refuses the kind, the registry is as it was, and the error says
+--- why.
+function M.put<T>(reg: registry.Registry<T>, name: string, spec: T)
+  local ok, err = pcall(function() reg:put(name, spec) end) as (boolean, string)
+  if not ok then
+    if reg:get(name) == spec then
+      reg:remove(name)
+    end
+    error((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), 0)
+  end
+end
+
 --- Give `family` to `paw.kinds`: `define` then reaches it.
 function M.family(name: string, family: M.Family)
   M.families[name] = family
@@ -181,7 +194,7 @@ M.family(
       end
       spec.name = name
       spec.title = spec.title or name
-      M.streams:put(name, spec)
+      M.put(M.streams, name, spec)
       return spec
     end,
     remove = function(name: string) M.streams:remove(name) end,

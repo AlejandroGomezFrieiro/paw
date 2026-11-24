@@ -37,9 +37,25 @@ struct StreamGiven {
     control: bool,
     #[serde(default)]
     props: DataSchema,
+    /// The fields of the data of the kind, as every family may give them.
+    #[serde(default)]
+    schema: Option<DataSchema>,
+}
+
+/// A stream kind as the kernel keeps it: the stream of the chain schema,
+/// and the schema of its data.
+pub(crate) struct StreamSpec {
+    stream: Stream,
+    schema: Option<DataSchema>,
 }
 
 impl StreamGiven {
+    /// The stream kind `name` as the kernel keeps it.
+    fn into_spec(mut self, name: &str) -> StreamSpec {
+        let schema = self.schema.take();
+        StreamSpec { stream: self.into_stream(name), schema }
+    }
+
     /// The stream of the chain schema that the kind `name` is.
     fn into_stream(self, name: &str) -> Stream {
         let props = self
@@ -149,7 +165,7 @@ pub(crate) struct KindInfo {
 /// on top and the owner of that entry.
 #[derive(Default)]
 pub(crate) struct KindBook {
-    streams: Kinds<StreamFamily, Stream>,
+    streams: Kinds<StreamFamily, StreamSpec>,
     clips: Kinds<ClipFamily, ClipSpec>,
     parts: Kinds<PartFamily, DataSpec>,
     metas: Kinds<MetaFamily, DataSpec>,
@@ -210,7 +226,7 @@ impl KindBook {
         match family {
             FamilyName::Stream => {
                 let given = spec.map(|spec| read::<StreamGiven>(family, name, spec)).transpose()?;
-                mirror(&mut self.streams, name, given.map(|given| (given.into_stream(name), owner)))
+                mirror(&mut self.streams, name, given.map(|given| (given.into_spec(name), owner)))
             }
             FamilyName::Clip => {
                 let given = spec.map(|spec| read::<ClipSpec>(family, name, spec)).transpose()?;
@@ -252,9 +268,9 @@ impl KindBook {
         let mut out = Vec::new();
         for family in FamilyName::ALL.into_iter().filter(|f| wanted.is_none_or(|w| w == *f)) {
             match family {
-                FamilyName::Stream => out.extend(info_of(&self.streams, |stream| {
-                    let schema = schema_json(stream.props.iter().map(|p| (p.key.as_str(), &p.value)));
-                    (stream.name.clone(), schema, None, None)
+                FamilyName::Stream => out.extend(info_of(&self.streams, |spec| {
+                    let props = || schema_json(spec.stream.props.iter().map(|p| (p.key.as_str(), &p.value)));
+                    (spec.stream.name.clone(), data_schema(spec.schema.as_ref()).or_else(props), None, None)
                 })),
                 FamilyName::Clip => out.extend(info_of(&self.clips, |spec| {
                     (spec.title.clone(), data_schema(spec.schema.as_ref()), Some(spec.gives.to_string()), None)
@@ -272,17 +288,18 @@ impl KindBook {
 
     /// The stream kinds, as the chain schema lists them.
     pub(crate) fn streams(&self) -> impl Iterator<Item = &Stream> {
-        self.streams.iter().map(|(_, stream)| stream)
+        self.streams.iter().map(|(_, spec)| &spec.stream)
     }
 
     /// Check a stream type against its base kind: the kind is defined, and
     /// it takes each property with its value.
     pub(crate) fn check_stream(&self, ty: &StreamType) -> Result<()> {
         let base = &ty.base;
-        let stream = self
+        let stream = &self
             .streams
             .get(base)
-            .with_context(|| format!("no stream kind `{base}`: an extension defines one with paw.kinds.define(\"stream\", ...)"))?;
+            .with_context(|| format!("no stream kind `{base}`: an extension defines one with paw.kinds.define(\"stream\", ...)"))?
+            .stream;
         for (name, value) in ty.props.iter() {
             let Some(param) = stream.props.iter().find(|p| p.key == name) else {
                 let known: Vec<&str> = stream.props.iter().map(|p| p.key.as_str()).collect();
@@ -334,7 +351,8 @@ mod tests {
     fn book_with_video() -> KindBook {
         let mut book = KindBook::default();
         let spec = json!({ "title": "Video", "time": "seconds",
-            "props": { "rate": { "type": "number", "minimum": 1.0 }, "alpha": { "type": "boolean" } } });
+            "props": { "rate": { "type": "number", "minimum": 1.0 }, "alpha": { "type": "boolean" } },
+            "schema": { "frames": { "type": "integer" } } });
         book.put("stream", "video", Some(spec), Some("film".into())).expect("a stream kind");
         book
     }
@@ -357,7 +375,7 @@ mod tests {
         let listed = serde_json::to_value(book.list(Some("stream")).unwrap()).unwrap();
         assert_eq!(listed[0]["owner"], "film");
         assert_eq!(listed[0]["writable"], true);
-        assert_eq!(listed[0]["schema"]["rate"], json!({ "type": "number", "minimum": 1.0 }));
+        assert_eq!(listed[0]["schema"], json!({ "frames": { "type": "integer" } }), "the schema of its data");
         book.put("stream", "video", None, None).unwrap();
         assert!(book.list(None).unwrap().is_empty());
         assert!(book.put("lane", "x", None, None).is_err(), "an unknown family");

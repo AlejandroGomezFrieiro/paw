@@ -197,14 +197,14 @@ local function clip_records(c: types.Clip, part: string, notes: {QueryModule.Nod
     local node = notes[i]
     local n = node.data as types.Note
     local m = meta_of(n.meta)
-    if m and next(m as {string: string}) then
+    if n.lyric or (m and next(m as {string: string})) then
       local nloc: contracts.Location = n.id and {uri = A.note(c.id, n.id)} or loc
       local nwhere: string
       local function at(): string
         nwhere = nwhere or (c.name .. " " .. paw.time.format(c.start + n.start) .. " " .. paw.music.name(n.pitch))
         return nwhere
       end
-      local lyric = str(m.lyric)
+      local lyric = str(n.lyric)
       if lyric then
         add(lyric, "lyric", nloc, at())
       end

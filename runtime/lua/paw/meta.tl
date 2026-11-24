@@ -55,7 +55,7 @@ kinds.family(
       end
       spec.name, spec.version = key, version
       spec.title = spec.title or key
-      M.keys:put(key, spec)
+      kinds.put(M.keys, key, spec)
       return spec
     end,
     remove = function(key: string) M.keys:remove(key) end,

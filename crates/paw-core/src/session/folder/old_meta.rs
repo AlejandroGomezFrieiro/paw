@@ -1,9 +1,12 @@
 //! The converter of the keys of `meta` that became fields: a part's
 //! `meta.kind` becomes `Part::kind`, its `meta.group` becomes
-//! `Part::parent`, and a note's `meta.lyric` becomes `Note::lyric`. The
-//! reader of a project folder runs it on each project that it opens, so a
-//! project that an older paw saved keeps its part kinds, groups and lyrics.
+//! `Part::parent`, and a note's `meta.lyric` becomes `Note::lyric`. Each
+//! open runs it: the reader of a project folder, the open of a project in
+//! one JSON file and the open of a safety copy. So a project that an older
+//! paw saved keeps its part kinds, groups and lyrics.
 //! The next save writes only the fields.
+//! It also keeps the read of a lyric in the `paw:` text of an older clip
+//! file ([`clip_lyric`]).
 //!
 //! paw keeps no backward compatibility before its first release. Remove
 //! this module at the first release, when no project of the older form is
@@ -11,13 +14,19 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::model::{Clip, ClipContent, Part, Project};
 
+/// The lyric of a note in the `paw:` text of an older clip file, which
+/// now writes it as a Flex Data Lyrics message.
+pub(crate) fn clip_lyric(extra: &Map<String, Value>) -> Option<String> {
+    extra.get("lyric").and_then(Value::as_str).map(str::to_owned)
+}
+
 /// Move the old keys of `meta` of each part and note of `project` into
 /// their fields. A field that has a value keeps it, and the old key goes.
-pub(super) fn convert(project: &mut Project) {
+pub(crate) fn convert(project: &mut Project) {
     for part in project.parts.iter_mut().chain(std::iter::once(&mut project.master)) {
         if needs_part(part) {
             convert_part(Arc::make_mut(part));

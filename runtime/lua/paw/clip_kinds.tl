@@ -374,7 +374,7 @@ local function define(name: string, spec: contracts.ClipKind<M.Data>): contracts
   spec.letter = spec.letter or name:sub(1, 1):upper()
   spec.version = version
   spec.timeline = spec.timeline or "beats"
-  M.kinds:put(name, spec)
+  kinds.put(M.kinds, name, spec)
   if spec.insert and runtime.insert then
     local editor = spec.editor
     runtime.insert.add(

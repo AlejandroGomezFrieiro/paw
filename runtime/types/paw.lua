@@ -5300,6 +5300,14 @@ function paw.kinds.list(family) end
 ---@param owner any
 function paw.kinds.mirror(family, name, fields, owner) end
 
+--- Put `spec` at `name` in `reg`, the registry of a family. When the
+--- kernel refuses the kind, the registry is as it was, and the error says
+--- why.
+---@param reg any
+---@param name any
+---@param spec any
+function paw.kinds.put(reg, name, spec) end
+
 --- Take away the kind `name` of `family`: things of the kind that the
 --- project holds keep it, and the kind below comes back if there is one.
 ---@param family any

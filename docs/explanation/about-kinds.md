@@ -72,9 +72,12 @@ loses nothing.
 
 A key of `meta` belongs to one extension, and the core never reads it.
 When the core or a file format needs the data, the data becomes a field.
-The lyric of a note is the example. A MIDI file keeps lyrics, so MIDI
-import and export read and write them, and the lyric is the field
-`note.lyric`, which is plain text. The utau extension keeps the phonemes
-and the tuning of a sung note in its own key of `meta`, because only utau
-reads them. The kind of a part and the group that holds a part are fields
+The lyric of a note is the example. A lyric is MIDI data: a MIDI file
+keeps lyrics, MIDI import and export read and write them, and a MIDI clip
+file keeps each lyric as a standard MIDI 2.0 Lyrics message. So the
+lyric is the field `note.lyric`, which is plain text.
+
+The data of utau
+belongs to its kind: the phonemes, the pitch curves and the flags of a
+sung note are in utau's own key of `meta`, because only utau reads them. The kind of a part and the group that holds a part are fields
 for the same reason: the views, the mixer and saving all read them.

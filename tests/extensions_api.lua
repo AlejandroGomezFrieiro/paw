@@ -578,6 +578,8 @@ local registries = {
     put = "paw.buftype(%q, { create = function() return {} end, render = function() end })",
   },
   { reg = paw.textbuf.kinds, core = "history", put = "paw.textbuf.kind(%q, { read = function() return {} end })" },
+  { reg = paw.kinds.streams, put = "paw.kinds.define('stream', %q, { time = 'beats' })" },
+  { reg = paw.meta.keys, put = "paw.meta.define(%q, { title = 'Mine' })" },
   { reg = paw.part_kinds.kinds, put = "paw.kinds.define('part', %q, { title = 'Mine' })" },
   {
     reg = paw.clip_kinds.kinds,

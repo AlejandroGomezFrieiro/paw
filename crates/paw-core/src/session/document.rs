@@ -25,7 +25,6 @@ use crate::clock::ScheduleTime;
 use crate::events::{ClipCopied, KernelEvent as E, NestCopied, PartCopied};
 use crate::history::{History, StateId};
 use crate::model::chain::SplitRegistry as _;
-use crate::model::modifiers::ModRegistry as _;
 use crate::model::{Clip, ClipContent, DeviceInst, Id, Links, MASTER_ID, Project, Part};
 use crate::sync::ModelEvent;
 
@@ -110,7 +109,7 @@ impl Document {
             next_id: MASTER_ID + 1,
             kinds: KindBook::default(),
             split_kinds: crate::model::chain::SplitKinds::builtin(),
-            modifier_kinds: crate::model::modifiers::ModKinds::builtin(),
+            modifier_kinds: crate::model::modifiers::builtin_kinds(),
             events: Vec::new(),
             warnings: Vec::new(),
         }

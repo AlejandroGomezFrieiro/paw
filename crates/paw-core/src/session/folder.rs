@@ -48,7 +48,7 @@ use crate::clipfile;
 use crate::model::{Chain, Clip, ClipContent, Control, KindData, Notes, Project, Target, Part};
 
 mod nests;
-mod old_meta;
+pub(crate) mod old_meta;
 pub(super) use nests::read_nested;
 
 /// The file that makes a folder a project.

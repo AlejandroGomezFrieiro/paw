@@ -656,7 +656,7 @@ test("the vocal editor moves and replaces phonemes, in the window and with keys"
   paw.keymap.feed("<C-u>xi<CR>")
   eq(clip:notes()[2].meta.utau.ph[1].phoneme, "xi", "which is then sung instead")
   win.press("down", 64 + box.x0 + 20, y, { button = "right" })
-  eq(clip:notes()[2].meta.utau, nil, "a right click puts it back")
+  eq(clip:notes()[2].meta, nil, "a right click puts it back")
   -- The keys: ( and ) choose a phoneme, [ and ] move it, gr types it.
   paw.ui.focus("utau")
   editor.pitch, editor.beat, editor.ph = 62, 1, nil
@@ -670,7 +670,7 @@ test("the vocal editor moves and replaces phonemes, in the window and with keys"
   local text = table.concat(api.ui_snapshot(120, 40), "\n")
   eq(text:find("[a (!い)]", 1, true) ~= nil, true, "the chosen phoneme is marked in the terminal")
   paw.keymap.feed("gR")
-  eq(clip:notes()[2].meta.utau, nil, "gR puts it back")
+  eq(clip:notes()[2].meta, nil, "gR puts it back")
   paw.keymap.feed("[p")
   eq(editor.ph.k, 1, "[p goes back")
   utau.phonemes[clip.id] = nil
@@ -694,11 +694,11 @@ test("the vocal editor's inspector sets properties of every selected note", func
   win.drag(fx, fy, fx + 20, fy)
   local n = clip:notes()
   eq(
-    (n[1].meta.utau or {}).tu .. " " .. (n[2].meta.utau or {}).tu,
+    ((n[1].meta or {}).utau or {}).tu .. " " .. ((n[2].meta or {}).utau or {}).tu,
     "20 20",
     "a value dragged goes to every selected note"
   )
-  eq(n[3].meta.utau, nil, "and no other")
+  eq(n[3].meta, nil, "and no other")
   win.press("down", fx, fy)
   win.press("up", fx, fy)
   eq(editor.entry and editor.entry.kind, "field", "a click types the value")

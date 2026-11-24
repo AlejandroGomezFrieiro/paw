@@ -1255,6 +1255,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.kinds.get(family, name)`: The kind `name` of `family` as defined, or nil.
 - `paw.kinds.list(family)`: The kinds of `family` (of every family when nil) as the kernel keeps them, sorted by family and name, each with its owner and the schema of its data.
 - `paw.kinds.mirror(family, name, fields, owner)`: Give the kind `name` of `family` to the kernel: the fields that it keeps, and its owner. A nil `fields` takes the kind away.
+- `paw.kinds.put(reg, name, spec)`: Put `spec` at `name` in `reg`, the registry of a family. When the kernel refuses the kind, the registry is as it was, and the error says why.
 - `paw.kinds.remove(family, name)`: Take away the kind `name` of `family`: things of the kind that the project holds keep it, and the kind below comes back if there is one.
 
 ## Module paw.lanes

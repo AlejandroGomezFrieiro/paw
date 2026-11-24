@@ -210,7 +210,7 @@ local function note_view(n)
     start = n.start,
     length = n.length,
     velocity = n.velocity,
-    lyric = n.meta and n.meta.lyric,
+    lyric = n.lyric,
   }
 end
 

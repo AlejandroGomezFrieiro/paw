@@ -93,6 +93,9 @@ test("a part of a kind that no extension defines shows the kind, plays, and keep
   api.part_set(part.id, { kind = "theremin" })
   part.meta = { theremin = { hand = "left" } }
   eq(paw.part_kinds.describe(part.id), "theremin (no extension here defines it)", "K names the kind")
+  paw.ui.focus("arrange")
+  T.settle()
+  T.expect_screen("absent-kind", 80, 20, { rows = { 2, 4 }, cols = { 1, 20 } })
   eq(loudest() > 0.01, true, "it plays")
   local path = T.scratch .. "/odd.paw"
   api.project_save(path)
@@ -160,7 +163,7 @@ test("a key of meta names the module that keeps it, and :checkhealth lists the k
   paw.cursor.set_part(part)
   paw.ui.focus("arrange")
   paw.cmd("info")
-  eq(T.hover_text():find("meta    stray (no loaded module declares it)", 1, true) ~= nil, true, "K says so")
+  eq(T.screen(120, 40):find("meta    stray (no loaded module declares it)", 1, true) ~= nil, true, "K says so")
   paw.keymap.feed("<Esc>")
   local undeclared = paw.meta.undeclared()
   eq(#undeclared .. " " .. undeclared[1].key .. " " .. undeclared[1].places[1], "1 stray part Score", "listed")

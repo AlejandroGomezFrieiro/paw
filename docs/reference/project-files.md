@@ -229,10 +229,17 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
 - Notes are MIDI 2.0 note-on and note-off messages with velocities of 16
   bits and their attribute. Controller moves are MIDI 2.0 messages with
   values of 32 bits.
-- The lyric of a note, its `meta`, its id (when the ids are not 1, 2, 3
-  in order), and the start of a note before the start of the clip are in
-  Flex Data text that starts with `paw:`. `paw clip cat` shows a lyric as
-  `lyric "la"`.
+- The lyric of a note is a MIDI 2.0 Lyrics message (Flex Data, status
+  bank 2, status 1) at the start of the note, in the group and channel of
+  the note. A long lyric takes several packets. `paw clip cat` shows a
+  lyric as `lyric "la"`.
+- When paw reads a clip, a lyric goes to the note that starts at the same
+  time in the same group and channel. When two such notes start there,
+  for example in a chord, the first note in the file gets the lyric. A
+  lyric with no such note is left out.
+- The `meta` of a note, its id (when the ids are not 1, 2, 3 in order),
+  and the start of a note before the start of the clip are in Flex Data
+  text that starts with `paw:`.
 - End of Clip is at the length of the clip.
 - paw also reads MIDI 1.0 messages in a clip file, and a file with a
   different number of ticks to a beat. It tells what it left out.

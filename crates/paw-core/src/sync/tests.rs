@@ -3,7 +3,6 @@
 #![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 #![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 use crate::model::chain::SplitRegistry as _;
-use crate::model::modifiers::ModRegistry as _;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -88,7 +87,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
             kinds: &crate::model::chain::SplitKinds::builtin(),
-            modifiers: &crate::model::modifiers::ModKinds::builtin(),
+            modifiers: &crate::model::modifiers::builtin_kinds(),
         };
         let mut sent = Vec::new();
         let before = compiled(&map);
@@ -329,7 +328,7 @@ fn follows(follow: Follow) -> bool {
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
         kinds: &crate::model::chain::SplitKinds::builtin(),
-        modifiers: &crate::model::modifiers::ModKinds::builtin(),
+        modifiers: &crate::model::modifiers::builtin_kinds(),
     };
     let mut map = Mapper::new();
     map.follow = follow;
@@ -436,7 +435,7 @@ fn compiles(states: &[&Project]) -> (Mapper, usize) {
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
             kinds: &crate::model::chain::SplitKinds::builtin(),
-            modifiers: &crate::model::modifiers::ModKinds::builtin(),
+            modifiers: &crate::model::modifiers::builtin_kinds(),
         };
         let before = clips::COMPILES.with(|c| c.get());
         sync(old, state, &mut map, &mut ctx, &mut |_| {}, &mut Vec::new());
@@ -1202,7 +1201,7 @@ fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
         kinds: &crate::model::chain::SplitKinds::builtin(),
-        modifiers: &crate::model::modifiers::ModKinds::builtin(),
+        modifiers: &crate::model::modifiers::builtin_kinds(),
     };
     let mut sent = Vec::new();
     sync(&Project::default(), &project, &mut Mapper::new(), &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());
