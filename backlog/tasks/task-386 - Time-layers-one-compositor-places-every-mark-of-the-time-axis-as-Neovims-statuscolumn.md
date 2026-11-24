@@ -1,11 +1,12 @@
 ---
 id: TASK-386
 title: >-
-  Time layers: one compositor places every mark of the time axis, as Neovim's
-  statuscolumn
+  Ruler rows and marks: one compositor places every row and mark of the ruler
+  (as statuscolumn and extmarks)
 status: To Do
 assignee: []
 created_date: '2026-11-24T17:41:00Z'
+updated_date: '2026-11-24T17:52:00Z'
 labels:
   - design
   - ux
@@ -32,6 +33,12 @@ Layers in their order: grid, bar numbers, clips (edges), sections, markers (mete
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A proposed ADR, accepted by the owner, before any code
+- [ ] #2 paw.ruler.row(name, spec), paw.marks.namespace, paw.marks.set/del/clear, paw.ruler.route and paw.ruler.set exist as ADR 0041 says; paw.ruler.add and paw.ruler.add_lane are gone (git grep); the meter and tempo marks, cues, regions, loop, punch, time selection and rulerplus use them
+- [ ] #3 A visual test: the test project ruler-everything (meter changes, tempo changes, nested regions, cues, loop, punch, time selection, a time fold, a subproject scope, rulerplus with relativebar, the second ruler row and the tempo lane) has golden screens at three zoom levels and in a narrow window; the before screens (today's ruler) are in the report
+- [ ] #4 The time axis test of TASK-385 runs on ruler-everything and passes: every sign is in the column of its time
+- [ ] #5 K on a ruler column lists every mark there, with the labels that are not shown; a test with real keys
+- [ ] #6 :ext.unload of an extension removes its rows and its namespaces; a test
+- [ ] #7 Docs: the reference of paw.ruler and paw.marks, a how-to that adds a row and routes a namespace, and the rulerplus example on the new API; Vale 0
 <!-- AC:END -->
 
 ## Definition of Done
@@ -45,3 +52,9 @@ Layers in their order: grid, bar numbers, clips (edges), sections, markers (mete
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-24, owner: the design is accepted as ADR 0041 (architecture/decisions/0041-ruler-rows-and-marks.md), the hybrid of rows (as statuscolumn items, computed for the time in sight, ordered by the user's paw.opt.rulerrows) and marks (as extmarks, in a namespace per owner, row = name or over = name as ghost text, ranges as background). It replaces the layers-only answers 1 to 4 above where they differ. One compositor: a sign is always at axis.x_of(time); one sign per column per row by priority; labels are ghost text after the sign, joined by priority, names shortened with an ellipsis, numbers whole or dropped; K lists every mark of a column; the cursor and the playhead last, through all rows.
+<!-- SECTION:NOTES:END -->
