@@ -94,7 +94,7 @@ impl PartRt {
             applied_pre: 1.0,
             applied_heard: 1.0,
             started: false,
-            events: EventBuf::with_capacity(1024),
+            events: EventBuf::with_capacity(crate::event::PART_EVENTS),
             live: Vec::with_capacity(256),
             peak: [0.0; 2],
             input_first: 0,

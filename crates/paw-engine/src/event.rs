@@ -11,6 +11,9 @@ pub struct Event {
     pub kind: EventKind,
 }
 
+/// How many events the event list of a part holds.
+pub const PART_EVENTS: usize = 1024;
+
 /// Events dropped since the program started: pushed into a full list, or
 /// arriving from a MIDI port faster than the engine took them.
 static DROPPED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
