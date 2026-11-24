@@ -1537,10 +1537,11 @@ local record Frame
 end
 
 --- Keep the playhead in view while playing, and the cursor whenever it
---- moves; unless another window leads this one's time (`timebind`). Each
---- window follows them in its own time, and only while they are inside
---- the time it shows: a window inside a subproject stays in its bars
---- while the cursor or the playhead is elsewhere in the song.
+--- moves or playback stops (the cursor stays on screen, as in Vim);
+--- unless another window leads this one's time (`timebind`). Each window
+--- follows them in its own time, and only while they are inside the time
+--- it shows: a window inside a subproject stays in its bars while the
+--- cursor or the playhead is elsewhere in the song.
 local function follow(self: Arrange, F: Frame, led: boolean)
   local t, span = F.t, F.span
   -- The axis at the scroll the window has before it follows.
@@ -1558,6 +1559,9 @@ local function follow(self: Arrange, F: Frame, led: boolean)
     if shown(position) and (position < self.scroll or ahead(position) >= span) then
       self.scroll = paw.time.bar_floor(position)
     end
+    -- The playhead moved the view, so the cursor may be off screen. Forget
+    -- the seen beat: the first frame after the stop scrolls to the cursor.
+    beat = nil
   elseif beat and beat ~= self.seen_beat and not led then
     -- A jump aligns the cursor in the view's beats, through the folds.
     local jumped = paw.keymap.jump_serial ~= self.seen_jump
