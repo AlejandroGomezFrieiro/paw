@@ -2,9 +2,9 @@
 -- draw it. It survives a reload.
 --
 -- The position is a whole number of ticks (paw/timegrid.tl): `tick`, and
--- `want`, the tick that the last move of time asked for, which a bound
--- (the scope, a fold) can keep the cursor from. `beat` is the tick in
--- beats, for the API: a beat set from outside becomes a tick once, here.
+-- `want`, the tick where the last move of time landed, which a move by
+-- rows keeps when a bound (the scope, a fold) took the cursor off it.
+-- `beat` is the tick in beats, for the API: a beat set from outside becomes a tick once, here.
 --
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
@@ -73,8 +73,8 @@ local record M
   beat: number
   --- The position of the cursor in ticks (read only: `set_tick` sets it).
   tick: integer
-  --- The tick that the last move of time asked for: a move by rows keeps
-  --- it when a bound kept the cursor from it.
+  --- The tick where the last move of time landed: a move by rows keeps
+  --- it when a bound took the cursor off it.
   want: integer
   set_tick: function(at: integer)
   lens: function(): integer
@@ -288,6 +288,9 @@ local function stops(lines: {Row}): {Row}
   return out
 end
 
+-- Moves the cursor to a tick without touching `want` (set below).
+local place: function(at: integer): boolean
+
 --- Move by rows. In normal mode, the rows of open automation lanes count.
 --- After an operator or in a selection, only parts count, as for `dj`.
 --- From the last part, a move down goes on to the master, and from the
@@ -339,7 +342,8 @@ function M.move_part(delta: integer)
   -- from: as Vim's `curswant`.
   if want ~= tick then
     local wanted = want
-    M.set_tick(wanted)
+    place(wanted)
+    want = wanted
   end
 end
 
@@ -348,13 +352,11 @@ end
 --- folded span as one step and stays on its column.
 M.over = nil
 
---- Put the cursor at a tick: not before 0, in the scope's time
---- (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want`
---- becomes the tick asked for. A tick with a fraction is an error in the
---- tests, and is rounded else.
-function M.set_tick(at: integer)
-  at = timegrid.checked(at, "cursor.set_tick")
-  want = at
+--- Move the cursor to a tick: not before 0, in the scope's time
+--- (`paw.timegrid.bounds`), and over a fold as one step (`over`). It does
+--- not change `want`. Gives true when a fold moved the cursor to another
+--- tick than the scope allowed.
+place = function(at: integer): boolean
   at = math.max(0, at)
   local from, to: number, number
   if timegrid.bounds then
@@ -363,11 +365,25 @@ function M.set_tick(at: integer)
   if from then
     at = math.min(math.max(at, timegrid.tick(from)), timegrid.tick(to))
   end
+  local hopped = false
   if M.over then
-    at = timegrid.tick(M.over(timegrid.beat(tick), timegrid.beat(at)))
+    local over = timegrid.tick(M.over(timegrid.beat(tick), timegrid.beat(at)))
+    hopped = over ~= at
+    at = over
   end
   tick = at
   save()
+  return hopped
+end
+
+--- Put the cursor at a tick, as `place` does. `want` becomes the tick asked
+--- for, as Vim's `curswant`: a scope that stops the cursor does not change
+--- it. A hop over a closed block is a move that the user sees, so `want`
+--- becomes the tick where the cursor lands. A tick with a fraction is an
+--- error in the tests, and is rounded else.
+function M.set_tick(at: integer)
+  at = timegrid.checked(at, "cursor.set_tick")
+  want = place(at) and tick or at
 end
 
 --- Put the cursor at a beat: the nearest tick, as `set_tick`.
