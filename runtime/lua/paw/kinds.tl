@@ -70,10 +70,16 @@ end
 --- kernel refuses the kind, the registry is as it was, and the error says
 --- why.
 function M.put<T>(reg: registry.Registry<T>, name: string, spec: T)
+  local old = reg:get(name)
   local ok, err = pcall(function() reg:put(name, spec) end) as (boolean, string)
   if not ok then
     if reg:get(name) == spec then
       reg:remove(name)
+    end
+    -- A put by the owner of the old entry replaced it: the same caller
+    -- puts it back, with the same owner.
+    if old ~= nil and reg:get(name) ~= old then
+      reg:put(name, old)
     end
     error((tostring(err):gsub("^[^:]*:%d+: ", ""):gsub("^runtime error: ", "")), 0)
   end

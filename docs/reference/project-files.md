@@ -233,10 +233,14 @@ A MIDI clip is a MIDI 2.0 Clip File (`SMF2CLIP`, M2-116-U).
   bank 2, status 1) at the start of the note, in the group and channel of
   the note. A long lyric takes several packets. `paw clip cat` shows a
   lyric as `lyric "la"`.
-- When paw reads a clip, a lyric goes to the note that starts at the same
-  time in the same group and channel. When two such notes start there,
-  for example in a chord, the first note in the file gets the lyric. A
-  lyric with no such note is left out.
+- When paw reads a clip, a lyric goes to the next note in the file that
+  starts at the same time in the same group and channel. paw writes each
+  lyric just before its note, so in a chord the lyric stays on its note.
+- A file of another program can put a lyric after its note. Then the
+  lyric goes to the first note in the file that starts at that time in
+  the same group and channel and has no lyric. With no such note, it goes
+  to a note that starts at that time on another channel. With no note at
+  that time, paw leaves the lyric out and the open says so.
 - The `meta` of a note, its id (when the ids are not 1, 2, 3 in order),
   and the start of a note before the start of the clip are in Flex Data
   text that starts with `paw:`.

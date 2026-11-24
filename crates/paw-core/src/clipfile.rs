@@ -308,6 +308,14 @@ fn sequence_words(mut messages: Vec<Message>, length: f64) -> Vec<u32> {
     words
 }
 
+/// Add the text bytes of a Flex Data packet (its last three words) to
+/// `text`, without the zeros that fill the packet.
+fn push_text(text: &mut Vec<u8>, packet: &[u32]) {
+    for w in &packet[1..] {
+        text.extend(w.to_be_bytes().into_iter().filter(|&b| b != 0));
+    }
+}
+
 /// How many 32-bit words a packet of this message type takes.
 fn packet_words(kind: u32) -> usize {
     match kind {
@@ -331,12 +339,21 @@ struct Open {
     address: u32,
 }
 
-/// A Lyrics message: its tick, its group and channel ([`address`]), and
-/// its text.
+/// A Lyrics message that waits for its note: its tick, its group, its
+/// channel (none when the message is to the whole group), and its text.
 struct Lyric {
     tick: i64,
-    address: u32,
+    group: u32,
+    channel: Option<u32>,
     text: String,
+}
+
+impl Lyric {
+    /// Whether a note that starts at `tick` on `address` ([`address`]) is
+    /// in the lyric's group and channel at its tick.
+    fn is_for(&self, tick: i64, address: u32) -> bool {
+        self.tick == tick && self.group == address >> 8 && self.channel.is_none_or(|c| c == address & 0xf)
+    }
 }
 
 /// What reading a file has seen so far.
@@ -350,11 +367,16 @@ struct Reader {
     open: HashMap<u8, Vec<Open>>,
     /// The notes that ended, with their length.
     done: Vec<Open>,
+    /// The lyrics read that no note-on has taken yet.
     lyrics: Vec<Lyric>,
     count: usize,
-    /// The bytes of the Flex Data text read so far. Bytes, not characters:
-    /// a character of UTF-8 can be cut between two packets.
+    /// The bytes of the `paw:` text read so far. Bytes, not characters: a
+    /// character of UTF-8 can be cut between two packets.
     text: Vec<u8>,
+    /// The bytes of the lyric read so far on each group, form of address
+    /// and channel (bits 16 to 29 of its packets), so that lyrics of two
+    /// channels can come in turns.
+    lyric_text: HashMap<u32, Vec<u8>>,
     pending: Option<Map<String, Value>>,
     skipped: HashMap<&'static str, usize>,
 }
@@ -373,6 +395,7 @@ impl Reader {
             lyrics: Vec::new(),
             count: 0,
             text: Vec::new(),
+            lyric_text: HashMap::new(),
             pending: None,
             skipped: HashMap::new(),
         }
@@ -419,24 +442,20 @@ impl Reader {
         let w0 = packet[0];
         let form = (w0 >> 22) & 3;
         let status = flex_status(w0);
-        if status != flex_status(PAW_TEXT) && status != flex_status(LYRICS) {
+        let starts = form == 0 || form == 1;
+        let ends = form == 0 || form == 3;
+        if status == flex_status(LYRICS) {
+            self.lyric(packet, starts, ends);
             return;
         }
-        if form == 0 || form == 1 {
+        if status != flex_status(PAW_TEXT) {
+            return;
+        }
+        if starts {
             self.text.clear();
         }
-        for w in &packet[1..] {
-            for b in w.to_be_bytes() {
-                if b != 0 {
-                    self.text.push(b);
-                }
-            }
-        }
-        if (form == 0 || form == 3) && status == flex_status(LYRICS) {
-            let text = String::from_utf8_lossy(&self.text).into_owned();
-            self.lyrics.push(Lyric { tick: self.tick, address: address(w0), text });
-            self.text.clear();
-        } else if form == 0 || form == 3 {
+        push_text(&mut self.text, packet);
+        if ends {
             if let Some(json) = self.text.strip_prefix(b"paw:")
                 && let Ok(Value::Object(map)) = serde_json::from_slice::<Value>(json)
             {
@@ -447,6 +466,31 @@ impl Reader {
                 }
             }
             self.text.clear();
+        }
+    }
+
+    /// A packet of a Lyrics message. A whole lyric waits for the next
+    /// note-on at its tick in its group and channel.
+    fn lyric(&mut self, packet: &[u32], starts: bool, ends: bool) {
+        let w0 = packet[0];
+        let addrs = (w0 >> 20) & 3;
+        if addrs > 1 {
+            if starts {
+                self.skip("lyrics with a reserved address");
+            }
+            return;
+        }
+        let key = (w0 >> 16) & 0x3f0f;
+        let text = self.lyric_text.entry(key).or_default();
+        if starts {
+            text.clear();
+        }
+        push_text(text, packet);
+        if ends {
+            let text = String::from_utf8_lossy(&std::mem::take(text)).into_owned();
+            let at = address(w0);
+            let channel = (addrs == 0).then_some(at & 0xf);
+            self.lyrics.push(Lyric { tick: self.tick, group: at >> 8, channel, text });
         }
     }
 
@@ -472,7 +516,7 @@ impl Reader {
 
     fn note_on(&mut self, key: u8, vel: u8, attr: paw_types::Attr, address: u32) {
         let extra = self.pending.take().unwrap_or_default();
-        let note = Note {
+        let mut note = Note {
             start: self.beat(self.tick),
             length: 0.0,
             pitch: key,
@@ -485,6 +529,9 @@ impl Reader {
             id: extra.get("id").and_then(Value::as_u64).unwrap_or(0),
             attr: NoteAttr::of(attr),
         };
+        if let Some(i) = self.lyrics.iter().position(|l| l.is_for(self.tick, address)) {
+            note.lyric = Some(self.lyrics.remove(i).text);
+        }
         let end = extra
             .get("len")
             .and_then(Value::as_i64)
@@ -544,15 +591,17 @@ impl Reader {
         }
         // In the order they started.
         self.done.sort_by_key(|o| o.seq);
-        // A lyric goes to the first note, in the file's order, that starts
-        // at its tick in its group and channel and has no lyric yet.
+        // A lyric that no note-on came after (another program can write it
+        // after its note) goes to the first note, in the file's order, that
+        // starts at its tick in its group and channel with no lyric yet;
+        // else to such a note on any channel.
         for lyric in std::mem::take(&mut self.lyrics) {
-            let note = self
-                .done
-                .iter_mut()
-                .find(|o| o.tick == lyric.tick && o.address == lyric.address && o.note.lyric.is_none());
-            match note {
-                Some(o) => o.note.lyric = Some(lyric.text),
+            let free = |o: &Open| o.tick == lyric.tick && o.note.lyric.is_none();
+            let place = (self.done.iter())
+                .position(|o| free(o) && lyric.is_for(o.tick, o.address))
+                .or_else(|| self.done.iter().position(free));
+            match place {
+                Some(i) => self.done[i].note.lyric = Some(lyric.text),
                 None => self.skip("lyrics with no note that starts with them"),
             }
         }
@@ -953,21 +1002,63 @@ mod tests {
     }
 
     #[test]
-    fn a_lyric_of_a_chord_goes_to_the_first_note_of_its_tick_and_channel() {
+    fn a_lyric_after_its_notes_goes_to_the_first_free_note_of_its_tick() {
+        // Another program can write a lyric after the note-ons of its tick.
+        let lyric = |words: &mut Vec<u32>, head: u32, text: &str| {
+            words.push(utility(0x4, 0));
+            flex_message(words, head, text);
+        };
         let mut body = Vec::new();
-        flex_message(&mut body, LYRICS, "oh");
         body.extend(note_on_after(0));
         body.extend([utility(0x4, 0), 0x4090_4000, 0x8000_0000]);
-        // On channel 2: not this lyric's note.
-        let mut other = Vec::new();
-        flex_message(&mut other, LYRICS | 1 << 16, "ah");
-        body.extend([utility(0x4, 1)]);
-        body.extend(other);
-        body.extend(note_on_after(0));
+        lyric(&mut body, LYRICS, "oh");
+        // On channel 2, with no note on channel 2: a note of another channel.
+        body.extend(note_on_after(1));
+        lyric(&mut body, LYRICS | 1 << 16, "ah");
+        // No note at all.
+        body.push(utility(0x4, 1));
+        lyric(&mut body, LYRICS, "eh");
         let clip = decode(&file_with("", &body)).unwrap();
         let lyrics: Vec<Option<&str>> = clip.notes.iter().map(|n| n.lyric.as_deref()).collect();
-        assert_eq!(lyrics, [Some("oh"), None, None]);
+        assert_eq!(lyrics, [Some("oh"), None, Some("ah")]);
         assert_eq!(clip.skipped, ["1 lyrics with no note that starts with them"]);
+    }
+
+    #[test]
+    fn a_lyric_of_the_second_note_of_a_chord_stays_on_the_second_note() {
+        let mut notes = named(vec![note(0.0, 1.0, 60), note(0.0, 1.0, 64)]);
+        notes[1].lyric = Some("la".into());
+        let clip = decode(&encode(&notes, &[], 1.0).unwrap()).unwrap();
+        let lyrics: Vec<Option<&str>> = clip.notes.iter().map(|n| n.lyric.as_deref()).collect();
+        assert_eq!(lyrics, [None, Some("la")]);
+    }
+
+    #[test]
+    fn lyrics_of_two_channels_in_turns_and_to_a_group_read_apart() {
+        let mut a = Vec::new();
+        flex_message(&mut a, LYRICS, "abcdefghijklmnop");
+        let mut b = Vec::new();
+        flex_message(&mut b, LYRICS | 1 << 16, "ABCDEFGHIJKLMNOP");
+        // Packets of channel 1 and channel 2 in turns.
+        let mut body = vec![utility(0x4, 0)];
+        body.extend([&a[..4], &b[..4], &a[4..], &b[4..]].concat());
+        body.extend(note_on_after(0));
+        body.extend([utility(0x4, 0), 0x4091_4000, 0x8000_0000]);
+        // To the whole group: the note on channel 2 takes it.
+        let mut group = Vec::new();
+        flex_message(&mut group, LYRICS | 1 << 20, "oh");
+        body.push(utility(0x4, 1));
+        body.extend(group);
+        body.extend([utility(0x4, 0), 0x4091_4200, 0x8000_0000]);
+        // A reserved address is left out.
+        let mut reserved = Vec::new();
+        flex_message(&mut reserved, LYRICS | 2 << 20, "no");
+        body.push(utility(0x4, 0));
+        body.extend(reserved);
+        let clip = decode(&file_with("", &body)).unwrap();
+        let lyrics: Vec<Option<&str>> = clip.notes.iter().map(|n| n.lyric.as_deref()).collect();
+        assert_eq!(lyrics, [Some("abcdefghijklmnop"), Some("ABCDEFGHIJKLMNOP"), Some("oh")]);
+        assert_eq!(clip.skipped, ["1 lyrics with a reserved address"]);
     }
 
     #[test]

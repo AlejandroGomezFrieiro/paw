@@ -1461,6 +1461,7 @@ fn fill_clips(
         .into_iter()
         .collect();
     let decoded = read_clips(fs, &unique);
+    left_out(&unique, &decoded, problems);
     // The notes of each file made once: the clips that name one file (the
     // clips of a link, a split clip's halves) share them, as copies do.
     type FileNotes<'r> = (Notes, &'r [Control]);
@@ -1527,6 +1528,18 @@ fn fill_clips(
         }
     }
     clip_files
+}
+
+/// Say what each clip file read had that its clip has no place for, such
+/// as a lyric with no note: an open tells it, as an import does.
+fn left_out(paths: &[PathBuf], read: &[Result<clipfile::Clip>], problems: &mut Vec<String>) {
+    for (path, clip) in paths.iter().zip(read) {
+        if let Ok(clip) = clip
+            && !clip.skipped.is_empty()
+        {
+            problems.push(format!("{}: left out {}", path.display(), clip.skipped.join(", ")));
+        }
+    }
 }
 
 /// Read and decode clip files, in parallel.
@@ -1766,7 +1779,9 @@ impl super::Session {
         }
         let mut part: Part = serde_json::from_value(value).with_context(|| format!("reading {}", folder.display()))?;
         let unique: Vec<PathBuf> = files.iter().map(|(_, p)| p.clone()).collect::<BTreeSet<_>>().into_iter().collect();
-        let decoded: HashMap<PathBuf, Result<clipfile::Clip>> = unique.iter().cloned().zip(read_clips(&DiskFiles, &unique)).collect();
+        let read = read_clips(&DiskFiles, &unique);
+        left_out(&unique, &read, &mut problems);
+        let decoded: HashMap<PathBuf, Result<clipfile::Clip>> = unique.iter().cloned().zip(read).collect();
         let by_id: HashMap<u64, PathBuf> = files.into_iter().collect();
         for clip in part.clips.iter_mut().chain(part.cues.iter_mut()) {
             let Some(path) = by_id.get(&clip.id) else {
@@ -2238,6 +2253,26 @@ mod tests {
         let (_, files) = kinds_round_trip(&read);
         let text: String = files.values().map(|f| String::from_utf8_lossy(f).into_owned()).collect();
         assert!(!text.contains("\"group\""), "the next save writes no old key");
+    }
+
+    #[test]
+    fn an_open_tells_of_a_lyric_with_no_note_in_a_clip_file() {
+        use crate::session::project_files::MemoryFiles;
+        let dir = scratch("stray-lyric");
+        let layout = layout(&project(1, 1), &json!({}), None, &dir, &Home::default()).unwrap();
+        let mut files: BTreeMap<PathBuf, Vec<u8>> = layout.files.into_iter().collect();
+        let (path, clip) = files.iter_mut().find(|(p, _)| p.extension().is_some_and(|e| e == "midi2")).unwrap();
+        let path = path.clone();
+        // A lyric one tick after the last message, where no note starts,
+        // then End of Clip again.
+        let end = clip.split_off(clip.len() - 16);
+        for w in [0x0040_0001u32, 0xD000_0201, 0x6C61_0000, 0, 0] {
+            clip.extend_from_slice(&w.to_be_bytes());
+        }
+        clip.extend(end);
+        let memory = files.iter().map(|(k, v)| (k.clone(), Arc::from(v.as_slice()))).collect();
+        let read = read_from(&MemoryFiles::new(&dir, memory), &Home::default(), &dir).unwrap();
+        assert_eq!(read.problems, [format!("{}: left out 1 lyrics with no note that starts with them", dir.join(path).display())]);
     }
 
     /// The export presets of a project are in `project.toml`, not in

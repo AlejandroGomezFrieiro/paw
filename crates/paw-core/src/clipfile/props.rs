@@ -31,7 +31,9 @@ fn attr() -> impl Strategy<Value = Option<NoteAttr>> {
 /// A note that starts and ends on a tick, as `(start, end, note)` in ticks:
 /// a file holds it exactly.
 fn note_on_ticks() -> impl Strategy<Value = (i64, i64, Note)> {
-    (-2 * BEAT..64 * BEAT, 1..8 * BEAT, 0u8..=127, 1u8..=127, meta(), lyric(), attr()).prop_map(
+    // Most notes start on one of a few beats, so chords are common.
+    let start = prop_oneof![3 => (-2i64..8).prop_map(|beat| beat * BEAT), 1 => -2 * BEAT..64 * BEAT];
+    (start, 1..8 * BEAT, 0u8..=127, 1u8..=127, meta(), lyric(), attr()).prop_map(
         |(start, length, pitch, velocity, meta, lyric, attr)| {
             let note = Note {
                 lyric,

@@ -48,6 +48,13 @@ test("a stream kind takes the properties that it declares, and the kernel names 
     "its time is `samples`, `beats` or `seconds`",
     "a time that no stream has"
   )
+  fails(
+    function() paw.kinds.define("stream", "film.frames", { props = { rate = { type = "frobnicate" } } }) end,
+    "frobnicate",
+    "a property of no type that the kernel knows"
+  )
+  eq(paw.kinds.streams:get("film.frames").title, "Film frames", "the kind it had stays")
+  api.stream_check({ base = "film.frames", props = { alpha = true } })
   fails(function() paw.kinds.define("stream", "Film", {}) end, "`Film` is not a name of a kind", "a name")
   fails(function() paw.kinds.define("lane", "x", {}) end, "`lane` is no family of kinds", "a family")
 end)

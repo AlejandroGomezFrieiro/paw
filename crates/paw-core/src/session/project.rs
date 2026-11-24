@@ -393,8 +393,8 @@ mod tests {
         let part = session.doc.part_add(PartOpts::default()).unwrap();
         let meta = json!({ "meta": { "kind": "vocal", "group": group } });
         session.part_patch(part, serde_json::from_value(meta).unwrap()).unwrap();
-        let dir = std::env::temp_dir().join(format!("paw-old-meta-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
         let copy = dir.join("song.recovery.json");
         session.project_backup(&copy, json!({})).unwrap();
         let mut text: Value = serde_json::from_str(&std::fs::read_to_string(&copy).unwrap()).unwrap();
@@ -413,6 +413,5 @@ mod tests {
         let mut recovered = new();
         recovered.project_recover(&copy, None).unwrap();
         assert_eq!(fields(&recovered), (Some("vocal".into()), Some(group), 0), "a safety copy");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }
