@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{Given, finite, patch, view};
+use super::values::{Given, NoTable, finite, patch, view};
 use crate::attr_map::AttrMap;
 use crate::model::{
     AutoMode, Clips, DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, OutForm, Part,
@@ -407,16 +407,6 @@ patch! {
         "solo" solo: bool => Solo value,
         /// The fader in dB, from -120 to 24.
         "volume" volume: f64 => Volume value,
-    }
-}
-
-/// A field that takes no table: a word or a number alone.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum NoTable {}
-
-impl<'de> Deserialize<'de> for NoTable {
-    fn deserialize<D: serde::Deserializer<'de>>(_: D) -> std::result::Result<Self, D::Error> {
-        Err(serde::de::Error::custom("a word or a number, not a table"))
     }
 }
 

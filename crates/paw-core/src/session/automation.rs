@@ -67,7 +67,7 @@ impl Session {
         {
             // Give the parameter a value of its own in the project, so that
             // there is something to return to when the lane is turned off.
-            let value = self.device_view(*device)?["params"][param].as_f64();
+            let value = self.device_view(*device)?.param(param);
             let key = param.clone();
             self.doc.edit(|p| {
                 let params = &mut p.device_in(*device)?.params;
@@ -90,17 +90,21 @@ impl Session {
         })
     }
 
-    pub(crate) fn lane_view(&self, id: Id) -> Result<Value> {
+    pub(crate) fn lane_view(&self, id: Id) -> Result<LaneView<'_>> {
         self.doc.lane_view(id, &param_range(&self.live))
     }
 
     /// The automation lanes of a part, without their points.
-    pub(crate) fn lane_list(&self, part: Id) -> Result<Value> {
+    pub(crate) fn lane_list(&self, part: Id) -> Result<Vec<LaneView<'_>>> {
         self.doc.lane_list(part, &param_range(&self.live))
     }
 
-    pub(crate) fn lane_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
-        self.doc.lane_set(id, key, value, &param_range(&self.live))
+    /// Make the changes of `patch` to lane `id`, in the order of their keys.
+    pub(crate) fn lane_patch(&mut self, id: Id, patch: LanePatch) -> Result<()> {
+        for change in patch.changes()? {
+            self.doc.lane_set(id, change)?;
+        }
+        Ok(())
     }
 
     /// Replace a lane's points, or add one, replacing any already at its beat.

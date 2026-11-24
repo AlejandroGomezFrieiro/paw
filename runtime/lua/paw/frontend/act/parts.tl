@@ -40,7 +40,7 @@ end
 
 function A.toggle(part: integer, flag: string)
   local patch: {string: boolean} = {[flag] = not part_flag(part, flag)}
-  api.part_set(part, patch as types.Part)
+  api.part_set(part, patch as types.PartChanges)
 end
 
 local function nth(list: {Choice}, group: string, index: integer): Choice
@@ -157,7 +157,7 @@ function A.set_flag(part: integer, flag: string, on: boolean)
     error("not a flag of a part: " .. tostring(flag), 2)
   end
   local patch: {string: boolean} = {[flag] = on and true or false}
-  api.part_set(part, patch as types.Part)
+  api.part_set(part, patch as types.PartChanges)
 end
 
 --- The same, for the drawn parts from row `row0` to `row1` (from 1, either

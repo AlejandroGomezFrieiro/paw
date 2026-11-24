@@ -781,6 +781,7 @@ version = "0.1.0"
 dependencies = [
  "insta",
  "proptest",
+ "schemars",
  "serde",
  "serde_json",
  "strsim",

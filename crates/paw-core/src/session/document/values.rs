@@ -259,6 +259,29 @@ impl<'de, T: serde::Deserialize<'de>> serde::de::Visitor<'de> for GivenVisitor<T
     }
 }
 
+/// The table of a [`Given`] that takes none: a word or a number alone.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum NoTable {}
+
+impl<'de> serde::Deserialize<'de> for NoTable {
+    fn deserialize<D: serde::Deserializer<'de>>(_: D) -> std::result::Result<Self, D::Error> {
+        Err(serde::de::Error::custom("a word or a number, not a table"))
+    }
+}
+
+impl<T> Given<T> {
+    /// A whole number from 0 up that a script gave, or none for nothing
+    /// (nil or an empty table); `what` names it in the error.
+    pub(crate) fn id(given: Option<Self>, what: &str) -> anyhow::Result<Option<u64>> {
+        match given {
+            None | Some(Given::Empty) => Ok(None),
+            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a whole number from 0 up")]
+            Some(Given::Number(n)) if n >= 0.0 && n.fract() == 0.0 => Ok(Some(n as u64)),
+            Some(_) => bail!("{what} is given by its id"),
+        }
+    }
+}
+
 /// A map that notes whether it gave a key.
 struct Seen<'s, A> {
     map: A,

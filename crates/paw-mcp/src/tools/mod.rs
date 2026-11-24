@@ -454,6 +454,7 @@ mod tests {
                     "{at}: a list of types; use anyOf"
                 );
                 assert!(!map.contains_key("prefixItems"), "{at}: prefixItems");
+                assert!(!map.contains_key("x-teal") && !map.contains_key("$ref"), "{at}: a word of the kernel's schema");
                 assert_ne!(map.get("items"), Some(&json!(false)), "{at}: items: false");
                 for (key, value) in map {
                     walk(value, &format!("{at}.{key}"));
@@ -477,6 +478,11 @@ mod tests {
         // A pitch is a name or a MIDI number, never only an integer.
         let pitch = &find("add_clip")["properties"]["notes"]["items"]["anyOf"][1]["properties"]["pitch"];
         assert_eq!(pitch["anyOf"][0]["type"], "string");
+        // A field that the kernel's setter takes has the kernel's type, and
+        // the description of the tool.
+        let muted = &find("edit_clip")["properties"]["muted"];
+        assert_eq!((&muted["type"], &muted["description"]), (&json!("boolean"), &json!("Mute the clip")));
+        assert_eq!(find("set_project")["properties"]["key"]["type"], "string", "nil, which clears it, is left out");
         // A batch runs exactly the writing tools.
         let mut writes: Vec<&str> = table().iter().filter(|t| t.is_write()).map(|t| t.name).collect();
         let mut batchable = BATCHABLE.to_vec();

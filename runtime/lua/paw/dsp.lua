@@ -298,20 +298,31 @@ local function param_spec(p, i)
   if type(p) ~= "table" then error("parameter " .. i .. " is not a table", 3) end
   local key = p.key or p[1] or (p.name and p.name:lower():gsub("[^%w]+", "_"))
   if type(key) ~= "string" or key == "" then error("parameter " .. i .. " has no key", 3) end
-  local spec = { key = key, name = p.name or key, unit = p.unit or "", choices = p.choices }
-  if p.choices then
-    spec.min, spec.max = 0, #p.choices - 1
+  -- The words of the kernel's schema of a parameter (`types.ParamSchema`,
+  -- as the chain language has them) are read too: `minimum`, `maximum` and
+  -- `enum` are `min`, `max` and `choices`, and a `boolean` is a choice of
+  -- off and on.
+  local choices, default = p.choices or p.enum, p.default
+  if p.type == "boolean" then
+    choices = choices or { "off", "on" }
+    if type(default) == "boolean" then default = default and "on" or "off" end
+  elseif p.type ~= nil and p.type ~= "number" and p.type ~= "integer" and p.type ~= "string" then
+    error("parameter " .. key .. ": a Lua device has no parameter of the type " .. tostring(p.type), 3)
+  end
+  local spec = { key = key, name = p.name or key, unit = p.unit or "", choices = choices }
+  if choices then
+    spec.min, spec.max = 0, #choices - 1
     -- A choice's default may be given by its name or by its number from 1.
-    local default = p.default or 1
+    default = default or 1
     if type(default) == "string" then
-      for n, c in ipairs(p.choices) do
+      for n, c in ipairs(choices) do
         if c == default then default = n end
       end
     end
     spec.default = (tonumber(default) or 1) - 1
   else
-    spec.min, spec.max = p.min or 0, p.max or 1
-    spec.default = p.default or spec.min
+    spec.min, spec.max = p.min or p.minimum or 0, p.max or p.maximum or 1
+    spec.default = default or spec.min
   end
   if spec.max < spec.min then error("parameter " .. key .. ": its max is below its min", 3) end
   return spec
@@ -322,7 +333,9 @@ end
 ---   category  "effect" (the default) or "instrument"
 ---   vendor    who made it, shown beside the name
 ---   params    a list of `{ key =, name =, min =, max =, default =, unit = }`,
----             or `{ key =, choices = { "Soft", "Hard" }, default = "Soft" }`
+---             or `{ key =, choices = { "Soft", "Hard" }, default = "Soft" }`;
+---             the words of `types.ParamSchema` (`type`, `minimum`,
+---             `maximum`, `enum`) are read too
 ---   midi_effect  true for a device whose events replace those that came in
 ---             (an arpeggiator); otherwise what came in is passed on with
 ---             whatever the device sends added to it

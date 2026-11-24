@@ -34,12 +34,14 @@ use crate::model::{
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub(crate) use document::{Change, ClipKind, ClipOpts, ClipPatch, CustomSet, Document, PartListOpts, PartPatch, ProjectPatch, ProjectView, Settable, notes};
-use document::{de, finite, new_history, sorted};
+pub(crate) use document::{Change, ClipKind, ClipOpts, ClipPatch, CustomSet, DevicePatch, Document, LanePatch, LaneView, PartListOpts, PartPatch, PartView, ProjectPatch, ProjectView, Settable, notes};
+use document::{finite, new_history, sorted};
 mod editing;
 mod project;
 mod parts;
+mod device_view;
 mod devices;
+pub(crate) use device_view::{DeviceView, ParamNow, ParamView};
 pub(crate) use devices::DeviceQuery;
 mod clips;
 mod automation;
@@ -47,7 +49,7 @@ mod transport;
 mod recording;
 use recording::Recorder;
 mod midi_in;
-pub(crate) use midi_in::FilterRule;
+pub(crate) use midi_in::{FilterRule, TransportChange, TransportPatch, TransportView};
 mod engine;
 mod audition;
 mod clipops;
@@ -654,15 +656,6 @@ impl BlockTimes {
 /// [`BlockTimes`] as JSON.
 fn block_json(s: &paw_engine::BlockSummary, sample_rate: u32) -> Value {
     serde_json::to_value(BlockTimes::new(s, sample_rate)).unwrap_or(Value::Null)
-}
-
-fn param_json(p: &ParamInfo) -> Value {
-    json!({
-        "key": p.key, "id": p.stable_id(), "name": p.name, "group": p.group,
-        "min": p.min, "max": p.max, "default": p.default, "unit": p.unit, "choices": p.choices,
-        "kind": p.kind(), "steps": p.steps, "automatable": p.automatable,
-        "read_only": p.read_only, "per_note": p.per_note,
-    })
 }
 
 /// Where a parameter is in a device's list: by key, else by the device's

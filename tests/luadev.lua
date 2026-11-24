@@ -53,6 +53,26 @@ test("a device written in Lua is listed among the devices, as lua:<file>", funct
   eq(info.params[1].key .. " " .. info.params[1].unit, "gain dB", "with its parameters")
 end)
 
+test("a Lua device's parameters take the words of the kernel's parameter schema", function()
+  local dsp = require("paw.dsp")
+  local specs = dsp.device({
+    params = {
+      { key = "freq", type = "number", minimum = 20, maximum = 20000, default = 440, unit = "Hz" },
+      { key = "mode", type = "string", enum = { "soft", "hard" }, default = "hard" },
+      { key = "on", type = "boolean", default = true },
+    },
+  })._specs
+  local function shown(s) return table.concat({ s.min, s.max, s.default, s.unit }, " ") end
+  eq(shown(specs[1]), "20 20000 440 Hz", "a number: its range, default and unit")
+  eq(shown(specs[2]) .. " " .. specs[2].choices[2], "0 1 1  hard", "a text of choices: the default by name")
+  eq(shown(specs[3]) .. " " .. specs[3].choices[2], "0 1 1  on", "a boolean: off and on")
+  fails(
+    function() dsp.device({ params = { { key = "path", type = "source" } } }) end,
+    "type source",
+    "a type a device has not"
+  )
+end)
+
 test("a Lua device changes the sound by the numbers it says", function()
   fresh()
   scripts({

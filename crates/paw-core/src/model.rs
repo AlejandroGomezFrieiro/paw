@@ -741,7 +741,7 @@ impl ClipContent {
 /// or a program change. With `key` it belongs to the note on that key
 /// alone, as MIDI 2.0 has it: that note's own pitch bend, pressure or
 /// controller.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Control {
     /// Beats from the start of the clip; below 0 it is hidden before the
     /// clip's start and not played.
@@ -757,7 +757,7 @@ pub struct Control {
     pub key: Option<u8>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ControlKind {
     /// A control change by number: 1 is the modulation wheel, 64 the
@@ -905,7 +905,7 @@ impl Control {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Note {
     /// Beats from the start of the clip. A note before 0 (or from the clip's
     /// length on) is hidden by a trim of the clip's edge: kept, but not
@@ -920,6 +920,7 @@ pub struct Note {
     /// Free-form data for extensions, such as a lyric. It travels with the
     /// note through edits, unlike data kept beside the clip's note list.
     #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[schemars(extend("x-teal" = "Meta"))]
     pub meta: Map<String, Value>,
     /// What names the note within its clip for as long as it lives, however
     /// it is moved or changed (`paw://clip/7/note/41`). 0 until the session
@@ -939,7 +940,7 @@ pub struct Note {
 
 /// A note's MIDI 2.0 attribute: `{ "type": 17, "data": 40960 }`. Type 0
 /// means none, and a note never keeps it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoteAttr {
     #[serde(rename = "type")]

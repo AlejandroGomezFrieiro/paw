@@ -21,32 +21,12 @@ local record types
     pad: boolean
   end
 
-  --- The MIDI 2.0 attribute of a note's start (`paw.attr`): its type, and
-  --- sixteen bits of data.
-  record NoteAttr
-    type: integer
-    data: integer
-  end
-
   --- What an extension keeps in `meta` (of the project, a part, a clip, a
   --- device or a note): the extension's own data, any JSON value by name.
   --- The kernel keeps it and does not look in it.
   type Meta = {string: any}
 
   -- Notes and controllers (model.rs) --------------------------------------
-
-  --- A note of a MIDI clip (`model::Note`, `api.rs` `note_to_lua`). `start`
-  --- in beats from the clip's start, `pitch` 0 to 127, `velocity` 1 to 127
-  --- (100 when left out), `id` its name in the clip (0 or nil: none yet).
-  record Note
-    start: number
-    length: number
-    pitch: integer
-    velocity: integer
-    id: integer
-    meta: Meta
-    attr: NoteAttr
-  end
 
   --- What to change about a note (`session/document/notes.rs` `NoteChange`): what is
   --- left out stays. `attr = false` takes the attribute away. `index` only in
@@ -89,30 +69,6 @@ local record types
     to: number
     low: integer
     high: integer
-  end
-
-  enum ControlType
-    "cc"
-    "bend"
-    "pressure"
-    "registered"
-    "assignable"
-    "program"
-  end
-
-  --- A controller move of a MIDI clip (`model::Control`): `start` in beats,
-  --- `value` 0 to 1 (-1 to 1 for `bend`), `key` for a note's own controller.
-  --- `number` for `cc`; `bank` and `index` for `registered` and
-  --- `assignable`; `program` and `bank` for `program`.
-  record Control
-    start: number
-    type: ControlType
-    value: number
-    key: integer
-    number: integer
-    bank: integer
-    index: integer
-    program: integer
   end
 
   enum MidiEventType
@@ -161,85 +117,11 @@ local record types
 
   -- The project and its parts (session/document/project.rs and parts.rs)
 
-  --- A tempo change of the project file (`model::TempoChange`).
-  record TempoChange
-    beat: number
-    bpm: number
-    ramp: boolean
-  end
-
-  --- A time signature of the project file (`model::SigChange`).
-  record SigChange
-    beat: number
-    num: integer
-    den: integer
-  end
-
-  --- `paw.api.project_get()` (`Document::project_view`). `edits` goes up
-  --- with each change; `length` is the end of the last clip, in beats;
-  --- `tempo_stamp` is a hash of the tempo and signature points, the same
-  --- for the same points (after an undo too).
-  record Project
-    name: string
-    tempo: number
-    sig_num: integer
-    sig_den: integer
-    tempo_ramp: boolean
-    tempo_changes: {TempoChange}
-    sig_changes: {SigChange}
-    key: string
-    path: string
-    length: number
-    meta: Meta
-    export: ProjectExport
-    modified: boolean
-    edits: integer
-    tempo_stamp: integer
-  end
-
   --- What a project keeps of `:export` (`Project::export`), in
   --- `project.toml` under `[export]`: `presets` by name, each the words of
   --- `:export` as one text, or a list of them for several exports.
   record ProjectExport
     presets: {string: string | {string}}
-  end
-
-  --- A send of a part (`model::Send`): to the part `target`, `level` in
-  --- dB, `pre` before the fader.
-  record Send
-    target: integer
-    level: number
-    pre: boolean
-  end
-
-  --- The MIDI a part plays when armed (`model::MidiInput`): nil fields
-  --- mean every port, every channel (1 to 16).
-  record MidiInput
-    port: string
-    channel: integer
-  end
-
-  enum MidiOutForm
-    "auto"
-    "plain"
-    "mpe"
-    "cc14"
-  end
-
-  --- Where a part sends MIDI (`model::MidiOutput`).
-  record MidiOutput
-    port: string
-    channel: integer
-    form: MidiOutForm
-    members: integer
-  end
-
-  enum AutoMode
-    "read"
-    "touch"
-    "latch"
-    "write"
-    "off"
   end
 
   --- One articulation of an attribute map (`attr_map::Art`), as a table;
@@ -264,41 +146,6 @@ local record types
     by_type: {string: string | AttrArt}
     attribute: boolean
     delay: number
-  end
-
-  --- `paw.api.part_get(id)` (`Document::part_view`). `volume` in dB, `pan`
-  --- -1 to 1, `output` the part it feeds (nil for the master), `index`
-  --- from 1. `devices` and `clips` are ids.
-  record Part
-    id: integer
-    name: string
-    volume: number
-    pan: number
-    mute: boolean
-    solo: boolean
-    armed: boolean
-    output: integer
-    sends: {Send}
-    devices: {integer}
-    clips: {integer}
-    color: string
-    meta: Meta
-    index: integer
-    master: boolean
-    input: string
-    monitor: boolean
-    midi_input: MidiInput
-    midi_output: MidiOutput
-    height: number
-    automation: AutoMode
-    attr_map: AttrMap
-    listens: {integer}
-    pairs_into: {integer}
-    source: string
-    origin: string
-    chain_source: string
-    chain_origin: string
-    nest: integer
   end
 
   --- What `paw.api.part_add` takes (`PartOpts`): `index` from 1; `nest`
@@ -481,30 +328,6 @@ local record types
     "continuous"
   end
 
-  --- A parameter of a device (`session.rs` `param_json`). In a device's
-  --- `param_info` it has `index` (from 1) and `automated`; from
-  --- `device_param` it has `value` and `text` too.
-  record ParamInfo
-    key: string
-    id: string
-    name: string
-    group: string
-    min: number
-    max: number
-    default: number
-    unit: string
-    choices: {string}
-    kind: ParamKind
-    steps: integer
-    automatable: boolean
-    read_only: boolean
-    per_note: boolean
-    index: integer
-    automated: boolean
-    value: number
-    text: string
-  end
-
   --- A kind of device installed (`devices.rs` `type_json`).
   record DeviceType
     kind: string
@@ -525,62 +348,6 @@ local record types
     id: string
     name: string
     vendor: string
-  end
-
-  --- The plugin a device is, as its format names it.
-  record DevicePlugin
-    format: string
-    id: string
-    name: string
-    vendor: string
-    version: string
-  end
-
-  --- What a running device takes and gives besides its main pair
-  --- (`ports::ports_json`): the names of its output pairs.
-  record DevicePorts
-    sidechain: boolean
-    outputs: {string}
-  end
-
-  enum DeviceStatus
-    "running"
-    "loading"
-    "stopped"
-    "offline"
-    "missing"
-  end
-
-  enum EditorState
-    "open"
-    "closed"
-  end
-
-  --- `paw.api.device_get(id)` (`Session::device_view`). `params` is each
-  --- parameter's value now by key, `overrides` what the project sets.
-  --- `outputs` maps a pair number (as text) to a part.
-  record Device
-    plugin: DevicePlugin
-    id: integer
-    kind: string
-    name: string
-    offline: boolean
-    format: string
-    part: integer
-    index: integer
-    bypass: boolean
-    params: {string: number}
-    overrides: {string: number}
-    param_info: {ParamInfo}
-    meta: Meta
-    editor: EditorState
-    missing: boolean
-    stopped: string
-    status: DeviceStatus
-    sidechain: integer
-    sidechain_pre: boolean
-    outputs: {string: integer}
-    ports: DevicePorts
   end
 
   --- The owner of a chain, as a handle of `paw.chain` (`OwnerRef` in
@@ -775,6 +542,66 @@ local record types
 
   -- The records below come from paw.api.api_schema (tools/apidoc.lua): change the Rust types.
 
+  --- How a part treats its automation.
+  enum AutoMode
+    "read"
+    "touch"
+    "latch"
+    "write"
+    "off"
+  end
+
+  enum ControlType
+    "cc"
+    "bend"
+    "pressure"
+    "registered"
+    "assignable"
+    "program"
+  end
+
+  --- Whether a device runs, and why not.
+  enum DeviceStatus
+    "running"
+    "stopped"
+    "loading"
+    "offline"
+    "missing"
+  end
+
+  --- Whether a device's own window shows.
+  enum EditorState
+    "open"
+    "closed"
+  end
+
+  --- What a lane moves.
+  enum LaneTarget
+    "volume"
+    "pan"
+    "param"
+    "state"
+  end
+
+  --- What a MIDI output sends where the port takes no MIDI 2.0 (see
+  --- `paw_types::midi_form`).
+  enum MidiOutForm
+    "auto"
+    "plain"
+    "mpe"
+    "cc14"
+  end
+
+  --- The type of a parameter: a JSON Schema type, or `source`.
+  enum ParamType
+    "number"
+    "boolean"
+    "integer"
+    "string"
+    "array"
+    "source"
+  end
+
   --- How an audio clip is stretched.
   enum StretchMode
     "auto"
@@ -789,6 +616,17 @@ local record types
     "time"
     "beats"
     "stretch"
+  end
+
+  --- A unit that a number can have in the text.
+  enum Unit
+    "dB"
+    "Hz"
+    "kHz"
+    "ms"
+    "s"
+    "%"
+    "st"
   end
 
   --- `paw.api.clip_get(id)` and each entry of `clip_list`, without the notes.
@@ -845,9 +683,10 @@ local record types
     warp: {WarpMarker}
   end
 
-  --- What `paw.api.clip_set` changes in a clip: each field as `clip_get` gives
-  --- it, and what is left out stays. Nil clears a field that has a default
-  --- (`clip_set(id, "loop_length", nil)`), and is refused for the others.
+  --- What `paw.api.clip_set` changes in a clip: each field as `clip_get`
+  --- gives it, and what is left out stays. Nil clears a field that has a
+  --- default (`clip_set(id, "loop_length", nil)`), and is refused for the
+  --- others.
   record ClipChanges
     --- Beats an audio clip fades in over.
     fade_in: number
@@ -855,30 +694,184 @@ local record types
     fade_out: number
     --- The sound file of an audio clip: another take of it.
     file: string
+    --- An audio clip keeps the formants of the voice when it is shifted.
     formants: boolean
     --- The gain of an audio clip in dB, from -120 to 24.
     gain: number
+    --- The length of the clip in beats.
     length: number
+    --- The clip repeats over its length.
     loop: boolean
+    --- Beats of one repeat; nil for the clip's content.
     loop_length: number
+    --- Where a repeat starts in the clip's content, in beats.
     loop_start: number
     meta: Meta
     --- The modifiers of a MIDI clip, top to bottom. Nil or an empty list
     --- takes all of them away.
     modifiers: {Modifier}
+    --- The clip is silent.
     muted: boolean
+    --- The name of the clip.
     name: string
+    --- Where an audio clip starts in its file, in seconds, or where a
+    --- clip of another kind starts in its content.
     offset: number
     --- Move the clip to the end of this part.
     part: integer
+    --- Semitones an audio clip is shifted by.
     pitch: number
+    --- The tempo that an audio clip was recorded at.
     source_tempo: number
+    --- Where the clip starts on the timeline, in beats.
     start: number
+    --- How many times its length an audio clip is stretched to.
     stretch: number
     stretch_mode: StretchMode
     timebase: Timebase
     --- The markers of an audio clip; the `beat` of each is not read.
     warp: {WarpMarker}
+  end
+
+  --- A controller moving to a value at a point in a MIDI clip: a control
+  --- change, the pitch wheel, pressure, a registered or assignable controller,
+  --- or a program change. With `key` it belongs to the note on that key
+  --- alone, as MIDI 2.0 has it: that note's own pitch bend, pressure or
+  --- controller.
+  record Control
+    bank: integer
+    index: integer
+    key: integer
+    number: integer
+    program: integer
+    --- Beats from the start of the clip; below 0 it is hidden before the
+    --- clip's start and not played.
+    start: number
+    type: ControlType
+    --- 0 to 1, or -1 to 1 for pitch bend. Kept as a fraction, so nothing of
+    --- a 32-bit value is lost.
+    value: number
+  end
+
+  --- A device on a part.
+  record Device
+    bypass: boolean
+    --- Whether its own window shows; nil for a device with no window.
+    editor: EditorState
+    format: string
+    id: integer
+    --- Its place in the chain of its part, from 1.
+    index: integer
+    kind: string
+    meta: Meta
+    --- Not running: not installed, not made yet, or made and gone.
+    missing: boolean
+    name: string
+    offline: boolean
+    --- The part that each further output pair plays into, by the pair's
+    --- number as text.
+    outputs: {string: integer}
+    --- The parameters that the project sets, over what the plugin's state
+    --- says.
+    overrides: {string: number}
+    param_info: {ParamInfo}
+    --- The value now of each parameter, by key.
+    params: {string: number}
+    part: integer
+    --- Who made it and which it is, as its format names it; nil for a
+    --- device of paw.
+    plugin: DevicePlugin
+    ports: DevicePorts
+    --- The part it listens to.
+    sidechain: integer
+    sidechain_pre: boolean
+    status: DeviceStatus
+    --- Why the device has stopped working, for a plugin that crashed, hung
+    --- or could not be made.
+    stopped: string
+  end
+
+  --- What `paw.api.device_set` changes in a device: each field as
+  --- `device_get` gives it, and what is left out stays.
+  record DeviceChanges
+    bypass: boolean
+    meta: Meta
+    --- The device is not made: it keeps its state and plays nothing.
+    offline: boolean
+    --- The part that each further output pair plays into, by the
+    --- pair's number from 2; nil or an empty table for none.
+    outputs: {integer | string: integer}
+    --- The part it listens to; nil for none.
+    sidechain: integer
+    --- It listens to the side-chain before the fader of its part.
+    sidechain_pre: boolean
+    --- The plugin's state in base64, as `device_state` gives it; nil for
+    --- none.
+    state: string
+  end
+
+  --- Who made a plugin and which it is.
+  record DevicePlugin
+    format: string
+    id: string
+    name: string
+    vendor: string
+    version: string
+  end
+
+  --- What a running device takes and gives besides its main pair.
+  record DevicePorts
+    --- The names of its output pairs, the main one first.
+    outputs: {string}
+    --- It listens to a side-chain.
+    sidechain: boolean
+  end
+
+  --- A lane as `paw.api.lane_get` gives it, without its points.
+  record Lane
+    --- The device of a parameter or state lane.
+    device: integer
+    --- A lane that is off keeps its points but does not move its target.
+    enabled: boolean
+    id: integer
+    --- The highest value of the target.
+    max: number
+    --- The lowest value of the target.
+    min: number
+    --- The key of the parameter of a parameter lane.
+    param: string
+    part: integer
+    point_count: integer
+    --- The names of the states of a state lane.
+    states: {string}
+    target: LaneTarget
+  end
+
+  --- What `paw.api.lane_set` changes in a lane.
+  record LaneChanges
+    --- A lane that is off keeps its points but does not move its target.
+    enabled: boolean
+  end
+
+  --- MIDI from one port, by its name, and optionally one channel of it.
+  record MidiInput
+    --- From 1 to 16, or `None` for every channel.
+    channel: integer
+    --- The port's name as the system gives it (`paw.midi.inputs()`), or
+    --- `None` for every port.
+    port: string
+  end
+
+  --- MIDI to one output port, by its name, on a channel or on each
+  --- message's own, in a form for ports that take no MIDI 2.0.
+  record MidiOutput
+    --- From 1 to 16, or `None` for the channel each message has.
+    channel: integer
+    form: MidiOutForm
+    --- The member channels of an MPE zone, 1 to 15; `None` for 15.
+    members: integer
+    --- The port's name as `paw.midi.outputs()` gives it.
+    port: string
   end
 
   --- One modifier of a clip's stack: its kind, its values, whether it is off,
@@ -904,6 +897,305 @@ local record types
   record ModifierScope
     from: number
     to: number
+  end
+
+  record Note
+    --- The MIDI 2.0 attribute its note-on carries, such as an articulation
+    --- of the orchestral articulation profile (M2-123); `None` for none.
+    attr: NoteAttr
+    --- What names the note within its clip for as long as it lives, however
+    --- it is moved or changed (`paw://clip/7/note/41`). 0 until the session
+    --- gives it one, which it does to every note that has none, or shares
+    --- one with a note before it, before the edit is played or kept.
+    id: integer
+    length: number
+    --- Free-form data for extensions, such as a lyric. It travels with the
+    --- note through edits, unlike data kept beside the clip's note list.
+    meta: Meta
+    --- MIDI note number, 60 is middle C.
+    pitch: integer
+    --- Beats from the start of the clip. A note before 0 (or from the clip's
+    --- length on) is hidden by a trim of the clip's edge: kept, but not
+    --- played until the edge is dragged out over it again.
+    start: number
+    --- 1 to 127.
+    velocity: integer
+  end
+
+  --- A note's MIDI 2.0 attribute: `{ "type": 17, "data": 40960 }`. Type 0
+  --- means none, and a note never keeps it.
+  record NoteAttr
+    data: integer
+    type: integer
+  end
+
+  --- A parameter of a device, as `param_info` lists it.
+  record ParamInfo
+    automatable: boolean
+    --- A lane of the part moves it.
+    automated: boolean
+    --- The names of its steps, for a parameter of named steps.
+    choices: {string}
+    default: number
+    group: string
+    --- The device's own id for it, or its key.
+    id: string
+    --- Its place in the device's list, from 1.
+    index: integer
+    --- The key that scripts and lanes name it by.
+    key: string
+    kind: ParamKind
+    max: number
+    min: number
+    name: string
+    per_note: boolean
+    read_only: boolean
+    --- The number of its steps; 0 for a continuous one.
+    steps: integer
+    --- Its value now as the device writes it (`device_param`).
+    text: string
+    unit: string
+    --- Its value now (`device_param`).
+    value: number
+  end
+
+  --- What a parameter takes, as JSON Schema words.
+  record ParamSchema
+    --- Each number of a list is greater than the one before it.
+    ascending: boolean
+    default: boolean | number | string
+    --- The choices of a text.
+    enum: {string}
+    --- `note` for a note value such as `1/4`. Other formats are only for
+    --- people, as in JSON Schema.
+    format: string
+    --- What each number of a list takes.
+    items: ParamSchema
+    --- The source is the main input of its kind: a wire with no port
+    --- feeds it.
+    main: boolean
+    maxItems: integer
+    maximum: number
+    minItems: integer
+    minimum: number
+    --- The kind of stream that a source must give. None takes any.
+    stream: string
+    type: ParamType
+    --- The unit of a number, and of `minimum`, `maximum` and `default`.
+    unit: Unit
+  end
+
+  --- `paw.api.part_get(id)`. `volume` in dB, `pan` -1 to 1, `output` the
+  --- part it feeds (nil for the master), `index` from 1 among all parts.
+  --- `devices` and `clips` are ids.
+  record Part
+    armed: boolean
+    attr_map: AttrMap
+    automation: AutoMode
+    --- The chain file outside the project that the chain was copied from.
+    chain_origin: string
+    --- A chain read from a chain file outside the project's folder.
+    chain_source: string
+    clips: {integer}
+    color: string
+    devices: {integer}
+    height: number
+    id: integer
+    index: integer
+    input: string
+    --- The parts that devices on this one listen to as side-chains.
+    listens: {integer}
+    master: boolean
+    meta: Meta
+    midi_input: MidiInput
+    midi_output: MidiOutput
+    monitor: boolean
+    mute: boolean
+    name: string
+    --- The subproject that the part belongs to; nil for the song's.
+    nest: integer
+    --- The part folder outside the project that the part was copied from.
+    origin: string
+    output: integer
+    --- The parts that further output pairs of its devices play into.
+    pairs_into: {integer}
+    pan: number
+    sends: {Send}
+    solo: boolean
+    --- A part read from a part folder outside the project's folder.
+    source: string
+    volume: number
+  end
+
+  --- What `paw.api.part_set` changes in a part: each field as `part_get`
+  --- gives it, and what is left out stays. Nil clears a field that can be
+  --- empty (`part_set(id, "output", nil)`), and is refused for the others.
+  record PartChanges
+    --- The part records when the song records.
+    armed: boolean
+    --- How the MIDI 2.0 attributes of its notes reach an instrument that
+    --- does not take them. Nil, false or an empty table for none.
+    attr_map: AttrMap
+    --- What a move of a control does to the part's automation while the
+    --- song plays.
+    automation: AutoMode
+    color: string
+    --- A share of the height of every part, from a quarter to eight
+    --- times; nil or 1 for that height.
+    height: number
+    --- An audio input: a channel such as "1", a pair such as "1/2", or
+    --- nil or "none" for none.
+    input: string | integer
+    meta: Meta
+    --- The MIDI the part plays when armed: a port's name, a table of
+    --- `port` and `channel`, or nil or "all" for every port.
+    midi_input: string | MidiInput
+    --- Where the part sends MIDI: a port's name, a table of `port`,
+    --- `channel`, `form` and `members`, or nil or "none" for none.
+    midi_output: string | MidiOutput
+    --- Hear the input even when the part is not armed.
+    monitor: boolean
+    mute: boolean
+    name: string
+    --- The part it feeds; nil for the master.
+    output: integer
+    --- From -1 (left) to 1 (right).
+    pan: number
+    --- Its sends, each with a `level` in dB.
+    sends: {Send}
+    solo: boolean
+    --- The fader in dB, from -120 to 24.
+    volume: number
+  end
+
+  --- `paw.api.project_get()`.
+  record Project
+    --- Goes up with each change: compare two readings to see whether
+    --- something in between edited the project.
+    edits: integer
+    export: ProjectExport
+    --- The song's key, such as "D minor".
+    key: string
+    --- The end of the last clip, in beats.
+    length: number
+    meta: Meta
+    --- The project has changes that are not saved.
+    modified: boolean
+    name: string
+    --- The project's file; nil before it is saved.
+    path: string
+    sig_changes: {SigChange}
+    sig_den: integer
+    sig_num: integer
+    --- Beats (quarter notes) per minute at the start of the song.
+    tempo: number
+    tempo_changes: {TempoChange}
+    --- The tempo ramps from the start to the first tempo change.
+    tempo_ramp: boolean
+    --- A hash of the tempo and signature points, the same for the same
+    --- points (after an undo too).
+    tempo_stamp: integer
+  end
+
+  --- What `paw.api.project_set` changes in the project: each field as
+  --- `project_get` gives it, and what is left out stays.
+  record ProjectChanges
+    --- The project's export presets by name.
+    export: ProjectExport
+    --- The song's key, such as "D minor"; nil for none.
+    key: string
+    meta: Meta
+    name: string
+    --- The lower number of the time signature at the start: 1, 2, 4,
+    --- 8, 16, 32 or 64.
+    sig_den: integer
+    --- The upper number of the time signature at the start, 1 to 64.
+    sig_num: integer
+    --- The tempo at the start, from 1 to 999 beats per minute.
+    tempo: number
+  end
+
+  record Send
+    --- Send level in dB.
+    level: number
+    --- Taken after the part's devices but before its fader, pan and mute,
+    --- so that the send does not follow the fader.
+    pre: boolean
+    target: integer
+  end
+
+  --- A time signature starting a bar at a beat.
+  record SigChange
+    beat: number
+    den: integer
+    num: integer
+  end
+
+  --- A tempo change along the song.
+  record TempoChange
+    beat: number
+    bpm: number
+    --- Ramp to the next change's tempo instead of holding this one.
+    ramp: boolean
+  end
+
+  --- The transport as Lua reads it (`paw.api.transport_get`).
+  record Transport
+    click_accent: boolean
+    click_level: number
+    click_output: integer
+    --- Takes that stopped and are not clips yet: each becomes clips a
+    --- moment after it stops (`transport.recorded`).
+    closing: integer
+    count_in: integer
+    counting: integer
+    loop_enabled: boolean
+    loop_end: number
+    loop_start: number
+    metronome: boolean
+    playing: boolean
+    position: number
+    pre_roll: integer
+    pre_roll_seconds: number
+    punch_enabled: boolean
+    punch_end: number
+    punch_start: number
+    record_offset: number
+    recording: boolean
+    --- The number of the take being recorded.
+    take: integer
+    tempo: number
+    write: boolean
+  end
+
+  --- What `paw.api.transport_set` changes in the transport: each field as
+  --- `transport_get` gives it, and what is left out stays.
+  record TransportChanges
+    click_accent: boolean
+    --- The click's level, from -60 to 12 dB.
+    click_level: number
+    --- The output channel of the click, from 1 to 64, or 0 for with the
+    --- song.
+    click_output: number
+    --- Bars of count-in before a recording, 0 to 16.
+    count_in: number
+    loop_enabled: boolean
+    loop_end: number
+    loop_start: number
+    metronome: boolean
+    --- Bars that play before the start of playback, 0 to 16.
+    pre_roll: number
+    --- Seconds that play before the start of playback, 0 to 30.
+    pre_roll_seconds: number
+    punch_enabled: boolean
+    punch_end: number
+    punch_start: number
+    --- Milliseconds that a recorded take moves to make up for the
+    --- latency of the input.
+    record_offset: number
+    recording: boolean
+    --- Moves of the controls write automation while the song plays.
+    write: boolean
   end
 
   --- A warp marker of an audio clip: moments of its file in seconds; in a
@@ -1117,29 +1409,6 @@ local record types
 
   -- Automation (session/document/automation.rs) ------------------------------
 
-  enum LaneTarget
-    "volume"
-    "pan"
-    "param"
-    "state"
-  end
-
-  --- `paw.api.lane_get(id)` and each entry of `lane_list`
-  --- (`lane_json` in `session/document/automation.rs`), without the points. `states` (names) only for
-  --- a state lane.
-  record Lane
-    id: integer
-    part: integer
-    enabled: boolean
-    point_count: integer
-    min: number
-    max: number
-    target: LaneTarget
-    device: integer
-    param: string
-    states: {string}
-  end
-
   --- One of the states of a state lane (`model::LaneState`).
   record LaneState
     name: string
@@ -1278,34 +1547,6 @@ local record types
   end
 
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
-
-  --- `paw.api.transport_get()` (`TransportView`): `position` in
-  --- beats, `take` the number of the take being recorded, `closing` the
-  --- takes that stopped and are not clips yet.
-  record Transport
-    playing: boolean
-    position: number
-    tempo: number
-    loop_enabled: boolean
-    loop_start: number
-    loop_end: number
-    metronome: boolean
-    recording: boolean
-    punch_enabled: boolean
-    punch_start: number
-    punch_end: number
-    count_in: integer
-    counting: integer
-    pre_roll: integer
-    pre_roll_seconds: number
-    click_level: number
-    click_accent: boolean
-    click_output: integer
-    record_offset: number
-    write: boolean
-    take: integer
-    closing: integer
-  end
 
   --- What a window shows of the song (`ViewRange`, stretched.rs): the
   --- beats from `from` up to `to`, and the parts shown (all when nil).

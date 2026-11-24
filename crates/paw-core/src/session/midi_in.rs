@@ -7,11 +7,12 @@ use std::collections::BTreeSet;
 use paw_engine::midi_filter::{Control as FilterControl, MidiFilter, Rule};
 
 use crate::events::{KernelEvent as E, Nothing};
-use crate::words::from_word;
+use super::document::values::patch;
 use super::*;
 
 /// The transport as Lua reads it (`paw.api.transport_get`).
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[schemars(rename = "Transport")]
 #[expect(clippy::struct_excessive_bools, reason = "the fields are the transport as Lua reads it")]
 pub(crate) struct TransportView {
     pub playing: bool,
@@ -345,26 +346,36 @@ impl Session {
         }
     }
 
-    pub(crate) fn transport_set(&mut self, key: &str, value: Value) -> Result<()> {
-        let field: TransportField = key.parse()?;
-        match field {
-            TransportField::Write => {
-                self.writing.on = de(key, value)?;
+    /// Make the changes of `patch` to the transport, in the order of their
+    /// keys.
+    pub(crate) fn transport_patch(&mut self, patch: TransportPatch) -> Result<()> {
+        for change in patch.changes()? {
+            self.transport_set(change)?;
+        }
+        Ok(())
+    }
+
+    /// Make one change of the transport.
+    pub(crate) fn transport_set(&mut self, change: TransportChange) -> Result<()> {
+        match change {
+            TransportChange::Write(on) => {
+                self.writing.on = on;
                 self.doc.emit(E::TransportChanged(Nothing {}));
                 return Ok(());
             }
-            TransportField::RecordOffset => {
-                let ms: f64 = de(key, value)?;
+            TransportChange::RecordOffset(ms) => {
                 if !ms.is_finite() {
                     bail!("the recording offset is a number of milliseconds");
                 }
                 self.rec.offset = ms;
                 return Ok(());
             }
-            _ => field.set(&mut self.transport, key, value)?,
+            _ => {}
         }
+        let recording = matches!(change, TransportChange::Recording(_));
+        change.set(&mut self.transport)?;
         // Turning recording on or off while playing punches in or out.
-        if field == TransportField::Recording {
+        if recording {
             if !self.transport.recording {
                 self.close_take();
             } else if self.play.playing {
@@ -435,27 +446,37 @@ impl Session {
     }
 }
 
-/// A field of the transport that [`Session::transport_set`] changes: the
-/// key that Lua gives, parsed once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum TransportField {
-    Write,
-    RecordOffset,
-    LoopEnabled,
-    LoopStart,
-    LoopEnd,
-    Metronome,
-    Recording,
-    PunchEnabled,
-    PunchStart,
-    PunchEnd,
-    CountIn,
-    PreRoll,
-    PreRollSeconds,
-    ClickLevel,
-    ClickAccent,
-    ClickOutput,
+patch! {
+    /// What `paw.api.transport_set` changes in the transport: each field as
+    /// `transport_get` gives it, and what is left out stays.
+    #[schemars(rename = "TransportChanges")]
+    pub(crate) struct TransportPatch => TransportChange, "the transport has no settable field" {
+        "click_accent" click_accent: bool => ClickAccent value,
+        /// The click's level, from -60 to 12 dB.
+        "click_level" click_level: f64 => ClickLevel value,
+        /// The output channel of the click, from 1 to 64, or 0 for with the
+        /// song.
+        "click_output" click_output: f64 => ClickOutput value,
+        /// Bars of count-in before a recording, 0 to 16.
+        "count_in" count_in: f64 => CountIn value,
+        "loop_enabled" loop_enabled: bool => LoopEnabled value,
+        "loop_end" loop_end: f64 => LoopEnd value,
+        "loop_start" loop_start: f64 => LoopStart value,
+        "metronome" metronome: bool => Metronome value,
+        /// Bars that play before the start of playback, 0 to 16.
+        "pre_roll" pre_roll: f64 => PreRoll value,
+        /// Seconds that play before the start of playback, 0 to 30.
+        "pre_roll_seconds" pre_roll_seconds: f64 => PreRollSeconds value,
+        "punch_enabled" punch_enabled: bool => PunchEnabled value,
+        "punch_end" punch_end: f64 => PunchEnd value,
+        "punch_start" punch_start: f64 => PunchStart value,
+        /// Milliseconds that a recorded take moves to make up for the
+        /// latency of the input.
+        "record_offset" record_offset: f64 => RecordOffset value,
+        "recording" recording: bool => Recording value,
+        /// Moves of the controls write automation while the song plays.
+        "write" write: bool => Write value,
+    }
 }
 
 /// A count of whole bars, from 0 to 16, that a script gives as a number.
@@ -467,59 +488,44 @@ fn whole_bars(what: &str, bars: f64) -> Result<u32> {
     Ok(bars as u32)
 }
 
-impl TransportField {
+impl TransportChange {
     /// Set this field of the transport. `Write` and `RecordOffset` belong
     /// to the session, not the transport: [`Session::transport_set`] sets
     /// them.
-    fn set(self, t: &mut Transport, key: &str, value: Value) -> Result<()> {
+    fn set(self, t: &mut Transport) -> Result<()> {
         match self {
-            Self::LoopEnabled => t.loop_enabled = de(key, value)?,
-            Self::LoopStart => t.loop_start = de::<f64>(key, value)?.max(0.0),
-            Self::LoopEnd => t.loop_end = de::<f64>(key, value)?.max(0.0),
-            Self::Metronome => t.metronome = de(key, value)?,
-            Self::Recording => t.recording = de(key, value)?,
-            Self::PunchEnabled => t.punch_enabled = de(key, value)?,
-            Self::PunchStart => t.punch_start = finite(key, de(key, value)?)?.max(0.0),
-            Self::PunchEnd => t.punch_end = finite(key, de(key, value)?)?.max(0.0),
-            Self::CountIn => {
-                t.count_in = whole_bars("a count-in", de(key, value)?)?;
-            }
-            Self::PreRoll => {
-                t.pre_roll = whole_bars("a pre-roll", de(key, value)?)?;
-            }
-            Self::PreRollSeconds => {
-                let seconds: f64 = de(key, value)?;
+            Self::LoopEnabled(on) => t.loop_enabled = on,
+            Self::LoopStart(beat) => t.loop_start = beat.max(0.0),
+            Self::LoopEnd(beat) => t.loop_end = beat.max(0.0),
+            Self::Metronome(on) => t.metronome = on,
+            Self::Recording(on) => t.recording = on,
+            Self::PunchEnabled(on) => t.punch_enabled = on,
+            Self::PunchStart(beat) => t.punch_start = finite("punch_start", beat)?.max(0.0),
+            Self::PunchEnd(beat) => t.punch_end = finite("punch_end", beat)?.max(0.0),
+            Self::CountIn(bars) => t.count_in = whole_bars("a count-in", bars)?,
+            Self::PreRoll(bars) => t.pre_roll = whole_bars("a pre-roll", bars)?,
+            Self::PreRollSeconds(seconds) => {
                 if !(0.0..=30.0).contains(&seconds) {
                     bail!("a pre-roll is from 0 to 30 seconds");
                 }
                 t.pre_roll_seconds = seconds;
             }
-            Self::ClickLevel => {
-                let db: f64 = de(key, value)?;
+            Self::ClickLevel(db) => {
                 if !(-60.0..=12.0).contains(&db) {
                     bail!("the click's level is from -60 to +12 dB");
                 }
                 t.click_level = db;
             }
-            Self::ClickAccent => t.click_accent = de(key, value)?,
-            Self::ClickOutput => {
-                let channel: f64 = de(key, value)?;
+            Self::ClickAccent(on) => t.click_accent = on,
+            Self::ClickOutput(channel) => {
                 if !(0.0..=64.0).contains(&channel) || channel.fract() != 0.0 {
                     bail!("the click's output is a channel from 1 to 64, or 0 for with the song");
                 }
                 t.click_output = channel as u32;
             }
-            Self::Write | Self::RecordOffset => unreachable!("set by the session"),
+            Self::Write(_) | Self::RecordOffset(_) => unreachable!("set by the session"),
         }
         Ok(())
-    }
-}
-
-impl std::str::FromStr for TransportField {
-    type Err = anyhow::Error;
-
-    fn from_str(key: &str) -> Result<Self> {
-        from_word(key).with_context(|| format!("the transport has no settable field `{key}`"))
     }
 }
 

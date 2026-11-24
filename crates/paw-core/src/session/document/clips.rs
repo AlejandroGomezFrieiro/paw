@@ -713,7 +713,13 @@ impl ClipChange {
             Self::Meta(meta) => clip.meta == *meta,
             Self::Part(to) => part == Some(*to),
             Self::File(path) => audio.is_some_and(|(file, ..)| file == path),
-            Self::Offset(offset) => audio.is_some_and(|(_, held, _)| held == *offset),
+            // A nest clip reads its offset and keeps it: the same value is
+            // no change, and another one gives the error of its kind.
+            Self::Offset(offset) => match &clip.content {
+                ClipContent::Audio { offset: held, .. } | ClipContent::Nest { offset: held, .. } => held == offset,
+                ClipContent::Custom(custom) => custom.offset == *offset,
+                ClipContent::Midi { .. } => false,
+            },
             Self::Gain(gain) => audio.is_some_and(|(.., held)| held == *gain),
             Self::FadeIn(beats) => audio.is_some() && clip.fade_in == *beats,
             Self::FadeOut(beats) => audio.is_some() && clip.fade_out == *beats,

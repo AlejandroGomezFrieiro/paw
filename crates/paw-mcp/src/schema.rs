@@ -5,7 +5,58 @@
 //! read as the first only), arrays with one `items` schema (never
 //! `prefixItems`), and a description on every property.
 
-use serde_json::{Value, json};
+use std::sync::LazyLock;
+
+use serde_json::{Map, Value, json};
+
+/// The kernel's schema of the data of `paw.api`, by the name of each type
+/// (`ClipChanges`), from the Rust types that read the data.
+/// tools/apidoc.lua writes the file from `paw.api.api_schema`, and its
+/// check fails when the file is not that schema.
+static API: LazyLock<Map<String, Value>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("api_schema.json")).expect("api_schema.json is the JSON that apidoc writes")
+});
+
+/// The schema of the field `key` of the kernel's type `of` (a setter's
+/// changes, such as `ClipChanges`), in the plain subset, with
+/// `description` for the model. A field that the type does not have is a
+/// fault of the server, which its tests find.
+pub(crate) fn api_field(of: &str, key: &str, description: &str) -> Value {
+    let field = API
+        .get(of)
+        .and_then(|def| def.pointer(&format!("/properties/{key}")))
+        .unwrap_or_else(|| panic!("the kernel's `{of}` has no field `{key}`"));
+    let mut field = plain(field);
+    field["description"] = description.into();
+    field
+}
+
+/// A schema of the kernel in the plain subset: a definition in place of its
+/// `$ref`, the type alone where the kernel also takes nil (a model leaves
+/// the field out), and no words that are only for paw (`x-teal`, the Rust
+/// `format` of a number).
+fn plain(schema: &Value) -> Value {
+    if let Some(name) = schema.get("$ref").and_then(Value::as_str).and_then(|r| r.strip_prefix("#/$defs/")) {
+        return plain(&API[name]);
+    }
+    if let Some(choices) = schema.get("anyOf").and_then(Value::as_array) {
+        let kept: Vec<&Value> = choices.iter().filter(|c| c.get("type") != Some(&json!("null"))).collect();
+        if let [one] = kept[..] {
+            return plain(one);
+        }
+    }
+    let mut out = schema.clone();
+    if let Some(map) = out.as_object_mut() {
+        for word in ["x-teal", "format", "default", "description"] {
+            map.remove(word);
+        }
+        if let Some(kinds) = map.get("type").and_then(Value::as_array) {
+            let kind = kinds.iter().find(|k| k.as_str() != Some("null")).cloned().unwrap_or_default();
+            map.insert("type".into(), kind);
+        }
+    }
+    out
+}
 
 /// Tools that change the project: each is one undo step, and any of them may
 /// be a step of a `batch`.
@@ -161,11 +212,11 @@ pub(crate) fn clip_spec() -> Value {
         "type": "object",
         "description": "A clip",
         "properties": {
-            "name": {"type": "string", "description": "Clip name"},
+            "name": api_field("ClipChanges", "name", "Clip name"),
             "start": position("Where the clip starts on the timeline"),
             "length": length("Clip length; default whole bars covering the notes"),
             "notes": notes_schema("The clip's notes"),
-            "file": {"type": "string", "description": "An audio file (WAV, AIFF, FLAC, MP3, Ogg) for an audio clip instead of notes"},
+            "file": api_field("ClipChanges", "file", "An audio file (WAV, AIFF, FLAC, MP3, Ogg) for an audio clip instead of notes"),
         },
         "additionalProperties": false
     })

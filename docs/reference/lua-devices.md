@@ -21,7 +21,7 @@ The file returns its device, made with `dsp.device { ... }`.
 | `name` | The name. The default is the name of the file. |
 | `category` | `"effect"` (default) or `"instrument"`. |
 | `vendor` | The vendor. |
-| `params` | A list of `{ key, name, min, max, default, unit }`, or of choices: `{ key = "mode", choices = { "Soft", "Hard" }, default = "Soft" }`. The value of a choice is its number, from 0. |
+| `params` | A list of `{ key, name, min, max, default, unit }`, or of choices: `{ key = "mode", choices = { "Soft", "Hard" }, default = "Soft" }`. The value of a choice is its number, from 0. A parameter also takes the words of the kernel's parameter schema (`types.ParamSchema`, the words of the chain language): `minimum` and `maximum` for `min` and `max`, `enum` for `choices`, and `type`, which is `number`, `integer`, `string` or `boolean`. A `boolean` is a choice of `off` and `on`. |
 | `midi_effect` | True means that the events that the device sends replace the events that come in (an arpeggiator, a chord maker). |
 | `sidechain` | True means that the device can listen to a different part (see [Routing](routing.md#side-chains)). |
 

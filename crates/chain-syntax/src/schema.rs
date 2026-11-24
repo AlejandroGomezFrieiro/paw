@@ -115,6 +115,7 @@ pub type Props = BTreeMap<String, PropValue>;
 
 /// The value of a property of a stream.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum PropValue {
     Switch(bool),
@@ -220,6 +221,7 @@ impl Count {
 /// names for people, and what it takes as the words of a
 /// [`ParamSchema`](crate::ParamSchema).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "ParamWords")]
 pub struct Param {
     /// The key that a field names: `threshold`, `b1.freq`, `Drive`.
     pub key: String,
@@ -234,6 +236,33 @@ pub struct Param {
     pub description: String,
     #[serde(flatten)]
     pub value: ParamValue,
+}
+
+/// A [`Param`] as a schema writes it: its words not yet read, so that an
+/// error of the words names the key of the parameter.
+#[derive(Deserialize)]
+struct ParamWords {
+    key: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    description: String,
+    #[serde(flatten)]
+    words: crate::ParamSchema,
+}
+
+impl TryFrom<ParamWords> for Param {
+    type Error = SchemaError;
+
+    fn try_from(param: ParamWords) -> Result<Self, SchemaError> {
+        let ParamWords { key, name, label, description, words } = param;
+        match ParamValue::try_from(words) {
+            Ok(value) => Ok(Param { key, name, label, description, value }),
+            Err(source) => Err(SchemaError::Param { key, source }),
+        }
+    }
 }
 
 /// What a parameter takes, as the check reads it. In JSON it is the words

@@ -22,12 +22,12 @@ pub(super) fn tools() -> Vec<Tool> {
             ),
             schema: obj(
                 json!({
-                    "name": {"type": "string", "description": "Part name"},
-                    "volume": {"type": "number", "description": "Fader in dB, -120 to 24 (default 0)"},
-                    "pan": {"type": "number", "description": "-1 left to 1 right (default 0)"},
+                    "name": api_field("PartChanges", "name", "Part name"),
+                    "volume": api_field("PartChanges", "volume", "Fader in dB, -120 to 24 (default 0)"),
+                    "pan": api_field("PartChanges", "pan", "-1 left to 1 right (default 0)"),
                     "output": part_ref("Route the part's output into this part instead of the master (for buses)"),
                     "index": {"type": "integer", "minimum": 1, "description": "Position in the part list, from 1 (default last)"},
-                    "color": {"type": "string", "description": "Colour as #rrggbb"},
+                    "color": api_field("PartChanges", "color", "Colour as #rrggbb"),
                     "devices": {"type": "array", "items": device_spec(), "description": "Devices to add in chain order"},
                     "clips": {"type": "array", "items": clip_spec(), "description": "Clips to add"},
                     "sends": send_spec("Sends to other parts (for shared reverbs and the like)")
@@ -46,12 +46,12 @@ pub(super) fn tools() -> Vec<Tool> {
             schema: obj(
                 json!({
                     "part": part_ref("The part"),
-                    "name": {"type": "string", "description": "New name"},
-                    "volume": {"type": "number", "description": "Fader in dB, -120 to 24"},
-                    "pan": {"type": "number", "description": "-1 left to 1 right"},
-                    "mute": {"type": "boolean", "description": "Mute"},
-                    "solo": {"type": "boolean", "description": "Solo"},
-                    "color": {"type": "string", "description": "Colour as #rrggbb"},
+                    "name": api_field("PartChanges", "name", "New name"),
+                    "volume": api_field("PartChanges", "volume", "Fader in dB, -120 to 24"),
+                    "pan": api_field("PartChanges", "pan", "-1 left to 1 right"),
+                    "mute": api_field("PartChanges", "mute", "Mute"),
+                    "solo": api_field("PartChanges", "solo", "Solo"),
+                    "color": api_field("PartChanges", "color", "Colour as #rrggbb"),
                     "index": {"type": "integer", "minimum": 1, "description": "Move to this position in the part list, from 1"},
                     "output": part_ref("Route into this part; \"master\" for the master"),
                     "sends": send_spec("The complete list of sends")
@@ -85,12 +85,12 @@ pub(super) fn tools() -> Vec<Tool> {
             schema: obj(
                 json!({
                     "clip": {"type": "integer", "description": "Clip id"},
-                    "name": {"type": "string", "description": "New name"},
+                    "name": api_field("ClipChanges", "name", "New name"),
                     "start": position("New start on the timeline"),
                     "length": length("New length"),
-                    "muted": {"type": "boolean", "description": "Mute the clip"},
+                    "muted": api_field("ClipChanges", "muted", "Mute the clip"),
                     "part": part_ref("Move the clip to this part"),
-                    "gain": {"type": "number", "description": "Audio clips: gain in dB"},
+                    "gain": api_field("ClipChanges", "gain", "Audio clips: gain in dB"),
                     "remove_notes": {
                         "type": "object",
                         "description": "Remove notes matching all that is given: ids, pitches, and a range of starts [from, to) within the clip",
@@ -224,7 +224,7 @@ pub(super) fn tools() -> Vec<Tool> {
                 json!({
                     "device": {"type": "integer", "description": "Device id"},
                     "params": params_schema("Parameter values by key or name, e.g. {\"cutoff\": 1200, \"resonance\": 0.4, \"wave\": \"square\"}"),
-                    "bypass": {"type": "boolean", "description": "Bypass (true) or enable (false)"},
+                    "bypass": api_field("DeviceChanges", "bypass", "Bypass (true) or enable (false)"),
                     "part": part_ref("Move the device to this part"),
                     "index": {"type": "integer", "minimum": 1, "description": "Move to this position in the chain, from 1"}
                 }),
@@ -279,8 +279,8 @@ pub(super) fn tools() -> Vec<Tool> {
                 json!({
                     "tempo": {"type": "number", "minimum": 1, "maximum": 999, "description": "Beats per minute"},
                     "signature": {"type": "string", "description": "Time signature such as \"4/4\", \"3/4\", \"6/8\""},
-                    "key": {"type": "string", "description": "The key, such as \"D minor\", \"F# dorian\", \"Bb\"; an empty text clears it"},
-                    "name": {"type": "string", "description": "Project name"},
+                    "key": api_field("ProjectChanges", "key", "The key, such as \"D minor\", \"F# dorian\", \"Bb\"; an empty text clears it"),
+                    "name": api_field("ProjectChanges", "name", "Project name"),
                     "tempo_changes": {"type": "array", "description": "Tempo changes after the start, replacing those there are: [{\"at\": \"9.1\" or beats, \"bpm\": 90, \"ramp\": false}]; [] for one tempo throughout", "items": {"type": "object", "description": "A tempo change", "properties": {"at": position("Where"), "bpm": {"type": "number", "description": "Beats per minute from there on"}, "ramp": {"type": "boolean", "description": "Move linearly to the next change's tempo"}}, "required": ["at", "bpm"]}},
                     "signature_changes": {"type": "array", "description": "Time signature changes after the start, replacing those there are: [{\"at\": \"9\" or beats, \"signature\": \"6/8\"}]", "items": {"type": "object", "description": "A signature change", "properties": {"at": position("Where the new bar starts"), "signature": {"type": "string", "description": "Such as \"6/8\""}}, "required": ["at", "signature"]}}
                 }),
