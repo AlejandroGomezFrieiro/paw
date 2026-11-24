@@ -134,7 +134,7 @@ proptest! {
         };
         let after = remove(&before, id).expect("a node is removed");
         let rest: Vec<DeviceId> = before.devices().into_iter().filter(|d| !held.contains(d)).collect();
-        prop_assert_eq!(after.devices(), rest.clone());
+        prop_assert_eq!(after.devices(), rest.as_slice());
         prop_assert_eq!(ok(&after, &rest), Ok(()));
     }
 
@@ -144,7 +144,7 @@ proptest! {
         let all = branches(&before);
         let id = all[which.index(all.len())];
         let after = set(&before, id, Change::Gain(gain)).expect("a branch has a gain");
-        let mut want = before.clone();
+        let mut want = before;
         want.root.branch_mut(id).expect("the branch").gain = gain;
         prop_assert_eq!(after, want);
     }

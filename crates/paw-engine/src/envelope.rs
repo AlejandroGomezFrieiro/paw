@@ -84,9 +84,9 @@ pub fn envelope(path: &Path) -> Result<Envelope> {
     loop {
         let packet = match format.next_packet() {
             Ok(Some(packet)) => packet,
-            Ok(None) => break,
-            // A file cut short (a take of a crash) is read as far as it goes.
-            Err(Error::IoError(_)) => break,
+            // The end, or a file cut short (a take of a crash), which is read
+            // as far as it goes.
+            Ok(None) | Err(Error::IoError(_)) => break,
             Err(err) => bail!("{name} is damaged: {err}"),
         };
         if packet.track_id != stream_id {

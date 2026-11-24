@@ -11,6 +11,7 @@ use crate::slot::{DeviceSlot, PartSlot};
 
 use super::MAX_BLOCK;
 
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of the engine; one bitflags type for them is open work")]
 pub struct PartRt {
     pub(super) buf: [Vec<f32>; 2],
     /// The plan of its chain, which it runs on `buf`.

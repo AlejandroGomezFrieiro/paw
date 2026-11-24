@@ -24,7 +24,7 @@ pub(super) struct Library {
 /// libraries that it needs are looked for in `libraries`.
 pub(super) fn load(path: &Path, libraries: &[PathBuf]) -> Result<Arc<Library>> {
     static LOADED: Mutex<Vec<(PathBuf, Arc<Library>)>> = Mutex::new(Vec::new());
-    let mut loaded = LOADED.lock().unwrap();
+    let mut loaded = LOADED.lock().expect("a thread panicked while it held the lock");
     if let Some((_, library)) = loaded.iter().find(|(p, _)| p == path) {
         return Ok(library.clone());
     }

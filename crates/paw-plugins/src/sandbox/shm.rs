@@ -1,5 +1,7 @@
 //! The block of shared memory the audio crosses in, and its futex handshake.
 
+#![allow(clippy::allow_attributes_without_reason, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::cell::UnsafeCell;
 use std::os::fd::OwnedFd;
 use std::ptr::NonNull;

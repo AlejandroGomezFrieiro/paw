@@ -357,7 +357,7 @@ mod imp {
     ) -> Result<JoinHandle<()>> {
         let mut handle = std::ptr::null_mut();
         // SAFETY: `handle` is a live out-pointer and the name a C string.
-        let opened = unsafe { snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_OUTPUT, 0) };
+        let opened = unsafe { snd_seq_open(&raw mut handle, c"default".as_ptr(), OPEN_OUTPUT, 0) };
         check(opened, "opening the sequencer")?;
         let seq = Seq(handle);
         // SAFETY: `seq` holds an open handle; the names are C strings that
@@ -538,7 +538,7 @@ mod imp {
                 ump.dest.port = port;
                 // SAFETY: the handle is open, and `ump` a whole event that
                 // the call only reads.
-                unsafe { snd_seq_ump_event_output(self.seq.0, &mut ump) };
+                unsafe { snd_seq_ump_event_output(self.seq.0, &raw mut ump) };
             } else {
                 ev.flags = flags;
                 ev.queue = queue;
@@ -547,7 +547,7 @@ mod imp {
                 ev.dest.client = client;
                 ev.dest.port = port;
                 // SAFETY: as above, for `ev`.
-                unsafe { snd_seq_event_output(self.seq.0, &mut ev) };
+                unsafe { snd_seq_event_output(self.seq.0, &raw mut ev) };
             }
         }
     }
@@ -625,10 +625,10 @@ mod imp {
             unsafe {
                 let mut client = std::ptr::null_mut();
                 let mut port = std::ptr::null_mut();
-                if snd_seq_client_info_malloc(&mut client) < 0 {
+                if snd_seq_client_info_malloc(&raw mut client) < 0 {
                     return;
                 }
-                if snd_seq_port_info_malloc(&mut port) < 0 {
+                if snd_seq_port_info_malloc(&raw mut port) < 0 {
                     snd_seq_client_info_free(client);
                     return;
                 }

@@ -84,6 +84,10 @@ pub(crate) struct Raw {
 
 /// The options that start a kernel, with or without a terminal.
 #[derive(Args, Debug, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each field is a switch of the command line"
+)]
 pub(crate) struct Run {
     /// A project (a folder or file), or a sound file to start a project with
     pub project: Option<PathBuf>,

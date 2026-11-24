@@ -16,6 +16,9 @@
 //! checkpoint written. A project with no file has no folder, and writing a
 //! checkpoint for it fails.
 
+#![allow(clippy::too_many_lines, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

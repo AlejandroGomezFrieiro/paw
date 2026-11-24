@@ -95,7 +95,7 @@ impl IBStreamTrait for Stream {
 }
 
 pub(super) fn stream_ptr(stream: &ComWrapper<Stream>) -> *mut IBStream {
-    stream.as_com_ref::<IBStream>().unwrap().as_ptr()
+    stream.as_com_ref::<IBStream>().expect("the object implements IBStream").as_ptr()
 }
 
 impl Vst3Controller {

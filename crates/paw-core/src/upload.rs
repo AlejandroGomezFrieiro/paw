@@ -106,7 +106,7 @@ impl Uploads {
                 }
                 upload.file.flush()?;
                 // Taken now if another upload got there first.
-                let path = free_path(upload.path.parent().unwrap_or(dir), &upload.path.file_name().unwrap().to_string_lossy());
+                let path = free_path(upload.path.parent().unwrap_or(dir), &upload.path.file_name().expect("an upload has a file name").to_string_lossy());
                 std::fs::rename(&upload.part, &path).with_context(|| format!("keeping {}", path.display()))?;
                 Ok(json!(path.to_string_lossy()))
             }

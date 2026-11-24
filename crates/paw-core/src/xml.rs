@@ -91,6 +91,7 @@ struct Open {
 
 /// Read a document into its root element; the error says what is wrong and
 /// at which byte.
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub(crate) fn decode(lua: &Lua, bytes: &[u8], spans: bool, meta: Option<Table>) -> mlua::Result<Result<Table, String>> {
     let text = utf8_of(bytes);
     // Spans are of the bytes as given: past a UTF-8 byte order mark, and
@@ -386,6 +387,7 @@ fn span_of(el: &Table, len: usize) -> mlua::Result<Option<Span>> {
     Ok(ok.then_some(span))
 }
 
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 fn encode_el(el: &Table, opts: &EncodeOpts, depth: usize, out: &mut String) -> mlua::Result<()> {
     let name: String = el.get("name")?;
     let attrs = attributes(el, opts.digits)?;

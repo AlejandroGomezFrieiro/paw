@@ -355,6 +355,7 @@ struct OpenOpts {
     into: Option<String>,
 }
 
+#[expect(clippy::too_many_lines, reason = "one registration for each Lua function of the table, in a list")]
 pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     let sh = shared.clone();
     // Start a scene `w` by `h` units big, for `scene_draw` and

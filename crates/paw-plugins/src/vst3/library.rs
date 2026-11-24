@@ -49,7 +49,9 @@ pub(super) fn library_path(bundle: &Path) -> PathBuf {
 pub(super) fn load(bundle: &Path, libraries: &[PathBuf]) -> Result<Arc<Module>> {
     crate::debug_assert_main_thread();
     static LOADED: Mutex<Vec<(PathBuf, Arc<Module>)>> = Mutex::new(Vec::new());
-    let mut loaded = LOADED.lock().unwrap();
+    let mut loaded = LOADED
+        .lock()
+        .expect("a thread panicked while it held the lock");
     if let Some((_, module)) = loaded.iter().find(|(p, _)| p == bundle) {
         return Ok(module.clone());
     }
@@ -79,7 +81,10 @@ pub(super) fn load(bundle: &Path, libraries: &[PathBuf]) -> Result<Arc<Module>> 
         // plugins look the host up there while an instance is being created.
         let host = ComWrapper::new(Host::default());
         if let Some(factory3) = factory.cast::<IPluginFactory3>() {
-            let context = host.as_com_ref::<IHostApplication>().unwrap().as_ptr() as *mut FUnknown;
+            let context = host
+                .as_com_ref::<IHostApplication>()
+                .expect("the object implements IHostApplication")
+                .as_ptr() as *mut FUnknown;
             factory3.setHostContext(context);
         }
         Arc::new(Module {
@@ -100,7 +105,7 @@ pub(super) fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
         let factory2 = module.factory.cast::<IPluginFactory2>();
         for index in 0..module.factory.countClasses() {
             let mut info: PClassInfo = std::mem::zeroed();
-            if module.factory.getClassInfo(index, &mut info) != OK
+            if module.factory.getClassInfo(index, &raw mut info) != OK
                 || chars(&info.category) != "Audio Module Class"
             {
                 continue;
@@ -109,7 +114,7 @@ pub(super) fn list(bundle: &Path, libraries: &[PathBuf]) -> Result<Vec<Found>> {
             let mut features = Vec::new();
             if let Some(factory2) = &factory2 {
                 let mut info2: PClassInfo2 = std::mem::zeroed();
-                if factory2.getClassInfo2(index, &mut info2) == OK {
+                if factory2.getClassInfo2(index, &raw mut info2) == OK {
                     vendor = chars(&info2.vendor);
                     version = chars(&info2.version);
                     let categories = chars(&info2.subCategories);

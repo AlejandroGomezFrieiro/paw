@@ -261,7 +261,6 @@ fn copy_events(slot: &mut EventBuf, lists: &mut [EventBuf], from: Ev, to: Ev, fi
     let within = |v: u8, (low, high): (u8, u8)| (low..=high).contains(&v);
     for event in from.as_slice() {
         let keep = match (filter, event.kind) {
-            (Filter::All, _) => true,
             (Filter::Keys(low, high), EventKind::NoteOn { key, .. } | EventKind::NoteOff { key, .. })
             | (Filter::Keys(low, high), EventKind::NoteControl { key, .. }) => within(key, (low, high)),
             (Filter::Velocities(low, high), EventKind::NoteOn { vel, .. }) => {

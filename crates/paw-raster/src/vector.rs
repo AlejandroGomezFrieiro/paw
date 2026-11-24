@@ -46,7 +46,7 @@ fn rect_path(x: f32, y: f32, w: f32, h: f32, radius: f32) -> Option<Path> {
 }
 
 /// A line of text as the shapes of its letters, cut at `right`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "one argument for each value of a text run or a shape; a struct for them is open work")]
 fn text_shapes(out: &mut Vec<Shape>, font: Font, text: &str, x: f32, baseline: f32, size: f32, colour: Rgba, right: f32) {
     let face = font.face();
     let mut pen = x;
@@ -175,6 +175,7 @@ pub fn svg(drawing: &Drawing, width: f32, height: f32) -> String {
 
 /// Drawings as the pages of a PDF document, each `(drawing, width,
 /// height)` in pixels, `scale` points to a pixel (0.75 for 96 to the inch).
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub fn pdf(pages: &[(Drawing, f32, f32)], scale: f32) -> Vec<u8> {
     // The transparencies used, each a graphics state of its own.
     let mut alphas: Vec<u8> = Vec::new();

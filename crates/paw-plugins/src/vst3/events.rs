@@ -345,7 +345,7 @@ impl IParameterChangesTrait for ParamChanges {
     unsafe fn getParameterData(&self, index: i32) -> *mut IParamValueQueue {
         match self.queues.get(index as usize) {
             Some(queue) if (index as usize) < self.used.get() => {
-                queue.as_com_ref::<IParamValueQueue>().unwrap().as_ptr()
+                queue.as_com_ref::<IParamValueQueue>().expect("the object implements IParamValueQueue").as_ptr()
             }
             _ => ptr::null_mut(),
         }
@@ -409,7 +409,7 @@ impl IParameterChangesTrait for Discard {
         }
         self.queue
             .as_com_ref::<IParamValueQueue>()
-            .unwrap()
+            .expect("the object implements IParamValueQueue")
             .as_ptr()
     }
 }

@@ -109,6 +109,10 @@ pub(crate) fn level_line(audio: &Audio) -> String {
 }
 
 /// The summary, as compact text.
+#[expect(
+    clippy::too_many_lines,
+    reason = "a sequence of steps in one place; the split into named steps is open work"
+)]
 pub(crate) fn analyze(audio: &Audio, segments: Segments, max_segments: usize) -> Result<String> {
     let frames = audio.frames();
     if frames == 0 {

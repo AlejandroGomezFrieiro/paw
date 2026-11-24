@@ -1,5 +1,10 @@
 //! `paw.api`: MIDI ports in and out.
 
+#![allow(
+    clippy::allow_attributes_without_reason,
+    reason = "fixed with the running work on the session, the API and the model of paw-core"
+)]
+
 use std::rc::Rc;
 
 use mlua::{Lua, Table, Value as LuaValue};

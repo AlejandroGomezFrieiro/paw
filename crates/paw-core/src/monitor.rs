@@ -44,7 +44,7 @@ impl Monitor {
         match method {
             "monitor.listen" => {
                 {
-                    let mut listeners = self.listeners.lock().unwrap();
+                    let mut listeners = self.listeners.lock().expect("a thread panicked while it held the lock");
                     if !listeners.contains(&client) {
                         listeners.push(client);
                     }
@@ -67,7 +67,7 @@ impl Monitor {
 
     /// A connection stopped listening, or closed.
     pub(crate) fn closed(&mut self, client: ClientId, session: &mut Session) {
-        let mut listeners = self.listeners.lock().unwrap();
+        let mut listeners = self.listeners.lock().expect("a thread panicked while it held the lock");
         let before = listeners.len();
         listeners.retain(|id| *id != client);
         if before > 0 && listeners.is_empty() {
@@ -77,7 +77,7 @@ impl Monitor {
 
     /// Whether anyone listens.
     pub(crate) fn listening(&self) -> bool {
-        !self.listeners.lock().unwrap().is_empty()
+        !self.listeners.lock().expect("a thread panicked while it held the lock").is_empty()
     }
 
     /// After a turn: a restarted engine is asked for a copy again.
@@ -138,7 +138,7 @@ fn send_on(
         let frames = encoder.push(&buf);
         // The lock stays held while the frames are queued: so a connection
         // that `monitor.unlisten` removed gets no frame after its reply.
-        let ids = listeners.lock().unwrap();
+        let ids = listeners.lock().expect("a thread panicked while it held the lock");
         for frame in &frames {
             for id in ids.iter() {
                 clients.push(*id, "audio.frame", frame);

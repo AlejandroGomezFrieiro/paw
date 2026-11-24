@@ -1,6 +1,11 @@
 //! A session of an editor with the server: diagnostics, formatting,
 //! completion, hover, definition, and where the schema comes from.
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "fixed with the running work on the chain language"
+)]
+
 use chain_lsp::{Options, SchemaSource};
 use serde_json::{Value, json};
 

@@ -397,7 +397,7 @@ pub(crate) fn chase(events: &mut EventBuf, clips: &ClipSet, before: f64) {
 /// frames: its events into `events`, its sound into the buffers. The clip
 /// goes round to its start at its length. The block's beats are spread
 /// evenly over its frames, at the tempo it starts with.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "the values of one block of a slot; a struct for them is open work")]
 pub(crate) fn play(
     slot: &SlotClip,
     phase: f64,

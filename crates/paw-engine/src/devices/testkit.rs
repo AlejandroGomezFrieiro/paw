@@ -3,7 +3,7 @@
 //! for any parameter at the ends of its range, silence after the tail, and
 //! no denormal numbers.
 
-#![allow(dead_code)]
+#![allow(dead_code, reason = "each test module uses a part of the kit")]
 
 use crate::device::{Controller, Device, Io, ParamInfo, ProcessCtx, Registry};
 use crate::event::EventBuf;

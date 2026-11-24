@@ -50,8 +50,9 @@ pub fn current() -> Scheduling {
     let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
     // SAFETY: the calling thread exists, and both out-pointers are to live
     // locals of the right types.
-    let result =
-        unsafe { libc::pthread_getschedparam(libc::pthread_self(), &mut policy, &mut param) };
+    let result = unsafe {
+        libc::pthread_getschedparam(libc::pthread_self(), &raw mut policy, &raw mut param)
+    };
     if result != 0 {
         return Scheduling::ORDINARY;
     }
@@ -72,8 +73,9 @@ pub fn set(scheduling: Scheduling) -> bool {
     param.sched_priority = scheduling.priority;
     // SAFETY: the calling thread exists, and `param` is a live local. A
     // policy or priority that the system does not take is an error, not UB.
-    let result =
-        unsafe { libc::pthread_setschedparam(libc::pthread_self(), scheduling.policy, &param) };
+    let result = unsafe {
+        libc::pthread_setschedparam(libc::pthread_self(), scheduling.policy, &raw const param)
+    };
     result == 0
 }
 

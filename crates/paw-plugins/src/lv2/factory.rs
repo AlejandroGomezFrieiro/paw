@@ -263,6 +263,7 @@ impl DeviceFactory for Lv2Factory {
         &self.info
     }
 
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let plugin = self.plugin()?;
         let w = world_in(&self.folders);
@@ -370,7 +371,7 @@ impl DeviceFactory for Lv2Factory {
             }
 
             // Plugins may ship a default state that the host is meant to apply.
-            let map = &shared.host.map as *const UridMap as *mut _;
+            let map = &raw const shared.host.map as *mut _;
             let default = lilv_state_new_from_world(w.world, map, lilv_plugin_get_uri(plugin));
             if !default.is_null() {
                 restore(&shared, default);

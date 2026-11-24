@@ -2,6 +2,8 @@
 //! over TCP, the frontend's state pushed in parts, and a terminal attached
 //! to a kernel that runs without one.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 mod sealed;
 
 use std::io::{BufRead, BufReader};

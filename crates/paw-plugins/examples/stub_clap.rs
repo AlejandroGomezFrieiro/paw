@@ -22,6 +22,8 @@
 //! `stub.render` answers the mode of its first block and the mode it has
 //! now, each `none` (never set), `realtime` or `offline`, or `no-block`.
 
+#![expect(clippy::unwrap_used, reason = "the stub plugin of the tests: a failed unwrap is a failed test")]
+
 use std::ffi::{CStr, c_char, c_void};
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed, Ordering::SeqCst};
 
@@ -159,7 +161,7 @@ unsafe fn tell(out: *const clap_output_events, value: u32, gesture: bool) {
         if gesture {
             push(out, &edge(CLAP_EVENT_PARAM_GESTURE_BEGIN).header);
         }
-        push(out, &event.header);
+        push(out, &raw const event.header);
         if gesture {
             push(out, &edge(CLAP_EVENT_PARAM_GESTURE_END).header);
         }
@@ -573,19 +575,19 @@ unsafe extern "C" fn get_extension(_: *const clap_plugin, id: *const c_char) -> 
     // SAFETY: the host gives a C string (CLAP).
     let id = unsafe { CStr::from_ptr(id) };
     if id == CLAP_EXT_AUDIO_PORTS {
-        &AUDIO_PORTS as *const _ as *const c_void
+        &raw const AUDIO_PORTS as *const c_void
     } else if id == CLAP_EXT_NOTE_PORTS {
-        &NOTE_PORTS as *const _ as *const c_void
+        &raw const NOTE_PORTS as *const c_void
     } else if id == CLAP_EXT_NOTE_NAME {
-        &NOTE_NAMES as *const _ as *const c_void
+        &raw const NOTE_NAMES as *const c_void
     } else if id == CLAP_EXT_STATE {
-        &STATE_EXT as *const _ as *const c_void
+        &raw const STATE_EXT as *const c_void
     } else if id == CLAP_EXT_PARAMS {
-        &PARAMS as *const _ as *const c_void
+        &raw const PARAMS as *const c_void
     } else if id == CLAP_EXT_RENDER {
-        &RENDER as *const _ as *const c_void
+        &raw const RENDER as *const c_void
     } else if id == c"dev.paw.call/1" {
-        &PAW_CALL as *const _ as *const c_void
+        &raw const PAW_CALL as *const c_void
     } else {
         std::ptr::null()
     }
@@ -599,7 +601,7 @@ unsafe extern "C" fn plugin_descriptor(
     index: u32,
 ) -> *const clap_plugin_descriptor {
     if index == 0 {
-        &DESC.0
+        &raw const DESC.0
     } else {
         std::ptr::null()
     }
@@ -620,7 +622,7 @@ unsafe extern "C" fn create_plugin(
         first_block_mode: AtomicU32::new(MODE_NO_BLOCK),
     };
     Box::into_raw(Box::new(clap_plugin {
-        desc: &DESC.0,
+        desc: &raw const DESC.0,
         plugin_data: Box::into_raw(Box::new(instance)).cast(),
         init: Some(init),
         destroy: Some(destroy),
@@ -647,14 +649,13 @@ unsafe extern "C" fn entry_deinit() {}
 unsafe extern "C" fn get_factory(id: *const c_char) -> *const c_void {
     // SAFETY: the host gives a C string (CLAP).
     if unsafe { CStr::from_ptr(id) } == CLAP_PLUGIN_FACTORY_ID {
-        &FACTORY as *const _ as *const c_void
+        &raw const FACTORY as *const c_void
     } else {
         std::ptr::null()
     }
 }
 
 #[unsafe(no_mangle)]
-#[allow(non_upper_case_globals)]
 pub static clap_entry: clap_plugin_entry = clap_plugin_entry {
     clap_version: CLAP_VERSION,
     init: Some(entry_init),

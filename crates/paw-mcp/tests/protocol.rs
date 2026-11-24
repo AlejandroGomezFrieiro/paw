@@ -2,6 +2,8 @@
 //! audio backend behind it: the handshake, the tool list, a short song built
 //! with typed tools only, a render, undo, and the ways calls go wrong.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 mod sealed;
 
 use std::io::{BufRead, BufReader, Write};
@@ -256,6 +258,7 @@ fn left_peak(text: &str) -> f64 {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one test of a long scenario, read from top to bottom")]
 fn handshake_and_tool_list() {
     let dir = scratch("handshake");
     let mut client = Client::start(
@@ -383,6 +386,7 @@ fn handshake_and_tool_list() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one test of a long scenario, read from top to bottom")]
 fn build_render_undo() {
     let dir = scratch("song");
     let mut args = vec!["--spawn", "--"];
@@ -704,6 +708,7 @@ fn pitches_of(data: &Value) -> Vec<u64> {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "one test of a long scenario, read from top to bottom")]
 fn an_agent_composes_with_json_ids_markers_and_one_step_batches() {
     let dir = scratch("agent");
     let mut args = vec!["--spawn", "--"];

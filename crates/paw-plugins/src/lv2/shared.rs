@@ -181,33 +181,33 @@ pub(super) fn host_data(sample_rate: f32, max_block: usize) -> Box<HostData> {
         u.max_block,
         4,
         u.int,
-        &host.max_block as *const i32 as *const c_void,
+        &raw const host.max_block as *const c_void,
     );
     host.options[1] = option(
         u.min_block,
         4,
         u.int,
-        &host.min_block as *const i32 as *const c_void,
+        &raw const host.min_block as *const c_void,
     );
     host.options[2] = option(
         u.sample_rate,
         4,
         u.float,
-        &host.sample_rate as *const f32 as *const c_void,
+        &raw const host.sample_rate as *const c_void,
     );
-    host.schedule.handle = &host.worker as *const OnceLock<Worker> as *mut c_void;
+    host.schedule.handle = &raw const host.worker as *mut c_void;
     let feature = |uri: &'static CStr, data: *mut c_void| Feature {
         uri: uri.as_ptr(),
         data,
     };
     host.features = vec![
-        feature(URID_MAP, &mut host.map as *mut UridMap as *mut c_void),
-        feature(URID_UNMAP, &mut host.unmap as *mut UridUnmap as *mut c_void),
+        feature(URID_MAP, &raw mut host.map as *mut c_void),
+        feature(URID_UNMAP, &raw mut host.unmap as *mut c_void),
         feature(OPTIONS, host.options.as_mut_ptr() as *mut c_void),
         feature(BOUNDED_BLOCK, ptr::null_mut()),
         feature(
             WORKER_SCHEDULE,
-            &mut host.schedule as *mut WorkerSchedule as *mut c_void,
+            &raw mut host.schedule as *mut c_void,
         ),
         feature(LOAD_DEFAULT_STATE, ptr::null_mut()),
     ];

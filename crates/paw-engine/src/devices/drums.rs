@@ -187,6 +187,7 @@ impl Drums {
     /// Render frames `from..to` of the block: each family on its own pair
     /// where that is routed (`outputs`, from the second pair), else on the
     /// first.
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn render(
         &mut self,
         left: &mut [f32],

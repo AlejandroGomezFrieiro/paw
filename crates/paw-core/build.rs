@@ -18,6 +18,8 @@
 //! what a check of a Teal file reads from the runtime (`TEAL_TYPES`): the
 //! loader checks the types of an extension in Teal with them.
 
+#![expect(clippy::unwrap_used, reason = "a build script: a failed unwrap stops the build with its place")]
+
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 

@@ -13,7 +13,7 @@ use crate::lv2_patch::PatchUrids;
 static URIDS: Mutex<Vec<CString>> = Mutex::new(Vec::new());
 
 pub(super) fn urid(uri: &CStr) -> u32 {
-    let mut uris = URIDS.lock().unwrap();
+    let mut uris = URIDS.lock().expect("a thread panicked while it held the lock");
     match uris.iter().position(|known| known.as_c_str() == uri) {
         Some(index) => index as u32 + 1,
         None => {
@@ -29,7 +29,7 @@ pub(super) unsafe extern "C" fn urid_map(_: *mut c_void, uri: *const c_char) -> 
 }
 
 pub(super) unsafe extern "C" fn urid_unmap(_: *mut c_void, id: u32) -> *const c_char {
-    let uris = URIDS.lock().unwrap();
+    let uris = URIDS.lock().expect("a thread panicked while it held the lock");
     // The string's buffer stays where it is for the life of the program.
     uris.get(id.wrapping_sub(1) as usize)
         .map_or(ptr::null(), |uri| uri.as_ptr())

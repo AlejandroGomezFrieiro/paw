@@ -225,7 +225,7 @@ mod imp {
     ) -> Result<JoinHandle<()>> {
         let mut handle = std::ptr::null_mut();
         // SAFETY: `handle` is a live out-pointer and the name a C string.
-        let opened = unsafe { snd_seq_open(&mut handle, c"default".as_ptr(), OPEN_INPUT, NONBLOCK) };
+        let opened = unsafe { snd_seq_open(&raw mut handle, c"default".as_ptr(), OPEN_INPUT, NONBLOCK) };
         check(opened, "opening the sequencer")?;
         let seq = Seq(handle);
         // SAFETY: `seq` holds an open handle; the names are C strings that
@@ -420,7 +420,7 @@ mod imp {
             if self.ump {
                 let mut ev: *mut snd_seq_ump_event_t = std::ptr::null_mut();
                 // SAFETY: the handle is open and `ev` a live out-pointer.
-                if unsafe { snd_seq_ump_event_input(self.seq.0, &mut ev) } < 0 || ev.is_null() {
+                if unsafe { snd_seq_ump_event_input(self.seq.0, &raw mut ev) } < 0 || ev.is_null() {
                     return None;
                 }
                 // SAFETY: the sequencer points `ev` at an event in its own
@@ -441,7 +441,7 @@ mod imp {
             } else {
                 let mut ev: *mut snd_seq_event_t = std::ptr::null_mut();
                 // SAFETY: the handle is open and `ev` a live out-pointer.
-                if unsafe { snd_seq_event_input(self.seq.0, &mut ev) } < 0 || ev.is_null() {
+                if unsafe { snd_seq_event_input(self.seq.0, &raw mut ev) } < 0 || ev.is_null() {
                     return None;
                 }
                 // SAFETY: as for the packet above: an event in the
@@ -550,10 +550,10 @@ mod imp {
             unsafe {
                 let mut client = std::ptr::null_mut();
                 let mut port = std::ptr::null_mut();
-                if snd_seq_client_info_malloc(&mut client) < 0 {
+                if snd_seq_client_info_malloc(&raw mut client) < 0 {
                     return found;
                 }
-                if snd_seq_port_info_malloc(&mut port) < 0 {
+                if snd_seq_port_info_malloc(&raw mut port) < 0 {
                     snd_seq_client_info_free(client);
                     return found;
                 }

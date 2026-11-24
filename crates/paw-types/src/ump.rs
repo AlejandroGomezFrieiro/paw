@@ -365,7 +365,6 @@ pub fn midi1(kind: EventKind, mut emit: impl FnMut([u8; 3], u32)) {
             value,
             ch,
         } => emit([0xA0 | (ch & 15), key & 127, to7(value)], 3),
-        EventKind::NoteControl { .. } => {}
         EventKind::Program { program, bank, ch } => {
             let ch = ch & 15;
             if let Some(bank) = bank {
@@ -374,7 +373,9 @@ pub fn midi1(kind: EventKind, mut emit: impl FnMut([u8; 3], u32)) {
             }
             emit([0xC0 | ch, program & 127, 0], 2);
         }
-        EventKind::AllNotesOff => {}
+        // MIDI 1.0 has no form for the other note controls, and "all notes
+        // off" goes out as the note-offs of the held notes.
+        EventKind::NoteControl { .. } | EventKind::AllNotesOff => {}
     }
 }
 
@@ -410,6 +411,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines, reason = "one test of a long scenario, read from top to bottom")]
     fn midi_2_messages_round_trip_at_full_resolution() {
         let events = [
             EventKind::NoteOn {

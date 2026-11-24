@@ -109,6 +109,7 @@ impl Session {
     /// (the same instances), the sum of their faders in dB, the row's pan,
     /// sends, output, mute and colour, and their lanes (volume lanes added
     /// in dB). The row, the master and the subproject go. One undo step.
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     pub(crate) fn nest_promote(&mut self, clip: Id) -> Result<Promoted> {
         if let Some((b, blocks)) = self.per_part_blocks(clip)? {
             return self.promote_per_part(b, blocks);

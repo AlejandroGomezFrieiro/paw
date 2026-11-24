@@ -83,7 +83,7 @@ impl Controller for Vst3Controller {
         let mut text: String128 = [0; 128];
         // SAFETY: `controller` is live and `text` is a `String128` that the plugin fills; main thread.
         unsafe {
-            (controller.getParamStringByValue(id, value, &mut text) == OK)
+            (controller.getParamStringByValue(id, value, &raw mut text) == OK)
                 .then(|| wide(&text))
                 .filter(|t| !t.is_empty())
         }
@@ -97,7 +97,7 @@ impl Controller for Vst3Controller {
         let mut value = 0.0;
         // SAFETY: `controller` is live; `units` is NUL-terminated and lives through the call.
         unsafe {
-            (controller.getParamValueByString(id, units.as_mut_ptr(), &mut value) == OK)
+            (controller.getParamValueByString(id, units.as_mut_ptr(), &raw mut value) == OK)
                 .then_some(value)
                 .filter(|v| v.is_finite())
         }
@@ -274,7 +274,7 @@ unsafe fn set_up_again(
     unsafe {
         processor.setProcessing(0);
         component.setActive(0);
-        let took = processor.setupProcessing(&mut setup) == OK;
+        let took = processor.setupProcessing(&raw mut setup) == OK;
         component.setActive(1);
         processor.setProcessing(1);
         took

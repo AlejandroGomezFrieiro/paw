@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_clone, reason = "fixed with the running work on the session, the API and the model of paw-core")]
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 

@@ -108,14 +108,16 @@ pub struct Style {
     pub fg: Option<Color>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bg: Option<Color>,
-    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(skip_serializing_if = "is_default")]
     pub on: u8,
-    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(skip_serializing_if = "is_default")]
     pub off: u8,
 }
 
-fn is_zero(n: &u8) -> bool {
-    *n == 0
+/// Whether a field has the value that a frontend takes when the field is
+/// left out of the wire.
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
 }
 
 impl Style {
@@ -172,7 +174,7 @@ fn bounds(cells: &[Cell], width: u16) -> Rect {
 /// Draw text into cells (row by row, `width` to a row) starting at `(x, y)`,
 /// keeping inside `clip`. `touched` hears of every cell written. Returns how
 /// many columns the text takes, whether or not all of it was visible.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "one argument for each value of a text run or a shape; a struct for them is open work")]
 pub fn write_text(
     cells: &mut [Cell],
     width: u16,
@@ -212,7 +214,6 @@ pub fn write_text(
 
 /// Restyle an area of cells and, when `ch` is given, overwrite its
 /// characters. `touched` hears of every cell written.
-#[allow(clippy::too_many_arguments)]
 pub fn write_fill(
     cells: &mut [Cell],
     width: u16,

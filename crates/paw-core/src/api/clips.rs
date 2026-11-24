@@ -1,5 +1,7 @@
 //! `paw.api`: clips, their media, notes and controllers, and cues.
 
+#![allow(clippy::too_many_lines, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::rc::Rc;
 
 use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};

@@ -49,7 +49,7 @@ impl ClapController {
         let Some(gui) = shared.ext.gui else {
             return;
         };
-        let resize = shared.flags.resize.lock().unwrap().take();
+        let resize = shared.flags.resize.lock().expect("a thread panicked while it held the lock").take();
         if let (Some(window), Some((width, height))) = (editor.as_mut(), resize) {
             window.resize(width, height);
         }
@@ -80,7 +80,7 @@ impl ClapController {
         }
         // Timers and file descriptors drive the plugin's own event handling.
         let (due, ready) = {
-            let mut watches = shared.flags.watches.lock().unwrap();
+            let mut watches = shared.flags.watches.lock().expect("a thread panicked while it held the lock");
             (watches.due_timers(), watches.ready_fds())
         };
         shared.on_main(|plugin| {

@@ -106,7 +106,9 @@ pub(crate) static HOST: Host = Host {
 /// loaded already returns its name again.
 pub fn add(path: &Path) -> Result<String> {
     adopt();
-    let mut libs = LIBS.lock().unwrap();
+    let mut libs = LIBS
+        .lock()
+        .expect("a thread panicked while it held the lock");
     if let Some(lib) = libs.iter().find(|l| l.path == path) {
         return Ok(lib.name.clone());
     }
@@ -156,7 +158,9 @@ fn adopt() {
         let Some(paths) = std::env::var_os(ATTACH_ENV) else {
             return;
         };
-        let mut libs = LIBS.lock().unwrap();
+        let mut libs = LIBS
+            .lock()
+            .expect("a thread panicked while it held the lock");
         for path in std::env::split_paths(&paths) {
             match open(&path) {
                 Ok(lib) => libs.push(Arc::new(lib)),
@@ -169,7 +173,9 @@ fn adopt() {
 /// The attachments loaded, as [`ATTACH_ENV`] holds them for a helper.
 pub(crate) fn env() -> Option<std::ffi::OsString> {
     adopt();
-    let libs = LIBS.lock().unwrap();
+    let libs = LIBS
+        .lock()
+        .expect("a thread panicked while it held the lock");
     if libs.is_empty() {
         return None;
     }
@@ -212,7 +218,7 @@ impl Attached {
                 method.as_ptr(),
                 data.as_ptr(),
                 data.len(),
-                &mut answer as *mut Vec<u8> as *mut c_void,
+                &raw mut answer as *mut c_void,
                 write_answer,
             )
         };
@@ -236,7 +242,10 @@ impl Drop for Attached {
 /// `plugin` is a live plugin of `format`, not yet activated.
 pub(crate) unsafe fn offer(format: &CStr, plugin: *const c_void) -> Vec<Attached> {
     adopt();
-    let libs: Vec<Arc<Lib>> = LIBS.lock().unwrap().clone();
+    let libs: Vec<Arc<Lib>> = LIBS
+        .lock()
+        .expect("a thread panicked while it held the lock")
+        .clone();
     let mut taken = Vec::new();
     for lib in libs {
         let Some(attach) = lib.entry.attach else {
@@ -244,7 +253,7 @@ pub(crate) unsafe fn offer(format: &CStr, plugin: *const c_void) -> Vec<Attached
         };
         // SAFETY: `attach` is the attachment's function; `HOST` is static, `format` is a live CStr, and the
         // caller of `offer` promises `plugin` is a live plugin of that format (this function's # Safety).
-        let handle = unsafe { attach(&HOST, format.as_ptr(), plugin) };
+        let handle = unsafe { attach(&raw const HOST, format.as_ptr(), plugin) };
         if !handle.is_null() {
             taken.push(Attached { lib, handle });
         }
@@ -364,7 +373,7 @@ mod tests {
             channels: 0,
         };
         // SAFETY: `c_path` is a live NUL-terminated string and `info` a live `AudioInfo`.
-        let audio = unsafe { (HOST.audio_open)(c_path.as_ptr(), &mut info) };
+        let audio = unsafe { (HOST.audio_open)(c_path.as_ptr(), &raw mut info) };
         assert!(!audio.is_null());
         assert_eq!(
             (info.frames, info.sample_rate, info.channels),
@@ -385,7 +394,7 @@ mod tests {
 
         let missing = CString::new("/nonexistent/paw.wav").unwrap();
         // SAFETY: `missing` is a live NUL-terminated string and `info` a live `AudioInfo`.
-        assert!(unsafe { (HOST.audio_open)(missing.as_ptr(), &mut info) }.is_null());
+        assert!(unsafe { (HOST.audio_open)(missing.as_ptr(), &raw mut info) }.is_null());
         std::fs::remove_dir_all(&dir).ok();
     }
 }

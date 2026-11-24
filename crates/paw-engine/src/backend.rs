@@ -3,6 +3,10 @@
 //! owner of the stream itself, block by block, for the tests (the stepped
 //! backend).
 
+#![allow(clippy::allow_attributes_without_reason, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::fmt;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};

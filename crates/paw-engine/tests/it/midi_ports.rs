@@ -30,7 +30,7 @@ impl Sender {
         // open; the names are C strings that outlive the calls.
         unsafe {
             let mut seq = std::ptr::null_mut();
-            if snd_seq_open(&mut seq, c"default".as_ptr(), 1, 0) < 0 {
+            if snd_seq_open(&raw mut seq, c"default".as_ptr(), 1, 0) < 0 {
                 return None;
             }
             snd_seq_set_client_name(seq, name.as_ptr());
@@ -63,7 +63,7 @@ impl Sender {
             ev.dest.client = 254;
             ev.dest.port = 253;
             ev.__bindgen_anon_1.ump = [words[0], words[1], 0, 0];
-            assert!(snd_seq_ump_event_output_direct(self.seq, &mut ev) >= 0);
+            assert!(snd_seq_ump_event_output_direct(self.seq, &raw mut ev) >= 0);
         }
     }
 
@@ -78,7 +78,7 @@ impl Sender {
             ev.dest.client = 254;
             ev.dest.port = 253;
             fill(&mut ev.data);
-            assert!(snd_seq_event_output_direct(self.seq, &mut ev) >= 0);
+            assert!(snd_seq_event_output_direct(self.seq, &raw mut ev) >= 0);
         }
     }
 }
@@ -100,7 +100,7 @@ impl Sender {
             ev.dest.client = dest.0 as u8;
             ev.dest.port = dest.1 as u8;
             fill(&mut ev.data);
-            assert!(snd_seq_event_output_direct(self.seq, &mut ev) >= 0);
+            assert!(snd_seq_event_output_direct(self.seq, &raw mut ev) >= 0);
         }
     }
 }

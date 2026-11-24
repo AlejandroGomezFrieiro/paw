@@ -39,7 +39,7 @@ impl Buses {
             let mut channels: Vec<Vec<Vec<f32>>> = (0..component.getBusCount(AUDIO, direction))
                 .map(|index| {
                     let mut info: BusInfo = std::mem::zeroed();
-                    component.getBusInfo(AUDIO, direction, index, &mut info);
+                    component.getBusInfo(AUDIO, direction, index, &raw mut info);
                     infos.push((info.channelCount.max(0) as usize, wide(&info.name)));
                     // The first bus carries the part's audio, the first
                     // auxiliary input a side-chain, and every output is
@@ -226,20 +226,20 @@ impl Device for Vst3Device {
             data.inputParameterChanges = self
                 .changes
                 .as_com_ref::<IParameterChanges>()
-                .unwrap()
+                .expect("the object implements IParameterChanges")
                 .as_ptr();
             data.outputParameterChanges = self
                 .discard
                 .as_com_ref::<IParameterChanges>()
-                .unwrap()
+                .expect("the object implements IParameterChanges")
                 .as_ptr();
-            data.inputEvents = self.events.as_com_ref::<IEventList>().unwrap().as_ptr();
-            data.processContext = &mut context;
+            data.inputEvents = self.events.as_com_ref::<IEventList>().expect("the object implements IEventList").as_ptr();
+            data.processContext = &raw mut context;
             let processed = self
                 .shared
                 .host
                 .blocks
-                .run(|| self.shared.processor.process(&mut data));
+                .run(|| self.shared.processor.process(&raw mut data));
             if processed != OK {
                 return;
             }

@@ -10,6 +10,11 @@
 //! The normal run uses a fixed seed (see `config`), so each run tries the
 //! same cases. `PROPTEST_CASES` and `PROPTEST_RNG_SEED` change them.
 
+#![allow(
+    clippy::redundant_clone,
+    reason = "fixed with the running work on the chain language"
+)]
+
 use proptest::prelude::*;
 use proptest::test_runner::{Config, RngSeed};
 

@@ -513,6 +513,7 @@ fn on_channel(kind: EventKind, ch: u8) -> EventKind {
 /// delay is moved by it, its events with it and its end too, by `tempo`;
 /// one moved before where playback starts is started there as a held note
 /// is, as early as it can be.
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub(crate) fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
     let midi = std::mem::take(&mut set.midi);
     let mut out = Vec::with_capacity(midi.len() + midi.len() / 2);

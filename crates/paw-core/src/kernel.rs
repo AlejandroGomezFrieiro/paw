@@ -183,7 +183,7 @@ impl Kernel {
         let midi_in = Arc::new(Mutex::new(VecDeque::new()));
         let heard = midi_in.clone();
         session.set_midi_tap(Box::new(move |port, kind| {
-            heard.lock().unwrap().push_back((port, kind));
+            heard.lock().expect("a thread panicked while it held the lock").push_back((port, kind));
             let _ = midi_tx.send(KernelMsg::Midi);
         }));
         #[expect(clippy::disallowed_methods, reason = "paw.api.real_ms and the time limit of Lua measure work from the start")]

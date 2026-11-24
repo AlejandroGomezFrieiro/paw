@@ -5,6 +5,8 @@
 //! A file of its own: the stub keeps its notes in statics, which the test in
 //! stub.rs reads.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 

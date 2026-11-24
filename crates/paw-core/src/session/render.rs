@@ -13,6 +13,8 @@
 //! temporary file first, is measured, and is then encoded from there with
 //! the gain applied, which gives the same samples as playing the song twice.
 
+#![allow(clippy::match_same_arms, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use crate::events::{KernelEvent as E, RenderEnd, RenderProgress};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};

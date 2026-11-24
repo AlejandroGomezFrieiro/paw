@@ -1,6 +1,8 @@
 //! A take survives what ends it badly: a disk that will take no more, and the
 //! program being killed in the middle of it.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 mod sealed;
 
 use std::io::{BufRead, BufReader};
@@ -76,7 +78,7 @@ for _, m in ipairs(paw.ui.messages) do print("message", m.text) end
                 rlim_cur: 600_000,
                 rlim_max: 600_000,
             };
-            libc::setrlimit(libc::RLIMIT_FSIZE, &limit);
+            libc::setrlimit(libc::RLIMIT_FSIZE, &raw const limit);
             Ok(())
         });
     }

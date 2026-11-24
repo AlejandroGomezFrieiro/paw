@@ -5,6 +5,9 @@
 //! did not change, which is what makes snapshot undo and pointer-comparing
 //! diffs cheap.
 
+#![allow(clippy::redundant_clone, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![allow(clippy::struct_excessive_bools, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;

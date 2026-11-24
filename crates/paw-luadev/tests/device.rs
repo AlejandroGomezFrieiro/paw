@@ -1,5 +1,7 @@
 //! A Lua device run in this process, as its helper runs it.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 use std::path::PathBuf;
 use std::time::Instant;
 

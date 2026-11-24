@@ -10,6 +10,7 @@ use super::*;
 
 /// The transport as Lua reads it (`paw.api.transport_get`).
 #[derive(Clone, Copy, Debug, Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "the fields are the transport as Lua reads it")]
 pub(crate) struct TransportView {
     pub playing: bool,
     pub position: f64,

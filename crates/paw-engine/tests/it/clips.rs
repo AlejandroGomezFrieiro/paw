@@ -562,7 +562,7 @@ fn many_regions_in_a_part_play_as_the_same_regions_in_one_list() {
             if k % 3 == 0 { region.reversed().unwrap() } else { region }
         })
         .collect();
-    regions.insert(17, paw_engine::AudioRegion { start: 1.03, end: 9.0, gain: 0.25, ..plain_region(data.clone(), 0.0) });
+    regions.insert(17, paw_engine::AudioRegion { start: 1.03, end: 9.0, gain: 0.25, ..plain_region(data, 0.0) });
     let piece = || paw_engine::Piece::new(1, 1, std::sync::Arc::from([]), regions.iter().rev().map(region_copy).collect());
     for from in [0.0, 3.3, 7.75] {
         let mut list = ClipSet::default();

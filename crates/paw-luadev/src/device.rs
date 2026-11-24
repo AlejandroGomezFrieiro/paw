@@ -291,7 +291,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
         put("events_out", bufs.events_out.as_mut_ptr().cast())?;
         // A device without parameters still gets an address to read none from.
         put("params", bufs.params.as_mut_ptr().cast())?;
-        put("transport", (&mut bufs.transport as *mut Transport).cast())?;
+        put("transport", (&raw mut bufs.transport).cast())?;
         host.get::<Function>("bind")?
             .call::<()>((ptr, max_block, MAX_EVENTS, sample_rate))?;
         host.get("run")

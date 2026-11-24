@@ -120,7 +120,7 @@ impl ServerCertVerifier for Pinned {
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let print = fingerprint(end_entity);
-        *self.shown.lock().unwrap() = Some(print.clone());
+        *self.shown.lock().expect("a thread panicked while it held the lock") = Some(print.clone());
         match &self.expected {
             Some(expected) if *expected != print && !self.accept_new => {
                 Err(rustls::Error::General("not the certificate remembered".into()))
@@ -255,7 +255,7 @@ pub(crate) async fn connect(address: &str, socket: TcpStream, known_file: &Path,
     let stream = match handshake {
         Ok(stream) => stream,
         Err(err) => {
-            let shown = pinned.shown.lock().unwrap().clone();
+            let shown = pinned.shown.lock().expect("a thread panicked while it held the lock").clone();
             if let (Some(expected), Some(shown)) = (&expected, &shown)
                 && expected != shown
             {
@@ -279,7 +279,7 @@ pub(crate) async fn connect(address: &str, socket: TcpStream, known_file: &Path,
             return Err(anyhow!(err).context(format!("no TLS with the instance at {address}")));
         }
     };
-    let shown = pinned.shown.lock().unwrap().clone().context("the instance showed no certificate")?;
+    let shown = pinned.shown.lock().expect("a thread panicked while it held the lock").clone().context("the instance showed no certificate")?;
     let trusted_now = if expected.as_deref() != Some(shown.as_str()) {
         remember(known_file, address, &shown)?;
         Some(shown)

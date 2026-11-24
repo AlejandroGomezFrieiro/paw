@@ -11,6 +11,10 @@ use crate::model::{Control, Note};
 
 use super::{LuaResult, Shared, from_lua, to_lua};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "one registration for each Lua function of the table, in a list"
+)]
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- undo ---

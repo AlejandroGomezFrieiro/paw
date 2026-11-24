@@ -87,7 +87,7 @@ pub(super) fn world_in(folders: &[PathBuf]) -> &'static World {
         }
         lilv_world_load_all(world);
         let uri = |text: String| {
-            let text = CString::new(text).unwrap();
+            let text = CString::new(text).expect("the text has no NUL byte");
             lilv_new_uri(world, text.as_ptr())
         };
         World {

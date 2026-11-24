@@ -2,6 +2,8 @@
 //! them. What reads a file (a clip file, a sound file) is the session's,
 //! in `session/clips.rs`.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

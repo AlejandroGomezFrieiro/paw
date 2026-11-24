@@ -234,8 +234,8 @@ fn decode(u: &PatchUrids, kind: u32, body: &[u8]) -> Option<Value> {
         let end = body.iter().position(|b| *b == 0).unwrap_or(body.len());
         Value::String(String::from_utf8_lossy(&body[..end]).into_owned())
     };
-    let bytes4 = || body.get(..4).map(|b| <[u8; 4]>::try_from(b).unwrap());
-    let bytes8 = || body.get(..8).map(|b| <[u8; 8]>::try_from(b).unwrap());
+    let bytes4 = || body.get(..4).map(|b| <[u8; 4]>::try_from(b).expect("the slice has the length of the array"));
+    let bytes8 = || body.get(..8).map(|b| <[u8; 8]>::try_from(b).expect("the slice has the length of the array"));
     Some(if kind == u.path || kind == u.string {
         text()
     } else if kind == u.float {

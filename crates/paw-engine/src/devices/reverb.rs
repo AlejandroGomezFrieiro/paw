@@ -306,6 +306,7 @@ impl Device for Reverb {
         self.rest.resting
     }
 
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn process(&mut self, _ctx: &ProcessCtx, io: &mut Io) {
         if self.rest.sleeps(io) {
             return;
