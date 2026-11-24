@@ -28,7 +28,7 @@ cap "Space tS, the new key, adds a part"
 key space t S; pause 1.8
 # The loop: stop the song, undo the part, and undo the text in Neovim.
 # The colour from init.lua stays until the next start.
-key space space; key u; pause 0.4
+key space space; key u; key g s; pause 0.4
 pane up; pause 0.4; key u; pause 0.5
 pane down; pause 0.8
 rec_stop
