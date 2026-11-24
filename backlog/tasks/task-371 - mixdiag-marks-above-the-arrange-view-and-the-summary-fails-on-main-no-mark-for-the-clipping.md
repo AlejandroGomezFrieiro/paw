@@ -3,10 +3,10 @@ id: TASK-371
 title: >-
   mixdiag: 'marks above the arrange view, and the summary' fails on main (no
   mark for the clipping)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T14:20:00Z'
-updated_date: '2026-11-24T14:38:00Z'
+updated_date: '2026-11-24T14:39:00Z'
 labels:
   - bug
   - tests
@@ -38,4 +38,6 @@ ordinal: 440000
 
 <!-- SECTION:NOTES:BEGIN -->
 Cause: test order dependence. The strip needs arrange geometry from a first paint; alone the test read it before. Fix: paint once in the test (branch mixdiag-flake, bf2d2ea7). Red alone 5/5 before, green repeat 5 and shuffle 3 after.
+
+On main in merge 240f56fc (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
