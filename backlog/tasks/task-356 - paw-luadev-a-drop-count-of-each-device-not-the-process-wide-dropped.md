@@ -1,10 +1,10 @@
 ---
 id: TASK-356
 title: 'paw-luadev: a drop count of each device, not the process-wide dropped()'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T11:30:00Z'
-updated_date: '2026-11-24T17:53:00Z'
+updated_date: '2026-11-24T17:58:00Z'
 labels:
   - agent:worker
   - rust
@@ -44,4 +44,6 @@ From the TASK-354 review (2026-11-24): crates/paw-luadev/src/device.rs tests ass
 
 <!-- SECTION:NOTES:BEGIN -->
 Started 2026-11-24: branch luadev-drops, base 6b819e3e.
+
+On main in merge 11994095 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
