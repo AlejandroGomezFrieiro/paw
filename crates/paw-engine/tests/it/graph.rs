@@ -278,3 +278,15 @@ fn the_engine_measures_each_device_and_branch() {
     assert_eq!(meters.peak(8), Some((1.0, 1.0)), "the empty branch");
     assert_eq!(meters.peak(100), Some((1.25, 1.25)), "the split after its merge");
 }
+
+#[test]
+fn a_device_put_in_a_slot_again_starts_with_a_silent_meter() {
+    let mut rig = Rig::new(vec![Box::new(Scale(0.25))]);
+    rig.set(plan(vec![device(0)]));
+    rig.run(1024, steady);
+    assert_eq!(rig.engine.shared().device_peak(DeviceSlot(0)), 0.25, "the old device sounded");
+    send(&mut rig.handle, Msg::RemoveDevice { slot: DeviceSlot(0) });
+    send(&mut rig.handle, Msg::InsertDevice { slot: DeviceSlot(0), device: Box::new(Scale(0.25)) });
+    rig.engine.pump();
+    assert_eq!(rig.engine.shared().device_peak(DeviceSlot(0)), 0.0, "the new device has not run");
+}

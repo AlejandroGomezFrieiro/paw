@@ -224,6 +224,9 @@ impl Engine {
     fn insert_device(&mut self, slot: DeviceSlot, device: Box<dyn Device>) {
         if let Some(entry) = self.devices.get_mut(slot.index()) {
             self.shared.faults[slot.index()].store(0, Relaxed);
+            // A slot is reused after its device is removed (a new project):
+            // the new device must not show the peak of the old one.
+            self.shared.device_peaks[slot.index()].store(0.0, Relaxed);
             // A device put in place of another (one that was being
             // made, or restarted) listens where that one did.
             let key = entry.get_mut().as_mut().and_then(|old| old.key.take());
