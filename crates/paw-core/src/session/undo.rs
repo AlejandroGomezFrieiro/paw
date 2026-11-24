@@ -681,7 +681,7 @@ fn part_name(t: &Part) -> String {
 
 /// The fields of `part` that differ from `prev`, by name.
 fn part_changes(prev: &Part, part: &Part) -> Vec<&'static str> {
-    let checks: [(&str, bool); 14] = [
+    let checks: [(&str, bool); 16] = [
         ("name", prev.name != part.name),
         ("volume", prev.volume != part.volume),
         ("pan", prev.pan != part.pan),
@@ -692,6 +692,8 @@ fn part_changes(prev: &Part, part: &Part) -> Vec<&'static str> {
         ("sends", prev.sends != part.sends),
         ("color", prev.color != part.color),
         ("meta", prev.meta != part.meta),
+        ("kind", prev.kind != part.kind),
+        ("parent", prev.parent != part.parent),
         ("input", prev.input != part.input),
         ("monitor", prev.monitor != part.monitor),
         ("midi_input", prev.midi_input != part.midi_input),
@@ -946,6 +948,7 @@ mod tests {
             pitch,
             velocity: crate::model::Velocity(100),
             meta: Default::default(),
+            lyric: None,
             id: 0,
             attr: None,
         };

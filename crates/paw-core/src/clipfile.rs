@@ -10,7 +10,7 @@
 //!
 //! paw writes [`TPQ`] ticks to a beat, notes and controllers as MIDI 2.0
 //! channel voice messages on group 1, channel 1, and what MIDI has no
-//! message for (a note's `meta`, its id when the ids are not 1, 2, 3, ...
+//! message for (a note's `meta` and lyric, its id when the ids are not 1, 2, 3, ...
 //! in order, notes that start before the clip) as Flex Data text that
 //! starts with `paw:`, which other programs pass over. So a clip written and
 //! read again is the same clip, but for times, which are rounded to a tick.
@@ -229,6 +229,9 @@ fn note_messages(notes: &[&Note], out: &mut Vec<(i64, Order, Vec<u32>)>) {
         if !n.meta.is_empty() {
             extra.insert("meta".into(), Value::Object(n.meta.clone()));
         }
+        if let Some(lyric) = &n.lyric {
+            extra.insert("lyric".into(), json!(lyric));
+        }
         if needs_length[i] {
             extra.insert("len".into(), json!(end - start));
         }
@@ -435,6 +438,7 @@ impl Reader {
                 Some(Value::Object(m)) => m.clone(),
                 _ => Map::new(),
             },
+            lyric: extra.get("lyric").and_then(Value::as_str).map(str::to_owned),
             id: extra.get("id").and_then(Value::as_u64).unwrap_or(0),
             attr: NoteAttr::of(attr),
         };
@@ -600,6 +604,9 @@ pub fn text(clip: &Clip) -> String {
         if let Some(a) = n.attr {
             line += &format!("  attr {}:{}", a.kind, a.data);
         }
+        if let Some(lyric) = &n.lyric {
+            line += &format!("  lyric {}", json!(lyric));
+        }
         if !n.meta.is_empty() {
             line += &format!("  {}", Value::Object(n.meta.clone()));
         }
@@ -663,6 +670,7 @@ mod tests {
             pitch,
             velocity: Velocity(100),
             meta: Map::new(),
+            lyric: None,
             id: 0,
             attr: None,
         }
@@ -685,7 +693,7 @@ mod tests {
             note(1.0 / 3.0, 1.0, 67),
         ]);
         notes.sort_by(|a, b| a.start.total_cmp(&b.start));
-        notes[1].meta.insert("lyric".into(), json!("la"));
+        notes[1].lyric = Some("la".into());
         notes[2].attr = Some(NoteAttr {
             kind: 17,
             data: 40960,

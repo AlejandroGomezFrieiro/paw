@@ -15,9 +15,7 @@
 //! tree shows (`wall`, seconds since 1970) from the session.
 #![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
-use crate::model::chain::SplitRegistry as _;
-use crate::model::modifiers::ModRegistry as _;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -26,7 +24,9 @@ use serde_json::Value;
 use crate::clock::ScheduleTime;
 use crate::events::{ClipCopied, KernelEvent as E, NestCopied, PartCopied};
 use crate::history::{History, StateId};
-use crate::model::{Clip, ClipContent, ClipKindId, DeviceInst, Id, Links, MASTER_ID, Project, Part};
+use crate::model::chain::SplitRegistry as _;
+use crate::model::modifiers::ModRegistry as _;
+use crate::model::{Clip, ClipContent, DeviceInst, Id, Links, MASTER_ID, Project, Part};
 use crate::sync::ModelEvent;
 
 // The model's part of each area: what reads or changes only the project.
@@ -36,6 +36,7 @@ mod automation;
 mod clips;
 mod devices;
 mod chain;
+mod kinds;
 mod links;
 mod nests;
 pub(crate) mod notes;
@@ -59,6 +60,7 @@ use undo_tree::{SWEEP_GAP, Undo};
 pub(super) use values::{finite, sorted};
 pub(crate) use values::{Change, Settable};
 pub(crate) use chain::{Place, WrapOpts};
+pub(crate) use kinds::{KindBook, KindInfo};
 
 /// The project, its undo tree, and what its edits report.
 pub(crate) struct Document {
@@ -72,9 +74,9 @@ pub(crate) struct Document {
     /// The undo tree and the open step: see `undo_tree.rs`.
     pub(super) undo: Undo,
     pub(super) next_id: Id,
-    /// The kinds of clip that extensions defined (`paw.clip_kinds.define`):
-    /// a clip of another custom kind is not added. Not part of the project.
-    pub(super) clip_kinds: BTreeSet<ClipKindId>,
+    /// The kinds of each family that `paw.kinds` defined, as the kernel
+    /// reads them (`kinds.rs`). Not part of the project.
+    pub(crate) kinds: KindBook,
     /// The kinds of split, with those that extensions defined
     /// (`paw.chain.define_kind`). Not part of the project.
     pub(super) split_kinds: crate::model::chain::SplitKinds,
@@ -106,7 +108,7 @@ impl Document {
             project,
             dirty: false,
             next_id: MASTER_ID + 1,
-            clip_kinds: BTreeSet::new(),
+            kinds: KindBook::default(),
             split_kinds: crate::model::chain::SplitKinds::builtin(),
             modifier_kinds: crate::model::modifiers::ModKinds::builtin(),
             events: Vec::new(),

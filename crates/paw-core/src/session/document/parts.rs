@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 use super::Document;
 use super::values::{Given, Lazy, NoTable, finite, patch, view};
 use crate::attr_map::AttrMap;
+use crate::model::kinds::{KindId, PartFamily};
 use crate::model::{
     AutoMode, Clips, DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, OutForm, Part,
     Project, Send, Target,
@@ -96,6 +97,12 @@ view! {
         chain_origin: Option<&'a Path>,
         /// The subproject that the part belongs to; nil for the song's.
         nest: Option<NestId>,
+        /// The kind of the part (`paw.kinds.define("part", ...)`); nil for
+        /// an ordinary part.
+        #[schemars(with = "Option<String>")]
+        kind: Option<&'a KindId<PartFamily>>,
+        /// The group that the part is in; nil at the top level.
+        parent: Option<Id>,
     }
 }
 
@@ -179,6 +186,8 @@ impl<'a> PartView<'a> {
             chain_source: t.chain_source.as_deref(),
             chain_origin: t.chain_origin.as_deref(),
             nest: t.nest,
+            kind: t.kind.as_ref(),
+            parent: t.parent,
         }
     }
 }
@@ -243,11 +252,14 @@ impl Document {
                 .position(|t| t.id == id)
                 .with_context(|| format!("no part {id}"))?;
             p.parts.remove(index);
-            // Anything that was routed into the removed part falls back to the master.
+            // Anything that was routed into the removed part falls back to
+            // the master, and the members of a removed group stand at the
+            // top level.
             for part in &mut p.parts {
-                if part.output == Some(id) || part.sends.iter().any(|s| s.target == id) {
+                if part.output == Some(id) || part.parent == Some(id) || part.sends.iter().any(|s| s.target == id) {
                     let part = Arc::make_mut(part);
                     part.output = part.output.filter(|o| *o != id);
+                    part.parent = part.parent.filter(|g| *g != id);
                     part.sends.retain(|s| s.target != id);
                 }
             }
@@ -384,6 +396,10 @@ patch! {
         /// nil or "none" for none.
         #[schemars(with = "Option<String>", extend("x-teal" = "string | integer"))]
         "input" input: Given<NoTable> => Input clear,
+        /// The kind of the part: the name of a part kind, or nil for an
+        /// ordinary part. A kind that no extension defines is kept.
+        #[schemars(with = "Option<String>")]
+        "kind" kind: KindId<PartFamily> => Kind clear,
         #[schemars(extend("x-teal" = "Meta"))]
         "meta" meta: Map<String, Value> => Meta default,
         /// The MIDI the part plays when armed: a port's name, a table of
@@ -402,6 +418,9 @@ patch! {
         "output" output: Id => Output clear,
         /// From -1 (left) to 1 (right).
         "pan" pan: f64 => Pan value,
+        /// The group that the part is in, or nil for the top level. A group
+        /// cannot be put inside itself.
+        "parent" parent: Id => Parent clear,
         /// Its sends, each with a `level` in dB.
         "sends" sends: Vec<Send> => Sends value,
         "solo" solo: bool => Solo value,
@@ -436,6 +455,8 @@ impl PartChange {
             Self::Automation(mode) => t.automation == *mode,
             Self::Color(color) => t.color == *color,
             Self::Height(height) => t.height == *height,
+            Self::Kind(kind) => t.kind == *kind,
+            Self::Parent(parent) => t.parent == *parent,
             Self::Meta(meta) => t.meta == *meta,
             Self::Monitor(on) => t.monitor == *on,
             Self::Mute(on) => t.mute == *on,
@@ -458,6 +479,7 @@ impl PartChange {
         let change = match self {
             Self::Output(output) => Self::Output(checked_output(p, id, output)?),
             Self::Sends(sends) => Self::Sends(checked_sends(p, id, sends)?),
+            Self::Parent(parent) => Self::Parent(checked_parent(p, id, parent)?),
             own => own,
         };
         let t = p.part_in(id)?;
@@ -473,6 +495,8 @@ impl PartChange {
             Self::Monitor(on) => t.monitor = check_records(id, on)?,
             Self::Color(color) => t.color = color,
             Self::Meta(meta) => t.meta = meta,
+            Self::Kind(kind) => t.kind = kind,
+            Self::Parent(parent) => t.parent = parent,
             Self::Automation(mode) => t.automation = mode,
             // A share of the zoom's height, a quarter to eight times; 1 or
             // nothing is that height.
@@ -524,6 +548,35 @@ fn checked_output(p: &Project, id: Id, output: Option<Id>) -> Result<Option<Id>>
         p.check_route(id, to, crate::model::Route::Output)?;
     }
     Ok(output)
+}
+
+/// The group that part `id` may go into: a part of its place that is not
+/// the part itself nor a part inside it. Groups nest to any depth.
+fn checked_parent(p: &Project, id: Id, parent: Option<Id>) -> Result<Option<Id>> {
+    let Some(group) = parent else { return Ok(None) };
+    if id == MASTER_ID || group == MASTER_ID {
+        bail!("the master part is in no group and holds none");
+    }
+    let part = p.part(id).with_context(|| format!("no part {id}"))?;
+    let holder = p.part(group).with_context(|| format!("no part {group} to put part {id} in"))?;
+    if holder.nest != part.nest {
+        bail!("part {group} is in another subproject than part {id}");
+    }
+    // Walk up from the new group: meeting the part itself means the part
+    // would hold its own group. The walk stops at a cycle that a file
+    // brought in, so it ends on any project.
+    let mut seen = BTreeSet::new();
+    let mut at = Some(group);
+    while let Some(now) = at {
+        if now == id {
+            bail!("`{}` cannot go into `{}`: it holds that group", part.name, holder.name);
+        }
+        if !seen.insert(now) {
+            break;
+        }
+        at = p.part(now).and_then(|t| t.parent);
+    }
+    Ok(Some(group))
 }
 
 /// The sends that part `id` may have, their levels clamped.
@@ -641,5 +694,33 @@ mod tests {
             let moved = doc.part_set(id, change.clone()).unwrap();
             assert_eq!(moved, want, "{change:?}");
         }
+    }
+
+    #[test]
+    fn groups_nest_three_deep_and_a_move_that_makes_a_cycle_is_refused() {
+        let mut doc = Document::default();
+        let mut add = |name: &str| doc.part_add(PartOpts { name: Some(name.into()), ..PartOpts::default() }).unwrap();
+        let (strings, violins, firsts, desk) = (add("Strings"), add("Violins"), add("Firsts"), add("Desk 1"));
+        for (part, group) in [(violins, strings), (firsts, violins), (desk, firsts)] {
+            doc.part_set(part, PartChange::Parent(Some(group))).expect("a group in a group");
+        }
+        assert_eq!(doc.project.part(desk).unwrap().parent, Some(firsts));
+        let steps = doc.undo.history.len();
+        let wrong = doc.part_set(strings, PartChange::Parent(Some(desk))).unwrap_err();
+        assert_eq!(wrong.to_string(), "`Strings` cannot go into `Desk 1`: it holds that group");
+        assert!(doc.part_set(strings, PartChange::Parent(Some(strings))).is_err(), "not into itself");
+        assert_eq!(doc.undo.history.len(), steps, "a refused move makes no undo step");
+        doc.part_remove(firsts).unwrap();
+        assert_eq!(doc.project.part(desk).unwrap().parent, None, "the members of a removed group stand at the top");
+    }
+
+    #[test]
+    fn a_part_keeps_its_kind_and_its_kind_clears() {
+        let (mut doc, id) = one_part();
+        let kind: KindId<PartFamily> = "vocal".parse().unwrap();
+        doc.part_set(id, PartChange::Kind(Some(kind.clone()))).unwrap();
+        assert_eq!(doc.project.part(id).unwrap().kind, Some(kind));
+        doc.part_set(id, PartChange::Kind(None)).unwrap();
+        assert_eq!(doc.project.part(id).unwrap().kind, None);
     }
 }

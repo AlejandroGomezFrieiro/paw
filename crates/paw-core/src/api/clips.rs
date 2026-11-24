@@ -45,7 +45,10 @@ fn note_to_lua(lua: &Lua, n: &Note) -> mlua::Result<Table> {
     if n.id != 0 {
         note.raw_set("id", n.id)?;
     }
-    // What extensions keep with a note, such as its lyric.
+    if let Some(lyric) = &n.lyric {
+        note.raw_set("lyric", lyric.as_str())?;
+    }
+    // What extensions keep with a note, such as the phonemes of a voice.
     if !n.meta.is_empty() {
         note.raw_set("meta", to_lua(lua, &n.meta)?)?;
     }
@@ -128,11 +131,9 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
                 LuaValue::Nil => 100,
                 v => int(v)?,
             };
-            // A note that carries data of an extension's, or an
+            // A note that carries a lyric, data of an extension's, or an
             // attribute, goes the long way.
-            if !note.raw_get::<LuaValue>("meta").ok()?.is_nil()
-                || !note.raw_get::<LuaValue>("attr").ok()?.is_nil()
-            {
+            if ["meta", "attr", "lyric"].iter().any(|key| note.raw_get::<LuaValue>(*key).map_or(true, |v| !v.is_nil())) {
                 return None;
             }
             notes.push(Note {
@@ -141,6 +142,7 @@ fn notes_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Vec<Note>> {
                 pitch: int(note.raw_get("pitch").ok()?)?,
                 velocity: Velocity(velocity),
                 meta: Default::default(),
+                lyric: None,
                 id: match note.raw_get::<LuaValue>("id").ok()? {
                     LuaValue::Nil => 0,
                     LuaValue::Integer(i) => u64::try_from(i).ok()?,
@@ -304,16 +306,6 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             opts.data = data.or(opts.data);
             sh.session.borrow_mut().clip_add(part, opts).lua()
         }
-        // The kinds of clip that extensions defined, by name (sorted).
-        // @return {string}
-        fn clip_kinds(lua, sh, () => ()) { to_lua(lua, &sh.session.borrow().doc.clip_kinds()) }
-        // Let `clip_add` make clips of the kind `name`: a lowercase word that
-        // is not `midi`, `audio` or another built-in. `paw.clip_kinds.define` calls it.
-        // @return nil
-        fn clip_kind_define(_, sh, name => String) { sh.session.borrow_mut().doc.clip_kind_define(&name).lua() }
-        // Stop making clips of the kind `name`. Clips of it that the project has stay.
-        // @return nil
-        fn clip_kind_remove(_, sh, name => String) { sh.session.borrow_mut().doc.clip_kind_remove(&name).lua() }
         // The content of a clip of a defined kind, as the project saves it:
         // `{ type, version?, timeline?, offset?, data, media?, sound?, signals? }`.
         // `data` is `{ json = value }`, a plain value (tables, strings, numbers,

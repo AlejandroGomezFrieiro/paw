@@ -82,6 +82,7 @@ impl Notes {
             for note in self {
                 (note.start.to_bits(), note.length.to_bits()).hash(&mut hash);
                 (note.pitch, note.velocity, note.attr).hash(&mut hash);
+                note.lyric.hash(&mut hash);
                 if !note.meta.is_empty() {
                     serde_json::Value::Object(note.meta.clone()).to_string().hash(&mut hash);
                 }
@@ -407,7 +408,7 @@ impl Notes {
                 2 * size_of::<usize>()
                     + size_of::<Vec<Note>>()
                     + r.capacity() * size_of::<Note>()
-                    + r.iter().map(|n| n.meta.len() * 64).sum::<usize>()
+                    + r.iter().map(|n| n.meta.len() * 64 + n.lyric.as_ref().map_or(0, String::capacity)).sum::<usize>()
             })
             .sum::<usize>()
     }
@@ -570,6 +571,7 @@ mod tests {
             pitch: 60,
             velocity: crate::model::Velocity(100),
             meta: Default::default(),
+            lyric: None,
             id: 0,
             attr: None,
         }

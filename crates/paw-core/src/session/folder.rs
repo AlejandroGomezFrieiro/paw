@@ -48,6 +48,7 @@ use crate::clipfile;
 use crate::model::{Chain, Clip, ClipContent, Control, KindData, Notes, Project, Target, Part};
 
 mod nests;
+mod old_meta;
 pub(super) use nests::read_nested;
 
 /// The file that makes a folder a project.
@@ -1311,6 +1312,7 @@ fn read_at(fs: &dyn ProjectFiles, home: &Home, dir: &Path, head_path: &Path, dep
     let mut project: Project =
         serde_json::from_value(head).with_context(|| format!("reading {}", dir.display()))?;
     let clip_files = fill_clips(fs, &mut project, &files, &mut problems, dir);
+    old_meta::convert(&mut project);
     nests::adopt_references(fs, home, dir, &mut project, references, &mut problems, depth)?;
     Ok(Read {
         project,
@@ -1978,6 +1980,7 @@ mod tests {
                 pitch: 48 + ((i * 7 + seed) % 24) as u8,
                 velocity: crate::model::Velocity(64 + ((i * 13 + seed) % 63) as u8),
                 meta: Map::new(),
+                lyric: None,
                 id: i + 1,
                 attr: None,
             })
@@ -2179,6 +2182,62 @@ mod tests {
         let done = commit(&dir, &again, None).unwrap();
         assert!(done.written.is_empty(), "{:?}", done.written);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A project with a part kind, a group of three levels and a sung note,
+    /// written and read in memory.
+    fn kinds_round_trip(p: &Project) -> (Project, BTreeMap<PathBuf, Vec<u8>>) {
+        use crate::session::project_files::MemoryFiles;
+        let dir = scratch("kinds");
+        let layout = layout(p, &json!({}), None, &dir, &Home::default()).unwrap();
+        let files: BTreeMap<_, _> = layout.files.into_iter().collect();
+        let memory = files.iter().map(|(k, v)| (k.clone(), Arc::from(v.as_slice()))).collect();
+        let read = read_from(&MemoryFiles::new(&dir, memory), &Home::default(), &dir).unwrap();
+        assert!(read.problems.is_empty(), "{:?}", read.problems);
+        (read.project, files)
+    }
+
+    #[test]
+    fn a_part_kind_a_group_tree_and_a_lyric_come_back_from_the_folder() {
+        let mut p = project(4, 1);
+        let ids: Vec<u64> = p.parts.iter().map(|t| t.id).collect();
+        for (i, part) in p.parts.iter_mut().enumerate().skip(1) {
+            Arc::make_mut(part).parent = Some(ids[i - 1]);
+        }
+        let vocal = Arc::make_mut(&mut p.parts[3]);
+        vocal.kind = Some("vocal".parse().unwrap());
+        let ClipContent::Midi { notes, .. } = &mut Arc::make_mut(&mut vocal.clips[0]).content else { unreachable!() };
+        notes[0].lyric = Some("la".into());
+        let (read, files) = kinds_round_trip(&p);
+        assert_eq!(canonical(&read), canonical(&p));
+        let deepest = &read.parts[3];
+        assert_eq!((deepest.kind.as_ref().map(ToString::to_string), deepest.parent), (Some("vocal".into()), Some(ids[2])));
+        let text: String = files.values().map(|f| String::from_utf8_lossy(f).into_owned()).collect();
+        assert!(text.contains("\"kind\": \"vocal\"") && text.contains("\"parent\""), "the part files name the fields");
+    }
+
+    #[test]
+    fn an_open_moves_the_old_keys_of_meta_to_their_fields_and_a_save_writes_only_the_fields() {
+        let mut old = project(2, 1);
+        let group = old.parts[0].id;
+        let part = Arc::make_mut(&mut old.parts[1]);
+        part.meta.insert("kind".into(), json!("vocal"));
+        part.meta.insert("group".into(), json!(group));
+        part.meta.insert("color_of_user".into(), json!("kept"));
+        let ClipContent::Midi { notes, .. } = &mut Arc::make_mut(&mut part.clips[0]).content else { unreachable!() };
+        notes[0].meta.insert("lyric".into(), json!("la"));
+        notes[1].meta.insert("lyric".into(), json!(7));
+        let (read, _) = kinds_round_trip(&old);
+        let part = &read.parts[1];
+        assert_eq!(part.kind.as_ref().map(ToString::to_string), Some("vocal".into()));
+        assert_eq!(part.parent, Some(group));
+        assert_eq!(part.meta.keys().collect::<Vec<_>>(), ["color_of_user"], "an undeclared key stays");
+        let ClipContent::Midi { notes, .. } = &part.clips[0].content else { unreachable!() };
+        assert_eq!((notes[0].lyric.as_deref(), notes[0].meta.get("lyric")), (Some("la"), None));
+        assert_eq!(notes[1].meta.get("lyric"), Some(&json!(7)), "a lyric that is no text stays in meta");
+        let (_, files) = kinds_round_trip(&read);
+        let text: String = files.values().map(|f| String::from_utf8_lossy(f).into_owned()).collect();
+        assert!(!text.contains("\"group\""), "the next save writes no old key");
     }
 
     /// The export presets of a project are in `project.toml`, not in

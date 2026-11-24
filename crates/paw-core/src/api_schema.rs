@@ -14,7 +14,7 @@ use serde_json::{Map, Value};
 use crate::model::{Control, Note};
 use crate::session::{
     ClipPatch, ClipView, DevicePatch, DeviceView, LanePatch, LaneView, PartPatch, PartView, ProjectPatch, ProjectView,
-    TransportPatch, TransportView,
+    KindInfo, TransportPatch, TransportView,
 };
 
 /// The definitions of each type of `paw.api` that has a schema, by the name
@@ -37,6 +37,8 @@ pub(crate) fn definitions() -> Map<String, Value> {
     // The data of a MIDI clip.
     generator.subschema_for::<Note>();
     generator.subschema_for::<Control>();
+    // A kind of a family, as `kinds_list` gives it.
+    generator.subschema_for::<KindInfo>();
     // The words of a parameter of a Lua device (`dsp.lua`) and of a kind
     // of the chain language.
     generator.subschema_for::<chain_syntax::ParamSchema>();

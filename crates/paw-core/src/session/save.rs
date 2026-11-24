@@ -97,7 +97,7 @@ fn is_group(t: &Part) -> bool {
 }
 
 fn group_of(t: &Part) -> Option<Id> {
-    t.meta.get("group").and_then(Value::as_u64)
+    t.parent
 }
 
 /// Whether part `f` plays into part `id`: its output, a send, a device's
@@ -382,7 +382,7 @@ impl Session {
                 if outs.len() == 1 {
                     row.output = outs.into_iter().next().flatten();
                     if let Some(g) = row.output.and_then(|o| p.part(o)).filter(|g| is_group(g)) {
-                        row.meta.insert("group".into(), json!(g.id));
+                        row.parent = Some(g.id);
                     }
                 } else {
                     buses.extend(outs.into_iter().flatten());
@@ -499,14 +499,7 @@ impl Session {
                     d.outputs = d.outputs.iter().filter_map(|(k, o)| ids.get(o).map(|o| (*k, *o))).collect();
                 }
             }
-            match group_of(&t).and_then(|g| ids.get(&g)) {
-                Some(&g) => {
-                    inner.meta.insert("group".into(), json!(g));
-                }
-                None => {
-                    inner.meta.remove("group");
-                }
-            }
+            inner.parent = group_of(&t).and_then(|g| ids.get(&g)).copied();
             // Its VCAs move the return row.
             if let Some(list) = inner.meta.remove("vcas").as_ref().and_then(Value::as_array) {
                 for v in list.iter().filter_map(Value::as_u64) {

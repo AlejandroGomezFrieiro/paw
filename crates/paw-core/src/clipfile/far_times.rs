@@ -15,6 +15,7 @@ fn note(start: f64, length: f64) -> Note {
         pitch: 60,
         velocity: Velocity(100),
         meta: Map::new(),
+        lyric: None,
         id: 0,
         attr: None,
     }

@@ -5,7 +5,7 @@
 //! ([`tempo`]), where a launch lands ([`quantize`]), the values of
 //! automation and state lanes ([`automation`]), decibels ([`gain`]) and the
 //! names of pitches ([`pitch`]), and the families of kinds with their
-//! registry ([`kinds`]).
+//! registry ([`kinds`]), and the type of a stream ([`stream`]).
 //!
 //! The crate has no audio, no threads and no calls to the operating system,
 //! so that it builds for `wasm32-unknown-unknown`. `paw-engine` plays these
@@ -18,6 +18,7 @@ pub mod kinds;
 pub mod midi_form;
 pub mod pitch;
 pub mod quantize;
+pub mod stream;
 pub mod tempo;
 pub mod ump;
 
