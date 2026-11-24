@@ -6,6 +6,8 @@
 #   tests/tools/suite.sh plugins "words"  only some tests, with the plugins
 #                                         (PAW_PLUGIN_SANDBOX=0 loads them in-process)
 #   tests/tools/suite.sh only "loop on"   the tests whose name holds the words
+#   tests/tools/suite.sh only fold "K o"  the tests whose name holds any of
+#                                         the words (one paw for all)
 #
 # Options go before the words above:
 #
@@ -16,6 +18,11 @@
 #   --shuffle 7    run the test files, and the tests in each file, in the
 #                  order that the seed 7 gives (the same seed gives the same
 #                  order); with no number, a new seed, which it prints
+#
+# A run waits for a slot of the machine before it starts: one full run at a
+# time, and up to $PAW_SUITE_SLOTS (3) `only` runs beside it. Many paw
+# processes at once used up the threads of the machine, and it restarted.
+# The slots are lock files in $PAW_SUITE_LOCKS (a folder in $TMPDIR).
 #
 # Prints the tests that failed and the last line ("all passed" or "N failed");
 # the whole output is in target/test-scratch/suite.out. It also writes
@@ -64,6 +71,30 @@ case "$jobs" in
     exit 2
     ;;
 esac
+# Take a slot of the machine (see the top). File descriptor 9 holds the
+# lock: the shards and the paw processes keep it open until they end.
+take_slot() {
+  command -v flock > /dev/null || return 0
+  locks=${PAW_SUITE_LOCKS:-${TMPDIR:-/tmp}/paw-suite-locks}
+  mkdir -p "$locks"
+  if [ "$1" = only ]; then
+    n=${PAW_SUITE_SLOTS:-3}
+    k=1
+    while [ "$k" -le "$n" ]; do
+      exec 9> "$locks/only$k"
+      flock -n 9 && return 0
+      k=$((k + 1))
+    done
+    echo "suite.sh: waiting for one of the $n slots of the other only runs" >&2
+    exec 9> "$locks/only1"
+  else
+    exec 9> "$locks/full"
+    flock -n 9 && return 0
+    echo "suite.sh: waiting for the other full run to end" >&2
+  fi
+  flock 9
+}
+[ -z "$PAW_TEST_SHARD" ] && take_slot "$1"
 [ -n "$PAW_TEST_SHUFFLE" ] && [ -z "$PAW_TEST_SHARD" ] && echo "shuffle seed $PAW_TEST_SHUFFLE"
 # The runner (tests/suite.lua) adds to the files of the run: each run
 # starts them again.
@@ -180,8 +211,13 @@ case "$1" in
     # stepped audio backend (the engine plays as the clock moves). Then the
     # live tests, which need real time, run in a second paw on the wall
     # clock (`opts.live` in tests/suite.lua).
+    # The words of `only` go to the runner as one argument, one word on
+    # each line.
     words=""
-    [ "$1" = only ] && words=$2
+    if [ "$1" = only ]; then
+      shift
+      words=$(printf '%s\n' "$@")
+    fi
     "$BIN/paw" --clean --no-plugins --clock manual --audio step -l tests/suite.lua ${words:+"$words"} > "$out" 2>&1
     manual=$?
     PAW_TEST_LIVE=1 "$BIN/paw" --clean --no-plugins -l tests/suite.lua ${words:+"$words"} >> "$out" 2>&1

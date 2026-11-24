@@ -294,7 +294,7 @@
       docsCheck = pkgs: pkgs.runCommand "paw-docs-vale" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
-          fileset = nixpkgs.lib.fileset.unions ([ ./.vale.ini ./.vale ./README.md ./AGENTS.md ./docs ./extensions ./crates ./web/browserpod/README.md ./bench/README.md ./bench/DAWS.md ]);
+          fileset = nixpkgs.lib.fileset.unions ([ ./.vale.ini ./.vale ./README.md ./AGENTS.md ./CODING_STANDARDS.md ./docs ./extensions ./crates ./web/browserpod/README.md ./bench/README.md ./bench/DAWS.md ]);
         };
         nativeBuildInputs = [ pkgs.vale ];
       } ''
@@ -302,7 +302,7 @@
         for d in ${valeStyles pkgs}/* $src/.vale/styles/*; do ln -s "$d" styles/; done
         export VALE_STYLES_PATH=$PWD/styles
         cd $src
-        vale --config .vale.ini README.md AGENTS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc web/*/README.md bench/README.md bench/DAWS.md
+        vale --config .vale.ini README.md AGENTS.md CODING_STANDARDS.md docs crates/*/README.md extensions/*/README.md extensions/*/doc web/*/README.md bench/README.md bench/DAWS.md
         touch $out
       '';
 
@@ -421,13 +421,24 @@
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
           fileset = nixpkgs.lib.fileset.unions [
-            ./README.md ./AGENTS.md ./CLAUDE.md ./.claude ./bench ./config ./crates ./docs ./examples
+            ./README.md ./AGENTS.md ./CODING_STANDARDS.md ./CLAUDE.md ./.claude ./bench ./config ./crates ./docs ./examples
             ./extensions ./fuzz ./runtime ./tests ./tools ./web
           ];
         };
         nativeBuildInputs = [ pkgs.luajit pkgs.findutils ];
       } ''
         cd $src && luajit tools/partlint.lua
+        touch $out
+      '';
+
+      # tools/hygiene.sh: no leftover of a patch or merge tool (*.orig,
+      # *.rej) and no id of the local task board in a kept file. The flake's
+      # source holds only the files that git keeps.
+      hygiene = pkgs: pkgs.runCommand "paw-hygiene" {
+        src = ./.;
+        nativeBuildInputs = [ pkgs.findutils pkgs.gnugrep ];
+      } ''
+        cd $src && sh tools/hygiene.sh
         touch $out
       '';
 
@@ -510,7 +521,7 @@
       # luacheck on the Lua, how much the formatters would change, and the
       # check against tests that depend on time, the order of layers in
       # the runtime, and the chain crates that depend on no paw crate.
-      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
+      checks = forAll (pkgs: (rust pkgs).checks // { paw = paw pkgs; docs = docsCheck pkgs; teal = tealCheck pkgs; apidoc = apidocCheck pkgs; lua = luaCheck pkgs; format = formatCheck pkgs; testlint = testLint pkgs; layers = layersCheck pkgs; zoomlint = zoomLint pkgs; partlint = partLint pkgs; hygiene = hygiene pkgs; chaindeps = chainDeps pkgs; website = website pkgs; });
 
       apps = forAll (pkgs:
         nixpkgs.lib.genAttrs [ "paw" "paw-gui" "paw-mcp" ] (name: {

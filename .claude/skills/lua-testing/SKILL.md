@@ -349,7 +349,7 @@ part 7, gives the tier of each command.
 ```sh
 tools/dev-runtime.sh                                   # target/dev-runtime
 PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
-  tests/tools/suite.sh only "<words>"                  # some tests
+  tests/tools/suite.sh only "<words>" "<more>"         # the tests that hold any of the words
 tests/tools/suite.sh                                   # all tests (the orchestrator, before a push)
 tests/tools/suite.sh -j 2                              # the same in 2 processes (4 at most)
 tests/tools/suite.sh repeat 20 only "<words>"          # find a flaky test
@@ -377,7 +377,7 @@ cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'
 A Lua test checks the same format through the API only where the API
 adds behavior of its own, for example `paw.xml` with `opts.source`.
 
-The fuzz targets of `fuzz/` (`tools/fuzz.sh`, the nightly tier in CI)
+The fuzz targets of `fuzz/` (`tools/fuzz.sh`, the nightly tier, which waits for CI)
 are Rust only. The readers in Teal (`midifile.tl`, the DAWproject and
 RPP readers) have no fuzz target. A test of such a reader gives it bytes
 that are cut short or wrong, and checks the message. `tests/midifile.lua`

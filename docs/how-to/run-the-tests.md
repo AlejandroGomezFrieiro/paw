@@ -34,7 +34,9 @@ it, in `extensions/<name>/tests.lua` and `tests_<part>.lua`. The runner
 loads each of the test files, in the order of their names.
 
 - To run only some tests, give words of their names:
-  `tests/tools/suite.sh only "loop on"`.
+  `tests/tools/suite.sh only "loop on"`. To run the tests of several
+  areas in one go, give each word: `tests/tools/suite.sh only fold "K o" timegrid`
+  runs each test whose name holds any of them.
 - To run the suite with the test plugins, run `tests/tools/suite.sh plugins`.
   The dev shell gives the plugins (LSP Plugins and Surge XT) through
   `PAW_TEST_PLUGINS`, and outside the dev shell, the plugin tests do not
@@ -65,8 +67,10 @@ test files. Each process has its own scratch home, plugin and XDG folders under
 `target/test-scratch/suite.out`, and the last line is the same as with one
 process.
 
-Run one suite at a time on a machine that other people or programs use.
-Two suites, or a large `-j`, slow down the tests that wait for the audio.
+The script runs one full suite at a time on the machine, and up to three
+runs of `only` beside it. A run that finds no free slot says so and waits
+for one. Set `PAW_SUITE_SLOTS` to change the number of `only` runs. Too
+many paw processes at once can use up the threads of the machine.
 
 ## Find a flaky test
 
@@ -360,7 +364,7 @@ which the dev shell doesn't have, so they are meant for CI.
 ## Run the end-to-end scenarios
 
 The end-to-end scenarios act as a person who works on a song for many
-days. Run them only in CI or for the release check before a tag, and run
+days. Run them only for the release check before a tag, and run
 the Lua suite to test a change. The suite and the default
 `nix flake check` do not run the scenarios. Their design is in
 [About the end-to-end scenarios](../explanation/about-the-e2e-tests.md).
@@ -391,7 +395,7 @@ changes on purpose, approve the new renders with
 
 The scenarios use `--audio null`, no plugins, and their own home and XDG
 folders under `target/test-scratch`. They need no display and no network.
-The CI runs them in the dev shell, as
+paw has no CI yet. When it has, the CI will run them in the dev shell, as
 `nix develop -c tests/tools/e2e.sh --short`.
 
 ## Run the tests of the graphical window

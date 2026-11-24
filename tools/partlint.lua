@@ -23,6 +23,7 @@ M.ALLOWED = "tools/partlint-allowed.txt"
 M.ROOTS = {
   "README.md",
   "AGENTS.md",
+  "CODING_STANDARDS.md",
   "CLAUDE.md",
   ".claude",
   "bench",

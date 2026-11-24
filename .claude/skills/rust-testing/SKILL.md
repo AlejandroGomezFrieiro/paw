@@ -429,8 +429,8 @@ a run out of memory is a failure:
 - The seeds of each target are in `fuzz/seeds/<target>`. Keep them small
   (a few KB in all). Make them with paw in the test environment
   (`tests/tools/run.sh`). Do not copy a file of the machine.
-- Agents do not run a fuzzer. The fuzz runs are the nightly tier, in CI
-  only: `tools/fuzz.sh` (cargo-fuzz and nightly Rust). The dev shell has
+- Agents do not run a fuzzer. The fuzz runs are the nightly tier, which
+  waits for CI: `tools/fuzz.sh` (cargo-fuzz and nightly Rust). The dev shell has
   neither.
 - Each crash becomes a ticket and a plain regression test in the crate
   that crashed, with a comment that names the target. Do not change the
@@ -477,10 +477,10 @@ cargo insta review                            # read and accept snapshots
 PAW_BLESS=1 tests/tools/suite.sh only "<words>"  # accept the golden screens (Lua)
 cargo nextest run -p paw-core -p paw-engine -E 'test(/::props::/)'  # the property tests
 cargo check -p paw-fuzz                       # the fuzz targets compile (stable)
-tools/fuzz.sh                                 # nightly tier, CI only: run each target
+tools/fuzz.sh                                 # nightly tier (waits for CI): run each target
 ```
 
-The nightly tier (in CI only) runs the property
+The nightly tier (it waits for CI) runs the property
 tests with more cases and a new seed each night:
 
 ```sh

@@ -186,17 +186,32 @@ These are lenses for a review, not numbers to report.
 Each check runs in one tier. A tier runs its own checks and the checks
 of the tiers above it in this list. Run the commands in the dev shell.
 When the orchestrator builds, an agent runs only the checks that need no
-build, and names the other checks in its report.
+build, and names the other checks in its report. Use `cargo check` and
+`cargo clippy` for most checks of Rust: they do not link. A dev build
+(`cargo build`) links with mold and is incremental, so it is faster than
+a release build.
+
+The hook `.githooks/pre-commit` runs at each commit, in each worktree.
+The command `git config core.hooksPath .githooks` turns it on once. It
+runs `tools/hygiene.sh`: no `*.orig` or `*.rej` file, and no id of the
+local task board. It also runs `tools/partlint.lua`,
+`tools/testlint.lua`, `tools/layers.lua` and `tools/zoomlint.lua`, and
+`tools/rustlint.sh` when that file exists. The project hook
+`tools/guard-hook.py` refuses `cargo test --workspace`, a build of
+paw-gui, `tests/tools/loaded.sh` and `tests/tools/e2e.sh` before they
+run. `tests/tools/suite.sh` waits for a slot of the machine: one full
+run, and up to three runs of `only`.
 
 | Tier | When | Commands |
 | --- | --- | --- |
 | Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |
 | Before a commit | The tests of the change, and the lints | `tests/tools/suite.sh only "<words>"` for each area that the change touches, `cargo nextest run -p <crate>` for each crate that it touches, `tools/tlcheck.sh`, `luacheck .`, `tools/fmtcheck.sh`, `luajit tools/testlint.lua`, `luajit tools/layers.lua`, `tools/vale.sh <pages>`, `paw --clean --no-plugins -l tools/apidoc.lua check` |
 | Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --profile gate`, `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail) |
-| Nightly | Each night, in CI only (not on the local machine) | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
+| Nightly | When CI exists (paw has no CI yet). Until then, only when the owner asks | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
 | Release | Before a tagged version | `tests/tools/e2e.sh` (all the days), `tests/tools/suite.sh plugins`, the build and tests on each platform |
 
-The CI matrix runs the full suite in four ways:
+paw has no CI yet: the owner chose to wait. When it comes, its matrix
+runs the full suite in four ways:
 
 | Build | Suite |
 | --- | --- |
@@ -205,7 +220,7 @@ The CI matrix runs the full suite in four ways:
 | Dev (`cargo build`) | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 1` |
 | Dev | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 4 --shuffle` |
 
-CI keeps `target/test-scratch/suite.tap` (each test, its result and the
+The CI will keep `target/test-scratch/suite.tap` (each test, its result and the
 reason of a skip) and `target/test-scratch/times.txt` (the wall time of
 each test file) of each run. A shuffled run that fails gives its seed.
 Run `tests/tools/suite.sh --shuffle <seed>` to get the same order again.

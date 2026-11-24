@@ -3,7 +3,7 @@
 # gets shorter: `<file> <count> <reason>`.
 .claude/skills/diataxis-docs/SKILL.md 3 the glossary names the other senses of track
 .claude/skills/untangle-codebase/SKILL.md 2 an example of other code: a function track() that records an action
-AGENTS.md 7 the rule of the word names the other senses of track
+AGENTS.md 6 the rule of the word names the other senses of track
 bench/DAWS.md 6 the benchmark of other programs (Ardour, LMMS, REAPER) uses their word
 bench/daws/ardour_init.lua 8 a script of Ardour, in its own API
 bench/daws/mid2json.py 9 reads the tracks of a MIDI file

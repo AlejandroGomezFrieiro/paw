@@ -1294,7 +1294,19 @@ end
 
 -- Run ------------------------------------------------------------------------
 
-local only = ...
+-- The words of `suite.sh only`, one on each line: a test runs when its name
+-- holds one of them.
+local words = {}
+for word in ((...) or ""):gmatch("[^\n]+") do
+  words[#words + 1] = word
+end
+local function wanted(name)
+  if #words == 0 then return true end
+  for _, word in ipairs(words) do
+    if name:find(word, 1, true) then return true end
+  end
+  return false
+end
 -- The live pass (PAW_TEST_LIVE=1, on the wall clock) runs the live tests
 -- only. The pass on the manual clock runs the others.
 local live_pass = os.getenv("PAW_TEST_LIVE") == "1"
@@ -1307,7 +1319,7 @@ local function in_pass(t)
 end
 local selected, whole = {}, {}
 for _, t in ipairs(tests) do
-  if in_pass(t) and (not only or t.name:find(only, 1, true)) then
+  if in_pass(t) and wanted(t.name) then
     selected[#selected + 1] = t
     whole[t.part] = (whole[t.part] or 0) + 1
   end
