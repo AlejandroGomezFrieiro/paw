@@ -4,7 +4,7 @@ title: Teal wave 5
 status: In Progress
 assignee: []
 created_date: '2026-11-21T18:33:00Z'
-updated_date: '2026-11-24T15:35:00Z'
+updated_date: '2026-11-24T16:03:00Z'
 labels:
   - teal
   - agent:worker
@@ -55,4 +55,6 @@ Board review 2026-11-23: parts on main: keymap, keyrule, keybar (TASK-125), the 
 PO 2026-11-23 (cleanup for plan V2, architecture-plan.md): Do not port modules that a V2 bundle rewrites or removes: track_kinds (A2), freeze (FZ, RD), mixer_rows and routes (MX), groups, vca, takes and lanes data (LA, CV). Pick the wave from the other modules. Write no new user word track (W1).
 
 Started 2026-11-24: branch teal-wave-5, base 3535c7d2.
+
+Worker report 2026-11-24 (branch teal-wave-5, 5ee612c7): ported annotation, reconnect, external, recent, luadev, loading, plugins (1,477 lines of Teal, no any; any-allowed.txt lost 7 entries). AC 2: paw.frontend reads paw.ui's types (host.tl lost Ui, Float, Rect, InputOptions, MouseEvent). Kept Lua on purpose: dsp, ext, part_kinds, device_rows, mixer_rows, routes, params, device_presets, init, untyped; portable must stay Lua (LuaJIT globals before any module). Next wave suggested: health, learn, stretch, autosave, audio, controls, fx (freeze waits for FZ and RD). host.DevicePanel and host.RecentModule stay stand-ins until MX.
 <!-- SECTION:NOTES:END -->
