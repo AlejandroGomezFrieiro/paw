@@ -155,6 +155,8 @@ def main():
     paw = os.path.join(os.environ.get("PAW_BIN") or os.path.join(root, "target", "release"), "paw")
     steps = [line.rstrip("\n").split(" ", 1) for line in sys.stdin if line.strip() and not line.startswith("#")]
     home = tempfile.mkdtemp(prefix="paw-cast-")
+    # paw makes its control socket in XDG_RUNTIME_DIR, which must exist.
+    os.mkdir(os.path.join(home, "run"), 0o700)
     os.chdir(root)
     session = Session(paw, os.environ.get("SETUP", "dofile('examples/demo-song.lua')"), home)
     try:
