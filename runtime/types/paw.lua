@@ -10605,6 +10605,11 @@ function paw.util.round(v, step) end
 ---@param path any
 function paw.util.tilde(path) end
 
+--- The path of a new empty file in the temporary folder: `$TMPDIR`, or
+--- `/tmp` when it is not set. Lua's `os.tmpname` always uses `/tmp`, which a
+--- program that runs in a sandbox can not write. The caller removes the file.
+function paw.util.tmpname() end
+
 --- Break text into lines of at most `width` columns, at spaces. A word
 --- wider than `width` gets a line of its own. Empty text gives one empty
 --- line.
