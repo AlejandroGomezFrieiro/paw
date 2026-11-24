@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use paw_engine::{DeviceInfo, ParamInfo, Ports};
+use paw_engine::{DeviceInfo, ParamInfo, ParamKind, Ports};
 use serde::Serialize;
 use serde_json::{Map, Value};
 
@@ -25,20 +25,25 @@ pub(crate) struct ParamView<'a> {
     unit: &'a str,
     /// The names of its steps, for a parameter of named steps.
     choices: &'a [String],
-    #[schemars(with = "String", extend("x-teal" = "ParamKind"))]
-    kind: &'static str,
+    kind: ParamKind,
     /// The number of its steps; 0 for a continuous one.
     steps: u32,
     automatable: bool,
     read_only: bool,
     per_note: bool,
+    // The fields below are only in a device's `param_info` and in
+    // `device_param`: a kind of device (`device_types`) has none of them.
     /// Its place in the device's list, from 1.
+    #[serde(skip_serializing_if = "Option::is_none")]
     index: Option<usize>,
     /// A lane of the part moves it.
+    #[serde(skip_serializing_if = "Option::is_none")]
     automated: Option<bool>,
     /// Its value now (`device_param`).
+    #[serde(skip_serializing_if = "Option::is_none")]
     value: Option<f64>,
     /// Its value now as the device writes it (`device_param`).
+    #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<String>,
 }
 

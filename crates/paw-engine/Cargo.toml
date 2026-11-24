@@ -9,6 +9,7 @@ description = "Real-time audio engine: parts, devices, clips, transport. Knows n
 [features]
 default = ["cpal", "midi"]
 midi = ["dep:alsa-sys"]
+schemars = ["dep:schemars"]
 
 [dependencies]
 paw-types.workspace = true
@@ -18,6 +19,9 @@ paw-measure.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 serde.workspace = true
+# The JSON Schema of the kind of a parameter (`ParamKind`), for the typed
+# views of paw-core. Only with the feature `schemars`.
+schemars = { workspace = true, optional = true }
 rtrb = "0.4"
 # Atomic f32 and f64 for meters and positions: plain loads and stores of the
 # bits, as `AtomicU32`/`AtomicU64` with `from_bits`, no lock.

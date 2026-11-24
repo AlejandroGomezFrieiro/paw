@@ -321,13 +321,6 @@ local record types
 
   -- Devices (session/devices.rs, session/document/devices.rs) ----
 
-  enum ParamKind
-    "boolean"
-    "enum"
-    "stepped"
-    "continuous"
-  end
-
   --- A kind of device installed (`devices.rs` `type_json`).
   record DeviceType
     kind: string
@@ -590,6 +583,14 @@ local record types
     "plain"
     "mpe"
     "cc14"
+  end
+
+  --- What kind of value a parameter takes.
+  enum ParamKind
+    "continuous"
+    "boolean"
+    "enum"
+    "stepped"
   end
 
   --- The type of a parameter: a JSON Schema type, or `source`.

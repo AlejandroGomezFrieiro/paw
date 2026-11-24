@@ -139,11 +139,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             Ok(t)
         }
         // The JSON Schema of the data of `paw.api` that has one, as JSON
-        // text: its definitions by the name of their Teal record
+        // text with indents: its definitions by the name of their Teal record
         // (`types.Clip`), from the Rust types that read and write the data.
         // @return string
         fn api_schema(_, _sh, () => ()) {
-            serde_json::to_string(&crate::api_schema::definitions()).map_err(mlua::Error::external)
+            serde_json::to_string_pretty(&crate::api_schema::definitions()).map_err(mlua::Error::external)
         }
         // --- bytes, for the file formats extensions read and write ---
 
