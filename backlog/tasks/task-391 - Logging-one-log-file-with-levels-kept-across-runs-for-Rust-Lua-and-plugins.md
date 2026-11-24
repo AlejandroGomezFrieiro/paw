@@ -4,7 +4,7 @@ title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and p
 status: In Progress
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T20:01:00Z'
+updated_date: '2026-11-24T20:06:00Z'
 labels:
   - agent:builder
 dependencies:
@@ -74,4 +74,6 @@ STATE 2026-11-24 (session paused): branch worktree-agent-a498b74dcaa5c1ddc, head
 Builder done: head 1c751ad0 (session lock: flock on paw.log.lock, a second session takes slot paw.2.log / stderr.2.log, up to 9; two tests; ADR 0043 text in architecture/decisions with the lock). Skills loaded, nothing to change. NEXT: opus review, merge check, owner ff (branch changes .claude/skills/rust-skills/paw-crates.md).
 
 Opus review of 1c751ad0: merge after fixes. Hard: (1) main.rs:819-820 an ending error prints twice (tracing echo + say); (2) main.rs:547-560 + logging/mod.rs:376-380 panic hook deadlock if a panic happens while the Book mutex is held (files() relocks). Soft: :log dump test; PAW_LOG errors silent in clients and paw-mcp; TERM missing in header; no upper bound after the cap; debug paw.api.log fills the log_get ring; audio_counters duplicates COUNTERS; fold header names stderr.log for every slot; output_log with no slot empties a live slot-1 file. Sent to the builder. Note: the workspace print_stderr lint fails clippy for paw-gui (paused, flake skips it): owner to decide.
+
+Builder done: head 89e4ceb1, all review fixes (print once, panic hook try_lock, :log dump test, PAW_LOG errors in clients, TERM, 2x cap bound, debug out of the ring, slot file names, no-slot append). NEXT: merge 89e4ceb1 (not 1c751ad0) in the merge tree, merge check, owner ff.
 <!-- SECTION:NOTES:END -->
