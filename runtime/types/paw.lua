@@ -2287,10 +2287,11 @@ function paw.cursor.set_beat(beat) end
 ---@param lane any
 function paw.cursor.set_part(part, lane) end
 
---- Put the cursor at a tick: not before 0, in the scope's time
---- (`paw.timegrid.bounds`), and over a fold as one step (`over`). `want`
---- becomes the tick asked for. A tick with a fraction is an error in the
---- tests, and is rounded else.
+--- Put the cursor at a tick, as `place` does. `want` becomes the tick asked
+--- for, as Vim's `curswant`: a scope that stops the cursor does not change
+--- it. A hop over a closed block is a move that the user sees, so `want`
+--- becomes the tick where the cursor lands. A tick with a fraction is an
+--- error in the tests, and is rounded else.
 ---@param at any
 function paw.cursor.set_tick(at) end
 
