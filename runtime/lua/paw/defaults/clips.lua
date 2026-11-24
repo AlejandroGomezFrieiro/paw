@@ -631,10 +631,20 @@ command("clip.split", function()
   -- the other clips of the link keep theirs.
   if c.link then api.clip_unlink(clip.id) end
   -- A MIDI clip's right half keeps its modifiers (nil for audio). The beats
-  -- of a scope are from the start of the clip: they move with the cut.
-  local stack = c.kind == "midi" and paw.modifiers.copy(c.modifiers) or nil
-  for _, m in ipairs(stack or {}) do
-    if m.scope then m.scope = { from = m.scope.from - at, to = m.scope.to - at } end
+  -- of a scope are from the start of the clip: they move with the cut. A
+  -- scope that ends before the cut changes nothing in the right half, and
+  -- goes; a scope over the cut starts at 0.
+  local stack = nil
+  if c.kind == "midi" then
+    stack = {}
+    for _, m in ipairs(paw.modifiers.copy(c.modifiers)) do
+      if not m.scope then
+        stack[#stack + 1] = m
+      elseif m.scope.to > at then
+        m.scope = { from = math.max(0, m.scope.from - at), to = m.scope.to - at }
+        stack[#stack + 1] = m
+      end
+    end
   end
   local right = {
     start = cursor.beat,

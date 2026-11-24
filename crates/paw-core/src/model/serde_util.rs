@@ -44,8 +44,12 @@ impl Velocity {
     }
 
     /// The velocity of `unit` on the scale 0 to 1: rounded, and in 1 to 127
-    /// so that a note that was played is never silent.
+    /// so that a note that was played is never silent. NaN is the default
+    /// velocity.
     pub fn from_unit(unit: f32) -> Velocity {
+        if unit.is_nan() {
+            return Velocity::default();
+        }
         // The clamp keeps the value in the range of u8 before the cast.
         Velocity((unit * 127.0).round().clamp(1.0, 127.0) as u8)
     }
@@ -74,6 +78,7 @@ mod tests {
         assert_eq!(super::Velocity::from_unit(0.0).0, 1);
         assert_eq!(super::Velocity::from_unit(0.5).0, 64);
         assert_eq!(super::Velocity::from_unit(2.0).0, 127);
+        assert_eq!(super::Velocity::from_unit(f32::NAN), super::Velocity::default());
         assert_eq!(super::Velocity(127).unit(), 1.0);
     }
 }

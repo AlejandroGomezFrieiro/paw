@@ -263,3 +263,20 @@ test(
     eq(#api.undo_tree().states, states + 1, "one undo step")
   end
 )
+
+test("S on a clip with scoped modifiers: the right half keeps each scope over its own beats", function()
+  local t, riff = linked()
+  local function entry(from, to)
+    return { kind = "transpose", params = { semitones = 1 }, scope = { from = from, to = to } }
+  end
+  api.clip_set(riff.id, "modifiers", { entry(0, 1), entry(1, 3), entry(2.5, 4) })
+  paw.cursor.set_beat(2)
+  keys("S")
+  local right = api.clip_list(t.id)[2]
+  eq(right.start, 2, "the right half")
+  local scopes = {}
+  for i, m in ipairs(right.modifiers) do
+    scopes[i] = m.scope.from .. "-" .. m.scope.to
+  end
+  eq(table.concat(scopes, " "), "0-1 0.5-2", "the scope before the cut goes, the scope over it starts at 0")
+end)

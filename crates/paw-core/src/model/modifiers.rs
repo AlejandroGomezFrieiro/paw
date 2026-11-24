@@ -234,7 +234,7 @@ impl Builtin {
         let value = match fields.get(main) {
             None => 0,
             Some(v) => whole(v)
-                .filter(|n| n.abs() <= MAX_CHANGE)
+                .filter(|n| (-MAX_CHANGE..=MAX_CHANGE).contains(n))
                 .and_then(|n| i8::try_from(n).ok())
                 .ok_or_else(|| bad(format!("{main} is a whole number from -127 to 127, not {v}")))?,
         };
@@ -474,8 +474,11 @@ pub fn evaluate(
                 Err(error) => skipped.push((at, Skipped::Error(error))),
             },
         }
-        // A skipped entry is in the chain too: its key changes when it
-        // can run, and its result is then another.
+        // A skipped entry is in the chain too, with the same step as when
+        // it runs. The key does not yet hold whether the entry can run: a
+        // kind that is defined later gives another result with the same
+        // key. A registry of kinds at run time (M3) must add this to the
+        // key.
         key = next;
     }
     Progress::Done { key, result: input }
@@ -486,6 +489,14 @@ pub fn evaluate(
 /// (Lua gives `3.0` for `3`). A kind that no one defined passes: it waits.
 pub fn check(kinds: &ModKinds, mut stack: Stack) -> Result<Stack, ModError> {
     for entry in &mut stack.0 {
+        if let Some(Scope { from, to }) = entry.scope
+            && !(from >= 0.0 && from < to && to.is_finite())
+        {
+            return Err(ModError::Params {
+                kind: entry.kind.to_string(),
+                reason: format!("its scope is from {from} to {to}: it starts at 0 or later, and ends after its start"),
+            });
+        }
         if let Some(ModImpl::Builtin(which)) = kinds.get(&entry.kind) {
             if entry.version > BUILTIN_VERSION {
                 return Err(ModError::Params {

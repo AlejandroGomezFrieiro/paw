@@ -141,6 +141,19 @@ fn check_refuses_the_bad_values_of_a_built_in_kind_and_lets_an_unknown_kind_wait
         refused(json!({ "kind": "transpose", "params": { "semitones": 200 } })),
         "transpose: semitones is a whole number from -127 to 127, not 200"
     );
+    // A float far out of range saturates to i64::MIN, which has no
+    // absolute value: it gets the same message.
+    assert_eq!(
+        refused(json!({ "kind": "transpose", "params": { "semitones": -1e300 } })),
+        "transpose: semitones is a whole number from -127 to 127, not -1e+300"
+    );
+    assert!(refused(json!({ "kind": "velocity", "params": { "add": i64::MIN } })).starts_with("velocity: add is a whole"));
+    for (from, to) in [(-1.0, 2.0), (2.0, 2.0), (3.0, 1.0)] {
+        assert_eq!(
+            refused(json!({ "kind": "transpose", "scope": { "from": from, "to": to } })),
+            format!("transpose: its scope is from {from} to {to}: it starts at 0 or later, and ends after its start")
+        );
+    }
     assert_eq!(refused(json!({ "kind": "velocity", "params": { "by": 2 } })), "velocity: it has no value `by`: say `add`");
     assert_eq!(
         refused(json!({ "kind": "velocity", "params": {}, "version": 2 })),
