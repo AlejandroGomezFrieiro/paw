@@ -14,6 +14,17 @@ use crate::session::notes::{NoteChange, NoteColumns, NoteRange, NotesEdit};
 
 use super::{LuaResult, Shared, from_lua, kind_data, options, patch, to_lua};
 
+/// A size that a script gives in `unit` bytes, in whole bytes. It is refused
+/// when it is not a number, is below 0, or is more than a disk holds.
+fn size_in_bytes(what: &str, amount: f64, unit: f64) -> anyhow::Result<u64> {
+    const MOST: f64 = 9.0e15;
+    let bytes = amount * unit;
+    if !bytes.is_finite() || !(0.0..=MOST).contains(&bytes) {
+        anyhow::bail!("{what} is a number of at least 0 and not more than a disk holds, not {amount}");
+    }
+    Ok(bytes.round() as u64)
+}
+
 /// Notes as Lua tables: what `to_lua` makes of them, built directly. Views
 /// ask for a clip's notes every time they draw, so this is on a hot path.
 fn notes_to_lua(lua: &Lua, notes: &crate::model::Notes) -> mlua::Result<LuaValue> {
@@ -175,18 +186,21 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // between runs. With no arguments, what is set: megabytes, directory.
         // @return number, string
         fn media_store(_, sh, (megabytes, keep) => (Option<f64>, Option<f64>)) {
+            // Both sizes are checked before any is set.
+            let limit = megabytes.map(|m| size_in_bytes("the size of the media store", m, 1_048_576.0)).transpose().lua()?;
+            let keep = keep.map(|k| size_in_bytes("the size to keep", k, 1_073_741_824.0)).transpose().lua()?;
             let mut session = sh.session.borrow_mut();
-            if let Some(megabytes) = megabytes {
+            if let (Some(megabytes), Some(limit)) = (megabytes, limit) {
                 let dir = crate::peaks::media_dir(&session.dirs);
                 session.set_media_store(Some(dir), megabytes);
-                if let (Some(keep), Some((dir, megabytes))) = (keep, session.media_store()) {
+                if let (Some(keep), Some((dir, _))) = (keep, session.media_store()) {
                     // Tidied apart: a big cache takes a while to look through.
-                    let store = paw_engine::DiskStore { dir, limit: (megabytes * 1_048_576.0) as u64 };
-                    std::thread::spawn(move || store.tidy((keep.max(0.0) * 1_073_741_824.0) as u64));
+                    let store = paw_engine::DiskStore { dir, limit };
+                    std::thread::spawn(move || store.tidy(keep));
                 }
                 let pins = session.bake_pins();
                 if let (Some(keep), Some(bakes)) = (keep, session.bakes_mut()) {
-                    bakes.limit = (keep.max(0.0) * 1_073_741_824.0) as u64;
+                    bakes.limit = keep;
                     let bakes = bakes.clone();
                     std::thread::spawn(move || {
                         bakes.tidy(&pins);
@@ -495,4 +509,19 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
 
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod size_tests {
+    use super::size_in_bytes;
+
+    #[test]
+    fn a_size_is_refused_unless_it_is_a_number_from_0_up_that_a_disk_holds() {
+        assert_eq!(size_in_bytes("a size", 0.0, 1_048_576.0).unwrap(), 0);
+        assert_eq!(size_in_bytes("a size", 2.0, 1_048_576.0).unwrap(), 2_097_152);
+        for bad in [-1.0, f64::NAN, f64::INFINITY, 1e300] {
+            let error = size_in_bytes("a size", bad, 1_048_576.0).unwrap_err().to_string();
+            assert!(error.starts_with("a size is a number of at least 0"), "{bad}: {error}");
+        }
+    }
 }

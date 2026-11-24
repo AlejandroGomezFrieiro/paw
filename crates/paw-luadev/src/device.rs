@@ -382,7 +382,8 @@ fn to_lua(event: &Event, index: usize) -> LuaEvent {
 }
 
 fn from_lua(event: &LuaEvent, originals: &[Event]) -> Option<EventKind> {
-    let ch = (event.channel - 1).clamp(0, 15) as u8;
+    // `saturating_sub`: a script may write any number here.
+    let ch = event.channel.saturating_sub(1).clamp(0, 15) as u8;
     let key = event.key.clamp(0, 127) as u8;
     let value = if event.value.is_finite() { event.value } else { 0.0 };
     Some(match event.kind {
@@ -466,14 +467,19 @@ impl Device for LuaDevice {
             count += 1;
         }
         let replayed = count;
+        let mut fitted = 0;
         for event in io.events.as_slice() {
             if count < MAX_EVENTS {
                 b.originals[count] = *event;
                 count += 1;
+                fitted += 1;
             } else {
                 self.missed.keep(*event);
             }
         }
+        // What does not fit goes on downstream at once from a device that
+        // passes its input on. A MIDI effect gives out only what it sends.
+        let spill = if self.midi_effect { 0 } else { io.events.as_slice().len() - fitted };
         for (index, event) in b.originals[..count].iter().enumerate() {
             b.events_in[index] = to_lua(event, index);
         }
@@ -519,7 +525,7 @@ impl Device for LuaDevice {
         // The replayed events went out with their own block already, past a
         // device that does not replace its input.
         let (mut i, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
-        io.events.clear();
+        io.events.drain_front(io.events.as_slice().len() - spill);
         let mut j = 0;
         while i < kept || j < sent {
             let take_in = j == sent || (i < kept && b.originals[i].frame as i32 <= out[j].frame);
@@ -536,6 +542,8 @@ impl Device for LuaDevice {
                 j += 1;
             }
         }
+        // The events that did not fit follow the merged ones.
+        io.events.rotate_front_to_back(spill);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {
@@ -708,5 +716,109 @@ mod tests {
         block(&mut device, None);
         assert_eq!(controller.call("seen", b"").unwrap(), b"off 60@0 ", "at the start of the next block");
         assert_eq!(controller.call("lua.misses", b"").unwrap(), b"1");
+    }
+
+    /// Run one block of `events` through `device`; what it gives out.
+    fn through(device: &mut LuaDevice, events: &[Event]) -> Vec<Event> {
+        let (mut left, mut right) = (vec![0.0; 16], vec![0.0; 16]);
+        let mut buf = EventBuf::with_capacity(MAX_EVENTS + 8);
+        for event in events {
+            buf.push(*event);
+        }
+        let mut io = Io {
+            left: &mut left,
+            right: &mut right,
+            events: &mut buf,
+            sidechain: None,
+            outputs: &mut [],
+        };
+        device.process(&ProcessCtx::at(48000.0, 120.0, 4, 4, true), &mut io);
+        buf.as_slice().to_vec()
+    }
+
+    fn script(dir: &tempfile::TempDir, name: &str, text: &str) -> std::path::PathBuf {
+        let path = dir.path().join(name);
+        std::fs::write(&path, text).unwrap();
+        path
+    }
+
+    fn note_off(key: u8) -> Event {
+        Event { frame: 3, kind: EventKind::NoteOff { key, ch: 0 } }
+    }
+
+    #[test]
+    fn a_channel_that_a_script_writes_never_overflows() {
+        let event = |channel| LuaEvent { kind: NOTE_OFF, channel, key: 60, ..LuaEvent::default() };
+        for (channel, want) in [(i32::MIN, 0), (-5, 0), (0, 0), (1, 0), (16, 15), (17, 15), (i32::MAX, 15)] {
+            assert_eq!(
+                from_lua(&event(channel), &[]),
+                Some(EventKind::NoteOff { key: 60, ch: want }),
+                "channel {channel}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_script_that_sends_on_a_channel_that_does_not_exist_stops_with_a_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "channel.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b) b:note_on(0, 60, 1, 17) end
+            return dev
+            "#,
+        );
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        through(&mut device, &[]);
+        let why = controller.health().unwrap();
+        assert!(why.contains("a channel is a whole number from 1 to 16, not 17"), "{why}");
+    }
+
+    #[test]
+    fn an_effect_passes_on_the_events_that_do_not_fit_in_a_block() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(&dir, "quiet.lua", "local dev = require('paw.dsp').device {}\nfunction dev.process() end\nreturn dev");
+        let (mut device, _controller) = build(&path, 48000.0, 64).unwrap();
+        // The last one is a note-off past the limit of a block.
+        let mut events: Vec<Event> = (0..MAX_EVENTS).map(|i| Event { frame: 0, kind: EventKind::NoteOn { key: (i % 100) as u8, vel: 0.5, ch: 0, attr: Attr::NONE } }).collect();
+        events.push(note_off(61));
+        events.push(note_off(62));
+        let out = through(&mut device, &events);
+        assert_eq!(out, events, "all of them, in order");
+        // The script gets the extra ones in the next block, and the next
+        // block does not send them again.
+        let out = through(&mut device, &[]);
+        assert!(out.is_empty(), "{out:?}");
+    }
+
+    #[test]
+    fn a_midi_effect_does_not_send_the_events_of_a_missed_block_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "echo.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b)
+              for i = 0, b.nevents - 1 do
+                local e = b.events[i]
+                if e.type == dsp.NOTE_OFF then b:note_off(e.frame, e.key, e.channel) end
+              end
+            end
+            return dev
+            "#,
+        );
+        let (mut device, controller) = build(&path, 48000.0, 64).unwrap();
+        let call = controller.running.lock().unwrap();
+        assert!(through(&mut device, &[note_off(60)]).is_empty(), "a MIDI effect gives out only what the script sends");
+        drop(call);
+        let out = through(&mut device, &[note_off(61)]);
+        let keys: Vec<u8> = out.iter().filter_map(|e| match e.kind { EventKind::NoteOff { key, .. } => Some(key), _ => None }).collect();
+        assert_eq!(keys, [60, 61], "each event once: the missed one first");
+        assert!(through(&mut device, &[]).is_empty());
     }
 }

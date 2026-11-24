@@ -18,15 +18,12 @@
 //! made (`stretch.rs`), and in which the engine finds where the clip's
 //! start is (the time its `offset` maps to).
 #![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
-#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
-#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
-#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 #![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use anyhow::{Result, bail};
 use paw_types::TempoMap;
 
-use crate::model::{Clip, ClipContent, Timebase, WarpMarker};
+use crate::model::{Clip, ClipContent, MAX_BEATS, Timebase, WarpMarker};
 use crate::stretch::RATIO_RANGE;
 
 /// An increasing map made of straight pieces, from one time to another.
@@ -186,11 +183,17 @@ fn markers(warp: &[WarpMarker]) -> Warp {
 /// millisecond.
 const BEND_STEP: f64 = 0.125;
 
+/// The beats from `a` to `b`, [`BEND_STEP`] apart, and `b` last. The count
+/// follows from `b - a`: a caller keeps that within [`MAX_BEATS`].
+fn bend_beats(a: f64, b: f64) -> impl Iterator<Item = f64> {
+    std::iter::successors(Some(0u32), move |&i| (a + f64::from(i) * BEND_STEP < b).then(|| i + 1))
+        .map(move |i| (a + f64::from(i) * BEND_STEP).min(b))
+}
+
 /// Whether the tempo changes anywhere from beat `a` to `b`.
 fn changes(map: &TempoMap, a: f64, b: f64) -> bool {
     let first = map.tempo(a);
-    let steps = ((b - a) / BEND_STEP).ceil() as usize;
-    (0..=steps).any(|i| (map.tempo((a + i as f64 * BEND_STEP).min(b - 1e-9)) - first).abs() > 1e-9)
+    bend_beats(a, b).any(|at| (map.tempo(at.min(b - 1e-9)) - first).abs() > 1e-9)
         || map.tempos().any(|p| p.beat > a && p.beat < b)
 }
 
@@ -199,6 +202,11 @@ fn changes(map: &TempoMap, a: f64, b: f64) -> bool {
 fn bent(clip: &Clip, map: &TempoMap, unstretched: &Warp, offset: f64) -> Option<Warp> {
     let bpm = clip.source_tempo?;
     let (a, b) = (clip.start, clip.start + clip.length);
+    // A clip that a file or a script made too long has no bend: the walk
+    // along it would never end. The editing calls refuse such a length.
+    if !(0.0..=MAX_BEATS).contains(&clip.length) {
+        return None;
+    }
     if clip.timebase != Some(Timebase::Stretch) || clip.repeat().is_some() || !changes(map, a, b) {
         return None;
     }
@@ -218,9 +226,7 @@ fn bent(clip: &Clip, map: &TempoMap, unstretched: &Warp, offset: f64) -> Option<
     // The beat a moment of the unstretched file lands on.
     let beat = |u: f64| a + (u - u_offset) * bpm / 60.0;
     let mut corners: Vec<f64> = clip.warp.iter().map(|m| m.source).collect();
-    let steps = ((b - a) / BEND_STEP).ceil() as usize;
-    for i in 0..=steps {
-        let at = (a + i as f64 * BEND_STEP).min(b);
+    for at in bend_beats(a, b) {
         corners.push(unstretched.inverse(u_offset + (at - a) * 60.0 / bpm));
     }
     corners.sort_by(f64::total_cmp);
@@ -419,5 +425,28 @@ mod tests {
         c.start = 12.0;
         c.stretch = crate::model::Factor(1.2);
         assert_eq!(of(&c, &map).unwrap().ratio(), Some(1.2));
+    }
+
+    #[test]
+    fn a_clip_too_long_to_hold_is_not_bent_and_the_walk_ends() {
+        let points = [
+            TempoPoint { beat: 0.0, bpm: 120.0, ramp: true },
+            TempoPoint { beat: 8.0, bpm: 100.0, ramp: false },
+        ];
+        let map = TempoMap::new(&points, &[]);
+        for length in [1e12, f64::INFINITY, f64::NAN] {
+            let mut c = clip(0.0, 4.0, 0.0);
+            c.length = length;
+            c.timebase = Some(Timebase::Stretch);
+            c.source_tempo = Some(120.0);
+            assert!(!is_bent(&c, &map), "length {length}");
+        }
+    }
+
+    #[test]
+    fn the_walk_along_a_clip_has_steps_of_an_eighth_and_ends_on_its_end() {
+        let beats: Vec<f64> = bend_beats(1.0, 1.3).collect();
+        assert_eq!(beats, [1.0, 1.125, 1.25, 1.3]);
+        assert_eq!(bend_beats(2.0, 2.0).collect::<Vec<_>>(), [2.0]);
     }
 }

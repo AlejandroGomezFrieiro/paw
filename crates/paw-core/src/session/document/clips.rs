@@ -464,7 +464,7 @@ impl Document {
             let c = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
             match (change, &mut c.content) {
                 (ClipChange::Name(name), _) => c.name = name,
-                (ClipChange::Start(start), _) => c.start = start.max(0.0),
+                (ClipChange::Start(start), _) => c.start = finite("clip start", start)?.max(0.0),
                 (ClipChange::Length(length), _) => {
                     if !length.is_finite() || length <= 0.0 {
                         bail!("clip length must be above 0");
@@ -938,5 +938,18 @@ mod tests {
         assert_eq!(taken, 1);
         assert_eq!(doc.project.clip(there).unwrap().source, None, "the clip whose file is there is the project's own");
         assert!(doc.project.clip(gone).unwrap().source.is_some(), "the clip whose file is gone still refers to it");
+    }
+
+    #[test]
+    fn a_clip_is_refused_a_length_past_a_million_beats_and_a_start_that_is_not_a_number() {
+        let (mut doc, part) = one_part();
+        let id = doc.clip_add(part, ClipOpts::default(), None, |_| unreachable!()).unwrap();
+        let error = doc.clip_set(id, ClipChange::Length(1e12)).unwrap_err();
+        assert!(error.to_string().contains("a million beats"), "{error}");
+        for start in [f64::INFINITY, f64::NAN] {
+            let error = doc.clip_set(id, ClipChange::Start(start)).unwrap_err();
+            assert!(error.to_string().contains("finite"), "{error}");
+        }
+        assert_eq!(doc.project.clip(id).unwrap().start, 0.0);
     }
 }
