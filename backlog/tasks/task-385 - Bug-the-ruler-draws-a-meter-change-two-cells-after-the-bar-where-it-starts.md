@@ -1,10 +1,10 @@
 ---
 id: TASK-385
 title: 'Bug: the ruler draws a meter change two cells after the bar where it starts'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T17:38:00Z'
-updated_date: '2026-11-24T17:38:00Z'
+updated_date: '2026-11-24T18:17:00Z'
 labels:
   - bug
   - ux
@@ -52,4 +52,6 @@ Rule to keep: every mark that names a time (ruler ticks and bar numbers, meter a
 
 <!-- SECTION:NOTES:BEGIN -->
 Started 2026-11-24: branch ruler-align, base fbea82e8.
+
+On main in merge 39e07dcf (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->

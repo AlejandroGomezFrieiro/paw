@@ -1,10 +1,10 @@
 ---
 id: TASK-384
 title: 'Bug: plugin and audio library output prints over the terminal screen'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T17:34:00Z'
-updated_date: '2026-11-24T18:01:00Z'
+updated_date: '2026-11-24T18:17:00Z'
 labels:
   - bug
   - ux
@@ -61,4 +61,6 @@ Direction (the builder decides the details):
 Started 2026-11-24: branch tui-output, base 427be393.
 
 2026-11-24, owner: ADR 0042 accepted (architecture/decisions/0042-terminal-owns-its-output.md). <C-l> stays in normal mode only (Vim meaning). Work: 342f62ff on worktree-agent-a52a637c186e9226e. Audit follow-ups: TASK-388 (wide and control cells), TASK-389 (crash signals, stop, attach), TASK-390 (slow terminal).
+
+On main in merge 91a4eb54 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
