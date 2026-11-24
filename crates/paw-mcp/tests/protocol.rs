@@ -936,6 +936,36 @@ fn the_manual_and_the_api_are_resources() {
     c.finish();
 }
 
+/// The lists come whole, so a cursor is never valid, and each entry has the
+/// title and description that a client shows. No kernel is needed: the
+/// server attaches to a socket that nobody listens on.
+#[test]
+fn lists_refuse_a_cursor_and_give_titles() {
+    let dir = scratch("lists");
+    let socket = dir.path().join("nobody.sock");
+    let mut c = Client::start(&dir, &["--socket", socket.to_str().unwrap()]);
+    c.initialize("2025-11-25");
+
+    for method in ["tools/list", "resources/list", "resources/templates/list"] {
+        let reply = c.request(method, json!({ "cursor": "not-ours" }));
+        assert_eq!(reply["error"]["code"], -32602, "{method}: {reply}");
+    }
+
+    let resources = c.request("resources/list", json!({}))["result"]["resources"].clone();
+    let templates =
+        c.request("resources/templates/list", json!({}))["result"]["resourceTemplates"].clone();
+    let entries: Vec<&Value> =
+        resources.as_array().unwrap().iter().chain(templates.as_array().unwrap()).collect();
+    assert_eq!(entries.len(), 4, "the two references and the two templates");
+    for entry in entries {
+        for field in ["title", "description"] {
+            let text = entry[field].as_str().unwrap_or("");
+            assert!(!text.trim().is_empty(), "no {field}: {entry}");
+        }
+    }
+    c.finish();
+}
+
 /// A stereo WAV with two tones on each side, in 32-bit float so that both
 /// readers decode the same samples.
 fn write_tones(path: &Path) {

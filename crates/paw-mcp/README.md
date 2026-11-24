@@ -272,9 +272,15 @@ kernel on the null backend. It tests the following:
 - A song made with the typed tools only, read back, rendered and measured.
 - Undo, a call that rolls back, the argument errors and the escape hatches.
 - A kernel that stops and returns.
+- A cursor on a list, which gets `-32602` because each list comes in one
+  page, and the title and description of each resource.
 
 Run it with `nix develop -c cargo test -p paw-mcp`, which builds `paw` if
 it is not built.
+
+`tools/mcpscore.sh` checks the server with mcpscore and fails when the
+score drops. [How to run the tests](../../docs/how-to/run-the-tests.md#check-the-mcp-server-with-mcpscore)
+tells when to run it.
 
 ### Limits
 

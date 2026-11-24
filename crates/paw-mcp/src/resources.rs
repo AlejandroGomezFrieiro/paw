@@ -11,8 +11,16 @@ use crate::tools::{ToolError, Tools};
 const HELP: &str = "paw://help/";
 const LUA: &str = "paw://reference/lua/";
 
-fn entry(uri: &str, name: &str, description: &str) -> Value {
-    json!({ "uri": uri, "name": name, "description": description, "mimeType": "text/markdown" })
+/// A resource of the list. `name` identifies it to a program, and a client
+/// shows `title` to the user.
+fn entry(uri: &str, name: &str, title: &str, description: &str) -> Value {
+    json!({
+        "uri": uri,
+        "name": name,
+        "title": title,
+        "description": description,
+        "mimeType": "text/markdown",
+    })
 }
 
 impl Tools {
@@ -22,11 +30,13 @@ impl Tools {
         let mut out = vec![
             entry(
                 "paw://reference/api",
+                "paw.api",
                 "paw.api reference",
                 "Every kernel function (paw.api.*, and `paw ctl <name>`), with its arguments and what it does",
             ),
             entry(
                 "paw://reference/lua",
+                "lua",
                 "Lua modules index",
                 "The modules of paw's Lua runtime; read one as paw://reference/lua/<module>",
             ),
@@ -38,6 +48,7 @@ impl Tools {
                 out.push(entry(
                     &format!("{HELP}{name}"),
                     name,
+                    &format!("paw help: {name}"),
                     &format!("paw's help ({group}): the page `{name}`"),
                 ));
             }
@@ -47,8 +58,20 @@ impl Tools {
 
     pub(crate) fn resource_templates(&self) -> Vec<Value> {
         vec![
-            json!({"uriTemplate": "paw://help/{page}", "name": "A page of paw's manual", "mimeType": "text/markdown"}),
-            json!({"uriTemplate": "paw://reference/lua/{module}", "name": "A Lua module's documented functions", "mimeType": "text/markdown"}),
+            json!({
+                "uriTemplate": "paw://help/{page}",
+                "name": "help",
+                "title": "A page of paw's manual",
+                "description": "A page of paw's manual, by the name that :help knows it by; resources/list gives each page",
+                "mimeType": "text/markdown",
+            }),
+            json!({
+                "uriTemplate": "paw://reference/lua/{module}",
+                "name": "lua-module",
+                "title": "A Lua module's documented functions",
+                "description": "The documented functions of one module of paw's Lua runtime; paw://reference/lua lists the modules",
+                "mimeType": "text/markdown",
+            }),
         ]
     }
 

@@ -643,8 +643,9 @@
           # (the version of runtime/lua/tl.lua), `cyan` (tools/dev-runtime.sh),
           # the language servers of both, the formatters (`ceru` for Teal,
           # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
-          # that nixpkgs has not, or has old.
-          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit ]
+          # that nixpkgs has not, or has old. `uv` gives `uvx`, which fetches
+          # the pinned mcpscore for tools/mcpscore.sh.
+          packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv ]
             ++ (with luaTools pkgs; [ cyan teal-language-server cerulean ])
             ++ [ pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck ];
           # The style packages Vale checks the docs with (tools/vale.sh joins

@@ -236,9 +236,22 @@ that cannot take a slot fails with "suite: cannot take a slot".
 | --- | --- | --- |
 | Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |
 | Before a commit | The tests of the change, and the lints | `tests/tools/suite.sh only "<words>"` for each area that the change touches, `cargo nextest run -p <crate>` for each crate that it touches, `tools/tlcheck.sh`, `luacheck .`, `tools/fmtcheck.sh`, `luajit tools/testlint.lua`, `luajit tools/layers.lua`, `tools/vale.sh <pages>`, `paw --clean --no-plugins -l tools/apidoc.lua check` |
-| Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --exclude paw-gui --profile gate` (the Rust tests: the profile leaves out the Lua suite), `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail) |
+| Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --exclude paw-gui --profile gate` (the Rust tests: the profile leaves out the Lua suite), `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail), `tools/mcpscore.sh --changed-since main` (see below) |
 | Nightly | When CI exists (paw has no CI yet). Until then, only when the owner asks | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
 | Release | Before a tagged version | `tests/tools/e2e.sh` (all the days), `tests/tools/suite.sh plugins`, the build and tests on each platform |
+
+`tools/mcpscore.sh` audits `paw-mcp` with a pinned mcpscore (PyPI,
+through `uvx`). It runs before a push and in the merge checks, because
+it needs the network and `nix flake check` has none. With
+`--changed-since <rev>`, it runs only when the diff touches one of these:
+
+- `crates/paw-mcp` or a crate that it builds from (`cargo tree`).
+- `crates/paw-core/src/api` or `runtime/lua`, which the server embeds.
+- `Cargo.toml` or `Cargo.lock`.
+
+It uses the binaries of `target/debug`, or `PAW_MCP_BIN` and `PAW_BIN`.
+It exits 3 when the score is under `MIN_SCORE`, in points. When a change
+raises the score, write the new score in `MIN_SCORE` in the same commit.
 
 paw has no CI yet: the owner chose to wait. When it comes, its matrix
 runs the full suite in four ways:

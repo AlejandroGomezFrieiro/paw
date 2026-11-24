@@ -51,6 +51,7 @@ columnplus
 rulerplus
 midilsp
 chainlsp
+mcpscore
 projdiff
 luafx
 vinput

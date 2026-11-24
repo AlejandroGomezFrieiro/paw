@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+# The server tells its clients this address (serverInfo.websiteUrl).
+repository.workspace = true
 description = "A Model Context Protocol server in front of the kernel's control socket."
 
 [[bin]]

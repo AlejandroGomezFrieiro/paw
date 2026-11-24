@@ -70,6 +70,19 @@ fn lock(tools: &Mutex<Tools>) -> MutexGuard<'_, Tools> {
     tools.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Refuse a cursor. Each list comes whole in one page and gives no
+/// `nextCursor`, so no cursor that a client sends is one of ours: the spec
+/// answers an invalid cursor with "Invalid params" (-32602).
+fn refuse_cursor(request: Option<&PaginatedRequestParams>) -> Result<(), ErrorData> {
+    match request.and_then(|params| params.cursor.as_deref()) {
+        Some(cursor) => Err(ErrorData::invalid_params(
+            format!("invalid cursor `{cursor}`: the list has one page and no cursors"),
+            None,
+        )),
+        None => Ok(()),
+    }
+}
+
 /// A value of an rmcp type from the JSON it has on the wire.
 fn from_json<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, ErrorData> {
     serde_json::from_value(value).map_err(|err| ErrorData::internal_error(err.to_string(), None))
@@ -77,6 +90,10 @@ fn from_json<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, ErrorDat
 
 impl ServerHandler for PawServer {
     fn get_info(&self) -> InitializeResult {
+        // listChanged stays false because the server sends no list_changed
+        // notification. The tool list is fixed when the server starts
+        // (--allow-eval). The manual's pages change only when the kernel
+        // loads other extensions, and the server does not watch for that.
         let capabilities: ServerCapabilities = serde_json::from_value(json!({
             "tools": { "listChanged": false },
             "resources": { "subscribe": false, "listChanged": false },
@@ -85,7 +102,9 @@ impl ServerHandler for PawServer {
         InitializeResult::new(capabilities)
             .with_protocol_version(VERSIONS[0].clone())
             .with_server_info(
-                Implementation::new("paw-mcp", env!("CARGO_PKG_VERSION")).with_title("paw"),
+                Implementation::new("paw-mcp", env!("CARGO_PKG_VERSION"))
+                    .with_title("paw")
+                    .with_website_url(env!("CARGO_PKG_REPOSITORY")),
             )
             .with_instructions(schema::INSTRUCTIONS)
     }
@@ -115,9 +134,10 @@ impl ServerHandler for PawServer {
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParams>,
+        request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
+        refuse_cursor(request.as_ref())?;
         let tools = lock(&self.tools).list();
         Ok(ListToolsResult::with_all_items(tools))
     }
@@ -155,18 +175,20 @@ impl ServerHandler for PawServer {
 
     async fn list_resources(
         &self,
-        _request: Option<PaginatedRequestParams>,
+        request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
+        refuse_cursor(request.as_ref())?;
         let list = self.with_tools(|tools| tools.resources_list()).await?;
         Ok(ListResourcesResult::with_all_items(from_json(Value::Array(list))?))
     }
 
     async fn list_resource_templates(
         &self,
-        _request: Option<PaginatedRequestParams>,
+        request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, ErrorData> {
+        refuse_cursor(request.as_ref())?;
         let list = lock(&self.tools).resource_templates();
         Ok(ListResourceTemplatesResult::with_all_items(from_json(Value::Array(list))?))
     }
