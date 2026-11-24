@@ -25,6 +25,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local derived = require("paw.derived")
+local modifiers = require("paw.modifiers")
 local type types = require("paw.types")
 
 --- What a bake plays: these parts, from `from` to `to` in beats (the whole
@@ -107,11 +108,10 @@ local function clips_text(ctx: derived.Ctx, part: integer, scope: Scope, out: {s
           tostring(c.loop),
           num(c.loop_start),
           num(c.loop_length),
-          -- MIDI: the notes and controllers by their stamps, and the overrides.
+          -- MIDI: the notes and controllers by their stamps, and the modifier stack.
           num(c.stamp),
           num(c.control_stamp),
-          tostring(c.transpose),
-          tostring(c.velocity),
+          modifiers.key(c.modifiers),
           -- Audio: the file and how it plays.
           tostring(c.file),
           num(c.offset),

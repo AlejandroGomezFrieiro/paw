@@ -10,6 +10,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local axis = require("paw.axis")
+local modifiers = require("paw.modifiers")
 local kernel = require("paw.events.kernel")
 local type types = require("paw.types")
 local type contracts = require("paw.contracts")
@@ -524,15 +525,13 @@ local function clip_label(clip: Clip): string
   if clip.muted then
     label = draw.g.muted .. label
   end
-  -- A linked clip: `riff ≡`; with overrides, `riff ≡ +3 v-10`.
+  -- A linked clip: `riff ≡`; with modifiers, `riff ≡ +3 v-10`.
   if clip.link then
     label = label .. " " .. draw.g.link
   end
-  if (clip.transpose or 0) ~= 0 then
-    label = label .. string.format(" %+d", clip.transpose)
-  end
-  if (clip.velocity or 0) ~= 0 then
-    label = label .. string.format(" v%+d", clip.velocity)
+  local stack = modifiers.label(clip.modifiers)
+  if stack then
+    label = label .. " " .. stack
   end
   -- A block of a subproject: its name after `⧉`, in a frame; the letter
   -- of its kind after `⧉` for a kind of subproject (`⧉D Groove`).

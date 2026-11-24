@@ -2032,6 +2032,33 @@ mod tests {
     }
 
     #[test]
+    fn a_change_of_one_modifier_value_is_one_changed_line_of_part_json() {
+        let dir = scratch("modifiers");
+        let part_json = |velocity: i64| {
+            let mut p = project(1, 1);
+            let part = Arc::make_mut(&mut p.parts[0]);
+            let clip = Arc::make_mut(&mut part.clips[0]);
+            clip.stack = serde_json::from_value(json!([
+                { "kind": "transpose", "params": { "semitones": 3 } },
+                { "kind": "velocity", "params": { "add": velocity }, "off": true },
+            ]))
+            .unwrap();
+            let files = layout(&p, &json!({}), None, &dir, &Home::default()).unwrap().files;
+            let text = files.into_iter().find(|(f, _)| f.ends_with("T0/part.json")).unwrap().1;
+            String::from_utf8(text).unwrap()
+        };
+        let (before, after) = (part_json(-10), part_json(-20));
+        assert!(
+            before.contains("\"modifiers\": [\n") && !before.contains("overrides"),
+            "{before}"
+        );
+        let changed: Vec<_> = before.lines().zip(after.lines()).filter(|(a, b)| a != b).collect();
+        assert_eq!(before.lines().count(), after.lines().count());
+        assert_eq!(changed, [("            \"add\": -10", "            \"add\": -20")]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn custom_clips_save_their_data_in_one_canonical_form() {
         let dir = scratch("custom");
         let data = json!({ "zeta": 1.5, "alpha": [3, 2], "cue": { "text": "one" } });

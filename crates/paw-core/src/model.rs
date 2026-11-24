@@ -20,9 +20,9 @@ pub mod ids;
 pub mod kinds;
 pub mod linked;
 mod links;
+pub mod modifiers;
 pub(crate) mod nest;
 mod notes;
-mod overrides;
 pub mod owner;
 pub mod racks;
 
@@ -36,7 +36,7 @@ pub(crate) use nest::{MAX_DEPTH, Nest, NestId, NestMeter, NestPlay, NestTempo, R
 pub(crate) use chain::Chain;
 pub(crate) use links::Links;
 pub(crate) use notes::Notes;
-pub(crate) use overrides::Overrides;
+pub(crate) use modifiers::{Modifier, Stack};
 pub(crate) use racks::RackDef;
 
 pub(crate) type Id = u64;
@@ -646,11 +646,14 @@ pub struct Clip {
     /// all of them (`model/links.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
-    /// What a MIDI clip changes in its notes as it plays them (a transpose,
-    /// a velocity change), without a change of the notes: each clip of a
-    /// link can play the shared notes in its own way.
-    #[serde(default, skip_serializing_if = "Overrides::is_none")]
-    pub overrides: Overrides,
+    /// The modifiers of a MIDI clip (`model/modifiers.rs`): what it
+    /// changes in its notes as it plays them (a transpose, a velocity
+    /// change), without a change of the notes. The stack is on the clip,
+    /// not on the notes, so each clip of a link can play the shared notes
+    /// in its own way. A file of before stacks has `overrides`, which reads
+    /// as two entries.
+    #[serde(default, rename = "modifiers", alias = "overrides", skip_serializing_if = "Stack::is_empty")]
+    pub stack: Stack,
 }
 
 /// What an audio clip keeps when the tempo changes. Either way it keeps its

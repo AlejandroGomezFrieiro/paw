@@ -810,6 +810,8 @@ local record types
     loop_start: number
     made: number
     meta: Meta
+    --- A MIDI clip's modifiers, top to bottom (`model/modifiers.rs`).
+    modifiers: {Modifier}
     muted: boolean
     name: string
     nest: integer
@@ -830,11 +832,6 @@ local record types
     stretch_mode: StretchMode
     stretching: boolean
     timebase: Timebase
-    --- A MIDI clip's overrides: semitones up (down below 0), and what is
-    --- added to the velocity of each note. They change what plays, not the
-    --- notes.
-    transpose: integer
-    velocity: integer
     warp: {WarpMarker}
   end
 
@@ -856,6 +853,9 @@ local record types
     loop_length: number
     loop_start: number
     meta: Meta
+    --- The modifiers of a MIDI clip, top to bottom. Nil or an empty list
+    --- takes all of them away.
+    modifiers: {Modifier}
     muted: boolean
     name: string
     offset: number
@@ -867,12 +867,33 @@ local record types
     stretch: number
     stretch_mode: StretchMode
     timebase: Timebase
-    --- Semitones up (down below 0), from -127 to 127.
-    transpose: number
-    --- What is added to the velocity of each note, from -127 to 127.
-    velocity: number
     --- The markers of an audio clip; the `beat` of each is not read.
     warp: {WarpMarker}
+  end
+
+  --- One modifier of a clip's stack: its kind, its values, whether it is off,
+  --- the beats that it changes, and the version of its values.
+  record Modifier
+    --- `transpose`, `velocity`, or a kind of an extension.
+    kind: string
+    --- The entry is off and changes nothing. The file leaves `off` out for
+    --- an entry that is on.
+    off: boolean
+    --- The values of the kind, as the file has them. The file leaves
+    --- `params` out when there are none.
+    params: Meta
+    --- The beats of the clip that the entry changes. Left out, the entry
+    --- changes all of the clip.
+    scope: ModifierScope
+    --- The version of the kind's values; left out for 1.
+    version: integer
+  end
+
+  --- The beats of a clip, from `from` up to `to`, in which an entry changes
+  --- the notes and the controller moves that start there.
+  record ModifierScope
+    from: number
+    to: number
   end
 
   --- A warp marker of an audio clip: moments of its file in seconds; in a
@@ -884,6 +905,15 @@ local record types
   end
 
   -- The end of the records from paw.api.api_schema.
+
+  --- What `paw.api.clip_render` did: the modifiers that left the stack,
+  --- the notes of the clip after it, and the notes that a modifier left
+  --- out.
+  record Rendered
+    modifiers: integer
+    notes: integer
+    dropped: integer
+  end
 
   --- What `paw.api.clip_add` takes (`ClipOpts`): `kind` follows from
   --- `file` when left out; `cue` keeps it off the timeline. A subproject's
@@ -914,8 +944,7 @@ local record types
     loop_length: number
     loop_start: number
     cue: boolean
-    transpose: integer
-    velocity: integer
+    modifiers: {Modifier}
     version: integer
     timeline: Timeline
     data: KindData

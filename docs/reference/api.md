@@ -1577,6 +1577,20 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.mixer_rows.to_kind(dir, n)`: Go to the first row of the next (`dir` 1) or previous kind.
 - `paw.mixer_rows.to_kind_end(n)`: Move the mixer's cursor to the last row of its kind (or `n` kinds on).
 
+## Module paw.modifiers
+
+- `paw.modifiers.copy(stack)`: A copy of the entries, to change and give to `clip_set`.
+- `paw.modifiers.describe(m)`: The entry in words, as `transpose +3` or `velocity -10`. A kind that paw doesn't have yet shows as its name and a `?`, and it waits for its extension.
+- `paw.modifiers.find(stack, kind)`: The first entry of `kind` in `stack`, and its place.
+- `paw.modifiers.key(stack)`: The stack as one line of text, which is the same for the same stack, for the key of a cache. It names each value, also of a kind that paw doesn't know.
+- `paw.modifiers.label(stack)`: The label of a stack, as `+3 v-10`, with the short form of each entry that is on. A kind that waits for its extension shows as `?`, and more than three entries show as `ƒ4`. Gives nil when no entry is on.
+- `paw.modifiers.prefix(stack)`: What the top of a stack does to the notes. The top is the entries at the start of the stack that are a `transpose` or a `velocity` for all of the clip, and an entry that is off doesn't end it. The piano roll shows the notes after the top, and the export of a MIDI file and the chord names read the notes through it.
+- `paw.modifiers.reversible(stack)`: Whether the top of the stack is all of it, so that each entry that is on is a `transpose` or a `velocity` for all of the clip.
+- `paw.modifiers.shift(stack)`: The semitones that the top of the stack moves the notes, which is what `Clip:shifted` takes.
+- `paw.modifiers.text(stack)`: The entries that are on, in words, as `transpose +3, velocity -10`. Gives nil when no entry is on.
+- `paw.modifiers.value(m)`: The one value of a built-in entry, or nil for another kind.
+- `paw.modifiers.velocity(stack, velocity)`: The `velocity` of a note after the velocity changes at the top of the stack. Each change keeps it in 1 to 127, as the kernel does.
+
 ## Module paw.motion
 
 - `paw.motion.by(t, dbeat)`: The ticks that a whole thing at tick `t` moves when the pointer drags it `dbeat` beats. The line of the thing goes to the line nearest to where the drag puts it, and the thing keeps its distance after its line.
@@ -2731,6 +2745,7 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.clip_notes_edit(id, edit)`: Several at once, as one edit: `{ set = { { index = 3, start = 1 } }, remove = { 5, 6 }, add = { note, ... } }`. Every index is a note's place before the call.
 - `paw.api.clip_peaks(id, n)`: `n` { min, max } pairs for all of the sound that an audio clip plays.
 - `paw.api.clip_remove(id)`
+- `paw.api.clip_render(id, count)`: Render the first `count` modifiers of a MIDI clip, or all of them when `count` is nil, as one undo step. Their result becomes the notes and controller moves of the clip, and they leave its `modifiers`. It fails on a linked clip, and on a modifier in those entries that can't run. Gives the number of modifiers that it rendered, the number of notes of the clip after it, and the number of notes that a modifier left out.
 - `paw.api.clip_reverse(id)`: Audio clip operations that leave the source file alone (session/clipops.rs).
 - `paw.api.clip_set(id, key, value)`: Change a clip: a table of the entries to change, as `clip_get` gives them, or one `key` and its value. Only the key form clears an entry (`nil`).
 - `paw.api.clip_set_controls(id, controls)`

@@ -97,6 +97,8 @@ paw.restore_part, paw.restore_clip, paw.restore_device =
   objects.restore_part, objects.restore_clip, objects.restore_device
 paw.master, paw.project, paw.transport, paw.time = objects.master, objects.project, objects.transport, objects.time
 paw.midi = objects.midi
+-- The modifier stack of a MIDI clip in words, and the top of the stack (paw/modifiers.tl).
+paw.modifiers = require("paw.modifiers")
 paw.tempo = require("paw.tempo")
 -- The grid of time: positions in ticks, and the lines of the grid (paw/timegrid.tl).
 paw.timegrid = require("paw.timegrid")

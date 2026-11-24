@@ -76,10 +76,16 @@ song/
   Each place of a linked rack in a chain names the rack by its id, and
   keeps the values that it changes on its own, by keys such as `"7.mix"`
   and `"12.params.gain"`.
-- A MIDI clip with overrides has them in its entry in `part.json`, for
-  example `"overrides": { "transpose": 3 }`. They change how the clip plays,
-  and its file keeps the notes as they are. See
-  [Overrides of a clip](arrange-view.md#overrides-of-a-clip).
+- A MIDI clip with modifiers has its stack in its entry in `part.json`, as
+  a list in the order that paw runs it, for example
+  `"modifiers": [{ "kind": "transpose", "params": { "semitones": 3 } }]`.
+  An entry that is off has `"off": true`. Each entry writes its keys in
+  order of their names, one key on each line, so a change of one value is
+  one changed line. The modifiers change how the clip plays, and its file
+  keeps the notes as they are. paw also reads the older
+  `"overrides": { "transpose": 3, "velocity": -10 }` as two entries, and
+  writes `"modifiers"` when it saves. See
+  [Modifiers of a clip](arrange-view.md#modifiers-of-a-clip).
 - A custom clip is a clip of a kind that an extension defines. `part.json`
   keeps its kind, its version, its timeline, its offset, its media and the
   names of its files. Its data is a file of its own:

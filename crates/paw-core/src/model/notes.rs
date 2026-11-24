@@ -410,6 +410,17 @@ impl Notes {
     }
 }
 
+impl Notes {
+    /// The notes that `change` makes of each run, in runs of their own.
+    /// `change` keeps the order of the notes in its run, and the runs stay
+    /// in order: a change that keeps each note's start (a transpose, a
+    /// velocity) gives notes in order. A run that `change` empties goes.
+    pub(crate) fn map_runs(&self, mut change: impl FnMut(&[Note]) -> Vec<Note>) -> Notes {
+        let runs = self.runs.iter().map(|run| change(run)).filter(|run| !run.is_empty()).map(Arc::new).collect();
+        Self::from_runs(runs)
+    }
+}
+
 impl From<Vec<Note>> for Notes {
     fn from(notes: Vec<Note>) -> Self {
         Self::from_runs(runs_of(notes))

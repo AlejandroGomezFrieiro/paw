@@ -331,6 +331,17 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // longer change the other clips.
         // @return nil
         fn clip_unlink(_, sh, id => Id) { sh.session.borrow_mut().doc.clip_unlink(id).lua() }
+        // Render the first `count` modifiers of a MIDI clip, or all of them
+        // when `count` is nil, as one undo step. Their result becomes the
+        // notes and controller moves of the clip, and they leave its
+        // `modifiers`. It fails on a linked clip, and on a modifier in those
+        // entries that can't run. Gives the number of modifiers that it
+        // rendered, the number of notes of the clip after it, and the number
+        // of notes that a modifier left out.
+        // @return types.Rendered
+        fn clip_render(lua, sh, (id, count) => (Id, Option<usize>)) {
+            to_lua(lua, &sh.session.borrow_mut().doc.clip_render(id, count).lua()?)
+        }
 
         // --- cues (session/cues.rs) ---
         // A clip goes off the timeline with `clip_add(part, { cue = true, ... })`:

@@ -23,6 +23,7 @@
 -- Written in Teal (paw/lang.tl): the build compiles it to Lua.
 local api = require("paw.api")
 local derived = require("paw.derived")
+local modifiers = require("paw.modifiers")
 local options = require("paw.options")
 local type types = require("paw.types")
 local type partial = require("paw.partial")
@@ -88,7 +89,7 @@ local record Portion
   start: number
   length: number
   stamp: integer
-  transpose: integer
+  transpose: integer -- the semitones of the top of its stack (paw.modifiers)
 end
 
 --- A MIDI clip of a part, as the node of the part's clips keeps it.
@@ -97,7 +98,7 @@ local record Placed
   start: number
   length: number
   stamp: integer
-  transpose: integer
+  transpose: integer -- the semitones of the top of its stack (paw.modifiers)
 end
 
 local record M
@@ -274,7 +275,9 @@ local clips_spec: derived.Spec<integer, {Placed}, boolean> = {
     local out: {Placed} = {}
     for _, c in ipairs(ctx:clips(part)) do
       if c.kind == "midi" then
-        out[#out + 1] = {id = c.id, start = c.start, length = c.length, stamp = c.stamp, transpose = c.transpose or 0}
+        out[#out + 1] = {
+          id = c.id, start = c.start, length = c.length, stamp = c.stamp, transpose = modifiers.shift(c.modifiers)
+        }
       end
     end
     return out
@@ -349,7 +352,7 @@ local function notes(req: Request, list: {Portion}): {Note}
       if #out >= max then
         break
       end
-      -- At the pitch it plays at: the clip's transpose added.
+      -- At the pitch it plays at: the transpose at the top of the clip's stack added.
       local pitch = n.pitch + c.transpose
       if n.start >= -EPS and n.start < c.length - EPS and pitch >= 0 and pitch <= 127 then
         out[#out + 1] = {

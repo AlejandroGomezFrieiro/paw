@@ -1,6 +1,7 @@
--- The overrides of a clip: `:clip.override transpose=3 velocity=-10` makes
+-- The modifier stack of a clip: `:clip.override transpose=3 velocity=-10` makes
 -- a clip, a linked copy for example, play its notes changed while the notes
--- stay as they are. Loaded by tests/suite.lua with its helpers.
+-- stay as they are. `:clip.stack` changes the stack, and `:clip.render` puts
+-- its result into the notes. Loaded by tests/suite.lua with its helpers.
 local T = ...
 local test, eq, keys = T.test, T.eq, T.keys
 local api = paw.api
@@ -42,6 +43,16 @@ local function pitches(clip)
   return table.concat(out, " ")
 end
 
+--- The transpose and the velocity change of a clip's stack, as `{ 3, -10 }`.
+local function overrides(clip)
+  local out = {}
+  for i, kind in ipairs({ "transpose", "velocity" }) do
+    local m = paw.modifiers.find(clip.modifiers, kind)
+    out[i] = m and paw.modifiers.value(m) or 0
+  end
+  return out
+end
+
 --- The samples of a 16-bit render, as a string.
 local function samples(info)
   local data = T.read_file(info.path)
@@ -51,7 +62,7 @@ end
 test(":clip.override transpose=3 on a linked copy: it plays 3 semitones up and its notes stay the same", function()
   local _, riff, copy = linked()
   keys(":clip.override transpose=3 velocity=-10<CR>")
-  eq({ copy.transpose, copy.velocity }, { 3, -10 }, "the copy's overrides")
+  eq(overrides(copy), { 3, -10 }, "the copy's overrides")
   eq({ pitches(riff), pitches(copy) }, { "60 62 64 65", "60 62 64 65" }, "the shared notes stay the same")
   local overridden = T.render({ bits = 16, tail = 0.1 })
   -- The same sound from a plain copy whose notes are 3 up and 10 softer.
@@ -88,11 +99,11 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   keys(":clip.override transpose=3 velocity=-10<CR>")
   eq(#api.undo_tree().states, states + 1, "one undo step")
   keys(":clip.override clear<CR>")
-  eq({ copy.transpose, copy.velocity }, { 0, 0 }, "clear takes both away")
+  eq(overrides(copy), { 0, 0 }, "clear takes both away")
   keys("u")
-  eq({ copy.transpose, copy.velocity }, { 3, -10 }, "u gives them back")
+  eq(overrides(copy), { 3, -10 }, "u gives them back")
   keys("u")
-  eq({ copy.transpose, copy.velocity }, { 0, 0 }, "u again takes both away in one step")
+  eq(overrides(copy), { 0, 0 }, "u again takes both away in one step")
   keys("<C-r>")
   keys("K")
   local said = T.hover_text()
@@ -107,8 +118,8 @@ test(":clip.override clear and u put the overrides back; :w and a reopen keep th
   paw.flush()
   t = paw.part(api.part_list()[1])
   local after = api.clip_list(t.id)[2]
-  eq({ after.link, after.transpose, after.velocity }, { "riff", 3, -10 }, "the reopened copy")
-  eq(api.clip_list(t.id)[1].transpose, 0, "the first clip has none")
+  eq({ after.link, overrides(after) }, { "riff", { 3, -10 } }, "the reopened copy")
+  eq(overrides(api.clip_list(t.id)[1]), { 0, 0 }, "the first clip has none")
 end)
 
 test(":clip.override refuses what is not a whole number from -127 to 127", function()
@@ -120,7 +131,7 @@ test(":clip.override refuses what is not a whole number from -127 to 127", funct
   eq(said():find("from -127 to 127", 1, true) ~= nil, true, "out of range: " .. said())
   keys(":clip.override pitch=3<CR>")
   eq(said():find("usage: clip.override", 1, true) ~= nil, true, "another word: " .. said())
-  eq(copy.transpose, 0, "nothing changed")
+  eq(overrides(copy), { 0, 0 }, "nothing changed")
 end)
 
 test(":export of a transposed copy writes the pitches it plays", function()
@@ -184,3 +195,71 @@ test("in a transposed copy, a note the transpose takes above 127 leaves the plac
   end
   eq(table.concat(velocities, " "), "60/100 126/100 62/100 64/110 65/100", "] makes the note under the cursor louder")
 end)
+
+--- The stack of a clip in words, as `transpose +5, velocity -20 (off)`.
+local function stack(clip)
+  local out = {}
+  for i, m in ipairs(clip.modifiers or {}) do
+    out[i] = paw.modifiers.describe(m)
+  end
+  return table.concat(out, ", ")
+end
+
+local function said() return paw.ui.messages[#paw.ui.messages].text end
+
+test(":clip.stack add, off, move and rm change the stack, each in one undo step", function()
+  local _, _, copy = linked()
+  local states = #api.undo_tree().states
+  local steps = {
+    { ":clip.stack add transpose 5<CR>", "transpose +5", "added modifier 1" },
+    { ":clip.stack add velocity -20<CR>", "transpose +5, velocity -20", "added modifier 2" },
+    { ":clip.stack off 1<CR>", "transpose +5 (off), velocity -20", "modifier 1 off" },
+    { ":clip.stack move 2 1<CR>", "velocity -20, transpose +5 (off)", "moved modifier 2 to 1" },
+    { ":clip.stack rm 2<CR>", "velocity -20", "removed modifier 2" },
+  }
+  for i, step in ipairs(steps) do
+    keys(step[1])
+    eq(stack(copy), step[2], step[1])
+    eq(#api.undo_tree().states, states + i, "one undo step: " .. step[1])
+    eq(said():find(step[3], 1, true) ~= nil, true, "the message: " .. said())
+  end
+  keys("u")
+  eq(stack(copy), "velocity -20, transpose +5 (off)", "u puts the removed entry back")
+end)
+
+test(":clip.render 1 puts the transpose into the notes and keeps the velocity entry; u takes it back", function()
+  local _, riff, copy = linked()
+  keys("<Space>cu")
+  keys(":clip.override transpose=3 velocity=-10<CR>")
+  local states = #api.undo_tree().states
+  keys(":clip.render 1<CR>")
+  eq(pitches(copy), "63 65 67 68", "the copy's notes, 3 up")
+  eq(stack(copy), "velocity -10", "the velocity entry stays")
+  eq(said(), "riff: rendered 1 modifiers into its notes: 4 notes", "the message")
+  eq(pitches(riff), "60 62 64 65", "the clip that it was linked to keeps its notes")
+  eq(#api.undo_tree().states, states + 1, "one undo step")
+  keys("u")
+  eq({ pitches(copy), stack(copy) }, { "60 62 64 65", "transpose +3, velocity -10" }, "u")
+end)
+
+test(
+  ":clip.render refuses a linked clip and entries not at the top; :clip.render! leaves the link in one step",
+  function()
+    local _, riff, copy = linked()
+    keys(":clip.override transpose=3<CR>")
+    T.expect_error("is linked to 2 clips: :clip.render! takes it out of the link first")
+    T.expect_error("move modifier 2 to 1 first")
+    T.expect_error("has modifiers 1 to 1, not 2")
+    keys(":clip.render<CR>")
+    eq(said():find(":clip.render! takes it out", 1, true) ~= nil, true, "linked: " .. said())
+    keys(":clip.render 2-2<CR>")
+    eq(said():find("move modifier 2 to 1 first", 1, true) ~= nil, true, "not at the top: " .. said())
+    keys(":clip.stack off 2<CR>")
+    eq(said():find("not 2", 1, true) ~= nil, true, "no entry 2: " .. said())
+    local states = #api.undo_tree().states
+    keys(":clip.render!<CR>")
+    eq({ pitches(copy), stack(copy), copy:get().link }, { "63 65 67 68", "", nil }, "the copy, rendered and unlinked")
+    eq(pitches(riff), "60 62 64 65", "the clip keeps its notes")
+    eq(#api.undo_tree().states, states + 1, "one undo step")
+  end
+)

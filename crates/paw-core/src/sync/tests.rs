@@ -82,6 +82,7 @@ fn engine(states: &[&Project]) -> (Engine, EngineHandle, (Vec<&'static str>, usi
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
             kinds: &crate::model::chain::SplitKinds::builtin(),
+            modifiers: &crate::model::modifiers::ModKinds::builtin(),
         };
         let mut sent = Vec::new();
         let before = compiled(&map);
@@ -322,6 +323,7 @@ fn follows(follow: Follow) -> bool {
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
         kinds: &crate::model::chain::SplitKinds::builtin(),
+        modifiers: &crate::model::modifiers::ModKinds::builtin(),
     };
     let mut map = Mapper::new();
     map.follow = follow;
@@ -428,6 +430,7 @@ fn compiles(states: &[&Project]) -> (Mapper, usize) {
             bell: paw_engine::Bell::none(),
             now: crate::clock::ScheduleTime::ZERO,
             kinds: &crate::model::chain::SplitKinds::builtin(),
+            modifiers: &crate::model::modifiers::ModKinds::builtin(),
         };
         let before = clips::COMPILES.with(|c| c.get());
         sync(old, state, &mut map, &mut ctx, &mut |_| {}, &mut Vec::new());
@@ -488,7 +491,8 @@ fn an_edit_of_a_link_of_ten_clips_compiles_once() {
     assert_eq!(compiled(&map).len(), 2, "the controllers and the notes");
 }
 
-/// A copy with overrides (`model/overrides.rs`) plays its notes transposed
+/// A copy with the old `overrides` field, which reads as a `transpose` and
+/// a `velocity` modifier (`model/modifiers.rs`), plays its notes transposed
 /// and with the velocity change, as a copy whose notes were changed that
 /// way does, while the first copy, which shares the same notes, plays
 /// them as they are. A note that the transpose takes above 127 is silent.
@@ -513,6 +517,61 @@ fn a_copy_with_overrides_plays_its_notes_changed() {
     let changed = played(&two_copies(json!([note(63, 90)]), json!({})));
     assert!(overridden.iter().any(|s| *s != 0.0), "the copies sound");
     assert!(overridden == changed, "the copy plays its notes as changed notes play");
+}
+
+/// `source` with the modifier stack `stack`.
+fn stacked(source: &Clip, stack: Value) -> Clip {
+    Clip { stack: serde_json::from_value(stack).unwrap(), ..source.clone() }
+}
+
+/// A transpose by `semitones` and a velocity change by `add`.
+fn entries(semitones: i8, add: i8) -> [Value; 2] {
+    [
+        json!({ "kind": "transpose", "params": { "semitones": semitones } }),
+        json!({ "kind": "velocity", "params": { "add": add } }),
+    ]
+}
+
+/// How many entries of stacks ran while a mapper went through `states`,
+/// and how many times events were compiled for the last.
+fn stack_runs(states: &[&Project]) -> (usize, usize) {
+    let before = crate::model::modifiers::APPLIED.with(|n| n.get());
+    let (_, compiles) = compiles(states);
+    (crate::model::modifiers::APPLIED.with(|n| n.get()) - before, compiles)
+}
+
+/// Copies with the same notes and the same stack share one result of the
+/// stack and its events: a thousand copies cost what one copy costs.
+#[test]
+fn copies_with_the_same_stack_evaluate_and_compile_one_time() {
+    let base = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let source = stacked(&source_clip(384), json!(entries(3, -10)));
+    let one = with_copies(&base, &source, 1);
+    let mut many = base.clone();
+    many.part_mut(1).unwrap().clips = (0..1000)
+        .map(|k| Arc::new(Clip { id: 1000 + k, start: k as f64 * 32.0, ..source.clone() }))
+        .collect::<Vec<_>>()
+        .into();
+    let (runs, compiles) = stack_runs(&[&one]);
+    assert_eq!(runs, 2, "each entry of one clip's stack, one time");
+    assert_eq!(stack_runs(&[&many]), (runs, compiles), "a thousand copies");
+}
+
+/// A change of entry 3 of a stack of 4 keeps the results of entries 1 and
+/// 2: only entries 3 and 4 run again. Back to the first values, nothing runs.
+#[test]
+fn a_change_of_an_entry_runs_that_entry_and_the_entries_after_it() {
+    let base = with_clip(json!({ "kind": "midi", "notes": [] }), true);
+    let stack = |third: i8| {
+        let [a, b] = entries(1, 2);
+        let [c, d] = entries(third, 4);
+        let clip = stacked(&source_clip(384), json!([a, b, c, d]));
+        with_copies(&base, &clip, 1)
+    };
+    let (first, changed) = (stack(5), stack(7));
+    assert_eq!(stack_runs(&[&first]).0, 4);
+    assert_eq!(stack_runs(&[&first, &changed]).0, 4 + 2, "entries 3 and 4 of the change");
+    assert_eq!(stack_runs(&[&first, &changed, &first]).0, 4 + 2, "an undo finds the results kept");
 }
 
 /// The engine plays copies that share their events, looped, cut at the
@@ -1137,6 +1196,7 @@ fn heard_to_the_first_block(offline: bool) -> Vec<&'static str> {
         bell: paw_engine::Bell::none(),
         now: crate::clock::ScheduleTime::ZERO,
         kinds: &crate::model::chain::SplitKinds::builtin(),
+        modifiers: &crate::model::modifiers::ModKinds::builtin(),
     };
     let mut sent = Vec::new();
     sync(&Project::default(), &project, &mut Mapper::new(), &mut ctx, &mut |msg| sent.push(msg), &mut Vec::new());

@@ -122,8 +122,7 @@ local record ClipSnapshot
   formants: boolean
   meta: types.Meta
   cue: boolean
-  transpose: integer
-  velocity: integer
+  modifiers: {types.Modifier}
   notes: {types.Note}
   controls: {types.Control}
   --- A block: the subproject it places (the copy places it too) and what
@@ -407,8 +406,7 @@ local record M
     bent: boolean
     formants: boolean
     warp: {types.WarpMarker}
-    transpose: integer
-    velocity: integer
+    modifiers: {types.Modifier}
     --- On a handle from `Clip:shifted`, the semitones that the pitches it
     --- reads and takes are above the clip's stored pitches.
     shift: integer
@@ -1504,13 +1502,12 @@ function Clip:snapshot(): ClipSnapshot
     meta = next(c.meta) and c.meta or nil,
     -- A clip off the timeline, played only when cued.
     cue = c.cue or nil,
-    -- A MIDI clip's overrides: the copy plays as the clip does.
-    transpose = c.transpose ~= 0 and c.transpose or nil,
-    velocity = c.velocity ~= 0 and c.velocity or nil,
+    -- A MIDI clip's modifier stack: the copy plays as the clip does.
+    modifiers = c.modifiers and #c.modifiers > 0 and c.modifiers or nil,
   }
   if c.kind == "midi" then
     -- The stored notes, also through a shifted handle: the copy has the
-    -- same transpose.
+    -- same modifiers.
     snap.notes = api.clip_notes(self.id)
     if c.control_count > 0 then
       snap.controls = api.clip_controls(self.id)

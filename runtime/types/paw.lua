@@ -212,6 +212,9 @@ paw.midifile = {}
 ---@class paw.mixer_rows
 paw.mixer_rows = {}
 
+---@class paw.modifiers
+paw.modifiers = {}
+
 ---@class paw.motion
 paw.motion = {}
 
@@ -6595,6 +6598,66 @@ function paw.mixer_rows.to_kind(dir, n) end
 ---@param n any
 function paw.mixer_rows.to_kind_end(n) end
 
+--- A copy of the entries, to change and give to `clip_set`.
+---@param stack any
+function paw.modifiers.copy(stack) end
+
+--- The entry in words, as `transpose +3` or `velocity -10`. A kind that paw
+--- doesn't have yet shows as its name and a `?`, and it waits for its
+--- extension.
+---@param m any
+function paw.modifiers.describe(m) end
+
+--- The first entry of `kind` in `stack`, and its place.
+---@param stack any
+---@param kind any
+function paw.modifiers.find(stack, kind) end
+
+--- The stack as one line of text, which is the same for the same stack, for
+--- the key of a cache. It names each value, also of a kind that paw doesn't
+--- know.
+---@param stack any
+function paw.modifiers.key(stack) end
+
+--- The label of a stack, as `+3 v-10`, with the short form of each entry
+--- that is on. A kind that waits for its extension shows as `?`, and more
+--- than three entries show as `ƒ4`. Gives nil when no entry is on.
+---@param stack any
+function paw.modifiers.label(stack) end
+
+--- What the top of a stack does to the notes. The top is the entries at
+--- the start of the stack that are a `transpose` or a `velocity` for all
+--- of the clip, and an entry that is off doesn't end it. The piano roll
+--- shows the notes after the top, and the export of a MIDI file and the
+--- chord names read the notes through it.
+---@param stack any
+function paw.modifiers.prefix(stack) end
+
+--- Whether the top of the stack is all of it, so that each entry that is
+--- on is a `transpose` or a `velocity` for all of the clip.
+---@param stack any
+function paw.modifiers.reversible(stack) end
+
+--- The semitones that the top of the stack moves the notes, which is what
+--- `Clip:shifted` takes.
+---@param stack any
+function paw.modifiers.shift(stack) end
+
+--- The entries that are on, in words, as `transpose +3, velocity -10`.
+--- Gives nil when no entry is on.
+---@param stack any
+function paw.modifiers.text(stack) end
+
+--- The one value of a built-in entry, or nil for another kind.
+---@param m any
+function paw.modifiers.value(m) end
+
+--- The `velocity` of a note after the velocity changes at the top of the
+--- stack. Each change keeps it in 1 to 127, as the kernel does.
+---@param stack any
+---@param velocity any
+function paw.modifiers.velocity(stack, velocity) end
+
 --- The ticks that a whole thing at tick `t` moves when the pointer drags it
 --- `dbeat` beats. The line of the thing goes to the line nearest to where
 --- the drag puts it, and the thing keeps its distance after its line.
@@ -11042,6 +11105,17 @@ function paw.api.clip_peaks(id, n) end
 
 ---@param id integer
 function paw.api.clip_remove(id) end
+
+--- Render the first `count` modifiers of a MIDI clip, or all of them
+--- when `count` is nil, as one undo step. Their result becomes the
+--- notes and controller moves of the clip, and they leave its
+--- `modifiers`. It fails on a linked clip, and on a modifier in those
+--- entries that can't run. Gives the number of modifiers that it
+--- rendered, the number of notes of the clip after it, and the number
+--- of notes that a modifier left out.
+---@param id integer
+---@param count integer?
+function paw.api.clip_render(id, count) end
 
 --- Audio clip operations that leave the source file alone (session/clipops.rs).
 ---@param id integer

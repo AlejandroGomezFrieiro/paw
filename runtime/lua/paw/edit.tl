@@ -25,6 +25,7 @@ local api = require("paw.api")
 local util = require("paw.util")
 local options = require("paw.options")
 local transform = require("paw.notes")
+local modifiers = require("paw.modifiers")
 local timegrid = require("paw.timegrid")
 local motion = require("paw.motion")
 local type types = require("paw.types")
@@ -612,9 +613,15 @@ function A.join(part: integer, from: number, to: number, only?: {integer: boolea
   if #clips < 2 then
     return false
   end
+  local same = modifiers.key(clips[1].modifiers)
   for _, c in ipairs(clips) do
     if c.kind ~= "midi" then
       error("only MIDI clips can be joined", 0)
+    end
+    -- A clip with another stack keeps its sound only when the stack is a
+    -- transpose and a velocity change: the difference goes into its notes.
+    if modifiers.key(c.modifiers) ~= same and not modifiers.reversible(c.modifiers) then
+      error(c.name .. " has modifiers that a join cannot keep: :clip.render puts them into its notes", 0)
     end
   end
   -- Clips over each other (a take over a clip) join as well as clips side
@@ -627,14 +634,23 @@ function A.join(part: integer, from: number, to: number, only?: {integer: boolea
   local notes, controls = api.clip_notes(first.id), api.clip_controls(first.id)
   for i = 2, #clips do
     local by = clips[i].start - first.start
-    -- The notes of a clip with other overrides (`:clip.override`) than the
-    -- first's keep their sound: the difference goes into them. A note that
-    -- does not play stays out.
-    local up = (clips[i].transpose or 0) - (first.transpose or 0)
-    local louder = (clips[i].velocity or 0) - (first.velocity or 0)
+    -- The notes of a clip with another stack than the first's keep their
+    -- sound: the difference goes into them. A note that does not play
+    -- stays out.
+    local up, louder = 0, function(v: integer): integer return v end
+    if modifiers.key(clips[i].modifiers) ~= same then
+      up = modifiers.shift(clips[i].modifiers) - modifiers.shift(first.modifiers)
+      local quieter = 0
+      for _, add in ipairs(modifiers.prefix(first.modifiers).velocities) do
+        quieter = quieter + add
+      end
+      louder = function(v: integer): integer
+        return util.clamp(modifiers.velocity(clips[i].modifiers, v) - quieter, 1, 127) as integer
+      end
+    end
     for _, n in ipairs((api.clip_notes(clips[i].id))) do
       n.start, n.pitch = n.start + by, n.pitch + up
-      n.velocity = util.clamp(n.velocity + louder, 1, 127) as integer
+      n.velocity = louder(n.velocity)
       if n.pitch >= 0 and n.pitch <= 127 then
         notes[#notes + 1] = n
       end

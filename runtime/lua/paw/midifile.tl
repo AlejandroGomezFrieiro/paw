@@ -30,6 +30,7 @@
 local type types = require("paw.types")
 local type Attr = types.NoteAttr
 local api = require("paw.api")
+local modifiers = require("paw.modifiers")
 local type Untyped = require("paw.untyped")
 
 -- The `paw` global, for its parts still written in Lua. This module is a
@@ -1241,10 +1242,9 @@ local function export_part(part: Untyped, opts: M.ExportOptions, only: {integer:
   for _, clip in ipairs(part:clips() as {Untyped}) do
     local c = clip:get() as types.Clip
     if c.kind == "midi" and not c.muted and (not only or only[clip.id as integer]) then
-      -- The clip's overrides (`:clip.override`) as it plays them: its notes
-      -- at the pitches they play, with the velocity change.
-      local played = clip:shifted(c.transpose or 0)
-      local louder = c.velocity or 0
+      -- The clip as it plays: its notes through the top of its
+      -- modifier stack (`paw.modifiers`), at the pitches and velocities they play.
+      local played = clip:shifted(modifiers.shift(c.modifiers))
       for _, n in ipairs(played:notes() as {types.Note}) do
         if n.start >= -1e-9 and n.start < c.length - 1e-9 and in_time(c.start + n.start, opts) then
           local length = math.min(n.length, c.length - n.start, (opts.to or math.huge) - c.start - n.start)
@@ -1253,7 +1253,7 @@ local function export_part(part: Untyped, opts: M.ExportOptions, only: {integer:
             tick = (c.start + n.start) * EXPORT_PPQ,
             length = length * EXPORT_PPQ,
             pitch = n.pitch,
-            velocity = math.max(1, math.min(127, n.velocity + louder)),
+            velocity = modifiers.velocity(c.modifiers, n.velocity),
             channel = tonumber(note_meta.channel) and note_meta.channel - 1 or channel,
             lyric = type(note_meta.lyric) == "string" and note_meta.lyric or nil,
             attr = n.attr,

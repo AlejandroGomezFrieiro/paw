@@ -394,32 +394,208 @@ command("clip.unlink", function()
   api.clip_unlink(clip.id)
   paw.notify(string.format("unlinked %s from %s", clip.name, link))
 end, { desc = "Take the clip out of its link: it keeps its notes, and edits of it stay its own" })
-command("clip.override", function(ctx)
+-- The modifier stack of a MIDI clip (paw/modifiers.tl). Each command
+-- below changes the stack as one list in one `clip_set`: one undo step.
+
+--- The MIDI clip under the cursor and a copy of its stack, or nil after a
+--- warning.
+local function stacked_clip()
   local clip = need_clip()
+  if not clip then return nil end
+  if clip.kind ~= "midi" then return paw.notify("only MIDI clips have modifiers", "warn") end
+  return clip, paw.modifiers.copy(clip.modifiers)
+end
+
+--- The entry of `stack` that the word `n` names, by its number from 1.
+local function entry_at(clip, stack, n)
+  local at = tonumber(n)
+  if #stack == 0 then error(clip.name .. " has no modifiers", 0) end
+  if not at or at % 1 ~= 0 or at < 1 or at > #stack then
+    error(string.format("%s has modifiers 1 to %d, not %s", clip.name, #stack, tostring(n)), 0)
+  end
+  return stack[at], at
+end
+
+--- The stack in words, one entry for each number: `1 transpose +3, 2 velocity -10`.
+local function stack_text(c)
+  local parts = {}
+  for i, m in ipairs(c.modifiers or {}) do
+    parts[i] = i .. " " .. paw.modifiers.describe(m)
+  end
+  return #parts > 0 and table.concat(parts, ", ") or "no modifiers"
+end
+
+command("clip.override", function(ctx)
+  local clip, stack = stacked_clip()
   if not clip then return end
-  if clip.kind ~= "midi" then return paw.notify("only MIDI clips have overrides", "warn") end
   -- `clear` first, so that `clear transpose=2` keeps the transpose.
-  local patch, given = {}, ctx.args[1] == "clear"
+  local values, given = {}, ctx.args[1] == "clear"
   if given then
-    patch.transpose, patch.velocity = 0, 0
+    values.transpose, values.velocity = 0, 0
   end
   for key, value in pairs(ctx.args) do
     if key == 1 and given then
       -- `clear`, done.
     elseif key == "transpose" or key == "velocity" then
-      patch[key], given = tonumber(value), true
-      if not patch[key] then error(key .. " is a whole number, not " .. tostring(value), 0) end
+      values[key], given = tonumber(value), true
+      if not values[key] then error(key .. " is a whole number, not " .. tostring(value), 0) end
     else
       error("usage: clip.override transpose=<semitones> velocity=<change>, or clip.override clear", 0)
     end
   end
-  -- Both in one edit: one undo step.
-  if given then api.clip_set(clip.id, patch) end
+  -- Each value goes in the first entry of its kind. A new entry goes at the
+  -- top, the transpose before the velocity; a value of 0 removes the entry.
+  local top = 1
+  for _, kind in ipairs({ "transpose", "velocity" }) do
+    local value = values[kind]
+    local m, at = paw.modifiers.find(stack, kind)
+    if value == 0 then
+      if at then table.remove(stack, at) end
+    elseif value and m then
+      m.params[paw.modifiers.builtin[kind].main] = value
+      top = at + 1
+    elseif value then
+      table.insert(stack, top, { kind = kind, params = { [paw.modifiers.builtin[kind].main] = value } })
+      top = top + 1
+    end
+  end
+  if given then api.clip_set(clip.id, { modifiers = stack }) end
   local c = clip:get()
-  paw.notify(c.name .. ": " .. (common.overrides_text(c) or "no overrides"))
+  paw.notify(c.name .. ": " .. (paw.modifiers.text(c.modifiers) or "no modifiers"))
 end, {
   desc = "Play the clip transposed or louder without a change of its notes: `clip.override transpose=3`",
   complete = { "clear", "transpose=", "velocity=" },
+})
+
+--- The values of `clip.stack add` and `set` from the words of the command:
+--- `name=value` pairs, or one bare value for the one value of a built-in
+--- kind. A word that reads as a number is a number.
+local function stack_params(kind, args, first)
+  local params = {}
+  for key, value in pairs(args) do
+    if type(key) == "string" then params[key] = tonumber(value) or value end
+  end
+  local bare = args[first]
+  if bare ~= nil then
+    local builtin = paw.modifiers.builtin[kind]
+    if not builtin then error(kind .. " takes name=value pairs, not " .. tostring(bare), 0) end
+    params[builtin.main] = tonumber(bare) or bare
+  end
+  return params
+end
+
+local STACK_USAGE = "usage: clip.stack [add <kind> <value>|set <n> <value>|on <n>|off <n>|move <n> <to>|rm <n>]"
+
+--- Each word after `clip.stack`: what it does to the stack, and the message.
+local stack_verbs = {
+  add = function(clip, stack, args)
+    local kind = args[2]
+    if not kind then error(STACK_USAGE, 0) end
+    stack[#stack + 1] = { kind = kind, params = stack_params(kind, args, 3) }
+    return "added modifier " .. #stack
+  end,
+  set = function(clip, stack, args)
+    local m, at = entry_at(clip, stack, args[2])
+    local params = stack_params(m.kind, args, 3)
+    for key, value in pairs(params) do
+      m.params[key] = value
+    end
+    return "set modifier " .. at
+  end,
+  on = function(clip, stack, args)
+    local m, at = entry_at(clip, stack, args[2])
+    m.off = nil
+    return "modifier " .. at .. " on"
+  end,
+  off = function(clip, stack, args)
+    local m, at = entry_at(clip, stack, args[2])
+    m.off = true
+    return "modifier " .. at .. " off"
+  end,
+  move = function(clip, stack, args)
+    local m, at = entry_at(clip, stack, args[2])
+    local _, to = entry_at(clip, stack, args[3])
+    table.remove(stack, at)
+    table.insert(stack, to, m)
+    return string.format("moved modifier %d to %d", at, to)
+  end,
+  rm = function(clip, stack, args)
+    local _, at = entry_at(clip, stack, args[2])
+    table.remove(stack, at)
+    return "removed modifier " .. at
+  end,
+}
+
+command("clip.stack", function(ctx)
+  local clip, stack = stacked_clip()
+  if not clip then return end
+  local verb = ctx.args[1]
+  if verb ~= nil then
+    local change = stack_verbs[verb]
+    if not change then error(STACK_USAGE, 0) end
+    local did = change(clip, stack, ctx.args)
+    api.clip_set(clip.id, { modifiers = stack })
+    return paw.notify(clip.name .. ": " .. did .. ": " .. stack_text(clip:get()))
+  end
+  paw.notify(clip.name .. ": " .. stack_text(clip:get()))
+end, {
+  desc = "Show or change the clip's modifiers: `clip.stack add transpose 3`, `clip.stack off 1`, `clip.stack move 2 1`",
+  complete = function(_, info)
+    if info.index == 1 then return { "add", "set", "on", "off", "move", "rm" } end
+    if info.index == 2 and info.words[1] == "add" then return { "transpose", "velocity" } end
+    return {}
+  end,
+})
+
+--- Render the first modifiers of the clip under the cursor into its notes.
+--- `unlink` takes a linked clip out of its link first.
+local function render(ctx, unlink)
+  local clip, stack = stacked_clip()
+  if not clip then return end
+  local c = clip:get()
+  -- `n` or `1-n`: a render takes the first entries only.
+  local word = ctx.args[1]
+  local from, to = 1, nil
+  if word ~= nil then
+    local a, b = tostring(word):match("^(%d+)%-(%d+)$")
+    from, to = tonumber(a) or 1, tonumber(b or word)
+    if not to then error("usage: clip.render [n]: the number of modifiers from the top", 0) end
+  end
+  if from ~= 1 then
+    error(
+      string.format(
+        "a render takes the modifiers from the top: move modifier %d to 1 first (:clip.stack move %d 1)",
+        from,
+        from
+      ),
+      0
+    )
+  end
+  if #stack == 0 then error(c.name .. " has no modifiers to render", 0) end
+  if c.link and not unlink then
+    error(
+      string.format("%s is linked to %d clips: :clip.render! takes it out of the link first", c.name, c.link_count),
+      0
+    )
+  end
+  if c.link then api.clip_unlink(clip.id) end
+  local done = api.clip_render(clip.id, to)
+  paw.notify(
+    string.format(
+      "%s: rendered %d modifiers into its notes: %d notes%s",
+      c.name,
+      done.modifiers,
+      done.notes,
+      done.dropped > 0 and string.format(", %d left out", done.dropped) or ""
+    )
+  )
+end
+
+command("clip.render", function(ctx) render(ctx, false) end, {
+  desc = "Put the result of the clip's modifiers into its notes: `clip.render` for all, `clip.render 2` for the first two",
+})
+command("clip.render!", function(ctx) render(ctx, true) end, {
+  desc = "Take a linked clip out of its link, then render its modifiers into its notes",
 })
 command("clip.mute", function()
   local clip = need_clip()
@@ -454,14 +630,18 @@ command("clip.split", function()
   -- A linked clip leaves its link first: the cut changes its notes, and
   -- the other clips of the link keep theirs.
   if c.link then api.clip_unlink(clip.id) end
-  -- A MIDI clip's right half keeps its overrides (nil for audio).
+  -- A MIDI clip's right half keeps its modifiers (nil for audio). The beats
+  -- of a scope are from the start of the clip: they move with the cut.
+  local stack = c.kind == "midi" and paw.modifiers.copy(c.modifiers) or nil
+  for _, m in ipairs(stack or {}) do
+    if m.scope then m.scope = { from = m.scope.from - at, to = m.scope.to - at } end
+  end
   local right = {
     start = cursor.beat,
     length = c.length - at,
     name = c.name,
     kind = c.kind,
-    transpose = c.transpose,
-    velocity = c.velocity,
+    modifiers = stack and #stack > 0 and stack or nil,
   }
   -- The right half plays as the clip does: stretched, shifted, looped.
   local moved = paw.stretch.carry(c, right, at)

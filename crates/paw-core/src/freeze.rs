@@ -144,7 +144,7 @@ pub(crate) fn block_sound(clip: &Clip) -> Option<Clip> {
         source: None,
         origin: None,
         link: None,
-        overrides: Default::default(),
+        stack: Default::default(),
     })
 }
 
