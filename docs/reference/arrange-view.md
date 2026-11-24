@@ -144,7 +144,7 @@ The option is separate from `relativenumber`, because commands such as `17|` and
 | Option | Default | Effect |
 | --- | --- | --- |
 | `paw.opt.relativebar` (`rbar`) | `false` | Shows how many `W` or `B` go to each bar. |
-| `paw.opt.barlabel` | `number` | The parts of the label of each bar. An extension that adds a part puts its name here. |
+| `paw.opt.rulerrows` | `bars,beats,regions,tempo` | The rows of the ruler that show, from the top. An extension that adds a row puts its name here. See [The ruler](ruler.md). |
 
 The highlight groups are `RulerBarCursor` and `RulerBarRelative`.
 

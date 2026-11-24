@@ -1,12 +1,13 @@
-# The part column and the bar labels
+# The part column
 
-<!-- tags: partcolumn statuscolumn paw.partcolumn paw.ruler number relativenumber relativebar -->
+<!-- tags: partcolumn statuscolumn paw.partcolumn number relativenumber -->
 
-The part column is at the left of the part headers of the arrange view,
-and the bar labels are on its ruler. Each is a list of components, and an extension
-can add its own components. The arrange view draws them in cells, so the terminal
-and the graphical window show the same column and ruler. For what the
-user sees, see [The arrange view](arrange-view.md#the-part-column).
+The part column is at the left of the part headers of the arrange view.
+It is a list of components, and an extension can add its own components.
+The arrange view draws them in cells, so the terminal and the graphical
+window show the same column. For what the user sees, see [The arrange
+view](arrange-view.md#the-part-column). The ruler above the parts has its
+own page, [The ruler](ruler.md).
 
 ## The components of the part column
 
@@ -130,79 +131,12 @@ character for a part, the sign with the higher `priority` shows, and the
 diagnostics of language servers have priority 30.
 `paw.partcolumn.sign("todo", nil)` removes the sign.
 
-## paw.ruler.add
-
-```lua
-paw.ruler.add("odd", {
-  order = 20,
-  render = function(bar, ctx)
-    if bar % 2 == 1 then return { { "'", "RulerTick" } } end
-  end,
-})
-```
-
-The label of each bar on the ruler is a list of components. The component `number`
-(order 10) shows the number of the bar, or with `relativebar` how many `W`
-or `B` go to it, and a component shows after the components of a lower order.
-`paw.opt.barlabel` names the components that show, and `add` puts the name in
-it. `paw.ruler.remove("odd")` removes the component.
-
-`paw.ruler.set(name, patch)` changes a component that exists: its `order`,
-its `render`, its `glyphs` and its `styles`. Like `paw.partcolumn.set`,
-it puts a changed copy in `paw.ruler.labels`. The component `number` has the
-styles `cursor` and `relative`.
-
-```lua
-paw.ruler.set("number", { styles = { cursor = "Title", relative = "Dim" } })
-```
-
-## paw.ruler.add_lane
-
-```lua
-paw.ruler.add_lane("cues", {
-  order = 20,
-  rows = function(ctx) return 1 end,
-  render = function(ctx) ctx.buf:text(ctx.x(16), 0, "cue", "Marker") end,
-})
-```
-
-Under the bar numbers, the ruler has lanes of rows. The lane `regions`
-(order 10) shows the regions, a row for each level (see
-[Markers and regions](markers.md)). A lane shows after the lanes of a lower
-order.
-
-`rows` gives the number of rows that the lane needs now, 0 for
-none. `render` draws them on `ctx.buf`. `ctx.x(beat)` is the column of a
-beat, and it knows the time folds of the window: a beat inside a fold is
-at the column of the fold. `ctx.folded(beat)` is true for a beat inside a
-fold, after its start, and `ctx.closed(id)` is true for a region that is
-folded into its column (see [Time folds](narrowing.md#time-folds)).
-`paw.ruler.remove_lane(name)` removes the lane.
-
-`paw.ruler.set_lane(name, patch)` changes a lane that exists: its
-`order`, `rows`, `render`, `glyphs` and `styles`. It puts a changed copy
-in `paw.ruler.lanes`.
-
-A bar label has no `click` and no `describe`, because a click on the ruler moves
-the playhead and `K` describes the part and the clip at the cursor.
-
-| Field of `ctx` | Meaning |
-| --- | --- |
-| `bar` | The number of the bar. |
-| `beat` | Where the bar starts. |
-| `relative` | How many `W` or `B` go to the bar. Nil when `relativebar` is off. |
-| `cursor` | True on the bar of the cursor. |
-| `style` | The style of the bar number there: in the loop, in the punch range. |
-| `room` | The columns that the components before this component left, up to the next label. A component that needs more columns shows less, or nothing. |
-| `g` | The glyphs. |
-
 ## Examples
 
 [How to personalize the part column and the
 ruler](../how-to/personalize-the-part-column-and-the-ruler.md) gives
-the steps. Two bundled extensions use the whole API,
-[columnplus](../../extensions/columnplus/README.md) for the part column
-and [rulerplus](../../extensions/rulerplus/README.md) for the bar labels.
+the steps. The bundled extension
+[columnplus](../../extensions/columnplus/README.md) uses the whole API.
 
 ## Highlight groups
 
@@ -212,4 +146,3 @@ and [rulerplus](../../extensions/rulerplus/README.md) for the bar labels.
 | `PartNr`, `PartNrCursor` | The numbers, and the number of the cursor's part. |
 | `PartFold` | The marks and lines of the groups. |
 | `PartSign` | A sign that gives no style. |
-| `RulerBarCursor`, `RulerBarRelative` | With `relativebar`: the bar of the cursor, and the counts of the other bars. |

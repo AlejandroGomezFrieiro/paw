@@ -54,6 +54,7 @@ local type LspModule = require("paw.lsp")
 local type LuadevModule = require("paw.luadev")
 local type MarkdownModule = require("paw.markdown")
 local type MarkersModule = require("paw.markers")
+local type MarksModule = require("paw.marks")
 local type MediaModule = require("paw.media")
 local type MidifileModule = require("paw.midifile")
 local type ModifiersModule = require("paw.modifiers")
@@ -184,6 +185,7 @@ global record paw
    luadev: LuadevModule
    markdown: MarkdownModule
    markers: MarkersModule
+   marks: MarksModule
    master: ObjectsModule.Part
    media: MediaModule
    midi: ObjectsModule.Midi

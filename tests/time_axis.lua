@@ -53,9 +53,9 @@ local function text_of(row, from)
   return table.concat(out)
 end
 
---- The row whose text has `words`.
-local function row_with(rows, words)
-  for y = 0, H - 1 do
+--- The row whose text has `words`, from row `from` (0).
+local function row_with(rows, words, from)
+  for y = from or 0, H - 1 do
     if text_of(rows[y]):find(words, 1, true) then return y end
   end
   error("no row has " .. words)
@@ -174,8 +174,8 @@ local function check_aligned(what)
     eq(edges[e] or false, true, "an edge of the loop or the punch at column " .. e .. ", " .. where)
   end
 
-  -- The marker.
-  local markers = row_with(rows, "verse")
+  -- The marker: its sign on the regions' row (its name can have no room).
+  local markers = row_with(rows, "▼", 1)
   if shown(4.375) then eq(col_of(rows[markers], "▼")[1], ax:x_of(4.375), "the marker, " .. where) end
 
   -- The first note of the clip, and of each of its takes, 1.5 beats in:
@@ -327,32 +327,6 @@ test("the cursor keeps its exact beat and the ruler's column over a long run of 
   at("7l", 0.7)
 end)
 
--- Every mark that names a time is in the column that the axis gives that
--- time, whatever the ruler does with its label. The test reads the frame
--- only: the glyph of a mark on its row against `axis:x_of(beat)`.
-local function marks_scenario()
-  T.start()
-  paw.ui.focus("arrange")
-  paw.project.tempo = 120
-  paw.opt.grid = 0.25
-  -- 4/4 up to bar 5, then 6/8 (3 beats a bar) from beat 16, 4/4 again from beat 25.
-  api.signature_set(16, 6, 8)
-  api.signature_set(25, 4, 4)
-  api.tempo_set(12, 90)
-  api.tempo_set(20, 100)
-  api.tempo_set(29.5, 105)
-  api.tempo_set(30.5, 110)
-  api.tempo_set(37.25, 115)
-  local piano = paw.add_part({ name = "Piano" })
-  piano:add_clip({ name = "clipA", start = 16, length = 8, notes = { { pitch = 60, start = 0, length = 1 } } })
-  paw.markers.add(16, "Verse", { length = 9 })
-  paw.markers.add(12, "mk")
-  paw.transport.seek(21.25)
-  paw.cursor.set_part(piano.id)
-  paw.cursor.set_beat(16)
-  paw.opt.zoom = 1
-end
-
 --- The columns of a glyph on a row of the timeline, from 0.
 local function glyph_columns(row, at, glyph)
   local out = {}
@@ -362,177 +336,75 @@ local function glyph_columns(row, at, glyph)
   return out
 end
 
---- The zooms at which the tempo mark at beat 37.25 and the number of bar 11 are in
---- one cell (`marks_scenario`), so that the case cannot vanish from the test.
-local shared_cell = {}
+--- The cells of a text, one glyph each.
+local function glyphs(text)
+  local out = {}
+  for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+    out[#out + 1] = ch
+  end
+  return out
+end
 
+-- Every mark of the ruler, as the frame shows it: each sign in the column
+-- that the axis gives its time (the cell before, for an edge), each label
+-- spelled where it is placed and whole when it must be, no two in one
+-- cell, and no sign under a label. The playhead's cap is drawn last, over
+-- all of them.
 local function check_marks(what)
   T.settle()
   local view = paw.ui.views:get("arrange")
   local rows = frame()
   local ax = view.axis
-  if ax:x_of(37) == ax:x_of(37.25) and ax:x_of(37) < #rows[0] - rule_of(rows) then
-    shared_cell[#shared_cell + 1] = paw.opt.zoom
-  end
   local at = rule_of(rows)
-  local tw = #rows[0] - at
   local where = what .. " (zoom " .. paw.opt.zoom .. ", scroll " .. view.scroll .. ")"
-  local function shown(list)
-    local out = {}
-    for _, beat in ipairs(list) do
-      local x = ax:x_of(beat)
-      if x >= 0 and x < tw and not ax:fold_at(x) then out[#out + 1] = x end
-    end
-    return out
+  local cap = ax:x_of(view.geometry.ruler.ctx.here(paw.ui.transport().position))
+  local taken, signs, count = {}, {}, 0
+  local function take(y, x, by)
+    taken[y] = taken[y] or {}
+    eq(taken[y][x], nil, by .. " takes a free cell (" .. y .. ", " .. x .. "), " .. where)
+    taken[y][x] = by
   end
-  local ruler = rows[0]
-  -- A column with the marks of two kinds (zoomed far out, a cell holds many
-  -- beats) shows the glyph of one: each glyph is in a column of its kind, and each
-  -- column of a mark has a glyph.
-  local meter, tempo = shown({ 16, 25 }), shown({ 12, 20, 29.5, 30.5, 37.25 })
-  local function kinds(columns)
-    local set = {}
-    for _, x in ipairs(columns) do
-      set[x] = true
-    end
-    return set
+  local function cell(y, x)
+    local c = rows[y] and rows[y][at + 1 + x]
+    return c and c[1]
   end
-  local wanted = { ["‖"] = kinds(meter), ["▾"] = kinds(tempo) }
-  local drawn = {}
-  for glyph, columns in pairs(wanted) do
-    for _, x in ipairs(glyph_columns(ruler, at, glyph)) do
-      eq(columns[x] or false, true, "the " .. glyph .. " at column " .. x .. " is a mark's column, " .. where)
-      drawn[x] = true
-    end
-  end
-  -- The playhead's cap goes over a mark that shares its cell.
-  for _, x in ipairs(glyph_columns(ruler, at, "▼")) do
-    drawn[x] = true
-  end
-  for _, x in ipairs(meter) do
-    eq(drawn[x] or false, true, "a meter mark has its glyph at " .. x .. ", " .. where)
-  end
-  for _, x in ipairs(tempo) do
-    eq(drawn[x] or false, true, "a tempo mark has its glyph at " .. x .. ", " .. where)
-  end
-  eq(glyph_columns(ruler, at, "▼"), shown({ 21.25 }), "the playhead's cap, " .. where)
-  -- Each digit of the ruler is accounted for. A bar's number starts at its
-  -- column, or after the glyph and the whole value of the marks there (the
-  -- value, if it fits, then the number, if it fits whole). A value is whole
-  -- or absent. Any other digit fails.
-  local accounted = {}
-  local function spells(x, text)
-    local chars = {}
-    for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-      chars[#chars + 1] = ch
-    end
-    for k, ch in ipairs(chars) do
-      local cell = ruler[at + 1 + x + k - 1]
-      if not cell or cell[1] ~= ch then return false end
-    end
-    for k = 1, #chars do
-      accounted[at + 1 + x + k - 1] = true
-    end
-    return #chars
-  end
-  --- Whether the number of bar `n` is written whole from column `x`, or cut by the ruler's end.
-  local function number_at(x, n)
-    local text = tostring(n)
-    local seen = 0
-    for k = 1, #text do
-      local cell = ruler[at + 1 + x + k - 1]
-      if not cell then break end
-      if cell[1] ~= text:sub(k, k) then return false end
-      seen = k
-    end
-    for k = 1, seen do
-      accounted[at + 1 + x + k - 1] = true
-    end
-    return seen > 0
-  end
-  -- The marks by column, as `paw.tempo.marks` gives them.
-  local columns, order = {}, {}
-  for _, mark in ipairs(paw.tempo.marks(0, 1e6)) do
-    local x = ax:x_of(mark.beat)
-    if x >= 0 and x < tw and not ax:fold_at(x) then
-      if not columns[x] then
-        columns[x], order[#order + 1] = {}, x
+  for _, p in ipairs(view.geometry.ruler.placed) do
+    local m = p.mark
+    if not m.to then
+      local name = (m.text or m.label or m.kind or "a mark") .. " on " .. p.row
+      eq(p.x, ax:x_of(m.beat) - (m.edge and 1 or 0), name .. " is in the column of its time, " .. where)
+      if p.sign then
+        signs[p.y] = signs[p.y] or {}
+        signs[p.y][p.x] = m
       end
-      local glyph = mark.kind == "tempo" and "▾" or "‖"
-      local list = columns[x]
-      list[#list + 1] = (#list > 0 and glyph or "") .. mark.text
-    end
-  end
-  local bar_columns = {}
-  for bar = paw.time.bar_of(ax.scroll), paw.time.bar_of(ax:beat_of(tw)) do
-    local x = ax:x_of(paw.time.bar_start(bar))
-    -- Zoomed far out, bars share a cell: the one drawn is any of them.
-    if x >= 0 and x < tw then
-      bar_columns[x] = bar_columns[x] or {}
-      table.insert(bar_columns[x], bar)
-    end
-  end
-  local after_value = {}
-  for _, x in ipairs(order) do
-    local glyph = ruler[at + 1 + x][1]
-    if glyph == "▾" or glyph == "‖" then
-      local value = spells(x + 1, table.concat(columns[x], " "))
-      after_value[x] = x + 1 + (value or -1) + 1
-      if not value then after_value[x] = x + 1 end
-    end
-  end
-  for x, bars in pairs(bar_columns) do
-    local glyph = ruler[at + 1 + x][1]
-    local function written(from)
-      for _, bar in ipairs(bars) do
-        if number_at(from, bar) then return true end
+      if p.sign and p.x ~= cap then
+        count = count + 1
+        eq(cell(p.y, p.x), m.sign, name .. ": its sign in its column, " .. where)
+        take(p.y, p.x, name)
       end
-      return false
-    end
-    if after_value[x] then
-      -- Under a mark: the number follows the value after one cell (a space or a beat tick), or the glyph with no value.
-      local from = after_value[x]
-      if from == x + 1 or ruler[at + 1 + from - 1] and not ruler[at + 1 + from - 1][1]:match("^%d$") then
-        written(from)
-      end
-    elseif glyph:match("^%d$") and not accounted[at + 1 + x] then
-      eq(written(x), true, "a bar is written whole at column " .. x .. ", " .. where)
-    end
-  end
-  for x = at + 1, #ruler do
-    if ruler[x][1]:match("^%d$") then
-      eq(
-        accounted[x] or false,
-        true,
-        "the digit " .. ruler[x][1] .. " at column " .. x - at - 1 .. " is a bar or a value, " .. where
-      )
-    end
-  end
-  -- The section's first cell and its name, the marker, and the clip's first cell.
-  local function first_cell(name, glyph, beat)
-    -- A name too long for its box is not drawn: nothing to check then.
-    local found = pcall(row_with, rows, name)
-    if not found then return end
-    local row = rows[row_with(rows, name)]
-    -- The cell where the name starts (a byte index would miscount the glyphs).
-    local from
-    for x = 1, #row - #name + 1 do
-      if text_of(row, x):sub(1, #name) == name then
-        from = x
-        break
+      if p.label then
+        local chars = glyphs(p.label)
+        if m.whole then eq(p.label:sub(-#m.label), m.label, name .. ": a whole label, " .. where) end
+        for k, ch in ipairs(chars) do
+          local x = p.x1 - #chars + k - 1
+          if x ~= cap then
+            eq(cell(p.y, x), ch, name .. ": its label at column " .. x .. ", " .. where)
+            take(p.y, x, name)
+          end
+        end
       end
     end
-    if from and beat and shown({ beat })[1] then
-      eq(row[from - 1][1], glyph, "the cell before " .. name .. ", " .. where)
-      eq(from - 2 - at, ax:x_of(beat), name .. " starts at its column, " .. where)
+  end
+  -- A sign that does not show gives way to another sign in its column,
+  -- or is a tick of the grid under a label.
+  for _, p in ipairs(view.geometry.ruler.placed) do
+    local m = p.mark
+    if m.sign and not m.to and not p.sign and not p.inline and not m.soft then
+      local other = signs[p.y] and signs[p.y][p.x]
+      eq(other ~= nil and other ~= m, true, (m.text or m.kind) .. " gives way to another sign only, " .. where)
     end
   end
-  first_cell("Verse", "▏", 16)
-  first_cell("clipA", "▏", 16)
-  if shown({ 12 })[1] and pcall(row_with, rows, "mk") then
-    eq(glyph_columns(rows[row_with(rows, "mk")], at, "▼")[1], shown({ 12 })[1], "the marker, " .. where)
-  end
-  eq(view.caret.x - at, ax:x_of(paw.cursor.beat), "the cursor, " .. where)
+  eq(count > 0, true, "the ruler shows marks, " .. where)
 end
 
 -- A 6/8 section at bar 47, whose number the ruler draws: the meter mark, the
@@ -564,33 +436,24 @@ test("a meter change at a bar with a number keeps the column of its bar", functi
   T.expect_screen("meter_at_bar_47", 100, 16, { rows = { 1, 3 } })
 end)
 
-test(
-  "every mark of time on the ruler and the rows is in the column of the axis, with meter and tempo changes",
-  function()
-    marks_scenario()
-    local view = paw.ui.views:get("arrange")
-    check_marks("zoom 1")
-    -- The tempo mark at beat 37.25 is in the cell of bar 11's number: the
-    -- value takes the cell, and the number follows it when it fits whole.
-    local ruler_text = text_of(frame()[0])
-    eq(
-      ruler_text:find("▾115 11", 1, true) ~= nil,
-      true,
-      "bar 11's number follows the value in its cell: " .. ruler_text
-    )
-    T.keys("zi")
-    check_marks("zoomed in")
-    T.keys("zi")
-    check_marks("zoomed in twice")
-    T.keys(":zoom 1.4142<CR>")
-    check_marks("a zoom with a fraction")
-    T.keys("zozozozo")
-    check_marks("zoomed out")
-    paw.opt.zoom = 1
-    view.scroll = 10.3
-    check_marks("scrolled")
-    paw.cursor.set_beat(20)
-    check_marks("the cursor on a beat inside a 6/8 bar")
-    eq(#shared_cell > 0, true, "a tempo mark shares its cell with a bar's number at some zoom")
-  end
-)
+test("every mark of the ruler is in the column of its time, at each zoom and scroll, on ruler-everything", function()
+  dofile("tests/fixtures/ruler_everything.lua")(T)
+  local view = paw.ui.views:get("arrange")
+  check_marks("zoom 1")
+  T.keys("zi")
+  check_marks("zoomed in")
+  T.keys("zi")
+  check_marks("zoomed in twice")
+  T.keys(":zoom 1.4142<CR>")
+  check_marks("a zoom with a fraction")
+  T.keys("zozozozo")
+  check_marks("zoomed out")
+  paw.opt.zoom = 1
+  view.scroll = 10.3
+  check_marks("scrolled")
+  paw.cursor.set_beat(34)
+  check_marks("the cursor on a beat inside a 6/8 bar")
+  T.keys(":narrow Verse<CR>")
+  T.after(function() paw.keymap.feed("<Esc>zw") end)
+  check_marks("narrowed to a region")
+end)

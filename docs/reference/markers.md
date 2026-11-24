@@ -41,12 +41,12 @@ markers are on the first row.
   `Marker`.
 - A click on a row takes the region of that row.
 
-The lane is the part `regions` of `paw.ruler` (see
-[The part column and the bar labels](partcolumn.md#pawruleradd_lane)).
-An extension changes its glyphs and styles:
+The lane is the row `regions` of the ruler, and the regions and the
+markers are the namespaces of marks `paw.regions` and `paw.cues` (see
+[The ruler](ruler.md)). An extension changes their glyphs and styles:
 
 ```lua
-paw.ruler.set_lane("regions", { styles = { level1 = "Title" }, glyphs = { open = "-", closed = "+" } })
+paw.ruler.set("paw.regions", { styles = { level1 = "Title" }, glyphs = { open = "-", closed = "+" } })
 ```
 
 ## Key changes

@@ -74,7 +74,7 @@ paw.lsp.subjects paw.views.pianoroll 1
 paw.luadev paw.views.inspector 1
 paw.markers paw.keymap 1
 paw.markers paw.pick 1
-paw.markers paw.ruler 2
+paw.markers paw.ruler 1
 paw.markers paw.ui 1
 paw.media paw.pick 2
 paw.media paw.ui 1
@@ -107,7 +107,6 @@ paw.scope paw.keymap 1
 paw.scope paw.layout 1
 paw.scope paw.textbuf 1
 paw.scope paw.ui 3
-paw.scope paw.views.arrange 1
 paw.shada paw.views.cmdline 1
 paw.snippet paw.pick 2
 paw.snippet paw.views.pianoroll 1

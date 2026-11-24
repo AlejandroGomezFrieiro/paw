@@ -537,7 +537,7 @@ test(
     )
     paw.opt.regionlevels = 2
     T.after(function() paw.opt.regionlevels = 3 end)
-    eq(select(2, find("+▏Riff")), y2, "regionlevels=2: the third level shares the last row, marked +")
+    eq(select(2, find("▏+Riff")), y2, "regionlevels=2: the third level shares the last row, marked +")
     paw.opt.regionlevels = 3
     shot()
     apart()

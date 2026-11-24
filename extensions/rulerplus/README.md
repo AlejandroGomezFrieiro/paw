@@ -1,27 +1,32 @@
 # rulerplus
 
-The rulerplus extension is an example of how to personalize the bar labels of the ruler. You can use it as it is, or copy it and change it. It is written in Teal, in one file, [init.tl](init.tl).
+The rulerplus extension is an example of how to add to the ruler: a row of its own, a namespace of marks, and a change to a row of paw. You can use it as it is, or copy it and change it. It is written in Teal, in one file, [init.tl](init.tl).
 
 ```lua
 paw.ext.load("extensions/rulerplus")   -- or type :ext.load rulerplus
 ```
 
-With rulerplus, the label of a bar can show more than the number of the bar:
+With rulerplus, the ruler shows more than the numbers of the bars:
 
 ```
-1 C (C) 2       3 F     4       ┃5      6       7       8       ┃9
+1       2       3       4       ┃5      6       7       8       ┃9
+C               F
+in C major
 ```
 
-- The chord at the start of the bar, when it differs from the chord of the bar
-  before. The chords come from the harmony that paw reads in the song.
-- The key in short form, where the key changes. `(C)` is C major, `(Am)` is A
-  minor, and `(D dor)` is D Dorian.
+- The row `harmony`, under the bar numbers, shows the chord at the start of
+  each bar where the chord changes. The chords come from the harmony that paw
+  reads in the song.
+- The second line of the row shows the key where the key changes, for
+  example `in C major` or `in D dorian`.
 - A mark `┃` before the first bar of each phrase. A phrase is 4 bars
   at first.
 - With `relativebar`, a sign on the counts: `+3` is three `W` ahead, `-2`
   is two `B` behind.
 
-A part shows only when the label has room for it before the next bar, so more parts show when you zoom in.
+A chord gets shorter, with `…`, when the next chord is close. A key shows
+whole or not at all, and more shows when you zoom in. Press `K` on the ruler
+to see what has no room.
 
 ## Try it
 
@@ -56,35 +61,31 @@ In the arrange view.
 | `rulerplus_phrase` | 4 | the bars of a phrase. 0 shows no marks |
 | `rulerplus_signed` | true | with `relativebar`, a `+` or `-` before each count |
 
-### The parts
+### The row and the namespace
 
-| Name | Order | Glyphs | Styles |
-| --- | --- | --- | --- |
-| `phrase` | 5 | `phrase` | `phrase` |
-| `chord` | 25 | | `chord` |
-| `key` | 30 | | `key` |
+| Name | Kind | Priority | Glyphs | Styles |
+| --- | --- | --- | --- | --- |
+| `harmony` | a row after `bars` | chords 20, keys 15 | | `chord`, `key` |
+| `rulerplus.phrase` | a namespace over `bars` | 15 | `sign` | `phrase` |
 
-The part `number` of paw has order 10, so the phrase mark comes before the
-number, and the chord and the key come after it. With `paw.opt.ascii`, the
-mark is `|`. To change the parts, put code like this in your `init.lua`, after the extension
-loads:
+With `paw.opt.ascii`, the phrase mark is `|`. To change them, put code like
+this in your `init.lua`, after the extension loads:
 
 ```lua
-paw.ruler.set("chord", { styles = { chord = "RulerBar" } })
-paw.ruler.set("phrase", { glyphs = { phrase = "◆" } })
+paw.ruler.set("harmony", { styles = { chord = "RulerBar" } })
+paw.ruler.set("rulerplus.phrase", { glyphs = { sign = "◆" } })
 ```
 
-To remove a part, take its name out of `paw.opt.barlabel`, for example with
-`:set barlabel-=key`.
+To hide the chords and the keys, take the row out of `paw.opt.rulerrows`
+with `:set rulerrows-=harmony`.
 
 ## How it works
 
-The extension calls only the functions of `paw.ruler`, and paw records each
-part and change as belonging to the extension. When the extension unloads, paw
-removes its components and puts back the component `number` as it was. [The part
-column and the bar labels](../../docs/reference/partcolumn.md) describes
-each function, and
-[how to personalize the part column and the
-ruler](../../docs/how-to/personalize-the-part-column-and-the-ruler.md)
-shows how to write your own parts. [columnplus](../columnplus/README.md) is
+The extension calls only the functions of `paw.ruler` and `paw.marks`, and
+paw records its row, its namespace and its change as belonging to the
+extension. When the extension unloads, paw removes the row and the namespace
+and puts back the row `bars` as it was. [The
+ruler](../../docs/reference/ruler.md) describes each function, and [how to
+add a row to the ruler](../../docs/how-to/add-a-row-to-the-ruler.md) shows how
+to write your own. [columnplus](../columnplus/README.md) is
 the matching example for the part column.

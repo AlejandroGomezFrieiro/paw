@@ -137,10 +137,11 @@ paw.folds = require("paw.folds")
 -- How tall the rows of each window are: the vertical zoom (paw/vzoom.tl).
 paw.vzoom = require("paw.vzoom")
 paw.lanes = require("paw.lanes")
--- The part column and the ruler's bar labels, which extensions add to.
+-- The part column, and the ruler's rows and marks, which extensions add to.
 paw.partcolumn = require("paw.partcolumn")
 -- The heads of the arrange view's rows, by name (paw/heads.tl).
 paw.heads = require("paw.heads")
+paw.marks = require("paw.marks")
 paw.ruler = require("paw.ruler")
 paw.tempolane = require("paw.tempolane")
 paw.frontend = require("paw.frontend")
@@ -259,6 +260,8 @@ function K.startup()
   paw.scope = require("paw.scope")
   paw.pick.sources:put("scopes", paw.scope.source)
   paw.markers = require("paw.markers")
+  -- The rows and the marks that paw puts on the ruler (paw/ruler_builtin.tl).
+  require("paw.ruler_builtin")
   -- The chain of a part's devices: splits, branches, linked racks (paw/chain.tl).
   paw.chain = require("paw.chain")
   -- paw.chain is below the screen (tools/layers.txt): it shows its messages here.

@@ -24,6 +24,7 @@ local type FrontendModule = require("paw.frontend")
 local type MouseModule = require("paw.mouse")
 local type MarkersModule = require("paw.markers")
 local type TempoModule = require("paw.tempo")
+local type RulerModule = require("paw.ruler")
 local type Buf = contracts.Buf
 local type MouseEvent = contracts.MouseEvent
 local type Row = Arrange.Row
@@ -36,8 +37,9 @@ local A = paw.frontend.act
 
 --- What is under the pointer (`hit`): where it is in the view (`x`, `y`)
 --- and on the timeline (`tx`, `beat`), whether over the headers or the
---- timeline, and the area: "ruler", "markers" (`lane_row` the regions'
---- row), "band" (`band` the entry), "tempo" (`y0` its first line),
+--- timeline, and the area: "ruler" (the bars), "markers" (the regions'
+--- row), "row" (another row of the ruler, `row_name`), "band" (`band`
+--- the entry), "tempo" (`y0` its first line),
 --- "part", "take", "lane" (`row` the row), "master" or "below". On a
 --- part's timeline, the clip under it, which piece of it (`part`) and the warp
 --- marker (`warp`).
@@ -50,7 +52,7 @@ local record Hit
   timeline: boolean
   fine: boolean
   area: string
-  lane_row: integer
+  row_name: string
   band: FrontendModule.BandState
   y0: integer
   row: Row
@@ -188,45 +190,29 @@ local function clip_at(self: Arrange, row: Row, tx: number, dy: number, fine: bo
   return found, part, index
 end
 
---- The marker or region whose name (or band) is under column `tx` of row
---- `row` of the regions' lane (0 the first; paw/markers.tl).
-local function marker_at(self: Arrange, tx: number, row: integer): MarkersModule.Marker
-  -- Each one where the lane draws it (`paw.markers.placed`): inside a
-  -- subproject or a scope, in the window's time and cut at its edges.
-  local record Placed
-    m: MarkersModule.Marker
-    x0: integer
-    x1: integer
+--- The mark of the ruler under column `tx` of the view's line `y`, as
+--- the ruler placed it last (paw/ruler.tl).
+local function mark_at(self: Arrange, y: number, tx: number): contracts.RulerMark
+  local placed = paw.ruler.at(self.geometry.ruler, math.floor(y), tx)
+  return placed and placed.mark
+end
+
+--- The marker or region under column `tx` of the view's line `y` of the
+--- regions' row: its sign or its name, else its band.
+local function marker_at(self: Arrange, y: number, tx: number): MarkersModule.Marker
+  local m = mark_at(self, y, tx)
+  if m and (m.kind == "region" or m.kind == "cue") then
+    return paw.markers.find({id = m.ref})
   end
-  local list: {Placed} = {}
-  local time = paw.ruler.lane_time()
-  for _, m in ipairs(paw.markers and paw.markers.list() or {}) do
-    local start, stop = paw.markers.placed(m, time)
-    if start and paw.markers.lane_row(m.id, time) == (row or 0) then
-      list[#list + 1] = {m = m, x0 = self:current_axis():x_of(start), x1 = self:current_axis():x_of(stop)}
-    end
+end
+
+--- The tempo or signature change whose sign or value is under column `tx`
+--- of the view's line `y`.
+local function flag_at(self: Arrange, y: number, tx: number): TempoModule.Mark
+  local m = mark_at(self, y, tx)
+  if m and not m.to and (m.kind == "tempo" or m.kind == "signature") then
+    return {beat = m.beat, kind = m.kind, text = m.label}
   end
-  local width = self.geometry.layout.tw
-  local band: MarkersModule.Marker
-  for i, p in ipairs(list) do
-    local x = p.x0
-    local stop = width
-    for j = i + 1, #list do
-      local nx = list[j].x0
-      if nx > x then
-        stop = math.min(stop, nx)
-        break
-      end
-    end
-    local w = 1 + api.str_width(paw.markers.label(p.m))
-    if tx >= x and tx < math.min(stop, x + w) then
-      return p.m
-    end
-    if p.m.length and tx >= x and tx < p.x1 then
-      band = p.m
-    end
-  end
-  return band
 end
 
 --- The entry of an extension's band on band row `row` under column `tx`
@@ -252,16 +238,28 @@ local function hit(self: Arrange, x: number, y: number, fine: boolean): Hit
   local L = g.layout
   local out: Hit = {x = x, y = y, tx = x - g.hw, header = x < g.hw - 1, timeline = x >= g.hw, fine = fine}
   out.beat = self:current_axis():beat_of(out.tx)
-  local tempo_y = L.ruler_rows - L.tempo_rows
-  if y < L.lanes_y then
-    out.area = "ruler"
-  elseif y < L.band_y then
-    out.area, out.lane_row = "markers", math.floor(y - L.lanes_y)
-  elseif y < tempo_y then
+  -- The ruler's rows, each in its place, then the bands under them.
+  local place: RulerModule.Place
+  for _, p in ipairs(L.places) do
+    if y >= p.y and y < p.y + p.h then
+      place = p
+    end
+  end
+  local band_y = L.ruler_rows - L.bands.rows
+  if place then
+    local name = place.row.name
+    if name == "bars" then
+      out.area = "ruler"
+    elseif name == "regions" then
+      out.area = "markers"
+    elseif name == "tempo" then
+      out.area, out.y0 = "tempo", place.y
+    else
+      out.area, out.row_name = "row", name
+    end
+  elseif y >= band_y and y < L.ruler_rows then
     out.area = "band"
-    out.band = band_at(self, L.bands, math.floor(y - L.band_y), out.tx)
-  elseif y < L.ruler_rows then
-    out.area, out.y0 = "tempo", tempo_y
+    out.band = band_at(self, L.bands, math.floor(y - band_y), out.tx)
   elseif y >= L.master.y then
     out.area = "master"
   else
@@ -1100,10 +1098,9 @@ end
 --- double click turns the loop on or off.
 local function press_ruler(self: Arrange, e: MouseEvent, h: Hit)
   local tx = h.tx
-  for _, m in ipairs(self.geometry.flags) do
-    if tx >= m.x0 and tx < m.x1 then
-      return press_flag(self, e, m.mark)
-    end
+  local flag = flag_at(self, h.y, tx)
+  if flag then
+    return press_flag(self, e, flag)
   end
   if e.button ~= "left" then
     return
@@ -1151,7 +1148,7 @@ end
 --- A press in the band of markers: a click goes to one, a drag moves it, a
 --- double click renames it, a right click opens its menu.
 local function press_markers(self: Arrange, e: MouseEvent, h: Hit)
-  local m = marker_at(self, h.tx, h.lane_row)
+  local m = marker_at(self, h.y, h.tx)
   if not m then
     if e.button == "left" then
       A.ruler_click(grid_at(self, h.tx))
@@ -1292,15 +1289,13 @@ end
 local function hover(self: Arrange, h: Hit)
   local text: string
   if h.area == "ruler" and h.timeline then
-    text = hints.ruler
-    for _, m in ipairs(self.geometry.flags) do
-      if h.tx >= m.x0 and h.tx < m.x1 then
-        text = hints.flag
-      end
-    end
+    text = flag_at(self, h.y, h.tx) and hints.flag or hints.ruler
   elseif h.area == "markers" and h.timeline then
-    local m = marker_at(self, h.tx, h.lane_row)
+    local m = marker_at(self, h.y, h.tx)
     text = m and (paw.markers.label(m) .. " · " .. hints.markers) or nil
+  elseif h.area == "row" and h.timeline then
+    local m = mark_at(self, h.y, h.tx)
+    text = m and (m.text or m.label) or nil
   elseif h.area == "band" and h.timeline then
     text = h.band and h.band.hint or nil
   elseif h.area == "tempo" and h.timeline then
@@ -1392,6 +1387,14 @@ function view:on_mouse(e: MouseEvent): boolean
     press_ruler(self, e, h)
   elseif area == "markers" and h.timeline then
     press_markers(self, e, h)
+  elseif area == "row" and h.timeline and e.button == "left" then
+    -- A mark of another row runs its command; elsewhere, the cursor goes there.
+    local m = mark_at(self, h.y, h.tx)
+    if m and m.cmd then
+      paw.commands.exec(m.cmd)
+    else
+      A.ruler_click(grid_at(self, h.tx))
+    end
   elseif area == "band" then
     -- An entry of an extension's band does what it stands for.
     if h.band and h.band.active and e.button == "left" then

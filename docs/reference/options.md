@@ -110,8 +110,8 @@ When the undo history has more steps than `undo_steps` or more data than `undo_m
 | `paw.opt.relativenumber` (`rnu`) | `false` | Shows how many `j` or `k` go to each part. The part of the cursor keeps its number. |
 | `paw.opt.partcolumn` | `number,signs,fold` | The components of the part column that show. See [The part column](partcolumn.md). |
 | `paw.opt.relativebar` (`rbar`) | `false` | Shows on the ruler how many `W` or `B` go to each bar. The bar of the cursor keeps its number. |
-| `paw.opt.barlabel` | `number` | The parts of the label of each bar on the ruler. |
-| `paw.opt.regionlevels` | `3` | The rows of the lane of regions under the ruler: a row for each level of regions. Deeper regions are on the last row. |
+| `paw.opt.rulerrows` | `bars,beats,regions,tempo` | The rows of the ruler that show, from the top. See [The ruler](ruler.md). |
+| `paw.opt.regionlevels` | `3` | The lines of the row of regions on the ruler: a line for each level of regions. Deeper regions are on the last line. |
 | `paw.opt.insertkeys` | `m,a,r,',f` | The keys of insert mode in the arrange view, in the order of its box of keys. See [Insert mode](insert-mode.md). |
 | `paw.opt.graph_insertkeys` | `c,e,s,g,l,d,r,u,m,R,L,B,M,S` | The keys of insert mode in the devices view, in their order. See [The devices view](device-panel.md#insert-mode). |
 | `paw.opt.devices_width` | `36` | The columns of the device panel. |

@@ -1203,11 +1203,13 @@ end)
 test("guide: personalize the part column and the ruler", function()
   fresh()
   local fold, number = paw.partcolumn.components:get("fold"), paw.partcolumn.components:get("number")
+  local bars = paw.ruler.rows:get("bars")
   T.after(function()
+    paw.ruler.rows:put("bars", bars)
     paw.partcolumn.add("fold", fold)
     paw.partcolumn.add("number", number)
     paw.partcolumn.sign("armed", nil)
-    paw.ruler.remove("eight")
+    paw.marks.namespaces:remove("eight")
     paw.opt.partcolumn = { "number", "signs", "fold" }
     paw.opt.part_height = "auto"
   end)
@@ -1227,10 +1229,16 @@ test("guide: personalize the part column and the ruler", function()
       if paw.part(part).armed then return "ready to record" end
     end,
   })
-  paw.ruler.add("eight", {
-    order = 5,
-    render = function(bar)
-      if bar > 1 and bar % 8 == 1 then return { { "·", "RulerTempo" } } end
+  paw.ruler.set("bars", { styles = { cursor = "Title" } })
+  paw.marks.namespace("eight", {
+    source = function(ctx)
+      local out = {}
+      for _, line in ipairs(paw.draw.grid_lines(ctx.axis, ctx.right)) do
+        if line.bar and line.bar > 1 and line.bar % 8 == 1 then
+          out[#out + 1] = { beat = line.beat, sign = "·", style = "RulerTempo", text = "eight bars" }
+        end
+      end
+      return out
     end,
   })
   bass.armed = true
@@ -1246,9 +1254,45 @@ test("guide: personalize the part column and the ruler", function()
     paw.ui.close()
   end
   eq(described:find("ready to record", 1, true) ~= nil, true, "K tells it:\n" .. described)
-  keys(":set partcolumn-=signs<CR>:set barlabel-=eight<CR>")
+  keys(":set partcolumn-=signs<CR>")
   text = table.concat(api.ui_snapshot(160, 30), "\n", 1, 4)
-  eq(text:find("●", 1, true) == nil and text:find("·9", 1, true) == nil, true, ":set -= hides them:\n" .. text)
+  eq(text:find("●", 1, true) == nil, true, ":set -= hides them:\n" .. text)
+end)
+
+test("guide: add a row to the ruler", function()
+  fresh()
+  T.after(function()
+    paw.ruler.remove("odd")
+    if paw.marks.namespaces:get("todo") then paw.marks.namespaces:remove("todo") end
+    paw.ruler.route("paw.cues", nil)
+  end)
+  paw.add_part({ name = "Drums" })
+  -- The code of the guide, as it gives it.
+  paw.ruler.row("odd", {
+    after = "bars",
+    styles = { odd = "RulerTick" },
+    marks = function(ctx)
+      local out = {}
+      for _, line in ipairs(paw.draw.grid_lines(ctx.axis, ctx.right)) do
+        if line.bar and line.bar % 2 == 1 then
+          out[#out + 1] = { beat = line.beat, label = "odd", style = ctx.styles.odd, text = "an odd bar" }
+        end
+      end
+      return out
+    end,
+  })
+  local ns = paw.marks.namespace("todo", { route = "row:regions", priority = 25 })
+  paw.marks.set(ns, 32, { sign = "?", label = "fix the fill", style = "Marker" })
+  paw.flush()
+  local lines = api.ui_snapshot(160, 30)
+  eq(lines[2]:find("│odd", 1, true) ~= nil, true, "the row under the bar numbers:\n" .. lines[2])
+  eq(lines[3]:find("?fix the fill", 1, true) ~= nil, true, "the mark on the row of the regions:\n" .. lines[3])
+  paw.markers.add(8, "drop")
+  paw.ruler.route("paw.cues", "over:bars")
+  lines = api.ui_snapshot(160, 30)
+  eq(lines[1]:find("▼drop", 1, true) ~= nil, true, "the markers over the bar numbers:\n" .. lines[1])
+  keys(":set rulerrows-=odd<CR>")
+  eq(api.ui_snapshot(160, 30)[2]:find("odd", 1, true), nil, ":set rulerrows-=odd hides the row")
 end)
 
 test("guide: personalize insert mode", function()

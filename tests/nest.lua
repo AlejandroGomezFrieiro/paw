@@ -73,7 +73,7 @@ test("znn on a subproject's clip enters it: its parts, bars from 1, ⧉ in the p
   eq(paw.cursor.beat, 1, "the cursor keeps its place: beat 1 of the subproject")
   local text = screen()
   eq(text:find("⧉Ballad 1.2 @9.2", 1, true) ~= nil, true, "the status line: its place and the song's\n" .. text)
-  eq(paw.ruler.label(9, 0, "RulerBar", 1)[1][1], "1", "its bars count from 1: song bar 9 is its bar 1")
+  eq(paw.ruler.bar_number(9), 1, "its bars count from 1: song bar 9 is its bar 1")
   keys("zw")
   eq(paw.scope.current(), nil, "zw: the song")
   eq(names(paw.groups.rows()), "Drums Ballad", "the song's parts")
@@ -1297,7 +1297,7 @@ test(":nest.new Ballad 8 6/8 meter=own keeps the song's map; inside it, its bars
     lines[#lines + 1] = l.beat .. ":" .. l.bar
   end
   eq(table.concat(lines, " "), "0:1 3:2 6:3 9:4", "its bars: three beats each, from 1")
-  eq(paw.ruler.label(2, 3, "RulerBar", 0)[1][1], "2", "the ruler numbers its bar 2 at beat 3")
+  eq(paw.ruler.bar_number(2), 2, "the ruler numbers its bar 2")
   local text = screen()
   eq(text:find("⧉Ballad 1.1 @33.1", 1, true) ~= nil, true, "its place and the song's\n" .. text)
   keys("zw")

@@ -132,7 +132,9 @@ paw.ui
 paw.menu
 paw.plot
 paw.statusline
+paw.marks
 paw.ruler
+paw.ruler_builtin
 paw.partcolumn
 
 [input]

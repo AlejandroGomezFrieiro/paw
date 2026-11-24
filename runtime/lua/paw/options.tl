@@ -131,10 +131,10 @@ local defaults: {string: Value} = {
   number = true,
   relativenumber = false,
   partcolumn = {"number", "signs", "fold"},
-  -- The ruler's bar labels: how many `W` or `B` reach each bar, and the
-  -- parts of each label shown (paw/ruler.tl).
+  -- The ruler: how many `W` or `B` reach each bar, and the rows shown,
+  -- in their order (paw/ruler.tl).
   relativebar = false,
-  barlabel = {"number"},
+  rulerrows = {"bars", "beats", "regions", "tempo"},
   -- The keys of the arrange view's insert mode, in the order the hints
   -- show them: what each inserts at the cursor (paw/insert.tl).
   insertkeys = {"m", "a", "r", "'", "f"},
