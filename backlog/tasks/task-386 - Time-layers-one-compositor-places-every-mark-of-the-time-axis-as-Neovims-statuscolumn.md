@@ -3,10 +3,10 @@ id: TASK-386
 title: >-
   Ruler rows and marks: one compositor places every row and mark of the ruler
   (as statuscolumn and extmarks)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T17:41:00Z'
-updated_date: '2026-11-24T19:57:00Z'
+updated_date: '2026-11-24T20:34:00Z'
 labels:
   - design
   - ux
@@ -65,4 +65,6 @@ Opus review of d312068b (2026-11-24): merge after soft fixes, no hard finding. S
 Builder done: head 35f95850 (all 6 review fixes; kept marks sorted with binary search; new paw.marks.within(ns, lo, hi, here?)). CHECK at merge: places() now reads the window, so the height of a row with routed marks can change on scroll: rows that jump while scrolling are a UX bug; if seen, keep a row's height for the whole scope. NEXT: owner accepts ADR 0044, merge check (words ruler tempo meter zoom section time_axis describe guide rulerplus marks), ff main, then the owner runs the skills command.
 
 Owner, 2026-11-24: ADR 0044 accepted.
+
+On main in merge ff0355bb (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
