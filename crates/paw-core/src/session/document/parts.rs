@@ -429,6 +429,7 @@ impl PartChange {
     /// Part `t` already holds what the change gives: setting it would
     /// change nothing, and makes no undo step. A value that does not read
     /// is never held: setting it gives its error.
+    #[expect(clippy::float_cmp, reason = "an unchanged value makes no undo step")]
     fn holds(&self, t: &Part) -> bool {
         match self {
             Self::Armed(on) => t.armed == *on,

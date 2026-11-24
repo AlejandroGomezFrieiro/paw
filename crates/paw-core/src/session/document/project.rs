@@ -136,6 +136,7 @@ impl Document {
 
 impl ProjectChange {
     /// Project `p` already holds what the change gives.
+    #[expect(clippy::float_cmp, reason = "an unchanged value makes no undo step")]
     fn holds(&self, p: &Project) -> bool {
         match self {
             Self::Name(name) => p.name == *name,
