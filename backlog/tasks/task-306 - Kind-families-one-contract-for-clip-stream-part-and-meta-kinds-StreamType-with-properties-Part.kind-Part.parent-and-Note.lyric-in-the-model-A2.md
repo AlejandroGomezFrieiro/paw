@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-23T16:01:00Z'
-updated_date: '2026-11-24T17:19:00Z'
+updated_date: '2026-11-24T18:54:00Z'
 labels:
   - agent:builder
   - architecture
@@ -84,4 +84,6 @@ Owner question for the A2 interview (2026-11-24): when an extension registers a 
 Owner interview 2026-11-24: all 11 recommended answers accepted; recorded in architecture/13-roadmap.md, section The A2 interview. ACs #10 to #18 added from it.
 
 Started 2026-11-24: branch kind-families, base 582ae3a5.
+
+Owner, 2026-11-24: lyrics are standard MIDI (SMF FF 05, MIDI 2.0 Flex Data Performance Text Events / Lyrics). They stay core MIDI data that notation, search and .mid import and export share, and the .midi2 clip file saves them as standard Flex Data Lyrics messages at the note-on, not in paw's private paw: text. utau keeps only its own data (phonemes, pitch curves, flags) in a kind or meta keys that extend midi. Added to the A2 fix round.
 <!-- SECTION:NOTES:END -->
