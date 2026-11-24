@@ -212,11 +212,9 @@ impl Document {
         if others == 0 {
             bail!("{} has one block: it is a subproject of its own already", held.name);
         }
+        // The held subproject has its name, so the copy is `Verse 2` or after.
         let names: BTreeSet<&str> = p.nests.values().map(|n| n.name.as_str()).collect();
-        let name = (2..)
-            .map(|n| format!("{} {n}", held.name))
-            .find(|n| !names.contains(n.as_str()))
-            .expect("a free name");
+        let name = crate::names::free(|n| names.contains(n), &held.name, "", crate::names::Scheme::Space);
         // New ids for the parts first: their routes point at each other.
         let id = NestId(self.new_id());
         let sources: Vec<Arc<Part>> = self.project.nest_parts(old).cloned().collect();

@@ -32,6 +32,7 @@ mod events;
 mod ext_api;
 mod audio;
 mod freeze;
+mod lane_lookup;
 mod words;
 #[cfg(test)]
 mod golden;
@@ -44,6 +45,7 @@ mod kernel;
 mod luadev_api;
 mod measure;
 mod monitor;
+mod names;
 mod peaks;
 #[cfg(test)]
 mod props;

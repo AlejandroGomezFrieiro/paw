@@ -118,13 +118,10 @@ pub(crate) fn file_name(name: &str) -> String {
 }
 
 /// A name from `stem` not in `taken` (`riff`, `riff-2`, ...), now taken.
+/// `taken` holds lowercase names: two names that differ only in case are
+/// one file on some disks.
 fn unique(taken: &mut BTreeSet<String>, stem: &str, ext: &str) -> String {
-    let mut name = format!("{stem}{ext}");
-    let mut n = 2;
-    while taken.contains(&name.to_lowercase()) {
-        name = format!("{stem}-{n}{ext}");
-        n += 1;
-    }
+    let name = crate::names::free(|n| taken.contains(&n.to_lowercase()), stem, ext, crate::names::Scheme::Dash);
     taken.insert(name.to_lowercase());
     name
 }

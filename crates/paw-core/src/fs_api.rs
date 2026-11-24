@@ -12,6 +12,7 @@ use paw_proto::dirs::Dirs;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 use crate::api::guarded;
+use crate::names::{self, Scheme};
 
 fn fail(what: String) -> mlua::Error {
     mlua::Error::runtime(what)
@@ -69,19 +70,10 @@ fn trash_dir(dirs: &Dirs) -> Option<PathBuf> {
 }
 
 /// A name in `dir` that is free, from `name`: `a.wav`, `a.2.wav`, `a.3.wav`.
+/// A broken link takes its name too.
 fn free_name(dir: &Path, name: &str) -> String {
-    let free = |n: &str| dir.join(n).symlink_metadata().is_err();
-    if free(name) {
-        return name.to_string();
-    }
-    let (stem, ext) = match name.rfind('.') {
-        Some(i) if i > 0 => (&name[..i], &name[i..]),
-        _ => (name, ""),
-    };
-    (2..)
-        .map(|n| format!("{stem}.{n}{ext}"))
-        .find(|n| free(n))
-        .unwrap()
+    let (stem, ext) = names::split_ext(name);
+    names::free(|n| dir.join(n).symlink_metadata().is_ok(), stem, ext, Scheme::Dot)
 }
 
 /// Everything but ASCII letters, digits and `/-_.~` is escaped.

@@ -17,6 +17,7 @@ use anyhow::{Context, Result, bail};
 use base64::Engine;
 use serde_json::{Value, json};
 
+use crate::names::{self, Scheme};
 use crate::rpc::ClientId;
 
 /// The largest file taken: more than any sound file a project holds.
@@ -52,18 +53,8 @@ fn plain_name(name: &str) -> Option<String> {
 
 /// `dir/name`, or `dir/stem-2.ext` and so on when that is taken.
 fn free_path(dir: &Path, name: &str) -> PathBuf {
-    let first = dir.join(name);
-    if !first.exists() {
-        return first;
-    }
-    let (stem, ext) = match name.rsplit_once('.') {
-        Some((stem, ext)) if !stem.is_empty() => (stem, format!(".{ext}")),
-        _ => (name, String::new()),
-    };
-    (2..)
-        .map(|n| dir.join(format!("{stem}-{n}{ext}")))
-        .find(|path| !path.exists())
-        .unwrap_or(first)
+    let (stem, ext) = names::split_ext(name);
+    dir.join(names::free(|n| dir.join(n).exists(), stem, ext, Scheme::Dash))
 }
 
 impl Uploads {
