@@ -52,8 +52,11 @@ A tempo is from 1 to 999 BPM.
 
 - The rulers number the bars and draw the bar and beat lines from the map.
 - The arrange ruler of the terminal marks a tempo change `▾96` (`▾120>`
-  for a ramp) and a signature change `‖6/8`. The graphical window marks
-  them on its ruler.
+  for a ramp) and a signature change `‖6/8`. The mark is in the column of
+  its beat, and its value follows it. On a bar line, the bar's number
+  comes after the value (`‖6/8 47`) when it fits whole, and is left out
+  when it does not. A value is shown whole or not at all.
+  The graphical window marks them on its ruler.
 - The status line and the transport of the graphical window show the
   tempo and signature at the playhead.
 

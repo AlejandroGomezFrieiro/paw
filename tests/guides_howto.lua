@@ -1393,7 +1393,7 @@ test("guide: work on a section in another meter", function()
     "znar enters the bridge and describes it"
   )
   shows("Bridge 1.1 @17.1", "the status line gives both places")
-  shows("1‖6/8", "the ruler counts from 1 in 6/8")
+  shows("‖6/8", "the ruler marks the meter at the first bar of the section")
   local tr = paw.transport
   eq(tr.loop_enabled and tr.loop_start .. "-" .. tr.loop_end, "64-88", "the loop is the bridge")
   keys("3|")

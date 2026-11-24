@@ -340,12 +340,12 @@ test("a tempo flag on the ruler drags to another beat, a right click on it offer
   two_parts()
   api.tempo_set(8, 90)
   shot()
-  local x = find("▾90")
+  local x = find("▾")
   drag(x, 0, x + 8, 0)
   local tempos = api.tempo_points().tempos
   eq(tempos[2] and tempos[2].beat, 10, "the change moves two beats on, onto the grid")
   shot()
-  x = find("▾90")
+  x = find("▾")
   click(x, 0, "right")
   local rx, ry = find("Remove tempo change")
   click(rx, ry)
@@ -477,20 +477,20 @@ test("inside a subproject, the flags on the ruler move and remove the changes of
     -- A drag of two beats moves the tempo change, one of four the signature
     -- change, to a bar line of 2/4.
     shot()
-    local x, y = find("▾90")
+    local x, y = find("▾")
     drag(x, y, x + 8, y)
     eq(tempos(), at(tempo, 6), case.time .. ": the tempo change dragged to its beat 6")
     api.undo_checkpoint()
     apart()
     shot()
-    x, y = find("‖2/4")
+    x, y = find("‖")
     drag(x, y, x + 16, y)
     eq(meter(), at(signature, 12), case.time .. ": the signature change dragged to its beat 12")
     api.undo_checkpoint()
     paw.keymap.feed("u")
     eq(meter(), at(signature, 8), case.time .. ": u takes the drag back in one step")
     -- A right click on each offers to remove it.
-    for _, flag in ipairs({ { "▾90", "Remove tempo change" }, { "‖2/4", "Remove signature change" } }) do
+    for _, flag in ipairs({ { "▾", "Remove tempo change" }, { "‖", "Remove signature change" } }) do
       apart()
       shot()
       x, y = find(flag[1])
