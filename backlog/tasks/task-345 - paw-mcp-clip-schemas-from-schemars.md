@@ -4,7 +4,7 @@ title: paw-mcp clip schemas from schemars
 status: In Progress
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T14:37:00Z'
+updated_date: '2026-11-24T15:22:00Z'
 labels:
   - api
   - types
@@ -32,3 +32,9 @@ Follow-up of TASK-96.2 AC #9: paw-mcp/src/schema.rs and tools/write.rs still hol
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Builder report 2026-11-24: paw-mcp reads the generated api_schema.json (apidoc check keeps it current). mcpscore 163 on two runs.
+<!-- SECTION:NOTES:END -->
