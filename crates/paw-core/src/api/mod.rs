@@ -195,11 +195,24 @@ impl<T> LuaResult<T> for anyhow::Result<T> {
 }
 
 pub(crate) fn to_lua<T: serde::Serialize>(lua: &Lua, value: &T) -> mlua::Result<LuaValue> {
-    // JSON null becomes nil, so that `if part.output then` reads naturally.
-    let options = SerializeOptions::new()
+    lua.to_value_with(value, lua_options())
+}
+
+/// How a value goes to Lua: JSON null becomes nil, so that `if part.output
+/// then` reads naturally.
+fn lua_options() -> SerializeOptions {
+    SerializeOptions::new()
         .serialize_none_to_null(false)
-        .serialize_unit_to_null(false);
-    lua.to_value_with(value, options)
+        .serialize_unit_to_null(false)
+}
+
+/// One field of a view, by its key, as [`to_lua`] gives it: `write` is the
+/// view's `field` method.
+fn field_to_lua<'lua>(
+    lua: &'lua Lua,
+    write: impl FnOnce(mlua::serde::Serializer<'lua>) -> mlua::Result<LuaValue>,
+) -> mlua::Result<LuaValue> {
+    write(mlua::serde::Serializer::new_with_options(lua, lua_options()))
 }
 
 /// A text argument copied from the Lua stack into a buffer on the Rust
@@ -294,13 +307,13 @@ fn changes(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<Vec<(Strin
     }
 }
 
-/// What a typed setter (`clip_set`) is given, as its patch `T`: a table of
-/// the changes by key, or one `key` and its `value`. Only the key form can
-/// give nil, which a field of `T` reads as `null` (`Patch::Clear`). An
-/// unknown key gives the error of `deny_unknown_fields`, which names it and
-/// the known keys. A value of the wrong type gives an error that names its
-/// key.
-fn patch<T: DeserializeOwned>(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<T> {
+/// What a typed setter (`clip_set`, `part_set` ...) is given, as its patch
+/// `T`: a table of the changes by key, or one `key` and its `value`. Only
+/// the key form can give nil, which a field of `T` reads as `null`
+/// (`Patch::Clear`). An unknown key gives `T::NO_FIELD` with the key and
+/// the keys that `T` has. A value of the wrong type gives an error that
+/// names its key.
+fn patch<T: crate::session::Settable>(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<T> {
     let table = match key {
         LuaValue::Table(table) => table,
         key => {
@@ -320,11 +333,11 @@ fn patch<T: DeserializeOwned>(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua
         let message = match bad {
             Some((LuaValue::String(key), error)) => {
                 let error = cause(&error);
-                // serde's "unknown field `x`, expected one of ..." names it.
-                if error.starts_with("unknown field") {
-                    error
-                } else {
-                    format!("bad value for `{}`: {error}", key.display())
+                // serde's "unknown field `x`, expected one of ..." names
+                // the key and the keys of the patch.
+                match error.strip_prefix("unknown field ") {
+                    Some(known) => format!("{} {known}", T::NO_FIELD),
+                    None => format!("bad value for `{}`: {error}", key.display()),
                 }
             }
             _ => cause(&error),

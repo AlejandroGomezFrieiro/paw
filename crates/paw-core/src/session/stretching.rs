@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 
 use super::document::{ClipChange, check_pitch, check_ratio, check_tempo, check_warp};
-use super::{ClipKind, MAX_PEAKS, Session};
+use super::{Change as _, ClipKind, MAX_PEAKS, Session};
 use crate::model::{Clip, ClipContent, Id, Project, Timebase, WarpMarker};
 use crate::peaks;
 use crate::bake::scheduler::{Busy, Priority, Status};

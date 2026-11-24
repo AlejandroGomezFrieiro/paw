@@ -658,9 +658,10 @@ pub(crate) fn downgrade(set: &mut ClipSet, plan: &Plan, tempo: &TempoMap) {
     set.switches.sort_by(|a, b| a.beat.total_cmp(&b.beat));
 }
 
-/// The map of a part from Lua's or a file's data: nothing for nil, an
-/// empty table or `false`.
-pub(crate) fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
+/// The map of a part from JSON data, as the tests write it: nothing for
+/// null, an empty table or `false`.
+#[cfg(test)]
+fn parse(value: serde_json::Value) -> Result<Option<AttrMap>> {
     use serde_json::Value;
     match value {
         Value::Null | Value::Bool(false) => Ok(None),

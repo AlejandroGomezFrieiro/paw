@@ -12,13 +12,13 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{Patch, check_controls, check_fade, finite, sorted};
+use super::values::{Change as _, check_controls, check_fade, finite, patch, sorted};
 use crate::model::kinds::Version;
 use crate::model::{
     Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
     Project, Signal, Stack, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
 };
-use schemars::JsonSchema;
+
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 
 /// What a new clip holds: `midi`, `audio` or the name of a kind that an
@@ -620,139 +620,63 @@ fn check_signals(signals: Vec<Signal>) -> Result<Arc<[Signal]>> {
     Ok(signals.into())
 }
 
-/// What `paw.api.clip_set` changes in a clip: each field as `clip_get` gives
-/// it, and what is left out stays. Nil clears a field that has a default
-/// (`clip_set(id, "loop_length", nil)`), and is refused for the others.
-#[derive(Debug, Default, Deserialize, JsonSchema)]
-#[schemars(rename = "ClipChanges")]
-#[serde(default, deny_unknown_fields)]
-pub(crate) struct ClipPatch {
-    /// Beats an audio clip fades in over.
-    fade_in: Patch<f64>,
-    /// Beats an audio clip fades out over.
-    fade_out: Patch<f64>,
-    /// The sound file of an audio clip: another take of it.
-    #[schemars(with = "Option<String>")]
-    file: Patch<PathBuf>,
-    formants: Patch<bool>,
-    /// The gain of an audio clip in dB, from -120 to 24.
-    gain: Patch<f64>,
-    length: Patch<f64>,
-    #[serde(rename = "loop")]
-    looped: Patch<bool>,
-    loop_length: Patch<f64>,
-    loop_start: Patch<f64>,
-    #[schemars(extend("x-teal" = "Meta"))]
-    meta: Patch<Map<String, Value>>,
-    /// The modifiers of a MIDI clip, top to bottom. Nil or an empty list
-    /// takes all of them away.
-    modifiers: Patch<Stack>,
-    muted: Patch<bool>,
-    name: Patch<String>,
-    offset: Patch<f64>,
-    /// Move the clip to the end of this part.
-    part: Patch<Id>,
-    pitch: Patch<f64>,
-    source_tempo: Patch<f64>,
-    start: Patch<f64>,
-    stretch: Patch<f64>,
-    stretch_mode: Patch<StretchMode>,
-    timebase: Patch<Timebase>,
-    /// The markers of an audio clip; the `beat` of each is not read.
-    #[schemars(with = "Option<Vec<crate::session::WarpView>>")]
-    warp: Patch<Vec<WarpMarker>>,
-}
-
-impl ClipPatch {
-    /// The changes of the patch, in the order of their keys.
-    pub(crate) fn changes(self) -> Result<Vec<ClipChange>> {
-        use ClipChange as C;
-        let mut out = Vec::new();
-        let mut set = |change: Option<ClipChange>| out.extend(change);
-        set(self.fade_in.value("fade_in")?.map(C::FadeIn));
-        set(self.fade_out.value("fade_out")?.map(C::FadeOut));
-        set(self.file.value("file")?.map(C::File));
-        set(self.formants.value("formants")?.map(C::Formants));
-        set(self.gain.value("gain")?.map(C::Gain));
-        set(self.length.value("length")?.map(C::Length));
-        set(self.looped.value("loop")?.map(C::Loop));
-        set(self.loop_length.change().map(C::LoopLength));
-        set(self.loop_start.change().map(C::LoopStart));
-        // An empty Lua table is an empty map: nil clears `meta` too.
-        set(self.meta.change().map(|meta| C::Meta(meta.unwrap_or_default())));
-        set(self.modifiers.change().map(|stack| C::Modifiers(stack.unwrap_or_default())));
-        set(self.muted.value("muted")?.map(C::Muted));
-        set(self.name.value("name")?.map(C::Name));
-        set(self.offset.value("offset")?.map(C::Offset));
-        set(self.part.value("part")?.map(C::Part));
-        set(self.pitch.change().map(C::Pitch));
-        set(self.source_tempo.change().map(C::SourceTempo));
-        set(self.start.value("start")?.map(C::Start));
-        set(self.stretch.change().map(C::Stretch));
-        set(self.stretch_mode.value("stretch_mode")?.map(C::StretchMode));
-        set(self.timebase.value("timebase")?.map(C::Timebase));
-        set(self.warp.change().map(|warp| C::Warp(warp.unwrap_or_default())));
-        Ok(out)
+patch! {
+    /// What `paw.api.clip_set` changes in a clip: each field as `clip_get`
+    /// gives it, and what is left out stays. Nil clears a field that has a
+    /// default (`clip_set(id, "loop_length", nil)`), and is refused for the
+    /// others.
+    #[schemars(rename = "ClipChanges")]
+    pub(crate) struct ClipPatch => ClipChange, "clips have no settable field" {
+        /// Beats an audio clip fades in over.
+        "fade_in" fade_in: f64 => FadeIn value,
+        /// Beats an audio clip fades out over.
+        "fade_out" fade_out: f64 => FadeOut value,
+        /// The sound file of an audio clip: another take of it.
+        #[schemars(with = "Option<String>")]
+        "file" file: PathBuf => File value,
+        /// An audio clip keeps the formants of the voice when it is shifted.
+        "formants" formants: bool => Formants value,
+        /// The gain of an audio clip in dB, from -120 to 24.
+        "gain" gain: f64 => Gain value,
+        /// The length of the clip in beats.
+        "length" length: f64 => Length value,
+        /// The clip repeats over its length.
+        "loop" looped: bool => Loop value,
+        /// Beats of one repeat; nil for the clip's content.
+        "loop_length" loop_length: f64 => LoopLength clear,
+        /// Where a repeat starts in the clip's content, in beats.
+        "loop_start" loop_start: f64 => LoopStart clear,
+        #[schemars(extend("x-teal" = "Meta"))]
+        "meta" meta: Map<String, Value> => Meta default,
+        /// The modifiers of a MIDI clip, top to bottom. Nil or an empty list
+        /// takes all of them away.
+        "modifiers" modifiers: Stack => Modifiers default,
+        /// The clip is silent.
+        "muted" muted: bool => Muted value,
+        /// The name of the clip.
+        "name" name: String => Name value,
+        /// Where an audio clip starts in its file, in seconds, or where a
+        /// clip of another kind starts in its content.
+        "offset" offset: f64 => Offset value,
+        /// Move the clip to the end of this part.
+        "part" part: Id => Part value,
+        /// Semitones an audio clip is shifted by.
+        "pitch" pitch: f64 => Pitch clear,
+        /// The tempo that an audio clip was recorded at.
+        "source_tempo" source_tempo: f64 => SourceTempo clear,
+        /// Where the clip starts on the timeline, in beats.
+        "start" start: f64 => Start value,
+        /// How many times its length an audio clip is stretched to.
+        "stretch" stretch: f64 => Stretch clear,
+        "stretch_mode" stretch_mode: StretchMode => StretchMode value,
+        "timebase" timebase: Timebase => Timebase value,
+        /// The markers of an audio clip; the `beat` of each is not read.
+        #[schemars(with = "Option<Vec<crate::session::WarpView>>")]
+        "warp" warp: Vec<WarpMarker> => Warp default,
     }
-}
-
-/// One change of a clip, typed: what a field of a [`ClipPatch`] gives.
-/// `None` is nil: the field goes back to its default.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum ClipChange {
-    FadeIn(f64),
-    FadeOut(f64),
-    File(PathBuf),
-    Formants(bool),
-    Gain(f64),
-    Length(f64),
-    Loop(bool),
-    LoopLength(Option<f64>),
-    LoopStart(Option<f64>),
-    Meta(Map<String, Value>),
-    Modifiers(Stack),
-    Muted(bool),
-    Name(String),
-    Offset(f64),
-    Part(Id),
-    Pitch(Option<f64>),
-    SourceTempo(Option<f64>),
-    Start(f64),
-    Stretch(Option<f64>),
-    StretchMode(StretchMode),
-    Timebase(Timebase),
-    Warp(Vec<WarpMarker>),
 }
 
 impl ClipChange {
-    /// The key of the change, as Lua names the field.
-    pub(crate) fn key(&self) -> &'static str {
-        match self {
-            Self::FadeIn(_) => "fade_in",
-            Self::FadeOut(_) => "fade_out",
-            Self::File(_) => "file",
-            Self::Formants(_) => "formants",
-            Self::Gain(_) => "gain",
-            Self::Length(_) => "length",
-            Self::Loop(_) => "loop",
-            Self::LoopLength(_) => "loop_length",
-            Self::LoopStart(_) => "loop_start",
-            Self::Meta(_) => "meta",
-            Self::Modifiers(_) => "modifiers",
-            Self::Muted(_) => "muted",
-            Self::Name(_) => "name",
-            Self::Offset(_) => "offset",
-            Self::Part(_) => "part",
-            Self::Pitch(_) => "pitch",
-            Self::SourceTempo(_) => "source_tempo",
-            Self::Start(_) => "start",
-            Self::Stretch(_) => "stretch",
-            Self::StretchMode(_) => "stretch_mode",
-            Self::Timebase(_) => "timebase",
-            Self::Warp(_) => "warp",
-        }
-    }
-
     /// A change of how a clip plays: the session sets it
     /// (`Session::set_playing`), as it needs the sound file and the tempo.
     pub(crate) fn is_playing(&self) -> bool {

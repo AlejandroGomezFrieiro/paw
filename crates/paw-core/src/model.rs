@@ -268,7 +268,7 @@ impl Quantize {
 }
 
 /// How a part treats its automation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum AutoMode {
     /// The lanes play; moving a control writes nothing.
@@ -287,15 +287,6 @@ pub(crate) enum AutoMode {
 }
 
 impl AutoMode {
-    pub(crate) fn name(self) -> &'static str {
-        match self {
-            AutoMode::Read => "read",
-            AutoMode::Touch => "touch",
-            AutoMode::Latch => "latch",
-            AutoMode::Write => "write",
-            AutoMode::Off => "off",
-        }
-    }
 
     /// Moving a control in this mode writes into its lane.
     pub(crate) fn writes(self) -> bool {
@@ -304,7 +295,7 @@ impl AutoMode {
 }
 
 /// MIDI from one port, by its name, and optionally one channel of it.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MidiInput {
     /// The port's name as the system gives it (`paw.midi.inputs()`), or
     /// `None` for every port.
@@ -317,7 +308,7 @@ pub(crate) struct MidiInput {
 
 /// MIDI to one output port, by its name, on a channel or on each
 /// message's own, in a form for ports that take no MIDI 2.0.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub(crate) struct MidiOutput {
     /// The port's name as `paw.midi.outputs()` gives it.
     pub port: String,
@@ -333,7 +324,8 @@ pub(crate) struct MidiOutput {
 
 /// What a MIDI output sends where the port takes no MIDI 2.0 (see
 /// `paw_types::midi_form`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[schemars(rename = "MidiOutForm")]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum OutForm {
     /// MIDI 2.0 where the port takes it, else plain MIDI 1.0.
@@ -484,7 +476,7 @@ impl From<InputChannels> for String {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub(crate) struct Send {
     pub target: Id,
     /// Send level in dB.
@@ -496,7 +488,7 @@ pub(crate) struct Send {
 }
 
 /// A tempo change along the song.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub(crate) struct TempoChange {
     pub beat: f64,
     pub bpm: f64,
@@ -506,7 +498,7 @@ pub(crate) struct TempoChange {
 }
 
 /// A time signature starting a bar at a beat.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub(crate) struct SigChange {
     pub beat: f64,
     pub num: u32,

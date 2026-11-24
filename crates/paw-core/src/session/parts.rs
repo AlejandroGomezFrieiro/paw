@@ -4,12 +4,14 @@
 use super::*;
 
 impl Session {
-    /// Set `key` of part `id` ([`Document::part_set`]). A fader or pan
-    /// knob moved while the song plays writes automation
-    /// (`session/write.rs`).
-    pub(crate) fn part_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
-        if let Some(moved) = self.doc.part_set(id, key, value)? {
-            self.touch(id, moved.target, moved.before, moved.to);
+    /// Make the changes of `patch` to part `id`, in the order of their keys
+    /// ([`Document::part_set`]). A fader or pan knob moved while the song
+    /// plays writes automation (`session/write.rs`).
+    pub(crate) fn part_patch(&mut self, id: Id, patch: PartPatch) -> Result<()> {
+        for change in patch.changes()? {
+            if let Some(moved) = self.doc.part_set(id, change)? {
+                self.touch(id, moved.target, moved.before, moved.to);
+            }
         }
         Ok(())
     }

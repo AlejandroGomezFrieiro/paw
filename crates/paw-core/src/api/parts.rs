@@ -8,21 +8,7 @@ use serde_json::Value;
 
 use crate::model::{Id, NestId};
 
-use super::{LuaResult, Shared, attr_from_lua, changes, from_lua, options, to_lua};
-
-/// A part's attribute map from Lua as the data `part_set` takes.
-fn attr_map_from_lua(lua: &Lua, value: LuaValue) -> mlua::Result<Value> {
-    let empty = match &value {
-        LuaValue::Nil | LuaValue::Boolean(false) => true,
-        LuaValue::Table(t) => t.is_empty(),
-        _ => false,
-    };
-    if empty {
-        return Ok(Value::Null);
-    }
-    let map: crate::attr_map::AttrMap = from_lua(lua, value)?;
-    serde_json::to_value(map).map_err(mlua::Error::external)
-}
+use super::{LuaResult, Shared, attr_from_lua, changes, field_to_lua, from_lua, options, patch, to_lua};
 
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
@@ -43,9 +29,10 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // @type function(id: integer): types.Part
         fn part_get(lua, sh, (id, key) => (Id, Option<String>)) {
             let session = sh.session.borrow();
+            let view = session.doc.part_view(id).lua()?;
             match key {
-                Some(key) => to_lua(lua, &session.doc.part_field(id, &key).lua()?),
-                None => to_lua(lua, &session.doc.part_view(id).lua()?),
+                Some(key) => field_to_lua(lua, |lua| view.field(&key, lua)),
+                None => to_lua(lua, &view),
             }
         }
         // @return integer
@@ -61,19 +48,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // gives them (`{ name = "Bass", volume = -6 }`), or one `key` and its
         // value. Only the key form clears an entry (`part_set(id, "output",
         // nil)`). An entry that is as it was is no change.
-        // @type function(id: integer, patch: types.Part)
+        // @type function(id: integer, patch: types.PartChanges)
         // @type function(id: integer, key: string, value: nil)
         fn part_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                let value: Value = match key.as_str() {
-                    // Read as a map first: its `by_type` is keyed by numbers.
-                    "attr_map" => attr_map_from_lua(lua, value)?,
-                    _ => from_lua(lua, value)?,
-                };
-                session.part_set(id, &key, value).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::PartPatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().part_patch(id, patch).lua()
         }
         // @return number, number
         fn part_meter(_, sh, id => Id) { Ok(sh.session.borrow().meter(id)) }
