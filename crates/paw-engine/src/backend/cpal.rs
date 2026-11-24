@@ -1,6 +1,9 @@
 //! The cpal sound backend: real audio devices. Without the `cpal` feature,
 //! `no_cpal.rs` stands in with the same names.
 
+#![allow(clippy::redundant_clone, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;

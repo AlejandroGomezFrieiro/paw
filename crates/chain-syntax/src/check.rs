@@ -7,6 +7,11 @@
 //! between two inserts in series. The wires of version 2 are checked in
 //! `graph.rs`.
 
+#![allow(
+    clippy::too_many_lines,
+    reason = "fixed with the running work on the chain language"
+)]
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::context::{Context, OutsideEnd};

@@ -11,6 +11,7 @@ use crate::format;
 use crate::music::{self, Meter};
 use crate::schema::*;
 
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub(super) fn tools() -> Vec<Tool> {
     vec![
         Tool {

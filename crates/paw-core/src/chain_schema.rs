@@ -227,12 +227,12 @@ mod tests {
     #[test]
     fn a_plugin_parameter_takes_the_type_and_the_unit_of_its_description() {
         let params = vec![
-            ParamInfo { boolean: true, ..ParamInfo::new("Bypass", 0.0, 1.0, 1.0, "") },
+            ParamInfo { boolean: true, ..ParamInfo::new("Bypass").range(0.0, 1.0).default_value(1.0) },
             ParamInfo::choice("Mode", &["clean", "tube"], 1),
-            ParamInfo::new("Drive", -12.0, 12.0, 0.1, "dB"),
-            ParamInfo { steps: 4, ..ParamInfo::new("Voices", 1.0, 5.0, 2.0, "") },
-            ParamInfo::new("Angle", 0.0, 360.0, 90.0, "°"),
-            ParamInfo { read_only: true, ..ParamInfo::new("Meter", 0.0, 1.0, 0.0, "") },
+            ParamInfo::new("Drive").range(-12.0, 12.0).default_value(0.1).unit("dB"),
+            ParamInfo { steps: 4, ..ParamInfo::new("Voices").range(1.0, 5.0).default_value(2.0) },
+            ParamInfo::new("Angle").range(0.0, 360.0).default_value(90.0).unit("°"),
+            ParamInfo { read_only: true, ..ParamInfo::new("Meter").range(0.0, 1.0).default_value(0.0) },
         ];
         let info = DeviceInfo { kind: "clap:org.example.amp".into(), format: DeviceFormat::Clap, params, ..DeviceInfo::default() };
         let schema = schema([&info], &SplitKinds::builtin());

@@ -13,6 +13,8 @@
 //! temporary file first, is measured, and is then encoded from there with
 //! the gain applied, which gives the same samples as playing the song twice.
 
+#![allow(clippy::match_same_arms, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use crate::events::{KernelEvent as E, RenderEnd, RenderProgress};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
@@ -1252,14 +1254,12 @@ impl Encoder {
     fn create(plan: &Plan, channels: u16, path: &Path) -> Result<Self> {
         let out = match plan.format {
             Format::Wav | Format::Mp3 | Format::Vorbis | Format::Opus => Out::Wav(
-                wav::Writer::with_channels(
-                    path,
-                    plan.sample_rate,
-                    plan.bits,
-                    plan.bits == 32,
-                    channels,
-                )
-                .with_context(|| format!("creating {}", path.display()))?,
+                wav::WavFormat::from_bits(plan.bits)
+                    .ok_or_else(|| anyhow!("cannot write a WAV file at {} bits", plan.bits))
+                    .and_then(|format| {
+                        wav::Writer::with_channels(path, plan.sample_rate, format, channels)
+                    })
+                    .with_context(|| format!("creating {}", path.display()))?,
             ),
             Format::Flac => Out::Flac(Box::new(Flac::create(path, plan, channels)?)),
         };

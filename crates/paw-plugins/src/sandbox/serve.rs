@@ -11,6 +11,8 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use paw_engine::device::{Controller, Device, Instance, Io, ParamInfo};
+use crate::bytes::le_u32;
+use paw_engine::priority::{self, Scheduling};
 use paw_engine::{MAX_PAIRS, ProcessCtx, Quality, Registry, Waker};
 use super::*;
 use super::shm::*;
@@ -86,15 +88,12 @@ fn follow_scheduling(header: &Header, current: &mut (u32, u32)) {
         return;
     }
     *current = wanted;
-    // libc: rustix has no wrapper for pthread_setschedparam.
-    // SAFETY: `sched_param` is a plain C struct of integers, for which all-zero bytes is a valid value.
-    let mut param: libc::sched_param = unsafe { std::mem::zeroed() };
-    param.sched_priority = wanted.1 as i32;
-    // SAFETY: `pthread_self` is the calling thread and `param` is a live local; a refused change
-    // (no right to set the priority) is reported by the return value, which is ignored on purpose.
-    unsafe {
-        libc::pthread_setschedparam(libc::pthread_self(), wanted.0 as i32, &param);
-    }
+    // A refused change (no right to run real-time) leaves the thread as it
+    // is, and the plugin still runs.
+    let _ = priority::set(Scheduling {
+        policy: wanted.0 as i32,
+        priority: wanted.1 as i32,
+    });
 }
 
 /// The block's transport, as the device reads it.
@@ -169,9 +168,8 @@ impl AudioSide {
     fn take_messages(&mut self, block: &Block) {
         let messages = &block.messages[..(block.context.messages_in as usize).min(MESSAGES)];
         let mut at = 0;
-        while let Some(head) = messages.get(at..at + 8) {
-            let frame = u32::from_le_bytes(head[..4].try_into().unwrap());
-            let len = u32::from_le_bytes(head[4..].try_into().unwrap()) as usize;
+        while let (Some(frame), Some(len)) = (le_u32(messages, at), le_u32(messages, at + 4)) {
+            let len = len as usize;
             if let Some(data) = messages.get(at + 8..at + 8 + len) {
                 self.device.message(frame, data);
             }
@@ -541,7 +539,7 @@ impl Helper {
 /// Take one whole frame (its length in 4 bytes, then it) from the front of
 /// `pending`, without its length; `None` until one has come in full.
 fn take_frame(pending: &mut Vec<u8>) -> Option<Vec<u8>> {
-    let length = u32::from_le_bytes(pending.get(..4)?.try_into().unwrap()) as usize;
+    let length = le_u32(pending, 0)? as usize;
     if pending.len() < 4 + length {
         return None;
     }

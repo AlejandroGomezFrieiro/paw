@@ -3,6 +3,8 @@
 //! thread is marked as the audio thread, across every message the engine
 //! takes and every built-in device.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::sync::Arc;
@@ -281,6 +283,7 @@ fn schedule(parts: &[PartSlot]) -> Box<Schedule> {
 /// MIDI input, monitoring and recording: none of it may allocate on the
 /// audio thread.
 #[test]
+#[expect(clippy::too_many_lines, reason = "one test of a long scenario, read from top to bottom")]
 fn the_audio_thread_never_allocates() {
     // The guard itself works: an allocation and a free while marked count.
     let before = VIOLATIONS.load(Ordering::Relaxed);

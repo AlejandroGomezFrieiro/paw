@@ -23,7 +23,7 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use super::dsp::{self, DelayLine, Readings, Smooth, Upsampler};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 /// How late the output is, in seconds.
@@ -46,10 +46,22 @@ const TRUE_PEAK: usize = 3;
 
 pub fn params() -> Vec<ParamInfo> {
     vec![
-        param("ceiling", "Ceiling", -24.0, 0.0, -1.0, "dB"),
-        param("gain", "Gain", 0.0, 24.0, 0.0, "dB"),
-        param("release", "Release", 1.0, 1000.0, 100.0, "ms"),
-        choice("true_peak", "True peak", &["Off", "On"], 1),
+        ParamInfo::new("ceiling")
+            .name("Ceiling")
+            .range(-24.0, 0.0)
+            .default_value(-1.0)
+            .unit("dB"),
+        ParamInfo::new("gain")
+            .name("Gain")
+            .range(0.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+        ParamInfo::new("release")
+            .name("Release")
+            .range(1.0, 1000.0)
+            .default_value(100.0)
+            .unit("ms"),
+        ParamInfo::choice("true_peak", &["Off", "On"], 1).name("True peak"),
     ]
 }
 
@@ -326,13 +338,6 @@ fn interpolated_peak<const F: usize>(x: &[f32], taps: usize, beta: f64) -> f32 {
     most
 }
 
-/// True peak as a BS.1770 meter reads it, and as this program's own
-/// measurements do (`paw-core`'s analysis): four times over, 24 taps.
-#[cfg(test)]
-pub fn true_peak(x: &[f32]) -> f32 {
-    interpolated_peak::<4>(x, 24, 7.0)
-}
-
 /// True peak far more finely: 32 times over, 128 taps.
 #[cfg(test)]
 pub fn fine_peak(x: &[f32]) -> f32 {
@@ -421,11 +426,11 @@ mod tests {
                     let right: Vec<f32> = signal.iter().map(|v| -v * 0.7).collect();
                     let (l, r) = fx.run_stereo(&signal, &right, 256);
                     let ceiling = dsp::db_to_lin(-1.0);
-                    let tp = true_peak(&l).max(true_peak(&r));
+                    // As `:analyze` reads the rendered file.
+                    let tp = paw_measure::analyze(f64::from(sr), &l, &r).true_peak;
                     assert!(
-                        tp <= ceiling,
-                        "{name} at {sr} Hz, +{gain} dB: a true peak of {:.3} dBTP",
-                        dsp::lin_to_db(tp)
+                        tp <= -1.0,
+                        "{name} at {sr} Hz, +{gain} dB: a true peak of {tp:.3} dBTP"
                     );
                     // Read far more finely, too, except for loud broadband
                     // noise: there the ideal reconstruction's peaks depend on

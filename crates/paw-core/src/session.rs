@@ -4,6 +4,8 @@
 //! marks it dirty. [`Session::flush`] then diffs it against what the engine
 //! last saw and sends the difference.
 
+#![allow(clippy::struct_excessive_bools, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

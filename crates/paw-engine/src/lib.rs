@@ -25,6 +25,7 @@ pub mod midi;
 pub mod midi_filter;
 pub mod midi_out;
 pub mod pool;
+pub mod priority;
 pub mod preview;
 pub mod plan;
 pub mod probe;
@@ -54,20 +55,4 @@ pub use samples::{DiskStore, Samples, Sink, store_name};
 pub use plan::GraphPlan;
 pub use slot::{DeviceSlot, ProcessorSlot, PartSlot};
 
-/// Convert decibels to linear gain. Anything at or below -120 dB is silence.
-pub fn db_to_gain(db: f64) -> f32 {
-    if db <= -120.0 {
-        0.0
-    } else {
-        10f64.powf(db / 20.0) as f32
-    }
-}
-
-/// Convert linear gain to decibels, floored at -120 dB.
-pub fn gain_to_db(gain: f32) -> f64 {
-    if gain <= 1e-6 {
-        -120.0
-    } else {
-        20.0 * (gain as f64).log10()
-    }
-}
+pub use paw_types::gain::{db_to_gain, gain_to_db};

@@ -350,7 +350,7 @@ impl GtkWindow {
                 window,
                 c"delete-event".as_ptr(),
                 on_delete as *const c_void,
-                &*closed as *const Cell<bool> as *mut c_void,
+                &raw const *closed as *mut c_void,
                 ptr::null(),
                 0,
             );

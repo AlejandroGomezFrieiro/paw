@@ -32,11 +32,11 @@ impl Document {
         copy.id = self.new_id();
         let copy_id = copy.id;
         self.edit_named(|p| {
-            let clip = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
+            let clip = p.clip_in(id)?;
             if clip.link.is_none() {
                 clip.link = Some(link);
             }
-            let t = p.part_mut(part).with_context(|| format!("no part {part}"))?;
+            let t = p.part_in(part)?;
             t.clips.push(Arc::new(copy));
             let at = t.clips.len() - 1;
             p.found_clip(copy_id, part, at);
@@ -52,7 +52,7 @@ impl Document {
             bail!("clip {id} is not linked");
         }
         self.edit_named(|p| {
-            p.clip_mut(id).with_context(|| format!("no clip {id}"))?.link = None;
+            p.clip_in(id)?.link = None;
             Ok(())
         })
     }

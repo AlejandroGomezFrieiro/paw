@@ -60,7 +60,7 @@ unsafe fn read_params(controller: &ComPtr<IEditController>) -> (Vec<ParamID>, Ve
         let units = unit_paths(controller);
         for index in 0..controller.getParameterCount() {
             let mut info: ParameterInfo = std::mem::zeroed();
-            if controller.getParameterInfo(index, &mut info) != OK
+            if controller.getParameterInfo(index, &raw mut info) != OK
                 || ParamFlags::from_bits_retain(info.flags).intersects(ParamFlags::HIDDEN | ParamFlags::READ_ONLY)
             {
                 continue;
@@ -73,7 +73,9 @@ unsafe fn read_params(controller: &ComPtr<IEditController>) -> (Vec<ParamID>, Ve
             }
             ids.push(info.id);
             let mut param =
-                ParamInfo::new(&title, 0.0, 1.0, info.defaultNormalizedValue as f32, "");
+                ParamInfo::new(&title)
+                    .range(0.0, 1.0)
+                    .default_value(info.defaultNormalizedValue as f32);
             param.unit = wide(&info.units);
             param.id = info.id.to_string();
             param.group = units.get(&info.unitId).cloned().unwrap_or_default();
@@ -103,7 +105,7 @@ unsafe fn midi_map(controller: Option<&ComPtr<IEditController>>) -> Box<[ParamID
             let mut id: ParamID = 0;
             // SAFETY: `mapping` is the live controller's own interface (see `# Safety`), and
             // `id` is a live local that the plugin writes.
-            if unsafe { mapping.getMidiControllerAssignment(0, 0, number as i16, &mut id) } == OK {
+            if unsafe { mapping.getMidiControllerAssignment(0, 0, number as i16, &raw mut id) } == OK {
                 *slot = id;
             }
         }
@@ -122,7 +124,7 @@ unsafe fn unit_paths(controller: &ComPtr<IEditController>) -> std::collections::
         unsafe {
             for index in 0..units.getUnitCount() {
                 let mut info: UnitInfo = std::mem::zeroed();
-                if units.getUnitInfo(index, &mut info) == OK && info.id != 0 {
+                if units.getUnitInfo(index, &raw mut info) == OK && info.id != 0 {
                     parents.insert(info.id, (info.parentUnitId, wide(&info.name)));
                 }
             }
@@ -151,6 +153,7 @@ impl DeviceFactory for Vst3Factory {
         &self.info
     }
 
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let module = load(&self.bundle, &self.libraries)?;
         // SAFETY: The factory is live; every COM call is made in the order the VST3 ABI requires
@@ -159,13 +162,13 @@ impl DeviceFactory for Vst3Factory {
         // the structs passed (`ProcessSetup`, zeroed plain data, `ParameterInfo`) live through each call.
         unsafe {
             let host = ComWrapper::new(Host::default());
-            let context = host.as_com_ref::<IHostApplication>().unwrap().as_ptr() as *mut FUnknown;
+            let context = host.as_com_ref::<IHostApplication>().expect("the object implements IHostApplication").as_ptr() as *mut FUnknown;
 
             let mut raw = ptr::null_mut();
             module.factory.createInstance(
                 self.class.as_ptr(),
                 IComponent::IID.as_ptr().cast(),
-                &mut raw,
+                &raw mut raw,
             );
             let component: ComPtr<IComponent> =
                 ComPtr::from_raw(raw.cast()).context("the plugin could not be created")?;
@@ -182,11 +185,11 @@ impl DeviceFactory for Vst3Factory {
             if separate {
                 let mut class: TUID = [0; 16];
                 let mut raw = ptr::null_mut();
-                if component.getControllerClassId(&mut class) == OK {
+                if component.getControllerClassId(&raw mut class) == OK {
                     module.factory.createInstance(
                         class.as_ptr(),
                         IEditController::IID.as_ptr().cast(),
-                        &mut raw,
+                        &raw mut raw,
                     );
                 }
                 controller = ComPtr::from_raw(raw.cast());
@@ -217,7 +220,7 @@ impl DeviceFactory for Vst3Factory {
             };
             if let Some(controller) = &shared.controller {
                 controller
-                    .setComponentHandler(host.as_com_ref::<IComponentHandler>().unwrap().as_ptr());
+                    .setComponentHandler(host.as_com_ref::<IComponentHandler>().expect("the object implements IComponentHandler").as_ptr());
                 // Start the controller from the component's own state.
                 let state = Stream::new(Vec::new());
                 if shared.component.getState(stream_ptr(&state)) == OK {
@@ -239,7 +242,7 @@ impl DeviceFactory for Vst3Factory {
                 maxSamplesPerBlock: max_block as i32,
                 sampleRate: sample_rate as f64,
             };
-            if shared.processor.setupProcessing(&mut setup) != OK {
+            if shared.processor.setupProcessing(&raw mut setup) != OK {
                 bail!("the plugin rejected the audio setup");
             }
             if shared.component.setActive(1) != OK {

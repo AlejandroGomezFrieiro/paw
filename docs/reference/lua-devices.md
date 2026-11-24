@@ -102,7 +102,8 @@ Use one filter or smoother for each channel.
 ## Calls from scripts
 
 - `dev.call(method, data)` answers `paw.api.device_call(device, method, data)` from the Lua of the kernel.
-- The call runs in the state of the device, between two blocks, and a block that comes during the call waits for it, so keep the call short.
+- The call runs in the state of the device, between two blocks. A block that comes during the call doesn't wait for it: an instrument is silent for that block, and an effect passes its input on unchanged. The script gets the events of that block at frame 0 of its next block, so a note-off is not lost. Keep the call short.
+- `paw.api.device_call(device, "lua.misses")` gives the number of blocks that the script didn't get because a call was running.
 - `data` is a string, and the return value (a string, a number or nothing) is the answer. An error is an error of the caller, and the device continues to play.
 - `paw.api.device_post(kind, topic, data)` calls `dev.call(topic, data)` on each device of a kind. It calls the devices that exist immediately, and it calls each device made later before its first block (the private devices of an offline render too). paw keeps the latest data of each topic for these devices, so devices made at any time agree, and `nil` removes a topic.
 

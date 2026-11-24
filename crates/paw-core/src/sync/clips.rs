@@ -2,6 +2,8 @@
 //! regions, sent whole or as the pieces an edit changed; and the clips off
 //! the timeline, in their rows.
 
+#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 

@@ -6,6 +6,37 @@ use std::path::Path;
 
 use anyhow::Result;
 
+/// The form of each sample in the file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WavFormat {
+    /// 16-bit integer PCM.
+    Int16,
+    /// 24-bit integer PCM.
+    Int24,
+    /// 32-bit float.
+    Float32,
+}
+
+impl WavFormat {
+    /// The format of `bits` bits a sample: 16, 24 or 32 (float).
+    pub fn from_bits(bits: u16) -> Option<Self> {
+        match bits {
+            16 => Some(Self::Int16),
+            24 => Some(Self::Int24),
+            32 => Some(Self::Float32),
+            _ => None,
+        }
+    }
+
+    fn bits(self) -> u16 {
+        match self {
+            Self::Int16 => 16,
+            Self::Int24 => 24,
+            Self::Float32 => 32,
+        }
+    }
+}
+
 pub struct Writer {
     inner: hound::WavWriter<BufWriter<File>>,
     /// Full scale for integer formats, or `None` when writing floats.
@@ -13,23 +44,24 @@ pub struct Writer {
 }
 
 impl Writer {
-    /// `bits` is 16 or 24 for integer PCM, or 32 for float.
-    pub fn create(path: &Path, sample_rate: u32, bits: u16, float: bool) -> Result<Self> {
-        Self::with_channels(path, sample_rate, bits, float, 2)
+    /// A stereo file.
+    pub fn create(path: &Path, sample_rate: u32, format: WavFormat) -> Result<Self> {
+        Self::with_channels(path, sample_rate, format, 2)
     }
 
-    /// As [`create`](Self::create), with one channel or two.
+    /// As [`create`](Self::create), with one channel or more.
     pub fn with_channels(
         path: &Path,
         sample_rate: u32,
-        bits: u16,
-        float: bool,
+        format: WavFormat,
         channels: u16,
     ) -> Result<Self> {
-        let sample_format = if float {
-            hound::SampleFormat::Float
-        } else {
-            hound::SampleFormat::Int
+        let bits = format.bits();
+        let (sample_format, scale) = match format {
+            WavFormat::Float32 => (hound::SampleFormat::Float, None),
+            WavFormat::Int16 | WavFormat::Int24 => {
+                (hound::SampleFormat::Int, Some(((1i64 << (bits - 1)) - 1) as f32))
+            }
         };
         let spec = hound::WavSpec {
             channels,
@@ -37,7 +69,6 @@ impl Writer {
             bits_per_sample: bits,
             sample_format,
         };
-        let scale = (!float).then(|| ((1i64 << (bits - 1)) - 1) as f32);
         Ok(Self {
             inner: hound::WavWriter::create(path, spec)?,
             scale,

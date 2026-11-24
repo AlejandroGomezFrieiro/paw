@@ -82,7 +82,7 @@ pub fn register_test_devices(registry: &mut crate::Registry) {
                 kind,
                 name,
                 Category::Effect,
-                vec![ParamInfo::new("fail", 0.0, 1.0, 0.0, "")],
+                vec![ParamInfo::new("fail").range(0.0, 1.0).default_value(0.0)],
             ),
             make,
             latency: 0.0,

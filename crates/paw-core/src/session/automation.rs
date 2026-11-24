@@ -49,7 +49,7 @@ impl Session {
         if self
             .doc.project
             .part(part)
-            .unwrap()
+            .with_context(|| format!("no part {part}"))?
             .lanes
             .iter()
             .any(|l| l.target == target)
@@ -60,7 +60,7 @@ impl Session {
             && !self
                 .doc.project
                 .device(*device)
-                .unwrap()
+                .with_context(|| format!("no device {device}"))?
                 .params
                 .contains_key(param)
         {
@@ -69,7 +69,7 @@ impl Session {
             let value = self.device_view(*device)?["params"][param].as_f64();
             let key = param.clone();
             self.doc.edit(|p| {
-                let params = &mut p.device_mut(*device).unwrap().params;
+                let params = &mut p.device_in(*device)?.params;
                 params.insert(key, value.unwrap_or_default());
                 Ok(())
             })?;
@@ -77,7 +77,7 @@ impl Session {
         let points = document::clean_points(&target, states.len(), opts.points, &param_range(&self.live))?;
         let id = self.doc.new_id();
         self.doc.edit(|p| {
-            p.part_mut(part).unwrap().lanes.push(Arc::new(Lane {
+            p.part_in(part)?.lanes.push(Arc::new(Lane {
                 id,
                 target,
                 enabled: opts.enabled.unwrap_or(true),

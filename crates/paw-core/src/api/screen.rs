@@ -163,6 +163,7 @@ fn view_snapshot(lua: &Lua, sh: &Shared, name: &str, width: u16, height: u16) ->
     }))
 }
 
+#[expect(clippy::too_many_lines, reason = "one registration for each Lua function of the table, in a list")]
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- screen ---

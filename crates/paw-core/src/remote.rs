@@ -383,7 +383,7 @@ mod tests {
         let changed = runs(&after, Some(&before));
         assert_eq!(changed.len(), 2, "two stretches changed: {changed:?}");
         assert_eq!(changed[0][2], "X");
-        let mut far = before.clone();
+        let mut far = before;
         apply(&mut far, &json!({ "w": 12, "h": 3, "runs": changed })).unwrap();
         assert_eq!(far.cells, after.cells);
         assert!(runs(&after, Some(&after)).is_empty(), "nothing changed, nothing sent");

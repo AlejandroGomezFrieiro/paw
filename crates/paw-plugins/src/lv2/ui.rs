@@ -141,7 +141,7 @@ pub(super) unsafe fn find_ui(
     // block, and every node made here is freed before it ends. Main thread only.
     unsafe {
         let uri = |text: String| {
-            let text = CString::new(text).unwrap();
+            let text = CString::new(text).expect("the text has no NUL byte");
             lilv_new_uri(w.world, text.as_ptr())
         };
         let gtk = [uri(format!("{UI}GtkUI")), uri(format!("{UI}Gtk3UI"))];
@@ -291,6 +291,7 @@ impl UiFeatures {
     ///
     /// `shared.instance` is a live instance, and `link` points to a `UiLink`
     /// that lives as long as the editor. Main thread.
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     pub(super) unsafe fn new(
         shared: &Shared,
         link: *mut c_void,
@@ -330,7 +331,7 @@ impl UiFeatures {
             key: u.scale_factor,
             size: 4,
             type_: u.float,
-            value: (&*scale as *const f32).cast(),
+            value: (&raw const *scale).cast(),
         });
         // For editors that make their own window.
         options.push(OptionsOption {
@@ -370,22 +371,22 @@ impl UiFeatures {
             )
         };
         let mut features = vec![
-            feature(URID_MAP, &host.map as *const UridMap as *mut c_void),
-            feature(URID_UNMAP, &host.unmap as *const UridUnmap as *mut c_void),
+            feature(URID_MAP, &raw const host.map as *mut c_void),
+            feature(URID_UNMAP, &raw const host.unmap as *mut c_void),
             feature(OPTIONS, options.as_mut_ptr() as *mut c_void),
             feature(
                 c"http://lv2plug.in/ns/extensions/ui#resize",
-                &mut *resize as *mut UiResize as *mut c_void,
+                &raw mut *resize as *mut c_void,
             ),
             feature(
                 c"http://lv2plug.in/ns/extensions/ui#portMap",
-                &mut *port_map as *mut UiPortMap as *mut c_void,
+                &raw mut *port_map as *mut c_void,
             ),
             feature(IDLE_INTERFACE, ptr::null_mut()),
             feature(c"http://lv2plug.in/ns/ext/instance-access", handle.cast()),
             feature(
                 EXTERNAL_HOST,
-                &mut *external as *mut ExternalHost as *mut c_void,
+                &raw mut *external as *mut c_void,
             ),
         ];
         if let Some(window) = window {
@@ -398,7 +399,7 @@ impl UiFeatures {
         if let Some(access) = data_access.as_mut() {
             features.push(feature(
                 c"http://lv2plug.in/ns/ext/data-access",
-                &mut **access as *mut DataAccess as *mut c_void,
+                &raw mut **access as *mut c_void,
             ));
         }
         let mut feature_list: Vec<*const Feature> =

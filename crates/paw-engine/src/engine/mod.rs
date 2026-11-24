@@ -67,6 +67,7 @@ const METER_FALL_SECONDS: f32 = 0.3;
 /// How long a plan of another shape fades out, and the new one in.
 const PLAN_FADE_SECONDS: f64 = 0.005;
 
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of the engine; one bitflags type for them is open work")]
 pub struct Engine {
     sample_rate: f64,
     parts: Vec<Guarded<Option<Box<PartRt>>>>,

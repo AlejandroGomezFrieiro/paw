@@ -174,15 +174,16 @@ impl Lv2Controller {
                     let value = shared.control(*slot);
                     if ui.shown[index].to_bits() != value.to_bits() {
                         ui.shown[index] = value;
-                        port_event(ui.handle, *port, 4, 0, (&value as *const f32).cast());
+                        port_event(ui.handle, *port, 4, 0, (&raw const value).cast());
                     }
                 }
                 // What the plugin sent from its atom outputs.
                 while read_message(&mut self.from_plugin, &mut self.message) {
-                    let Some((port, atom)) = self.message.split_at_checked(4) else {
+                    let (Some(port), Some(atom)) =
+                        (crate::bytes::le_u32(&self.message, 0), self.message.get(4..))
+                    else {
                         continue;
                     };
-                    let port = u32::from_le_bytes(port.try_into().unwrap());
                     note_property(&mut self.values, atom);
                     port_event(
                         ui.handle,
@@ -290,7 +291,7 @@ impl Controller for Lv2Controller {
                 UiKind::X11 => Some(HostWindow::new(title, 640, 480)?),
                 _ => None,
             };
-            let link = &*self.link as *const UiLink as *mut c_void;
+            let link = &raw const *self.link as *mut c_void;
             self.link.closed.set(false);
             let title = CString::new(title).unwrap_or_default();
             let features = UiFeatures::new(shared, link, title, window.as_ref());
@@ -303,7 +304,7 @@ impl Controller for Lv2Controller {
                 info.bundle.as_ptr(),
                 ui_write,
                 link,
-                &mut widget,
+                &raw mut widget,
                 features.list(),
             );
             if handle.is_null() {
@@ -367,7 +368,7 @@ impl Controller for Lv2Controller {
         // which lilv only reads; `get_port_value` is called with `shared` (live through the call). The
         // state and the text string lilv returns are freed here, once.
         unsafe {
-            let map = &shared.host.map as *const UridMap as *mut _;
+            let map = &raw const shared.host.map as *mut _;
             let state = lilv_state_new_from_instance(
                 shared.plugin,
                 shared.instance,
@@ -385,7 +386,7 @@ impl Controller for Lv2Controller {
             if state.is_null() {
                 return Ok(None);
             }
-            let unmap = &shared.host.unmap as *const UridUnmap as *mut _;
+            let unmap = &raw const shared.host.unmap as *mut _;
             let text =
                 lilv_state_to_string(w.world, map, unmap, state, STATE_URI.as_ptr(), ptr::null());
             lilv_state_free(state);
@@ -446,7 +447,7 @@ impl Controller for Lv2Controller {
             paw_engine::device::method::PRESET_LOAD => unsafe {
                 let node = uri(&String::from_utf8_lossy(data))?;
                 lilv_world_load_resource(w, node);
-                let map = &shared.host.map as *const UridMap as *mut _;
+                let map = &raw const shared.host.map as *mut _;
                 let state = lilv_state_new_from_world(w, map, node);
                 lilv_node_free(node);
                 if state.is_null() {
@@ -467,7 +468,7 @@ impl Controller for Lv2Controller {
         // SAFETY: `map` is `shared.host.map`, which lilv only reads; the world and `shared.instance` are
         // live; `text` is a CString that lives through the call and the state is freed here.
         unsafe {
-            let map = &shared.host.map as *const UridMap as *mut _;
+            let map = &raw const shared.host.map as *mut _;
             let state = lilv_state_new_from_string(world().world, map, text.as_ptr());
             if state.is_null() {
                 bail!("the saved state could not be read");

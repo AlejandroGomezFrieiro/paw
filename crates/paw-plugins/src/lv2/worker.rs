@@ -1,5 +1,8 @@
 //! The LV2 worker: non-real-time work for a plugin, on a thread of its own.
 
+#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![allow(clippy::redundant_clone, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};

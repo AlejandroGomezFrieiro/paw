@@ -29,22 +29,6 @@ pub trait Face {
     }
 }
 
-/// A parameter whose key and shown name differ.
-pub fn param(key: &str, name: &str, min: f32, max: f32, default: f32, unit: &str) -> ParamInfo {
-    ParamInfo {
-        key: key.into(),
-        ..ParamInfo::new(name, min, max, default, unit)
-    }
-}
-
-/// A parameter that chooses between named options.
-pub fn choice(key: &str, name: &str, choices: &[&str], default: usize) -> ParamInfo {
-    ParamInfo {
-        key: key.into(),
-        ..ParamInfo::choice(name, choices, default)
-    }
-}
-
 /// The two halves of a new built-in effect.
 pub type Pair = (Box<dyn Device>, Box<dyn Face>);
 

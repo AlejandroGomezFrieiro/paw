@@ -11,6 +11,8 @@ description = "Measures a sound: loudness, true peak, levels, stereo and spectru
 realfft = "3.5"
 # The analysis is plain data that the kernel gives to Lua.
 serde.workspace = true
+# Decibels, shared with the engine.
+paw-types.workspace = true
 
 [lints]
 workspace = true

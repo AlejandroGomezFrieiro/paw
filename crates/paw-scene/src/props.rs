@@ -87,6 +87,7 @@ pub struct LabelProps<'a> {
 /// glyph, and `icon` the name of an icon for that glyph.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
+#[expect(clippy::struct_excessive_bools, reason = "the fields are the props of a node on the scene wire")]
 pub struct ButtonProps<'a> {
     pub text: Option<&'a str>,
     pub words: Option<&'a str>,
@@ -235,6 +236,7 @@ pub struct BandProps<'a> {
 /// semitones, reached from `bend_at` (0 to 1) of its length.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
+#[expect(clippy::struct_excessive_bools, reason = "the fields are the props of a node on the scene wire")]
 pub struct NoteProps<'a> {
     pub color: Option<&'a str>,
     pub velocity: f64,
@@ -310,6 +312,7 @@ pub struct ChipProps<'a> {
 /// scope cuts it; `nest` for a block of a subproject, drawn in a frame.
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
+#[expect(clippy::struct_excessive_bools, reason = "the fields are the props of a node on the scene wire")]
 pub struct ClipProps<'a> {
     pub id: Option<i64>,
     pub take: Option<i64>,

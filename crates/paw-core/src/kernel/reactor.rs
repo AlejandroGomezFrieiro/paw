@@ -226,7 +226,7 @@ impl<'a> Reactor<'a> {
             Agenda { ready: timers.iter().any(|t| !t.idle && t.due <= now), next_due, ..Agenda::default() }
         };
         let messages = Agenda {
-            ready: !self.shared.inbox.borrow().is_empty() || !self.shared.midi_in.lock().unwrap().is_empty(),
+            ready: !self.shared.inbox.borrow().is_empty() || !self.shared.midi_in.lock().expect("a thread panicked while it held the lock").is_empty(),
             ..Agenda::default()
         };
         let measures = Agenda {

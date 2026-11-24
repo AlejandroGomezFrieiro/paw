@@ -65,9 +65,10 @@ impl Controller for Vst3Controller {
         // leaves the blocks alone until it is let go.
         let _held = shared.run.lock().unwrap_or_else(|e| e.into_inner());
         let (block, rate) = (shared.max_block, shared.sample_rate);
+        let mode = if offline { Processing::Offline } else { Processing::Realtime };
         // SAFETY: The call is on the main thread with the plugin's live objects, and `shared.run` is
         // held, so the audio thread is not in `process` while the processor is set up again.
-        if unsafe { set_up_again(&shared.component, &shared.processor, block, rate, offline) } {
+        if unsafe { set_up_again(&shared.component, &shared.processor, block, rate, mode) } {
             shared.offline.store(offline, Ordering::Relaxed);
         }
     }
@@ -82,7 +83,7 @@ impl Controller for Vst3Controller {
         let mut text: String128 = [0; 128];
         // SAFETY: `controller` is live and `text` is a `String128` that the plugin fills; main thread.
         unsafe {
-            (controller.getParamStringByValue(id, value, &mut text) == OK)
+            (controller.getParamStringByValue(id, value, &raw mut text) == OK)
                 .then(|| wide(&text))
                 .filter(|t| !t.is_empty())
         }
@@ -96,7 +97,7 @@ impl Controller for Vst3Controller {
         let mut value = 0.0;
         // SAFETY: `controller` is live; `units` is NUL-terminated and lives through the call.
         unsafe {
-            (controller.getParamValueByString(id, units.as_mut_ptr(), &mut value) == OK)
+            (controller.getParamValueByString(id, units.as_mut_ptr(), &raw mut value) == OK)
                 .then_some(value)
                 .filter(|v| v.is_finite())
         }
@@ -235,11 +236,20 @@ impl Controller for Vst3Controller {
     }
 }
 
+/// The processing mode of a VST3 setup.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Processing {
+    /// `kRealtime`: blocks come at the speed of the sound.
+    Realtime,
+    /// `kOffline`: a render, where blocks come as fast as they are made.
+    Offline,
+}
+
 /// Set the processor up again for blocks of at most `max_block` frames at
-/// `sample_rate`, in the mode of `offline` (`kOffline` for a render, else
-/// `kRealtime`), and give whether the plugin took the setup. VST3 changes a processing setup only while the processor is
-/// stopped and the component is inactive, so this stops both first and
-/// starts them again after, also when the plugin refuses the setup.
+/// `sample_rate`, in `mode`, and give whether the plugin took the setup.
+/// VST3 changes a processing setup only while the processor is stopped and
+/// the component is inactive, so this stops both first and starts them
+/// again after, also when the plugin refuses the setup.
 ///
 /// # Safety
 /// Call it on the main thread, with live objects of one plugin, while the
@@ -249,10 +259,13 @@ unsafe fn set_up_again(
     processor: &ComPtr<IAudioProcessor>,
     max_block: i32,
     sample_rate: f64,
-    offline: bool,
+    mode: Processing,
 ) -> bool {
     let mut setup = ProcessSetup {
-        processMode: if offline { OFFLINE } else { REALTIME },
+        processMode: match mode {
+            Processing::Offline => OFFLINE,
+            Processing::Realtime => REALTIME,
+        },
         symbolicSampleSize: SAMPLE_32,
         maxSamplesPerBlock: max_block,
         sampleRate: sample_rate,
@@ -261,7 +274,7 @@ unsafe fn set_up_again(
     unsafe {
         processor.setProcessing(0);
         component.setActive(0);
-        let took = processor.setupProcessing(&mut setup) == OK;
+        let took = processor.setupProcessing(&raw mut setup) == OK;
         component.setActive(1);
         processor.setProcessing(1);
         took
@@ -395,13 +408,13 @@ mod tests {
     }
 
     /// The calls that a plugin gets when `Vst3Controller::set_offline`
-    /// sets it up for `offline`.
-    fn calls_to_set_up(offline: bool) -> Vec<Call> {
+    /// sets it up in `mode`.
+    fn calls_to_set_up(mode: Processing) -> Vec<Call> {
         let spy = ComWrapper::new(Spy::default());
         let component = spy.to_com_ptr::<IComponent>().unwrap();
         let processor = spy.to_com_ptr::<IAudioProcessor>().unwrap();
         // SAFETY: The test thread is the only thread, and the objects are live.
-        assert!(unsafe { set_up_again(&component, &processor, 512, 48000.0, offline) });
+        assert!(unsafe { set_up_again(&component, &processor, 512, 48000.0, mode) });
         spy.calls.take()
     }
 
@@ -409,9 +422,9 @@ mod tests {
     fn a_render_sets_the_processor_up_offline_and_then_realtime_again() {
         let stop = [Call::Processing(false), Call::Active(false)];
         let start = [Call::Active(true), Call::Processing(true)];
-        for (offline, mode) in [(true, kOffline), (false, kRealtime)] {
-            let want = [&stop[..], &[Call::Setup(mode as i32)], &start[..]].concat();
-            assert_eq!(calls_to_set_up(offline), want, "set up with offline = {offline}");
+        for (mode, vst3_mode) in [(Processing::Offline, kOffline), (Processing::Realtime, kRealtime)] {
+            let want = [&stop[..], &[Call::Setup(vst3_mode as i32)], &start[..]].concat();
+            assert_eq!(calls_to_set_up(mode), want, "set up in {mode:?}");
         }
     }
 }

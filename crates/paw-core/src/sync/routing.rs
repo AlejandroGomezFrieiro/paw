@@ -228,6 +228,7 @@ fn output_of(project: &Project, t: &Part, placed: &super::nests::Placed, exists:
 /// Order parts so that each one runs after everything that feeds it, and
 /// hold each connection back until the slowest signal reaching the same
 /// place has arrived.
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub(super) fn build_schedule(routing: &Routing, map: &Mapper) -> Schedule {
     // The master is in the routing for its latency, not as a source.
     let sources: Vec<&Route> = routing.iter().filter(|r| r.part != MASTER_ID).collect();

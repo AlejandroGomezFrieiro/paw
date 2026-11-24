@@ -11,6 +11,7 @@ use serde_json::{Map, Value, json};
 
 use super::Document;
 use super::values::{de, de_meta, holds};
+use crate::words::from_word;
 use crate::model::{
     Clip, ClipContent, DeviceInst, Id, Lane, Nest, NestId, NestMeter, NestPlay, NestTempo, Target, Part,
 };
@@ -32,7 +33,8 @@ pub(crate) struct NestOpts {
 }
 
 /// A field of a nest that [`Document::nest_set`] changes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum NestField {
     Name,
     Length,
@@ -46,15 +48,7 @@ impl std::str::FromStr for NestField {
     type Err = anyhow::Error;
 
     fn from_str(key: &str) -> Result<Self> {
-        Ok(match key {
-            "name" => Self::Name,
-            "length" => Self::Length,
-            "tempo" => Self::Tempo,
-            "meter" => Self::Meter,
-            "kind" => Self::Kind,
-            "meta" => Self::Meta,
-            _ => bail!("subprojects have no settable field `{key}`"),
-        })
+        from_word(key).with_context(|| format!("subprojects have no settable field `{key}`"))
     }
 }
 
@@ -218,11 +212,9 @@ impl Document {
         if others == 0 {
             bail!("{} has one block: it is a subproject of its own already", held.name);
         }
+        // The held subproject has its name, so the copy is `Verse 2` or after.
         let names: BTreeSet<&str> = p.nests.values().map(|n| n.name.as_str()).collect();
-        let name = (2..)
-            .map(|n| format!("{} {n}", held.name))
-            .find(|n| !names.contains(n.as_str()))
-            .expect("a free name");
+        let name = crate::names::free(|n| names.contains(n), &held.name, "", crate::names::Scheme::Space);
         // New ids for the parts first: their routes point at each other.
         let id = NestId(self.new_id());
         let sources: Vec<Arc<Part>> = self.project.nest_parts(old).cloned().collect();

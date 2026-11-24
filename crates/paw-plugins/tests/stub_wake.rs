@@ -7,6 +7,8 @@
 //! A file of its own: the stub keeps the values it tells in statics, which
 //! the tests in stub.rs and stub_state.rs read and hold.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 use paw_engine::GraphPlan;
 use paw_engine::{
     Controller, DeviceSlot, Engine, EngineHandle, MAX_BLOCK, Msg, Registry, SchedEntry, Schedule,

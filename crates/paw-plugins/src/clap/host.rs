@@ -183,7 +183,11 @@ impl HostGuiImpl for HostShared {
     fn resize_hints_changed(&self) {}
 
     fn request_resize(&self, size: GuiSize) -> Result<(), HostError> {
-        *self.flags.resize.lock().unwrap() = Some((size.width, size.height));
+        *self
+            .flags
+            .resize
+            .lock()
+            .expect("a thread panicked while it held the lock") = Some((size.width, size.height));
         Ok(())
     }
 
@@ -207,20 +211,31 @@ impl HostTimerImpl for HostMain<'_> {
         flags
             .watches
             .lock()
-            .unwrap()
+            .expect("a thread panicked while it held the lock")
             .add_timer(period_ms as u64, timer);
         Ok(TimerId(timer))
     }
 
     fn unregister_timer(&self, TimerId(id): TimerId) -> Result<(), HostError> {
-        self.shared.flags.watches.lock().unwrap().remove_timer(&id);
+        self.shared
+            .flags
+            .watches
+            .lock()
+            .expect("a thread panicked while it held the lock")
+            .remove_timer(&id);
         Ok(())
     }
 }
 
 impl HostPosixFdImpl for HostMain<'_> {
     fn register_fd(&self, fd: i32, _: FdFlags) -> Result<(), HostError> {
-        self.shared.flags.watches.lock().unwrap().fds.push((fd, ()));
+        self.shared
+            .flags
+            .watches
+            .lock()
+            .expect("a thread panicked while it held the lock")
+            .fds
+            .push((fd, ()));
         Ok(())
     }
 
@@ -233,7 +248,7 @@ impl HostPosixFdImpl for HostMain<'_> {
             .flags
             .watches
             .lock()
-            .unwrap()
+            .expect("a thread panicked while it held the lock")
             .fds
             .retain(|(known, ())| *known != fd);
         Ok(())

@@ -22,11 +22,10 @@ pub const GAIN: &str = "fx_gain";
 
 /// The host's parameters: the wet share in percent and the output gain.
 pub fn params() -> [ParamInfo; 2] {
-    let mut wet = ParamInfo::new("Wet", 0.0, 100.0, 100.0, "%");
-    wet.key = WET.into();
-    let mut gain = ParamInfo::new("Output", -24.0, 24.0, 0.0, "dB");
-    gain.key = GAIN.into();
-    [wet, gain]
+    [
+        ParamInfo::new(WET).name("Wet").range(0.0, 100.0).default_value(100.0).unit("%"),
+        ParamInfo::new(GAIN).name("Output").range(-24.0, 24.0).unit("dB"),
+    ]
 }
 
 /// Zeroed samples in memory of their own from the system, whose pages take

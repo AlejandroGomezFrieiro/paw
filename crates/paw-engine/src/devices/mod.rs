@@ -20,6 +20,7 @@ use std::rc::Rc;
 
 use crate::device::{Category, Device, DeviceInfo, FnFactory, ParamInfo, Registry};
 
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 pub fn register(registry: &mut Registry) {
     add(
         registry,

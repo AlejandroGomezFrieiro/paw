@@ -93,7 +93,7 @@ pub(crate) struct StateEntry {
     pub keys: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "crate::model::serde_util::is_default")]
     pub keep: bool,
     pub files: BlobId,
 }

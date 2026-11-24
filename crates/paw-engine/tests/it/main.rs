@@ -3,6 +3,8 @@
 //! binary. `tests/no_alloc.rs` stays a binary of its own, because it sets
 //! a global allocator for its process.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 mod common;
 
 mod bend;

@@ -5,10 +5,12 @@ use std::collections::BTreeSet;
 use paw_engine::midi_filter::{Control as FilterControl, MidiFilter, Rule};
 
 use crate::events::{KernelEvent as E, Nothing};
+use crate::words::from_word;
 use super::*;
 
 /// The transport as Lua reads it (`paw.api.transport_get`).
 #[derive(Clone, Copy, Debug, Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "the fields are the transport as Lua reads it")]
 pub(crate) struct TransportView {
     pub playing: bool,
     pub position: f64,
@@ -433,7 +435,8 @@ impl Session {
 
 /// A field of the transport that [`Session::transport_set`] changes: the
 /// key that Lua gives, parsed once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum TransportField {
     Write,
     RecordOffset,
@@ -513,24 +516,6 @@ impl std::str::FromStr for TransportField {
     type Err = anyhow::Error;
 
     fn from_str(key: &str) -> Result<Self> {
-        Ok(match key {
-            "write" => Self::Write,
-            "record_offset" => Self::RecordOffset,
-            "loop_enabled" => Self::LoopEnabled,
-            "loop_start" => Self::LoopStart,
-            "loop_end" => Self::LoopEnd,
-            "metronome" => Self::Metronome,
-            "recording" => Self::Recording,
-            "punch_enabled" => Self::PunchEnabled,
-            "punch_start" => Self::PunchStart,
-            "punch_end" => Self::PunchEnd,
-            "count_in" => Self::CountIn,
-            "pre_roll" => Self::PreRoll,
-            "pre_roll_seconds" => Self::PreRollSeconds,
-            "click_level" => Self::ClickLevel,
-            "click_accent" => Self::ClickAccent,
-            "click_output" => Self::ClickOutput,
-            _ => bail!("the transport has no settable field `{key}`"),
-        })
+        from_word(key).with_context(|| format!("the transport has no settable field `{key}`"))
     }
 }

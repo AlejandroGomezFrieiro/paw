@@ -5,6 +5,8 @@
 //! prints one JSON line: the median and the spread of the mean time of a
 //! block of 128 frames over the rounds.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 use std::sync::Arc;
 use std::time::Instant;
 

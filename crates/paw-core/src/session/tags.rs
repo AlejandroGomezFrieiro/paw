@@ -151,7 +151,7 @@ impl Cover {
     }
 
     fn parse(data: Vec<u8>) -> Result<Self> {
-        let be = |at: usize| data.get(at..at + 4).map(|b| u32::from_be_bytes(b.try_into().unwrap()));
+        let be = |at: usize| data.get(at..at + 4).map(|b| u32::from_be_bytes(b.try_into().expect("the slice has the length of the array")));
         let (mime, width, height, depth) = if data.starts_with(b"\x89PNG\r\n\x1a\n") {
             let channels = match data.get(25) {
                 Some(0) | Some(3) => 1,
@@ -359,7 +359,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.wav");
         // Mono, 24 bits, 3 frames: an odd number of data bytes.
-        let mut w = paw_engine::wav::Writer::with_channels(&path, 44100, 24, false, 1).unwrap();
+        let mut w = paw_engine::wav::Writer::with_channels(&path, 44100, paw_engine::wav::WavFormat::Int24, 1).unwrap();
         for _ in 0..3 {
             w.write(0.5).unwrap();
         }

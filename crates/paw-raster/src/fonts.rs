@@ -79,7 +79,7 @@ impl Font {
     pub fn outline(self, glyph: GlyphId) -> Option<Arc<Path>> {
         static CACHE: OnceLock<Mutex<Outlines>> = OnceLock::new();
         let cache = CACHE.get_or_init(Default::default);
-        if let Some(found) = cache.lock().unwrap().get(&(self, glyph.0)) {
+        if let Some(found) = cache.lock().expect("a thread panicked while it held the lock").get(&(self, glyph.0)) {
             return found.clone();
         }
         let face = self.face();
@@ -91,7 +91,7 @@ impl Font {
             .outline_glyph(glyph, &mut builder)
             .and_then(|_| builder.path.finish())
             .map(Arc::new);
-        cache.lock().unwrap().insert((self, glyph.0), path.clone());
+        cache.lock().expect("a thread panicked while it held the lock").insert((self, glyph.0), path.clone());
         path
     }
 

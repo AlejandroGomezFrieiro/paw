@@ -574,13 +574,9 @@ fn shortest(value: f64, bipolar: bool) -> f64 {
     value
 }
 
-const NAMES: [&str; 12] = [
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-];
-
 /// A key's name: 60 is C4.
 pub(crate) fn key_name(key: u8) -> String {
-    format!("{}{}", NAMES[key as usize % 12], key as i32 / 12 - 1)
+    paw_types::pitch::name(i32::from(key))
 }
 
 /// A clip as text, one note or controller move to a line, in the order they

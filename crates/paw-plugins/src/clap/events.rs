@@ -143,7 +143,7 @@ impl ClapEvents {
                     value,
                     ch,
                 } if clap_notes && expression(ctl, value).is_some() => {
-                    let (expression_id, value) = expression(ctl, value).unwrap();
+                    let (expression_id, value) = expression(ctl, value).expect("the guard of the arm found an expression");
                     push(ClapEvent {
                         expression: clap_event_note_expression {
                             header: header::<clap_event_note_expression>(

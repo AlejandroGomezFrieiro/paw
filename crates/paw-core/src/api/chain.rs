@@ -3,6 +3,11 @@
 //! these. Each function of a chain takes its owner's handle
 //! (`{ part = id }`), as `paw.chain.of` gives it.
 
+#![allow(
+    clippy::too_many_lines,
+    reason = "fixed with the running work on the session, the API and the model of paw-core"
+)]
+
 use std::rc::Rc;
 
 use mlua::{Lua, Table, Value as LuaValue};

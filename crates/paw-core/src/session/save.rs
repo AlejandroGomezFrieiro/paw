@@ -284,6 +284,7 @@ impl Session {
     }
 
     /// `<Space>zW`: a row of its own (see the module).
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn save_own_row(&mut self, opts: &SaveOpts, nest: Nest, master: Part, place: Option<NestId>) -> Result<Saved> {
         let (from, to) = (opts.from, opts.to);
         let p = &self.doc.project;
@@ -557,7 +558,7 @@ impl Session {
                     above_group.or(slot).unwrap_or(list.len())
                 }
             };
-            list.insert(at, row.clone());
+            list.insert(at, row);
         }
         list.extend(made);
         p.parts = list;

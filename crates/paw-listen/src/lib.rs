@@ -103,7 +103,7 @@ impl Jitter {
 /// Where the sound goes.
 enum Output {
     #[cfg(feature = "device")]
-    Device(#[allow(dead_code)] cpal::Stream),
+    Device(#[allow(dead_code, reason = "held only to keep the stream open")] cpal::Stream),
     /// A thread that takes the sound at the pace a device would and writes
     /// it to a file.
     File { stop: Arc<AtomicBool>, thread: Option<std::thread::JoinHandle<()>> },
@@ -173,7 +173,7 @@ impl Player {
                 std::thread::sleep(Duration::from_millis(10));
                 let due = (started.elapsed().as_secs_f64() * rate as f64) as u64;
                 block.resize((due - played) as usize * 2, 0.0);
-                playing.lock().unwrap().pull(&mut block, 2);
+                playing.lock().expect("a thread panicked while it held the lock").pull(&mut block, 2);
                 played = due;
                 if wav.append(&block).is_err() {
                     return;
@@ -185,12 +185,12 @@ impl Player {
 
     /// Take an `audio.frame` event's payload.
     pub fn push(&self, payload: &Value) -> Result<()> {
-        self.jitter.lock().unwrap().push(payload)
+        self.jitter.lock().expect("a thread panicked while it held the lock").push(payload)
     }
 
     /// How often the sound has run dry so far.
     pub fn underruns(&self) -> u64 {
-        self.jitter.lock().unwrap().underruns
+        self.jitter.lock().expect("a thread panicked while it held the lock").underruns
     }
 }
 

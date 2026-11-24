@@ -86,18 +86,18 @@ pub struct Clients {
 impl Clients {
     fn add(&self, out: Out) -> ClientId {
         let id = self.next.fetch_add(1, Ordering::Relaxed) + 1;
-        self.out.lock().unwrap().insert(id, out);
+        self.out.lock().expect("a thread panicked while it held the lock").insert(id, out);
         id
     }
 
     fn remove(&self, id: ClientId) {
-        self.out.lock().unwrap().remove(&id);
+        self.out.lock().expect("a thread panicked while it held the lock").remove(&id);
     }
 
     /// Queue a line for a connection. False when it is gone, or when it has
     /// let too much wait and is closed for it.
     pub fn send(&self, id: ClientId, line: String) -> bool {
-        let mut all = self.out.lock().unwrap();
+        let mut all = self.out.lock().expect("a thread panicked while it held the lock");
         let Some(out) = all.get(&id) else {
             return false;
         };
@@ -118,7 +118,7 @@ impl Clients {
 
     /// The connections that are open.
     pub fn ids(&self) -> Vec<ClientId> {
-        let mut ids: Vec<ClientId> = self.out.lock().unwrap().keys().copied().collect();
+        let mut ids: Vec<ClientId> = self.out.lock().expect("a thread panicked while it held the lock").keys().copied().collect();
         ids.sort_unstable();
         ids
     }

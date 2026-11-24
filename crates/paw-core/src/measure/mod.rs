@@ -147,6 +147,7 @@ impl Drop for RunningToken {
 }
 
 #[expect(clippy::disallowed_methods, reason = "the seconds that a measure took are a measure of work")]
+#[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
 fn start(shared: &Shared, opts: MeasureOpts) -> Result<Job> {
     let done = Arc::new(AtomicU64::new(0));
     let cancel = Arc::new(AtomicBool::new(false));
@@ -360,7 +361,7 @@ pub(crate) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         }))?,
     )?;
 
-    let js = jobs.clone();
+    let js = jobs;
     // @return nil
     api.set(
         "measure_cancel",

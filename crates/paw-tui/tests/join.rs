@@ -3,6 +3,8 @@
 //! that terminal (mode 1004) acts on changes made meanwhile to the
 //! project's files.
 
+#![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+
 mod sealed;
 
 use std::io::{Read, Write};
@@ -205,7 +207,7 @@ fn the_first_frame_is_drawn_before_anything_else_arrives() {
             Ok(())
         });
     }
-    let _running = Running(vec![command.spawn().expect("starting paw")], dir.clone());
+    let _running = Running(vec![command.spawn().expect("starting paw")], dir);
     // What it writes is read, so that it never waits on a full pty.
     let mut reader = master.try_clone().unwrap();
     std::thread::spawn(move || {

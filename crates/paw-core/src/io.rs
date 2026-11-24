@@ -9,6 +9,8 @@
 //! `poll(2)` for room, with a time limit. Handles live in the kernel, not in the Lua state, so they
 //! survive `:reload`.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};

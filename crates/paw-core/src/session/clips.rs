@@ -1,5 +1,7 @@
 //! Clips: their fields, notes, controls and audio.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use super::*;
 use document::ClipChange;
 

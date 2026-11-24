@@ -101,7 +101,7 @@ pub(crate) struct DeviceTrouble {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(skip_serializing_if = "crate::model::serde_util::is_default")]
     pub loading: bool,
 }
 

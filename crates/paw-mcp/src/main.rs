@@ -125,11 +125,11 @@ fn run() -> Result<()> {
         let opts = SpawnOpts {
             binary: cli.paw.clone().unwrap_or_else(kernel::default_binary),
             project,
-            args: cli.kernel_args.clone(),
+            args: cli.kernel_args,
         };
         Kernel::spawned(opts, timeout, runtime.handle().clone())
     } else {
-        let socket = cli.socket.clone().unwrap_or_else(kernel::default_socket);
+        let socket = cli.socket.unwrap_or_else(kernel::default_socket);
         Kernel::attach(socket, timeout, runtime.handle().clone())
     };
     if kernel.is_spawned() {

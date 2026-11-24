@@ -84,9 +84,9 @@ pub fn envelope(path: &Path) -> Result<Envelope> {
     loop {
         let packet = match format.next_packet() {
             Ok(Some(packet)) => packet,
-            Ok(None) => break,
-            // A file cut short (a take of a crash) is read as far as it goes.
-            Err(Error::IoError(_)) => break,
+            // The end, or a file cut short (a take of a crash), which is read
+            // as far as it goes.
+            Ok(None) | Err(Error::IoError(_)) => break,
             Err(err) => bail!("{name} is damaged: {err}"),
         };
         if packet.track_id != stream_id {
@@ -135,7 +135,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("click.wav");
         // Stereo, 1000 Hz: silence, then 0.5 on the right only at frame 300.
-        let mut w = crate::wav::Writer::create(&path, 1000, 16, false).unwrap();
+        let mut w = crate::wav::Writer::create(&path, 1000, crate::wav::WavFormat::Int16).unwrap();
         for f in 0..1000 {
             let r = if f == 300 { 0.5 } else { 0.0 };
             w.write(0.0).unwrap();

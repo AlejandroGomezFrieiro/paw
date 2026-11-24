@@ -5,3 +5,8 @@
 disallowed-methods = [
     { path = "std::time::Instant::now", reason = "a 'when' reads ScheduleTime (crate::clock); only a budget reads Instant" },
 ]
+
+# The settings of the workspace lints, as in the top clippy.toml.
+too-many-lines-threshold = 100
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

@@ -98,19 +98,19 @@ impl Watchdog {
         // SAFETY: the closure only copies the pointer of the state out; it touches nothing.
         unsafe { lua.exec_raw::<()>((), |state| main = state)? };
         self.inner.deadline.store(0, Ordering::SeqCst);
-        self.inner.state.lock().unwrap().0 = main;
+        self.inner.state.lock().expect("a thread panicked while it held the lock").0 = main;
         Ok(())
     }
 
     /// Stop watching, before the Lua state goes away.
     pub(crate) fn detach(&self) {
         self.inner.deadline.store(0, Ordering::SeqCst);
-        self.inner.state.lock().unwrap().0 = std::ptr::null_mut();
+        self.inner.state.lock().expect("a thread panicked while it held the lock").0 = std::ptr::null_mut();
     }
 
     /// The Lua function to call when a callback has overrun.
     pub(crate) fn set_hook(lua: &Lua, func: Function) -> mlua::Result<()> {
-        lua.set_named_registry_value(HOOK_KEY.to_str().unwrap(), func)
+        lua.set_named_registry_value(HOOK_KEY.to_str().expect("the key is UTF-8"), func)
     }
 
     /// The running callback must return by `ms` (on the clock of `started`),
@@ -172,7 +172,7 @@ fn watch(inner: &Inner) {
             .compare_exchange(deadline, 0, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
         {
-            let state = inner.state.lock().unwrap();
+            let state = inner.state.lock().expect("a thread panicked while it held the lock");
             if !state.0.is_null() {
                 // SAFETY: the state is not null and the lock is held, so `detach` cannot clear
                 // it and the state cannot go away before the call returns; `hook` has the

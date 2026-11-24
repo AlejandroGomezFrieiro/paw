@@ -1,0 +1,6 @@
+# The settings of the workspace lints (Cargo.toml, [workspace.lints.clippy]).
+# A crate with a clippy.toml of its own repeats these lines: clippy reads
+# only the nearest file.
+too-many-lines-threshold = 100
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

@@ -36,6 +36,8 @@
 //! `sandbox.deadline` in the session, which passes the last two to
 //! [`DeviceFactory::start`] as a `StartTest`.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;

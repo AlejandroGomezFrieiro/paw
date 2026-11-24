@@ -19,6 +19,7 @@ use super::shared::Shared;
 use super::part::PartRt;
 
 /// What every part of a block shares.
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of the engine; one bitflags type for them is open work")]
 pub(super) struct Block<'a> {
     pub(super) ctx: ProcessCtx,
     pub(super) n: usize,

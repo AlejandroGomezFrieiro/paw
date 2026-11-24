@@ -10,7 +10,7 @@
 use anyhow::Result;
 
 use super::dsp::{self, Shape, Smooth, Svf, SvfCoefs};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
 
 pub const BANDS: usize = 8;
@@ -101,44 +101,43 @@ pub fn params() -> Vec<ParamInfo> {
     let mut out = Vec::new();
     for (i, &(on, kind, freq, q)) in DEFAULTS.iter().enumerate() {
         let b = i + 1;
-        out.push(choice(
-            &format!("b{b}_on"),
-            &format!("{b} On"),
-            &["Off", "On"],
-            on as usize,
-        ));
-        out.push(choice(
-            &format!("b{b}_type"),
-            &format!("{b} Type"),
-            TYPES,
-            kind as usize,
-        ));
-        out.push(param(
-            &format!("b{b}_freq"),
-            &format!("{b} Freq"),
-            20.0,
-            20000.0,
-            freq,
-            "Hz",
-        ));
-        out.push(param(
-            &format!("b{b}_gain"),
-            &format!("{b} Gain"),
-            -24.0,
-            24.0,
-            0.0,
-            "dB",
-        ));
-        out.push(param(
-            &format!("b{b}_q"),
-            &format!("{b} Q"),
-            0.1,
-            18.0,
-            q,
-            "Q",
-        ));
+        out.push(
+            ParamInfo::choice(&format!("b{b}_on"), &["Off", "On"], on as usize)
+                .name(&format!("{b} On")),
+        );
+        out.push(
+            ParamInfo::choice(&format!("b{b}_type"), TYPES, kind as usize)
+                .name(&format!("{b} Type")),
+        );
+        out.push(
+            ParamInfo::new(&format!("b{b}_freq"))
+                .name(&format!("{b} Freq"))
+                .range(20.0, 20000.0)
+                .default_value(freq)
+                .unit("Hz"),
+        );
+        out.push(
+            ParamInfo::new(&format!("b{b}_gain"))
+                .name(&format!("{b} Gain"))
+                .range(-24.0, 24.0)
+                .default_value(0.0)
+                .unit("dB"),
+        );
+        out.push(
+            ParamInfo::new(&format!("b{b}_q"))
+                .name(&format!("{b} Q"))
+                .range(0.1, 18.0)
+                .default_value(q)
+                .unit("Q"),
+        );
     }
-    out.push(param("output", "Output", -24.0, 24.0, 0.0, "dB"));
+    out.push(
+        ParamInfo::new("output")
+            .name("Output")
+            .range(-24.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+    );
     out
 }
 

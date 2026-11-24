@@ -185,6 +185,7 @@ fn text(value: &Value) -> String {
 impl Drawing {
     /// The operations of a drawing as JSON (a list of lists); what is not
     /// understood is passed over.
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     pub fn parse(ops: &Value) -> Drawing {
         let mut drawing = Drawing::default();
         let mut over = false;
@@ -490,7 +491,7 @@ fn image(pixmap: &mut Pixmap, shift: Transform, area: [f32; 4], src: [f32; 4], p
     pixmap.fill_rect(rect, &paint, shift, None);
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "one argument for each value of a text run or a shape; a struct for them is open work")]
 fn rect(pixmap: &mut Pixmap, shift: Transform, x: f32, y: f32, w: f32, h: f32, fill: Option<Rgba>, stroke: Option<Rgba>, width: f32, radius: f32) {
     let Some(area) = Rect::from_xywh(x, y, w, h) else { return };
     if let Some(fill) = fill {
@@ -542,7 +543,7 @@ pub fn measure(font: Font, text: &str, size: f32) -> f32 {
         .sum()
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "one argument for each value of a text run or a shape; a struct for them is open work")]
 fn draw_text(pixmap: &mut Pixmap, shift: Transform, font: Font, text: &str, x: f32, baseline: f32, size: f32, colour: Rgba, right: f32) {
     let face = font.face();
     let paint = colour.paint();
@@ -776,7 +777,7 @@ mod tests {
         let left = [0.0, 0.0, 20.0, 40.0];
         let right = [20.0, 0.0, 40.0, 40.0];
         // The cursor moves: only the piece it is in changes, and only with the overlay.
-        let mut moved = ops.clone();
+        let mut moved = ops;
         moved[3][1] = json!(36);
         let after = Drawing::parse(&moved);
         assert_eq!(drawing.piece_key(left, Layers::Both), after.piece_key(left, Layers::Both));

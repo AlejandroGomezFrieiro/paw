@@ -1,5 +1,6 @@
 //! The audio thread's half of an LV2 plugin.
 
+use crate::bytes::le_u32;
 use std::ffi::{CStr, c_char, c_void};
 use std::ptr;
 use std::sync::atomic::Ordering::Relaxed;
@@ -10,7 +11,7 @@ use lilv_sys::*;
 use paw_types::{EventKind, ump};
 
 use crate::lv2_patch;
-use crate::{HeldNotes, write_output};
+use crate::{HeldNotes, Mix, write_output};
 use super::urid::*;
 use super::atom::*;
 use super::worker::*;
@@ -75,9 +76,9 @@ impl Lv2Device {
     /// for the first frame, or (`later`) the others.
     fn push_queued(&mut self, n: usize, later: bool) {
         let mut at = 0;
-        while let Some(head) = self.queued.get(at..at + 12) {
-            let word = |i: usize| u32::from_le_bytes(head[i..i + 4].try_into().unwrap()) as usize;
-            let (frame, index, len) = (word(0).min(n.saturating_sub(1)), word(4), word(8));
+        let word = |at: usize| le_u32(&self.queued, at).map(|w| w as usize);
+        while let (Some(frame), Some(index), Some(len)) = (word(at), word(at + 4), word(at + 8)) {
+            let frame = frame.min(n.saturating_sub(1));
             if let Some(atom) = self.queued.get(at + 12..at + 12 + len)
                 && (frame > 0) == later
             {
@@ -127,10 +128,9 @@ impl Lv2Device {
         }
         // What the editor sent, such as the path of a file to load.
         while read_message(&mut self.from_ui, &mut self.message) {
-            let Some((port, atom)) = self.message.split_at_checked(4) else {
+            let (Some(port), Some(atom)) = (le_u32(&self.message, 0), self.message.get(4..)) else {
                 continue;
             };
-            let port = u32::from_le_bytes(port.try_into().unwrap());
             if let Some(index) = self.shared.atom_ports.iter().position(|p| *p == port)
                 && self.atoms[index].input
             {
@@ -227,11 +227,11 @@ impl Lv2Device {
             self.audio_out.iter().all(|c| paw_engine::device::silent(&c[..n])),
         );
 
-        let add = self.audio_in.is_empty();
+        let mix = Mix::for_inputs(!self.audio_in.is_empty());
         match self.audio_out.as_slice() {
             [] => {}
-            [mono] => write_output(io.left, io.right, &[&mono[..n]], add),
-            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], add),
+            [mono] => write_output(io.left, io.right, &[&mono[..n]], mix),
+            [left, right, ..] => write_output(io.left, io.right, &[&left[..n], &right[..n]], mix),
         }
         crate::write_pairs(
             &self.out_pairs,
@@ -254,10 +254,9 @@ impl Device for Lv2Device {
     }
 
     fn message(&mut self, frame: u32, data: &[u8]) -> bool {
-        let Some((port, atom)) = data.split_at_checked(4) else {
+        let (Some(port), Some(atom)) = (le_u32(data, 0), data.get(4..)) else {
             return false;
         };
-        let port = u32::from_le_bytes(port.try_into().unwrap());
         let Some(index) = self.shared.atom_ports.iter().position(|p| *p == port) else {
             return false;
         };

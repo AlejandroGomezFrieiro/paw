@@ -98,7 +98,7 @@ pub fn hash(rgba: &[u8], width: u32, height: u32) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325 ^ ((width as u64) << 32 | height as u64);
     let mut chunks = rgba.chunks_exact(8);
     for chunk in &mut chunks {
-        h ^= u64::from_le_bytes(chunk.try_into().unwrap());
+        h ^= u64::from_le_bytes(chunk.try_into().expect("the slice has the length of the array"));
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
     for b in chunks.remainder() {

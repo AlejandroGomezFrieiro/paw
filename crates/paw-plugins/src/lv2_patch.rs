@@ -8,6 +8,7 @@
 //! (`atom:Object`) whose type is `patch:Set`, with the property's URID under
 //! `patch:property` and the value under `patch:value`.
 
+use crate::bytes::{ne_u32, ne_u64};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
 
@@ -201,11 +202,7 @@ pub(crate) fn get_message(u: &PatchUrids) -> Vec<u8> {
 
 /// Whether an atom (header and body) is a `patch:Set` object.
 pub(crate) fn is_set(u: &PatchUrids, atom: &[u8]) -> bool {
-    atom.len() >= 16 && read_u32(atom, 4) == u.object && read_u32(atom, 12) == u.set
-}
-
-fn read_u32(bytes: &[u8], at: usize) -> u32 {
-    u32::from_ne_bytes(bytes[at..at + 4].try_into().unwrap())
+    atom.len() >= 16 && ne_u32(atom, 4) == Some(u.object) && ne_u32(atom, 12) == Some(u.set)
 }
 
 /// The property and value of a `patch:Set` object: (URID of the property,
@@ -214,16 +211,16 @@ pub(crate) fn parse_set(u: &PatchUrids, atom: &[u8]) -> Option<(u32, Value)> {
     if !is_set(u, atom) {
         return None;
     }
-    let end = (8 + read_u32(atom, 0) as usize).min(atom.len());
+    let end = (8 + ne_u32(atom, 0)? as usize).min(atom.len());
     let (mut property, mut value) = (None, None);
     let mut at = 16;
     while at + 16 <= end {
-        let key = read_u32(atom, at);
-        let size = read_u32(atom, at + 8) as usize;
-        let kind = read_u32(atom, at + 12);
+        let key = ne_u32(atom, at)?;
+        let size = ne_u32(atom, at + 8)? as usize;
+        let kind = ne_u32(atom, at + 12)?;
         let body = atom.get(at + 16..at + 16 + size)?;
         if key == u.property && kind == u.urid && size >= 4 {
-            property = Some(read_u32(body, 0));
+            property = ne_u32(body, 0);
         } else if key == u.value {
             value = decode(u, kind, body);
         }
@@ -237,20 +234,20 @@ fn decode(u: &PatchUrids, kind: u32, body: &[u8]) -> Option<Value> {
         let end = body.iter().position(|b| *b == 0).unwrap_or(body.len());
         Value::String(String::from_utf8_lossy(&body[..end]).into_owned())
     };
-    let bytes4 = || body.get(..4).map(|b| <[u8; 4]>::try_from(b).unwrap());
-    let bytes8 = || body.get(..8).map(|b| <[u8; 8]>::try_from(b).unwrap());
+    let word = || ne_u32(body, 0);
+    let double_word = || ne_u64(body, 0);
     Some(if kind == u.path || kind == u.string {
         text()
     } else if kind == u.float {
-        json!(f32::from_ne_bytes(bytes4()?) as f64)
+        json!(f64::from(f32::from_bits(word()?)))
     } else if kind == u.double {
-        json!(f64::from_ne_bytes(bytes8()?))
+        json!(f64::from_bits(double_word()?))
     } else if kind == u.int {
-        json!(i32::from_ne_bytes(bytes4()?))
+        json!(word()?.cast_signed())
     } else if kind == u.long {
-        json!(i64::from_ne_bytes(bytes8()?))
+        json!(double_word()?.cast_signed())
     } else if kind == u.bool_ {
-        json!(i32::from_ne_bytes(bytes4()?) != 0)
+        json!(word()? != 0)
     } else {
         return None;
     })
@@ -302,7 +299,7 @@ mod tests {
         ] {
             let message = set_message(&U, &property(kind), &value).unwrap();
             assert_eq!(message.len() % 8, 0, "{kind:?}: padded to 8 bytes");
-            assert_eq!(read_u32(&message, 0) as usize + 8, message.len(), "{kind:?}: size");
+            assert_eq!(ne_u32(&message, 0).unwrap() as usize + 8, message.len(), "{kind:?}: size");
             assert_eq!(parse_set(&U, &message), Some((42, value)), "{kind:?}");
         }
     }

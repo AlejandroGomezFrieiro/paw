@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn a_view_shows_the_clips_that_overlap_its_beats_on_its_parts() {
         let all = ViewRange { from: 8.0, to: 16.0, parts: None };
-        let some = ViewRange { parts: Some(vec![2, 3]), ..all.clone() };
+        let some = ViewRange { parts: Some(vec![2, 3]), ..all };
         // (view, part, clip from, clip to, shown)
         let cases = [
             (&all, 1, 4.0, 9.0, true),

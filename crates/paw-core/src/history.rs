@@ -88,6 +88,7 @@ impl<T> State<T> {
     }
 }
 
+#[expect(clippy::struct_excessive_bools, reason = "independent flags, each set by its own event")]
 pub(crate) struct History<T> {
     states: BTreeMap<StateId, State<T>>,
     current: StateId,

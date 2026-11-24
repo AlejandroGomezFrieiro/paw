@@ -20,7 +20,7 @@ impl Document {
             let (part, index) = p
                 .find_device(id)
                 .with_context(|| format!("no device {id}"))?;
-            let t = p.part_mut(part).unwrap();
+            let t = p.part_in(part)?;
             t.devices.remove(index);
             t.lanes.retain(|l| l.target.device() != Some(id));
             Ok(())
@@ -52,7 +52,7 @@ impl Document {
                     check_output(p, part, pair, to)?;
                 }
             }
-            let source = p.part_mut(from).unwrap();
+            let source = p.part_in(from)?;
             let device = source.devices.remove(at);
             // In a chain, the device goes where the list puts it: after the
             // top node that holds the device before it (`Chain::fit`).
@@ -64,7 +64,7 @@ impl Document {
                 .into_iter()
                 .partition(|l| l.target.device() == Some(id) && from != part);
             source.lanes = keep;
-            let t = p.part_mut(part).unwrap();
+            let t = p.part_in(part)?;
             t.devices.insert(index.min(t.devices.len()), device);
             t.lanes.extend::<Vec<_>>(lanes);
             Ok(())
@@ -99,7 +99,7 @@ impl Document {
                     }
                     p.check_route(source, part, crate::model::Route::SideChain)?;
                 }
-                p.device_mut(id).unwrap().sidechain = source;
+                p.device_in(id)?.sidechain = source;
                 return Ok(());
             }
             if key == "outputs" {
@@ -110,12 +110,10 @@ impl Document {
                 for (pair, to) in &outputs {
                     check_output(p, part, *pair, *to)?;
                 }
-                p.device_mut(id).unwrap().outputs = outputs;
+                p.device_in(id)?.outputs = outputs;
                 return Ok(());
             }
-            let d = p
-                .device_mut(id)
-                .with_context(|| format!("no device {id}"))?;
+            let d = p.device_in(id)?;
             match key {
                 "sidechain_pre" => d.sidechain_pre = de(key, value)?,
                 "bypass" => d.bypass = de(key, value)?,

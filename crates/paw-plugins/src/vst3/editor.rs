@@ -42,7 +42,7 @@ impl Vst3Controller {
                     right: width as i32,
                     bottom: height as i32,
                 };
-                editor.view.onSize(&mut rect);
+                editor.view.onSize(&raw mut rect);
                 editor.window.resize(width, height);
             };
             if let Some((width, height)) = editor.frame.resize.take() {
@@ -60,9 +60,9 @@ impl Vst3Controller {
                         };
                         if editor.view.canResize() == OK {
                             // The plugin may round the size to one it can draw.
-                            editor.view.checkSizeConstraint(&mut rect);
+                            editor.view.checkSizeConstraint(&raw mut rect);
                         } else {
-                            editor.view.getSize(&mut rect);
+                            editor.view.getSize(&raw mut rect);
                         }
                         fit(
                             editor,
@@ -102,7 +102,12 @@ impl Vst3Controller {
                 resize: Cell::new(None),
                 watches: self.shared.host.watches.clone(),
             });
-            view.setFrame(frame.as_com_ref::<IPlugFrame>().unwrap().as_ptr());
+            view.setFrame(
+                frame
+                    .as_com_ref::<IPlugFrame>()
+                    .expect("the object implements IPlugFrame")
+                    .as_ptr(),
+            );
             // Before asking for the size, which depends on it.
             if let Some(scaling) = view.cast::<IPlugViewContentScaleSupport>() {
                 scaling.setContentScaleFactor(ui_scale() as f32);
@@ -113,7 +118,7 @@ impl Vst3Controller {
                 right: 640,
                 bottom: 480,
             };
-            view.getSize(&mut rect);
+            view.getSize(&raw mut rect);
             let (width, height) = (
                 (rect.right - rect.left).max(1) as u32,
                 (rect.bottom - rect.top).max(1) as u32,

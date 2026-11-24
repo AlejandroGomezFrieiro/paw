@@ -16,66 +16,11 @@ use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
 use anyhow::Result;
 
+use paw_measure::bs1770::{Biquad, k_weighting, lufs};
+
 use super::dsp::{self, Readings, Tap, Upsampler};
-use super::panel::{self, Face, Pair, choice, param};
+use super::panel::{self, Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};
-
-/// A biquad in transposed direct form II, in double precision.
-#[derive(Clone, Copy, Default)]
-struct Biquad {
-    b: [f64; 3],
-    a: [f64; 2],
-    z: [f64; 2],
-}
-
-impl Biquad {
-    #[inline]
-    fn tick(&mut self, x: f64) -> f64 {
-        let y = self.b[0] * x + self.z[0];
-        self.z[0] = self.b[1] * x - self.a[0] * y + self.z[1];
-        self.z[1] = self.b[2] * x - self.a[1] * y;
-        y
-    }
-}
-
-/// The two stages of BS.1770's K-weighting for a sample rate.
-fn k_weighting(sr: f64) -> [Biquad; 2] {
-    use std::f64::consts::PI;
-    // The shelf: +4 dB above about 1.7 kHz (the head's effect).
-    let (f0, gain, q) = (1681.974450955533, 3.999843853973347, 0.7071752369554196);
-    let k = (PI * f0 / sr).tan();
-    let vh = 10f64.powf(gain / 20.0);
-    let vb = vh.powf(0.4996667741545416);
-    let a0 = 1.0 + k / q + k * k;
-    let shelf = Biquad {
-        b: [
-            (vh + vb * k / q + k * k) / a0,
-            2.0 * (k * k - vh) / a0,
-            (vh - vb * k / q + k * k) / a0,
-        ],
-        a: [2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0],
-        z: [0.0; 2],
-    };
-    // The high-pass (RLB): low frequencies count for less.
-    let (f0, q) = (38.13547087602444, 0.5003270373238773);
-    let k = (PI * f0 / sr).tan();
-    let a0 = 1.0 + k / q + k * k;
-    let high = Biquad {
-        b: [1.0, -2.0, 1.0],
-        a: [2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0],
-        z: [0.0; 2],
-    };
-    [shelf, high]
-}
-
-/// Loudness in LUFS of a mean square (summed over channels).
-fn lufs(power: f64) -> f64 {
-    if power > 0.0 {
-        -0.691 + 10.0 * power.log10()
-    } else {
-        f64::NEG_INFINITY
-    }
-}
 
 /// 100 ms pieces kept: 3 s for the short-term loudness.
 const PIECES: usize = 30;
@@ -115,7 +60,7 @@ struct Piece {
 
 pub fn meter_params() -> Vec<ParamInfo> {
     // Nothing to set: what it reads is asked for with `meters`.
-    vec![choice("hold", "Peak hold", &["Always", "3 s"], 0)]
+    vec![ParamInfo::choice("hold", &["Always", "3 s"], 0).name("Peak hold")]
 }
 
 pub fn meter(sr: f32) -> Pair {
@@ -311,9 +256,9 @@ impl Device for Meter {
         let mut buf = [0.0f32; 4];
         for (&l, &r) in io.left.iter().zip(io.right.iter()) {
             let (xl, xr) = (l as f64, r as f64);
-            let shelved = [self.k[0][0].tick(xl), self.k[1][0].tick(xr)];
-            let wl = self.k[0][1].tick(shelved[0]);
-            let wr = self.k[1][1].tick(shelved[1]);
+            let shelved = [self.k[0][0].run(xl), self.k[1][0].run(xr)];
+            let wl = self.k[0][1].run(shelved[0]);
+            let wr = self.k[1][1].run(shelved[1]);
             self.current.weighted += wl * wl + wr * wr;
             self.current.ll += xl * xl;
             self.current.rr += xr * xr;
@@ -332,11 +277,7 @@ impl Device for Meter {
             }
         }
         for k in self.k.iter_mut().flatten() {
-            for z in &mut k.z {
-                if z.abs() < 1e-30 {
-                    *z = 0.0;
-                }
-            }
+            k.flush_denormals();
         }
         self.tap.write(
             io.left
@@ -422,14 +363,10 @@ impl Face for MeterFace {
 // ---------------------------------------------------------------------------
 // Tuner
 
-pub const NOTE_NAMES: [&str; 12] = [
-    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-];
-
 pub fn tuner_params() -> Vec<ParamInfo> {
     vec![
-        param("reference", "A4", 400.0, 480.0, 440.0, "Hz"),
-        choice("mute", "Mute", &["Off", "On"], 0),
+        ParamInfo::new("reference").name("A4").range(400.0, 480.0).default_value(440.0).unit("Hz"),
+        ParamInfo::choice("mute", &["Off", "On"], 0).name("Mute"),
     ]
 }
 
@@ -579,12 +516,7 @@ pub fn nearest_note(freq: f64, a4: f64) -> (i32, String, f64) {
     let semis = 12.0 * (freq / a4).log2() + 69.0;
     let midi = semis.round() as i32;
     let cents = (semis - midi as f64) * 100.0;
-    let name = format!(
-        "{}{}",
-        NOTE_NAMES[midi.rem_euclid(12) as usize],
-        midi.div_euclid(12) - 1
-    );
-    (midi, name, cents)
+    (midi, paw_types::pitch::name(midi), cents)
 }
 
 struct TunerFace {
@@ -669,6 +601,34 @@ mod tests {
         }
         let v = fx.field("meters", "integrated");
         assert!((v + 23.0).abs() < 0.1, "case 4: {v}");
+    }
+
+    /// The meter on a part and `:analyze` on its render show one number.
+    #[test]
+    fn the_meter_and_the_analysis_of_a_file_agree() {
+        let sr = 48000.0;
+        // Ten seconds that change: a loud part with peaks between the
+        // samples, and a quiet part that the relative gate leaves out.
+        let x: Vec<f32> = (0..(sr as usize * 10))
+            .map(|i| {
+                let t = i as f32 / sr;
+                let level = if t < 6.0 { 0.5 } else { 0.02 };
+                let fade = (t * 20.0).min(1.0);
+                let tone = (std::f32::consts::TAU * 440.0 * t).sin()
+                    + 0.5 * (std::f32::consts::TAU * (sr / 4.0) * t + 0.785).sin();
+                tone * level * fade
+            })
+            .collect();
+        let mut fx = Fx::new("meter", sr);
+        fx.run_stereo(&x, &x, 512);
+        let analysis = paw_measure::analyze(f64::from(sr), &x, &x);
+
+        let integrated = fx.field("meters", "integrated");
+        let want = analysis.integrated.unwrap();
+        assert!((integrated - want).abs() < 0.1, "integrated: meter {integrated}, analysis {want}");
+        let true_peak = fx.field("meters", "true_peak");
+        let want = analysis.true_peak;
+        assert!((true_peak - want).abs() < 0.1, "true peak: meter {true_peak}, analysis {want}");
     }
 
     #[test]

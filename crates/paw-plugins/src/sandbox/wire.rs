@@ -1,5 +1,6 @@
 //! The control wire: requests, answers and the helper's hello.
 
+use crate::bytes::{le_f64, le_u32};
 use std::borrow::Cow;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
@@ -151,8 +152,8 @@ impl<'a> Request<'a> {
     pub(super) fn decode(op: Op, payload: &'a [u8]) -> Option<Self> {
         Some(match op {
             Op::SetValue => Self::SetValue {
-                index: le_u32(payload)?,
-                value: le_f64(payload.get(4..)?)?,
+                index: le_u32(payload, 0)?,
+                value: le_f64(payload, 4)?,
             },
             Op::SaveState => Self::SaveState,
             Op::LoadState => Self::LoadState(payload),
@@ -163,12 +164,12 @@ impl<'a> Request<'a> {
             Op::Values => Self::Values,
             Op::Call => {
                 let (method, data) = split_method(payload);
-                let index = le_u32(data);
+                let index = le_u32(data, 0);
                 if method == PREPARE {
                     let (method, data) = split_method(data);
                     Self::Prepare { method, data }
                 } else if method == PARAM_TEXT
-                    && let (Some(index), Some(value)) = (index, data.get(4..).and_then(le_f64))
+                    && let (Some(index), Some(value)) = (index, le_f64(data, 4))
                 {
                     Self::ValueText { index, value }
                 } else if method == PARAM_VALUE
@@ -196,14 +197,6 @@ fn split_method(payload: &[u8]) -> (Cow<'_, str>, &[u8]) {
         String::from_utf8_lossy(&payload[..end]),
         payload.get(end + 1..).unwrap_or(&[]),
     )
-}
-
-fn le_u32(bytes: &[u8]) -> Option<u32> {
-    Some(u32::from_le_bytes(bytes.get(..4)?.try_into().ok()?))
-}
-
-pub(super) fn le_f64(bytes: &[u8]) -> Option<f64> {
-    Some(f64::from_le_bytes(bytes.get(..8)?.try_into().ok()?))
 }
 
 /// Bytes that may be absent, as a state and a prepared call are answered:
@@ -443,7 +436,7 @@ mod tests {
                 default: 0.1,
                 ..ParamInfo::choice("Wave", &["Sine", "Saw"], 1)
             },
-            ParamInfo::new("Gain", -24.0, 24.0, f32::NEG_INFINITY, "dB"),
+            ParamInfo::new("Gain").range(-24.0, 24.0).default_value(f32::NEG_INFINITY).unit("dB"),
         ];
         let hello = Hello {
             params: params.clone(),

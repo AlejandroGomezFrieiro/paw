@@ -5,6 +5,11 @@
 //! (the host read them after the block under way, found the old
 //! values, and never read them again.)
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "test code: a failed unwrap is a failed test"
+)]
+
 use paw_engine::device::{Change, Instance};
 use paw_engine::{EventBuf, Io, ProcessCtx, Registry};
 use paw_plugins::PluginDirs;

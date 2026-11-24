@@ -46,6 +46,7 @@ impl DeviceFactory for ClapFactory {
         &self.info
     }
 
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let library = load(&self.path, &self.libraries)?;
         let flags = Arc::new(HostFlags::new());
@@ -119,7 +120,7 @@ impl DeviceFactory for ClapFactory {
             PluginInstanceError::NullActivateFunction => anyhow::anyhow!("no activate"),
             _ => anyhow::anyhow!("the plugin failed to activate"),
         })?;
-        *shared.run.get_mut().unwrap() = Some(processor);
+        *shared.run.get_mut().expect("a thread panicked while it held the lock") = Some(processor);
         let shared = Arc::new(shared);
         let (changed, changes) = rtrb::RingBuffer::new(1024);
         let device = ClapDevice {
@@ -186,13 +187,9 @@ fn read_params(
             continue;
         }
         ids.push((info.id, info.cookie));
-        let mut param = ParamInfo::new(
-            &buffer_text(info.name),
-            info.min_value as f32,
-            info.max_value as f32,
-            info.default_value as f32,
-            "",
-        );
+        let mut param = ParamInfo::new(&buffer_text(info.name))
+            .range(info.min_value as f32, info.max_value as f32)
+            .default_value(info.default_value as f32);
         param.id = info.id.get().to_string();
         param.group = buffer_text(info.module).trim_matches('/').to_string();
         param.automatable = flags.contains(ParamInfoFlags::IS_AUTOMATABLE);

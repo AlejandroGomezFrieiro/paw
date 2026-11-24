@@ -146,7 +146,10 @@ impl AtomBuffer {
         let end = (8 + header.size as usize).min(ATOM_CAPACITY);
         let mut at = 16;
         while at + 16 <= end {
-            let size = u32::from_le_bytes(bytes[at + 8..at + 12].try_into().unwrap()) as usize;
+            let Some(size) = crate::bytes::ne_u32(bytes, at + 8) else {
+                break;
+            };
+            let size = size as usize;
             if at + 16 + size > end {
                 break;
             }

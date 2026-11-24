@@ -5,11 +5,13 @@
 
 use std::path::Path;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::Document;
 use super::values::{de, de_meta, holds};
+use crate::words::from_word;
 
 impl Document {
     /// The project's fields as a table. `path` is the project's file, which
@@ -93,7 +95,8 @@ impl Document {
 
 /// A field of the project that [`Document::project_set`] changes: the key
 /// that Lua gives, parsed once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum ProjectField {
     Name,
     Tempo,
@@ -108,15 +111,6 @@ impl std::str::FromStr for ProjectField {
     type Err = anyhow::Error;
 
     fn from_str(key: &str) -> Result<Self> {
-        Ok(match key {
-            "name" => Self::Name,
-            "tempo" => Self::Tempo,
-            "sig_num" => Self::SigNum,
-            "sig_den" => Self::SigDen,
-            "key" => Self::Key,
-            "meta" => Self::Meta,
-            "export" => Self::Export,
-            _ => bail!("project has no settable field `{key}`"),
-        })
+        from_word(key).with_context(|| format!("project has no settable field `{key}`"))
     }
 }

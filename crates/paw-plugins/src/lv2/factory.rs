@@ -132,13 +132,9 @@ unsafe fn plan_ports(plugin: *const LilvPlugin, w: &World, max_block: usize) -> 
                     CStr::from_ptr(lilv_node_as_string(lilv_port_get_symbol(plugin, port)))
                         .to_owned();
                 if input {
-                    let mut info = ParamInfo::new(
-                        &take_text(lilv_port_get_name(plugin, port)),
-                        min,
-                        max,
-                        default,
-                        "",
-                    );
+                    let mut info = ParamInfo::new(&take_text(lilv_port_get_name(plugin, port)))
+                        .range(min, max)
+                        .default_value(default);
                     info.key = symbol.to_string_lossy().into_owned();
                     info.id = info.key.clone();
                     if lilv_port_has_property(plugin, port, w.toggled) {
@@ -267,6 +263,7 @@ impl DeviceFactory for Lv2Factory {
         &self.info
     }
 
+    #[expect(clippy::too_many_lines, reason = "a sequence of steps in one place; the split into named steps is open work")]
     fn create(&self, sample_rate: f32, max_block: usize) -> Result<Instance> {
         let plugin = self.plugin()?;
         let w = world_in(&self.folders);
@@ -374,7 +371,7 @@ impl DeviceFactory for Lv2Factory {
             }
 
             // Plugins may ship a default state that the host is meant to apply.
-            let map = &shared.host.map as *const UridMap as *mut _;
+            let map = &raw const shared.host.map as *mut _;
             let default = lilv_state_new_from_world(w.world, map, lilv_plugin_get_uri(plugin));
             if !default.is_null() {
                 restore(&shared, default);

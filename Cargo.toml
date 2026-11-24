@@ -47,6 +47,21 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_vendor, values("bro
 # and the panic goes on.
 # Each `unsafe` block says why it is sound in a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "warn"
+# A function longer than 100 lines (clippy.toml) is split into named steps.
+too_many_lines = "warn"
+# Bool flags in a struct or in the arguments: an enum or a bitflags says
+# which flag is set.
+struct_excessive_bools = "warn"
+fn_params_excessive_bools = "warn"
+# An `allow` or `expect` says why.
+allow_attributes_without_reason = "warn"
+# `unwrap` in production code: `?`, or `expect` with the invariant. Tests
+# may unwrap (clippy.toml). `lock().unwrap()` gets an `expect`.
+unwrap_used = "warn"
+redundant_clone = "warn"
+match_same_arms = "warn"
+# `&x as *const _`: `&raw const x` or `ptr::from_ref`.
+borrow_as_ptr = "warn"
 
 [workspace.dependencies]
 # Without their sound devices: paw-core, paw-tui and the window add them
@@ -93,6 +108,9 @@ memmap2 = "0.9"
 # BLAKE3 content hashes of files (media/hash.rs): SIMD, and parallel with mmap
 # and rayon for big files. ring stays for SHA-256 where it is used.
 blake3 = { version = "1", default-features = false, features = ["std", "mmap", "rayon"] }
+# A walk of a folder tree (the plugin folders). Already in Cargo.lock
+# through other crates.
+walkdir = "2"
 # TLS for network connections, pure Rust with ring: no OpenSSL.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 # TLS on tokio's sockets (the network server, paw-core's rpc.rs), over the

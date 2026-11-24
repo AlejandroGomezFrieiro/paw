@@ -25,7 +25,8 @@ impl Document {
             .project
             .find_lane(id)
             .with_context(|| format!("no lane {id}"))?;
-        Ok(lane_json(self.project.lane(id).unwrap(), part, param_range))
+        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?;
+        Ok(lane_json(lane, part, param_range))
     }
 
     /// The automation lanes of a part, without their points.
@@ -42,7 +43,7 @@ impl Document {
     pub(crate) fn lane_remove(&mut self, id: Id) -> Result<()> {
         self.edit(|p| {
             let (part, index) = p.find_lane(id).with_context(|| format!("no lane {id}"))?;
-            p.part_mut(part).unwrap().lanes.remove(index);
+            p.part_in(part)?.lanes.remove(index);
             Ok(())
         })
     }
@@ -91,7 +92,7 @@ impl Document {
             points = clean_points(&lane.target, states, all, param_range)?;
         }
         self.edit(|p| {
-            let lane = p.lane_mut(id).unwrap();
+            let lane = p.lane_in(id)?;
             // A shape stays with a point that stays where it was.
             lane.shapes.retain(|s| points.iter().any(|q| q.0 == s.beat));
             lane.points = points;
@@ -128,7 +129,7 @@ impl Document {
         }
         kept.sort_by(|a, b| a.beat.total_cmp(&b.beat));
         self.edit(|p| {
-            p.lane_mut(id).unwrap().shapes = kept;
+            p.lane_in(id)?.shapes = kept;
             Ok(())
         })
     }
@@ -160,7 +161,7 @@ impl Document {
         if let Some(twice) = states.iter().find(|s| !names.insert(s.name.as_str())) {
             bail!("two states are named `{}`", twice.name);
         }
-        let lane = self.project.lane(id).unwrap().clone();
+        let lane = self.project.lane(id).with_context(|| format!("no lane {id}"))?.clone();
         let points = if states.is_empty() {
             Vec::new()
         } else {
@@ -168,7 +169,7 @@ impl Document {
             clean_points(&lane.target, states.len(), lane.points.clone(), &|_, _| None)?
         };
         self.edit(|p| {
-            let lane = p.lane_mut(id).unwrap();
+            let lane = p.lane_in(id)?;
             lane.states = states;
             lane.points = points;
             Ok(())

@@ -15,6 +15,7 @@ fn bytes_or_why(lua: &Lua, bytes: anyhow::Result<Vec<u8>>) -> mlua::Result<(LuaV
     })
 }
 
+#[expect(clippy::too_many_lines, reason = "one registration for each Lua function of the table, in a list")]
 pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Result<()> {
     define! { lua, api, shared;
         // --- JSON, for what extensions keep in files ---

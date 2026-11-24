@@ -1,7 +1,7 @@
 //! Small tools for the stereo image and level (utility), and saturation.
 
 use super::dsp::{self, DelayLine, Downsampler, OnePole, Shape, Smooth, Svf, SvfCoefs, Upsampler};
-use super::panel::{Face, Pair, choice, param};
+use super::panel::{Face, Pair};
 use crate::device::{Device, Io, ParamInfo, ProcessCtx, Quality};
 
 struct NoFace;
@@ -21,14 +21,30 @@ const DC: usize = 7;
 
 pub fn utility_params() -> Vec<ParamInfo> {
     vec![
-        param("gain", "Gain", -48.0, 24.0, 0.0, "dB"),
-        param("pan", "Pan", -100.0, 100.0, 0.0, "%"),
-        param("width", "Width", 0.0, 200.0, 100.0, "%"),
-        param("mono_below", "Mono below", 20.0, 500.0, 20.0, "Hz"),
-        choice("invert_l", "Invert left", &["Off", "On"], 0),
-        choice("invert_r", "Invert right", &["Off", "On"], 0),
-        choice("swap", "Swap sides", &["Off", "On"], 0),
-        choice("dc", "DC filter", &["Off", "On"], 0),
+        ParamInfo::new("gain")
+            .name("Gain")
+            .range(-48.0, 24.0)
+            .default_value(0.0)
+            .unit("dB"),
+        ParamInfo::new("pan")
+            .name("Pan")
+            .range(-100.0, 100.0)
+            .default_value(0.0)
+            .unit("%"),
+        ParamInfo::new("width")
+            .name("Width")
+            .range(0.0, 200.0)
+            .default_value(100.0)
+            .unit("%"),
+        ParamInfo::new("mono_below")
+            .name("Mono below")
+            .range(20.0, 500.0)
+            .default_value(20.0)
+            .unit("Hz"),
+        ParamInfo::choice("invert_l", &["Off", "On"], 0).name("Invert left"),
+        ParamInfo::choice("invert_r", &["Off", "On"], 0).name("Invert right"),
+        ParamInfo::choice("swap", &["Off", "On"], 0).name("Swap sides"),
+        ParamInfo::choice("dc", &["Off", "On"], 0).name("DC filter"),
     ]
 }
 
@@ -178,12 +194,28 @@ pub const CURVES: &[&str] = &["Tape", "Tube", "Hard clip"];
 
 pub fn saturation_params() -> Vec<ParamInfo> {
     vec![
-        param("drive", "Drive", 0.0, 36.0, 6.0, "dB"),
-        choice("curve", "Curve", CURVES, 0),
-        choice("oversample", "Oversample", &["2x", "4x"], 0),
-        param("tone", "Tone", -12.0, 12.0, 0.0, "dB"),
-        param("mix", "Mix", 0.0, 100.0, 100.0, "%"),
-        param("output", "Output", -24.0, 12.0, 0.0, "dB"),
+        ParamInfo::new("drive")
+            .name("Drive")
+            .range(0.0, 36.0)
+            .default_value(6.0)
+            .unit("dB"),
+        ParamInfo::choice("curve", CURVES, 0).name("Curve"),
+        ParamInfo::choice("oversample", &["2x", "4x"], 0).name("Oversample"),
+        ParamInfo::new("tone")
+            .name("Tone")
+            .range(-12.0, 12.0)
+            .default_value(0.0)
+            .unit("dB"),
+        ParamInfo::new("mix")
+            .name("Mix")
+            .range(0.0, 100.0)
+            .default_value(100.0)
+            .unit("%"),
+        ParamInfo::new("output")
+            .name("Output")
+            .range(-24.0, 12.0)
+            .default_value(0.0)
+            .unit("dB"),
     ]
 }
 

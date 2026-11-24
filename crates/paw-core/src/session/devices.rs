@@ -1,5 +1,7 @@
 //! Devices on parts: adding, removing, parameters, states, presets and calls.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+
 use crate::events::{DeviceTrouble, Item, KernelEvent as E, ParamTouched, StateApplied};
 use paw_engine::DeviceFormat;
 use super::*;

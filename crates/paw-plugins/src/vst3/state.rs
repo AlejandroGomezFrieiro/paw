@@ -2,6 +2,7 @@
 //! saved state (the component's state, then the controller's), and the
 //! `.vstpreset` files that hold the same two states. Main thread.
 
+use crate::bytes::le_u32;
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
@@ -94,7 +95,7 @@ impl IBStreamTrait for Stream {
 }
 
 pub(super) fn stream_ptr(stream: &ComWrapper<Stream>) -> *mut IBStream {
-    stream.as_com_ref::<IBStream>().unwrap().as_ptr()
+    stream.as_com_ref::<IBStream>().expect("the object implements IBStream").as_ptr()
 }
 
 impl Vst3Controller {
@@ -137,10 +138,10 @@ impl Vst3Controller {
                 let state = self.save_plugin_state()?.unwrap_or_default();
                 let mut rest = state.as_slice();
                 let mut part = || -> Vec<u8> {
-                    let Some((size, tail)) = rest.split_at_checked(4) else {
+                    let (Some(size), Some(tail)) = (le_u32(rest, 0), rest.get(4..)) else {
                         return Vec::new();
                     };
-                    let size = u32::from_le_bytes(size.try_into().unwrap()) as usize;
+                    let size = size as usize;
                     let (data, tail) = tail.split_at_checked(size).unwrap_or((tail, &[]));
                     rest = tail;
                     data.to_vec()
@@ -178,10 +179,10 @@ impl Vst3Controller {
     pub(super) fn load_plugin_state(&mut self, state: &[u8]) -> Result<()> {
         let mut rest = state;
         let mut part = || -> Result<Vec<u8>> {
-            let (size, tail) = rest
-                .split_at_checked(4)
-                .context("the saved state is cut short")?;
-            let size = u32::from_le_bytes(size.try_into().unwrap()) as usize;
+            let (Some(size), Some(tail)) = (le_u32(rest, 0), rest.get(4..)) else {
+                bail!("the saved state is cut short");
+            };
+            let size = size as usize;
             let (data, tail) = tail
                 .split_at_checked(size)
                 .context("the saved state is cut short")?;

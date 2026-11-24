@@ -339,6 +339,10 @@ fn wrap(phase: f64) -> f64 {
 /// The phase vocoder (see the module's description), following `map` (in
 /// frames). With `formants`, the shift that will follow, it moves each
 /// frame's spectral envelope by the inverse of the shift.
+#[expect(
+    clippy::too_many_lines,
+    reason = "a sequence of steps in one place; the split into named steps is open work"
+)]
 fn vocoder(
     input: [&[f32]; 2],
     rate: u32,
@@ -946,11 +950,7 @@ mod tests {
         // A stereo sound keeps the difference between its channels: the
         // right channel half as loud comes out half as loud.
         let half: Vec<f32> = s.iter().map(|x| x * 0.5).collect();
-        let out = stretched(
-            &sound(s.clone(), half),
-            &Params::even(1.5, 0.0, Mode::Tonal),
-        )
-        .unwrap();
+        let out = stretched(&sound(s, half), &Params::even(1.5, 0.0, Mode::Tonal)).unwrap();
         let ratio = rms(&out.channels[1]) / rms(&out.channels[0]);
         assert!((ratio - 0.5).abs() < 0.01, "right against left {ratio}");
     }

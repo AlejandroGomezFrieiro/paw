@@ -3301,6 +3301,7 @@ dependencies = [
  "hound",
  "libc",
  "memmap2",
+ "paw-measure",
  "paw-types",
  "proptest",
  "realfft",
@@ -3373,6 +3374,7 @@ dependencies = [
  "paw-types",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
@@ -3387,6 +3389,7 @@ dependencies = [
  "include_dir",
  "paw-measure",
  "paw-proto",
+ "paw-types",
  "rmcp",
  "rustix 1.1.6",
  "serde",
@@ -3399,6 +3402,7 @@ dependencies = [
 name = "paw-measure"
 version = "0.1.0"
 dependencies = [
+ "paw-types",
  "realfft",
  "serde",
 ]
@@ -3426,6 +3430,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "vst3",
+ "walkdir",
  "x11rb",
 ]
 

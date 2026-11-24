@@ -6,6 +6,7 @@
 //! JSON list of `{ id, name, category }`, and `preset.load` takes an `id`
 //! from it. Ids are stable across runs, so a project or a script can keep one.
 
+use crate::bytes::{le_i32, le_i64};
 use std::cell::Cell;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::{Path, PathBuf};
@@ -419,17 +420,17 @@ pub fn read_vstpreset(bytes: &[u8]) -> Result<(String, Vec<u8>, Vec<u8>)> {
         return Err(short());
     }
     let class = String::from_utf8_lossy(&bytes[8..40]).into_owned();
-    let list_at = i64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
+    let list_at = le_i64(bytes, 40).and_then(|at| usize::try_from(at).ok()).ok_or_else(short)?;
     let list = bytes.get(list_at..).ok_or_else(short)?;
     if list.len() < 8 || &list[..4] != b"List" {
         return Err(short());
     }
-    let count = i32::from_le_bytes(list[4..8].try_into().unwrap()).max(0) as usize;
+    let count = le_i32(list, 4).and_then(|n| usize::try_from(n).ok()).ok_or_else(short)?;
     let (mut comp, mut cont) = (Vec::new(), Vec::new());
     for i in 0..count {
         let entry = list.get(8 + i * 20..8 + (i + 1) * 20).ok_or_else(short)?;
-        let offset = i64::from_le_bytes(entry[4..12].try_into().unwrap()) as usize;
-        let size = i64::from_le_bytes(entry[12..20].try_into().unwrap()) as usize;
+        let offset = le_i64(entry, 4).and_then(|at| usize::try_from(at).ok()).ok_or_else(short)?;
+        let size = le_i64(entry, 12).and_then(|n| usize::try_from(n).ok()).ok_or_else(short)?;
         let data = bytes
             .get(offset..offset.checked_add(size).ok_or_else(short)?)
             .ok_or_else(short)?

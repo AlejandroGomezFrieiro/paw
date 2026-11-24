@@ -1,5 +1,7 @@
 //! The DAW's side: the factory that starts a helper and makes the stand-in.
 
+#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+
 use std::os::fd::{AsRawFd, BorrowedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
