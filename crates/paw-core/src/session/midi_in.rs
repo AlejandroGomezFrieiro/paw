@@ -458,6 +458,15 @@ enum TransportField {
     ClickOutput,
 }
 
+/// A count of whole bars, from 0 to 16, that a script gives as a number.
+/// A part of a bar is refused: it would be cut to the bar before it.
+fn whole_bars(what: &str, bars: f64) -> Result<u32> {
+    if !(0.0..=16.0).contains(&bars) || bars.fract() != 0.0 {
+        bail!("{what} is a whole number of bars, from 0 to 16, not {bars}");
+    }
+    Ok(bars as u32)
+}
+
 impl TransportField {
     /// Set this field of the transport. `Write` and `RecordOffset` belong
     /// to the session, not the transport: [`Session::transport_set`] sets
@@ -473,18 +482,10 @@ impl TransportField {
             Self::PunchStart => t.punch_start = finite(key, de(key, value)?)?.max(0.0),
             Self::PunchEnd => t.punch_end = finite(key, de(key, value)?)?.max(0.0),
             Self::CountIn => {
-                let bars: f64 = de(key, value)?;
-                if !(0.0..=16.0).contains(&bars) {
-                    bail!("a count-in is from 0 to 16 bars");
-                }
-                t.count_in = bars as u32;
+                t.count_in = whole_bars("a count-in", de(key, value)?)?;
             }
             Self::PreRoll => {
-                let bars: f64 = de(key, value)?;
-                if !(0.0..=16.0).contains(&bars) {
-                    bail!("a pre-roll is from 0 to 16 bars");
-                }
-                t.pre_roll = bars as u32;
+                t.pre_roll = whole_bars("a pre-roll", de(key, value)?)?;
             }
             Self::PreRollSeconds => {
                 let seconds: f64 = de(key, value)?;
@@ -519,5 +520,20 @@ impl std::str::FromStr for TransportField {
 
     fn from_str(key: &str) -> Result<Self> {
         from_word(key).with_context(|| format!("the transport has no settable field `{key}`"))
+    }
+}
+
+#[cfg(test)]
+mod whole_bars_tests {
+    use super::whole_bars;
+
+    #[test]
+    fn a_count_of_bars_is_whole_and_from_0_to_16() {
+        assert_eq!(whole_bars("a count-in", 0.0).unwrap(), 0);
+        assert_eq!(whole_bars("a count-in", 16.0).unwrap(), 16);
+        for bad in [2.5, -1.0, 17.0, f64::NAN, f64::INFINITY] {
+            let error = whole_bars("a count-in", bad).unwrap_err().to_string();
+            assert!(error.starts_with("a count-in is a whole number of bars"), "{bad}: {error}");
+        }
     }
 }

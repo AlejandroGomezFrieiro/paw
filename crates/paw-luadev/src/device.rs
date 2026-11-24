@@ -218,6 +218,9 @@ struct Buffers {
     events_out: Vec<LuaEvent>,
     /// The events that came in, as they were, to pass on.
     originals: Vec<Event>,
+    /// The events that did not fit in a block, to pass on after the others
+    /// have been merged. Filled and emptied in one block.
+    spilled: Vec<Event>,
     params: Vec<f64>,
     transport: Transport,
 }
@@ -285,6 +288,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
             };
             MAX_EVENTS
         ],
+        spilled: Vec::with_capacity(MAX_EVENTS),
         params: desc.params.iter().map(|p| p.default as f64).collect(),
         transport: Transport {
             sample_rate: sample_rate as f64,
@@ -382,7 +386,8 @@ fn to_lua(event: &Event, index: usize) -> LuaEvent {
 }
 
 fn from_lua(event: &LuaEvent, originals: &[Event]) -> Option<EventKind> {
-    let ch = (event.channel - 1).clamp(0, 15) as u8;
+    // `saturating_sub`: a script may write any number here.
+    let ch = event.channel.saturating_sub(1).clamp(0, 15) as u8;
     let key = event.key.clamp(0, 127) as u8;
     let value = if event.value.is_finite() { event.value } else { 0.0 };
     Some(match event.kind {
@@ -422,6 +427,37 @@ fn from_lua(event: &LuaEvent, originals: &[Event]) -> Option<EventKind> {
         }
         _ => return None,
     })
+}
+
+/// Put in `io.events` the input `originals[kept]`, the events that did not
+/// fit (`spilled`) and the script's `out`, by frame. On a tie the input goes
+/// first, then the events that did not fit, then the script's.
+///
+/// `io.events` is emptied first and each event is pushed once, so the
+/// buffer needs room for the input and the script's events only. A send of
+/// the script drops when the input already fills the buffer (counted in
+/// `dropped()`); an input event never drops.
+fn merge(io: &mut Io, originals: &[Event], kept: std::ops::Range<usize>, out: &[LuaEvent], spilled: &[Event]) {
+    io.events.clear();
+    let (mut i, end) = (kept.start, kept.end);
+    let (mut j, mut k) = (0, 0);
+    while i < end || j < out.len() || k < spilled.len() {
+        let frame_in = if i < end { originals[i].frame as i32 } else { i32::MAX };
+        let frame_spill = spilled.get(k).map_or(i32::MAX, |e| e.frame as i32);
+        let frame_out = out.get(j).map_or(i32::MAX, |e| e.frame);
+        if i < end && frame_in <= frame_spill && frame_in <= frame_out {
+            io.events.push(originals[i]);
+            i += 1;
+        } else if k < spilled.len() && frame_spill <= frame_out {
+            io.events.push(spilled[k]);
+            k += 1;
+        } else {
+            if let Some(kind) = from_lua(&out[j], originals) {
+                io.events.push(Event { frame: out[j].frame as u32, kind });
+            }
+            j += 1;
+        }
+    }
 }
 
 impl Device for LuaDevice {
@@ -466,12 +502,18 @@ impl Device for LuaDevice {
             count += 1;
         }
         let replayed = count;
+        // What does not fit goes on downstream at once from a device that
+        // passes its input on. A MIDI effect gives out only what it sends.
+        b.spilled.clear();
         for event in io.events.as_slice() {
             if count < MAX_EVENTS {
                 b.originals[count] = *event;
                 count += 1;
             } else {
                 self.missed.keep(*event);
+                if !self.midi_effect && b.spilled.len() < MAX_EVENTS {
+                    b.spilled.push(*event);
+                }
             }
         }
         for (index, event) in b.originals[..count].iter().enumerate() {
@@ -518,24 +560,8 @@ impl Device for LuaDevice {
         }
         // The replayed events went out with their own block already, past a
         // device that does not replace its input.
-        let (mut i, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
-        io.events.clear();
-        let mut j = 0;
-        while i < kept || j < sent {
-            let take_in = j == sent || (i < kept && b.originals[i].frame as i32 <= out[j].frame);
-            if take_in {
-                io.events.push(b.originals[i]);
-                i += 1;
-            } else {
-                if let Some(kind) = from_lua(&out[j], &b.originals[..count]) {
-                    io.events.push(Event {
-                        frame: out[j].frame as u32,
-                        kind,
-                    });
-                }
-                j += 1;
-            }
-        }
+        let (from, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
+        merge(io, &b.originals[..count], from..kept, out, &b.spilled);
     }
 
     fn set_param(&mut self, index: u32, value: f32) {
@@ -708,5 +734,154 @@ mod tests {
         block(&mut device, None);
         assert_eq!(controller.call("seen", b"").unwrap(), b"off 60@0 ", "at the start of the next block");
         assert_eq!(controller.call("lua.misses", b"").unwrap(), b"1");
+    }
+
+    /// Run one block of `events` through `device`; what it gives out.
+    fn through(device: &mut LuaDevice, events: &[Event]) -> Vec<Event> {
+        let (mut left, mut right) = (vec![0.0; 16], vec![0.0; 16]);
+        let mut buf = EventBuf::with_capacity(paw_engine::PART_EVENTS);
+        for event in events {
+            buf.push(*event);
+        }
+        let mut io = Io {
+            left: &mut left,
+            right: &mut right,
+            events: &mut buf,
+            sidechain: None,
+            outputs: &mut [],
+        };
+        device.process(&ProcessCtx::at(48000.0, 120.0, 4, 4, true), &mut io);
+        buf.as_slice().to_vec()
+    }
+
+    fn script(dir: &tempfile::TempDir, name: &str, text: &str) -> std::path::PathBuf {
+        let path = dir.path().join(name);
+        std::fs::write(&path, text).unwrap();
+        path
+    }
+
+    fn note_off(key: u8) -> Event {
+        Event { frame: 3, kind: EventKind::NoteOff { key, ch: 0 } }
+    }
+
+    #[test]
+    fn a_channel_that_a_script_writes_never_overflows() {
+        let event = |channel| LuaEvent { kind: NOTE_OFF, channel, key: 60, ..LuaEvent::default() };
+        for (channel, want) in [(i32::MIN, 0), (-5, 0), (0, 0), (1, 0), (16, 15), (17, 15), (i32::MAX, 15)] {
+            assert_eq!(
+                from_lua(&event(channel), &[]),
+                Some(EventKind::NoteOff { key: 60, ch: want }),
+                "channel {channel}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_script_that_sends_on_a_channel_that_does_not_exist_stops_with_a_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "channel.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b) b:note_on(0, 60, 1, 17) end
+            return dev
+            "#,
+        );
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        through(&mut device, &[]);
+        let why = controller.health().unwrap();
+        assert!(why.contains("a channel is a whole number from 1 to 16, not 17"), "{why}");
+    }
+
+    /// An effect whose script sends one controller at frame 9.
+    const SENDS_A_CC: &str = r#"
+        local dsp = require("paw.dsp")
+        local dev = dsp.device {}
+        function dev.process(b) b:cc(9, 7, 0.5, 1) end
+        return dev
+    "#;
+
+    #[test]
+    fn an_effect_passes_on_the_events_that_do_not_fit_in_a_block_in_frame_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(&dir, "cc.lua", SENDS_A_CC);
+        let (mut device, controller) = build(&path, 48000.0, 64).unwrap();
+        // A block that the script misses gives 2 replayed events, so the next
+        // block of 1023 events does not all fit in the script's 1024. The
+        // buffer has the 1024 slots of a part.
+        let call = controller.running.lock().unwrap();
+        through(&mut device, &[note_off(60), note_off(61)]);
+        drop(call);
+        let events: Vec<Event> = (0..paw_engine::PART_EVENTS - 1)
+            .map(|i| Event { frame: 3, kind: EventKind::NoteOn { key: (i % 100) as u8, vel: 0.5, ch: 0, attr: Attr::NONE } })
+            .collect();
+        let dropped = paw_engine::event::dropped();
+        let out = through(&mut device, &events);
+        // Each event of the block once, and the script's controller after
+        // them, as its frame (9) is later than theirs (3). All fit the 1024
+        // slots, so nothing drops.
+        assert_eq!(out.len(), events.len() + 1);
+        assert_eq!(&out[..events.len()], &events[..], "in the order that they came");
+        assert!(matches!(out[events.len()].kind, EventKind::Control { .. }));
+        assert_eq!(paw_engine::event::dropped(), dropped, "no event dropped");
+        assert!(out.windows(2).all(|w| w[0].frame <= w[1].frame), "in frame order");
+        // The ones that did not fit reach the script in the next block, which
+        // does not send them on again.
+        let out = through(&mut device, &[]);
+        assert_eq!(out.len(), 1, "only the script's controller: {out:?}");
+    }
+
+    #[test]
+    fn a_script_may_send_back_an_all_notes_off_as_it_came_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "again.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b)
+              for i = 0, b.nevents - 1 do
+                local e = b.events[i]
+                b:send(e.frame, e.type, e.key, e.value, e.channel)
+              end
+            end
+            return dev
+            "#,
+        );
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        let events = [note_off(60), note_off(61), Event { frame: 4, kind: EventKind::AllNotesOff }];
+        assert_eq!(through(&mut device, &events), events);
+        assert_eq!(controller.health(), None);
+    }
+
+    #[test]
+    fn a_midi_effect_does_not_send_the_events_of_a_missed_block_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = script(
+            &dir,
+            "echo.lua",
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { midi_effect = true }
+            function dev.process(b)
+              for i = 0, b.nevents - 1 do
+                local e = b.events[i]
+                if e.type == dsp.NOTE_OFF then b:note_off(e.frame, e.key, e.channel) end
+              end
+            end
+            return dev
+            "#,
+        );
+        let (mut device, controller) = build(&path, 48000.0, 64).unwrap();
+        let call = controller.running.lock().unwrap();
+        assert!(through(&mut device, &[note_off(60)]).is_empty(), "a MIDI effect gives out only what the script sends");
+        drop(call);
+        let out = through(&mut device, &[note_off(61)]);
+        let keys: Vec<u8> = out.iter().filter_map(|e| match e.kind { EventKind::NoteOff { key, .. } => Some(key), _ => None }).collect();
+        assert_eq!(keys, [60, 61], "each event once: the missed one first");
+        assert!(through(&mut device, &[]).is_empty());
     }
 }

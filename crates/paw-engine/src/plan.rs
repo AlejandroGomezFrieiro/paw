@@ -39,7 +39,7 @@ pub(crate) use crossover::{Allpass, Crossover};
 pub const MAX_PLAN_DELAY: u32 = 1 << 17;
 
 /// How many events an event list of a branch holds, as the slot's own does.
-const EVENTS: usize = 1024;
+pub const EVENTS: usize = 1024;
 
 /// A chain as the main thread describes it: nodes in series.
 #[derive(Clone, Debug, Default, PartialEq)]
