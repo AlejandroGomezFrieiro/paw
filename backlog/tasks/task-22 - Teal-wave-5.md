@@ -1,10 +1,10 @@
 ---
 id: TASK-22
 title: Teal wave 5
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-21T18:33:00Z'
-updated_date: '2026-11-24T14:21:00Z'
+updated_date: '2026-11-24T15:35:00Z'
 labels:
   - teal
   - agent:worker
@@ -53,4 +53,6 @@ Owner, 2026-11-22: do not port notation or utau to Teal; they move to Rust later
 Board review 2026-11-23: parts on main: keymap, keyrule, keybar (TASK-125), the piano roll (TASK-126), the arrange view (TASK-127), plugstate (TASK-186). Still .lua in runtime/lua/paw: annotation, audio, autosave, controls, defaults, device_presets, device_rows, external, ext, freeze, fx, health, learn, loading, luadev, mixer_rows, params, plugins, portable, recent, reconnect, routes, stems, stretch, track_kinds (and dsp, init, untyped with a reason). The rule of AGENTS.md (a Lua file that changes much moves to Teal) ports most of them on the way. Pick a wave of 3 to 5 modules when an agent starts it; ext.lua after TASK-208.
 
 PO 2026-11-23 (cleanup for plan V2, architecture-plan.md): Do not port modules that a V2 bundle rewrites or removes: track_kinds (A2), freeze (FZ, RD), mixer_rows and routes (MX), groups, vca, takes and lanes data (LA, CV). Pick the wave from the other modules. Write no new user word track (W1).
+
+Started 2026-11-24: branch teal-wave-5, base 3535c7d2.
 <!-- SECTION:NOTES:END -->
