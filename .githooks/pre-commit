@@ -4,6 +4,7 @@
 # The full checks stay in the tiers of the skill paw-code (part 7).
 cd "$(git rev-parse --show-toplevel)" || exit 1
 tools/hygiene.sh > /dev/null || exec tools/hygiene.sh
+tools/reformat-check.sh || exit 1
 if command -v luajit > /dev/null; then
   for lint in partlint testlint layers zoomlint; do
     out=$(luajit "tools/$lint.lua" 2>&1) || {
