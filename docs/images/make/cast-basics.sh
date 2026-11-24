@@ -18,7 +18,7 @@ pause 0.4
 keys gg
 pause 1.0
 caption Select and copy: vic selects the melody, y copies it, and 0P pastes it at the start
-keys 4Gw
+keys 4G0w
 pause 0.4
 keys vic
 pause 0.6

@@ -15,4 +15,7 @@ key colon; TYPE_DELAY=70 typ "vimgrep /^[CE]$/ clip"; key Return; pause 0.6
 key colon; TYPE_DELAY=70 typ "copen"; key Return; pause 0.8
 cap "]q goes to the next place found, wherever it is"
 keys 0.8 bracketright q bracketright q; pause 1.0
+# The loop: close the list and put the cursor back. The qf item of the status line
+# stays until the next start.
+key colon; TYPE_DELAY=70 typ "cclose"; key Return; pause 0.4; keys 0.2 j 0; pause 0.8
 rec_stop

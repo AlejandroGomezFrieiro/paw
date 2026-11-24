@@ -34,5 +34,7 @@ key colon w Return; pause 1.8
 key y; pause 1.2
 cap "Enter on a folder goes in, - goes back up"
 keys 0.25 g g j; key Return; pause 1.1; key minus; pause 1.1
+# The loop: back to the arrange view, where the scene started.
+key colon; TYPE_DELAY=90 typ "e arrange"; key Return; pause 1.0
 rec_stop
 rm -rf "$PAW_HOME"

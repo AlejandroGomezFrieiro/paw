@@ -14,4 +14,6 @@ keys 0.25 w w 3 ctrl+x; pause 0.9
 cap ":w shows the plan; y applies it as one undo step"
 key colon w Return; pause 2.0
 key y; pause 2.0
+# The loop: close the text window and undo the plan (one step).
+key ctrl+w c; pause 0.4; key u; pause 0.8
 rec_stop

@@ -6,7 +6,7 @@
 ![Linux](https://img.shields.io/badge/platform-Linux-informational)
 ![Built with Nix](https://img.shields.io/badge/built%20with-Nix-5277C3)
 
-![A tour of paw in the terminal. The cursor moves over parts, clips and regions. The melody is copied, two parts are turned down, and the view narrows to the verse. A clip is found by name, a part and a synth are added, and a note is drawn and transposed in the piano roll. Two parts become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
+![A tour of paw in the terminal. The cursor moves over parts, clips and regions. The melody is copied, two parts are turned down, and the view narrows to the verse. A clip is found by name, and a picker lists every clip. A part and a synth are added, and a note is drawn and a block of notes is transposed in the piano roll. Two parts become a group, the chorus of the keys and the melody becomes a subproject whose parts show under its row, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
 
 paw is a digital audio workstation (DAW) for terminal nerds, and for people
 who spend more time in their config files than in the program. You record,
@@ -102,7 +102,7 @@ view, `h` `j` `k` `l` only move and `+` and `-` change the value under the
 cursor, and `Esc` cancels in each view too.
 [All the keys](docs/reference/keys.md) are on one page.
 
-![Notes drawn with i, typed on the home row with I, selected and transposed](docs/images/tui-pianoroll.gif)
+![Notes drawn with i, a note kept with Enter and the next one drawn after it, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
 
 On the command line, a line is a bar, and a range can be a range of parts
 (`:5,8d`, `:t2,t4 mute`, `:%s/c4/d4/gc`). paw shows a preview while you
@@ -113,7 +113,7 @@ type.
 The mixer and the device picker are views like the other views, and a
 picker plays each item before you select it.
 
-![The mixer while the song plays: a fader moves, a part is muted, and the picker adds a chorus](docs/images/tui-mixer.gif)
+![The mixer while the song plays: a fader moves, a part is muted, the picker adds a chorus, and a parameter of the chorus moves in the device panel](docs/images/tui-mixer.gif)
 
 The same views also open in the graphical window, where you can use the
 mouse.
@@ -123,15 +123,15 @@ mouse.
 <details>
 <summary>More: operators and substitutions, lists as text, find, files, large projects, record, help, configuration</summary>
 
-![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed](docs/images/tui-arrange.gif)
+![The demo song plays. 3>ic moves the melody, . moves it again and u undoes it. :%s/e5/g5/g changes it, with a preview while it is typed, and u undoes it](docs/images/tui-arrange.gif)
 
 ![The parts as text: one renamed and turned down, then written](docs/images/tui-textbuf.gif)
 
 ![The clips picker shows the melody beside the list. Then the notes picker. Then :vimgrep puts four clips in the quickfix list, and ]q moves through them](docs/images/tui-pickers.gif)
 
-![:e ~/music shows a folder of sounds as text. cw renames a file. A new name moves one into samples/, and dd deletes one. :w shows the plan](docs/images/tui-files.gif)
+![:e ~/music shows a folder of sounds as text. cw renames a file. A new name moves one into samples/, and dd deletes one. :w shows the plan, and y does it](docs/images/tui-files.gif)
 
-![The song has two groups. The views narrow to the rhythm section, and the other parts play from files. Then the view narrows to a region, and the other group is rendered](docs/images/tui-narrow.gif)
+![The song has two groups. The views narrow to the rhythm section, and the other parts play from files. Then the view narrows to a region, and the other group is frozen into a file and then thawed](docs/images/tui-narrow.gif)
 
 ![Loop recording into takes (a script plays the notes), and a comp of one take](docs/images/tui-takes.gif)
 

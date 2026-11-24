@@ -18,4 +18,8 @@ cap "Space dd shows its parameters: j k pick one, + - change it"
 key space d d; pause 0.6
 keys 0.25 G k k k; keys 0.15 3 0 plus; pause 0.6; keys 0.15 2 0 plus; pause 1.0
 key space space; pause 0.4
+# The loop: close the panel and the mixer, undo the eight changes (three fader
+# keys, two mutes, the device, two parameters), and put the playhead and the cursor back.
+key space d d; pause 0.5; key space m m; pause 0.5
+TYPE_DELAY=150 typ "8"; key u; pause 0.6; keys 0.2 g s k; pause 0.8
 rec_stop

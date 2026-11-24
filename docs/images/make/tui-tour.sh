@@ -21,7 +21,8 @@ rec_start tui-tour
 cap "Move: j k over parts, w b e over clips, G gg to the last and first part"
 pause 2.0; keys 0.35 j j w w e b; key G; pause 0.5; key g g; pause 0.8
 cap "]r jumps to the next region, [r back, 0 to the start of the song"
-keys 0.6 bracketright r bracketleft r 0; pause 0.6
+# The cursor is at bar 5 here, in the last region: 0 first, so that ]r has one to go to.
+keys 0.6 0 bracketright r bracketleft r 0; pause 0.6
 
 # Edits 1 and 2: a paste, two faders.
 cap "Select and copy: vic selects the melody, y copies it, P pastes it"

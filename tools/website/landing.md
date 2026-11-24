@@ -10,7 +10,7 @@
 
 </div>
 
-![A tour of paw in the terminal. The cursor moves over parts, clips and regions. The melody is copied, two parts are turned down, and the view narrows to the verse. A clip is found by name, a part and a synth are added, and a note is drawn and transposed in the piano roll. Two parts become a group, the chorus of the keys and the melody becomes a subproject, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
+![A tour of paw in the terminal. The cursor moves over parts, clips and regions. The melody is copied, two parts are turned down, and the view narrows to the verse. A clip is found by name, and a picker lists every clip. A part and a synth are added, and a note is drawn and a block of notes is transposed in the piano roll. Two parts become a group, the chorus of the keys and the melody becomes a subproject whose parts show under its row, and the song plays. At the end, u undoes every change](docs/images/tui-tour.gif)
 
 ## Who paw is for
 
@@ -39,7 +39,7 @@ it at any step, and copy the keys of a step from the list under it.
 
 <paw-cast src="docs/images/cast-basics.cast">
 
-![Notes drawn with i, typed on the home row with I, selected and transposed](docs/images/tui-pianoroll.gif)
+![Notes drawn with i, a note kept with Enter and the next one drawn after it, then the bar selected and transposed](docs/images/tui-pianoroll.gif)
 
 </paw-cast>
 

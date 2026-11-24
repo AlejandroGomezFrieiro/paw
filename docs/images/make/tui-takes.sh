@@ -31,4 +31,6 @@ cap "zt shows the takes as lanes under the clip; the last one plays"
 key z t; pause 1.6
 cap "Comping: select the first half, :take 1 plays the first take there"
 keys 0.12 3 W; keys 0.1 v 7 l; key colon; TYPE_DELAY=110 typ "take 1"; pause 0.4; key Return; pause 1.4
+# The loop: hide the take lanes, undo the recording and the comp (two steps), disarm the lead.
+key z t; pause 0.4; TYPE_DELAY=150 typ "2"; key u; pause 0.5; key r; pause 0.8
 rec_stop
