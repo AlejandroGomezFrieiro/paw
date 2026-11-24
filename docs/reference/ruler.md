@@ -53,9 +53,12 @@ time (`to`) colors the background of its stretch.
 - The labels of a column follow its sign in the order of their priority,
   with a space between them. A mark whose sign does not win the column
   shows its sign before its label.
-- A label never covers a sign of another column, and it keeps a free cell
-  before the next sign or label, but not before an edge sign. The ticks of the beats are the one
-  exception: a label covers them.
+- A label never covers a sign of another column, unless the sign is
+  `soft` and has a lower priority. The ticks of the beats and the edges of
+  the loop and the punch range are soft, so a tempo or a time signature
+  covers an edge, and the color of the stretch still shows where it ends.
+- A label keeps a free cell before the next label. It can end in the cell
+  just before a sign.
 - The labels with a higher priority get their room first. A `whole` label,
   such as a bar number or a tempo, shows whole or not at all. Another
   label, such as a name, gets shorter with `…`.
@@ -121,7 +124,7 @@ of the ruler, and the other rows still show.
 | `priority` | Which sign a column shows, and which label gets its room first. |
 | `style`, `label_style` | The highlight group of the mark, and of its label when it is different. |
 | `edge` | When `true`, the sign is in the cell before the column of `beat`. |
-| `soft` | When `true`, a label can cover the sign, as with the ticks of the beats. |
+| `soft` | When `true`, a label of a higher priority can cover the sign, as with the ticks of the beats and the edges of the loop. |
 | `restyle` | For a stretch: the style that each style of the text over it takes. |
 | `row`, `over` | The row that shows the mark, as the route of a namespace says. |
 | `line` | The line of the row, from 0. |

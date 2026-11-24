@@ -1402,8 +1402,9 @@ local record contracts
   --- one. `style` is the style of the sign and the label, `label_style`
   --- the style of the label when it differs. `edge` puts the sign in the
   --- cell before the column of its time, as the loop's edges are. A label
-  --- never covers a sign, except a `soft` one: a mark of the grid, as the
-  --- ticks of the beats are, that shows only in a cell no label takes.
+  --- never covers a sign, except a `soft` one of a lower priority: a mark
+  --- of the grid, as the ticks of the beats and the edges of the loop are,
+  --- that shows only in a cell no such label takes.
   ---
   --- A mark with `to` colors the background of its stretch in `style`,
   --- and gives no text. A sign or a label in the stretch takes the style

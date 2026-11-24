@@ -399,11 +399,12 @@ end
 
 -- The compositor ------------------------------------------------------------------------
 
---- A label that one column shows: its text and style, and the placed
+--- A label that one column shows: its text, style and priority, and the placed
 --- mark whose cells it takes.
 local record Piece
   text: string
   style: string
+  priority: integer
   whole: boolean
   placed: M.Placed
 end
@@ -470,14 +471,33 @@ local function place_line(list: {M.Placed}, width: integer, blocked: function(x:
       return a.x < b.x
     end
   )
-  --- Whether a label of the column `home` can take cell `x`: a label
-  --- never covers a sign of another column, but a soft one.
-  local function free(x: integer, home: integer): boolean
+  --- Whether a label of the column `home`, of `priority`, can take cell
+  --- `x`: a label never covers a sign of another column, but a soft one
+  --- of a lower priority.
+  --- Whether a label of `priority` may cover the signs of column `x`:
+  --- each is soft and of a lower priority.
+  local function coverable(x: integer, priority: integer): boolean
+    local there = groups[x]
+    for _, p in ipairs(there and there.list or {}) do
+      if p.mark.sign and not (p.mark.soft and (p.mark.priority or 0) < priority) then
+        return false
+      end
+    end
+    return true
+  end
+  --- Hide the signs of column `x`, which a label covers.
+  local function cover(x: integer)
+    local there = groups[x]
+    for _, p in ipairs(there and there.list or {}) do
+      p.sign = false
+    end
+    cells.signs[x] = nil
+  end
+  local function free(x: integer, home: integer, priority: integer): boolean
     if x >= width or cells.taken[x] or blocked(x) then
       return false
     end
-    local sign = cells.signs[x]
-    return x == home or not (sign and sign.sign and not sign.mark.soft)
+    return x == home or coverable(x, priority)
   end
   for _, g in ipairs(order) do
     local x = g.x
@@ -500,6 +520,7 @@ local function place_line(list: {M.Placed}, width: integer, blocked: function(x:
           pieces[#pieces + 1] = {
             text = text,
             style = p.mark.label_style or p.mark.style,
+            priority = p.mark.priority or 0,
             whole = p.mark.whole,
             placed = p,
           }
@@ -511,13 +532,13 @@ local function place_line(list: {M.Placed}, width: integer, blocked: function(x:
         -- The room: the free cells from `at`, less one free cell before
         -- what stops it, except at the end of the ruler.
         local stop = at
-        while free(stop, x) do
+        while free(stop, x, piece.priority) do
           stop = stop + 1
         end
-        -- No free cell is needed before an edge's sign, which is drawn at
-        -- the far side of its cell.
+        -- A free cell keeps two texts apart. A sign is no text: the label
+        -- can end in the cell before it.
         local before = cells.signs[stop]
-        local flush = stop >= width or (before and before.sign and before.mark.edge and not before.mark.soft)
+        local flush = stop >= width or (before ~= nil and before.sign)
         local room = stop - at - (flush and 0 or 1)
         local w = api.str_width(piece.text) + gap
         local text = piece.text
@@ -539,21 +560,23 @@ local function place_line(list: {M.Placed}, width: integer, blocked: function(x:
           end
         end
       end
-      -- The column's sign, and its labels with one free cell after them:
-      -- a soft sign there does not show. The free cell can be the column
-      -- of an edge's sign, which stays its own.
+      -- The column's sign, and its labels with a free cell after them: a
+      -- soft sign of a lower priority there does not show. A sign that the
+      -- labels do not cover, or an edge, can have the cell after them.
       if top then
         cells.taken[x] = true
       end
-      for c = start, at > start and at or start - 1 do
+      local after = at > start and at or start - 1
+      for c = start, after do
         local sign = cells.signs[c]
-        if c ~= x and sign and sign.sign and not sign.mark.soft then
+        -- An edge in the free cell stays: it is drawn at the far side.
+        local under = c < at or not sign or not sign.mark.edge
+        if c ~= x and sign and not (under and coverable(c, g.priority)) then
           break
         end
         cells.taken[c] = true
         if c ~= x and sign then
-          sign.sign = false
-          cells.signs[c] = nil
+          cover(c)
         end
       end
     end

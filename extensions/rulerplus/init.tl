@@ -15,21 +15,21 @@ local signed = paw.option.define("rulerplus_signed", true)
 
 -- The chord and the key: a row under the bars --------------------------------------
 
--- The key in short, in brackets: `(C)` C major, `(Am)` A minor, `(D dor)`.
-local function short(key: paw.harmony.Key): string
-  local mode = key.mode == "major" and "" or key.mode == "minor" and "m" or " " .. key.mode:sub(1, 3)
-  return "(" .. paw.harmony.pc_name(key.tonic, key) .. mode .. ")"
+-- The key as a musician says it: `in C major`, `in A minor`, `in D dorian`.
+local function spoken(key: paw.harmony.Key): string
+  return "in " .. paw.harmony.pc_name(key.tonic, key) .. " " .. key.mode
 end
 
--- At each bar where the chord changes, its name; where the key changes, the
--- key in short. A chord gets shorter with `…` where it has no room, and a
--- key is whole or not shown: a key cut short reads as another.
+-- Two lines: at each bar where the chord changes, its name; under it, where
+-- the key changes, the key. A chord gets shorter with `…` where it has no
+-- room, and a key is whole or not shown: a key cut short reads as another.
 -- Styles: `chord`, `key`.
 paw.ruler.row(
   "harmony",
   {
     after = "bars",
     styles = {chord = "RulerChord", key = "RulerTempo"},
+    height = function(_: Ctx): integer return 2 end,
     marks = function(ctx: Ctx): {Mark}
       local out: {Mark} = {}
       for _, line in ipairs(paw.draw.grid_lines(ctx.axis, ctx.right)) do
@@ -47,7 +47,8 @@ paw.ruler.row(
           if not before or paw.harmony.key(before, true).name ~= key.name then
             out[#out + 1] = {
               beat = line.beat,
-              label = short(key),
+              line = 1,
+              label = spoken(key),
               whole = true,
               priority = 15,
               style = ctx.styles.key,

@@ -410,6 +410,7 @@ marks.namespace(
       out[2] = {
         beat = from,
         edge = true,
+        soft = true,
         sign = ctx.glyphs.start or g.loop_in,
         style = on and "RulerLoopEdge" or "RulerLoopOffEdge",
         kind = "loop",
@@ -420,6 +421,7 @@ marks.namespace(
         out[3] = {
           beat = to,
           edge = true,
+          soft = true,
           sign = ctx.glyphs["end"] or g.loop_out,
           style = on and "RulerLoopEdgeIn" or "RulerLoopOffEdge",
           kind = "loop",
@@ -456,6 +458,7 @@ marks.namespace(
       out[2] = {
         beat = from,
         edge = true,
+        soft = true,
         sign = ctx.glyphs.start or g.punch_in,
         style = "RulerPunchEdge",
         kind = "punch",
@@ -464,6 +467,7 @@ marks.namespace(
       out[3] = {
         beat = to,
         edge = true,
+        soft = true,
         sign = ctx.glyphs["end"] or g.punch_out,
         style = "RulerPunchEdge",
         kind = "punch",

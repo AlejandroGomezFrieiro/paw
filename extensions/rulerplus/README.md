@@ -10,14 +10,15 @@ With rulerplus, the ruler shows more than the numbers of the bars:
 
 ```
 1       2       3       4       ┃5      6       7       8       ┃9
-C (C)           F
+C               F
+in C major
 ```
 
 - The row `harmony`, under the bar numbers, shows the chord at the start of
   each bar where the chord changes. The chords come from the harmony that paw
   reads in the song.
-- The same row shows the key in short form, where the key changes. `(C)` is C
-  major, `(Am)` is A minor, and `(D dor)` is D Dorian.
+- The second line of the row shows the key where the key changes, for
+  example `in C major` or `in D dorian`.
 - A mark `┃` before the first bar of each phrase. A phrase is 4 bars
   at first.
 - With `relativebar`, a sign on the counts: `+3` is three `W` ahead, `-2`
