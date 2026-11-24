@@ -328,3 +328,13 @@ test("snippet: the command completes the names", function()
   end
   eq(table.concat(found, " "):find("stack") ~= nil, true, "stack: " .. table.concat(found, " "))
 end)
+
+test("snippet: unloading an extension takes its snippets away, and the user's stay", function()
+  S.add({ name = "where", source = "config", expand = function() return { notes = {} } end })
+  T.after(function() paw.ext.unload("snippets", { force = true }) end)
+  paw.ext.load("extensions/snippets")
+  eq(S.get("dominant") ~= nil, true, "the extension has its snippet")
+  eq(paw.ext.unload("snippets"), true, "unloads")
+  eq(S.get("dominant"), nil, "its snippet is gone")
+  eq(S.get("where") ~= nil, true, "the one from the configuration stays")
+end)

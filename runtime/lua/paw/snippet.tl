@@ -131,7 +131,8 @@ end
 
 --- A snippet (`paw.snippet.add`): its name, what it says it does, the
 --- views it is offered in, what it writes, its choices, `count = true`
---- when it takes the count itself, and where it comes from.
+--- when it takes the count itself, where it comes from, and the extension
+--- that added it (its unload takes the snippet away).
 local record Spec
   name: string
   desc: string
@@ -140,6 +141,7 @@ local record Spec
   choices: {Choice}
   count: boolean
   source: Origin
+  owner: string
 end
 
 --- What a snippet would write: its notes, what it replaces, its choices
@@ -348,6 +350,7 @@ function M.add(spec: Spec): Spec
   end
   local entry = shallow(spec)
   entry.source, entry.desc, entry.views = source, spec.desc or "", spec.views or {"pianoroll"}
+  entry.owner = paw.ext.current and paw.ext.current.name or spec.owner
   M.list[spec.name] = entry
   return entry
 end
@@ -1263,6 +1266,22 @@ events.on(
 )
 
 events.on(escape, function() M.finish() end)
+-- An extension that unloads takes its snippets with it, as it does its
+-- keys and commands.
+local record Unloading
+  name: string
+end
+local ext_unloading: events.Event<Unloading> = events.event("ext.unloading")
+events.on(
+  ext_unloading,
+  function(e: Unloading)
+    for name, spec in pairs(M.list) do
+      if spec.owner == e.name then
+        M.remove(name)
+      end
+    end
+  end
+)
 -- Another project (or a new one): nothing of this one's snippet is left.
 events.on(kernel.project_loaded, function() M.finish() end)
 events.on(
