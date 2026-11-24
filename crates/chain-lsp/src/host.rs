@@ -71,7 +71,7 @@ fn run(words: &[String]) -> Result<String, String> {
 /// The `initializationOptions` that the server reads. Each is optional.
 ///
 /// ```json
-/// { "schema": { "chain_schema": 2, ... }, "schemaPath": "/path/schema.json",
+/// { "schema": { "chain_schema": 3, ... }, "schemaPath": "/path/schema.json",
 ///   "schemaCommand": ["paw", "chain", "schema"], "chainContext": { "chain_context": 2, ... } }
 /// ```
 #[derive(Debug, Default, Deserialize)]

@@ -19,6 +19,9 @@ chain-syntax.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The JSON Schemas of the shapes of paw.api and of the parameters of the
+# built-in kinds (api/shapes.rs, chain_schema.rs).
+schemars.workspace = true
 thiserror.workspace = true
 hex.workspace = true
 smallvec.workspace = true

@@ -1,7 +1,7 @@
 //! Clips: their fields, notes, controls and audio.
 
 use super::*;
-use document::ClipField;
+use document::ClipChange;
 
 impl Session {
     pub(crate) fn clip_view(&self, id: Id) -> Result<ClipView<'_>> {
@@ -147,46 +147,37 @@ impl Session {
         Ok(map.beat(map.seconds(start) + seconds) - start)
     }
 
-    /// Set `key` of clip `id` to `value` ([`Document::clip_set`]). A value
-    /// the clip already holds is no change; a new sound file is read first;
-    /// the fields of how a clip plays are `clip_set_playing`'s.
-    pub(crate) fn clip_set(&mut self, id: Id, key: &str, value: Value) -> Result<()> {
-        // `None` for a field of a playing clip (`clip_set_playing`) or none.
-        let field = ClipField::parse(key);
-        let plain = matches!(
-            field,
-            Some(ClipField::Start | ClipField::Length | ClipField::Name | ClipField::Muted)
-        );
-        let quick = plain
-            .then(|| {
-                let (part, index) = self.doc.project.find_clip(id)?;
-                self.doc.project.part(part)?.clips.get(index)
-            })
-            .flatten();
-        let held = match quick {
-            Some(c) => {
-                let view = json!({ "start": c.start, "length": c.length, "name": c.name, "muted": c.muted });
-                holds(&Ok(view), key, &value)
-            }
-            None => holds(&self.clip_view(id).and_then(|v| Ok(serde_json::to_value(v)?)), key, &value),
-        };
+    /// Change clip `id` by a patch, one field after the other in the order
+    /// of their keys ([`ClipPatch::changes`]).
+    pub(crate) fn clip_patch(&mut self, id: Id, patch: ClipPatch) -> Result<()> {
+        for change in patch.changes()? {
+            self.clip_set(id, change)?;
+        }
+        Ok(())
+    }
+
+    /// Make one change of clip `id` ([`Document::clip_set`]). A value the
+    /// clip already holds is no change; a new sound file is read first;
+    /// the fields of how a clip plays are `set_playing`'s.
+    fn clip_set(&mut self, id: Id, change: ClipChange) -> Result<()> {
+        let project = &self.doc.project;
+        let held = project.clip(id).is_some_and(|clip| {
+            let part = project.find_clip(id).or_else(|| project.find_cue_clip(id)).map(|(part, _)| part);
+            change.holds(clip, part)
+        });
         if held {
             return Ok(());
         }
-        // Another file for an audio clip (another take) has to be one that
-        // can be read, before the clip is changed.
-        let new_file = match (field, value.as_str()) {
-            (Some(ClipField::File), Some(path)) => {
-                let path = PathBuf::from(path);
+        match change {
+            // Another file for an audio clip (another take) has to be one
+            // that can be read, before the clip is changed.
+            ClipChange::File(path) => {
                 let path = std::path::absolute(&path).unwrap_or(path);
                 self.audio.load(&path)?;
-                Some(path)
+                self.doc.clip_set(id, ClipChange::File(path))
             }
-            _ => None,
-        };
-        if let Some(done) = self.clip_set_playing(id, key, &value) {
-            return done;
+            change if change.is_playing() => self.set_playing(id, change),
+            change => self.doc.clip_set(id, change),
         }
-        self.doc.clip_set(id, key, value, new_file)
     }
 }

@@ -10,11 +10,12 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::Document;
-use super::values::{check_controls, check_fade, de, de_meta, finite, sorted};
+use super::values::{Patch, check_controls, check_fade, finite, sorted};
 use crate::model::{
     Clip, ClipContent, ClipKindId, Control, CustomContent, Id, KindData, MASTER_ID, MediaRef, NestPlay, Note, Notes,
     Overrides, Project, Signal, Sound, StretchMode, Timebase, Timeline, WarpMarker, check_clip_beat, check_notes,
 };
+use schemars::JsonSchema;
 use crate::stretch::{PITCH_RANGE, RATIO_RANGE};
 
 /// What a new clip holds: `midi`, `audio` or the name of a kind that an
@@ -435,61 +436,48 @@ impl Document {
         })
     }
 
-    /// Set `key` of clip `id` to `value`: the model's part of the
-    /// session's `clip_set`. `new_file` is the sound file that `file` names,
-    /// already read once by the session.
-    pub(crate) fn clip_set(&mut self, id: Id, key: &str, value: Value, new_file: Option<PathBuf>) -> Result<()> {
-        let field = ClipField::parse(key);
+    /// Make one change of clip `id`: the model's part of the session's
+    /// `clip_set`. The session reads the sound file of a `File` change
+    /// first, and sets the fields of how a clip plays itself.
+    pub(crate) fn clip_set(&mut self, id: Id, change: ClipChange) -> Result<()> {
         self.edit(|p| {
             // A clip off the timeline has no `start` there.
             let cue = p.find_cue_clip(id).is_some();
-            match field {
-                Some(ClipField::Start) if cue => bail!("a clip off the timeline starts at 0"),
-                Some(ClipField::Part) if cue => {
-                    move_cue(p, id, de(key, value)?)?;
+            match change {
+                ClipChange::Start(_) if cue => bail!("a clip off the timeline starts at 0"),
+                ClipChange::Part(to) if cue => {
+                    move_cue(p, id, to)?;
                     return Ok(());
                 }
-                Some(ClipField::Part) => return move_clip(p, id, value),
+                ClipChange::Part(to) => return move_clip(p, id, to),
                 _ => {}
             }
+            let key = change.key();
             let c = p.clip_mut(id).with_context(|| format!("no clip {id}"))?;
-            match (field, &mut c.content) {
-                (Some(ClipField::Name), _) => c.name = de(key, value)?,
-                (Some(ClipField::Start), _) => c.start = de::<f64>(key, value)?.max(0.0),
-                (Some(ClipField::Length), _) => {
-                    let length: f64 = de(key, value)?;
+            match (change, &mut c.content) {
+                (ClipChange::Name(name), _) => c.name = name,
+                (ClipChange::Start(start), _) => c.start = start.max(0.0),
+                (ClipChange::Length(length), _) => {
                     if !length.is_finite() || length <= 0.0 {
                         bail!("clip length must be above 0");
                     }
                     check_clip_beat("the end of the clip", length)?;
                     c.length = length;
                 }
-                (Some(ClipField::Muted), _) => c.muted = de(key, value)?,
-                (Some(ClipField::Meta), _) => c.meta = de_meta(key, value)?,
-                (Some(ClipField::File), ClipContent::Audio { file, .. }) => {
-                    *file = new_file.context("an audio clip's file is a path")?;
-                }
-                (Some(ClipField::Offset), ClipContent::Audio { offset, .. }) => {
-                    *offset = de::<f64>(key, value)?.max(0.0);
-                }
+                (ClipChange::Muted(muted), _) => c.muted = muted,
+                (ClipChange::Meta(meta), _) => c.meta = meta,
+                (ClipChange::File(path), ClipContent::Audio { file, .. }) => *file = path,
+                (ClipChange::Offset(new), ClipContent::Audio { offset, .. }) => *offset = new.max(0.0),
                 // Slipping a custom clip: where it starts in its data.
-                (Some(ClipField::Offset), ClipContent::Custom(custom)) => {
-                    custom.offset = finite("offset", de(key, value)?)?;
+                (ClipChange::Offset(new), ClipContent::Custom(custom)) => custom.offset = finite("offset", new)?,
+                (ClipChange::Gain(new), ClipContent::Audio { gain, .. }) => *gain = new.clamp(-120.0, 24.0),
+                (ClipChange::FadeIn(beats), ClipContent::Audio { .. }) => c.fade_in = check_fade(beats)?,
+                (ClipChange::FadeOut(beats), ClipContent::Audio { .. }) => c.fade_out = check_fade(beats)?,
+                (ClipChange::Transpose(amount), ClipContent::Midi { .. }) => {
+                    c.overrides.transpose = override_value(key, amount)?;
                 }
-                (Some(ClipField::Gain), ClipContent::Audio { gain, .. }) => {
-                    *gain = de::<f64>(key, value)?.clamp(-120.0, 24.0);
-                }
-                (Some(ClipField::FadeIn), ClipContent::Audio { .. }) => {
-                    c.fade_in = check_fade(de(key, value)?)?;
-                }
-                (Some(ClipField::FadeOut), ClipContent::Audio { .. }) => {
-                    c.fade_out = check_fade(de(key, value)?)?;
-                }
-                (Some(ClipField::Transpose), ClipContent::Midi { .. }) => {
-                    c.overrides.transpose = override_value(key, value)?;
-                }
-                (Some(ClipField::Velocity), ClipContent::Midi { .. }) => {
-                    c.overrides.velocity = override_value(key, value)?;
+                (ClipChange::Velocity(amount), ClipContent::Midi { .. }) => {
+                    c.overrides.velocity = override_value(key, amount)?;
                 }
                 _ => bail!("{} clips have no settable field `{key}`", c.content.kind()),
             }
@@ -629,65 +617,217 @@ fn check_signals(signals: Vec<Signal>) -> Result<Arc<[Signal]>> {
     Ok(signals.into())
 }
 
-/// A field that [`Document::clip_set`] changes: the key that Lua gives,
-/// parsed once. Which fields a clip has depends on its kind, so an unknown
-/// key fails where the clip is known.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ClipField {
-    Name,
-    Start,
-    Length,
-    Muted,
-    Meta,
-    Part,
-    File,
-    Offset,
-    Gain,
-    FadeIn,
-    FadeOut,
-    Transpose,
-    Velocity,
+/// What `paw.api.clip_set` changes in a clip: each field as `clip_get` gives
+/// it, and what is left out stays. Nil clears a field that has a default
+/// (`clip_set(id, "loop_length", nil)`), and is refused for the others.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[schemars(rename = "ClipChanges")]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct ClipPatch {
+    /// Beats an audio clip fades in over.
+    fade_in: Patch<f64>,
+    /// Beats an audio clip fades out over.
+    fade_out: Patch<f64>,
+    /// The sound file of an audio clip: another take of it.
+    #[schemars(with = "Option<String>")]
+    file: Patch<PathBuf>,
+    formants: Patch<bool>,
+    /// The gain of an audio clip in dB, from -120 to 24.
+    gain: Patch<f64>,
+    length: Patch<f64>,
+    #[serde(rename = "loop")]
+    looped: Patch<bool>,
+    loop_length: Patch<f64>,
+    loop_start: Patch<f64>,
+    #[schemars(extend("x-teal" = "Meta"))]
+    meta: Patch<Map<String, Value>>,
+    muted: Patch<bool>,
+    name: Patch<String>,
+    offset: Patch<f64>,
+    /// Move the clip to the end of this part.
+    part: Patch<Id>,
+    pitch: Patch<f64>,
+    source_tempo: Patch<f64>,
+    start: Patch<f64>,
+    stretch: Patch<f64>,
+    stretch_mode: Patch<StretchMode>,
+    timebase: Patch<Timebase>,
+    /// Semitones up (down below 0), from -127 to 127.
+    transpose: Patch<f64>,
+    /// What is added to the velocity of each note, from -127 to 127.
+    velocity: Patch<f64>,
+    /// The markers of an audio clip; the `beat` of each is not read.
+    #[schemars(with = "Option<Vec<crate::session::WarpView>>")]
+    warp: Patch<Vec<WarpMarker>>,
 }
 
-impl ClipField {
-    pub(crate) fn parse(key: &str) -> Option<Self> {
-        Some(match key {
-            "name" => Self::Name,
-            "start" => Self::Start,
-            "length" => Self::Length,
-            "muted" => Self::Muted,
-            "meta" => Self::Meta,
-            "part" => Self::Part,
-            "file" => Self::File,
-            "offset" => Self::Offset,
-            "gain" => Self::Gain,
-            "fade_in" => Self::FadeIn,
-            "fade_out" => Self::FadeOut,
-            "transpose" => Self::Transpose,
-            "velocity" => Self::Velocity,
-            _ => return None,
-        })
+impl ClipPatch {
+    /// The changes of the patch, in the order of their keys.
+    pub(crate) fn changes(self) -> Result<Vec<ClipChange>> {
+        use ClipChange as C;
+        let mut out = Vec::new();
+        let mut set = |change: Option<ClipChange>| out.extend(change);
+        set(self.fade_in.value("fade_in")?.map(C::FadeIn));
+        set(self.fade_out.value("fade_out")?.map(C::FadeOut));
+        set(self.file.value("file")?.map(C::File));
+        set(self.formants.value("formants")?.map(C::Formants));
+        set(self.gain.value("gain")?.map(C::Gain));
+        set(self.length.value("length")?.map(C::Length));
+        set(self.looped.value("loop")?.map(C::Loop));
+        set(self.loop_length.change().map(C::LoopLength));
+        set(self.loop_start.change().map(C::LoopStart));
+        // An empty Lua table is an empty map: nil clears `meta` too.
+        set(self.meta.change().map(|meta| C::Meta(meta.unwrap_or_default())));
+        set(self.muted.value("muted")?.map(C::Muted));
+        set(self.name.value("name")?.map(C::Name));
+        set(self.offset.value("offset")?.map(C::Offset));
+        set(self.part.value("part")?.map(C::Part));
+        set(self.pitch.change().map(C::Pitch));
+        set(self.source_tempo.change().map(C::SourceTempo));
+        set(self.start.value("start")?.map(C::Start));
+        set(self.stretch.change().map(C::Stretch));
+        set(self.stretch_mode.value("stretch_mode")?.map(C::StretchMode));
+        set(self.timebase.value("timebase")?.map(C::Timebase));
+        set(self.transpose.change().map(C::Transpose));
+        set(self.velocity.change().map(C::Velocity));
+        set(self.warp.change().map(|warp| C::Warp(warp.unwrap_or_default())));
+        Ok(out)
+    }
+}
+
+/// One change of a clip, typed: what a field of a [`ClipPatch`] gives.
+/// `None` is nil: the field goes back to its default.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ClipChange {
+    FadeIn(f64),
+    FadeOut(f64),
+    File(PathBuf),
+    Formants(bool),
+    Gain(f64),
+    Length(f64),
+    Loop(bool),
+    LoopLength(Option<f64>),
+    LoopStart(Option<f64>),
+    Meta(Map<String, Value>),
+    Muted(bool),
+    Name(String),
+    Offset(f64),
+    Part(Id),
+    Pitch(Option<f64>),
+    SourceTempo(Option<f64>),
+    Start(f64),
+    Stretch(Option<f64>),
+    StretchMode(StretchMode),
+    Timebase(Timebase),
+    Transpose(Option<f64>),
+    Velocity(Option<f64>),
+    Warp(Vec<WarpMarker>),
+}
+
+impl ClipChange {
+    /// The key of the change, as Lua names the field.
+    pub(crate) fn key(&self) -> &'static str {
+        match self {
+            Self::FadeIn(_) => "fade_in",
+            Self::FadeOut(_) => "fade_out",
+            Self::File(_) => "file",
+            Self::Formants(_) => "formants",
+            Self::Gain(_) => "gain",
+            Self::Length(_) => "length",
+            Self::Loop(_) => "loop",
+            Self::LoopLength(_) => "loop_length",
+            Self::LoopStart(_) => "loop_start",
+            Self::Meta(_) => "meta",
+            Self::Muted(_) => "muted",
+            Self::Name(_) => "name",
+            Self::Offset(_) => "offset",
+            Self::Part(_) => "part",
+            Self::Pitch(_) => "pitch",
+            Self::SourceTempo(_) => "source_tempo",
+            Self::Start(_) => "start",
+            Self::Stretch(_) => "stretch",
+            Self::StretchMode(_) => "stretch_mode",
+            Self::Timebase(_) => "timebase",
+            Self::Transpose(_) => "transpose",
+            Self::Velocity(_) => "velocity",
+            Self::Warp(_) => "warp",
+        }
+    }
+
+    /// A change of how a clip plays: the session sets it
+    /// (`Session::set_playing`), as it needs the sound file and the tempo.
+    pub(crate) fn is_playing(&self) -> bool {
+        matches!(
+            self,
+            Self::Formants(_)
+                | Self::Loop(_)
+                | Self::LoopLength(_)
+                | Self::LoopStart(_)
+                | Self::Pitch(_)
+                | Self::SourceTempo(_)
+                | Self::Stretch(_)
+                | Self::StretchMode(_)
+                | Self::Timebase(_)
+                | Self::Warp(_)
+        )
+    }
+
+    /// Clip `clip`, on part `part`, already holds what the change gives:
+    /// setting it would change nothing, and makes no undo step.
+    pub(crate) fn holds(&self, clip: &Clip, part: Option<Id>) -> bool {
+        // A field that does not apply to the kind of the clip is never
+        // held: setting it gives the error of its kind.
+        let audio = match &clip.content {
+            ClipContent::Audio { file, offset, gain, .. } => Some((file, *offset, *gain)),
+            _ => None,
+        };
+        let midi = matches!(clip.content, ClipContent::Midi { .. });
+        let whole = |amount: &Option<f64>, held: i8| midi && amount.unwrap_or(0.0) == f64::from(held);
+        match self {
+            Self::Name(name) => clip.name == *name,
+            Self::Start(start) => clip.start == *start,
+            Self::Length(length) => clip.length == *length,
+            Self::Muted(muted) => clip.muted == *muted,
+            Self::Meta(meta) => clip.meta == *meta,
+            Self::Part(to) => part == Some(*to),
+            Self::File(path) => audio.is_some_and(|(file, ..)| file == path),
+            Self::Offset(offset) => audio.is_some_and(|(_, held, _)| held == *offset),
+            Self::Gain(gain) => audio.is_some_and(|(.., held)| held == *gain),
+            Self::FadeIn(beats) => audio.is_some() && clip.fade_in == *beats,
+            Self::FadeOut(beats) => audio.is_some() && clip.fade_out == *beats,
+            Self::Loop(on) => clip.looped == *on,
+            Self::LoopLength(beats) => clip.loop_length == *beats,
+            Self::LoopStart(beats) => clip.loop_start == beats.unwrap_or(0.0),
+            Self::Formants(on) => audio.is_some() && clip.formants == *on,
+            Self::Pitch(semitones) => audio.is_some() && clip.pitch == semitones.unwrap_or(0.0),
+            Self::Stretch(ratio) => audio.is_some() && clip.stretch == ratio.unwrap_or(1.0),
+            Self::StretchMode(mode) => audio.is_some() && clip.stretch_mode == *mode,
+            Self::SourceTempo(bpm) => audio.is_some() && clip.source_tempo == *bpm,
+            Self::Timebase(timebase) => audio.is_some() && clip.timebase.unwrap_or_default() == *timebase,
+            Self::Transpose(amount) => whole(amount, clip.overrides.transpose),
+            Self::Velocity(amount) => whole(amount, clip.overrides.velocity),
+            // A change keeps no beat of a marker, so it cannot compare a
+            // list with the view: a list of markers is always set.
+            Self::Warp(_) => false,
+        }
     }
 }
 
 /// An override of a MIDI clip (`model/overrides.rs`): a whole number from
 /// -127 to 127, nil for 0.
-fn override_value(key: &str, value: Value) -> Result<i8> {
-    if value.is_null() {
+fn override_value(key: &str, amount: Option<f64>) -> Result<i8> {
+    let Some(amount) = amount else {
         return Ok(0);
-    }
-    // Lua gives numbers as floats.
-    let amount: f64 = de(key, value)?;
+    };
     if amount.fract() != 0.0 || !(-127.0..=127.0).contains(&amount) {
         bail!("`{key}` is a whole number from -127 to 127, not {amount}");
     }
     Ok(amount as i8)
 }
 
-/// Move clip `id`, on the timeline, to the end of the part that `value` names.
-fn move_clip(p: &mut Project, id: Id, value: Value) -> Result<()> {
+/// Move clip `id`, on the timeline, to the end of part `to`.
+fn move_clip(p: &mut Project, id: Id, to: Id) -> Result<()> {
     let (from, index) = p.find_clip(id).with_context(|| format!("no clip {id}"))?;
-    let to: Id = de("part", value)?;
     check_clip_part(to)?;
     if p.part(to).is_none() {
         bail!("no part {to}");

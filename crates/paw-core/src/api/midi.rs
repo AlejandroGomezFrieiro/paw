@@ -5,20 +5,48 @@ use std::rc::Rc;
 use mlua::{Lua, Table, Value as LuaValue};
 use paw_types::{EventKind, ump};
 use serde::Deserialize;
+use serde::de::IntoDeserializer;
 
 use crate::model::{Control, Id, NoteAttr};
 
 use super::{LuaResult, Shared, from_lua, to_lua};
 
+/// The `type` of a MIDI event from Lua.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum MidiType {
+    NoteOn,
+    NoteOff,
+    Cc,
+    Bend,
+    Pressure,
+    Registered,
+    Assignable,
+    Program,
+}
+
+impl MidiType {
+    /// The type that `word` names; an error that lists the types if none.
+    fn of(word: &str) -> mlua::Result<Self> {
+        Self::deserialize(word.into_deserializer()).map_err(|_: serde::de::value::Error| {
+            mlua::Error::runtime(format!(
+                "a MIDI event has no type `{word}`: use note_on, note_off, cc, bend, pressure, \
+                 registered, assignable or program"
+            ))
+        })
+    }
+}
+
 /// A note from Lua as if from a MIDI port: `{ type = "note_on", pitch = 60, velocity = 100 }`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MidiEventOpts {
-    #[serde(rename = "type")]
-    kind: String,
     pitch: Option<u8>,
     velocity: Option<f64>,
-    // Read from the table before the rest; named here so that it is allowed.
+    // Read from the table before the rest; named here so that they are allowed.
+    #[allow(dead_code)]
+    #[serde(rename = "type")]
+    kind: MidiType,
     #[allow(dead_code)]
     channel: Option<u8>,
     /// A note-on's MIDI 2.0 attribute.
@@ -37,23 +65,24 @@ fn midi_kind(lua: &Lua, event: LuaValue) -> mlua::Result<EventKind> {
             ));
         }
     };
-    let kind: String = table.get("type")?;
+    let word: String = table.get("type")?;
+    let kind = MidiType::of(&word)?;
     let channel: Option<u8> = table.get("channel")?;
     let ch = channel.unwrap_or(1).clamp(1, 16) - 1;
-    if kind != "note_on" && kind != "note_off" {
-        let control: Control = from_lua(lua, event).map_err(|err| {
-            mlua::Error::runtime(format!(
-                "`{kind}` is not a MIDI event that can be sent (note_on, note_off, cc, bend, \
-                 pressure, registered, assignable, program): {err}"
-            ))
-        })?;
-        if let Some(problem) = control.problem() {
-            return Err(mlua::Error::runtime(format!(
-                "a MIDI event cannot be that: {problem}"
-            )));
+    let on = match kind {
+        MidiType::NoteOn => true,
+        MidiType::NoteOff => false,
+        _ => {
+            let control: Control = from_lua(lua, event)
+                .map_err(|err| mlua::Error::runtime(format!("a MIDI event `{word}` is not valid: {err}")))?;
+            if let Some(problem) = control.problem() {
+                return Err(mlua::Error::runtime(format!(
+                    "a MIDI event cannot be that: {problem}"
+                )));
+            }
+            return Ok(control.event(ch));
         }
-        return Ok(control.event(ch));
-    }
+    };
     let event: MidiEventOpts = from_lua(lua, event)?;
     let pitch = || {
         event
@@ -61,22 +90,17 @@ fn midi_kind(lua: &Lua, event: LuaValue) -> mlua::Result<EventKind> {
             .filter(|p| *p < 128)
             .ok_or_else(|| mlua::Error::runtime("a note needs a `pitch` from 0 to 127"))
     };
-    Ok(match event.kind.as_str() {
-        "note_on" => {
-            let vel = live_velocity(event.velocity)?;
-            // As on the wire in MIDI 1.0, a note-on with no velocity is a note-off.
-            if vel > 0.0 {
-                EventKind::NoteOn {
-                    key: pitch()?,
-                    vel,
-                    ch,
-                    attr: event.attr.map_or(paw_types::Attr::NONE, Into::into),
-                }
-            } else {
-                EventKind::NoteOff { key: pitch()?, ch }
-            }
+    let vel = if on { live_velocity(event.velocity)? } else { 0.0 };
+    // As on the wire in MIDI 1.0, a note-on with no velocity is a note-off.
+    Ok(if vel > 0.0 {
+        EventKind::NoteOn {
+            key: pitch()?,
+            vel,
+            ch,
+            attr: event.attr.map_or(paw_types::Attr::NONE, Into::into),
         }
-        _ => EventKind::NoteOff { key: pitch()?, ch },
+    } else {
+        EventKind::NoteOff { key: pitch()?, ch }
     })
 }
 

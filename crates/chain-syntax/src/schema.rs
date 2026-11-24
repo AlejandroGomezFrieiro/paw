@@ -15,7 +15,7 @@ use crate::tree::{GraphNode, Role};
 use crate::value::Unit;
 
 /// The version of the schema format that this crate reads and writes.
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// The kinds of a host.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -68,10 +68,10 @@ pub struct Stream {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub time: Option<TimeBase>,
     /// A lane of this stream can record from an input.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub records: bool,
     /// The stream can feed a parameter of a node (`"Volume" -> #1.gain`).
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub control: bool,
     /// The properties of the stream, such as `channels`, with their
     /// types and defaults. A port asks for values of these.
@@ -103,10 +103,10 @@ pub struct Port {
     /// The port that a wire with no port joins, and that inserts in series
     /// join. A kind has at most one main input and one main output of each
     /// stream.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub main: bool,
     /// An output. A port is an input when this is false.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub out: bool,
 }
 
@@ -172,7 +172,7 @@ pub struct Kind {
     pub params: Vec<Param>,
     /// The host knows the parameters only for each instance (some
     /// plugins): any key is allowed, and its value is not checked.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub open_params: bool,
     /// The inputs and outputs. None takes the `default_ports` of the schema.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -183,7 +183,7 @@ pub struct Kind {
     /// A producer with one input and one output that turns one type of
     /// stream into another. A host can put one on a wire whose two ends
     /// differ.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub converts: bool,
 }
 
@@ -216,7 +216,9 @@ impl Count {
     }
 }
 
-/// One parameter of a kind, or one property of a stream.
+/// One parameter of a kind, or one property of a stream: its key, its
+/// names for people, and what it takes as the words of a
+/// [`ParamSchema`](crate::ParamSchema).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Param {
     /// The key that a field names: `threshold`, `b1.freq`, `Drive`.
@@ -227,62 +229,52 @@ pub struct Param {
     /// `:1`), for people. Values of the parameter have no unit.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub label: String,
+    /// What the parameter does, for people.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
     #[serde(flatten)]
     pub value: ParamValue,
 }
 
-/// What a parameter takes, by its `type`.
+/// What a parameter takes, as the check reads it. In JSON it is the words
+/// of a [`ParamSchema`](crate::ParamSchema), which convert to it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(try_from = "crate::ParamSchema", into = "crate::ParamSchema")]
 pub enum ParamValue {
     /// A number. `min`, `max` and `default` are in `unit`.
     Number {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         unit: Option<Unit>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         min: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         max: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         default: Option<f64>,
         /// Only whole numbers.
-        #[serde(default, skip_serializing_if = "is_false")]
         integer: bool,
     },
     /// `on` or `off`.
     Switch {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         default: Option<bool>,
     },
     /// One of the named choices.
     Choice {
         choices: Vec<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         default: Option<String>,
     },
     /// Any text: a name that the host gives a meaning to.
     Text {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         default: Option<String>,
     },
     /// A note value, such as `1/4`.
     Note {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         default: Option<String>,
     },
     /// Numbers separated by commas, such as crossovers.
     List {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         unit: Option<Unit>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         min: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         max: Option<f64>,
         /// How many numbers the list holds.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         count: Option<Count>,
         /// Each number is greater than the one before it.
-        #[serde(default, skip_serializing_if = "is_false")]
         ascending: bool,
     },
     /// Where a signal comes from: `@id` (a node of the chain before this
@@ -290,13 +282,10 @@ pub enum ParamValue {
     /// another part), or a text that the host gives a meaning to.
     Source {
         /// The kind of stream that the source must give. None takes any.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         stream: Option<String>,
+        /// The source is the main input of its kind.
+        main: bool,
     },
-}
-
-fn is_false(value: &bool) -> bool {
-    !value
 }
 
 /// Why a schema did not load.
@@ -309,6 +298,8 @@ pub enum SchemaError {
         "the schema is in version {0} of the format; this reader knows version {SCHEMA_VERSION}"
     )]
     Version(u32),
+    #[error("the parameter `{key}` of the schema is not valid: {source}")]
+    Param { key: String, source: crate::ParamError },
 }
 
 impl Schema {

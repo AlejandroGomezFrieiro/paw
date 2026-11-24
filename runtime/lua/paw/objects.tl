@@ -689,7 +689,9 @@ local part_set = setter(api.part_set as function(integer, types.Part), api.part_
 local device_set = setter(
   api.device_set as function(integer, types.Device), api.device_set as function(integer, string, nil)
 )
-local clip_set = setter(api.clip_set as function(integer, types.Clip), api.clip_set as function(integer, string, nil))
+local clip_set = setter(
+  api.clip_set as function(integer, types.ClipChanges), api.clip_set as function(integer, string, nil)
+)
 local lane_set = setter(api.lane_set as function(integer, types.Lane), api.lane_set as function(integer, string, nil))
 -- `part_get(id, key)`: one field of a part, which Teal does not see.
 local part_field = api.part_get as Field

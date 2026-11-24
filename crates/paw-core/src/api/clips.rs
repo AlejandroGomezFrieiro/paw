@@ -7,7 +7,7 @@ use mlua::{Lua, LuaSerdeExt, Table, Value as LuaValue};
 use crate::model::{ClipContent, Control, Id, Note, NoteAttr};
 use crate::session::notes::{NoteChange, NoteColumns, NoteRange, NotesEdit};
 
-use super::{LuaResult, Shared, changes, from_lua, kind_data, options, to_lua};
+use super::{LuaResult, Shared, from_lua, kind_data, options, patch, to_lua};
 
 /// Notes as Lua tables: what `to_lua` makes of them, built directly. Views
 /// ask for a clip's notes every time they draw, so this is on a hot path.
@@ -358,14 +358,11 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
         // Change a clip: a table of the entries to change, as `clip_get`
         // gives them, or one `key` and its value. Only the key form clears
         // an entry (`nil`).
-        // @type function(id: integer, patch: types.Clip)
+        // @type function(id: integer, patch: types.ClipChanges)
         // @type function(id: integer, key: string, value: nil)
         fn clip_set(lua, sh, (id, key, value) => (Id, LuaValue, LuaValue)) {
-            let mut session = sh.session.borrow_mut();
-            for (key, value) in changes(lua, key, value)? {
-                session.clip_set(id, &key, from_lua(lua, value)?).lua()?;
-            }
-            Ok(())
+            let patch: crate::session::ClipPatch = patch(lua, key, value)?;
+            sh.session.borrow_mut().clip_patch(id, patch).lua()
         }
         // `n` { min, max } pairs for all of the sound that an audio clip plays.
         // @return {types.Peak}

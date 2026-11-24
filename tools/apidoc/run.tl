@@ -9,6 +9,7 @@ local anys = require("apidoc.anys")
 local rust = require("apidoc.read.rust")
 local lua = require("apidoc.read.lua")
 local teal = require("apidoc.read.teal")
+local schema = require("apidoc.read.schema")
 
 local record run
   --- The writers, in the order they run: the allow-list's writer last, as
@@ -26,6 +27,7 @@ run.WRITERS = {
   require("apidoc.write.opts_d"),
   require("apidoc.write.kernel_events"),
   require("apidoc.write.role_props"),
+  require("apidoc.write.types_schema"),
   require("apidoc.write.events_page"),
   require("apidoc.write.any_allowed"),
 }
@@ -43,6 +45,7 @@ function run.model(): model.Model
   m.options = lua.options()
   m.events_rs = rust.records("crates/paw-core/src/events.rs")
   m.props_rs = rust.records("crates/paw-scene/src/props.rs")
+  m.schema = schema.read()
   m.runtime_events = teal.events(m.modules)
   m.has_types = source.read("runtime/lua/paw/types.tl") ~= nil
   m.record_anys = teal.record_anys()

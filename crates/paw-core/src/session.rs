@@ -30,8 +30,8 @@ use crate::model::{
 use crate::sync::{AudioCache, Follow, LiveDevices, Mapper, SyncCtx, sync};
 
 mod document;
-pub(crate) use document::{ClipKind, ClipOpts, CustomSet, Document, PartListOpts, notes};
-use document::{de, finite, holds, new_history, sorted};
+pub(crate) use document::{ClipKind, ClipOpts, ClipPatch, CustomSet, Document, PartListOpts, notes};
+use document::{de, finite, new_history, sorted};
 mod editing;
 mod project;
 mod parts;
@@ -698,27 +698,33 @@ pub(crate) fn settle_plugins(engine: &mut Engine, live: &LiveDevices) {
     engine.process(left, right);
 }
 
-/// A warp marker as a clip's description gives it: with the beat of the
-/// song it is at.
-#[derive(Serialize)]
+/// A warp marker of an audio clip: moments of its file in seconds; in a
+/// clip's view, with the `beat` it plays on.
+#[derive(Serialize, schemars::JsonSchema)]
+#[schemars(rename = "WarpMarker")]
 pub(crate) struct WarpView {
     source: f64,
     target: f64,
     beat: f64,
 }
 
-/// A clip as `paw.api.clip_get` and `clip_list` give it: its fields without
-/// its notes or its sound, made straight into Lua with no JSON between.
-/// What does not apply to its kind is left out.
-#[derive(Serialize)]
+/// `paw.api.clip_get(id)` and each entry of `clip_list`, without the notes.
+/// MIDI clips have `note_count`, `control_count` and the stamps, which
+/// change when the notes or controls do; audio clips have `file` and how
+/// they play it, and `edits`, the number of edits. What does not apply to
+/// its kind is left out.
+#[derive(Serialize, schemars::JsonSchema)]
+#[schemars(rename = "Clip")]
 pub(crate) struct ClipView<'a> {
     id: Id,
     name: &'a str,
     start: f64,
     length: f64,
     muted: bool,
+    #[schemars(extend("x-teal" = "ClipKind"))]
     kind: &'a str,
     part: Id,
+    #[schemars(extend("x-teal" = "Meta"))]
     meta: &'a Map<String, Value>,
     #[serde(rename = "loop")]
     looped: bool,
@@ -738,19 +744,21 @@ pub(crate) struct ClipView<'a> {
     note_count: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     control_count: Option<usize>,
-    /// Changes whenever the notes do ([`crate::model::Notes::stamp`]).
+    /// Changes whenever the notes do (`model::Notes::stamp`).
     #[serde(skip_serializing_if = "Option::is_none")]
     stamp: Option<u64>,
     /// The same for the controller moves.
     #[serde(skip_serializing_if = "Option::is_none")]
     control_stamp: Option<u64>,
-    /// A linked clip's link (`model/links.rs`), and how many clips it has.
+    /// A linked clip's link, and how many clips it has (`link_count` only
+    /// from `clip_get`).
     #[serde(skip_serializing_if = "Option::is_none")]
     link: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     link_count: Option<usize>,
-    /// Its overrides (`model/overrides.rs`): semitones up, and what is added
-    /// to each velocity.
+    /// A MIDI clip's overrides: semitones up (down below 0), and what is
+    /// added to the velocity of each note. They change what plays, not the
+    /// notes.
     #[serde(skip_serializing_if = "Option::is_none")]
     transpose: Option<i8>,
     #[serde(skip_serializing_if = "Option::is_none")]

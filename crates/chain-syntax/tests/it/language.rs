@@ -198,13 +198,13 @@ fn the_formatter_refuses_a_text_with_an_error() {
 
 #[test]
 fn a_schema_of_another_version_does_not_load() {
-    let Err(error) = chain_syntax::Schema::from_json(r#"{"chain_schema": 1, "devices": []}"#)
+    let Err(error) = chain_syntax::Schema::from_json(r#"{"chain_schema": 2, "devices": []}"#)
     else {
-        panic!("a schema of version 1 loaded")
+        panic!("a schema of version 2 loaded")
     };
-    assert!(matches!(error, SchemaError::Version(1)), "{error:?}");
+    assert!(matches!(error, SchemaError::Version(2)), "{error:?}");
     assert_eq!(
         error.to_string(),
-        "the schema is in version 1 of the format; this reader knows version 2"
+        "the schema is in version 2 of the format; this reader knows version 3"
     );
 }

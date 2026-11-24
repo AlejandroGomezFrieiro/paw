@@ -483,6 +483,7 @@ impl<'s> Checker<'s> {
             (
                 ParamValue::Source {
                     stream: Some(wanted),
+                    ..
                 },
                 Value::Reference(Reference::Outside(path)),
             ) => {

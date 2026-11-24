@@ -286,6 +286,53 @@ fn changes(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<Vec<(Strin
     }
 }
 
+/// What a typed setter (`clip_set`) is given, as its patch `T`: a table of
+/// the changes by key, or one `key` and its `value`. Only the key form can
+/// give nil, which a field of `T` reads as `null` (`Patch::Clear`). An
+/// unknown key gives the error of `deny_unknown_fields`, which names it and
+/// the known keys. A value of the wrong type gives an error that names its
+/// key.
+fn patch<T: DeserializeOwned>(lua: &Lua, key: LuaValue, value: LuaValue) -> mlua::Result<T> {
+    let table = match key {
+        LuaValue::Table(table) => table,
+        key => {
+            let table = lua.create_table_with_capacity(0, 1)?;
+            let value = if value.is_nil() { lua.null() } else { value };
+            table.raw_set(key, value)?;
+            table
+        }
+    };
+    from_lua(lua, LuaValue::Table(table.clone())).map_err(|error| {
+        // serde names an unknown key but not the key of a bad value: find
+        // the key whose value alone fails.
+        let bad = table.pairs::<LuaValue, LuaValue>().flatten().find_map(|(key, value)| {
+            let one = lua.create_table_from([(key.clone(), value)]).ok()?;
+            from_lua::<T>(lua, LuaValue::Table(one)).err().map(|error| (key, error))
+        });
+        let message = match bad {
+            Some((LuaValue::String(key), error)) => {
+                let error = cause(&error);
+                // serde's "unknown field `x`, expected one of ..." names it.
+                if error.starts_with("unknown field") {
+                    error
+                } else {
+                    format!("bad value for `{}`: {error}", key.display())
+                }
+            }
+            _ => cause(&error),
+        };
+        mlua::Error::runtime(message)
+    })
+}
+
+/// The message of a conversion error, without mlua's prefix.
+fn cause(error: &mlua::Error) -> String {
+    match error {
+        mlua::Error::DeserializeError(message) => message.clone(),
+        other => other.to_string(),
+    }
+}
+
 /// Read an options table, where leaving the table out means all defaults.
 fn options<T: DeserializeOwned + Default>(lua: &Lua, value: LuaValue) -> mlua::Result<T> {
     if value.is_nil() {

@@ -32,6 +32,12 @@ test("bad input is rejected with a useful message", function()
   fails(function() paw.master:remove() end, "master", "removing the master")
   fails(function() t:add_clip({ file = scratch .. "/missing.wav" }) end, "missing.wav", "missing file")
   fails(function() paw.part(999).name = "x" end, "999", "missing part")
+  local c = t:add_clip({ notes = { { pitch = 60, start = 0, length = 1 } } })
+  fails(function() api.clip_set(c.id, { lenght = 2 }) end, "unknown field `lenght`", "unknown clip key")
+  fails(function() api.clip_set(c.id, { length = "long" }) end, "bad value for `length`", "clip value of a bad type")
+  fails(function() api.clip_set(c.id, "name", nil) end, "bad value for `name`", "nil for a field with no default")
+  local wrong = "a MIDI event has no type `note_onn`: use note_on"
+  fails(function() api.midi_inject({ type = "note_onn", pitch = 60 }) end, wrong, "unknown MIDI type")
 end)
 
 test("parts insert at an index and move", function()

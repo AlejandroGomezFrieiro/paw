@@ -134,6 +134,13 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             t.set_metatable(Some(lua.array_metatable()))?;
             Ok(t)
         }
+        // The JSON Schema of the data of `paw.api` that has one, as JSON
+        // text: its definitions by the name of their Teal record
+        // (`types.Clip`), from the Rust types that read and write the data.
+        // @return string
+        fn api_schema(_, _sh, () => ()) {
+            serde_json::to_string(&crate::api_schema::definitions()).map_err(mlua::Error::external)
+        }
         // --- bytes, for the file formats extensions read and write ---
 
         // Base64 of bytes. `opts.url` uses the URL alphabet (`-_`), and

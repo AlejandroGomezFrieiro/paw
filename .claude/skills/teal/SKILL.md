@@ -22,7 +22,7 @@ The list below is the checklist.
 | What | Where | Edit it? |
 |---|---|---|
 | Runtime modules in Teal | `runtime/lua/paw/**/*.tl` | yes |
-| Kernel records (what crosses `paw.api`) | `runtime/lua/paw/types.tl` | yes, from the Rust that builds each table |
+| Kernel records (what crosses `paw.api`) | `runtime/lua/paw/types.tl` | yes, from the Rust that builds each table. **No** between the marks of `paw.api.api_schema`: `tools/apidoc.lua` writes those records from the `schemars` schema of the Rust types (`crates/paw-core/src/api_schema.rs`) |
 | Contracts extensions implement (`View`, `Buftype`, `PartKind`, Role, PickSource<T>, StatusComponent, QueryField, HealthCheck, Manifest…) | `runtime/lua/paw/contracts.tl` (`paw.contracts`) | yes |
 | Kernel event descriptors | `runtime/lua/paw/events/kernel.tl` | **no**: generated |
 | `paw` global, `paw.api`, Lua modules' records, options, role props | `runtime/types/paw.d.tl`, `paw/api.d.tl`, `paw/partial.d.tl`, `paw/opts.d.tl`, `paw/role_props.d.tl`, `paw/untyped.d.tl` | **no**: `tools/apidoc.lua` makes them |

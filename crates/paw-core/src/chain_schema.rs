@@ -9,6 +9,10 @@ use paw_engine::{Category, DeviceFormat, DeviceInfo, ParamInfo};
 
 use crate::model::chain::{BuiltinSplit, KindSpec, SplitImpl, SplitKinds};
 
+mod params;
+
+use params::params_of;
+
 /// The kinds that a host can lack, by their prefix: a plugin that is not
 /// installed on this machine, or a Lua device of an extension that is not
 /// loaded. The check gives a warning for one, not an error.
@@ -76,15 +80,15 @@ fn streams() -> Vec<Stream> {
 /// The roles of a node line, with the parameters and ports of each. A
 /// strip takes notes for the instrument among its inserts, and audio.
 fn nodes() -> Vec<Kind> {
-    let fader = || vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0), number("pan", None, -1.0, 1.0, 0.0)];
+    let fader = params_of::<params::Fader>;
     let role = |kind: &str, params: Vec<Param>, ports: Option<Vec<Port>>| Kind { kind: kind.into(), params, ports, ..Kind::default() };
     let strip_ports = vec![port("in", "audio", false), port("notes", "midi", false), port("out", "audio", true)];
     vec![
         role("strip", fader(), Some(strip_ports)),
         role("bus", fader(), None),
         role("master", fader(), None),
-        role("send", vec![number("level", Some(Unit::Decibel), -60.0, 12.0, 0.0), switch("pre")], None),
-        role("vca", vec![number("gain", Some(Unit::Decibel), -60.0, 12.0, 0.0)], Some(vec![port("out", "curve", true)])),
+        role("send", params_of::<params::SendParams>(), None),
+        role("vca", params_of::<params::Vca>(), Some(vec![port("out", "curve", true)])),
     ]
 }
 
@@ -103,7 +107,7 @@ fn param(info: &ParamInfo) -> Param {
     };
     // A unit of paw that the language has not (`°`, `:1`, `x`) stays as a label.
     let label = if unit.is_none() && !info.boolean && info.choices.is_empty() { info.unit.clone() } else { String::new() };
-    Param { key: info.key.clone(), name: info.name.clone(), label, value }
+    Param { key: info.key.clone(), name: info.name.clone(), label, description: String::new(), value }
 }
 
 /// The unit of the language for a unit as paw's devices write it.
@@ -118,23 +122,6 @@ fn unit(text: &str) -> Option<Unit> {
 /// 0.1, not 0.100000001490116.
 fn exact(value: f32) -> f64 {
     format!("{value}").parse().unwrap_or(f64::from(value))
-}
-
-fn number(key: &str, unit: Option<Unit>, min: f64, max: f64, default: f64) -> Param {
-    Param {
-        key: key.into(),
-        name: String::new(),
-        label: String::new(),
-        value: ParamValue::Number { unit, min: Some(min), max: Some(max), default: Some(default), integer: false },
-    }
-}
-
-fn switch(key: &str) -> Param {
-    Param { key: key.into(), name: String::new(), label: String::new(), value: ParamValue::Switch { default: Some(false) } }
-}
-
-fn text(key: &str) -> Param {
-    Param { key: key.into(), name: String::new(), label: String::new(), value: ParamValue::Text { default: None } }
 }
 
 /// The kinds of split of `kinds`: the built-in kinds in their order, then
@@ -153,18 +140,12 @@ fn splits(kinds: &SplitKinds) -> Vec<SplitKind> {
 
 /// A split kind of the language with the parameters that each split has.
 fn split(kind: &str, name: &str, spec: KindSpec) -> SplitKind {
-    let branch_params = vec![
-        number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0),
-        number("pan", None, -1.0, 1.0, 0.0),
-        switch("mute"),
-        switch("solo"),
-    ];
     SplitKind {
         kind: kind.into(),
         name: name.into(),
         branches: Count { min: spec.min, max: spec.max },
-        params: vec![number("mix", Some(Unit::Percent), 0.0, 100.0, 100.0), number("gain", Some(Unit::Decibel), -60.0, 24.0, 0.0)],
-        branch_params,
+        params: params_of::<params::Split>(),
+        branch_params: params_of::<params::Branch>(),
     }
 }
 
@@ -180,6 +161,7 @@ fn builtin_split(builtin: BuiltinSplit) -> SplitKind {
                 key: "xover".into(),
                 name: "Crossovers".into(),
                 label: String::new(),
+                description: String::new(),
                 value: ParamValue::List {
                     unit: Some(Unit::Hertz),
                     min: Some(20.0),
@@ -195,18 +177,12 @@ fn builtin_split(builtin: BuiltinSplit) -> SplitKind {
         BuiltinSplit::Key | BuiltinSplit::Vel => {
             let name = if builtin == BuiltinSplit::Key { "Key split" } else { "Velocity split" };
             let mut zones = split(builtin.word(), name, spec);
-            zones.branch_params.push(text("zone"));
+            zones.branch_params.extend(params_of::<params::Zone>());
             zones
         }
         BuiltinSplit::Select => {
             let mut select = split("select", "Selector", spec);
-            select.params.push(Param {
-                key: "index".into(),
-                name: "Index".into(),
-                label: String::new(),
-                value: ParamValue::Number { unit: None, min: Some(1.0), max: Some(16.0), default: Some(1.0), integer: true },
-            });
-            select.params.push(number("fade", Some(Unit::Millisecond), 0.0, 1000.0, 10.0));
+            select.params.extend(params_of::<params::Select>());
             select
         }
         BuiltinSplit::Outs => split("outs", "Outputs of the device before", spec),
@@ -215,34 +191,9 @@ fn builtin_split(builtin: BuiltinSplit) -> SplitKind {
 
 /// The kinds of modulator of a chain.
 fn modulators() -> Vec<Kind> {
-    let shape = Param {
-        key: "shape".into(),
-        name: "Shape".into(),
-        label: String::new(),
-        value: ParamValue::Choice {
-            choices: ["sine", "triangle", "square", "saw", "random"].map(String::from).to_vec(),
-            default: Some("sine".into()),
-        },
-    };
-    let sync = Param { key: "sync".into(), name: "Sync".into(), label: String::new(), value: ParamValue::Note { default: None } };
     vec![
-        Kind {
-            kind: "macro".into(),
-            name: "Macro".into(),
-            params: vec![number("value", Some(Unit::Percent), 0.0, 100.0, 0.0)],
-            ..Kind::default()
-        },
-        Kind {
-            kind: "lfo".into(),
-            name: "LFO".into(),
-            params: vec![
-                number("rate", Some(Unit::Hertz), 0.01, 50.0, 1.0),
-                sync,
-                shape,
-                number("phase", Some(Unit::Percent), 0.0, 100.0, 0.0),
-            ],
-            ..Kind::default()
-        },
+        Kind { kind: "macro".into(), name: "Macro".into(), params: params_of::<params::Macro>(), ..Kind::default() },
+        Kind { kind: "lfo".into(), name: "LFO".into(), params: params_of::<params::Lfo>(), ..Kind::default() },
     ]
 }
 
