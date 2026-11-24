@@ -6,7 +6,7 @@ An extension is a directory of Lua that paw loads, and the page below describes 
 
 ## Bundled extensions
 
-Each extension has a README. Its pictures are in `extensions/<name>/images`, and the scenes in its `images/make` make them (`docs/images/make/make.sh <name>`).
+Each extension has a README. Its pictures are in `extensions/<name>/images`, and the scenes in its `images/make` make them (`nix run .#gifs -- <name>`).
 
 | Extension | What it adds | Needs |
 | --- | --- | --- |

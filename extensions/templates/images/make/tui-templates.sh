@@ -9,7 +9,6 @@ SETUP="$TUI_DEMO paw.opt.templates_dir = os.getenv('HOME') .. '/.local/share/paw
 paw.ext.load('extensions/templates')"
 rig_start
 term_start
-[ "$(ctl "return os.getenv('HOME')")" = "$PAW_HOME" ] || { echo "tui-templates: ~ is not $PAW_HOME"; rm -rf "$PAW_HOME"; exit 1; }
 rec_start tui-templates
 cap "\\Ts saves the part: its devices with their settings, levels and sends"
 pause 0.5; key backslash T s; pause 0.5; TYPE_DELAY=110 typ "Soft keys"; key Return; pause 1.0

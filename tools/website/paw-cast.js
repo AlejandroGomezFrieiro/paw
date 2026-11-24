@@ -13,7 +13,8 @@
 const STYLE_ID = "paw-cast-style";
 
 // The colours of the terminal the pictures are taken in (Catppuccin Mocha,
-// docs/images/make/wezterm.lua): the default pen, and the 16 colours.
+// the theme that docs/images/make/rig.sh gives VHS): the default pen, and
+// the 16 colours.
 const FG = "#cdd6f4";
 const BG = "#1e1e2e";
 const ANSI = [

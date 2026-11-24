@@ -573,6 +573,38 @@
         }) // {
           default = { type = "app"; program = "${paw pkgs}/bin/paw"; };
           paw-utau = { type = "app"; program = "${pawUtau pkgs}/bin/paw"; };
+          # The GIFs of the manual and of the extensions:
+          # `nix run .#gifs -- [--check] [set or scene...]` in the checkout
+          # runs docs/images/make/make.sh with VHS (it records paw in a
+          # terminal of a headless browser, so it needs no display) and the
+          # tools of gif.py. The fonts are given here, so that each machine
+          # draws the same GIF. paw is PAW_BIN or target/release: the app
+          # does not build it.
+          gifs = {
+            type = "app";
+            program = "${pkgs.writeShellApplication {
+              name = "gifs";
+              runtimeInputs = with pkgs; [
+                vhs ffmpeg-full gifsicle python3 tmux neovim fontconfig
+                coreutils gawk gnugrep gnused procps bash
+              ];
+              text = ''
+                export FONTCONFIG_FILE=${pkgs.makeFontsConf {
+                  fontDirectories = [ pkgs.nerd-fonts.fira-code pkgs.dejavu_fonts ];
+                }}
+                export PAW_GIFS_APP=1
+                dir=$PWD
+                while [ ! -f "$dir/docs/images/make/make.sh" ]; do
+                  if [ "$dir" = / ]; then
+                    echo "gifs: run it in the checkout of paw" >&2
+                    exit 1
+                  fi
+                  dir=$(dirname "$dir")
+                done
+                exec sh "$dir/docs/images/make/make.sh" "$@"
+              '';
+            }}/bin/gifs";
+          };
           # Claude Code in a systemd scope with limits (tools/agent.sh). It
           # starts the `claude` and `systemd-run` of the machine, from PATH:
           # neither is a dependency here.
