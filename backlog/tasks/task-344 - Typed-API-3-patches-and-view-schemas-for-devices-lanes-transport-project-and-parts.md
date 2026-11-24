@@ -3,10 +3,10 @@ id: TASK-344
 title: >-
   Typed API 3: patches and view schemas for devices, lanes, transport, project
   and parts
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T15:47:00Z'
+updated_date: '2026-11-24T16:07:00Z'
 labels:
   - api
   - types
@@ -43,4 +43,6 @@ From the T96 review (2026-11-24, soft): (1) ClipPatch field keys live in 4 lists
 Builder report 2026-11-24 (branch typed-api-3, 7ac2d7d1 + a3a7ac2d): done. Review items 1, 2, 3, 4, 6, 7 fixed; item 8: meta stays a Map. Setters read typed patches (macro patch!), getters give typed views (macro view!); 22 hand records of types.tl replaced by generated ones, with Note and Control. Left: device_types (type_json) still json!; chain.rs and nest_set still use de/holds; device_set makes an undo step on no change (old behavior).
 
 Owner/orchestrator: review MERGE after one fix round (ff480bc8, 4721dd9c, 9e289658, 700232bf). Soft left: Lazy overrides schemars' hidden _schemars_private_* methods; a schemars update can break it (comment or with = "T").
+
+On main in merge 6a3f8e76 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->

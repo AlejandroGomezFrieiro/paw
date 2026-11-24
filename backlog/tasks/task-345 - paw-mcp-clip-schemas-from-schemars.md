@@ -1,10 +1,10 @@
 ---
 id: TASK-345
 title: paw-mcp clip schemas from schemars
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T15:22:00Z'
+updated_date: '2026-11-24T16:07:00Z'
 labels:
   - api
   - types
@@ -37,4 +37,6 @@ Follow-up of TASK-96.2 AC #9: paw-mcp/src/schema.rs and tools/write.rs still hol
 
 <!-- SECTION:NOTES:BEGIN -->
 Builder report 2026-11-24: paw-mcp reads the generated api_schema.json (apidoc check keeps it current). mcpscore 163 on two runs.
+
+On main in merge 6a3f8e76 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->

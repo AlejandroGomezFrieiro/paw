@@ -1,10 +1,10 @@
 ---
 id: TASK-346
 title: Teal ParamSpec reads ParamSchema
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T06:30:00Z'
-updated_date: '2026-11-24T15:26:00Z'
+updated_date: '2026-11-24T16:07:00Z'
 labels:
   - api
   - types
@@ -39,4 +39,6 @@ Follow-up of TASK-96 AC #11 (second half): the Teal ParamSpec of devices reads t
 Builder report 2026-11-24: there was no Teal ParamSpec. ParamSchema, ParamType, Unit and PropValue are generated from the Rust ParamSchema (schemars, a new optional feature of chain-syntax: owner question), and dsp.lua reads their words.
 
 Owner 2026-11-24: the optional schemars feature of chain-syntax is accepted.
+
+On main in merge 6a3f8e76 (2026-11-24), set Done by tools/board-sync.sh.
 <!-- SECTION:NOTES:END -->
