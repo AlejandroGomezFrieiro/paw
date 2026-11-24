@@ -27,6 +27,8 @@
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
 #![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
+use paw_core::model::chain::SplitRegistry as _;
+use paw_core::model::modifiers::ModRegistry as _;
 use std::collections::HashMap;
 use std::sync::Arc;
 

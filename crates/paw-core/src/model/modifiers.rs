@@ -187,9 +187,15 @@ pub enum ModImpl {
     Extern { version: Version, local: bool },
 }
 
-impl ModKinds {
+/// The verbs of the registry of modifier kinds. A trait, because the
+/// registry type [`Kinds`] is of `paw-types`.
+pub trait ModRegistry: Sized {
     /// The registry with the built-in kinds, of owner `paw.modifiers`.
-    pub fn builtin() -> Self {
+    fn builtin() -> Self;
+}
+
+impl ModRegistry for ModKinds {
+    fn builtin() -> Self {
         let mut kinds = Self::default();
         for builtin in BuiltinKind::ALL {
             kinds.put(builtin.kind(), ModImpl::Builtin(builtin), PAW);

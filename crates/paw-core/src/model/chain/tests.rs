@@ -1,3 +1,4 @@
+use crate::model::chain::SplitRegistry as _;
 use serde_json::json;
 
 use super::*;

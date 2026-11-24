@@ -203,6 +203,7 @@ fn modulators() -> Vec<Kind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::chain::SplitRegistry as _;
 
     fn kind_of<'a>(schema: &'a Schema, kind: &str) -> &'a Kind {
         schema.device(kind).unwrap_or_else(|| panic!("the schema has `{kind}`"))

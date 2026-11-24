@@ -2,6 +2,8 @@
 #![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
 #![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 #![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+use crate::model::chain::SplitRegistry as _;
+use crate::model::modifiers::ModRegistry as _;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 

@@ -1,3 +1,4 @@
+use crate::model::modifiers::ModRegistry as _;
 use serde_json::json;
 
 use super::*;

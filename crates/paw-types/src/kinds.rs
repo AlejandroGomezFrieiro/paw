@@ -13,8 +13,10 @@
 //! an entry put over the entry of another owner keeps that entry below it,
 //! and the entry below comes back when the one on top goes.
 //!
-//! This module uses no engine type, no OS call and no `mlua`, so that it
-//! can move to the crate of the shared value types.
+//! The module uses no engine type, no OS call and no `mlua`. The registry
+//! of one family gets its own verbs in the crate that knows the family's
+//! entries, as a trait on [`Kinds`] (the split kinds of a chain, the
+//! modifier kinds of a stack).
 
 use std::collections::BTreeMap;
 use std::fmt;

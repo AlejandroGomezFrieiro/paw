@@ -7,6 +7,7 @@
 //! in series. An edit inside a linked rack that changes its parts (not a
 //! value) changes the rack's definition, and so each other instance.
 
+use crate::model::chain::SplitRegistry as _;
 use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 

@@ -25,7 +25,9 @@ mod clips;
 pub mod chain;
 mod custom;
 pub mod ids;
-pub mod kinds;
+/// The kinds core lives in `paw-types`, so that the model and other
+/// crates that build for wasm32 share it.
+pub use paw_types::kinds;
 pub mod linked;
 mod links;
 pub mod modifiers;

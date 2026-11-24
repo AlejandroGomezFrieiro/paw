@@ -209,9 +209,37 @@ impl SplitImpl {
     }
 }
 
-impl Kinds<SplitFamily, SplitImpl> {
+/// The verbs of the registry of split kinds. A trait, because the
+/// registry type [`Kinds`] is of `paw-types` and the split kinds are of
+/// the chain.
+pub trait SplitRegistry: Sized {
     /// The registry with the built-in kinds, of owner `paw.chain`.
-    pub fn builtin() -> Self {
+    fn builtin() -> Self;
+    /// Add a kind of `owner` (an extension's). A built-in kind cannot
+    /// change.
+    fn define(&mut self, kind: SplitKind, spec: KindSpec, owner: Owner) -> Result<(), ChainError>;
+    /// The kind `word` names, and the values of a new split of it with
+    /// `branches` branches.
+    fn new_split_kind(&self, word: &str, branches: usize) -> Result<(SplitKind, Map<String, Value>), ChainError>;
+    /// How many branches a new split of `word` gets.
+    fn first_branches(&self, word: &str) -> Result<usize, ChainError>;
+    /// Check one split against its kind: the number of branches, and the
+    /// values of a built-in kind. A kind that no one has defined passes.
+    fn check(&self, split: &Split) -> Result<(), ChainError>;
+    /// Every kind's name: the built-in kinds first, in their order.
+    fn words(&self) -> Vec<String>;
+}
+
+/// The defined kind that `word` names, as a user typed it.
+fn known(kinds: &SplitKinds, word: &str) -> Result<(SplitKind, SplitImpl), ChainError> {
+    let unknown = || ChainError::UnknownKind(word.to_owned());
+    let kind: SplitKind = word.parse().map_err(|_| unknown())?;
+    let found = *kinds.get(&kind).ok_or_else(unknown)?;
+    Ok((kind, found))
+}
+
+impl SplitRegistry for SplitKinds {
+    fn builtin() -> Self {
         let mut kinds = Self::default();
         for builtin in BuiltinSplit::ALL {
             kinds.put(builtin.kind(), SplitImpl::Builtin(builtin), PAW);
@@ -219,9 +247,7 @@ impl Kinds<SplitFamily, SplitImpl> {
         kinds
     }
 
-    /// Add a kind of `owner` (an extension's). A built-in kind cannot
-    /// change.
-    pub fn define(&mut self, kind: SplitKind, spec: KindSpec, owner: Owner) -> Result<(), ChainError> {
+    fn define(&mut self, kind: SplitKind, spec: KindSpec, owner: Owner) -> Result<(), ChainError> {
         if self.owner(&kind) == Some(&PAW) {
             return Err(ChainError::BuiltinKind(kind.to_string()));
         }
@@ -232,18 +258,8 @@ impl Kinds<SplitFamily, SplitImpl> {
         Ok(())
     }
 
-    /// The defined kind that `word` names, as a user typed it.
-    fn known(&self, word: &str) -> Result<(SplitKind, SplitImpl), ChainError> {
-        let unknown = || ChainError::UnknownKind(word.to_owned());
-        let kind: SplitKind = word.parse().map_err(|_| unknown())?;
-        let found = *self.get(&kind).ok_or_else(unknown)?;
-        Ok((kind, found))
-    }
-
-    /// The kind `word` names, and the values of a new split of it with
-    /// `branches` branches.
-    pub fn new_split_kind(&self, word: &str, branches: usize) -> Result<(SplitKind, Map<String, Value>), ChainError> {
-        let (kind, found) = self.known(word)?;
+    fn new_split_kind(&self, word: &str, branches: usize) -> Result<(SplitKind, Map<String, Value>), ChainError> {
+        let (kind, found) = known(self, word)?;
         let values = match found {
             SplitImpl::Builtin(builtin) => builtin.first_values(branches),
             SplitImpl::Declared(_) => Map::new(),
@@ -251,14 +267,11 @@ impl Kinds<SplitFamily, SplitImpl> {
         Ok((kind, values))
     }
 
-    /// How many branches a new split of `word` gets.
-    pub fn first_branches(&self, word: &str) -> Result<usize, ChainError> {
-        self.known(word).map(|(_, found)| found.spec().first)
+    fn first_branches(&self, word: &str) -> Result<usize, ChainError> {
+        known(self, word).map(|(_, found)| found.spec().first)
     }
 
-    /// Check one split against its kind: the number of branches, and the
-    /// values of a built-in kind. A kind that no one has defined passes.
-    pub fn check(&self, split: &Split) -> Result<(), ChainError> {
+    fn check(&self, split: &Split) -> Result<(), ChainError> {
         let Some(found) = self.get(&split.kind) else { return Ok(()) };
         let spec = found.spec();
         let count = split.branches.len();
@@ -271,8 +284,7 @@ impl Kinds<SplitFamily, SplitImpl> {
         }
     }
 
-    /// Every kind's name: the built-in kinds first, in their order.
-    pub fn words(&self) -> Vec<String> {
+    fn words(&self) -> Vec<String> {
         let builtin = BuiltinSplit::ALL.iter().map(|b| b.word().to_owned());
         let added = self.iter().filter(|(_, found)| matches!(found, SplitImpl::Declared(_))).map(|(k, _)| k.to_string());
         builtin.chain(added).collect()

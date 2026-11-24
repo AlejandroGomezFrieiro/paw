@@ -1,6 +1,7 @@
 //! The edits of a chain: property tests over any chain of `chain/props.rs`,
 //! and the refusals.
 
+use crate::model::chain::SplitRegistry as _;
 use proptest::prelude::*;
 use proptest::sample::Index;
 

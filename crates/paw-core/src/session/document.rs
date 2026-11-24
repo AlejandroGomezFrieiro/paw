@@ -15,6 +15,8 @@
 //! tree shows (`wall`, seconds since 1970) from the session.
 #![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
+use crate::model::chain::SplitRegistry as _;
+use crate::model::modifiers::ModRegistry as _;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 

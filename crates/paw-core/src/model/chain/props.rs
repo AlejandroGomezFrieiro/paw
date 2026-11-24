@@ -1,6 +1,7 @@
 //! Property tests of the chain: its file form, and how it follows the
 //! devices of its owner. `chain/edit/tests.rs` uses its strategy.
 
+use crate::model::chain::SplitRegistry as _;
 use proptest::collection::vec;
 use proptest::prelude::*;
 use proptest::sample::Index;

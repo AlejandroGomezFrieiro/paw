@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "The value types that the model and the engine share: MIDI events, the tempo map, quantize and lane points. No audio, no threads, no calls to the operating system."
+description = "The value types that the model and the engine share: MIDI events, the tempo map, quantize, lane points, and the kinds of a family. No audio, no threads, no calls to the operating system."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
