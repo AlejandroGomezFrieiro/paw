@@ -597,14 +597,12 @@ test(
     eq(ids_unique(), true, "with ids of its own")
     paw.cursor.set_part(lead)
     T.keys(":info<CR>")
-    -- A long path goes on the line under its label, as with the long
-    -- temporary folders of the suite's plugins mode.
-    local info = table.concat(api.ui_snapshot(120, 40), "\n")
-    eq(
-      info:find("refers to", 1, true) ~= nil and info:find(lib .. "/parts/Lead", 1, true) ~= nil,
-      true,
-      ":info names the folder"
-    )
+    -- The float breaks a long path across rows at any character, and the
+    -- length of the path depends on the folder of the run. Take the text of
+    -- the float box with no borders and no spaces, so the path reads the
+    -- same at each length.
+    local flat = table.concat(api.ui_snapshot(120, 40), "\n"):gsub("[│%s]", "")
+    eq(flat:find("refersto" .. (lib .. "/parts/Lead"):gsub("%s", ""), 1, true) ~= nil, true, ":info names the folder")
     T.keys("q")
     -- The first edit.
     lead.volume = -3
