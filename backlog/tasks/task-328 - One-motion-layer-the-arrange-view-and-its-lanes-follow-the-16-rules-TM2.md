@@ -1,10 +1,10 @@
 ---
 id: TASK-328
 title: 'One motion layer: the arrange view and its lanes follow the 16 rules (TM2)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-23T19:52:00Z'
-updated_date: '2026-11-24T06:29:00Z'
+updated_date: '2026-11-24T14:34:00Z'
 labels:
   - ux
   - bundle
@@ -48,4 +48,6 @@ From TM1: h and l go to lines (today cursor.step keeps the offset); use want in 
 Wave 23 (2026-11-24), base 9cecbfdc (batches 20-22 + W1).
 
 Merged in the merge tree (e82d0d69, 2026-11-24). The arrange view and its lanes follow the rules; TM3 owes the piano roll (cursor.step, axis:step_at). Option note_snap became snap. Order issue seen under filter 'move': 'recent: the newest project is first' sees folder1-unused from an earlier test (not from this change).
+
+Orchestrator 2026-11-24: on main since e82d0d69 (Merge TM2). TM3 owes the piano roll. Status was left In Progress by mistake; the roadmap was right.
 <!-- SECTION:NOTES:END -->

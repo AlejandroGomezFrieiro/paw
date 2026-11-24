@@ -3,10 +3,10 @@ id: TASK-323
 title: >-
   Lane heads: paw.heads, the default head from pieces, lit flags, head keys and
   the height rule (HD)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-23T17:01:00Z'
-updated_date: '2026-11-24T06:29:00Z'
+updated_date: '2026-11-24T14:34:00Z'
 labels:
   - bundle
 milestone: m-17
@@ -60,4 +60,6 @@ PO 2026-11-23: owner order: HD comes after W1 (TASK-304) and before LA (TASK-309
 Wave 23 (2026-11-24), base 9cecbfdc (batches 20-22 + W1).
 
 Merged in the merge tree (af168218, 2026-11-24). Deferred: pieces takes, stack, value, source, lanes, picture (TK, M4, B6, RD, LA); head on clip kinds (LA, owner question: wait for LA, recommended); :checkhealth for heads that are out. Not checked: keys of a bundled extension that is not loaded when a head is defined.
+
+Orchestrator 2026-11-24: on main since af168218 (Merge HD). The deferred parts are named above and belong to TK, M4, B6, RD and LA. Status was left In Progress by mistake; the roadmap was right.
 <!-- SECTION:NOTES:END -->
