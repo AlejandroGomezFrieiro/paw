@@ -18,6 +18,11 @@
 //! running to the end of the line. Files are read and decoded on the main
 //! thread when the state is loaded, and the finished kit is handed to the
 //! audio thread over a queue; the kit it replaces comes back to be freed.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::cell::RefCell;
 use std::collections::HashMap;

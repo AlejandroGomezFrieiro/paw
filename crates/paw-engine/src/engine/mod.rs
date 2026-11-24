@@ -3,6 +3,8 @@
 //! Ownership rule: anything the audio thread uses is built on the main thread,
 //! sent over as a `Box`, and sent back through the garbage queue when replaced.
 //! The audio thread itself never allocates or frees.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 mod apply;
 mod click;

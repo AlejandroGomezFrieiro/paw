@@ -1,4 +1,5 @@
 //! The engine and the audio device: starting, options and statistics.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use crate::events::{KernelEvent as E};
 use super::*;

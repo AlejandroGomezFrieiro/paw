@@ -4,6 +4,11 @@
 //! no denormal numbers.
 
 #![allow(dead_code, reason = "each test module uses a part of the kit")]
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use crate::device::{Controller, Device, Io, ParamInfo, ProcessCtx, Registry};
 use crate::event::EventBuf;

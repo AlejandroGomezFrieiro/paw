@@ -9,6 +9,12 @@
 //! calls first, and may ask for the plugin to be stopped while it answers
 //! one (ARA only lets a host change what a plugin plays while it is not
 //! active).
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::mem::ManuallyDrop;

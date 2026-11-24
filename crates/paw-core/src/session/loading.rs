@@ -11,6 +11,7 @@
 //! (`device.stopped`), and keeps its saved state for the next try.
 //!
 //! [`DeviceFactory::starts_apart`]: paw_engine::DeviceFactory::starts_apart
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use crate::events::{DeviceReady, DeviceTrouble, Item, KernelEvent as E};
 use std::collections::BTreeMap;

@@ -1,6 +1,7 @@
 //! What the host offers the plugin: the callbacks it may make and the
 //! extensions it may ask for. The callbacks only note what the plugin asked
 //! for in [`HostFlags`], for the main thread to act on.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering::Relaxed};
 use std::sync::{Arc, Mutex, OnceLock};

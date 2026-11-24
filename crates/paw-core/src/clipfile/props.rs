@@ -1,4 +1,5 @@
 //! Property tests of the `.midi2` clip file: a clip written and read again.
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use proptest::collection::{btree_map, vec};
 use proptest::prelude::*;

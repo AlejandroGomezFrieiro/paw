@@ -8,6 +8,9 @@
 //! The client can also make ports of its own for other programs to send to
 //! ([`MidiInputs::open_port`]). What arrives at one is told apart by the port
 //! it arrived at, whoever sent it.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};

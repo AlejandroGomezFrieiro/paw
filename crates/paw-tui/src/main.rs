@@ -1,5 +1,6 @@
 //! The `paw` command: start the kernel with a terminal UI, without one, to run
 //! a script, or to talk to an instance that is already running.
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 mod args;
 mod graphics;

@@ -11,6 +11,9 @@
 //! count across the runs. Changes that touch the whole list
 //! ([`Notes::retain`], [`Notes::sort_by`], [`Notes::assign`]) leave alone
 //! the runs they did not change.
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};

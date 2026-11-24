@@ -1,5 +1,7 @@
 //! Kernel data as compact text for a model: ids in brackets, positions in
 //! beats with `bar.beat` beside them, levels in dB.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::fmt::Write as _;
 

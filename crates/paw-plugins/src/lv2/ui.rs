@@ -1,4 +1,7 @@
 //! The plugin's own editor: finding it, the host features it needs, its ports.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::{CStr, CString, c_char, c_void};

@@ -5,6 +5,12 @@
 //! engine's audio thread: it runs in a helper process (see the crate's
 //! documentation), where an allocation, a slow block or a crash costs only
 //! that device.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};

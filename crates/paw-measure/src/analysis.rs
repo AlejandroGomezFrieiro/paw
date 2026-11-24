@@ -14,6 +14,10 @@
 //! that alternates quiet and loud passages the two differ by several LU. The
 //! crate also hides what the analysis needs from the gate: the blocks it
 //! keeps (for the mono loss) and the two ends of the loudness range.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::Arc;
 

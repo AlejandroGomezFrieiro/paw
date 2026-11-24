@@ -14,6 +14,10 @@
 //! takes in, and the keys whose state changed are in
 //! [`finished`](Scheduler::finished) for the session to build again what
 //! plays them.
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;

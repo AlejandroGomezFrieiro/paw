@@ -7,6 +7,7 @@
 //!
 //! Scripts reach a face through `paw.api.device_call(id, method, data)`;
 //! answers are text: numbers separated by spaces, or `name value` lines.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use anyhow::{Result, bail};
 

@@ -2,6 +2,10 @@
 //! parameter changes (a controller is a parameter in VST3) and the process
 //! context. These COM objects are used on the audio thread only: no lock,
 //! no allocation and no wait.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;

@@ -1,4 +1,6 @@
 //! A note's own pitch bend, arriving with the note.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_wrap, reason = "debt: pay down"))]
 
 use paw_engine::{Event, EventBuf, Io, ProcessCtx, Registry};
 use paw_types::{Attr, Ctl, EventKind, NoteCtl};

@@ -14,6 +14,8 @@
 //!   has the new state from the point's frame on, the same every time.
 //!
 //! The explanation of state lanes in the documentation says more.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::sync::Arc;

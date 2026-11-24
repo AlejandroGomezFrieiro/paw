@@ -1,5 +1,7 @@
 //! Parts processed on several threads: the output is the same, bit for
 //! bit, as on one, and a schedule that is wrong does no harm.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use paw_engine::GraphPlan;
 use paw_engine::{

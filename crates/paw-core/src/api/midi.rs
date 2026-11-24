@@ -1,9 +1,11 @@
 //! `paw.api`: MIDI ports in and out.
 
-#![allow(
+#![expect(
     clippy::allow_attributes_without_reason,
-    reason = "fixed with the running work on the session, the API and the model of paw-core"
+    reason = "debt: pay down"
 )]
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::rc::Rc;
 

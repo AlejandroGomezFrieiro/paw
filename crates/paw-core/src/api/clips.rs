@@ -1,6 +1,9 @@
 //! `paw.api`: clips, their media, notes and controllers, and cues.
 
-#![allow(clippy::too_many_lines, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::too_many_lines, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::rc::Rc;
 

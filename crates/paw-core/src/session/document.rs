@@ -13,6 +13,7 @@
 //! [`ParamRange`], `path`. It reads no clock either: a step of the undo tree
 //! gets the schedule time of the turn (`now`) and the wall time that the
 //! tree shows (`wall`, seconds since 1970) from the session.
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;

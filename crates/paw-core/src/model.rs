@@ -5,8 +5,13 @@
 //! did not change, which is what makes snapshot undo and pointer-comparing
 //! diffs cheap.
 
-#![allow(clippy::redundant_clone, reason = "fixed with the running work on the session, the API and the model of paw-core")]
-#![allow(clippy::struct_excessive_bools, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::redundant_clone, reason = "debt: pay down")]
+#![expect(clippy::struct_excessive_bools, reason = "debt: pay down")]
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

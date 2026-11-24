@@ -6,6 +6,8 @@
 //! can belong to one note as well as to a channel. [`crate::ump`] turns
 //! them into Universal MIDI Packets and back; MIDI 1.0 is the same events
 //! with less detail.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 /// A controller of a whole channel.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -12,6 +12,7 @@
 //! last use (the mtime of `meta.json`, set on each [`Store::open`]) and
 //! never takes a pinned entry. Nothing here is the user's: the whole folder
 //! can go at any time.
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
 
 use std::collections::HashSet;
 use std::fs::{self, File};

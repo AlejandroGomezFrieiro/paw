@@ -13,6 +13,10 @@
 //!    [`Session::poll_takes`], called from `idle`, makes the clips of each
 //!    take that is [done](Take::is_done), as one undo step, and emits
 //!    `transport.recorded`.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};

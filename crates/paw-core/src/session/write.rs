@@ -13,6 +13,7 @@
 //!   again: the lane is joined back to what it held before.
 //! - `write` holds everything the part's lanes move from where playback
 //!   began, moved or not.
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::time::Duration;
 

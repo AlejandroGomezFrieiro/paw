@@ -6,6 +6,7 @@
 //! JSON line: the median and the worst of how early and how late the notes
 //! came, in nanoseconds. It needs the ALSA sequencer, and makes only ports
 //! of its own.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};

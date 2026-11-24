@@ -6,6 +6,11 @@
 //! they do, which the state-variable filter takes without clicks. Switching
 //! a band on or off, or changing its type, fades it out and in over 10 ms.
 //! A bell or shelf at 0 dB is skipped, so a flat band costs nothing.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use anyhow::Result;
 

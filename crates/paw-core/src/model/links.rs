@@ -7,6 +7,7 @@
 //! that clip's notes to the other clips of the link, in the same edit and so
 //! in the same undo step. The notes stay plain MIDI notes in each clip, so a
 //! project with links opens and plays as any other.
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 use std::sync::Arc;

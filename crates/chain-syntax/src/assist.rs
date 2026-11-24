@@ -10,10 +10,12 @@
 //! A place is a byte offset in the text. An offset at the end of a word is
 //! in that word, so that a completion continues the word that is typed.
 
-#![allow(
+#![expect(
     clippy::match_same_arms,
-    reason = "fixed with the running work on the chain language"
+    reason = "debt: pay down"
 )]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use crate::context::{Context, OutsideEnd};
 use crate::diagnostic::Span;

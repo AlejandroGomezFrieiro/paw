@@ -23,6 +23,8 @@
 //! a message comes or a worker rings (`crate::doorbell`), the next due
 //! time, or a tick while a part has news that rings no bell. With nothing
 //! ready, nothing in flight and nothing due, it sleeps with no limit.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::time::Duration;

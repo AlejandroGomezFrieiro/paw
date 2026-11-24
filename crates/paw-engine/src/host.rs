@@ -6,6 +6,9 @@
 //! the program is concerned: they come after the device's own, so they are
 //! set, automated and saved like any other. Everything here is allocated on
 //! the main thread; the audio thread only reads and writes the buffers.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use crate::device::ParamInfo;
 use crate::{Device, Io, ProcessCtx};

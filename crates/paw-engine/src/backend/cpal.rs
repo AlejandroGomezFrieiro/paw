@@ -1,8 +1,10 @@
 //! The cpal sound backend: real audio devices. Without the `cpal` feature,
 //! `no_cpal.rs` stands in with the same names.
 
-#![allow(clippy::redundant_clone, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![expect(clippy::redundant_clone, reason = "debt: pay down")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use std::sync::{Arc, Mutex};

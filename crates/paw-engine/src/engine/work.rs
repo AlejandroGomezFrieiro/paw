@@ -1,4 +1,7 @@
 //! Making one part's block, on whichever thread takes it.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 

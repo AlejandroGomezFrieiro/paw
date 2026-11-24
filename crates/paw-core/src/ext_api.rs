@@ -1,6 +1,10 @@
 //! What several extensions need and the core does once: the levels of a
 //! sound file, writing one, finding a program. `api/system.rs` defines the
 //! `paw.api` functions with their documentation; the work is here.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::path::Path;
 use std::sync::Arc;

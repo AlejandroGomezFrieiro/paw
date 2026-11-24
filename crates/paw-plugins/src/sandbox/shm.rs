@@ -1,6 +1,9 @@
 //! The block of shared memory the audio crosses in, and its futex handshake.
 
-#![allow(clippy::allow_attributes_without_reason, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![expect(clippy::allow_attributes_without_reason, reason = "debt: pay down")]
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
 
 use std::cell::UnsafeCell;
 use std::os::fd::OwnedFd;

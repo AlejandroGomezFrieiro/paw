@@ -7,6 +7,8 @@
 //! extension defines, one that an extension defines but the engine has no
 //! sound for yet, or `outs`) plays its first branch in series, and the
 //! sync says so in a warning.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 

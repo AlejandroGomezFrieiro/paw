@@ -1,5 +1,6 @@
 //! The main-thread half of a CLAP plugin: its parameters, the changes it
 //! reports, the calls paw makes to it, and the attachments that took it.
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::ptr;

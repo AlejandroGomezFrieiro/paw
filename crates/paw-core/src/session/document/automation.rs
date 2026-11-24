@@ -2,6 +2,8 @@
 //! them. The range of a plugin parameter is the live plugin's: the session
 //! gives it ([`ParamRange`]). Adding a lane asks the plugin, so it is the
 //! session's, in `session/automation.rs`.
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::sync::Arc;
 

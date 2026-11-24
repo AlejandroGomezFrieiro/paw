@@ -7,6 +7,11 @@
 //! second, plays silence and fills up again when it runs dry, and drops the
 //! oldest sound when it holds more than a second, so that the delay never
 //! grows without end. The delay is large; this is for monitoring.
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::VecDeque;
 use std::path::Path;

@@ -4,6 +4,9 @@
 //! message that does more than set a field has a method of its own, kept
 //! here by what it acts on: parts, devices, what parts play, the
 //! transport, and MIDI and the other ways in and out.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::atomic::Ordering::Relaxed;
 

@@ -1,4 +1,5 @@
 //! `paw.api`: sound files, programs, the file system, the environment and kept state.
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::path::Path;
 use std::rc::Rc;

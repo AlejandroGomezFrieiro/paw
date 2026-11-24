@@ -2,6 +2,7 @@
 //! `toml_encode`). A table read keeps the order of its keys in its
 //! metatable, `__keys`, and a table written puts the keys of `__keys`
 //! first, then the others by name.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use mlua::{Lua, Table, Value as LuaValue};
 use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Value};

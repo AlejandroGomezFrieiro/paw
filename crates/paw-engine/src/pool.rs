@@ -19,6 +19,8 @@
 //! the same priority; if the system refuses, the pool does all the work on
 //! the calling thread rather than make an audio callback wait for threads
 //! that anything may push aside.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::cell::UnsafeCell;
 use std::sync::Arc;

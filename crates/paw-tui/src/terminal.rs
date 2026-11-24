@@ -1,5 +1,8 @@
 //! The terminal frontend: shows the kernel's grid and turns terminal events
 //! into kernel input.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::io::{BufWriter, Read, Stdout, Write, stdout};
 use std::sync::Arc;

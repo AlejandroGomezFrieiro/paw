@@ -1,4 +1,6 @@
 //! MIDI input: ports, the part that hears them and live notes.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::BTreeSet;
 

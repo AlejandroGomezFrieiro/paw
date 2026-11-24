@@ -1,6 +1,7 @@
 //! The plugin's editor window: the window system to show it with, its
 //! opening and closing, and what the window and the plugin ask for while it
 //! is open. Main thread.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use std::ffi::CString;
 use std::sync::atomic::Ordering::Relaxed;

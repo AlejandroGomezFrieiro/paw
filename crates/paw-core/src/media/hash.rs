@@ -6,6 +6,7 @@
 //! that pass by while something else reads or writes them (an import that
 //! decodes, a recording that writes). The tests have `bytes` for bytes in
 //! memory.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::fs::File;
 use std::io::{self, Write};

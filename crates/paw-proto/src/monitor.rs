@@ -8,6 +8,10 @@
 //! That is about 1 Mbit/s with the base64 the JSON lines need: fine on a
 //! home network, too much for a slow link. It is for monitoring a mix, not
 //! for judging it.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use anyhow::{Context, Result};
 use base64::Engine;

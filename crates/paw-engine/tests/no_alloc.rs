@@ -4,6 +4,10 @@
 //! takes and every built-in device.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;

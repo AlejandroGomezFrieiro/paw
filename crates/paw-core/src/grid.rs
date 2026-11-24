@@ -1,6 +1,10 @@
 //! The screen: a grid of styled character cells that Lua draws into and
 //! frontends display. This is the whole contract between the UI code and
 //! whatever is showing it.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 

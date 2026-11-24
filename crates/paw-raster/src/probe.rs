@@ -4,6 +4,7 @@
 //! whether it reports the pointer in pixels (DECRQM for mode 1016), ended
 //! by the answer to DA1, which every terminal gives after the others.
 //! (After the measuring spike's `term.rs`.)
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use crate::kitty::Transfer;
 

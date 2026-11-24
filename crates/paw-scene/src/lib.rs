@@ -25,6 +25,11 @@
 //!
 //! Any node may be a hit region (`hit`) and be bound to a live value
 //! (`bind`) a frontend moves without a new scene.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 pub mod cells;
 pub mod color;

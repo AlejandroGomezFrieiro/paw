@@ -21,6 +21,8 @@
 //! A [`Converter`] keeps what it has to: which notes sound where, so that it
 //! can end them, and for MPE which channel each note has. It allocates
 //! nothing once made.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use crate::event::{Ctl, EventKind, NoteCtl};
 use crate::ump;

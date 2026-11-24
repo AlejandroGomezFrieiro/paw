@@ -18,6 +18,9 @@
 //! thread resolves the kind of each split of the model before it builds the
 //! tree: a kind that the engine does not play becomes its first branch in
 //! series.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 mod crossover;
 

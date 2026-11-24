@@ -12,6 +12,7 @@
 //! where the text before it starts (after the sibling before it, or after
 //! the parent's start tag), `tail` where the text after its last child
 //! starts.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::borrow::Cow;
 

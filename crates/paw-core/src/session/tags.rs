@@ -5,6 +5,8 @@
 //! chunk of `INFO`, a FLAC Vorbis comments and a `PICTURE` block; the lossy
 //! formats get them from ffmpeg, through a metadata file (see `encode.rs`),
 //! because a cover can be larger than one command-line argument may be.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};

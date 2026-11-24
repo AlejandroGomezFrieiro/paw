@@ -10,6 +10,7 @@
 //! the entry ("paw.peaks/1"): a new baker is a new entry, never a wrong one.
 //!
 //! `H` is [`Hasher`], BLAKE3 (`media::hash`), the hash that names sources.
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
 
 use std::fmt;
 

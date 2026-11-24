@@ -17,6 +17,11 @@
 //! Either way the map is made of straight pieces, from which the version is
 //! made (`stretch.rs`), and in which the engine finds where the clip's
 //! start is (the time its `offset` maps to).
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use anyhow::{Result, bail};
 use paw_types::TempoMap;

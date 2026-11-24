@@ -1,3 +1,4 @@
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 use serde_json::json;
 
 use super::*;

@@ -22,6 +22,8 @@
 //! state, the state last saved, named states and states marked `keep`. If
 //! every state is protected the tree grows past the limits rather than drop
 //! one of them.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};

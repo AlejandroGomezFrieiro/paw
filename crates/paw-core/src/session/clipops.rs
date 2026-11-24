@@ -2,6 +2,9 @@
 //! which go in the clip's edit list (`edits.rs`); glue, which makes a new
 //! file; and normalize, which only sets the clip's gain. None touches the
 //! file a clip played before, and each is one undo step.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::path::PathBuf;
 use std::sync::Arc;

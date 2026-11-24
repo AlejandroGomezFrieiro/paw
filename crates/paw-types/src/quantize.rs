@@ -1,5 +1,6 @@
 //! Where a launch lands: the first boundary of a grid, a beat or a bar at
 //! or after a position.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use crate::tempo::{EPS, TempoMap};
 

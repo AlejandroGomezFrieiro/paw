@@ -1,6 +1,7 @@
 //! The range of times that a clip holds: a note at the edge of
 //! the range writes and reads back, and a time past it is an error, not
 //! billions of clockstamps or an overflow of ticks.
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use serde_json::{Map, json};
 

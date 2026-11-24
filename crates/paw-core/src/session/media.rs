@@ -16,6 +16,9 @@
 //! a hash. A missing file is found again by its name or its size, and only
 //! a file with the same hash is taken for it. A file that changed on the
 //! disk is followed, and the user is told once.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use crate::events::{KernelEvent as E, MediaMissing};
 use std::collections::{BTreeSet, HashMap, HashSet};

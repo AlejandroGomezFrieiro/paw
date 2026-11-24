@@ -1,6 +1,7 @@
 //! What the host gives the plugin: the host application and component
 //! handler, the frame of an editor, and the run loop of timers and file
 //! descriptors that both offer. Main thread, except the atomics of `Host`.
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;

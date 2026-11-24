@@ -15,6 +15,11 @@
 //! Lookups are binary searches over the points, so they cost the same with
 //! one point or ten thousand, and never allocate: the audio thread reads a
 //! map it was handed whole.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 /// The tempos a map keeps to.
 pub const MIN_BPM: f64 = 1.0;

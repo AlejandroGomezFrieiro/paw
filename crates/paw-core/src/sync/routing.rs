@@ -1,5 +1,6 @@
 //! Where each part's signal goes: outputs, sends, side-chains and further
 //! output pairs, solo, and the schedule the engine runs the parts in.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::{HashMap, HashSet};
 

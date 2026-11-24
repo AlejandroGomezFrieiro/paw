@@ -3,6 +3,9 @@
 //! that the registry has (built-in, CLAP, VST3, LV2 and Lua), the kinds of
 //! split of the model's registry (`model/chain/kinds.rs`), and the kinds of
 //! modulator, as the generic crate `chain-syntax` reads them.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use chain_syntax::{Count, Kind, Param, ParamValue, Port, Schema, SplitKind, Stream, TimeBase, Unit};
 use paw_engine::{Category, DeviceFormat, DeviceInfo, ParamInfo};

@@ -1,4 +1,7 @@
 //! Built-in effects.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use crate::db_to_gain;
 use crate::device::{Device, Io, ParamInfo, ProcessCtx};

@@ -2,6 +2,7 @@
 //! parts: what they send in is summed with its clips before its devices.
 //! (A nest's "chain mode" places a nest part's sound into its host part,
 //! which has clips of its own: it depends on this.)
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use paw_engine::GraphPlan;
 use paw_engine::{

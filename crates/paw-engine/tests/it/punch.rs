@@ -1,4 +1,6 @@
 //! Counting in before a take, and punching in and out of one, to the frame.
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::sync::Arc;
 

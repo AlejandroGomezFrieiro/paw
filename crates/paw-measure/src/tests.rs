@@ -1,6 +1,10 @@
 //! The measurements against signals whose readings are known: the EBU Tech
 //! 3341 and 3342 test cases that are made of sine tones (generated here, not
 //! downloaded), and true-peak cases whose answer follows from the signal.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use crate::analysis::{Analysis, analyze};
 

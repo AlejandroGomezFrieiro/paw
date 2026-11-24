@@ -1,4 +1,7 @@
 //! What a sound file's header says, without decoding it: for lists of files.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::fs::File;
 use std::path::Path;

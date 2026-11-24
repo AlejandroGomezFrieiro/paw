@@ -1,4 +1,5 @@
 //! Property tests of the undo file: a tree of states written and read again.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

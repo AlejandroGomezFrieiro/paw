@@ -7,6 +7,7 @@
 //! `fonts/<name>/`); the metadata is cut down to what engraving reads
 //! (`engravingDefaults`, `glyphBBoxes`, `glyphsWithAnchors`), and SMuFL's
 //! `glyphnames.json` to names and code points.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};

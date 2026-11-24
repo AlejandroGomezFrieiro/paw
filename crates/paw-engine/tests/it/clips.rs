@@ -1,4 +1,9 @@
 //! Replacing one part's clips while playing must not disturb the others.
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use paw_engine::GraphPlan;
 use paw_engine::{

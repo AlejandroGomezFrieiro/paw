@@ -18,6 +18,8 @@
 //! - `controller.rs`: the main-thread half: parameters and changes.
 //! - `editor.rs`: the plugin's editor window.
 //! - `state.rs`: the state streams and the `.vstpreset` presets.
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 mod controller;
 mod device;

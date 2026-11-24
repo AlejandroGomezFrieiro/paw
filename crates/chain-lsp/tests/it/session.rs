@@ -1,9 +1,9 @@
 //! A session of an editor with the server: diagnostics, formatting,
 //! completion, hover, definition, and where the schema comes from.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
-    reason = "fixed with the running work on the chain language"
+    reason = "debt: pay down"
 )]
 
 use chain_lsp::{Options, SchemaSource};

@@ -9,6 +9,8 @@
 //! (`LUAJIT_ENABLE_CHECKHOOK`, see `.cargo/config.toml`: compiled loops look
 //! for a hook and leave to the interpreter when there is one). The hook calls
 //! the Lua function `paw.limit` registered, which raises the error.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::ffi::c_int;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

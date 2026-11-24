@@ -2,6 +2,9 @@
 //! sends again only the pieces whose pixels changed. Pieces are whole
 //! cells, cut at the barlines the drawing marks (`cut` operations) where it
 //! marks them, and kept to a modest size elsewhere.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use crate::Cut;
 

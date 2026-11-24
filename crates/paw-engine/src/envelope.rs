@@ -1,6 +1,8 @@
 //! The levels of a sound file, decoded as it is read: the loudest sample of
 //! each channel and of each frame, for what looks for peaks and onsets
 //! (`paw.api.sound_envelope`).
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::fs::File;
 use std::path::Path;

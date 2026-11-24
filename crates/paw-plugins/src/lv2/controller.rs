@@ -1,4 +1,6 @@
 //! The main thread's half of an LV2 plugin: parameters, state, editor.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_void};

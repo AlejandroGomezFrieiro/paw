@@ -1,4 +1,8 @@
 //! The DAW's side: the main thread's stand-in (parameters, state, editor).
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::os::unix::net::UnixStream;
 use std::process::Child;

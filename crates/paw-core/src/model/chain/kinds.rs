@@ -7,6 +7,7 @@
 //! `paw.chain`, and an extension adds a kind with the number of branches
 //! it takes. The core checks the values of a built-in kind; an extension's
 //! values are its own.
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::ops::RangeInclusive;
 

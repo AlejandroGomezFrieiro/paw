@@ -5,6 +5,8 @@
 //! gives each path the BLAKE3 hash of the file's bytes, which says what the
 //! file is, wherever it is: relink, dedupe and (later) the bake cache use
 //! only the hash.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::fmt;

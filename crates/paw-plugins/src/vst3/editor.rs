@@ -1,5 +1,8 @@
 //! The plugin's editor: its view, embedded in one of our X11 windows, and
 //! what the window and the plugin ask for while it is open. Main thread.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::cell::Cell;
 use std::ffi::c_void;

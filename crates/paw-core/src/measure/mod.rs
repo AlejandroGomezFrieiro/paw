@@ -15,6 +15,8 @@
 //! Options: `start`, `end` (beats), `tail` (seconds, default 1), `sample_rate`,
 //! `part` (measure only this part's contribution), `file` (measure an audio
 //! file instead of the project).
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::cell::RefCell;
 use std::collections::HashMap;

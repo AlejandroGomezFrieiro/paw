@@ -3,9 +3,9 @@
 //! these. Each function of a chain takes its owner's handle
 //! (`{ part = id }`), as `paw.chain.of` gives it.
 
-#![allow(
+#![expect(
     clippy::too_many_lines,
-    reason = "fixed with the running work on the session, the API and the model of paw-core"
+    reason = "debt: pay down"
 )]
 
 use std::rc::Rc;

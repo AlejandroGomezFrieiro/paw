@@ -1,4 +1,6 @@
 //! What a plugin instance shares between its device and its controller.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;

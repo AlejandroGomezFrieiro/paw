@@ -1,5 +1,9 @@
 //! The device interface: anything that sits in a part's chain and makes or
 //! changes sound. Built-in devices and hosted plugins both implement [`Device`].
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::fmt;

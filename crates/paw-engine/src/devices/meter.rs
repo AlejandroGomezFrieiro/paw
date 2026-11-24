@@ -10,6 +10,11 @@
 //! peak, RMS per channel and the correlation of the two channels over the
 //! last 300 ms. The spectrum and the tuner's pitch are worked out on the
 //! main thread when asked, from recent audio the device copies out.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};

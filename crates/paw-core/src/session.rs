@@ -4,7 +4,9 @@
 //! marks it dirty. [`Session::flush`] then diffs it against what the engine
 //! last saw and sends the difference.
 
-#![allow(clippy::struct_excessive_bools, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::struct_excessive_bools, reason = "debt: pay down")]
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};

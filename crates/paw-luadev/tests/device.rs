@@ -1,6 +1,8 @@
 //! A Lua device run in this process, as its helper runs it.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::path::PathBuf;
 use std::time::Instant;

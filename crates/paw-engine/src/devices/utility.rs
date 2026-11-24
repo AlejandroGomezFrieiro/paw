@@ -1,4 +1,9 @@
 //! Small tools for the stereo image and level (utility), and saturation.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use super::dsp::{self, DelayLine, Downsampler, OnePole, Shape, Smooth, Svf, SvfCoefs, Upsampler};
 use super::panel::{Face, Pair};

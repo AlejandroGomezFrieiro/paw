@@ -21,6 +21,10 @@
 //! the page where the terminal is known to layer images well (herdr,
 //! kitty, Ghostty), so it moves without the page being sent again; in any
 //! other terminal (WezTerm) it is baked into the pieces it crosses.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::sync::Arc;

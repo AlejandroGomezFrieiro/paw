@@ -10,10 +10,12 @@
 //! The normal run uses a fixed seed (see `config`), so each run tries the
 //! same cases. `PROPTEST_CASES` and `PROPTEST_RNG_SEED` change them.
 
-#![allow(
+#![expect(
     clippy::redundant_clone,
-    reason = "fixed with the running work on the chain language"
+    reason = "debt: pay down"
 )]
+#![cfg_attr(test, expect(clippy::cast_possible_wrap, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use proptest::prelude::*;
 use proptest::test_runner::{Config, RngSeed};

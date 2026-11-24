@@ -1,4 +1,7 @@
-#![allow(clippy::redundant_clone, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::redundant_clone, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 

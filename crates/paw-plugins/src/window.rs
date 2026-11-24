@@ -5,6 +5,9 @@
 //! window here is a plain top-level window with nothing in it; the plugin
 //! creates its own child inside. On a Wayland desktop this goes through
 //! XWayland, like every other X11 program.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;

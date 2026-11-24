@@ -22,6 +22,10 @@
 //! It can also make ports of its own that other programs read from
 //! ([`MidiOutputs::open_port`]): what a part sends there goes to whoever
 //! is subscribed, a synth in another program for one.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, channel};

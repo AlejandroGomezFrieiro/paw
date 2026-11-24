@@ -1,5 +1,8 @@
 //! A small polyphonic subtractive synth: one band-limited oscillator, a
 //! low-pass filter and an ADSR envelope per voice.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::f32::consts::{PI, TAU};
 

@@ -1,5 +1,7 @@
 //! Devices in the engine: made, put in place of a stand-in, updated, and
 //! given their parameters, files and clips.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

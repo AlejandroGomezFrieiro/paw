@@ -7,6 +7,10 @@
 //! frame early or late. From an anchor, the beat of each frame and the
 //! frame of each beat come from one function of the frame count, and do
 //! not depend on where the blocks fall.
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use paw_types::TempoMap;
 

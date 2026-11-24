@@ -2,6 +2,10 @@
 //! lowered to. The kernel's screen (`paw_core::grid`) writes its cells
 //! with these functions, and so does [`crate::Scene::to_cells`], so that a
 //! scene lowered to cells is the screen a view drew, cell for cell.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;

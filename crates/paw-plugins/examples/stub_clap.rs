@@ -23,6 +23,11 @@
 //! now, each `none` (never set), `realtime` or `offline`, or `no-block`.
 
 #![expect(clippy::unwrap_used, reason = "the stub plugin of the tests: a failed unwrap is a failed test")]
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::ffi::{CStr, c_char, c_void};
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed, Ordering::SeqCst};

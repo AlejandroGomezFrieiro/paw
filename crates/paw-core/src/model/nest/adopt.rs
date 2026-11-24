@@ -9,6 +9,7 @@
 //! (a stem) keeps naming it. The nests inside go along with the same
 //! `source`: with the nest, they are one reference ([`Project::references`]),
 //! and the first edit of any of them makes all of them the song's own.
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;

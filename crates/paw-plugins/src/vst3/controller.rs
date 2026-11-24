@@ -1,5 +1,8 @@
 //! The main-thread half of a VST3 plugin: its parameters, the processing
 //! mode, and the changes its controller reports.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_possible_wrap, reason = "debt: pay down"))]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::path::PathBuf;
 use std::sync::Arc;

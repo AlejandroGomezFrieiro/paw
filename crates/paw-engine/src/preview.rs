@@ -2,6 +2,10 @@
 //! while a file is under its selection. It plays whether or not the
 //! transport runs, is added to the output after the master at a level of
 //! its own, and is never recorded, rendered or saved.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::Arc;
 

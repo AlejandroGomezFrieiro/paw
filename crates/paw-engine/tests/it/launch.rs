@@ -1,5 +1,9 @@
 //! Clips launched from slots start and stop on their boundary, to the frame,
 //! and the timeline is silent on a part while it plays a slot.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::sync::Arc;
 

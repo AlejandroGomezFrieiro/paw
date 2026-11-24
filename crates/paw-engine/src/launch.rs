@@ -9,6 +9,11 @@
 //! engine ends a block there. While a part plays a slot, or has been
 //! stopped, its clips on the timeline are silent; it plays them again once
 //! it is sent back to the arrangement, or when the transport stops.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 

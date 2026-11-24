@@ -1,6 +1,7 @@
 //! Devices as the model holds them: their place in a chain, their routes
 //! and their fields. What loads, asks or calls a plugin is the session's,
 //! in `session/devices.rs`.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 

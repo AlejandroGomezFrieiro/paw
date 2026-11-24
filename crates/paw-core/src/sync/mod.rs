@@ -18,7 +18,8 @@
 //! - `routing.rs`: outputs, sends, side-chains, solo and the schedule;
 //! - `items.rs`: the events of clips and lanes added, changed or removed.
 
-#![allow(clippy::struct_excessive_bools, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::struct_excessive_bools, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 mod audio;
 mod automation;

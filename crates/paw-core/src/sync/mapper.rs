@@ -1,5 +1,6 @@
 //! Which engine slot each part and device lives in, and what the engine
 //! was last sent of each, so that a sync sends only what changed.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

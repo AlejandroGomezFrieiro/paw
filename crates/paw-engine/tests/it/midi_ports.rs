@@ -7,6 +7,9 @@
 //! the test's own: they start with none selected, and then select the
 //! sender of the test by its address, which is that client's alone.
 #![cfg(feature = "midi")]
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
 
 use std::ffi::c_int;
 use std::sync::mpsc::{Receiver, channel};

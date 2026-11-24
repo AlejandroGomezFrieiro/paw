@@ -7,6 +7,11 @@
 //! release: the gain covers 63 % of the way to a new target in one time
 //! constant. Looking ahead delays the audio, not the detector, so the gain
 //! is already down when a peak arrives; the delay is reported as latency.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use anyhow::Result;
 

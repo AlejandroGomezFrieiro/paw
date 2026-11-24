@@ -9,7 +9,8 @@
 //! `poll(2)` for room, with a time limit. Handles live in the kernel, not in the Lua state, so they
 //! survive `:reload`.
 
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;

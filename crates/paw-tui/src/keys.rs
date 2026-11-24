@@ -3,6 +3,7 @@
 //! crossterm reports `Esc`, `[`, `A` for one Up arrow. [`Joiner`] does what
 //! Vim's `ttimeoutlen` does: after a lone Escape it waits a short time for
 //! the rest, and joins what arrives into the key, mouse or paste event it was.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::collections::VecDeque;
 use std::time::Duration;

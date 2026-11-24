@@ -3,6 +3,10 @@
 //! to a kernel that runs without one.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 mod sealed;
 

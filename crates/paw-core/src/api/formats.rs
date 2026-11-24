@@ -1,4 +1,7 @@
 //! `paw.api`: the file formats of extensions and of other programs.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::rc::Rc;
 

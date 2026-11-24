@@ -1,6 +1,8 @@
 //! Devices at rest sleep through silent blocks: the output is the same, bit
 //! for bit, as when every device runs every block, and they do sleep. When
 //! the song is stopped and nothing sounds, the whole engine rests.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use paw_engine::host::HostPath;
 use paw_engine::GraphPlan;

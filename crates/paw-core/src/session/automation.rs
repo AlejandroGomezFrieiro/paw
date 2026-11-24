@@ -1,6 +1,7 @@
 //! Automation lanes: adding one, and the ranges of plugin parameters that
 //! the lanes on [`Document`] take. The rest is in
 //! `session/document/automation.rs`.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use super::*;
 

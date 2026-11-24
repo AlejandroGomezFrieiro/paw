@@ -2,6 +2,7 @@
 //! `process` and the functions it calls run on the audio thread: no lock,
 //! no allocation and no wait. `Buffers::new` and the drop run on the main
 //! thread.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::ptr;
 use std::sync::Arc;

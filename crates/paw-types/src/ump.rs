@@ -6,6 +6,11 @@
 //! between resolutions follows the MIDI 2.0 specification's translation
 //! rules, so that a value's lowest, centre and highest positions stay where
 //! they are whichever way it is converted.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use crate::event::{Attr, Ctl, EventKind, NoteCtl};
 

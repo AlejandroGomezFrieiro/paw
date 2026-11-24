@@ -1,6 +1,8 @@
 //! Property tests of undo: the states that the undo tree keeps share what
 //! did not change with the project that the session edits (`Arc`, the runs
 //! of `Notes` and `Clips`), and an edit must never reach them.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::sync::Arc;
 

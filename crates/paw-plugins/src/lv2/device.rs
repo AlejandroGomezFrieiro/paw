@@ -1,4 +1,8 @@
 //! The audio thread's half of an LV2 plugin.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use crate::bytes::le_u32;
 use std::ffi::{CStr, c_char, c_void};

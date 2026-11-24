@@ -9,6 +9,7 @@
 //! The states read from the undo file stay on the disk until the user goes
 //! to one: until then the tree holds an empty project for each, and
 //! [`Session::undo_file_state`] reads the real one when a move needs it.
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};

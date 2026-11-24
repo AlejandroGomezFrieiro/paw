@@ -1,6 +1,7 @@
 //! The transport that devices see on a part with a time of its own (a
 //! subproject's part): its bars from 1 at the start of the block that
 //! plays, at the song's tempo there. A song part sees the song's bars.
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::sync::{Arc, Mutex};
 

@@ -9,6 +9,7 @@
 //! the first sound comes in the same block as it would without the rest.
 //! A device whose plugin asks for a block from another thread wakes it
 //! through a [`Waker`].
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;

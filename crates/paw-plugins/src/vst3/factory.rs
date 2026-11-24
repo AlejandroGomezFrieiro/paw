@@ -1,5 +1,9 @@
 //! The creation of a plugin instance: its component, controller and
 //! processor, set up on the main thread, and the parameters it shows.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::path::PathBuf;
 use std::ptr;

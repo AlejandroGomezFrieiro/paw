@@ -6,6 +6,7 @@
 //! stub.rs reads.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;

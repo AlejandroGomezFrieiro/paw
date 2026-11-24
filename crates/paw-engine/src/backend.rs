@@ -3,9 +3,13 @@
 //! owner of the stream itself, block by block, for the tests (the stepped
 //! backend).
 
-#![allow(clippy::allow_attributes_without_reason, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
-#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![expect(clippy::borrow_as_ptr, reason = "debt: pay down")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::allow_attributes, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::allow_attributes_without_reason, reason = "debt: pay down"))]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::fmt;
 use std::str::FromStr;

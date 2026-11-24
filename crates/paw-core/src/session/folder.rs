@@ -29,6 +29,8 @@
 //! uses to `unused/` at the same path, and [`read`] puts the project
 //! together again. The JSON files are written with their keys in order, so
 //! the same project gives the same bytes.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use crate::events::{KernelEvent as E, Saved};
 use std::collections::{BTreeMap, BTreeSet, HashMap};

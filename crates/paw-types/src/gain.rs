@@ -3,6 +3,8 @@
 //! The functions keep the arithmetic and the floor that each caller had, so
 //! that the sound bytes and the numbers that a user reads do not change. A
 //! caller with a floor of its own gives it.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 /// The level that the faders, the sends and the meters of the engine treat
 /// as silence.

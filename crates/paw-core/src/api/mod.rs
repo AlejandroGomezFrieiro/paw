@@ -4,8 +4,13 @@
 //! live objects. The friendly objects in `require("paw")` are Lua wrappers over these, and the
 //! RPC socket exposes the same functions to other processes.
 
-#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the session, the API and the model of paw-core")]
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::borrow_as_ptr, reason = "debt: pay down")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
+#![expect(clippy::allow_attributes, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};

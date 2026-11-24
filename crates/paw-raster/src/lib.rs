@@ -29,6 +29,10 @@
 //!
 //! `vector` writes a drawing as SVG or PDF instead of pixels (without its
 //! pictures of pixels).
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 pub mod fonts;
 pub mod kitty;

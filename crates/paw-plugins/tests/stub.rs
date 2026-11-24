@@ -3,6 +3,8 @@
 //! MIDI 2.0, asked what it calls its keys, and told when a render is offline.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use paw_engine::{Event, EventBuf, Instance, Io, ProcessCtx, Registry};
 use paw_plugins::PluginDirs;

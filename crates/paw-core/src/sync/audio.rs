@@ -1,5 +1,6 @@
 //! Decoded audio files, their overviews and converted copies, kept between
 //! syncs.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

@@ -12,6 +12,10 @@
 //! snare). Early reflections are taps on the pre-delayed input, spread
 //! across the stereo field. The wet signal is DC-blocked, widened or
 //! narrowed (mid/side) and mixed with the dry.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use super::dsp::{self, DelayLine, Lfo, OnePole, Rest, Smooth};
 use super::panel::{Face, Pair};

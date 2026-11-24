@@ -11,6 +11,11 @@
 //! rough preview; then it plays the version as far as it is made. The
 //! bakes are wanted in the order they are heard: what the playhead is
 //! about to play first, a render's next, the rest after.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

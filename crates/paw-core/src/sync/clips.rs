@@ -2,7 +2,10 @@
 //! regions, sent whole or as the pieces an edit changed; and the clips off
 //! the timeline, in their rows.
 
-#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::borrow_as_ptr, reason = "debt: pay down")]
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};

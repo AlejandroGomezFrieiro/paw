@@ -30,6 +30,9 @@
 //! shows is in the whole) and `"whole": [cols, rows]`, and its drawing is
 //! of the whole.
 //! The other side keeps a [`Grid`] and gives each event to [`apply`].
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use anyhow::{Result, bail};
 use serde_json::{Value, json};

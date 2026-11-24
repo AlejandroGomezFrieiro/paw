@@ -4,6 +4,9 @@
 //! writer thread per part empties the ring into a WAV file. Notes that reach
 //! armed parts go into another ring for the main thread to collect. Nothing
 //! here touches a file on the audio thread.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};

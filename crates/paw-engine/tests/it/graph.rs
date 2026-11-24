@@ -1,6 +1,9 @@
 //! A processor runs the plan of its chain: devices in series, and splits
 //! whose branches are summed again. A monitored stereo input on part 1
 //! is the source, so that each test knows what goes into the chain.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use paw_engine::plan::{Branch, Node, Split, Splitter, Tree, compile};
 use paw_engine::{

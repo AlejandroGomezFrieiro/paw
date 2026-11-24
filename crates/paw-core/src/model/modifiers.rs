@@ -18,6 +18,8 @@
 //! 3 to the end only.
 //!
 //! This module uses no engine type, no OS call and no `mlua`.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::fmt;
 use std::ops::Range;

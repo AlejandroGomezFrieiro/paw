@@ -1,4 +1,7 @@
 //! The tools that listen: render and measure the song, or measure a file.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::fmt::Write as _;
 use std::path::Path;

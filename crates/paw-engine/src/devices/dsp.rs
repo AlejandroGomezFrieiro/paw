@@ -4,6 +4,11 @@
 //!
 //! Everything that runs on the audio thread here works on preallocated
 //! memory: buffers are sized in `new`, which runs on the main thread.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::f64::consts::PI as PI64;
 use std::sync::Arc;

@@ -2,6 +2,7 @@
 //! comment. A token that does not lex gives a diagnostic, and the lexer
 //! goes on after the next space, so one line can report more than one
 //! error.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use winnow::Parser;
 use winnow::ascii::digit1;

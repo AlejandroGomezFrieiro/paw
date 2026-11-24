@@ -1,4 +1,8 @@
 //! `paw.api`: the screen: the grid, the frontends and drawing.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::rc::Rc;
 use std::sync::Arc;

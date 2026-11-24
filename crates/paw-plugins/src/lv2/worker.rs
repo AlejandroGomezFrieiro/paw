@@ -1,7 +1,8 @@
 //! The LV2 worker: non-real-time work for a plugin, on a thread of its own.
 
-#![allow(clippy::borrow_as_ptr, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
-#![allow(clippy::redundant_clone, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![expect(clippy::borrow_as_ptr, reason = "debt: pay down")]
+#![expect(clippy::redundant_clone, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::cell::UnsafeCell;
 use std::ffi::c_void;

@@ -2,6 +2,9 @@
 //! paints, drawn as the same shapes. Glyphs and text are written as their
 //! outlines, so a file needs no fonts to be read and looks as the screen
 //! does; rectangles, paths and colours (with their transparency) are kept.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::fmt::Write as _;
 use std::io::Write as _;

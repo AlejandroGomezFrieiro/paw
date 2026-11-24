@@ -9,6 +9,7 @@
 //! allpass: a flat magnitude. A band below a further crossover goes
 //! through that crossover's allpass, as the bands above it do, so that all
 //! the bands sum flat.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 

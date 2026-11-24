@@ -1,4 +1,8 @@
 //! The lilv world: finding plugins and reading their descriptions.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::ffi::{CStr, CString};
 use std::path::PathBuf;

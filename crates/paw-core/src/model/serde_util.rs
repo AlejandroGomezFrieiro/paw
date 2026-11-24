@@ -4,6 +4,9 @@
 //!
 //! A field that is left out when it is default reads back as its default:
 //! the field has `#[serde(default, skip_serializing_if = "is_default")]`.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use serde::{Deserialize, Serialize};
 

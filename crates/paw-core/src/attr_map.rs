@@ -34,6 +34,10 @@
 //! just before the note it is for, on the note's beat (the order a
 //! keyswitched sampler needs), and lists the changes as switches the engine
 //! sends again when playback starts after them.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::collections::{BTreeMap, HashMap};
 

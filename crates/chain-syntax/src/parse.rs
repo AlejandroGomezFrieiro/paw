@@ -4,6 +4,8 @@
 //! diagnostic and is left out of the tree, and the parser goes on with the
 //! next line. A token that does not parse is left out of its line. So one
 //! pass finds every error of the text.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use crate::diagnostic::{Code, Diagnostic, Span};
 use crate::lex::{self, Line, Tok, Token};

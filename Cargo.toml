@@ -53,8 +53,23 @@ too_many_lines = "warn"
 # which flag is set.
 struct_excessive_bools = "warn"
 fn_params_excessive_bools = "warn"
-# An `allow` or `expect` says why.
+# An `allow` or `expect` says why. A lint is not turned off with `allow`:
+# `expect` fails (`unfulfilled_lint_expectations`) when the lint stops
+# firing, so a debt that is paid goes away from the code. Each module that
+# still has a finding has `#![expect(.., reason = "debt: pay down")]` on top,
+# and `cargo clippy -- -D warnings` is the ratchet: it fails on a new finding
+# and on an expectation that nothing fulfils.
+allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
+# A cast that cuts, wraps or loses a value (the saturating `f64 as i64` that
+# gave `i64::MIN.abs()`): use `try_from`, `From` or a named conversion.
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+cast_possible_wrap = "warn"
+cast_precision_loss = "warn"
+cast_lossless = "warn"
+# `==` on floats: compare with a tolerance, or `total_cmp` for an order.
+float_cmp = "warn"
 # `unwrap` in production code: `?`, or `expect` with the invariant. Tests
 # may unwrap (clippy.toml). `lock().unwrap()` gets an `expect`.
 unwrap_used = "warn"

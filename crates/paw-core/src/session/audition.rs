@@ -8,6 +8,8 @@
 //! its own over everything else ([`paw_engine::preview`]), at a level of
 //! its own, decoded on a thread of its own so that a long file holds
 //! nothing up.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

@@ -1,5 +1,9 @@
 //! The engine follows the tempo map sample by sample: the metronome, MIDI
 //! clips and audio regions land where the map's arithmetic puts them.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::sync::Arc;
 

@@ -25,6 +25,7 @@
 //!   measured: what the sync alone costs.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 use std::sync::Arc;

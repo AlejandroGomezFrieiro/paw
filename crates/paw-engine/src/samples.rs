@@ -16,6 +16,10 @@
 //! room laid out for all of it, and its samples read as long as what has
 //! been written so far, so that the engine plays what is ready and finds
 //! the end of the sound where the writing has got to.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::fs::File;
 use std::io::{BufWriter, Write};

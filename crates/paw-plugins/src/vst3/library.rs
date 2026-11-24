@@ -1,4 +1,5 @@
 //! The load of a `.vst3` bundle, and the list of the plugins in it.
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};

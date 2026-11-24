@@ -16,8 +16,12 @@
 //! checkpoint written. A project with no file has no folder, and writing a
 //! checkpoint for it fails.
 
-#![allow(clippy::too_many_lines, reason = "fixed with the running work on the session, the API and the model of paw-core")]
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the session, the API and the model of paw-core")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::too_many_lines, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

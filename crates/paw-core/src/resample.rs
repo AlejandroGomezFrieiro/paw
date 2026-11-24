@@ -5,6 +5,11 @@
 //! the new rate cannot hold are filtered out instead of folding back as
 //! aliases, and no images of the old rate are left above the audio band. The
 //! engine then plays the converted samples one for one.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_possible_wrap, reason = "debt: pay down"))]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use paw_engine::{AudioData, Sink};
 use rubato::audioadapter_buffers::direct::{SequentialSliceOfSlices, SequentialSliceOfVecs};

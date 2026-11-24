@@ -1,6 +1,11 @@
 //! Musical values as a model writes them: note names, positions in beats or
 //! `bar.beat`, lengths as beats, bars or note values. Everything is turned
 //! into the kernel's units (MIDI note numbers, beats) before it is sent.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use anyhow::{Context, Result, bail};
 use arrayvec::ArrayVec;

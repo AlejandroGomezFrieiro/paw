@@ -36,7 +36,7 @@
 //! `sandbox.deadline` in the session, which passes the last two to
 //! [`DeviceFactory::start`] as a `StartTest`.
 
-#![allow(clippy::unwrap_used, reason = "fixed with the running work on the plugin sandbox and the audio backends")]
+#![expect(clippy::unwrap_used, reason = "debt: pay down")]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

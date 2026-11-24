@@ -2,6 +2,10 @@
 //! `process` and the functions it calls run on the audio thread: no lock,
 //! no allocation and no wait. `Buses::new` and the drop run on the main
 //! thread.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;

@@ -5,6 +5,12 @@
 //! bands), not perceptual loudness: RMS is not LUFS. The numbers come from
 //! `paw-measure`, the analyzer that the kernel's `paw.api.measure` (and so
 //! `:mix`) uses too; this module only reads the file and writes the text.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::fmt::Write as _;
 use std::path::Path;

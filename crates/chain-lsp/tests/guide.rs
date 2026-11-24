@@ -2,6 +2,7 @@
 //! the server takes the command line of the guide's configuration, and the
 //! guide's example file gets the error that the guide promises. A package
 //! of the crate has no docs folder, so Cargo.toml leaves this file out.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::io::BufReader;
 use std::process::{Command, Stdio};

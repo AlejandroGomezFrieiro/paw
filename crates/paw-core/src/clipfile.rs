@@ -16,6 +16,11 @@
 //! read again is the same clip, but for times, which are rounded to a tick.
 //! It reads MIDI 1.0 channel voice messages as well, and any number of ticks
 //! to a beat.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::float_cmp, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 

@@ -3,6 +3,10 @@
 //! [`Session::render`] writes a file; this sets up the same private engine and
 //! hands it over, so that the caller can run it wherever it likes and read the
 //! output and the part meters as it goes.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::Arc;
 

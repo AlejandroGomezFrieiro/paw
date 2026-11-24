@@ -20,6 +20,7 @@
 //! The client is a few lines of HTTP/1.1 over a `TcpStream`: one host that
 //! the page answers, no TLS, no redirect. An HTTP crate would add TLS and a
 //! resolver that the pod's network does not need.
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;

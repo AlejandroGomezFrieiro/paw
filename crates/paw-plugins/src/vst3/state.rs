@@ -1,6 +1,9 @@
 //! The plugin's state: the stream it is written to and read from, the
 //! saved state (the component's state, then the controller's), and the
 //! `.vstpreset` files that hold the same two states. Main thread.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use crate::bytes::le_u32;
 use std::cell::{Cell, RefCell};

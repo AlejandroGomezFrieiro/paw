@@ -9,6 +9,8 @@
 //! does not draw), at the image's natural size, with a source rectangle
 //! for the part that shows. Every command after the startup probe asks for
 //! no answer (`q=2`): answers would arrive among the keys.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
 
 use std::collections::HashMap;
 use std::io::Write;

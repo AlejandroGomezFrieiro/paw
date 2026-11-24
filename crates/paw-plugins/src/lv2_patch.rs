@@ -7,6 +7,8 @@
 //! This module builds and reads those messages. They are atoms: an object
 //! (`atom:Object`) whose type is `patch:Set`, with the property's URID under
 //! `patch:property` and the value under `patch:value`.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use crate::bytes::{ne_u32, ne_u64};
 use anyhow::{Result, bail};

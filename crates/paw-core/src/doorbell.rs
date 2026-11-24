@@ -14,6 +14,7 @@
 //!
 //! In a BrowserPod pod there is no waker (WASI): the loop looks at the bits
 //! every few milliseconds while it waits.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};

@@ -1,5 +1,8 @@
 //! paw's events to CLAP's events, and the plugin's output events back. The
 //! conversion runs on the audio thread: no lock, no allocation and no wait.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 use std::ptr;
 

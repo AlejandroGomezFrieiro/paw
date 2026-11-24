@@ -16,6 +16,7 @@
 //!
 //! This module is the storage alone: what goes into a state and when is
 //! `session/undo_file.rs`.
+#![cfg_attr(test, expect(clippy::cast_precision_loss, reason = "debt: pay down"))]
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;

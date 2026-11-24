@@ -1,5 +1,6 @@
 //! Places in a text as LSP gives them (a line, and a column in UTF-16 code
 //! units) and as chain-syntax gives them (a byte offset).
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use lsp_types::{Position, Range};
 

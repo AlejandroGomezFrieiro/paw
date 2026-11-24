@@ -1,5 +1,8 @@
 //! State lanes: a device takes each state on the frame of its point, as
 //! parameters, a program change or a message, and hears nothing between.
+#![cfg_attr(test, expect(clippy::cast_lossless, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "debt: pay down"))]
 
 use std::sync::{Arc, Mutex};
 

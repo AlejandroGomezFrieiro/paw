@@ -11,6 +11,10 @@
 //!
 //! A picture travels to a window as a blob: `{ "w": W, "h": H, "rgba":
 //! base64 }`, its pixels as straight RGBA, row by row.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};

@@ -1,4 +1,5 @@
 //! URIDs: the host's map of URIs to numbers, and the ones paw uses.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::ptr;

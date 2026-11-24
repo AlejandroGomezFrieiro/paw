@@ -18,6 +18,10 @@
 //!
 //! The kick, snares, clap, closed and open hat are made exactly as they
 //! always were, so older projects sound the same.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "debt: pay down"))]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::float_cmp, reason = "debt: pay down")]
 
 use std::f32::consts::TAU;
 

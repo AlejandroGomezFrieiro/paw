@@ -1,4 +1,5 @@
 //! The control wire: requests, answers and the helper's hello.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use crate::bytes::{le_f64, le_u32};
 use std::borrow::Cow;

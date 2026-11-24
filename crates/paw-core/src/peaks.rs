@@ -4,6 +4,10 @@
 //! (`bake::Store`), keyed by the hash of the file's bytes, so that drawing a
 //! long file zoomed out after the first time reads the overview and not the
 //! file, wherever the file is now.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::io::Read;
 use std::path::{Path, PathBuf};

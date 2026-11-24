@@ -1,5 +1,6 @@
 //! Editing the project: flushing to the engine, undo steps. The edits
 //! themselves are [`Document::edit`](super::Document::edit)'s.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
 
 use super::*;
 

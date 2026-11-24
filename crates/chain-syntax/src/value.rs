@@ -5,6 +5,9 @@
 //! `kHz`, seconds for `ms`). A change of unit moves the decimal point in the
 //! digits, not a multiplication of floats, so `2.5kHz` is exactly 2500 Hz
 //! and prints again as `2.5kHz`.
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_possible_wrap, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::fmt::{self, Write as _};
 

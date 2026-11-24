@@ -1,9 +1,9 @@
 //! `paw.api`: timers, the schedule clock, one turn of the loop, time
 //! limits, and the kernel's quit, reload and log.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
-    reason = "fixed with the running work on the session, the API and the model of paw-core"
+    reason = "debt: pay down"
 )]
 
 use std::collections::BTreeMap;

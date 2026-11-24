@@ -1,5 +1,7 @@
 //! Plain signal levels of a run of samples, with no weighting: sample peak,
 //! RMS, DC offset and the samples at full scale.
+#![expect(clippy::cast_lossless, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
 
 /// A sample at or above this is at digital full scale (it includes a 16-bit
 /// file's largest positive value, 32767/32768).

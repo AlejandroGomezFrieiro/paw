@@ -1,5 +1,8 @@
 //! Running a processor's plan: the operations of its chain, in order, on
 //! the slot's buffer and the plan's own (see [`crate::plan`]).
+#![expect(clippy::cast_possible_truncation, reason = "debt: pay down")]
+#![expect(clippy::cast_precision_loss, reason = "debt: pay down")]
+#![expect(clippy::cast_sign_loss, reason = "debt: pay down")]
 
 use std::sync::atomic::Ordering::Relaxed;
 
