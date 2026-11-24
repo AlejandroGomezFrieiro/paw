@@ -198,16 +198,12 @@ end
 --- The tempo and signature flags on the ruler, where they are drawn.
 local function ruler_marks(self: Arrange): {Flag}
   local out: {Flag} = {}
-  local mark_end = -1
   for _, mark in ipairs(paw.tempo.marks(self.scroll, self:current_axis():beat_of(self.geometry.layout.tw))) do
+    -- The glyph is in the column of the beat. On a bar line the bar's number
+    -- comes next, then the value (`ruler_tempo_marks` in paw/views/arrange.tl).
     local x = self:current_axis():x_of(mark.beat)
-    if paw.tempo.is_bar_line(mark.beat) then
-      x = x + #tostring(paw.time.bar_of(mark.beat))
-    end
-    x = math.max(x, mark_end)
-    local w = 1 + api.str_width(mark.text)
-    out[#out + 1] = {x0 = x, x1 = x + w, mark = mark}
-    mark_end = x + w + 1
+    local number = paw.tempo.is_bar_line(mark.beat) and #tostring(paw.time.bar_of(mark.beat)) + 1 or 0
+    out[#out + 1] = {x0 = x, x1 = x + 1 + number + api.str_width(mark.text), mark = mark}
   end
   return out
 end

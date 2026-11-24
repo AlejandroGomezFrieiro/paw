@@ -29,6 +29,7 @@ local type RolesModule = require("paw.roles")
 local type FrontendModule = require("paw.frontend")
 local type PartcolumnModule = require("paw.partcolumn")
 local type NestModule = require("paw.nest")
+local type TempoModule = require("paw.tempo")
 local type Buf = contracts.Buf
 local type Hue = DrawModule.Hue
 local type Data = util_t.Data
@@ -1506,6 +1507,14 @@ end
 --- beat of the song into the window's time; the bar and beat lines; the
 --- loop's columns (on or off) and the punch range's; the cursor's part
 --- and lane.
+--- The tempo and signature changes that share one column of the ruler.
+local record MarkGroup
+  x: integer
+  --- Whether the column is a bar line.
+  bar: boolean
+  marks: {TempoModule.Mark}
+end
+
 local record Frame
   buf: Buf
   headers: Buf
@@ -1680,8 +1689,15 @@ end
 --- The bars' labels and the beats' ticks on the ruler. Bar numbers that
 --- would run into each other when zoomed out are skipped. Gives where
 --- each bar's label ends, by its column, and the bar lines with a label.
-local function ruler_bars(F: Frame): {integer: integer}, {GridLine}
+local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {GridLine}
   local ruler, ax = F.ruler, F.ax
+  -- A change of tempo or meter keeps its column: its glyph goes first on
+  -- the bar line, and the number starts after it. A number ends before
+  -- the next change's column.
+  local marked: {integer: MarkGroup} = {}
+  for _, group in ipairs(groups) do
+    marked[group.x] = group
+  end
   local every = math.max(1, math.ceil(5 / ax:cells(paw.time.bar(ax.scroll))))
   local free = 0 -- the first column a label has not taken
   local label_end: {integer: integer} = {}
@@ -1692,8 +1708,14 @@ local function ruler_bars(F: Frame): {integer: integer}, {GridLine}
         local style = ruler_style(F, line.x, "RulerPunch", "RulerLoop", "RulerLoopOffBar", "RulerBar")
         -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl), in
         -- its room: up to a column before the next bar whose label shows.
-        local x = line.x
-        local room = math.max(1, math.floor(ax:cells(paw.time.bar(line.beat) * every)) - 1)
+        local x = line.x + (marked[line.x] and marked[line.x].bar and 1 or 0)
+        local room = math.max(1, math.floor(ax:cells(paw.time.bar(line.beat) * every)) - 1 - (x - line.x))
+        for _, group in ipairs(groups) do
+          if group.x > line.x then
+            room = math.max(1, math.min(room, group.x - x - 1))
+            break
+          end
+        end
         for _, piece in ipairs(paw.ruler.label(line.bar, line.beat, style, paw.cursor.beat, room)) do
           x = x + ruler:text(x, 0, piece[1], piece[2])
         end
@@ -1754,30 +1776,54 @@ local function ruler_edges(F: Frame)
   end
 end
 
---- Tempo and signature changes on the ruler: a mark and the value, after
---- the bar number. A mark inside a time fold is folded away with it.
-local function ruler_tempo_marks(F: Frame, label_end: {integer: integer})
+--- The tempo and signature changes in sight, grouped by the column of their
+--- beat (two changes at one beat share a column), in order. A change inside
+--- a time fold is folded away with it.
+local function tempo_mark_groups(F: Frame): {MarkGroup}
   local ax = F.ax
-  local mark_end = -1
+  local groups: {MarkGroup} = {}
   for _, mark in ipairs(paw.tempo.marks(ax.scroll, F.last)) do
     if not ax:folded(mark.beat) then
       local x = ax:x_of(mark.beat)
-      if paw.tempo.is_bar_line(mark.beat) then
-        x = label_end[x] or (x + #tostring(paw.time.bar_of(mark.beat)))
-      end
-      x = math.max(x, mark_end)
-      -- The mark stops a cell before the next bar's number: it never runs into it.
-      local room = F.L.tw - x
-      for start in pairs(label_end) do
-        if start > x then
-          room = math.min(room, start - x - 1)
-        end
-      end
-      local text = (mark.kind == "tempo" and "▾" or "‖") .. mark.text
-      if room >= 2 then
-        mark_end = x + F.ruler:text(x, 0, util.fit(text, room), "RulerTempo") + 1
+      local last = groups[#groups]
+      if last and last.x == x then
+        last.marks[#last.marks + 1] = mark
+      else
+        groups[#groups + 1] = {x = x, bar = paw.tempo.is_bar_line(mark.beat), marks = {mark}}
       end
     end
+  end
+  return groups
+end
+
+--- Tempo and signature changes on the ruler: a glyph in the column of the
+--- beat, never moved, and the value after it. On a bar line the bar's
+--- number comes between them (`ruler_bars` made room for the glyph), and
+--- the value follows the number. The value is cut, or left out, before it
+--- reaches the next bar's number or the next change.
+local function ruler_tempo_marks(F: Frame, label_end: {integer: integer}, groups: {MarkGroup})
+  for i, group in ipairs(groups) do
+    local x = group.x
+    local glyphs: {string} = {}
+    local texts: {string} = {}
+    for k, mark in ipairs(group.marks) do
+      glyphs[k] = mark.kind == "tempo" and "▾" or "‖"
+      texts[k] = (k > 1 and glyphs[k] or "") .. mark.text
+    end
+    local start = x + 1
+    if group.bar and label_end[x] then
+      start = label_end[x] + 1
+    end
+    local stop = groups[i + 1] and groups[i + 1].x or F.L.tw
+    for from in pairs(label_end) do
+      if from > x then
+        stop = math.min(stop, from)
+      end
+    end
+    if stop - start >= 3 then
+      F.ruler:text(start, 0, util.fit(table.concat(texts, " "), stop - start - 1), "RulerTempo")
+    end
+    F.ruler:text(x, 0, glyphs[1], "RulerTempo")
   end
 end
 
@@ -1819,9 +1865,10 @@ local function draw_ruler(self: Arrange, F: Frame)
   window_bar(buf, hw, L.band_y + L.bands.rows >= 2, F.cursor_beat)
   ruler_ranges(F)
   F.lines = grid_lines(ax, tw)
-  local label_end, labelled = ruler_bars(F)
+  local mark_groups = tempo_mark_groups(F)
+  local label_end, labelled = ruler_bars(F, mark_groups)
   ruler_edges(F)
-  ruler_tempo_marks(F, label_end)
+  ruler_tempo_marks(F, label_end, mark_groups)
   if L.song_bars then
     song_bars(F, labelled)
   end
