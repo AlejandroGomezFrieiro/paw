@@ -278,10 +278,57 @@ pub(super) fn install(lua: &Lua, api: &Table, shared: &Rc<Shared>) -> mlua::Resu
             sh.reload.set(true);
             Ok(())
         }
+        // Write a line to the log (`:log`) at `level`: "error", "warn",
+        // "info" (when not given), "debug" or "trace". Its target is `lua`.
+        // `paw.api.log_get` keeps the last 1000 lines too.
+        // @param level? string
         // @return nil
-        fn log(_, sh, line => String) {
-            sh.log(line);
+        fn log(_, sh, (line, level) => (String, Option<String>)) {
+            let word = level.as_deref().unwrap_or("info");
+            let Some(level) = crate::logging::level_of(word) else {
+                return Err(mlua::Error::runtime(format!(
+                    "{word:?} is not a level: error, warn, info, debug or trace"
+                )));
+            };
+            crate::logging::lua(level, &line);
+            // The ring of `log_get` keeps what the log file takes by
+            // default: a stream of detail does not push the rest out.
+            if level <= tracing::Level::INFO {
+                sh.keep(line);
+            }
             Ok(())
+        }
+        // Set the levels of the log, as `paw.opt.loglevel` holds them:
+        // `"info"`, or a level for each target, `"info,plugin=debug"`.
+        // Returns nil, or the levels that `PAW_LOG` set for this run and
+        // that stay. An error when the text is not a list of levels.
+        // @return string
+        fn log_level(_, _sh, spec => String) {
+            match crate::logging::set_levels(&spec).map_err(mlua::Error::runtime)? {
+                crate::logging::LevelChange::Set => Ok(None),
+                crate::logging::LevelChange::KeptEnv(kept) => Ok(Some(kept)),
+            }
+        }
+        // Whether `spec` is a list of levels for `paw.api.log_level`: nil,
+        // or what is wrong with it.
+        // @return string
+        fn log_level_check(_, _sh, spec => String) {
+            Ok(crate::logging::check_levels(&spec).err())
+        }
+        // The files of the log: `current` (`paw.log` of this run),
+        // `previous` (the run before) and `stderr` (what plugins and
+        // libraries printed in this run). Each is nil in a run with no log
+        // file: a script writes none.
+        // @return types.LogFiles
+        fn log_files(lua, _sh, () => ()) {
+            super::to_lua(lua, &crate::logging::files())
+        }
+        // Write the events of the flight recorder that the log file left
+        // out to it (`:log dump`). Returns how many, or nil in a run with
+        // no log file.
+        // @return integer
+        fn log_dump(_, _sh, () => ()) {
+            Ok(crate::logging::dump(":log dump"))
         }
     }
     Ok(())

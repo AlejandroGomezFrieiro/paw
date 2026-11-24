@@ -123,6 +123,21 @@ impl Session {
         (shared.cpu(), shared.xruns(), shared.period())
     }
 
+    /// The counters of what went wrong while playing, in the order of
+    /// `kernel/audio_watch.rs`: xruns, late plugin blocks, dropped MIDI
+    /// events, dropped frames of the take, leaked blocks. The audio
+    /// thread and the plugin hosts count them; the kernel logs them.
+    pub(crate) fn audio_counters(&self) -> [u64; crate::kernel::AUDIO_COUNTERS] {
+        let shared = &self.engine.handle.shared;
+        [
+            u64::from(shared.xruns()),
+            self.live.values().filter_map(|l| l.controller.as_ref()).map(|c| c.late_blocks()).sum(),
+            paw_engine::event::dropped(),
+            self.rec.take.as_ref().map_or(0, |t| t.shared.dropped()),
+            u64::from(shared.leaked()),
+        ]
+    }
+
     /// The backend that runs: what opened, not what was asked (`auto`
     /// opens a sound system or falls back to `null`).
     pub(crate) fn backend(&self) -> &BackendChoice {

@@ -1553,6 +1553,15 @@ local record types
     missed_wakes: integer
   end
 
+  --- `paw.api.log_files()` (`Files`, logging/mod.rs): the paths of
+  --- `paw.log` of this run (`current`), of the run before (`previous`)
+  --- and of `stderr.log` (`stderr`). Each is nil in a run with no log file.
+  record LogFiles
+    current: string
+    previous: string
+    stderr: string
+  end
+
   -- The transport and the engine (session/midi_in.rs, session/engine.rs) ------
 
   --- What a window shows of the song (`ViewRange`, stretched.rs): the

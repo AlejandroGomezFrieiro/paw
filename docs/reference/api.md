@@ -2886,8 +2886,12 @@ functions of the kernel (`paw.api`, plain data in and out) are at the end.
 - `paw.api.limit_hook(func)`: The time limit on Lua (`paw.limit`). The arguments are the function to call when a callback runs too long, and the time when the current callback must return (on the clock of `real_ms`, nil when it returned). `limit_async` tells if paw finds an overrun inside compiled code too.
 - `paw.api.limit_watch(deadline)`
 - `paw.api.load_apart(on)`: Make plugins apart from the main loop (true), or wait for each as it is added (false, what scripts start with). Returns what it was.
-- `paw.api.log(line)`
+- `paw.api.log(line, level)`: Write a line to the log (`:log`) at `level`: "error", "warn", "info" (when not given), "debug" or "trace". Its target is `lua`. `paw.api.log_get` keeps the last 1000 lines too.
+- `paw.api.log_dump()`: Write the events of the flight recorder that the log file left out to it (`:log dump`). Returns how many, or nil in a run with no log file.
+- `paw.api.log_files()`: The files of the log: `current` (`paw.log` of this run), `previous` (the run before) and `stderr` (what plugins and libraries printed in this run). Each is nil in a run with no log file: a script writes none.
 - `paw.api.log_get()`
+- `paw.api.log_level(spec)`: Set the levels of the log, as `paw.opt.loglevel` holds them: `"info"`, or a level for each target, `"info,plugin=debug"`. Returns nil, or the levels that `PAW_LOG` set for this run and that stay. An error when the text is not a list of levels.
+- `paw.api.log_level_check(spec)`: Whether `spec` is a list of levels for `paw.api.log_level`: nil, or what is wrong with it.
 - `paw.api.lua_devices()`: Every script found: `{ kind, path, name, category, error, active }`, `active` false for one hidden by a script of the same name in a directory of a higher rank.
 - `paw.api.lua_devices_add(dir, rank)`: Look for devices in `dir` from now on; a script there wins over one of the same name in a directory of a lower `rank` (0 by default). Returns `{ added, changed, errors }`: kinds, kinds, and `{ kind, path, error }` for scripts that did not load.
 - `paw.api.lua_devices_remove(dir)`: Look in `dir` no more: a script of the same name elsewhere makes its scripts' kinds from now on, or nothing does. Returns the kinds of the scripts that were there.

@@ -192,7 +192,7 @@ local function warn()
     if i <= 5 then
       paw.notify(warning, "warn")
     else
-      api.log("[warn] " .. warning)
+      api.log(warning, "warn")
     end
   end
   if #list > 5 then paw.notify(string.format("and %d more warnings, in the log", #list - 5), "warn") end
@@ -284,6 +284,8 @@ function K.startup()
   paw.textbuf = require("paw.textbuf")
   -- The command-line window: `q:`, `q/`, Ctrl-f in a prompt (paw/cmdwin.tl).
   require("paw.cmdwin")
+  -- `:log`, `:log!`, `:log dump` and the option `loglevel` (paw/logfile.tl).
+  require("paw.logfile")
   require("paw.views.partlist")
   paw.files = require("paw.views.files")
   paw.recent = require("paw.recent")

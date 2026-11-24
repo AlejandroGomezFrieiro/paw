@@ -11814,10 +11814,37 @@ function paw.api.limit_watch(deadline) end
 ---@param on boolean
 function paw.api.load_apart(on) end
 
+--- Write a line to the log (`:log`) at `level`: "error", "warn",
+--- "info" (when not given), "debug" or "trace". Its target is `lua`.
+--- `paw.api.log_get` keeps the last 1000 lines too.
 ---@param line string
-function paw.api.log(line) end
+---@param level string?
+function paw.api.log(line, level) end
+
+--- Write the events of the flight recorder that the log file left
+--- out to it (`:log dump`). Returns how many, or nil in a run with
+--- no log file.
+function paw.api.log_dump() end
+
+--- The files of the log: `current` (`paw.log` of this run),
+--- `previous` (the run before) and `stderr` (what plugins and
+--- libraries printed in this run). Each is nil in a run with no log
+--- file: a script writes none.
+function paw.api.log_files() end
 
 function paw.api.log_get() end
+
+--- Set the levels of the log, as `paw.opt.loglevel` holds them:
+--- `"info"`, or a level for each target, `"info,plugin=debug"`.
+--- Returns nil, or the levels that `PAW_LOG` set for this run and
+--- that stay. An error when the text is not a list of levels.
+---@param spec string
+function paw.api.log_level(spec) end
+
+--- Whether `spec` is a list of levels for `paw.api.log_level`: nil,
+--- or what is wrong with it.
+---@param spec string
+function paw.api.log_level_check(spec) end
 
 --- Every script found: `{ kind, path, name, category, error, active }`,
 --- `active` false for one hidden by a script of the same name in a

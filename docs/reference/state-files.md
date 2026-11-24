@@ -37,6 +37,10 @@ The state belongs to the computer and not to a project.
 | `token` | The token for network connections. paw makes it at the first start. |
 | `tls/` | The certificate and key of this instance for network connections. paw makes them the first time that it listens. |
 | `known_instances` | The certificate fingerprints of the instances that this computer connected to. |
+| `paw.log` | The log of this run: what paw did and what went wrong, one line for each event with its time in UTC, its level and its target. `:log` shows it. See [How to find out what went wrong](../how-to/find-out-what-went-wrong.md). |
+| `paw.log.1` to `paw.log.4` | The logs of the four runs before, the newest in `paw.log.1`. `:log!` shows `paw.log.1`. Each log ends with the text of `stderr.log` of its run. |
+| `paw.2.log`, `paw.3.log` and on | The logs of a session that starts while another session runs, with the runs before in `paw.2.log.1` and on. The first session keeps `paw.log`, and each session rotates only its own files, so two sessions never write in one log. `:log` and `:log!` show the files of the session that you type them in. |
+| `paw.log.lock`, `paw.2.log.lock` and on | The lock of each log. A session holds the lock of its log while it runs, and the system lets go of it when the session ends or crashes. |
 
 ## Cache: `~/.cache/paw`
 
@@ -47,7 +51,7 @@ paw can delete the cache and make it again, so you don't need to keep it.
 | `plugins.json` | The result of the plugin scan. paw loads a plugin file again only when it changes, or when you use one of its plugins. |
 | `bakes/` | What paw makes from sound files and keeps for the next time: the waveform overviews, and the sound of stretched clips and of clips with an edit list. All projects use one cache. It stays within `paw.opt.media_cache` gigabytes, and paw removes what it used least recently. |
 | `media/` | The decoded sound of long files, up to `paw.opt.media_cache` gigabytes. |
-| `stderr.log` | The output and the errors that plugins, the sound system and the programs that paw starts print while the terminal interface runs. A line from a plugin starts with `plugin` and its name. paw empties it at each start, and `paw attach` adds to it. |
+| `stderr.log` | The output and the errors that the sound system, plugins loaded with `--plugins-in-process` and the programs that paw starts print while the terminal interface runs. At the next start, paw adds its text to the end of the log of its run (`paw.log.1`) and empties it. `paw attach` adds to it. What a plugin host prints goes to `paw.log`. A session with the log `paw.2.log` has `stderr.2.log`, and so on. |
 
 ## Editing history
 

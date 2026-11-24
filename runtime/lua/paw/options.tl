@@ -115,6 +115,9 @@ local defaults: {string: Value} = {
   -- those a .gitignore at its root names too).
   files_skip = {"target", "node_modules", "result", "build", "dist", "__pycache__", "vendor"},
   device_sleep = true, -- devices at rest sleep through silence; the sound is the same
+  -- The levels of paw.log: a level, or a level for each target such as
+  -- "info,plugin=debug" (paw/logfile.tl). PAW_LOG wins for the run it starts.
+  loglevel = "info",
   -- "edit" lowers the costly settings of the built-in devices while paw
   -- plays live, such as the oversampling of a saturation. Renders, exports,
   -- stems, freezes and bounces always play at "full".

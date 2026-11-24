@@ -146,6 +146,8 @@ pub(crate) struct Shared {
     /// (`paw.api.pending().missed_wakes`). The suite fails on one.
     pub(crate) missed: Cell<crate::doorbell::Woken>,
     pub(crate) missed_wakes: Cell<u64>,
+    /// What the log was last told of the counters of the audio thread.
+    pub(crate) audio_watch: RefCell<crate::kernel::AudioWatch>,
     /// The last wait of the loop ended on the safety tick, with no ring:
     /// the next turn counts the news it finds with no ring as missed.
     pub(crate) looked_on_a_tick: Cell<bool>,
@@ -174,7 +176,23 @@ impl Shared {
         }
     }
 
-    pub(crate) fn log(&self, line: String) {
+    /// Keep `line` in the ring of `paw.api.log_get`, and give it to the log
+    /// at `level` with the target `kernel`.
+    pub(crate) fn log(&self, level: tracing::Level, line: String) {
+        match level {
+            tracing::Level::ERROR => tracing::error!(target: "kernel", "{line}"),
+            tracing::Level::WARN => tracing::warn!(target: "kernel", "{line}"),
+            tracing::Level::INFO => tracing::info!(target: "kernel", "{line}"),
+            _ => {
+                tracing::debug!(target: "kernel", "{line}");
+                return;
+            }
+        }
+        self.keep(line);
+    }
+
+    /// Keep `line` in the ring of `paw.api.log_get`, the last 1000 lines.
+    pub(crate) fn keep(&self, line: String) {
         let mut log = self.log.borrow_mut();
         if log.len() >= 1000 {
             log.pop_front();

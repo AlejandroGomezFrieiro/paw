@@ -16,12 +16,15 @@ mod schema;
 mod server;
 mod tools;
 
+use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 use kernel::{Kernel, SpawnOpts};
 use tools::{Policy, Tools};
@@ -76,7 +79,8 @@ fn parse_args() -> Result<Option<Cli>> {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(err) if !err.use_stderr() => {
-            eprint!("{}", err.render());
+            // The help is for the user, not a line of the log.
+            let _ = write!(std::io::stderr().lock(), "{}", err.render());
             return Ok(None);
         }
         Err(err) => err.exit(),
@@ -104,7 +108,35 @@ fn policy(cli: &Cli) -> Result<Policy> {
     })
 }
 
+/// The log of the server is its standard error, as MCP over stdio has it:
+/// its own lines from `info`, the lines of the libraries from `warn`.
+/// `PAW_LOG` gives other levels, in the form `info,rmcp=debug`.
+fn start_log() {
+    let given = std::env::var("PAW_LOG").ok();
+    let parsed = given.as_deref().map(str::parse::<tracing_subscriber::filter::Targets>);
+    let wrong = match &parsed {
+        Some(Err(err)) => Some(format!("PAW_LOG={} is not a list of levels ({err}): the log keeps its default", given.unwrap_or_default())),
+        _ => None,
+    };
+    let levels = parsed
+        .and_then(Result::ok)
+        .unwrap_or_else(|| tracing_subscriber::filter::Targets::new().with_default(tracing::Level::WARN).with_target("paw_mcp", tracing::Level::INFO));
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .without_time()
+        .with_target(false)
+        .with_max_level(tracing::Level::TRACE)
+        .finish()
+        .with(levels)
+        .init();
+    if let Some(wrong) = wrong {
+        tracing::warn!("{wrong}");
+    }
+}
+
 fn run() -> Result<()> {
+    start_log();
     let Some(cli) = parse_args()? else {
         return Ok(());
     };
@@ -136,11 +168,11 @@ fn run() -> Result<()> {
         // Start now, so the first tool call is quick and a broken setup shows
         // in the log at once; a failure is reported again on each call.
         if let Err(err) = kernel.start() {
-            eprintln!("paw-mcp: {err}");
+            tracing::error!("{err}");
         }
     }
-    eprintln!(
-        "paw-mcp: kernel socket {}; root {}; eval {}; writes {}",
+    tracing::info!(
+        "kernel socket {}; root {}; eval {}; writes {}",
         kernel.socket.display(),
         policy.root.display(),
         if policy.allow_eval { "allowed" } else { "off" },
@@ -150,8 +182,8 @@ fn run() -> Result<()> {
     let tools = server.tools();
     runtime.block_on(server.serve_stdio())?;
     let mut tools = tools.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    eprintln!(
-        "paw-mcp: stdin closed{}",
+    tracing::info!(
+        "stdin closed{}",
         if tools.kernel.is_spawned() { "; stopping the kernel" } else { "" }
     );
     tools.kernel.shutdown();
@@ -162,7 +194,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("paw-mcp: {err:#}");
+            tracing::error!("{err:#}");
             ExitCode::FAILURE
         }
     }

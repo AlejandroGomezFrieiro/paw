@@ -172,6 +172,7 @@ paw.lazy
 # What the windows show: the views, the pickers and the menus.
 paw.views.*
 paw.cmdwin
+paw.logfile
 paw.vzoom
 paw.roll_context
 paw.textbuf

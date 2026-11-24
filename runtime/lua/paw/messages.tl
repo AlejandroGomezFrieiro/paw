@@ -35,6 +35,10 @@ M.list = {}
 -- The most messages that `M.list` keeps.
 local KEEP = 500
 
+-- The levels of the log that a message can have: another level is "info"
+-- in the log.
+local LOG_LEVELS: {string: boolean} = {error = true, warn = true, info = true, debug = true}
+
 --- Give a message. `level` is "info" (the default), "warn" or "error".
 function M.notify(text: string, level?: string)
   -- What the kernel refused, as it said it, without the prefix its errors
@@ -45,7 +49,7 @@ function M.notify(text: string, level?: string)
   if #M.list > KEEP then
     table.remove(M.list, 1)
   end
-  api.log(string.format("[%s] %s", level, text))
+  api.log(text, LOG_LEVELS[level] and level or "info")
   -- Without a terminal, the message also goes to stderr.
   if not api.ui_attached() then
     io.stderr:write(text, "\n")
@@ -89,7 +93,7 @@ function M.try<A, R>(fn: function(...: A): (R...), ...: A): boolean, R...
     local err = tostring(result[2])
     local short = M.failure(err)
     if short ~= err then
-      api.log("[error] " .. err)
+      api.log(err, "error")
     end
     M.notify(short, "error")
   end

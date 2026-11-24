@@ -1,7 +1,9 @@
 //! The terminal shows paw's frame and nothing else: what plugins, libraries
 //! and child processes print goes to a log, `<C-l>` draws the whole screen
 //! again over text that came another way, and a panic gives the terminal
-//! back before its message.
+//! back before its message. paw.log keeps the lines of paw, of Lua and of
+//! plugins, at the levels that `PAW_LOG` and `paw.opt.loglevel` give, and
+//! `:log` shows it.
 
 #![expect(clippy::unwrap_used, reason = "test code: a failed unwrap is a failed test")]
 
@@ -102,6 +104,19 @@ impl Screen {
     fn log(&self) -> String {
         std::fs::read_to_string(self.dir.join("xdg/cache/paw/stderr.log")).unwrap_or_default()
     }
+
+    /// paw.log of this run, in the state folder.
+    fn paw_log(&self) -> String {
+        std::fs::read_to_string(self.dir.join("xdg/state/paw/paw.log")).unwrap_or_default()
+    }
+
+    /// Type `keys` on the terminal and wait until a frame after them shows
+    /// `shown`.
+    fn type_until(&mut self, keys: &str, shown: &str) {
+        let before = self.text.len();
+        self.keys.write_all(keys.as_bytes()).unwrap();
+        self.wait_for(shown, |text| visible(&text[before..]).contains(shown));
+    }
 }
 
 /// `text` with the escape sequences of the terminal left out: what the
@@ -160,7 +175,7 @@ return dev
 "#;
 
 #[test]
-fn what_a_plugin_host_prints_goes_to_the_log_with_the_name_of_the_plugin() {
+fn what_a_plugin_host_prints_goes_to_paw_log_with_the_name_of_the_plugin() {
     let mut screen = Screen::start("host");
     let mut c = screen.connect();
     let devices = screen.dir.join("devices");
@@ -170,7 +185,9 @@ fn what_a_plugin_host_prints_goes_to_the_log_with_the_name_of_the_plugin() {
     c.call("eval", json!([add, devices.to_string_lossy()])).unwrap();
     // The reader of the host's pipe writes to the log on a thread of its
     // own: each round trip lets it go on.
-    while !(screen.log().contains("plugin Printer: host-out") && screen.log().contains("plugin Printer: host-err")) {
+    while !(screen.paw_log().contains("INFO  plugin: Printer: host-out")
+        && screen.paw_log().contains("INFO  plugin: Printer: host-err"))
+    {
         c.call("eval", json!(["return true"])).unwrap();
     }
     sync(&mut screen, &mut c, "after-the-host");
@@ -213,4 +230,105 @@ fn a_panic_gives_the_terminal_back_and_prints_its_message_there() {
     screen.wait_for("the message of the panic", |text| text.contains("a bug for the screen test"));
     let message = screen.text.find("a bug for the screen test").unwrap();
     assert!(screen.text[..message].contains("\x1b[?1049l"), "the normal screen comes back before the message");
+}
+
+#[test]
+fn a_panic_leaves_its_message_its_backtrace_and_the_detail_before_it_in_paw_log() {
+    let mut screen = Screen::start("panic-log");
+    let mut c = screen.connect();
+    c.call("eval", json!(["paw.api.log('the detail before', 'debug')"])).unwrap();
+    let _ = c.call("eval", json!(["paw.api.test_panic('a bug for the log')"]));
+    screen.wait_for("where the log is", |text| text.contains("the log of this run is"));
+    let log = screen.paw_log();
+    let detail = log.find("DEBUG lua: the detail before").expect("the flight recorder is in the log");
+    let panic = log.find("ERROR panic: ").expect("the panic is in the log");
+    assert!(detail < panic, "the detail comes before the panic:\n{log}");
+    assert!(log[panic..].contains("a bug for the log") && log[panic..].contains("end_program"), "with its backtrace:\n{log}");
+}
+
+#[test]
+fn paw_log_has_the_start_and_the_lines_of_lua_at_the_levels_of_loglevel() {
+    let mut screen = Screen::start("levels");
+    let mut c = screen.connect();
+    let say = "paw.api.log('info-before') paw.opt.loglevel = 'warn,undo=info' \
+               paw.api.log('info-after') paw.api.log('warn-after', 'warn') \
+               paw.api.log('kept-detail', 'debug') paw.notify('a failure', 'error')";
+    c.call("eval", json!([say])).unwrap();
+    let log = screen.paw_log();
+    assert!(log.contains("INFO  start: paw ") && log.contains("INFO  lua: sound: "), "the start header:\n{log}");
+    // An error writes the detail that the file left out before it.
+    let recorder = log.find("---- flight recorder").expect("the flight recorder is in the log");
+    let (before, dump) = log.split_at(recorder);
+    assert!(before.contains("info-before") && !before.contains("info-after") && before.contains("WARN  lua: warn-after"), "{log}");
+    let detail = dump.find("DEBUG lua: kept-detail").expect("the detail is in the flight recorder");
+    assert!(dump.contains("info-after") && detail < dump.find("ERROR lua: a failure").unwrap(), "{log}");
+    sync(&mut screen, &mut c, "after-the-levels");
+}
+
+#[test]
+fn paw_log_wins_over_loglevel() {
+    let screen = Screen::start_with("paw-log", |_, command| {
+        command.env("PAW_LOG", "error");
+    });
+    let mut c = screen.connect();
+    c.call("eval", json!(["paw.opt.loglevel = 'debug' paw.api.log('not-written', 'warn')"])).unwrap();
+    let log = screen.paw_log();
+    assert!(!log.contains("not-written") && !log.contains("INFO  start"), "{log}");
+}
+
+#[test]
+fn two_sessions_at_once_each_keep_their_own_log() {
+    let first = Screen::start("log-a");
+    let xdg = first.dir.join("xdg");
+    let second = Screen::start_with("log-b", |_, command| {
+        command.env("XDG_STATE_HOME", xdg.join("state")).env("XDG_CACHE_HOME", xdg.join("cache"));
+    });
+    first.connect().call("eval", json!(["paw.api.log('from-first')"])).unwrap();
+    let mut c = second.connect();
+    c.call("eval", json!(["paw.api.log('from-second')"])).unwrap();
+    let files = c.call("eval", json!(["local f = paw.api.log_files() return f.current .. ' ' .. f.stderr"])).unwrap();
+    let state = xdg.join("state/paw");
+    let read = |name: &str| std::fs::read_to_string(state.join(name)).unwrap_or_default();
+    // The second session did not rotate the log that the first writes.
+    assert!(!state.join("paw.log.1").exists(), "paw.log of the first session was renamed");
+    assert!(read("paw.log").contains("from-first") && !read("paw.log").contains("from-second"), "{}", read("paw.log"));
+    assert!(read("paw.2.log").contains("from-second") && !read("paw.2.log").contains("from-first"), "{}", read("paw.2.log"));
+    let files = files.to_string();
+    assert!(files.contains("paw/paw.2.log ") && files.contains("stderr.2.log"), ":log of the second session: {files}");
+}
+
+#[test]
+fn log_dump_writes_the_detail_that_the_file_left_out() {
+    let mut screen = Screen::start("log-dump");
+    screen.connect().call("eval", json!(["paw.api.log('kept-detail', 'debug')"])).unwrap();
+    assert!(!screen.paw_log().contains("kept-detail"));
+    screen.type_until(":log dump\r", "flight recorder");
+    let log = screen.paw_log();
+    let dump = log.find("---- flight recorder").expect("a dump in the log");
+    assert!(log[dump..].contains("DEBUG lua: kept-detail"), "{log}");
+}
+
+#[test]
+fn an_error_that_ends_paw_is_said_once() {
+    let dir = std::env::temp_dir().join(format!("paw-sc-once-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut paw = Command::new(env!("CARGO_BIN_EXE_paw"));
+    sealed::seal(&mut paw, &dir).args(["--clean", "--no-plugins", "--audio", "null", "-l", "no-such-script.lua"]);
+    let out = paw.output().unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success());
+    assert_eq!(said.matches("no-such-script.lua").count(), 1, "{said}");
+}
+
+#[test]
+fn log_shows_this_run_and_log_bang_the_run_before() {
+    let mut screen = Screen::start_with("log-cmd", |dir, _| {
+        let state = dir.join("xdg/state/paw");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(state.join("paw.log"), "a line of the run before\n").unwrap();
+    });
+    screen.type_until(":log\r", "Log of this run");
+    assert!(visible(&screen.text).contains("start:"), "the header of this run shows");
+    screen.type_until(":log!\r", "a line of the run before");
 }

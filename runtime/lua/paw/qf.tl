@@ -565,7 +565,7 @@ refresh = function()
         local fn = pulls[source]
         local okf, entries = pcall(fn)
         if not okf then
-          api.log("qf: " .. source .. ": " .. tostring(entries))
+          api.log("qf: " .. source .. ": " .. tostring(entries), "warn")
           entries = {}
         end
         local list: {Entry} = {}

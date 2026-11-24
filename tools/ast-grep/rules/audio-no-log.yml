@@ -1,0 +1,11 @@
+id: audio-no-log
+language: Rust
+severity: error
+message: 'The engine does not log: its code runs on the audio thread, where a log line takes a lock and allocates. Count the event in the engine, and let the kernel log the count (paw-core, kernel/audio_watch.rs).'
+files:
+  - crates/paw-engine/**/*.rs
+ignores:
+  - crates/paw-engine/tests/**
+rule:
+  kind: macro_invocation
+  regex: ^(::)?(tracing::|log::)?(trace|debug|info|warn|error|event)!

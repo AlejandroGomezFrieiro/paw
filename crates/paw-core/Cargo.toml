@@ -23,6 +23,11 @@ serde_json.workspace = true
 # built-in kinds (src/api_schema.rs, src/chain_schema.rs).
 schemars.workspace = true
 thiserror.workspace = true
+# The log (logging.rs): the macros, the subscriber that the program
+# installs, and the time on each line.
+tracing.workspace = true
+tracing-subscriber.workspace = true
+jiff.workspace = true
 hex.workspace = true
 smallvec.workspace = true
 # The kinds of news that wake the kernel's loop (doorbell.rs).

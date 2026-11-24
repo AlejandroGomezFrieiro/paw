@@ -1251,7 +1251,7 @@ function M.paint_cells(name: string, window: OpenView, width: number, height: nu
       g.ox, g.oy = (p.x - p.left) * cell.w, (p.y - p.top) * cell.h
       local drawn, err = xpcall(p.draw, debug.traceback, g, px) as (boolean, string)
       if not drawn then
-        api.log("a strip failed to draw: " .. tostring(err))
+        api.log("a strip failed to draw: " .. tostring(err), "warn")
       end
     end
     add(snap.rows, 0, "text")

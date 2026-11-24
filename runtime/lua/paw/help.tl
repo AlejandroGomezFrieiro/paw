@@ -1157,7 +1157,7 @@ local function resume(co: thread, ms: number): boolean
   end
   preparing = nil
   if not ok then
-    api.log("help: the index made at idle failed: " .. tostring(err))
+    api.log("help: the index made at idle failed: " .. tostring(err), "warn")
   end
   return true
 end

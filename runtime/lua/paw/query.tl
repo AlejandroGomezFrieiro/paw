@@ -579,7 +579,7 @@ function M.articulations(node: Node): {string}
   for source, marks_of in pairs(M.marks:entries()) do
     local ok, marks = pcall(marks_of, node.data as types.Note, clip) as (boolean, M.NoteMarks)
     if not ok then
-      api.log("the note marks of " .. source .. ": " .. tostring(marks))
+      api.log("the note marks of " .. source .. ": " .. tostring(marks), "warn")
     end
     for _, name in ipairs(ok and marks and marks.art or {}) do
       out[#out + 1] = name

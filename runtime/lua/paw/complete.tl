@@ -587,7 +587,7 @@ function M.cancel()
     if source and source.cancel then
       local ok, err = pcall(function(): string source.cancel(r.ctx) end)
       if not ok then
-        api.log("completion source " .. name .. " failed to cancel: " .. tostring(err))
+        api.log("completion source " .. name .. " failed to cancel: " .. tostring(err), "warn")
       end
     end
   end
@@ -686,7 +686,7 @@ function M.request(trigger?: Trigger): integer
       once = true
       local ok, err = pcall(function(): string answer(r, source.name, items) end)
       if not ok then
-        api.log("completion source " .. source.name .. ": " .. tostring(err))
+        api.log("completion source " .. source.name .. ": " .. tostring(err), "warn")
       end
     end
     -- Each source gets a context of its own to keep or change.
@@ -694,7 +694,7 @@ function M.request(trigger?: Trigger): integer
     local ask = function(): string source.complete(own, done) end
     local ok, err = pcall(function(): string return limit.named("the completion source " .. source.name, ask) end)
     if not ok then
-      api.log("completion source " .. source.name .. " failed: " .. tostring(err))
+      api.log("completion source " .. source.name .. " failed: " .. tostring(err), "warn")
       if trigger == "manual" then
         paw.notify("completion source " .. source.name .. " failed: " .. tostring(err):match("^[^\n]*"), "warn")
       end

@@ -135,6 +135,7 @@ impl<'a> Reactor<'a> {
         self.note_missed_wakes(woken, news);
         self.fire_timers(now);
         self.close_turn();
+        self.watch_audio(now);
         // What is played goes to the connections that listen.
         let mut session = self.shared.session.borrow_mut();
         self.shared.desk.borrow_mut().monitor.keep_fed(&mut session);
@@ -200,6 +201,15 @@ impl<'a> Reactor<'a> {
         self.shared.session.borrow_mut().checkpoint();
     }
 
+    /// The counters of the audio thread that went up: a warning each, at
+    /// most one a second for each counter (audio_watch.rs).
+    fn watch_audio(&self, now: ScheduleTime) {
+        let values = self.shared.session.borrow().audio_counters();
+        for rise in self.shared.audio_watch.borrow_mut().check(now, values) {
+            tracing::warn!(target: "audio", "{}: {} (+{})", rise.name, rise.value, rise.added);
+        }
+    }
+
     /// After a wait that ended on the safety tick: the news of a kind
     /// whose workers ring, found with no ring before the turn or during
     /// it, is a missed wake. Each kind is told once in the log.
@@ -216,7 +226,7 @@ impl<'a> Reactor<'a> {
         let new = missed & !self.shared.missed.get();
         if !new.is_empty() {
             self.shared.missed.set(self.shared.missed.get() | new);
-            self.shared.log(format!("missed wake: {new:?} came with no ring, and waited for the safety tick"));
+            self.shared.log(tracing::Level::DEBUG, format!("missed wake: {new:?} came with no ring, and waited for the safety tick"));
         }
     }
 
@@ -412,12 +422,10 @@ impl<'a> Reactor<'a> {
         kernel.get::<Function>(name)?.call(args)
     }
 
+    /// A Lua error that no one caught: an error in the log, which a
+    /// process with no terminal also writes to its standard error.
     pub(crate) fn report(&self, what: &str, err: mlua::Error) {
-        let line = format!("{what}: {err}");
-        if !self.shared.attached.get() {
-            eprintln!("{line}");
-        }
-        self.shared.log(line);
+        self.shared.log(tracing::Level::ERROR, format!("{what}: {err}"));
     }
 
     /// Make it `client`'s turn: what happens next happens in its seat (the
@@ -694,7 +702,7 @@ impl<'a> Reactor<'a> {
                 if let Some((_, frontend)) = shown
                     && let Err(err) = frontend.present(&grid, cursor)
                 {
-                    self.shared.log(format!("frontend: {err:#}"));
+                    self.shared.log(tracing::Level::WARN, format!("frontend: {err:#}"));
                     // A terminal at the end of a connection that has closed.
                     if client != 0 {
                         gone.push(client);

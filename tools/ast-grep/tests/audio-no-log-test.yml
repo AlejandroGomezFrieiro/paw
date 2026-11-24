@@ -1,0 +1,13 @@
+id: audio-no-log
+valid:
+  - |
+    fn a(xruns: &AtomicU32) { xruns.fetch_add(1, Ordering::Relaxed); }
+  - |
+    fn a() { debug_assert!(true); }
+invalid:
+  - |
+    fn a() { tracing::warn!("late block"); }
+  - |
+    fn a() { info!("started"); }
+  - |
+    fn a() { log::error!("xrun"); }

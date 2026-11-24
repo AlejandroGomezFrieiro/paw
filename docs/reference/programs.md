@@ -107,7 +107,7 @@ paw ctl --connect studio:7700 --token-file studio.token cmd transport.toggle
 
 ## paw-mcp
 
-`paw-mcp` is a Model Context Protocol server that talks over stdin and stdout.
+`paw-mcp` is a Model Context Protocol server that talks over stdin and stdout. It writes its log to stderr.
 
 | Use | Effect |
 | --- | --- |
@@ -145,6 +145,7 @@ The `initializationOptions` of the editor come before these options. Without a s
 | --- | --- |
 | `PAW_HOME` | The source tree, or the `share/paw` directory of the package. paw finds the extensions, the examples and the manual there. The package sets it. |
 | `PAW_TOKEN` | The token for a network connection. |
+| `PAW_LOG` | The levels of the log for this run, in the form of [`paw.opt.loglevel`](options.md#the-log), for example `debug` or `info,plugin=debug`. It wins over the option. For `paw-mcp`, the levels of its standard error. |
 | `PAW_SOCKET` | The control socket for `paw-mcp`. |
 | `PAW_BIN` | The `paw` program for `paw-mcp --spawn`. |
 | `PAW_GUI_RENDERER` | `gpu` or `software`, as `--renderer`. |

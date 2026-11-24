@@ -296,7 +296,7 @@ local function push(client: integer, all?: boolean)
           local ok, err = pcall((paw.ui as Ui).render_scene, what.view, area.w, area.h, w.cell, what.win)
             as (boolean, string)
           if not ok then
-            api.log("the scene of " .. what.view .. " failed: " .. tostring(err))
+            api.log("the scene of " .. what.view .. " failed: " .. tostring(err), "warn")
           end
           area.key = key_of(paw.ui.views:get(what.view) or {}, what.win)
           local _, open = api.scene_end(client, id)

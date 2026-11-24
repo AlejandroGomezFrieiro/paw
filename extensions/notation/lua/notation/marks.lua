@@ -221,7 +221,7 @@ local function others_marks(clip)
     for _, n in ipairs(clip:notes()) do
       local ok, got = pcall(source.fn, n, c)
       if not ok then
-        paw.api.log("notation marks of " .. source.name .. ": " .. tostring(got))
+        paw.api.log("notation marks of " .. source.name .. ": " .. tostring(got), "warn")
         break
       end
       got = got or {}

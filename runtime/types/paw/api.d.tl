@@ -176,8 +176,12 @@ local record api
    limit_hook: function(func: function())
    limit_watch: function(deadline?: number)
    load_apart: function(on: boolean): boolean
-   log: function(line: string)
+   log: function(line: string, level?: string)
+   log_dump: function(): integer
+   log_files: function(): types.LogFiles
    log_get: function(): {string}
+   log_level: function(spec: string): string
+   log_level_check: function(spec: string): string
    lua_devices: function(): {types.LuaDeviceScript}
    lua_devices_add: function(dir: string, rank?: integer): types.LuaDeviceScan
    lua_devices_remove: function(dir: string): {string}

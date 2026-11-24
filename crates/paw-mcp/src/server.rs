@@ -121,15 +121,15 @@ impl ServerHandler for PawServer {
         context.peer.set_peer_info(request.clone());
         let result = self.negotiate_initialize(&request)?;
         let client = &request.client_info;
-        eprintln!(
-            "paw-mcp: {} {} asked for protocol {}; speaking {}",
+        tracing::info!(
+            "{} {} asked for protocol {}; speaking {}",
             client.name, client.version, request.protocol_version, result.protocol_version
         );
         Ok(result)
     }
 
     async fn on_initialized(&self, _context: NotificationContext<RoleServer>) {
-        eprintln!("paw-mcp: client ready");
+        tracing::info!("client ready");
     }
 
     async fn list_tools(
@@ -152,8 +152,8 @@ impl ServerHandler for PawServer {
         let started = std::time::Instant::now();
         let shown = name.clone();
         let outcome = self.with_tools(move |tools| tools.call(&name, &args)).await?;
-        eprintln!(
-            "paw-mcp: {shown} {} in {} ms",
+        tracing::info!(
+            "{shown} {} in {} ms",
             if outcome.is_err() { "failed" } else { "done" },
             started.elapsed().as_millis()
         );

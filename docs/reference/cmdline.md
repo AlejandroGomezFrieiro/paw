@@ -107,6 +107,9 @@ you read it.
 | Key or command | Effect |
 | --- | --- |
 | `:messages` | Shows all messages, newest at the bottom. A long message wraps over many rows. |
+| `:log` | Shows the log of this run (`paw.log`, or `paw.2.log` in a second session that runs at the same time), with the text of `stderr.log` so far at the end. See [Files that paw keeps](state-files.md). |
+| `:log!` | Shows the log of the run before (`paw.log.1`). |
+| `:log dump` | Writes the flight recorder into the log: the last events of the `debug` level and above that the log left out. |
 | `<Space>fl` | Chooses a message from a list, newest first. |
 
 ## Find what is slow

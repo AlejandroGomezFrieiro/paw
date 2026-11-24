@@ -59,6 +59,7 @@ local record Opts
    leader: string
    learn_pickup: boolean
    localleader: string
+   loglevel: string
    loudness_target: number
    lua_devices_watch: number
    lua_limit: number
