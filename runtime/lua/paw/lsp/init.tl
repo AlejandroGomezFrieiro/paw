@@ -946,7 +946,7 @@ run_oneshot = function(client: Client, doc: Doc)
   if input == nil then
     return
   end
-  local path = os.tmpname()
+  local path = util.tmpname()
   local f = io.open(path, "w")
   f:write(rpc.encode(input))
   f:close()

@@ -674,7 +674,7 @@ local function shell(cmd, events)
   for i, e in ipairs(events) do
     lines[i] = event_text(e)
   end
-  local path = os.tmpname()
+  local path = paw.util.tmpname()
   local fh = io.open(path, "w")
   if not fh then return nil, "no room for the filter's input" end
   fh:write(table.concat(lines, "\n"), "\n")

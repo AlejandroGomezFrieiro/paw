@@ -12,7 +12,11 @@ local tb = paw.textbuf
 
 local W, H = 160, 48
 local initial = L.capture()
-local root = T.scratch .. "/files"
+-- The folders of the tests sit in the data folder, on the mount of the trash:
+-- a file goes to the trash by a rename, which does not cross mounts (the agent
+-- sandbox has $TMPDIR and the checkout on two).
+local home = os.getenv("XDG_DATA_HOME") .. "/files-tests-" .. T.scratch_id
+local root = home .. "/files"
 
 local function sh(cmd) os.execute(cmd) end
 
@@ -353,7 +357,7 @@ end)
 
 test("files: the media folder marks what no clip plays, and `:media.unused` lists only that", function()
   start()
-  local song = T.scratch .. "/files-song"
+  local song = home .. "/files-song"
   sh("rm -rf '" .. song .. "' && mkdir -p '" .. song .. "/media'")
   sh("cp tests/fixtures/tone-mono-8k.wav '" .. song .. "/media/used.wav'")
   sh("cp tests/fixtures/shape.wav '" .. song .. "/media/spare-" .. T.scratch_id .. ".wav'")

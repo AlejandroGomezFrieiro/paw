@@ -496,7 +496,7 @@ test("the screen draws what the project holds", function()
   paw.ui.show("mixer")
   paw.ui.views:get("pianoroll"):edit(t:clips()[1])
   text = screen(140, 50)
-  eq(text:find("cutoff", 1, true) ~= nil, true, "device panel lists parameters")
+  eq(text:find("wave saw", 1, true) ~= nil, true, "the devices view lists each device with its main value")
   eq(text:find("A3", 1, true) ~= nil, true, "piano roll shows note names")
   eq(text:find("traceback", 1, true), nil, "no view raised an error")
   -- Tiny screens must not raise either, and drawing garbage is collected safely.

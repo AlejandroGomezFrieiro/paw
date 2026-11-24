@@ -117,6 +117,31 @@ function M.tilde(path: string): string
   return path
 end
 
+local tmp_count = 0
+
+--- The path of a new empty file in the temporary folder: `$TMPDIR`, or
+--- `/tmp` when it is not set. Lua's `os.tmpname` always uses `/tmp`, which a
+--- program that runs in a sandbox can not write. The caller removes the file.
+function M.tmpname(): string
+  local dir = os.getenv("TMPDIR") or "/tmp"
+  local path: string
+  repeat
+    tmp_count = tmp_count + 1
+    path = string.format("%s/paw-%d-%d-%d", dir, os.time(), math.floor(os.clock() * 1000000), tmp_count)
+    local taken = io.open(path, "r")
+    if taken then
+      taken:close()
+      path = nil
+    end
+  until path
+  local made, err = io.open(path, "w")
+  if not made then
+    error("cannot make a temporary file in " .. dir .. ": " .. tostring(err), 2)
+  end
+  made:close()
+  return path
+end
+
 -- The travel of a fader and a send: -60 to +6 dB. A level typed
 -- (`grv`) can go past it, as far as the engine's own limits, -120 to
 -- +24 dB.

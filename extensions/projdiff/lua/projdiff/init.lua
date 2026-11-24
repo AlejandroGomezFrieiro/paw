@@ -336,7 +336,7 @@ local function first_line(err) return (tostring(err):match("[^\n]*"):gsub("^runt
 local function open_merged(merged, dir)
   local ok, text = pcall(paw.api.project_file_text, merged)
   if not ok then return nil, "the merge is not a project that opens: " .. first_line(text) end
-  local copy = os.tmpname()
+  local copy = paw.util.tmpname()
   local file = assert(io.open(copy, "wb"))
   file:write(text)
   file:close()
