@@ -4,7 +4,7 @@ title: 'Logging: one log file with levels, kept across runs, for Rust, Lua and p
 status: In Progress
 assignee: []
 created_date: '2026-11-24T18:05:00Z'
-updated_date: '2026-11-24T19:22:00Z'
+updated_date: '2026-11-24T20:01:00Z'
 labels:
   - agent:builder
 dependencies:
@@ -72,4 +72,6 @@ Owner, 2026-11-24: ADR 0043 accepted, with a lock so that a second session at th
 STATE 2026-11-24 (session paused): branch worktree-agent-a498b74dcaa5c1ddc, head 4e4462db. ADR 0043 accepted (architecture/decisions/0043-one-log.md; update it with the lock when the builder's draft lands). OPEN: the builder adds the session lock (flock on paw.log.lock; a second session writes paw.2.log, never rotates a live log; stderr.log fold per session), loads teal/lua-testing/rust-testing and fixes what they find, and runs tests/clock.lua 30x under -j4 (one failure seen: timers_due 1, want 0). NEXT: opus review (contract: tracing crate, paw.api.log level, :log, loglevel, PAW_LOG, audio counters, panic hook), merge check, then the OWNER fast-forwards because the branch changes .claude/skills/rust-skills/paw-crates.md: git merge --ff-only <sha> in the main checkout. Then architecture: 06-runtime, 08-concepts, 10-quality items; decisions/README.md and 09-decisions.md rows for 0043.
 
 Builder done: head 1c751ad0 (session lock: flock on paw.log.lock, a second session takes slot paw.2.log / stderr.2.log, up to 9; two tests; ADR 0043 text in architecture/decisions with the lock). Skills loaded, nothing to change. NEXT: opus review, merge check, owner ff (branch changes .claude/skills/rust-skills/paw-crates.md).
+
+Opus review of 1c751ad0: merge after fixes. Hard: (1) main.rs:819-820 an ending error prints twice (tracing echo + say); (2) main.rs:547-560 + logging/mod.rs:376-380 panic hook deadlock if a panic happens while the Book mutex is held (files() relocks). Soft: :log dump test; PAW_LOG errors silent in clients and paw-mcp; TERM missing in header; no upper bound after the cap; debug paw.api.log fills the log_get ring; audio_counters duplicates COUNTERS; fold header names stderr.log for every slot; output_log with no slot empties a live slot-1 file. Sent to the builder. Note: the workspace print_stderr lint fails clippy for paw-gui (paused, flake skips it): owner to decide.
 <!-- SECTION:NOTES:END -->
