@@ -35,12 +35,16 @@ local function guitar(name)
   return part
 end
 
---- Let a state loaded into the plugin (an undo, a recall) reach it, and
---- the plugin tell what it holds now: wait until `model` is the file the
---- slot of `device` holds (two seconds at most).
+--- Let a state loaded into the plugin (an undo, a recall, a new model)
+--- reach it, and the plugin tell what it holds now: wait until `model` is
+--- the file the slot of `device` holds, and the plugin shows the state of
+--- the request.
 local function settle(device, model)
   paw.flush()
-  T.until_(function() return plugstate.slot(device).value == model end, "the plugin to hold " .. tostring(model))
+  T.until_(
+    function() return plugstate.slot(device).value == model and api.pending().plugins_owe == 0 end,
+    "the plugin to hold " .. tostring(model)
+  )
 end
 
 local keys = T.keys
@@ -151,6 +155,7 @@ test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and
 
   keys("\\s")
   keys("]m")
+  settle(amp.id, models .. "/BossLSTM-1x24.nam")
   keys("\\s")
   eq(#plugstate.snapshots(amp.id), 2, "two snapshots kept")
   eq(plugstate.current(amp.id), "B", "named A and B")
@@ -163,6 +168,29 @@ test("plugstate: an amp model is chosen with keys, undone, kept in snapshots and
   settle(amp.id, models .. "/BossLSTM-1x24.nam")
   eq(plugstate.current(amp.id), "B", "u after a recall: one undo step")
   eq(render().samples, second.samples, "the sound of B again")
+
+  -- An undo and a redo at once, before the plugin took the model on: the
+  -- redo asks the plugin again, and the step of ]m keeps the model.
+  keys("]m")
+  local third = plugstate.slot(amp.id).value
+  keys("u")
+  keys("<C-r>")
+  settle(amp.id, third)
+  local fast = render()
+  eq(fast.samples ~= second.samples, true, "a fast u and <C-r> keep the model of ]m")
+  -- A second edit closes its step before the plugin took the model on:
+  -- its undo gives the step of ]m, with the model.
+  keys("u")
+  settle(amp.id, models .. "/BossLSTM-1x24.nam")
+  keys("]m")
+  api.undo_checkpoint()
+  api.part_set(part.id, { mute = true })
+  api.undo_checkpoint()
+  keys("u")
+  settle(amp.id, third)
+  eq(render().samples, fast.samples, "the undo of the next edit keeps the model of ]m")
+  keys("u")
+  settle(amp.id, models .. "/BossLSTM-1x24.nam")
 
   local path = paw.project.save(T.scratch .. "/plugstate.json")
   fresh()
@@ -610,17 +638,13 @@ test(
     -- Schema learning: keep the state, change the plugin, list the paths.
     keys(":plugstate.mark<CR>")
     api.device_set_param(synth.id, "a_octave", 4 / 6)
-    paw.flush()
-    local changes = jp.changes(synth.id)
-    local paths = {}
-    for _, c in ipairs(changes) do
-      paths[#paths + 1] = c.path
-    end
-    eq(
-      table.concat(paths, " "):find("/patch/parameters/a_octave@value", 1, true) ~= nil,
-      true,
-      "the octave's path changed: " .. table.concat(paths, " ")
-    )
+    -- The plugin takes the value in its next block.
+    local changes = T.until_(function()
+      local now = jp.changes(synth.id)
+      for _, c in ipairs(now) do
+        if c.path:find("/patch/parameters/a_octave@value", 1, true) then return now end
+      end
+    end, "the octave's path to change")
     T.near(pitch(), 440, 10, "an octave higher")
     eq(#changes, 1, "only the octave: the description leaves out the window's state")
     local file = T.scratch .. "/octave.jucepreset"

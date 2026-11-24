@@ -210,6 +210,7 @@ impl Upkeep for Plugins {
         let mut scan = session.scan_devices();
         session.emit_device_scan(&mut scan);
         session.apply_device_scan(scan);
+        session.read_back_states();
         // A plugin marks, and does not ring: its news is seen on a tick.
         false
     }
@@ -288,7 +289,9 @@ impl Session {
     /// What the plugins leave for the loop: a tick, never work in flight.
     fn plugins_agenda(&self) -> Agenda {
         let controllers = self.live.values().filter_map(|live| live.controller.as_ref());
-        let lanes = self.play.playing && !self.engine.map.state_main.is_empty();
+        // A state that a plugin owes is read back on the frame tick, so that
+        // an undo soon after its load finds it read.
+        let lanes = (self.play.playing && !self.engine.map.state_main.is_empty()) || self.readbacks.len() > 0;
         plugins_tick(controllers.map(|controller| controller.wants_idle()), lanes)
     }
 

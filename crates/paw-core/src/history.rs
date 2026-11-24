@@ -321,6 +321,20 @@ impl<T: Clone> History<T> {
         self.reweigh(self.current);
     }
 
+    /// Change each snapshot that `change` changes (it gives true then), for
+    /// bookkeeping that is not an edit, and weigh those states again.
+    pub(crate) fn change_snapshots(&mut self, mut change: impl FnMut(&mut T) -> bool) {
+        let changed: Vec<StateId> =
+            self.states.values_mut().filter_map(|state| change(&mut state.snapshot).then_some(state.id)).collect();
+        for id in changed {
+            self.reweigh(id);
+            let children = self.states.get(&id).map(|s| s.children.clone()).unwrap_or_default();
+            for child in children {
+                self.reweigh(child);
+            }
+        }
+    }
+
     /// Whether the current state is the one last saved.
     pub(crate) fn at_saved(&self) -> bool {
         self.saved() == Some(self.current)

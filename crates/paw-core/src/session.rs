@@ -65,6 +65,7 @@ mod loading;
 pub(crate) mod media;
 mod midi_out;
 mod promote;
+mod readback;
 mod save;
 mod export;
 mod schedule;
@@ -399,6 +400,9 @@ pub(crate) struct Session {
     state_given: statelanes::Given,
     /// Plugins being made apart from the main loop: see `session/loading.rs`.
     loads: loading::Loads,
+    /// The requests to plugins whose new state the session reads back
+    /// after the plugins' next blocks: see `session/readback.rs`.
+    readbacks: readback::Readbacks,
     /// How the next project opened is to be opened (plugins offline).
     open_opts: loading::OpenOpts,
     /// The audio device and MIDI ports, watched for going and coming back.
@@ -484,6 +488,7 @@ impl Session {
             render_job: None,
             state_given: Default::default(),
             loads: Default::default(),
+            readbacks: Default::default(),
             open_opts: Default::default(),
             watch: Default::default(),
             files_watch: Default::default(),

@@ -160,6 +160,27 @@ fn process_time(pid: u32) -> Option<Duration> {
     Some(Duration::from_nanos(ticks * 1_000_000_000 / per_second))
 }
 
+/// Whether a thread of a process runs now or waits for the disk, apart
+/// from the thread that runs the plugin's blocks: the plugin's own work.
+/// None when the process's threads cannot be read.
+fn threads_working(pid: u32) -> Option<bool> {
+    let tasks = std::fs::read_dir(format!("/proc/{pid}/task")).ok()?;
+    let working = tasks.flatten().any(|task| {
+        let Ok(stat) = std::fs::read_to_string(task.path().join("stat")) else {
+            // The thread ended after the folder was read.
+            return false;
+        };
+        // `tid (name) state ...`: the name may hold spaces and parentheses.
+        let (Some(open), Some(close)) = (stat.find('('), stat.rfind(')')) else {
+            return false;
+        };
+        let name = &stat[open + 1..close];
+        let state = stat[close + 1..].trim_start().chars().next();
+        name != super::serve::AUDIO_THREAD && matches!(state, Some('R' | 'D'))
+    });
+    Some(working)
+}
+
 fn describe(status: std::process::ExitStatus) -> String {
     use std::os::unix::process::ExitStatusExt;
     match (status.signal(), status.code()) {
@@ -381,6 +402,13 @@ impl Controller for RemoteController {
             return None;
         }
         process_time(self.child.id())
+    }
+
+    fn threads_working(&self) -> Option<bool> {
+        if self.ended.is_some() {
+            return None;
+        }
+        threads_working(self.child.id())
     }
 
     fn health(&mut self) -> Option<String> {

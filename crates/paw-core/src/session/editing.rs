@@ -69,6 +69,8 @@ impl Session {
         if self.audition.trial.is_some() {
             return;
         }
+        // A state that a plugin holds now belongs to the step that loaded it.
+        self.read_back_states();
         if self.doc.checkpoint(self.now, history::now()) {
             self.trim_audio_now_and_then();
         }
@@ -81,10 +83,12 @@ impl Session {
     }
 
     pub(crate) fn undo(&mut self) -> bool {
+        self.read_back_states();
         self.move_in_history(History::undo).is_some()
     }
 
     pub(crate) fn redo(&mut self) -> bool {
+        self.read_back_states();
         self.move_in_history(History::redo).is_some()
     }
 }

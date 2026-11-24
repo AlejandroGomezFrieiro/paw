@@ -437,45 +437,39 @@ impl Session {
             .find_device(id)
             .with_context(|| format!("no device {id}"))?;
         self.flush();
+        // A load before the last one's read back ended: that request is
+        // not the device's any more.
+        self.forget_read_back(id);
+        let load_id = self.next_load_id(id);
         let first = self.trial_loads(id);
         let controller = self.live.get_mut(&id).and_then(|l| l.controller.as_mut());
         // What the plugin holds now goes into the step before this one, so
         // that undo comes back to it and not to an older state (in a trial,
         // what it held before the trial's first preset).
         let mut state = load.state;
+        // A request that the plugin takes on in a later block: its state
+        // before the request, to read the new one back after those blocks.
+        let mut later = None;
         if let Some(controller) = controller {
-            if let Some(bytes) = first.then(|| controller.save_state()).and_then(|s| s.ok().flatten()) {
-                let now = BASE64.encode(bytes);
-                for snapshot in [&mut self.doc.project, &mut self.doc.undo.checkpoint, &mut self.synced] {
-                    if let Some(device) = snapshot.device_mut(id) {
-                        device.state = Some(now.clone());
-                    }
-                }
-            }
+            let held = first.then(|| controller.save_state()).and_then(|s| s.ok().flatten());
             let request = match (&load.factory, &load.call) {
                 (Some(_), Some(_)) => bail!("give a preset load `factory` or `call`, not both"),
-                (Some(preset), None) => Some((paw_engine::device::method::PRESET_LOAD, preset.as_bytes(), 10, 30)),
-                // A file the plugin loads in the background (a model) can
-                // take longer than one of its own presets, or much less:
-                // look more often, for up to a second.
-                (None, Some(call)) => Some((call.method.as_str(), call.data.as_bytes(), 200, 5)),
+                (Some(preset), None) => Some((paw_engine::device::method::PRESET_LOAD, preset.as_bytes())),
+                (None, Some(call)) => Some((call.method.as_str(), call.data.as_bytes())),
                 (None, None) => None,
             };
-            if let Some((method, data, tries, wait)) = request {
+            if let Some((method, data)) = request {
                 let before = controller.save_state().ok().flatten();
                 controller.call(method, data)?;
-                // Some plugins finish loading on their audio thread: give
-                // them a moment before reading back what they hold.
-                let mut after = controller.save_state()?;
-                for _ in 0..tries {
-                    if after != before {
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(wait));
-                    controller.idle();
-                    after = controller.save_state()?;
+                controller.idle();
+                let after = controller.save_state()?;
+                state = after.as_ref().map(|bytes| BASE64.encode(bytes));
+                if after == before {
+                    later = Some((before, method.to_string(), data.to_vec()));
                 }
-                state = after.map(|bytes| BASE64.encode(bytes));
+            }
+            if let Some(bytes) = held {
+                self.keep_device_state(id, &BASE64.encode(bytes));
             }
         } else if load.factory.is_some() {
             bail!("this device has no presets of its own");
@@ -494,7 +488,7 @@ impl Session {
             let d = p.device_in(id)?;
             d.state = state;
             d.params = load.params;
-            d.loaded = d.loaded.wrapping_add(1);
+            d.loaded = load_id;
             match load.name {
                 Some(name) => d.meta.insert("preset".into(), Value::String(name)),
                 None => d.meta.remove("preset"),
@@ -509,6 +503,9 @@ impl Session {
             }
             self.doc.emit(E::DeviceChanged(Item::on(id, None)));
             self.doc.emit(E::changed());
+        }
+        if let Some((before, method, data)) = later {
+            self.read_back_later(id, before, super::readback::Request { method, data });
         }
         Ok(())
     }
