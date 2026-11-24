@@ -83,7 +83,7 @@ Use the helpers of `T`. Do not copy them into a file (a local `start`,
 | `T.until_beat(beat, rounds, ms)` | Play until the playhead is at `beat`, after `rounds` times round the loop. Fails after `ms` of the song (30 s if not given). |
 | `T.wakes(fn, device, ...)` | Run `fn`, and give `true` or `false` for each device: did it make sound then? Each device sleeps through silence first, and a device that wakes runs blocks. It reads no meter. |
 | `T.until_meters_at_rest()` | Wait until no meter of the engine shows a level. A meter falls while the engine plays blocks: the sound of a test before can still show. A loud meter falls for longer than one `T.until_`, so the clock moves block by block for at most 5 s. Then it puts out the held peaks and clip lights of the screen. Use it before a test draws or compares a meter, or waits for the engine to rest. |
-| `T.scratch`, `T.read_file`, `T.write_file` | Files of the test. |
+| `T.scratch`, `T.scratch_id`, `T.read_file`, `T.write_file` | Files of the test. `T.scratch_id` is a name of the run (digits and a dash) for a file that outlives the run. Never parse `T.scratch`. |
 | `T.home(dir)` | Make `HOME` a folder of the test until it ends (part 4). |
 | `T.expect_screen(name, w, h, opts)` | Compare the screen with a golden file (part 7). |
 | `T.check_keys(fixture, keys, expected, what)` | Make the project of a text fixture, type `keys`, and compare the project with the expected fixture (part 5). |
