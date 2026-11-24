@@ -407,12 +407,18 @@ local function check_marks(what)
     eq(drawn[x] or false, true, "a tempo mark has its glyph at " .. x .. ", " .. where)
   end
   eq(glyph_columns(ruler, at, "▼"), shown({ 21.25 }), "the playhead's cap, " .. where)
-  -- A bar's number starts at its column. After a mark glyph the digits can be
-  -- the bar or the mark's value, so they are not read.
+  -- A bar's number starts at its column. Next to a mark on a bar line the
+  -- number comes after the mark's value, so digits within 8 cells of a mark
+  -- glyph are not read.
+  local function near_mark(x)
+    for k = math.max(at + 1, x - 8), x - 1 do
+      if ruler[k][1] == "▾" or ruler[k][1] == "‖" then return true end
+    end
+    return false
+  end
   for x = at + 1, #ruler do
-    -- A value after a number ("47 6/8", "4 90") is a mark's text, not a bar.
     local before = ruler[x - 1][1]
-    local value = before == " " and ruler[x - 2][1]:match("^%d$")
+    local value = near_mark(x)
     if
       ruler[x][1]:match("^%d$")
       and not value
@@ -461,7 +467,7 @@ end
 
 -- A 6/8 section at bar 47, whose number the ruler draws: the meter mark, the
 -- section, the clip and the cursor all start in one column, and the bar
--- number gives way to the mark.
+-- number gives way to the value.
 test("a meter change at a bar with a number keeps the column of its bar", function()
   T.start()
   paw.ui.focus("arrange")
@@ -481,7 +487,7 @@ test("a meter change at a bar with a number keeps the column of its bar", functi
   eq(glyph_columns(rows[0], at, "‖"), { column }, "the meter mark is in the column of bar 47")
   eq(view.caret.x - at, column, "the cursor is in that column")
   local bar = rows[0]
-  eq(bar[at + column + 2][1] .. bar[at + column + 3][1], "47", "the bar number follows the mark")
+  eq(bar[at + column + 2][1] .. bar[at + column + 3][1] .. bar[at + column + 4][1], "6/8", "the value follows the mark")
   T.expect_screen("meter_at_bar_47", 100, 16, { rows = { 1, 3 } })
 end)
 

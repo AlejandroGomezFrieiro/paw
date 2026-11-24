@@ -1686,14 +1686,24 @@ local function ruler_ranges(F: Frame)
   end
 end
 
+--- The pieces of a bar's label and their width in columns, in `room`.
+local function bar_label(F: Frame, line: GridLine, room: integer): {contracts.Piece}, integer
+  local style = ruler_style(F, line.x, "RulerPunch", "RulerLoop", "RulerLoopOffBar", "RulerBar")
+  local pieces = paw.ruler.label(line.bar, line.beat, style, paw.cursor.beat, room)
+  local width = 0
+  for _, piece in ipairs(pieces) do
+    width = width + api.str_width(piece[1])
+  end
+  return pieces, width
+end
+
 --- The bars' labels and the beats' ticks on the ruler. Bar numbers that
 --- would run into each other when zoomed out are skipped. Gives where
---- each bar's label ends, by its column, and the bar lines with a label.
-local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {GridLine}
+--- each bar's label ends, by its column, the bar lines with a label, and
+--- the bar lines with a label that a tempo or meter mark takes first
+--- (`ruler_tempo_marks` draws their number, if it fits after the value).
+local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {GridLine}, {integer: GridLine}
   local ruler, ax = F.ruler, F.ax
-  -- A change of tempo or meter keeps its column: its glyph goes first on
-  -- the bar line, and the number starts after it. A number ends before
-  -- the next change's column.
   local marked: {integer: MarkGroup} = {}
   for _, group in ipairs(groups) do
     marked[group.x] = group
@@ -1702,32 +1712,37 @@ local function ruler_bars(F: Frame, groups: {MarkGroup}): {integer: integer}, {G
   local free = 0 -- the first column a label has not taken
   local label_end: {integer: integer} = {}
   local labelled: {GridLine} = {}
+  local deferred: {integer: GridLine} = {}
   for _, line in ipairs(F.lines) do
     if line.bar then
       if (line.bar - 1) % every == 0 and line.x >= free then
-        local style = ruler_style(F, line.x, "RulerPunch", "RulerLoop", "RulerLoopOffBar", "RulerBar")
-        -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl), in
-        -- its room: up to a column before the next bar whose label shows.
-        local x = line.x + (marked[line.x] and marked[line.x].bar and 1 or 0)
-        local room = math.max(1, math.floor(ax:cells(paw.time.bar(line.beat) * every)) - 1 - (x - line.x))
-        for _, group in ipairs(groups) do
-          if group.x > line.x then
-            room = math.max(1, math.min(room, group.x - x - 1))
-            break
-          end
-        end
-        for _, piece in ipairs(paw.ruler.label(line.bar, line.beat, style, paw.cursor.beat, room)) do
-          x = x + ruler:text(x, 0, piece[1], piece[2])
-        end
-        free, label_end[line.x] = x + 1, x
         labelled[#labelled + 1] = line
+        if marked[line.x] and marked[line.x].bar then
+          free, deferred[line.x] = line.x + 1, line
+        else
+          -- Its label: the parts of `paw.opt.barlabel` (paw/ruler.tl), in
+          -- its room: up to a column before the next bar whose label shows,
+          -- and before the next change of tempo or meter.
+          local room = math.max(1, math.floor(ax:cells(paw.time.bar(line.beat) * every)) - 1)
+          for _, group in ipairs(groups) do
+            if group.x > line.x then
+              room = math.max(1, math.min(room, group.x - line.x - 1))
+              break
+            end
+          end
+          local x = line.x
+          for _, piece in ipairs((bar_label(F, line, room))) do
+            x = x + ruler:text(x, 0, piece[1], piece[2])
+          end
+          free, label_end[line.x] = x + 1, x
+        end
       end
     elseif ax:cells(1) >= 2 and line.x >= free then
       local style = ruler_style(F, line.x, "RulerPunchTick", "RulerLoopTick", "RulerLoopOffTick", "RulerTick")
       ruler:text(line.x, 0, draw.g.tick, style)
     end
   end
-  return label_end, labelled
+  return label_end, labelled, deferred
 end
 
 --- Under the scope's bars, the song's (`@9`): the bar of the song where
@@ -1797,11 +1812,13 @@ local function tempo_mark_groups(F: Frame): {MarkGroup}
 end
 
 --- Tempo and signature changes on the ruler: a glyph in the column of the
---- beat, never moved, and the value after it. On a bar line the bar's
---- number comes between them (`ruler_bars` made room for the glyph), and
---- the value follows the number. The value is cut, or left out, before it
---- reaches the next bar's number or the next change.
-local function ruler_tempo_marks(F: Frame, label_end: {integer: integer}, groups: {MarkGroup})
+--- beat, never moved, and the value right after it. A value is shown whole
+--- or not at all: it stops a cell before the next bar's number or the next
+--- change. On a bar line the bar's number follows the value, if it fits
+--- whole after it, and is left out if not.
+local function ruler_tempo_marks(
+  F: Frame, label_end: {integer: integer}, groups: {MarkGroup}, deferred: {integer: GridLine}
+)
   for i, group in ipairs(groups) do
     local x = group.x
     local glyphs: {string} = {}
@@ -1810,18 +1827,29 @@ local function ruler_tempo_marks(F: Frame, label_end: {integer: integer}, groups
       glyphs[k] = mark.kind == "tempo" and "▾" or "‖"
       texts[k] = (k > 1 and glyphs[k] or "") .. mark.text
     end
-    local start = x + 1
-    if group.bar and label_end[x] then
-      start = label_end[x] + 1
-    end
     local stop = groups[i + 1] and groups[i + 1].x or F.L.tw
     for from in pairs(label_end) do
       if from > x then
         stop = math.min(stop, from)
       end
     end
-    if stop - start >= 3 then
-      F.ruler:text(start, 0, util.fit(table.concat(texts, " "), stop - start - 1), "RulerTempo")
+    -- The last column that text may take: one cell stays free before the
+    -- next thing, except at the end of the ruler.
+    local limit = stop == F.L.tw and stop or stop - 1
+    local text = table.concat(texts, " ")
+    local after = x + 1
+    if after + api.str_width(text) <= limit then
+      F.ruler:text(after, 0, text, "RulerTempo")
+      after = after + api.str_width(text) + 1
+    end
+    local line = deferred[x]
+    if line then
+      local pieces, width = bar_label(F, line, 1000)
+      if after + width <= limit then
+        for _, piece in ipairs(pieces) do
+          after = after + F.ruler:text(after, 0, piece[1], piece[2])
+        end
+      end
     end
     F.ruler:text(x, 0, glyphs[1], "RulerTempo")
   end
@@ -1866,9 +1894,9 @@ local function draw_ruler(self: Arrange, F: Frame)
   ruler_ranges(F)
   F.lines = grid_lines(ax, tw)
   local mark_groups = tempo_mark_groups(F)
-  local label_end, labelled = ruler_bars(F, mark_groups)
+  local label_end, labelled, deferred = ruler_bars(F, mark_groups)
   ruler_edges(F)
-  ruler_tempo_marks(F, label_end, mark_groups)
+  ruler_tempo_marks(F, label_end, mark_groups, deferred)
   if L.song_bars then
     song_bars(F, labelled)
   end
