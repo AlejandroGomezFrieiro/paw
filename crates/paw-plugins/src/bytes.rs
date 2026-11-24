@@ -41,6 +41,13 @@ pub(crate) fn ne_u32(bytes: &[u8], at: usize) -> Option<u32> {
     array(bytes, at).map(u32::from_ne_bytes)
 }
 
+/// A `u64` in the byte order of the machine: an LV2 atom of a double or a
+/// long.
+#[inline]
+pub(crate) fn ne_u64(bytes: &[u8], at: usize) -> Option<u64> {
+    array(bytes, at).map(u64::from_ne_bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

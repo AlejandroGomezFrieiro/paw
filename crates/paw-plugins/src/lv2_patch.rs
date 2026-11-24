@@ -8,7 +8,7 @@
 //! (`atom:Object`) whose type is `patch:Set`, with the property's URID under
 //! `patch:property` and the value under `patch:value`.
 
-use crate::bytes::ne_u32;
+use crate::bytes::{ne_u32, ne_u64};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
 
@@ -234,20 +234,20 @@ fn decode(u: &PatchUrids, kind: u32, body: &[u8]) -> Option<Value> {
         let end = body.iter().position(|b| *b == 0).unwrap_or(body.len());
         Value::String(String::from_utf8_lossy(&body[..end]).into_owned())
     };
-    let bytes4 = || body.get(..4).map(|b| <[u8; 4]>::try_from(b).expect("the slice has the length of the array"));
-    let bytes8 = || body.get(..8).map(|b| <[u8; 8]>::try_from(b).expect("the slice has the length of the array"));
+    let word = || ne_u32(body, 0);
+    let double_word = || ne_u64(body, 0);
     Some(if kind == u.path || kind == u.string {
         text()
     } else if kind == u.float {
-        json!(f32::from_ne_bytes(bytes4()?) as f64)
+        json!(f64::from(f32::from_bits(word()?)))
     } else if kind == u.double {
-        json!(f64::from_ne_bytes(bytes8()?))
+        json!(f64::from_bits(double_word()?))
     } else if kind == u.int {
-        json!(i32::from_ne_bytes(bytes4()?))
+        json!(word()?.cast_signed())
     } else if kind == u.long {
-        json!(i64::from_ne_bytes(bytes8()?))
+        json!(double_word()?.cast_signed())
     } else if kind == u.bool_ {
-        json!(i32::from_ne_bytes(bytes4()?) != 0)
+        json!(word()? != 0)
     } else {
         return None;
     })
