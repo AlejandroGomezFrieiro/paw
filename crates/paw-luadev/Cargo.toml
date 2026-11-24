@@ -14,6 +14,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+tempfile = "3"
+
 # The same features as the kernel's, so that both share one build of Lua.
 [target.'cfg(not(target_vendor = "browserpod"))'.dependencies]
 mlua = { version = "0.12", features = ["luajit", "vendored", "serde"] }

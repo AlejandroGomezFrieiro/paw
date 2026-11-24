@@ -7,7 +7,7 @@
 //! that device.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock, TryLockError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
@@ -228,11 +228,13 @@ struct Running {
 unsafe impl Send for Running {}
 
 /// The state, shared by the device and its controller. A call takes it
-/// between two blocks; a block that comes meanwhile waits for the call.
+/// between two blocks. A block that comes meanwhile does not wait: it is
+/// the stand-in's block (see `LuaDevice::without`).
 type Shared = Arc<Mutex<Running>>;
 
-/// Why the script stopped, shared by the device and its controller.
-type Failure = Arc<Mutex<Option<String>>>;
+/// Why the script stopped, shared by the device and its controller. Only
+/// the block that fails sets it, so the set never waits for another set.
+type Failure = Arc<OnceLock<String>>;
 
 pub struct LuaDevice {
     running: Shared,
@@ -247,6 +249,16 @@ pub struct LuaDevice {
 /// Make the device a script describes, ready for blocks of up to
 /// `max_block` frames.
 pub fn make(path: &Path, sample_rate: f32, max_block: usize) -> Result<Instance> {
+    let (device, controller) = build(path, sample_rate, max_block)?;
+    Ok(Instance {
+        device: Box::new(device),
+        controller: Some(Box::new(controller)),
+    })
+}
+
+/// The two sides of the device a script describes, with the state that
+/// they share.
+fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, LuaController)> {
     let (lua, host) = load(path).map_err(lua_error)?;
     let desc = descriptor(&host).map_err(lua_error)?;
     let mut bufs = Box::new(Buffers {
@@ -290,33 +302,33 @@ pub fn make(path: &Path, sample_rate: f32, max_block: usize) -> Result<Instance>
     // Ready: from here on a block is timed by whoever waits for it.
     lua.remove_hook();
     let running = Arc::new(Mutex::new(Running { run, call, lua }));
-    let failed: Failure = Arc::new(Mutex::new(None));
+    let failed: Failure = Arc::new(OnceLock::new());
     let params: Vec<ParamInfo> = desc.params.iter().map(Param::info).collect();
     let values = desc.params.iter().map(|p| p.default as f64).collect();
-    Ok(Instance {
-        device: Box::new(LuaDevice {
-            running: running.clone(),
-            bufs,
-            max_block,
-            instrument: desc.category == Category::Instrument,
-            midi_effect: desc.midi_effect,
-            failed: failed.clone(),
-            stopped: false,
-        }),
-        controller: Some(Box::new(LuaController {
-            running,
-            path: path.to_path_buf(),
-            params,
-            values,
-            failed,
-            sidechain: desc.sidechain,
-        })),
-    })
+    let device = LuaDevice {
+        running: running.clone(),
+        bufs,
+        max_block,
+        instrument: desc.category == Category::Instrument,
+        midi_effect: desc.midi_effect,
+        failed: failed.clone(),
+        stopped: false,
+    };
+    let controller = LuaController {
+        running,
+        path: path.to_path_buf(),
+        params,
+        values,
+        failed,
+        sidechain: desc.sidechain,
+    };
+    Ok((device, controller))
 }
 
 impl LuaDevice {
-    /// What is heard from a device that has stopped: nothing from an
-    /// instrument, the input untouched from an effect.
+    /// What is heard from a device that has stopped, or from a block that
+    /// comes while a call holds the state: nothing from an instrument, the
+    /// input and its events untouched from an effect.
     fn without(&self, io: &mut Io) {
         if self.instrument {
             io.left.fill(0.0);
@@ -433,18 +445,22 @@ impl Device for LuaDevice {
             sig_den: ctx.sig_den as f64,
             playing: ctx.playing as u8 as f64,
         };
-        // A lock poisoned by a call that panicked is as good as any: the
-        // state is Lua's, which does not stop halfway through a change.
-        let running = self.running.lock().unwrap_or_else(|e| e.into_inner());
+        // The audio thread never waits for a call: while a call holds the
+        // state, this block is the stand-in's. A lock poisoned by a call that
+        // panicked is as good as any: the state is Lua's, which does not stop
+        // halfway through a change.
+        let running = match self.running.try_lock() {
+            Ok(running) => running,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => return self.without(io),
+        };
         let sent = match running.run.call::<i64>((frames as i64, count as i64, keyed)) {
             Ok(sent) => (sent.max(0) as usize).min(MAX_EVENTS),
             Err(err) => {
                 // Stopped for good: told through the controller, which the
                 // helper asks, and shown in the session as a stopped device.
                 self.stopped = true;
-                if let Ok(mut failed) = self.failed.lock() {
-                    *failed = Some(message(&err));
-                }
+                let _ = self.failed.set(message(&err));
                 return self.without(io);
             }
         };
@@ -529,7 +545,7 @@ impl Controller for LuaController {
     }
 
     fn health(&mut self) -> Option<String> {
-        self.failed.lock().ok().and_then(|failed| failed.clone())
+        self.failed.get().cloned()
     }
 
     /// `lua.path` is the script's file; every other method is the script's
@@ -553,5 +569,51 @@ impl Controller for LuaController {
             sidechain: self.sidechain,
             ..Ports::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use paw_engine::EventBuf;
+
+    /// A block that comes while a call holds the state returns at once:
+    /// the audio thread never waits for the main thread.
+    #[test]
+    fn a_block_during_a_call_does_not_wait_for_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("level.lua");
+        std::fs::write(
+            &path,
+            r#"
+            local dev = require("paw.dsp").device { category = "instrument" }
+            function dev.process(b)
+              for i = 0, b.frames - 1 do b.left[i] = 1 end
+            end
+            return dev
+            "#,
+        )
+        .unwrap();
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        let block = |device: &mut LuaDevice| {
+            let (mut left, mut right) = (vec![0.5; 16], vec![0.5; 16]);
+            let mut events = EventBuf::with_capacity(8);
+            let mut io = Io {
+                left: &mut left,
+                right: &mut right,
+                events: &mut events,
+                sidechain: None,
+                outputs: &mut [],
+            };
+            device.process(&ProcessCtx::at(48000.0, 120.0, 4, 4, true), &mut io);
+            left[0]
+        };
+
+        // The guard stands for a call that runs in the script now.
+        let call = controller.running.lock().unwrap();
+        assert_eq!(block(&mut device), 0.0, "an instrument is silent while a call runs");
+        drop(call);
+        assert_eq!(block(&mut device), 1.0, "the next block is the script's again");
+        assert_eq!(controller.health(), None, "a missed block does not stop the device");
     }
 }
