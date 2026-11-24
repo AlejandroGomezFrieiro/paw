@@ -153,14 +153,18 @@ contract. A contract is a trait, a saved type, a file format, a
   or test it. A change of `paw-scene` can stop its build: say so in your
   report.
 - Some rules run by themselves. The hook `.githooks/pre-commit` refuses a
-  commit with a leftover of a merge, an id of the local task board, or a
-  lint that fails. `tools/guard-hook.py` refuses the commands that put a
+  commit with a leftover of a merge, an id of the task board outside the
+  board, or a lint that fails. `tools/guard-hook.py` refuses the commands that put a
   load on the machine that it cannot carry. `tests/tools/suite.sh` runs
   the Lua suite under cargo-nextest. Each part of the suite takes one of
   four slots of the machine (lock files in `/tmp/paw-suite-locks`) before
   it starts paw, so all the runs on the machine share four paw processes.
 - A review of a change reads `CODING_STANDARDS.md`: the rules that need
   judgment.
+- The task board is `backlog/` (the tool Backlog, `backlog --help`),
+  and the map of the architecture is `groma/` (the tool Groma). Change
+  them only with their tools. A label goes on with
+  `backlog task edit <id> --add-label <label>`.
 
 ## Safety and privacy
 

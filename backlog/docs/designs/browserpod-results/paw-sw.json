@@ -1,0 +1,264 @@
+{
+ "console": [
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+  "log: \n⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⠷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀\n⠀⠀⠀⠀⣀⣤⡾⠟⠋⠁⠀⠀⢸⣧⠸⠷⣦⡀⠀⠀⠀⠀\n⠀⣠⣴⠿⠛⠁⠀⠀⣀⣤⣶⠟⢸⣿⠀⠀⢸⣿⢰⣦⣄⠀\n⢰⡿⠁⠀⠀⣠⣴⡾⠛⠉⠀⠀⢸⣿⢰⡾⢸⣿⠀⠈⢻⡇\n⢺⡇⠀⠀⣼⡟⠁⠀⠀⢀⣠⣶⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣼⡟⠉⠀⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣿⡇⠀⣀⣼⡟⠀⠀⢸⣿⠀⠀⢸⡇\n⣾⡇⠀⠀⣿⡇⠀⠀⣩⣴⡾⠛⠉⠀⠀⠀⣸⡿⠀⠀⢸⡇\n⠸⣧⡀⠀⠙⠿⠶⠿⣋⡅⠀⠀⢀⣠⣶⠿⠛⠁⠀⢀⣾⠇\n⠀⠙⠿⣶⣄⡀⠀⠀⠙⢷⣶⡾⠟⠋⠀⠀⢀⣠⣶⠿⠋⠀\n⠀⠀⠀⠀⠙⠻⢷⣦⣀⠀⠀⠀⠀⣀⣴⡾⠟⠉⠀⠀⠀⠀\n⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⠶⠶⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀\n\nPowered by BrowserPod,"
+ ],
+ "steps": [
+  {
+   "step": {
+    "wait": 1500
+   },
+   "ms": 1500
+  },
+  {
+   "step": {
+    "waitFor": "Drums"
+   },
+   "ms": 1606
+  },
+  {
+   "step": {
+    "eval": "performance.now() - window.__t.start"
+   },
+   "value": 3064.880000114441,
+   "ms": 1
+  },
+  {
+   "step": {
+    "wait": 2000
+   },
+   "ms": 2000
+  },
+  {
+   "step": {
+    "click": "#console"
+   },
+   "ms": 16
+  },
+  {
+   "step": {
+    "cpu": 10000
+   },
+   "value": {
+    "cpuPercentOfOneCore": 2.9999999999999982,
+    "rssMB": 1614.2540800000002
+   },
+   "ms": 10024
+  },
+  {
+   "step": {
+    "keylat": [
+     "j",
+     "k"
+    ],
+    "n": 30,
+    "gap": 200
+   },
+   "value": {
+    "times": [
+     41.1,
+     12.3,
+     24.1,
+     9.4,
+     8,
+     7.1,
+     19.9,
+     6.1,
+     6.6,
+     12.7,
+     7.3,
+     7.7,
+     8.1,
+     24,
+     20.6,
+     7.3,
+     6.7,
+     5.7,
+     13.2,
+     7.9,
+     6.2,
+     6.2,
+     8.2,
+     8.8,
+     7.2,
+     6.5,
+     6.6,
+     8,
+     24.4,
+     9.4
+    ],
+    "p50": 8,
+    "min": 5.7,
+    "max": 41.1
+   },
+   "ms": 6625
+  },
+  {
+   "step": {
+    "keylat": [
+     "l",
+     "h"
+    ],
+    "n": 20,
+    "gap": 200
+   },
+   "value": {
+    "times": [
+     13.4,
+     9,
+     7.5,
+     5.3,
+     5.4,
+     6.3,
+     5.7,
+     5.1,
+     7.2,
+     5.3,
+     5.8,
+     7.6,
+     7.5,
+     5.2,
+     5.3,
+     5.6,
+     5.5,
+     5.6,
+     5.1,
+     6.4
+    ],
+    "p50": 5.7,
+    "min": 5.1,
+    "max": 13.4
+   },
+   "ms": 4315
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 3
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 3
+  },
+  {
+   "step": {
+    "wait": 1500
+   },
+   "ms": 1501
+  },
+  {
+   "step": {
+    "cpu": 10000
+   },
+   "value": {
+    "cpuPercentOfOneCore": 4.500000000000002,
+    "rssMB": 1483.743232
+   },
+   "ms": 10020
+  },
+  {
+   "step": {
+    "screenshot": "paw-play.png"
+   },
+   "ms": 42
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "wait": 500
+   },
+   "ms": 501
+  },
+  {
+   "step": {
+    "type": ":q!"
+   },
+   "ms": 4
+  },
+  {
+   "step": {
+    "press": "Enter"
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "wait": 2000
+   },
+   "ms": 2000
+  }
+ ],
+ "net": {
+  "http://127.0.0.1:30722/": {
+   "n": 6,
+   "bytes": 7811
+  },
+  "https://rt.browserpod.io/4.1.0/": {
+   "n": 8,
+   "bytes": 840497
+  },
+  "local": {
+   "n": 26,
+   "bytes": -26
+  },
+  "ws wss://disks.browserpod.io/4.1.0/node22.ext2": {
+   "n": 33,
+   "bytes": 4194356
+  },
+  "ws wss://disks.browserpod.io/disks/user.ext2": {
+   "n": 7,
+   "bytes": 786459
+  },
+  "http://127.0.0.1:30722/examples/": {
+   "n": 1,
+   "bytes": 0
+  }
+ },
+ "workers": 26,
+ "screen": " \n",
+ "t": {
+  "start": 22.65499997138977,
+  "log": [],
+  "isolated": true,
+  "imported": 276.2149999141693,
+  "booted": 1870.4849998950958,
+  "terminal": 1891.1749999523163,
+  "bytes": 23003683,
+  "copied": 2115.5750000476837,
+  "chmod": 2731.3150000572205,
+  "run": 2731.454999923706,
+  "exit": 0,
+  "exited": 38160.640000104904,
+  "outCount": 0
+ },
+ "metrics": {
+  "Timestamp": 1134258.840241,
+  "Documents": 1,
+  "Frames": 1,
+  "JSEventListeners": 78,
+  "Nodes": 3318,
+  "LayoutCount": 216,
+  "RecalcStyleCount": 357,
+  "LayoutDuration": 0.16485,
+  "RecalcStyleDuration": 0.091461,
+  "ScriptDuration": 0.195394,
+  "TaskDuration": 1.074635,
+  "JSHeapUsedSize": 4082036,
+  "JSHeapTotalSize": 6291456
+ },
+ "wallMs": 40217
+}

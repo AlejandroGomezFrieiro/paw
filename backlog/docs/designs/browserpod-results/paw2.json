@@ -1,0 +1,258 @@
+{
+ "console": [
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+  "log: \n⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⠷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀\n⠀⠀⠀⠀⣀⣤⡾⠟⠋⠁⠀⠀⢸⣧⠸⠷⣦⡀⠀⠀⠀⠀\n⠀⣠⣴⠿⠛⠁⠀⠀⣀⣤⣶⠟⢸⣿⠀⠀⢸⣿⢰⣦⣄⠀\n⢰⡿⠁⠀⠀⣠⣴⡾⠛⠉⠀⠀⢸⣿⢰⡾⢸⣿⠀⠈⢻⡇\n⢺⡇⠀⠀⣼⡟⠁⠀⠀⢀⣠⣶⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣼⡟⠉⠀⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣿⡇⠀⣀⣼⡟⠀⠀⢸⣿⠀⠀⢸⡇\n⣾⡇⠀⠀⣿⡇⠀⠀⣩⣴⡾⠛⠉⠀⠀⠀⣸⡿⠀⠀⢸⡇\n⠸⣧⡀⠀⠙⠿⠶⠿⣋⡅⠀⠀⢀⣠⣶⠿⠛⠁⠀⢀⣾⠇\n⠀⠙⠿⣶⣄⡀⠀⠀⠙⢷⣶⡾⠟⠋⠀⠀⢀⣠⣶⠿⠋⠀\n⠀⠀⠀⠀⠙⠻⢷⣦⣀⠀⠀⠀⠀⣀⣴⡾⠟⠉⠀⠀⠀⠀\n⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⠶⠶⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀\n\nPowered by BrowserPod,"
+ ],
+ "steps": [
+  {
+   "step": {
+    "waitFor": "Drums"
+   },
+   "ms": 3213
+  },
+  {
+   "step": {
+    "eval": "performance.now() - window.__t.start"
+   },
+   "value": 3218.9349999427795,
+   "ms": 0
+  },
+  {
+   "step": {
+    "wait": 2000
+   },
+   "ms": 2001
+  },
+  {
+   "step": {
+    "click": "#console"
+   },
+   "ms": 20
+  },
+  {
+   "step": {
+    "cpu": 10000
+   },
+   "value": {
+    "cpuPercentOfOneCore": 3.1999999999999984,
+    "rssMB": 1452.191744
+   },
+   "ms": 10020
+  },
+  {
+   "step": {
+    "keylat": [
+     "j",
+     "k"
+    ],
+    "n": 30,
+    "gap": 200
+   },
+   "value": {
+    "times": [
+     17.3,
+     17.2,
+     8.3,
+     7.9,
+     7.2,
+     7.6,
+     18,
+     6.3,
+     7.5,
+     8.7,
+     7.9,
+     21.3,
+     6.2,
+     8.5,
+     22.7,
+     7.4,
+     7.5,
+     7.8,
+     7.9,
+     7,
+     7.1,
+     7.3,
+     7.5,
+     9.3,
+     8.9,
+     20.5,
+     7.9,
+     7.9,
+     7.6,
+     23.9
+    ],
+    "p50": 7.9,
+    "min": 6.2,
+    "max": 23.9
+   },
+   "ms": 6600
+  },
+  {
+   "step": {
+    "keylat": [
+     "l",
+     "h"
+    ],
+    "n": 20,
+    "gap": 200
+   },
+   "value": {
+    "times": [
+     11.4,
+     9.8,
+     6.8,
+     5.3,
+     7.5,
+     5.3,
+     6.8,
+     6.7,
+     6.4,
+     5.9,
+     6.8,
+     11.8,
+     6.5,
+     5,
+     4.7,
+     7.5,
+     6.3,
+     5.7,
+     6,
+     6.4
+    ],
+    "p50": 6.5,
+    "min": 4.7,
+    "max": 11.8
+   },
+   "ms": 4322
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 5
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "wait": 1500
+   },
+   "ms": 1501
+  },
+  {
+   "step": {
+    "cpu": 10000
+   },
+   "value": {
+    "cpuPercentOfOneCore": 6.800000000000006,
+    "rssMB": 1475.2767999999999
+   },
+   "ms": 10019
+  },
+  {
+   "step": {
+    "screenshot": "paw-play.png"
+   },
+   "ms": 43
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "type": " "
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "wait": 500
+   },
+   "ms": 501
+  },
+  {
+   "step": {
+    "type": ":q!"
+   },
+   "ms": 4
+  },
+  {
+   "step": {
+    "press": "Enter"
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "wait": 2000
+   },
+   "ms": 2001
+  }
+ ],
+ "net": {
+  "http://127.0.0.1:37600/": {
+   "n": 4,
+   "bytes": 23007877
+  },
+  "https://rt.browserpod.io/4.1.0/": {
+   "n": 8,
+   "bytes": 840508
+  },
+  "local": {
+   "n": 26,
+   "bytes": -26
+  },
+  "ws wss://disks.browserpod.io/4.1.0/node22.ext2": {
+   "n": 33,
+   "bytes": 4194356
+  },
+  "ws wss://disks.browserpod.io/disks/user.ext2": {
+   "n": 7,
+   "bytes": 786459
+  },
+  "http://127.0.0.1:37600/examples/": {
+   "n": 1,
+   "bytes": 4502
+  }
+ },
+ "workers": 26,
+ "screen": " \n",
+ "t": {
+  "start": 18.25,
+  "log": [],
+  "isolated": true,
+  "imported": 333.6799998283386,
+  "booted": 1930.7649998664856,
+  "terminal": 1952.9199998378754,
+  "bytes": 23003683,
+  "copied": 2167.4299998283386,
+  "chmod": 2881.319999933243,
+  "run": 2881.4649999141693,
+  "exit": 0,
+  "exited": 38288.014999866486,
+  "outCount": 0
+ },
+ "metrics": {
+  "Timestamp": 1134173.661489,
+  "Documents": 1,
+  "Frames": 1,
+  "JSEventListeners": 78,
+  "Nodes": 3318,
+  "LayoutCount": 215,
+  "RecalcStyleCount": 356,
+  "LayoutDuration": 0.156579,
+  "RecalcStyleDuration": 0.096712,
+  "ScriptDuration": 0.205344,
+  "TaskDuration": 1.092693,
+  "JSHeapUsedSize": 4118532,
+  "JSHeapTotalSize": 6291456
+ },
+ "wallMs": 40314
+}

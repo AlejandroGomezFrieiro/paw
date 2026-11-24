@@ -24,6 +24,9 @@ RULES = [
      "tests/tools/loaded.sh puts a heavy load on the machine: only the owner starts it."),
     (lambda w: bool(w) and w[0].endswith("tests/tools/e2e.sh"),
      "The end-to-end tests are for CI and the release check: only the owner, or the agent that builds them, runs them."),
+    (lambda w: w[:3] == ["backlog", "task", "edit"] and any(x in ("-l", "--label") or x.startswith("--label=") for x in w),
+     "`backlog task edit -l` replaces every label of the ticket. "
+     "Use `--add-label <label>` or `--remove-label <label>`."),
 ]
 
 def builds_gui(words):

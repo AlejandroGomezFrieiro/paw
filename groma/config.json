@@ -1,0 +1,90 @@
+{
+  "scanners": [
+    {
+      "id": "csharp",
+      "source": "@groma/scanner-csharp@0.2.3",
+      "include": [
+        "**/*.[cC][sS]",
+        "**/*.[cC][sS][pP][rR][oO][jJ]",
+        "**/*.[sS][lL][nN]",
+        "**/*.[sS][lL][nN][xX]",
+        "**/*.[pP][rR][oO][pP][sS]",
+        "**/*.[tT][aA][rR][gG][eE][tT][sS]"
+      ],
+      "exclude": [
+        "[bB][iI][nN]/",
+        "[oO][bB][jJ]/",
+        "[tT]est/",
+        "[tT]ests/",
+        "*Tests/",
+        "*.Test/",
+        "*.[dD]esigner.cs",
+        "*.g.cs",
+        "*.g.i.cs",
+        "*.generated.cs",
+        "/extensions/utau/engine/"
+      ]
+    },
+    {
+      "id": "rust",
+      "source": "@groma/scanner-rust@0.2.3",
+      "include": [
+        "**/*.rs",
+        "**/Cargo.toml"
+      ],
+      "exclude": [
+        "target/",
+        "vendor/"
+      ]
+    },
+    {
+      "id": "teal",
+      "source": "./groma/plugins/scanner-teal",
+      "include": [
+        "runtime/lua/**/*.lua",
+        "runtime/lua/**/*.tl",
+        "extensions/**/*.lua",
+        "extensions/**/*.tl",
+        "crates/paw-core/src/api/*.rs",
+        "crates/paw-core/src/*_api.rs",
+        "crates/paw-core/src/scene.rs",
+        "crates/paw-core/src/measure/mod.rs",
+        "crates/paw-tui/src/main.rs",
+        "crates/paw-core/src/kernel.rs"
+      ],
+      "exclude": [
+        "*.d.tl",
+        "tests.lua",
+        "tests_*.lua",
+        "fixtures/",
+        "/runtime/lua/tl.lua",
+        "/runtime/lua/compat53/",
+        "/extensions/*/tools/",
+        "/extensions/*/demo.lua",
+        "/extensions/tutor/make-docs.lua"
+      ],
+      "settings": {
+        "entry": {
+          "file": "crates/paw-tui/src/main.rs",
+          "declaration": "crates/paw-core/src/kernel.rs",
+          "name": "paw",
+          "embeds": [
+            "runtime/lua"
+          ]
+        }
+      }
+    }
+  ],
+  "workSources": [],
+  "exclude": [
+    "/bench/",
+    "/tools/",
+    "/third_party/",
+    "/examples/",
+    "/docs/",
+    "tests/",
+    "benches/",
+    "/crates/paw-plugins/examples/",
+    "**/build.rs"
+  ]
+}

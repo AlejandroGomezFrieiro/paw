@@ -1,0 +1,91 @@
+{
+ "console": [
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+  "log: \n⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⠷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀\n⠀⠀⠀⠀⣀⣤⡾⠟⠋⠁⠀⠀⢸⣧⠸⠷⣦⡀⠀⠀⠀⠀\n⠀⣠⣴⠿⠛⠁⠀⠀⣀⣤⣶⠟⢸⣿⠀⠀⢸⣿⢰⣦⣄⠀\n⢰⡿⠁⠀⠀⣠⣴⡾⠛⠉⠀⠀⢸⣿⢰⡾⢸⣿⠀⠈⢻⡇\n⢺⡇⠀⠀⣼⡟⠁⠀⠀⢀⣠⣶⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣼⡟⠉⠀⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣿⡇⠀⣀⣼⡟⠀⠀⢸⣿⠀⠀⢸⡇\n⣾⡇⠀⠀⣿⡇⠀⠀⣩⣴⡾⠛⠉⠀⠀⠀⣸⡿⠀⠀⢸⡇\n⠸⣧⡀⠀⠙⠿⠶⠿⣋⡅⠀⠀⢀⣠⣶⠿⠛⠁⠀⢀⣾⠇\n⠀⠙⠿⣶⣄⡀⠀⠀⠙⢷⣶⡾⠟⠋⠀⠀⢀⣠⣶⠿⠋⠀\n⠀⠀⠀⠀⠙⠻⢷⣦⣀⠀⠀⠀⠀⣀⣴⡾⠟⠉⠀⠀⠀⠀\n⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⠶⠶⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀\n\nPowered by BrowserPod,",
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)"
+ ],
+ "steps": [
+  {
+   "step": {
+    "eval": "new Promise(r => { const i = setInterval(() => { if (window.__t.exited || window.__t.error) { clearInterval(i); r(JSON.stringify(window.__t.bridge)); } }, 50); setTimeout(() => r(\"TIMEOUT \" + JSON.stringify(window.__t.bridge)), 55000); })"
+   },
+   "value": "{\"requests\":470,\"bytes\":1925120,\"dropped\":0,\"bodyType\":\"[object ReadableStream]\",\"firstAt\":2957.069999933243}",
+   "ms": 7904
+  },
+  {
+   "step": {
+    "eval": "window.__audio ? window.__audio() : null"
+   },
+   "value": {
+    "played": 237568,
+    "under": 0,
+    "state": "running",
+    "baseLatency": 0.010666666666666666,
+    "outputLatency": 0.04
+   },
+   "ms": 1
+  }
+ ],
+ "net": {
+  "http://127.0.0.1:20719/": {
+   "n": 5,
+   "bytes": 424639
+  },
+  "https://rt.browserpod.io/4.1.0/": {
+   "n": 8,
+   "bytes": 840523
+  },
+  "local": {
+   "n": 5,
+   "bytes": -5
+  },
+  "ws wss://disks.browserpod.io/4.1.0/node22.ext2": {
+   "n": 32,
+   "bytes": 4063283
+  },
+  "ws wss://disks.browserpod.io/disks/user.ext2": {
+   "n": 7,
+   "bytes": 786459
+  }
+ },
+ "workers": 5,
+ "screen": "\nBRIDGE n=470 bytes=4096 keep=true total=4955.9ms rate=388KB/s p50=0.40ms min=0.13ms max=22.95ms\n",
+ "t": {
+  "start": 14.170000076293945,
+  "log": [],
+  "isolated": true,
+  "imported": 300.05999994277954,
+  "bridge": {
+   "requests": 470,
+   "bytes": 1925120,
+   "dropped": 0,
+   "bodyType": "[object ReadableStream]",
+   "firstAt": 2957.069999933243
+  },
+  "booted": 2123.1549999713898,
+  "terminal": 2124.0449998378754,
+  "bytes": 415627,
+  "copied": 2270.5849997997284,
+  "chmod": 2921.1449999809265,
+  "run": 2921.289999961853,
+  "exit": 0,
+  "exited": 7895.094999790192,
+  "outCount": 1
+ },
+ "metrics": {
+  "Timestamp": 1134090.749831,
+  "Documents": 1,
+  "Frames": 1,
+  "JSEventListeners": 14,
+  "Nodes": 33,
+  "LayoutCount": 1,
+  "RecalcStyleCount": 3,
+  "LayoutDuration": 0.002129,
+  "RecalcStyleDuration": 0.000485,
+  "ScriptDuration": 0.041157,
+  "TaskDuration": 0.488866,
+  "JSHeapUsedSize": 5250304,
+  "JSHeapTotalSize": 9961472
+ },
+ "wallMs": 7961
+}

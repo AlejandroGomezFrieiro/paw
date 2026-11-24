@@ -1,0 +1,154 @@
+{
+ "console": [
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+  "log: \n⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⠷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀\n⠀⠀⠀⠀⣀⣤⡾⠟⠋⠁⠀⠀⢸⣧⠸⠷⣦⡀⠀⠀⠀⠀\n⠀⣠⣴⠿⠛⠁⠀⠀⣀⣤⣶⠟⢸⣿⠀⠀⢸⣿⢰⣦⣄⠀\n⢰⡿⠁⠀⠀⣠⣴⡾⠛⠉⠀⠀⢸⣿⢰⡾⢸⣿⠀⠈⢻⡇\n⢺⡇⠀⠀⣼⡟⠁⠀⠀⢀⣠⣶⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣼⡟⠉⠀⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣿⡇⠀⣀⣼⡟⠀⠀⢸⣿⠀⠀⢸⡇\n⣾⡇⠀⠀⣿⡇⠀⠀⣩⣴⡾⠛⠉⠀⠀⠀⣸⡿⠀⠀⢸⡇\n⠸⣧⡀⠀⠙⠿⠶⠿⣋⡅⠀⠀⢀⣠⣶⠿⠛⠁⠀⢀⣾⠇\n⠀⠙⠿⣶⣄⡀⠀⠀⠙⢷⣶⡾⠟⠋⠀⠀⢀⣠⣶⠿⠋⠀\n⠀⠀⠀⠀⠙⠻⢷⣦⣀⠀⠀⠀⠀⣀⣴⡾⠟⠉⠀⠀⠀⠀\n⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⠶⠶⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀\n\nPowered by BrowserPod,"
+ ],
+ "steps": [
+  {
+   "step": {
+    "waitFor": "FIRSTFRAME"
+   },
+   "ms": 2947
+  },
+  {
+   "step": {
+    "click": "#console"
+   },
+   "ms": 42
+  },
+  {
+   "step": {
+    "type": "x"
+   },
+   "ms": 3
+  },
+  {
+   "step": {
+    "waitFor": "Char('x')"
+   },
+   "ms": 23
+  },
+  {
+   "step": {
+    "eval": "window.__k0 = performance.now(); 1"
+   },
+   "value": 1,
+   "ms": 0
+  },
+  {
+   "step": {
+    "type": "y"
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "waitFor": "Char('y')"
+   },
+   "ms": 3
+  },
+  {
+   "step": {
+    "eval": "performance.now() - window.__k0"
+   },
+   "value": 5.370000123977661,
+   "ms": 1
+  },
+  {
+   "step": {
+    "resize": [
+     700,
+     400
+    ]
+   },
+   "ms": 1
+  },
+  {
+   "step": {
+    "eval": "window.dispatchEvent(new Event('resize')); 1"
+   },
+   "value": 1,
+   "ms": 0
+  },
+  {
+   "step": {
+    "wait": 2500
+   },
+   "ms": 2501
+  },
+  {
+   "step": {
+    "screenshot": "probe-resized.png"
+   },
+   "ms": 33
+  },
+  {
+   "step": {
+    "type": "q"
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "waitFor": "BYE",
+    "timeout": 5000
+   },
+   "ms": 25
+  }
+ ],
+ "net": {
+  "http://127.0.0.1:32560/": {
+   "n": 4,
+   "bytes": 462952
+  },
+  "https://rt.browserpod.io/4.1.0/": {
+   "n": 8,
+   "bytes": 840530
+  },
+  "local": {
+   "n": 5,
+   "bytes": -5
+  },
+  "ws wss://disks.browserpod.io/4.1.0/node22.ext2": {
+   "n": 32,
+   "bytes": 4063283
+  },
+  "ws wss://disks.browserpod.io/disks/user.ext2": {
+   "n": 7,
+   "bytes": 786459
+  }
+ },
+ "workers": 5,
+ "screen": "BYE keys=3\n \n",
+ "t": {
+  "start": 17.335000038146973,
+  "log": [],
+  "isolated": true,
+  "imported": 307.5699999332428,
+  "booted": 2017.9449999332428,
+  "terminal": 2031.7799999713898,
+  "bytes": 454571,
+  "copied": 2182.3399999141693,
+  "chmod": 2900.484999895096,
+  "run": 2900.5950000286102,
+  "exit": 0,
+  "exited": 5567.764999866486,
+  "outCount": 0
+ },
+ "metrics": {
+  "Timestamp": 1134075.742728,
+  "Documents": 1,
+  "Frames": 1,
+  "JSEventListeners": 68,
+  "Nodes": 309,
+  "LayoutCount": 67,
+  "RecalcStyleCount": 72,
+  "LayoutDuration": 0.009744,
+  "RecalcStyleDuration": 0.00518,
+  "ScriptDuration": 0.048501,
+  "TaskDuration": 0.239311,
+  "JSHeapUsedSize": 4759684,
+  "JSHeapTotalSize": 7340032
+ },
+ "wallMs": 5648
+}

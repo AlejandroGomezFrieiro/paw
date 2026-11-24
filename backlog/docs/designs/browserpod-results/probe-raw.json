@@ -1,0 +1,112 @@
+{
+ "console": [
+  "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+  "log: \n⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⠷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀\n⠀⠀⠀⠀⣀⣤⡾⠟⠋⠁⠀⠀⢸⣧⠸⠷⣦⡀⠀⠀⠀⠀\n⠀⣠⣴⠿⠛⠁⠀⠀⣀⣤⣶⠟⢸⣿⠀⠀⢸⣿⢰⣦⣄⠀\n⢰⡿⠁⠀⠀⣠⣴⡾⠛⠉⠀⠀⢸⣿⢰⡾⢸⣿⠀⠈⢻⡇\n⢺⡇⠀⠀⣼⡟⠁⠀⠀⢀⣠⣶⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣼⡟⠉⠀⢸⣿⠀⠀⢸⣿⠀⠀⢸⡇\n⢸⡇⠀⠀⣿⡇⠀⠀⣿⡇⠀⣀⣼⡟⠀⠀⢸⣿⠀⠀⢸⡇\n⣾⡇⠀⠀⣿⡇⠀⠀⣩⣴⡾⠛⠉⠀⠀⠀⣸⡿⠀⠀⢸⡇\n⠸⣧⡀⠀⠙⠿⠶⠿⣋⡅⠀⠀⢀⣠⣶⠿⠛⠁⠀⢀⣾⠇\n⠀⠙⠿⣶⣄⡀⠀⠀⠙⢷⣶⡾⠟⠋⠀⠀⢀⣠⣶⠿⠋⠀\n⠀⠀⠀⠀⠙⠻⢷⣦⣀⠀⠀⠀⠀⣀⣴⡾⠟⠉⠀⠀⠀⠀\n⠀⠀⠀⠀⠀⠀⠀⠈⠛⠿⠶⠶⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀\n\nPowered by BrowserPod,"
+ ],
+ "steps": [
+  {
+   "step": {
+    "wait": 4000
+   },
+   "ms": 4001
+  },
+  {
+   "step": {
+    "click": "#console"
+   },
+   "ms": 20
+  },
+  {
+   "step": {
+    "press": "ArrowUp"
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "wait": 300
+   },
+   "ms": 300
+  },
+  {
+   "step": {
+    "press": "F5"
+   },
+   "ms": 2
+  },
+  {
+   "step": {
+    "wait": 300
+   },
+   "ms": 301
+  },
+  {
+   "step": {
+    "type": "q"
+   },
+   "ms": 4
+  },
+  {
+   "step": {
+    "waitFor": "BYE",
+    "timeout": 5000
+   },
+   "ms": 25
+  }
+ ],
+ "net": {
+  "http://127.0.0.1:22862/": {
+   "n": 4,
+   "bytes": 462952
+  },
+  "https://rt.browserpod.io/4.1.0/": {
+   "n": 8,
+   "bytes": 840531
+  },
+  "local": {
+   "n": 5,
+   "bytes": -5
+  },
+  "ws wss://disks.browserpod.io/4.1.0/node22.ext2": {
+   "n": 32,
+   "bytes": 4063283
+  },
+  "ws wss://disks.browserpod.io/disks/user.ext2": {
+   "n": 7,
+   "bytes": 786459
+  }
+ },
+ "workers": 5,
+ "screen": "CHUNK n=1 [1b]\nCHUNK n=2 [5b 41]\nCHUNK n=2 [1b 5b]\nCHUNK n=1 [31]\nCHUNK n=1 [35]\nCHUNK n=1 [7e]\nCHUNK n=1 [71]\nBYE\n \n",
+ "t": {
+  "start": 18.600000143051147,
+  "log": [],
+  "isolated": true,
+  "imported": 274.34500002861023,
+  "booted": 1948.7000000476837,
+  "terminal": 1963.4849998950958,
+  "bytes": 454571,
+  "copied": 2099.399999856949,
+  "chmod": 2788.8399999141693,
+  "run": 2788.9500000476837,
+  "exit": 0,
+  "exited": 4637.5599999427795,
+  "outCount": 0
+ },
+ "metrics": {
+  "Timestamp": 1134081.595288,
+  "Documents": 1,
+  "Frames": 1,
+  "JSEventListeners": 58,
+  "Nodes": 176,
+  "LayoutCount": 39,
+  "RecalcStyleCount": 78,
+  "LayoutDuration": 0.006836,
+  "RecalcStyleDuration": 0.009934,
+  "ScriptDuration": 0.050338,
+  "TaskDuration": 0.228733,
+  "JSHeapUsedSize": 3629020,
+  "JSHeapTotalSize": 5767168
+ },
+ "wallMs": 4712
+}

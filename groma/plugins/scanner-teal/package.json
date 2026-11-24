@@ -1,0 +1,41 @@
+{
+  "name": "@paw-local/groma-scanner-teal",
+  "version": "0.1.0",
+  "description": "Local Groma scanner for paw: Lua and Teal modules, require() edges, the paw.api boundary and extension manifests.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "groma": {
+    "scanner": {
+      "id": "teal",
+      "entry": "./src/index.js",
+      "include": [
+        "**/*.lua",
+        "**/*.tl"
+      ],
+      "exclude": [
+        "*.d.tl",
+        "tests/",
+        "tests.lua",
+        "tests_*.lua",
+        "fixtures/"
+      ],
+      "discovery": {
+        "technologies": ["lua", "teal"],
+        "rules": [
+          {
+            "type": "file",
+            "files": ["**/*.lua", "**/*.tl"],
+            "technology": "lua",
+            "kind": "language",
+            "declaration": "Lua or Teal source"
+          }
+        ],
+        "compatibility": {
+          "groma": ">=0.7.0"
+        }
+      }
+    }
+  },
+  "files": ["src"]
+}
