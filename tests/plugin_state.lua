@@ -15,6 +15,15 @@ end
 
 local keys = T.keys
 
+--- Wait until the engine rests as a whole, stopped and silent. Its meters
+--- must fall first: the sound of an earlier test can still show on the
+--- master's meter, and it falls for longer than one wait plays.
+local function until_engine_rests()
+  T.until_meters_at_rest()
+  local rests = api.engine_get().engine_rests
+  T.until_(function() return api.engine_get().engine_rests > rests end, "the engine to rest")
+end
+
 --- Surge XT in each format that the test plugins have.
 local function surges()
   local out = {}
@@ -242,8 +251,7 @@ test("a state given while the engine rests reaches a plugin that takes it on in 
   paw.flush()
   api.undo_checkpoint()
   -- Stopped, with nothing that sounds: the stub sleeps, then the engine.
-  local rests = api.engine_get().engine_rests
-  T.until_(function() return api.engine_get().engine_rests > rests end, "the engine to rest")
+  until_engine_rests()
   -- The stub takes the state (23) on at the start of its next block.
   took(d, function() api.device_load(d.id, { state = "FwAAAA==" }) end)
   eq(api.device_state(d.id), "FwAAAA==", "the stub holds the state")
@@ -259,8 +267,7 @@ test("a plugin that asks for a block while the engine rests gets its next block"
   T.after(function() paw.plugins.remove_dir(dir) end)
   local d = paw.add_track({ name = "Stub" }):add_device("clap:dev.paw.stub")
   paw.flush()
-  local rests = api.engine_get().engine_rests
-  T.until_(function() return api.engine_get().engine_rests > rests end, "the engine to rest")
+  until_engine_rests()
   local runs = api.engine_get().device_runs
   -- The stub changes by itself and asks the host for a block.
   api.device_call(d.id, "stub.tell", "5")

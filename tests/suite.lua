@@ -489,26 +489,6 @@ local function until_(cond, what, ms)
   end
 end
 
---- Wait until no meter of the engine shows a level: the master's and each
---- track's are under the meters' floor (-60 dB). The engine lets a meter
---- fall in its own blocks, which run on the wall clock, so the sound of a
---- test before can still fall when the next test draws a meter. Then put
---- out the peaks that the screen holds for two seconds of the clock, and
---- the clip lights.
-local function until_meters_at_rest()
-  local ids = api.track_list({ all = true })
-  ids[#ids + 1] = 0
-  until_(function()
-    for _, id in ipairs(ids) do
-      if math.max(api.track_meter(id)) >= 0.001 then return false end
-    end
-    return true
-  end, "the meters of the engine at rest")
-  for _, id in ipairs(ids) do
-    paw.draw.clear_peak(id)
-  end
-end
-
 --- Let schedule time pass, from one due timer or delay to the next, until
 --- `cond()` gives a value that is not false or nil, and give that value.
 --- With no timer due, or while the engine plays, the clock moves by one
@@ -542,6 +522,27 @@ local function advance_until(cond, what, ms)
       guard = nil
       advance(math.min(math.max(1, math.ceil(p.next_ms)), left))
     end
+  end
+end
+
+--- Wait until no meter of the engine shows a level: the master's and each
+--- track's are under the meters' floor (-60 dB). A meter falls as the
+--- engine plays its blocks, so the sound of a test before can still show
+--- when the next test draws a meter or waits for the engine to rest. A loud
+--- meter falls for longer than one wait of `until_` plays: the clock moves
+--- block by block, for at most five seconds. Then put out the peaks that the
+--- screen holds for two seconds of the clock, and the clip lights.
+local function until_meters_at_rest()
+  local ids = api.track_list({ all = true })
+  ids[#ids + 1] = 0
+  advance_until(function()
+    for _, id in ipairs(ids) do
+      if math.max(api.track_meter(id)) >= 0.001 then return false end
+    end
+    return true
+  end, "the meters of the engine at rest", 5000)
+  for _, id in ipairs(ids) do
+    paw.draw.clear_peak(id)
   end
 end
 
@@ -1474,6 +1475,15 @@ local missed_wakes = api.pending().missed_wakes
 local function run(t)
   -- An error that came between two tests is of no test.
   reported, expected = {}, {}
+  -- The messages of the tests before go. The list keeps the last 500
+  -- (paw/messages.tl): once it is full, a test that counts the messages
+  -- that came (`#paw.ui.messages` before and after) sees none. And the
+  -- message on the command line would go off it while this test draws.
+  local messages = paw.ui.messages
+  for i = #messages, 1, -1 do
+    messages[i] = nil
+  end
+  paw.ui.message = nil
   test_began = api.now()
   local ok, err = xpcall(stamps_kept, debug.traceback, t.fn)
   test_began = nil

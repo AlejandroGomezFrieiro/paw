@@ -29,6 +29,15 @@ end
 
 local function screen() return table.concat(api.ui_snapshot(W, H), "\n") end
 
+--- The buffers of empty windows that paw keeps.
+local function empties()
+  local n = 0
+  for _, buf in pairs(L.buffers) do
+    if buf.type == "empty" then n = n + 1 end
+  end
+  return n
+end
+
 --- Where each window is on a screen of W by H, by view name.
 local function rects()
   local out = {}
@@ -191,11 +200,7 @@ test("splits, empty windows, closing, only, and :q closing a window before it qu
   end)
   api.quit = quit
   if not ok then error(err, 0) end
-  local empties = 0
-  for _, buf in pairs(L.buffers) do
-    if buf.type == "empty" then empties = empties + 1 end
-  end
-  eq(empties, 0, "empty buffers are forgotten with their windows")
+  eq(empties(), 0, "empty buffers are forgotten with their windows")
   reset()
 end)
 
@@ -521,8 +526,11 @@ test("every seat has tabs and windows of its own", function()
     eq(#paw.ui.tabs, 1, "not here")
   end)
   K.seat(0)
+  local before = empties()
   K.seat_close(7)
   if not ok then error(err, 0) end
+  eq(before > 0, true, "the seat's new tab has an empty window")
+  eq(empties(), 0, "which is forgotten with the seat")
   reset()
 end)
 

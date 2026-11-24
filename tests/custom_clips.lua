@@ -5,6 +5,10 @@ local test, eq, fails, fresh = T.test, T.eq, T.fails, T.fresh
 local paw = require("paw")
 local api = paw.api
 
+--- Take away the kind `film` that a test defined: a new project keeps the
+--- kinds, and a test that counts them must find only its own.
+local function forget_film() pcall(api.clip_kind_remove, "film") end
+
 test("a custom clip is added, set in one step, and undone", function()
   fresh()
   local t = paw.add_track({ name = "Film" })
@@ -15,6 +19,7 @@ test("a custom clip is added, set in one step, and undone", function()
   )
   fails(function() api.clip_kind_define("midi") end, "built%-in kind", "a built-in word")
   api.clip_kind_define("film")
+  T.after(forget_film)
   eq(table.concat(api.clip_kinds(), " "), "film", "the kinds that are defined")
 
   local data = { scenes = { 1, 2.5, { title = "Intro", dark = true } }, cut = "x" }
@@ -165,6 +170,7 @@ test("a custom clip's data is plain data, never binary", function()
   fresh()
   local t = paw.add_track({ name = "Film" })
   api.clip_kind_define("film")
+  T.after(forget_film)
   local id = api.clip_add(t.id, { kind = "film", data = { json = { n = 1 } }, length = 4 })
   local function set(json) api.clip_set_custom(id, { data = { json = json } }) end
   fails(function() set({ frames = { 1, 2, print } }) end, "^.-%.frames%[3%]: a function is not data", "a function")

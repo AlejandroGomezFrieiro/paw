@@ -961,7 +961,9 @@ test("the audio devices are listed, and a name that matches none is refused", fu
     paw.audio.use({ input = "test", buffer = 256 })
     eq(api.engine_get().buffer_size, 256, "a part of the name and a block size are taken")
     eq(api.engine_get().input_channels, 2, "the input is open again")
-    eq(paw.audio.summary(), "step · 48 kHz", "the engine in a few words")
+    -- The backend that runs (the suite's is `step`), and no device name:
+    -- the test input is no output device.
+    eq(paw.audio.summary(), api.engine_get().backend .. " · 48 kHz", "the engine in a few words")
   end)
 end)
 
