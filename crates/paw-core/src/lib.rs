@@ -32,6 +32,7 @@ mod events;
 mod ext_api;
 mod audio;
 mod freeze;
+mod words;
 #[cfg(test)]
 mod golden;
 mod fs_api;

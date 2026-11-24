@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 
 use super::Document;
 use super::values::{de, de_meta, finite, holds};
+use crate::words::from_word;
 use crate::model::{
     DeviceInst, Id, InputChannels, MASTER_ID, MidiInput, MidiOutput, NestId, Project, Send, Target, Part,
 };
@@ -78,31 +79,16 @@ impl Document {
 
     /// One entry of [`part_view`](Self::part_view), made alone: the
     /// handlers of each edit ask for a part's volume or meta, and the whole
-    /// view lists every clip of the part.
+    /// view lists every clip of the part. A key that is no [`PartField`]
+    /// (the clips, the devices, the index) comes from the whole view.
     pub(crate) fn part_field(&self, id: Id, key: &str) -> Result<Value> {
         let t = self
             .project
             .part(id)
             .with_context(|| format!("no part {id}"))?;
-        Ok(match key {
-            "id" => json!(t.id),
-            "name" => json!(t.name),
-            "volume" => json!(t.volume),
-            "pan" => json!(t.pan),
-            "mute" => json!(t.mute),
-            "solo" => json!(t.solo),
-            "armed" => json!(t.armed),
-            "output" => json!(t.output),
-            "color" => json!(t.color),
-            "meta" => json!(t.meta),
-            "master" => json!(id == MASTER_ID),
-            "nest" => json!(t.nest),
-            "input" => json!(t.input),
-            "monitor" => json!(t.monitor),
-            "midi_input" => json!(t.midi_input),
-            "midi_output" => json!(t.midi_output),
-            "height" => json!(t.height),
-            _ => self.part_view(id)?.get(key).cloned().unwrap_or(Value::Null),
+        Ok(match from_word::<PartField>(key) {
+            Some(field) => field.value(t),
+            None => self.part_view(id)?.get(key).cloned().unwrap_or(Value::Null),
         })
     }
 
@@ -223,7 +209,7 @@ impl Document {
             return Ok(None);
         }
         // An unknown key fails inside the edit, after a missing part does.
-        let field = key.parse::<PartField>();
+        let field = PartField::settable(key);
         let moved = matches!(field, Ok(PartField::Volume | PartField::Pan));
         let control = match (moved, self.project.part(id), value.as_f64()) {
             (true, Some(part), Some(to)) => Some(match field {
@@ -285,10 +271,16 @@ impl Document {
     }
 }
 
-/// A field of a part that [`Document::part_set`] changes: the key that Lua
-/// gives, parsed once.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A field of a part, by the key that Lua gives: what
+/// [`Document::part_field`] reads and [`Document::part_set`] changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum PartField {
+    // Read only.
+    Id,
+    Master,
+    Nest,
+    // Read and set.
     Name,
     Volume,
     Pan,
@@ -309,6 +301,39 @@ enum PartField {
 }
 
 impl PartField {
+    /// The field that `key` names, if a script may set it.
+    fn settable(key: &str) -> Result<Self> {
+        from_word(key)
+            .filter(|field| !matches!(field, Self::Id | Self::Master | Self::Nest))
+            .with_context(|| format!("parts have no settable field `{key}`"))
+    }
+
+    /// The value of this field of `t`, as [`Document::part_view`] gives it.
+    fn value(self, t: &Part) -> Value {
+        match self {
+            Self::Id => json!(t.id),
+            Self::Master => json!(t.id == MASTER_ID),
+            Self::Nest => json!(t.nest),
+            Self::Name => json!(t.name),
+            Self::Volume => json!(t.volume),
+            Self::Pan => json!(t.pan),
+            Self::Mute => json!(t.mute),
+            Self::Solo => json!(t.solo),
+            Self::Armed => json!(t.armed),
+            Self::Monitor => json!(t.monitor),
+            Self::Color => json!(t.color),
+            Self::Meta => json!(t.meta),
+            Self::Automation => json!(t.automation.name()),
+            Self::Height => json!(t.height),
+            Self::Output => json!(t.output),
+            Self::Sends => json!(t.sends),
+            Self::Input => json!(t.input),
+            Self::MidiInput => json!(t.midi_input),
+            Self::MidiOutput => json!(t.midi_output),
+            Self::AttrMap => json!(t.attr_map),
+        }
+    }
+
     /// Set this field of part `id`, which is in `p`. `key` is the field's
     /// key in Lua, for the error texts.
     fn set(self, p: &mut Project, id: Id, key: &str, value: Value) -> Result<()> {
@@ -371,35 +396,9 @@ impl PartField {
             Self::MidiOutput => t.midi_output = parse_midi_output(value)?,
             Self::AttrMap => t.attr_map = crate::attr_map::parse(value)?,
             Self::Output | Self::Sends => unreachable!("`set` sets the routing"),
+            Self::Id | Self::Master | Self::Nest => unreachable!("`settable` refuses a field that is read only"),
         }
         Ok(())
-    }
-}
-
-impl std::str::FromStr for PartField {
-    type Err = anyhow::Error;
-
-    fn from_str(key: &str) -> Result<Self> {
-        Ok(match key {
-            "name" => Self::Name,
-            "volume" => Self::Volume,
-            "pan" => Self::Pan,
-            "mute" => Self::Mute,
-            "solo" => Self::Solo,
-            "armed" => Self::Armed,
-            "monitor" => Self::Monitor,
-            "color" => Self::Color,
-            "meta" => Self::Meta,
-            "automation" => Self::Automation,
-            "height" => Self::Height,
-            "output" => Self::Output,
-            "sends" => Self::Sends,
-            "input" => Self::Input,
-            "midi_input" => Self::MidiInput,
-            "midi_output" => Self::MidiOutput,
-            "attr_map" => Self::AttrMap,
-            _ => bail!("parts have no settable field `{key}`"),
-        })
     }
 }
 
