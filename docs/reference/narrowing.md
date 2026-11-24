@@ -312,6 +312,10 @@ shows the keys `za` and `znn` when the block holds more than one part.
   it, `l` goes onto the block, and `l` again goes to the bar after it.
   `k` and `h` do the same the other way. On an open block, the keys move
   through its rows and bars one at a time.
+- `l` or `h` onto a closed block puts the cursor on the first bar of the
+  block, and the following `j` and `k` keep that bar. `j` and `k` onto
+  the block keep the time that the cursor had, so `j` again goes on at
+  that time in the row below.
 - `za` opens the block and closes it again, and `zd` deletes it. The
   clips under it then show as before.
 - `znn` on a closed block enters it, and the window shows those parts

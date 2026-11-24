@@ -137,8 +137,9 @@ graphical window) lists all the inputs of a part:
 ## Count-in
 
 `paw.opt.count_in` is the number of bars that the metronome counts before
-a take that starts with the song stopped. 0 (the default) gives no
-count-in.
+a take that starts with the song stopped. It is a whole number from 0 to
+16, and 0 (the default) gives no count-in. Any other value, such as 2.5,
+gives an error that names the value, and the count-in does not change.
 
 | Keys, command | Effect |
 | --- | --- |
