@@ -7,6 +7,7 @@
 //! that device.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, TryLockError};
 use std::time::{Duration, Instant};
 
@@ -16,6 +17,8 @@ use paw_engine::{Event, ProcessCtx};
 use mlua::{Function, HookTriggers, LightUserData, Lua, Table, VmState};
 use paw_types::{Attr, Ctl, EventKind};
 use serde::{Deserialize, Serialize};
+
+use crate::missed::Missed;
 
 /// Events a block may carry each way.
 pub const MAX_EVENTS: usize = 1024;
@@ -243,6 +246,8 @@ pub struct LuaDevice {
     midi_effect: bool,
     failed: Failure,
     stopped: bool,
+    /// The events of the blocks that a call held the state through.
+    missed: Missed,
 }
 
 /// Make the device a script describes, ready for blocks of up to
@@ -302,6 +307,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
     lua.remove_hook();
     let running = Arc::new(Mutex::new(Running { run, call, lua }));
     let failed: Failure = Arc::new(OnceLock::new());
+    let misses = Arc::new(AtomicU64::new(0));
     let params: Vec<ParamInfo> = desc.params.iter().map(Param::info).collect();
     let values = desc.params.iter().map(|p| p.default as f64).collect();
     let device = LuaDevice {
@@ -312,6 +318,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
         midi_effect: desc.midi_effect,
         failed: failed.clone(),
         stopped: false,
+        missed: Missed::new(MAX_EVENTS, misses.clone()),
     };
     let controller = LuaController {
         running,
@@ -320,6 +327,7 @@ fn build(path: &Path, sample_rate: f32, max_block: usize) -> Result<(LuaDevice, 
         values,
         failed,
         sidechain: desc.sidechain,
+        misses,
     };
     Ok((device, controller))
 }
@@ -415,6 +423,23 @@ impl Device for LuaDevice {
         if self.stopped {
             return self.without(io);
         }
+        // The audio thread never waits for a call: while a call holds the
+        // state, the script does not run this block, and its events wait for
+        // the next one. A lock poisoned by a call that panicked is as good as
+        // any: the state is Lua's, which does not stop halfway through a
+        // change.
+        let running = match self.running.try_lock() {
+            Ok(running) => running,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => {
+                self.missed.block(io.events.as_slice());
+                if self.midi_effect {
+                    // The script gives these events out when it runs.
+                    io.events.clear();
+                }
+                return self.without(io);
+            }
+        };
         let frames = io.left.len().min(self.max_block);
         let b = &mut *self.bufs;
         b.left[..frames].copy_from_slice(&io.left[..frames]);
@@ -427,10 +452,23 @@ impl Device for LuaDevice {
             }
             None => false,
         };
-        let incoming = io.events.as_slice();
-        let count = incoming.len().min(MAX_EVENTS);
-        for (index, event) in incoming[..count].iter().enumerate() {
-            b.originals[index] = *event;
+        // The events of the missed blocks first, then this block's. What does
+        // not fit waits for the next block.
+        let mut count = 0;
+        for event in self.missed.take() {
+            b.originals[count] = event;
+            count += 1;
+        }
+        let replayed = count;
+        for event in io.events.as_slice() {
+            if count < MAX_EVENTS {
+                b.originals[count] = *event;
+                count += 1;
+            } else {
+                self.missed.keep(*event);
+            }
+        }
+        for (index, event) in b.originals[..count].iter().enumerate() {
             b.events_in[index] = to_lua(event, index);
         }
         b.transport = Transport {
@@ -443,15 +481,6 @@ impl Device for LuaDevice {
             sig_num: ctx.sig_num as f64,
             sig_den: ctx.sig_den as f64,
             playing: ctx.playing as u8 as f64,
-        };
-        // The audio thread never waits for a call: while a call holds the
-        // state, this block is the stand-in's. A lock poisoned by a call that
-        // panicked is as good as any: the state is Lua's, which does not stop
-        // halfway through a change.
-        let running = match self.running.try_lock() {
-            Ok(running) => running,
-            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
-            Err(TryLockError::WouldBlock) => return self.without(io),
         };
         let sent = match running.run.call::<i64>((frames as i64, count as i64, keyed)) {
             Ok(sent) => (sent.max(0) as usize).min(MAX_EVENTS),
@@ -481,9 +510,11 @@ impl Device for LuaDevice {
                 j -= 1;
             }
         }
-        let kept = if self.midi_effect { 0 } else { count };
+        // The replayed events went out with their own block already, past a
+        // device that does not replace its input.
+        let (mut i, kept) = if self.midi_effect { (0, 0) } else { (replayed, count) };
         io.events.clear();
-        let (mut i, mut j) = (0, 0);
+        let mut j = 0;
         while i < kept || j < sent {
             let take_in = j == sent || (i < kept && b.originals[i].frame as i32 <= out[j].frame);
             if take_in {
@@ -517,6 +548,8 @@ pub struct LuaController {
     values: Vec<f64>,
     failed: Failure,
     sidechain: bool,
+    /// The blocks that the script did not run, because a call held the state.
+    misses: Arc<AtomicU64>,
 }
 
 impl Controller for LuaController {
@@ -553,6 +586,9 @@ impl Controller for LuaController {
     fn call(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>> {
         if method == "lua.path" {
             return Ok(self.path.to_string_lossy().into_owned().into_bytes());
+        }
+        if method == "lua.misses" {
+            return Ok(self.misses.load(Ordering::Relaxed).to_string().into_bytes());
         }
         if let Some(why) = self.health() {
             anyhow::bail!("the device has stopped: {why}");
@@ -614,5 +650,57 @@ mod tests {
         drop(call);
         assert_eq!(block(&mut device), 1.0, "the next block is the script's again");
         assert_eq!(controller.health(), None, "a missed block does not stop the device");
+    }
+
+    /// A note-off in a block that the script does not run comes to the
+    /// script in the next block, so the note does not hang.
+    #[test]
+    fn the_events_of_a_missed_block_come_in_the_next_block() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("offs.lua");
+        std::fs::write(
+            &path,
+            r#"
+            local dsp = require("paw.dsp")
+            local dev = dsp.device { category = "instrument" }
+            local seen = ""
+            function dev.process(b)
+              for i = 0, b.nevents - 1 do
+                local e = b.events[i]
+                if e.type == dsp.NOTE_OFF then seen = seen .. "off " .. e.key .. "@" .. e.frame .. " " end
+              end
+            end
+            function dev.call() return seen end
+            return dev
+            "#,
+        )
+        .unwrap();
+        let (mut device, mut controller) = build(&path, 48000.0, 64).unwrap();
+        let block = |device: &mut LuaDevice, event: Option<Event>| {
+            let (mut left, mut right) = (vec![0.0; 16], vec![0.0; 16]);
+            let mut events = EventBuf::with_capacity(8);
+            if let Some(event) = event {
+                events.push(event);
+            }
+            let mut io = Io {
+                left: &mut left,
+                right: &mut right,
+                events: &mut events,
+                sidechain: None,
+                outputs: &mut [],
+            };
+            device.process(&ProcessCtx::at(48000.0, 120.0, 4, 4, true), &mut io);
+        };
+        let off = Event {
+            frame: 7,
+            kind: EventKind::NoteOff { key: 60, ch: 0 },
+        };
+
+        let call = controller.running.lock().unwrap();
+        block(&mut device, Some(off));
+        drop(call);
+        block(&mut device, None);
+        assert_eq!(controller.call("seen", b"").unwrap(), b"off 60@0 ", "at the start of the next block");
+        assert_eq!(controller.call("lua.misses", b"").unwrap(), b"1");
     }
 }
