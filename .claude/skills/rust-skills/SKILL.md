@@ -1,7 +1,7 @@
 ---
 name: rust-skills
 description: >
-  Comprehensive Rust coding guidelines with 265 rules across 26 categories.
+  Comprehensive Rust coding guidelines with 270 rules across 26 categories.
   Use when writing, reviewing, or refactoring Rust code. Covers ownership,
   error handling, async patterns, concurrency, unsafe code, API design, memory
   optimization, performance, numeric safety, conversions, serde, pattern
@@ -24,7 +24,7 @@ metadata:
 > **paw:** read [paw-crates.md](paw-crates.md) too, paw's own addition: use the
 > recommended crates (<https://blessed.rs/crates>) and do not write what one already does.
 
-Comprehensive guide for writing high-quality, idiomatic, and highly optimized Rust code. Contains 265 rules across 26 categories, prioritized by impact to guide LLMs in code generation and refactoring. Current for Rust 1.96 (2024 edition).
+Comprehensive guide for writing high-quality, idiomatic, and highly optimized Rust code. Contains 270 rules across 26 categories, prioritized by impact to guide LLMs in code generation and refactoring. Current for Rust 1.96 (2024 edition).
 
 ## When to Apply
 
@@ -45,11 +45,11 @@ is a change of a contract. Use the skill `architecture` first.
 
 | Priority | Category | Impact | Prefix | Rules |
 |----------|----------|--------|--------|-------|
-| 1 | Ownership & Borrowing | CRITICAL | `own-` | 12 |
-| 2 | Error Handling | CRITICAL | `err-` | 12 |
+| 1 | Ownership & Borrowing | CRITICAL | `own-` | 13 |
+| 2 | Error Handling | CRITICAL | `err-` | 13 |
 | 3 | Memory Optimization | CRITICAL | `mem-` | 17 |
-| 4 | Unsafe Code | CRITICAL | `unsafe-` | 7 |
-| 5 | API Design | HIGH | `api-` | 17 |
+| 4 | Unsafe Code | CRITICAL | `unsafe-` | 9 |
+| 5 | API Design | HIGH | `api-` | 18 |
 | 6 | Async/Await | HIGH | `async-` | 18 |
 | 7 | Concurrency | HIGH | `conc-` | 4 |
 | 8 | Compiler Optimization | HIGH | `opt-` | 12 |
@@ -90,6 +90,7 @@ is a change of a contract. Use the skill `architecture` first.
 - [`own-clone-explicit`](rules/own-clone-explicit.md) - Use explicit `Clone` for types where copying has meaningful cost
 - [`own-move-large`](rules/own-move-large.md) - Move large types instead of copying; use `Box` if moves are expensive
 - [`own-lifetime-elision`](rules/own-lifetime-elision.md) - Rely on lifetime elision rules; add explicit lifetimes only when required
+- [`own-split-borrow`](rules/own-split-borrow.md) - Split a struct into parts that change for different reasons, so a method of one part does not borrow the others
 
 ### 2. Error Handling (CRITICAL)
 
@@ -105,6 +106,7 @@ is a change of a contract. Use the skill `architecture` first.
 - [`err-lowercase-msg`](rules/err-lowercase-msg.md) - Start error messages lowercase, no trailing punctuation
 - [`err-doc-errors`](rules/err-doc-errors.md) - Document error conditions with `# Errors` section in doc comments
 - [`err-custom-type`](rules/err-custom-type.md) - Define custom error types for domain-specific failures
+- [`err-return-consumed`](rules/err-return-consumed.md) - When a function takes a value by move and can fail, give the value back in the error
 
 ### 3. Memory Optimization (CRITICAL)
 
@@ -135,6 +137,8 @@ is a change of a contract. Use the skill `architecture` first.
 - [`unsafe-extern-block`](rules/unsafe-extern-block.md) - In Rust 2024, wrap `extern` blocks in `unsafe extern { }` and annotate each item as `safe` or `unsafe`.
 - [`unsafe-send-sync-manual`](rules/unsafe-send-sync-manual.md) - Document the invariants when manually implementing `Send` or `Sync`; prefer letting the compiler derive them automatically.
 - [`unsafe-no-mangle-unsafe`](rules/unsafe-no-mangle-unsafe.md) - In Rust 2024, write `#[unsafe(no_mangle)]`, `#[unsafe(export_name = "...")]`, and `#[unsafe(link_section = "...")]` — not the bare attribute forms.
+- [`unsafe-small-module`](rules/unsafe-small-module.md) - Put the `unsafe` code of one job in a small module with a safe public API
+- [`unsafe-ffi-boundary`](rules/unsafe-ffi-boundary.md) - At a C boundary: borrow strings in, keep owned strings alive, return flat error codes, wrap each handle, never let a panic out
 
 ### 5. API Design (HIGH)
 
@@ -155,6 +159,7 @@ is a change of a contract. Use the skill `architecture` first.
 - [`api-serde-optional`](rules/api-serde-optional.md) - Make serde a feature flag, not a hard dependency for library crates
 - [`api-impl-fromiterator`](rules/api-impl-fromiterator.md) - Implement `FromIterator` and `Extend` for collection types, and `IntoIterator` for all three reference forms
 - [`api-operator-overload`](rules/api-operator-overload.md) - Overload operators only when the semantics are natural and unsurprising
+- [`api-raii-guard`](rules/api-raii-guard.md) - Use a guard type to undo a change on every exit path; keep its `Drop` short, infallible and quick
 
 ### 6. Async/Await (HIGH)
 

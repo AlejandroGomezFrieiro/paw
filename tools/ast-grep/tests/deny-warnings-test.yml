@@ -1,0 +1,15 @@
+id: deny-warnings
+valid:
+  - |
+    #![deny(unsafe_op_in_unsafe_fn)]
+    fn a() {}
+  - |
+    #[expect(clippy::too_many_lines, reason = "debt: pay down")]
+    fn a() {}
+invalid:
+  - |
+    #![deny(warnings)]
+    fn a() {}
+  - |
+    #[forbid(warnings)]
+    mod a {}

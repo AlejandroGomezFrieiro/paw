@@ -73,6 +73,17 @@ fn demo() {
 - Treat adding a public blanket impl as a **minor semver bump at minimum** (or major if it could break downstream).
 - Pair blanket impls with sealed traits (`api-sealed-trait`) when you want the blanket behaviour but need to prevent external implementations.
 
+## A trait as a name for a long bound
+
+A bound that repeats on many functions (`T: Iterator<Item = (K, V)> + Clone, K: Hash + Eq`) can get a name. Declare an empty trait with the bound as its supertraits, and add a blanket impl for each type that meets it. The functions then write `T: Pairs<K, V>`. Keep the trait private or sealed, so that the bound can change without a semver break. Do it only when the bound repeats three times or more, because each alias is one more name to learn.
+
+```rust
+trait Pairs<K, V>: Iterator<Item = (K, V)> + Clone {}
+impl<T, K, V> Pairs<K, V> for T where T: Iterator<Item = (K, V)> + Clone {}
+```
+
+Source: <https://rust-unofficial.github.io/patterns/patterns/structural/trait-for-bounds.html>
+
 ## See Also
 
 - [api-extension-trait](api-extension-trait.md) - add methods to foreign types via extension traits

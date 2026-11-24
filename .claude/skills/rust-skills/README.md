@@ -1,11 +1,11 @@
 # Rust Skills
 
-![rules](https://img.shields.io/badge/rules-265-blue)
+![rules](https://img.shields.io/badge/rules-270-blue)
 ![categories](https://img.shields.io/badge/categories-26-blue)
 ![Rust](https://img.shields.io/badge/Rust-1.96%20%2F%202024%20edition-orange)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-265 Rust rules your AI coding agent can use to write better code. Current for Rust 1.96 (2024 edition).
+270 Rust rules your AI coding agent can use to write better code. Current for Rust 1.96 (2024 edition).
 
 Works with Claude Code, Cursor, Windsurf, Copilot, Codex, Aider, Zed, Amp, Cline, and pretty much any other agent that supports skills.
 
@@ -66,15 +66,15 @@ fn first_word(s: &str) -> Option<&str> {
 
 ## What's in here
 
-265 rules split into 26 categories:
+270 rules split into 26 categories:
 
 | Category | Rules | What it covers |
 |----------|-------|----------------|
-| **Ownership & Borrowing** | 12 | When to borrow vs clone, Arc/Rc, lifetimes |
-| **Error Handling** | 12 | thiserror for libs, anyhow for apps, the `?` operator |
+| **Ownership & Borrowing** | 13 | When to borrow vs clone, Arc/Rc, lifetimes |
+| **Error Handling** | 13 | thiserror for libs, anyhow for apps, the `?` operator |
 | **Memory** | 17 | SmallVec, arenas, avoiding allocations, `mem::take`, drop order |
-| **Unsafe Code** | 7 | `SAFETY:` comments, Miri, `MaybeUninit`, 2024-edition unsafe |
-| **API Design** | 17 | Builder pattern, newtypes, sealed traits, `FromIterator` |
+| **Unsafe Code** | 9 | `SAFETY:` comments, Miri, `MaybeUninit`, 2024-edition unsafe, small unsafe modules, FFI boundary |
+| **API Design** | 18 | Builder pattern, newtypes, sealed traits, `FromIterator` |
 | **Async** | 18 | Tokio patterns, channels, async fn in traits, cancel safety |
 | **Concurrency** | 4 | rayon, scoped threads, atomic ordering, thread-locals |
 | **Optimization** | 12 | LTO, inlining, PGO, SIMD |
