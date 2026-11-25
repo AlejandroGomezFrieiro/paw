@@ -34,6 +34,7 @@ give the rules for a change.
 | `bench/` | The benchmarks and the stress tests. See [bench/README.md](../../bench/README.md). |
 | `.vale/` | The project's Vale styles (STE) and its vocabulary. `.vale.ini` configures Vale. |
 | `.claude/skills/` | The instructions for agents: write an extension, write the docs, prune the tests. |
+| `.pi/` | The hooks and the skills of pi, the agent: `settings.json` gives it the skills of `.claude/skills`, and `extensions/paw.ts` runs `tools/guard-hook.py` and `tools/vale-hook.sh`. |
 | `flake.nix` | The Nix package, the dev shell and the checks. See [The Nix package](nix-package.md). |
 | `nix/lua-tools.nix` | The tools for Teal of the dev shell that nixpkgs does not have, or has in an old version. |
 

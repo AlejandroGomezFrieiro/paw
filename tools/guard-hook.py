@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""A Claude Code hook (.claude/settings.json, PreToolUse on Bash).
+"""A hook of Claude Code (.claude/settings.json, PreToolUse on Bash) and of
+pi (.pi/extensions/paw.ts, before a command of the tool `bash`).
 
 It refuses the commands that the rules of AGENTS.md forbid, before they run.
 Each one once cost a run of hours or put the machine under a load that it

@@ -1,6 +1,6 @@
 # How to run a coding agent with limits
 
-<!-- tags: agent claude-code -->
+<!-- tags: agent claude-code pi -->
 
 The guide shows you how to start Claude Code on a checkout of paw, so
 that the processes it starts can't use up the processes, the memory or the
@@ -111,3 +111,16 @@ A command that the sandbox refuses fails with an error such as
 `Read-only file system`, and the agent can't run it outside the sandbox. If
 the work needs another folder or host, add it to `.claude/settings.json`
 in a commit of its own, so that each agent gets the same rules.
+
+## Know what pi does
+
+pi in this checkout uses the rules of `AGENTS.md` and the skills of
+`.claude/skills` (`.pi/settings.json`). The extension
+`.pi/extensions/paw.ts` runs the same hooks as Claude Code:
+`tools/guard-hook.py` refuses a command that `AGENTS.md` forbids, and
+`tools/vale-hook.sh` runs Vale on each Markdown file that an edit or a
+write changes.
+
+pi has no sandbox. The limits of `nix run .#agent` apply to Claude Code
+only, and a command of pi can read and write each file of your account.
+Run pi in a container when the work needs that limit.
