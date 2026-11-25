@@ -185,39 +185,123 @@ function addedLines(absolute: string, patch: string | undefined): AddedLine[] {
 	return lines;
 }
 
+const C_LIKE = new Set([".rs", ".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"]);
+
+interface BlockStart {
+	/** A doc comment that defines an API or a module, which the hook keeps. */
+	doc: boolean;
+	end: string;
+}
+
+/** The start of a block comment, and where it ends. */
+function blockStart(extension: string, text: string): BlockStart | undefined {
+	if (C_LIKE.has(extension) && /^\/\*\*|^\/\*!/.test(text)) return { doc: true, end: "*/" };
+	if (C_LIKE.has(extension) && /^\/\*/.test(text)) return { doc: false, end: "*/" };
+	if ((extension === ".lua" || extension === ".tl") && /^--\[=*\[/.test(text)) return { doc: false, end: "]]" };
+	return undefined;
+}
+
 /** The comments that the no-comments skill refuses, with their lines. */
 function commentFindings(filePath: string, patch: string | undefined): string[] {
 	const extension = path.extname(filePath).toLowerCase();
 	if (!CODE_EXTENSIONS.has(extension)) return [];
 	const findings: string[] = [];
+	let blockEnd: string | undefined;
 	for (const line of addedLines(filePath, patch)) {
-		const text = commentText(extension, line.text);
-		if (text) findings.push(`L${line.number}: ${text}`);
+		const text = line.text.trim();
+		if (blockEnd) {
+			if (text.includes(blockEnd)) blockEnd = undefined;
+			continue;
+		}
+		const block = blockStart(extension, text);
+		if (block) {
+			if (!text.includes(block.end)) blockEnd = block.end;
+			if (block.doc) continue;
+		}
+		const comment = commentText(extension, line.text);
+		if (comment) findings.push(`L${line.number}: ${comment}`);
 	}
 	return findings;
 }
 
-const PAW_AGENTS = new Set(["paw-builder", "paw-worker", "paw-reviewer", "paw-po", "paw-scout"]);
+const PAW_IMPLEMENTERS = new Set(["paw-builder", "paw-worker"]);
 const AGENT_TIMEOUT_MS = 30_000;
+const TICKET_TIMEOUT_MS = 5_000;
+const ticketTitles = new Map<string, string>();
+
+interface SubagentInfo {
+	id: string;
+	type: string;
+	description: string;
+	status: string;
+	depth: number;
+	parentAgentId?: string;
+	workflowId?: string;
+}
+
+const runningAgents = new Map<string, SubagentInfo>();
+let uiCtx: ExtensionContext | undefined;
+
+/** The title of a ticket, read from the board once for each session. */
+async function ticketTitle(root: string, ticket: string): Promise<string | undefined> {
+	const cached = ticketTitles.get(ticket);
+	if (cached) return cached;
+	const result = await runProcess("backlog", ["task", ticket, "--plain"], undefined, root, TICKET_TIMEOUT_MS);
+	if (result.code !== 0) return undefined;
+	const title = result.stdout.match(/^Task TASK-\d+ - (.+)$/m)?.[1]?.trim();
+	if (title) ticketTitles.set(ticket, title);
+	return title;
+}
+
+/** Put the ticket and its title in the agent description that the UI shows. */
+async function labelAgentDescription(
+	root: string,
+	ticket: string,
+	input: { description?: unknown },
+): Promise<void> {
+	const description = typeof input.description === "string" ? input.description : "";
+	if (description.toLowerCase().includes(`task-${ticket}`)) return;
+	const title = await ticketTitle(root, ticket);
+	const label = `TASK-${ticket}${title ? ` - ${title.slice(0, 70)}` : ""}`;
+	input.description = description ? `${label} | ${description}` : label;
+}
+
+/** Show the ticket of each running agent in the footer. */
+function renderAgentStatus(): void {
+	const ctx = uiCtx;
+	if (!ctx || !ctx.hasUI || ctx.mode !== "tui") return;
+	const agents = [...runningAgents.values()].filter((agent) => agent.depth === 1);
+	if (agents.length === 0) {
+		ctx.ui.setStatus("paw:agents", undefined);
+		return;
+	}
+	const shown = agents.slice(0, 3).map((agent) => {
+		const ticket = agent.description.match(/TASK-\d+/i)?.[0] ?? agent.type;
+		return `${ticket} ${agent.type.replace(/^paw-/, "")}`;
+	});
+	const more = agents.length > shown.length ? ` +${agents.length - shown.length}` : "";
+	ctx.ui.setStatus("paw:agents", `paw: ${shown.join(" | ")}${more}`);
+}
 
 /**
- * Refuse a paw agent whose type disagrees with the `agent:` label of its
- * ticket. The type comes from the label (`.orchestrator/agent-for.sh`), so
- * the orchestrator cannot start a worker on a builder ticket by mistake.
- * A spawn with no ticket in its prompt, or a built-in agent, passes.
+ * Label an agent with its ticket, and refuse a builder or a worker whose
+ * type disagrees with the `agent:` label. The type comes from the label
+ * (`.orchestrator/agent-for.sh`), so the orchestrator cannot start a worker
+ * on a builder ticket by mistake. A spawn with no ticket passes.
  */
 async function guardAgent(event: { input: Record<string, unknown> }, ctx: ExtensionContext) {
 	const input = event.input as { subagent_type?: unknown; prompt?: unknown; description?: unknown };
 	const type = typeof input.subagent_type === "string" ? input.subagent_type.toLowerCase() : "";
-	if (!PAW_AGENTS.has(type)) return undefined;
 	const root = repoRoot(ctx.cwd);
 	if (!root) return undefined;
-	const agentFor = path.join(root, ".orchestrator", "agent-for.sh");
-	if (!fs.existsSync(agentFor)) return undefined;
 	const text = `${typeof input.prompt === "string" ? input.prompt : ""}\n${typeof input.description === "string" ? input.description : ""}`;
 	const match = text.match(/TASK-(\d+)/i) ?? text.match(/\bticket\s+(\d+)\b/i);
 	if (!match) return undefined;
 	const ticket = match[1];
+	await labelAgentDescription(root, ticket, input);
+	if (!PAW_IMPLEMENTERS.has(type)) return undefined;
+	const agentFor = path.join(root, ".orchestrator", "agent-for.sh");
+	if (!fs.existsSync(agentFor)) return undefined;
 	const result = await runProcess(agentFor, [ticket], undefined, root, AGENT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		const reason = result.stderr.trim() || `agent-for.sh failed for TASK-${ticket}`;
@@ -233,8 +317,40 @@ async function guardAgent(event: { input: Record<string, unknown> }, ctx: Extens
 	return undefined;
 }
 
+/** Show the ticket of each running agent in the footer, and in its description. */
+function installAgentTrace(pi: ExtensionAPI): void {
+	const onSubagent = (data: unknown): void => {
+		const info = data as Partial<SubagentInfo>;
+		if (info.depth !== 1) return;
+		if (typeof info.id !== "string" || typeof info.type !== "string" || typeof info.description !== "string") return;
+		runningAgents.set(info.id, info as SubagentInfo);
+		renderAgentStatus();
+	};
+	const offSubagent = (data: unknown): void => {
+		const id = (data as { id?: unknown }).id;
+		if (typeof id !== "string") return;
+		runningAgents.delete(id);
+		renderAgentStatus();
+	};
+	pi.events.on("subagents:created", onSubagent);
+	pi.events.on("subagents:started", onSubagent);
+	pi.events.on("subagents:completed", offSubagent);
+	pi.events.on("subagents:failed", offSubagent);
+	pi.on("session_start", (_event, ctx) => {
+		uiCtx = ctx;
+		runningAgents.clear();
+		renderAgentStatus();
+	});
+	pi.on("session_shutdown", () => {
+		if (uiCtx?.hasUI && uiCtx.mode === "tui") uiCtx.ui.setStatus("paw:agents", undefined);
+		runningAgents.clear();
+		uiCtx = undefined;
+	});
+}
+
 export default function paw(pi: ExtensionAPI) {
-	pi.on("session_start", async () => {
+	installAgentTrace(pi);
+	pi.on("session_start", () => {
 		// The env block of .claude/settings.json gives this value to Claude Code.
 		process.env.PAW_SUITE_LOCKS = SUITE_LOCKS;
 		try {

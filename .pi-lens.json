@@ -10,11 +10,18 @@
     "servers": {
       "teal": {
         "name": "teal-language-server",
-        "extensions": [".tl"],
+        "extensions": [
+          ".tl"
+        ],
         "command": "teal-language-server",
         "args": [],
-        "rootMarkers": ["tlconfig.lua"]
+        "rootMarkers": [
+          "tlconfig.lua"
+        ]
       }
     }
-  }
+  },
+  "ignore": [
+    ".pi/**"
+  ]
 }

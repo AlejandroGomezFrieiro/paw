@@ -141,7 +141,8 @@ contract. A contract is a trait, a saved type, a file format, a
   `paw-reviewer`, `paw-po` and `paw-scout`. The label `agent:` of a
   ticket gives the type, and `.pi/extensions/paw.ts` refuses a spawn
   whose type disagrees with the label. The builder and the worker use a
-  worktree.
+  worktree. The spawn names the ticket `TASK-<id>` in the description, and
+  the footer of pi shows the ticket of each agent that runs.
 - The pi packages in `.pi/settings.json` add the sub-agent package, pi-lens for
   Rust, Lua and Teal, the MCP adapter, the browser, the cache optimizer
   and the output of the terminal. `.pi-lens.json` adds the Teal language server and disables
