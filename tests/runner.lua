@@ -240,10 +240,8 @@ test("tests/tools/suite.sh refuses to start inside a run of the suite", function
   -- again would start paw processes without end. The limit on processes
   -- stops the machine from a flood if the guard goes. Linux counts the
   -- threads of this user against it: the threads of now and 200 more.
-  local pipe = io.popen(
-    [[bash -c 'ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )) &&
-      PAW_TEST_IN_SUITE=1 tests/tools/suite.sh only x' 2>&1; echo "exit $?" ]]
-  )
+  local pipe = io.popen([[bash -c 'ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )) &&
+      PAW_TEST_IN_SUITE=1 tests/tools/suite.sh only x' 2>&1; echo "exit $?" ]])
   local printed = pipe:read("*a")
   pipe:close()
   eq(printed, "suite.sh: the suite does not start inside a run of the suite\nexit 2\n", "what it printed")
