@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@pi'
 created_date: '2026-11-25T19:11:00Z'
-updated_date: '2026-11-25T19:22:00Z'
+updated_date: '2026-11-25T19:58:00Z'
 labels:
   - ci
 dependencies: []
@@ -19,6 +19,7 @@ modified_files:
   - .github/workflows/extended-tests.yml
   - docs/how-to/run-the-tests.md
   - .claude/skills/paw-code/SKILL.md
+  - tests/runner.lua
 ordinal: 466000
 ---
 
@@ -63,4 +64,6 @@ The workflows passed actionlint, and the shell and guide checks passed. GitHub h
 The local dev Lua suite reports failures in the ARA extension and plugin state checks in sampler and attr. Keep these checks active and do not require the workflow for merges until the baseline is green. No paw runtime or native test was modified by this work.
 
 Local nextest result: 181 of 185 parts passed. Failed parts: ARA, sampler, attr, and scene_parity. The last three reported extra plugin state after the tests. No checks were skipped or given retries to hide these failures.
+
+The first hosted Lua suite used indexed colors, a long Nix temporary path and dash as /bin/sh. The CI runner now pins truecolor and a short temporary root. The nested-suite test runs its process limit in Bash. Four representative tests passed through the updated CI runner with the original runner-like environment. The exact process-limit command also passed under dash.
 <!-- SECTION:NOTES:END -->

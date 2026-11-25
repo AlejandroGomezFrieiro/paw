@@ -241,8 +241,8 @@ test("tests/tools/suite.sh refuses to start inside a run of the suite", function
   -- stops the machine from a flood if the guard goes. Linux counts the
   -- threads of this user against it: the threads of now and 200 more.
   local pipe = io.popen(
-    '(ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )); '
-      .. 'PAW_TEST_IN_SUITE=1 tests/tools/suite.sh only x) 2>&1; echo "exit $?"'
+    [[bash -c 'ulimit -u $(( $(ps -u "$(id -u)" -L --no-headers | wc -l) + 200 )) &&
+      PAW_TEST_IN_SUITE=1 tests/tools/suite.sh only x' 2>&1; echo "exit $?" ]]
   )
   local printed = pipe:read("*a")
   pipe:close()

@@ -13,4 +13,6 @@ esac
 export INSTA_UPDATE=no SCCACHE_CACHE_SIZE=2G
 cargo build --locked --jobs 2 --profile "$profile" -p paw-tui -p paw-mcp -p chain-lsp
 cargo build --locked --jobs 2 --profile "$profile" -p paw-plugins --example stub_clap
-PAW_TEST_BIN="$PWD/target/$binary_dir" tests/tools/suite.sh "$@"
+# The RGB snapshots and Unix socket paths must not depend on Nix's shell.
+COLORTERM=truecolor TMPDIR=/tmp PAW_TEST_BIN="$PWD/target/$binary_dir" \
+  tests/tools/suite.sh "$@"
