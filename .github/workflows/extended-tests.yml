@@ -1,0 +1,56 @@
+name: Extended tests
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NIX_CONFIG: |
+    extra-experimental-features = nix-command flakes
+    max-jobs = 1
+    cores = 2
+
+jobs:
+  lua:
+    name: Lua suite (${{ matrix.profile }}, ${{ matrix.order }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [dev, release]
+        order: [serial, shuffle]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # install-nix-action v31
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086
+      - name: Run the Lua suite
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+          ORDER: ${{ matrix.order }}
+        run: |
+          args=(-j 1)
+          if [[ "$ORDER" == shuffle ]]; then
+            seed=$(( $(date +%s) % 100000 ))
+            printf '%s\n' "$seed" > shuffle-seed.txt
+            args=(-j 4 --shuffle "$seed")
+          fi
+          nix develop -c sh tools/ci-lua.sh "$PROFILE" "${args[@]}"
+      # upload-artifact v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: ${{ !cancelled() }}
+        with:
+          name: lua-${{ matrix.profile }}-${{ matrix.order }}
+          path: |
+            target/nextest/lua/junit.xml
+            target/test-scratch/suite.out
+            shuffle-seed.txt
+          if-no-files-found: ignore
+          retention-days: 14

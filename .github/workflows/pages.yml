@@ -1,0 +1,99 @@
+name: Docs and Pages
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pages.yml'
+      - '.cargo/**'
+      - 'Cargo.*'
+      - 'flake.*'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'docs/**'
+      - 'tools/website/**'
+      - 'web/browserpod/**'
+      - 'crates/**'
+      - 'runtime/**'
+      - 'extensions/**'
+      - 'examples/**'
+      - 'fuzz/**'
+      - 'nix/**'
+      - 'tests/harness/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NIX_CONFIG: |
+    extra-experimental-features = nix-command flakes
+    max-jobs = 1
+    cores = 2
+
+jobs:
+  verify:
+    name: Live website
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # install-nix-action v31
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086
+      - name: Build the live site
+        id: site
+        run: |
+          site=$(nix build .#website-live --no-link --print-out-paths -L)
+          echo "path=$site" >> "$GITHUB_OUTPUT"
+      - name: Test the Pages path without server isolation headers
+        env:
+          SITE: ${{ steps.site.outputs.path }}
+        run: |
+          CHROMIUM=$(command -v google-chrome)
+          export CHROMIUM
+          "$CHROMIUM" --version
+          web/browserpod/test.sh "$SITE" "$PWD/target/pages/site.json" \
+            --site --pages-path --no-headers
+          PAW_LESSONS=1 web/browserpod/test.sh "$SITE" \
+            "$PWD/target/pages/course.json" --course --pages-path --no-headers
+      # upload-artifact v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-results
+          path: target/pages/
+          if-no-files-found: ignore
+          retention-days: 14
+      # upload-pages-artifact v4
+      - uses: >-
+          actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main'
+        with:
+          path: ${{ steps.site.outputs.path }}
+
+  deploy:
+    name: Publish the website
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # deploy-pages v4
+      - uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        id: deploy

@@ -3,6 +3,23 @@
 You can run paw's tests in a checkout of the source. Run every command on
 the page in the dev shell (`nix develop`).
 
+## Read the checks on GitHub
+
+Open **Actions** to see the checks for a commit. The **CI** workflow runs
+`nix flake check` and the Lua suite on a dev build. Open a failed job to
+read its log. Download `lua-suite` from **Artifacts** to read the full
+suite output and the JUnit report.
+
+To check dev and release builds in both orders, open **Extended tests**
+and choose **Run workflow**. GitHub also runs it every night. If a
+shuffled run fails, read `shuffle-seed.txt` in the artifact for that job.
+Check out the run's commit and use the same build and seed in the dev
+shell. For example, for seed `12345` on a release build, run:
+
+```sh
+sh tools/ci-lua.sh release -j 4 --shuffle 12345
+```
+
 ## Run the Lua suite
 
 The Lua suite is the end-to-end test of paw, and it runs on the release
@@ -467,8 +484,7 @@ changes on purpose, approve the new renders with
 
 The scenarios use `--audio null`, no plugins, and their own home and XDG
 folders under `target/test-scratch`. They need no display and no network.
-paw has no CI yet. When it has, the CI will run them in the dev shell, as
-`nix develop -c tests/tools/e2e.sh --short`.
+The GitHub Actions workflows don't run these recording scenarios.
 
 ## Run the tests of the graphical window
 

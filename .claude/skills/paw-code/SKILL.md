@@ -237,7 +237,8 @@ that cannot take a slot fails with "suite: cannot take a slot".
 | Edit loop | After each change, on one area | `cargo check -p <crate>`, `cargo clippy -p <crate> --tests`, `cargo nextest run -p <crate>` (one crate only), `tests/tools/suite.sh only "<words>"` |
 | Before a commit | The tests of the change, and the lints | `tests/tools/suite.sh only "<words>"` for each area that the change touches, `cargo nextest run -p <crate>` for each crate that it touches, `tools/render-gate.sh` (when the change can alter the sound), `tools/tlcheck.sh`, `luacheck .`, `tools/fmtcheck.sh`, `luajit tools/testlint.lua`, `luajit tools/layers.lua`, `tools/vale.sh <pages>`, `paw --clean --no-plugins -l tools/apidoc.lua check` |
 | Before a push | All the tests | `tests/tools/suite.sh` (the full suite), `nix flake check`, `cargo nextest run --workspace --exclude paw-gui --profile gate` (the Rust tests: the profile leaves out the Lua suite), `tests/tools/quarantine.sh` (it runs and reports the quarantined Rust tests, and does not fail), `tools/mcpscore.sh --changed-since main` (see below) |
-| Nightly | When CI exists (paw has no CI yet). Until then, only when the owner asks | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
+| Extended tests | Nightly and on demand in GitHub Actions | The four Lua suite configurations below |
+| Other extended checks | Only when the owner asks | `tools/fuzz.sh` (each fuzz target), the property tests with `PROPTEST_CASES=10000` and a new `PROPTEST_RNG_SEED`, `bench/fuzz.lua` with the seeds 1 to 50 (`paw --clean --no-plugins -l bench/fuzz.lua <seed> 1000` through `tests/tools/run.sh`), `cargo mutants --in-diff <the diff of the day>`, a coverage report (information only), `tests/tools/e2e.sh --seeds 1-3` |
 | Release | Before a tagged version | `tests/tools/e2e.sh` (all the days), `tests/tools/suite.sh plugins`, the build and tests on each platform |
 
 `tools/mcpscore.sh` audits `paw-mcp` with a pinned mcpscore (PyPI,
@@ -253,8 +254,8 @@ It uses the binaries of `target/debug`, or `PAW_MCP_BIN` and `PAW_BIN`.
 It exits 3 when the score is under `MIN_SCORE`, in points. When a change
 raises the score, write the new score in `MIN_SCORE` in the same commit.
 
-paw has no CI yet: the owner chose to wait. When it comes, its matrix
-runs the full suite in four ways:
+On GitHub, CI runs the flake checks and the full dev Lua suite. The
+Extended tests workflow runs the full suite in four ways:
 
 | Build | Suite |
 | --- | --- |
@@ -263,11 +264,9 @@ runs the full suite in four ways:
 | Dev (`cargo build`) | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 1` |
 | Dev | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 4 --shuffle` |
 
-CI can split the parts of a run between machines with the option
-`--partition` of nextest. The CI will keep `target/nextest/lua/junit.xml`
-(each part, its result and its time) and `target/test-scratch/suite.out`
-(each test, its result and the reason of a skip) of each run. A shuffled
-run that fails gives its seed. Run `tests/tools/suite.sh --shuffle <seed>`
+The workflows keep `target/nextest/lua/junit.xml` and
+`target/test-scratch/suite.out`. A shuffled run also keeps its seed. Run
+`sh tools/ci-lua.sh <dev|release> -j 4 --shuffle <seed>` in the dev shell
 to get the same order again.
 
 The flake policy:

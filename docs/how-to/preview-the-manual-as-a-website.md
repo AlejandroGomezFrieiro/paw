@@ -47,3 +47,16 @@ check` builds the site too, so a broken link fails the check.
 
 If the build fails with `BROKEN`, the line names the page and the link that
 reaches nothing. Fix the link in the Markdown file.
+
+## Publish the website on GitHub Pages
+
+1. To build the same site that GitHub publishes, run `nix build .#website-live`.
+2. On GitHub, open the repository's **Settings → Pages**. Under **Build and
+   deployment**, set **Source** to **GitHub Actions**.
+3. Open **Actions → Docs and Pages**, choose **Run workflow**, and select
+   `main`. GitHub publishes the same files that pass the browser checks.
+   Pull requests can run the checks but can't publish the site.
+4. Open the site from the **Publish the website** job. Search for a page,
+   play the recorded session, then press **Try paw** and play the song.
+   If the browser checks fail, open **Live website** and download
+   `browser-results` from **Artifacts** to see the reports and screenshots.
