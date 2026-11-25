@@ -430,22 +430,23 @@
         touch $out
       '';
 
-    # Every Lua and Teal file is formatted with StyLua and cerulean
-    # (tools/fmtcheck.sh): the check fails on a file they would change.
     formatCheck = pkgs:
       pkgs.runCommand "paw-format" {
         src = nixpkgs.lib.fileset.toSource {
           root = ./.;
           fileset = nixpkgs.lib.fileset.unions [
+            ./flake.nix
             ./stylua.toml
             ./.styluaignore
             ./tools/fmtcheck.sh
             (nixpkgs.lib.fileset.fileFilter (file: file.hasExt "lua" || file.hasExt "tl") ./.)
           ];
         };
-        nativeBuildInputs = [pkgs.stylua (luaTools pkgs).cerulean];
+        nativeBuildInputs = [pkgs.alejandra pkgs.stylua (luaTools pkgs).cerulean];
       } ''
-        cd $src && sh tools/fmtcheck.sh
+        cd "$src"
+        alejandra --check flake.nix
+        sh tools/fmtcheck.sh
         touch $out
       '';
 
@@ -627,6 +628,8 @@
     # The Teal tools that nixpkgs has not, or has old or with a fault.
     luaTools = pkgs: pkgs.callPackage ./nix/lua-tools.nix {};
   in {
+    formatter = forAll (pkgs: pkgs.alejandra);
+
     packages = forAll (pkgs:
       {
         default = paw pkgs;
@@ -794,7 +797,7 @@
 
           # tools/mcpscore.sh uses uvx to fetch its pinned version.
           packages = with pkgs;
-            [xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv git gh]
+            [xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv git gh alejandra]
             ++ (with luaTools pkgs; [cyan teal-language-server cerulean])
             ++ [pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck];
 
