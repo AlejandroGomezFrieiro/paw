@@ -16,6 +16,7 @@ need the dev shell.
 | `.#paw-sampler` | The plugin and the command of `extensions/sampler` alone. |
 | `.#paw-pod` | The pod image: paw in a BrowserPod pod, with the page files. `x86_64-linux` only. See [paw in a BrowserPod pod](../../web/browserpod/README.md). |
 | `.#paw-pod-bin` | paw for a BrowserPod pod alone, a WebAssembly program. `x86_64-linux` only. |
+| `.#zerv` | [`zerv`](https://github.com/wislertt/zerv), a tool for deriving build versions from Git. `nix run .#zerv -- flow` requires a version tag in the history of the checkout. |
 | `.#default.programs` | The programs as cargo builds them, without wrappers. |
 | `.#default.deps` | The compiled dependencies of the workspace. |
 | `.#default.extensions` | Each extension as a package that holds `share/paw/extensions/<name>`. |

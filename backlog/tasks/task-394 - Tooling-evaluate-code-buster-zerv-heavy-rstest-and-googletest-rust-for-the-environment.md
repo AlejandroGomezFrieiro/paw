@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-24T20:26:00Z'
+updated_date: '2026-11-25T19:41:00Z'
 labels:
   - tooling
   - agent:worker
@@ -49,3 +50,9 @@ The result is a short report in the ticket, and one ticket for each tool to adop
 - [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+zerv: adopt. It prints SemVer from Git tags and history, adds no Cargo workspace dependency, and does not publish. The Nix package and its checks are in TASK-398. Apache-2.0, upstream release 0.8.42 checked.
+<!-- SECTION:NOTES:END -->

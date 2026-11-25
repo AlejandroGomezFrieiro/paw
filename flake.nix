@@ -544,6 +544,7 @@
       packages = forAll (pkgs: {
         default = paw pkgs;
         website = website pkgs;
+        zerv = pkgs.callPackage ./nix/zerv.nix { };
         paw = only pkgs "paw";
         paw-gui = only pkgs "paw-gui";
         paw-mcp = only pkgs "paw-mcp";
