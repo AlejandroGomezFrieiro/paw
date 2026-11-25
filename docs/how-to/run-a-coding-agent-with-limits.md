@@ -114,14 +114,16 @@ in a commit of its own, so that each agent gets the same rules.
 
 ## Check GitHub access
 
-The dev shell includes `gh`. In the terminal that will open the pull
-request, run:
+Pi and Claude Code can use `git` for local work and `gh` for pull
+requests. The dev shell includes `gh`. To check which repository and
+permissions are available to the agent, run from the checkout:
 
 ```sh
 nix develop -c gh auth status --hostname github.com
-nix develop -c gh repo view AlejandroGomezFrieiro/paw \
-  --json nameWithOwner,viewerPermission
+nix develop -c gh repo view --json nameWithOwner,viewerPermission
 ```
+
+The second command resolves the repository from the Git remote.
 
 If GitHub CLI asks you to sign in, run
 `nix develop -c gh auth login --hostname github.com --git-protocol https --web`.
@@ -129,8 +131,8 @@ If GitHub refuses a push that changes a workflow, run
 `nix develop -c gh auth refresh --hostname github.com --scopes workflow`
 and approve the request in your browser.
 
-A session in a sandbox may not see the login from your terminal. Run
-`gh` from the signed-in terminal in that case. Keep tokens out of the
+An agent in a sandbox may not see the GitHub login. In that case, run the
+authenticated command from a signed-in terminal. Keep tokens out of the
 checkout and out of the agent's chat.
 
 ## Set up `pi`
