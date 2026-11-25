@@ -303,3 +303,5 @@ Nygard
 Structurizr
 [Ww]orktrees?
 Kiro
+# The skills of Matt Pocock (.pi/agents/paw-reviewer.md).
+Pocock

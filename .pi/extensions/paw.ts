@@ -23,6 +23,7 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 const GUARD_TIMEOUT_MS = 10_000;
 const VALE_TIMEOUT_MS = 120_000;
@@ -239,6 +240,16 @@ interface SubagentInfo {
 	workflowId?: string;
 }
 
+interface SkillInfo {
+	name: string;
+	description: string;
+	filePath: string;
+	baseDir: string;
+	disableModelInvocation: boolean;
+}
+
+const skillIndex = new Map<string, SkillInfo>();
+
 const runningAgents = new Map<string, SubagentInfo>();
 let uiCtx: ExtensionContext | undefined;
 
@@ -367,6 +378,41 @@ function installAgentTrace(pi: ExtensionAPI): void {
 export default function paw(pi: ExtensionAPI) {
 	pinOpenRouterProvider(pi);
 	installAgentTrace(pi);
+	pi.registerTool({
+		name: "Skill",
+		label: "Load a skill",
+		description:
+			"Load a skill by name and return its instructions (SKILL.md). Use it when a prompt says 'Call the Skill tool with <name>'. A skill that names another skill is loaded the same way. Files that the skill names are relative to the folder in the result.",
+		parameters: Type.Object({
+			name: Type.String({ description: "The exact skill name, for example code-review or retro." }),
+		}),
+		execute: async (_toolCallId, params) => {
+			const key = params.name.trim().toLowerCase();
+			const skill = skillIndex.get(key) ?? skillIndex.get(key.replace(/^.*:/, ""));
+			if (!skill) {
+				const names = [...skillIndex.keys()].sort().join(", ");
+				return {
+					content: [{ type: "text" as const, text: `No skill named ${params.name}. Available skills: ${names}` }],
+					details: undefined,
+					isError: true,
+				};
+			}
+			let text: string;
+			try {
+				text = fs.readFileSync(skill.filePath, "utf8");
+			} catch {
+				return {
+					content: [{ type: "text" as const, text: `Cannot read the skill file of ${skill.name}.` }],
+					details: undefined,
+					isError: true,
+				};
+			}
+			return {
+				content: [{ type: "text" as const, text: `Skill ${skill.name} (folder: ${skill.baseDir})\n\n${text}` }],
+				details: { name: skill.name, baseDir: skill.baseDir },
+			};
+		},
+	});
 	pi.on("session_start", () => {
 		// The env block of .claude/settings.json gives this value to Claude Code.
 		process.env.PAW_SUITE_LOCKS = SUITE_LOCKS;
@@ -441,6 +487,16 @@ export default function paw(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", (event, ctx) => {
+		const skills = (event.systemPromptOptions.skills ?? []) as SkillInfo[];
+		skillIndex.clear();
+		for (const skill of skills) skillIndex.set(skill.name.toLowerCase(), skill);
+		const hidden = skills.filter((skill) => skill.disableModelInvocation).map((skill) => skill.name);
+		if (hidden.length > 0) {
+			event.systemPromptOptions.sections.paw_hidden_skills =
+				`These skills are not auto-selected. Load one with the Skill tool by name: ${hidden.join(", ")}.`;
+		} else {
+			delete event.systemPromptOptions.sections.paw_hidden_skills;
+		}
 		const root = repoRoot(ctx.cwd);
 		if (!root) return undefined;
 		const local = path.join(root, "CLAUDE.local.md");

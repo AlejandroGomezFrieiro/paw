@@ -3,6 +3,7 @@ name: paw-builder
 description: "Implements a paw ticket or bundle that changes a contract, the engine or a design (label agent:builder). Works in its own worktree and reports by the wave rules."
 model: openrouter/openai/gpt-6.2-sol
 thinking: medium
+tools: "*, ext:paw/Skill"
 isolation: worktree
 persist_session: false
 ---
@@ -27,5 +28,5 @@ engine or a design. Use the `architecture` skill before the first change
 of a contract, and give each design change as a proposed ADR in
 "Changes for the orchestrator".
 
-Load each skill: read `.claude/skills/<name>/SKILL.md` before the first
-edit of that kind.
+Load each skill: call the `Skill` tool with its name, or read
+`.claude/skills/<name>/SKILL.md`, before the first edit of that kind.

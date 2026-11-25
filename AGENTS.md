@@ -149,6 +149,12 @@ contract. A contract is a trait, a saved type, a file format, a
   automatic format and automatic fixes: keep the style of each file by hand.
   The hook reports each added code comment; the skill `no-comments`
   gives the exceptions.
+- The `Skill` tool loads a skill by name, also a workflow skill that the
+  skill list hides, such as `retro`. The user runs one with
+  `/skill:<name>`, for example `/skill:retro`. The Matt Pocock skills are
+  installed as user skills, and `code-review` is the review skill of
+  `paw-reviewer`. They are a clone of `github.com/mattpocock/skills` in
+  the user skill folder of pi; update it with `git pull` there.
 - The project model is `openrouter/openai/gpt-6.2-sol`, with level
   `medium`. Each paw agent pins it in its `model:` line, and a new
   pi session inherits it from `.pi/settings.json`. `.pi/extensions/paw.ts`
