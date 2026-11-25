@@ -4,6 +4,9 @@
 # The full checks stay in the tiers of the skill paw-code (part 7).
 cd "$(git rev-parse --show-toplevel)" || exit 1
 tools/hygiene.sh > /dev/null || exec tools/hygiene.sh
+if ! git diff --cached --quiet -- .pi tools/pi-smoke.mjs; then
+  node tools/pi-smoke.mjs || exit 1
+fi
 # A worktree on an older base has no reformat check yet.
 [ ! -x tools/reformat-check.sh ] || tools/reformat-check.sh || exit 1
 if command -v luajit > /dev/null; then

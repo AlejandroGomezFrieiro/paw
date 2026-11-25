@@ -112,16 +112,49 @@ A command that the sandbox refuses fails with an error such as
 the work needs another folder or host, add it to `.claude/settings.json`
 in a commit of its own, so that each agent gets the same rules.
 
-## Know what pi does
+## Set up `pi`
 
-pi in this checkout uses the rules of `AGENTS.md` and the skills of
-`.claude/skills` (`.pi/settings.json`). The extension
-`.pi/extensions/paw.ts` runs the same hooks as Claude Code:
-`tools/guard-hook.py` refuses a command that `AGENTS.md` forbids, and
-`tools/vale-hook.sh` runs Vale on each Markdown file that an edit or a
-write changes. pi also runs the paw agent types in `.pi/agents/` and the
-packages of `.pi/settings.json`.
+Start `pi` in the checkout and approve project trust after you review the
+configuration. Pi reads `AGENTS.md`, loads the skills in `.claude/skills`,
+and installs the packages in `.pi/settings.json`. The package list covers
+the agent team, pi-lens, MCP, the browser, terminal output, and cache statistics.
+The Teal server is in `.pi-lens.json`. Automatic format and fixes are off.
 
-pi has no sandbox. The limits of `nix run .#agent` apply to Claude Code
-only, and a command of pi can read and write each file of your account.
-Run pi in a container when the work needs that limit.
+To add the Matt Pocock skills, clone them into your Pi skill folder:
+
+```sh
+git clone --depth 1 https://github.com/mattpocock/skills.git \
+  ~/.pi/agent/skills/mattpocock-skills
+```
+
+Use `git pull` in that clone to update the skills. Start a new session after
+installation. Use `/skill:retro` to start a retrospective. Agents can load
+skills by name with the `Skill` tool. The paw reviewer uses `code-review`.
+
+## Assign a ticket in `pi`
+
+Start the `Agent` call's `description` with `TASK-<id>:` and add a short
+summary. Use the full ID for a child ticket, such as `TASK-<parent>.<child>:`.
+Use the ticket's `agent:` label to select the builder or worker, and use a
+separate call for each assignment. Pi reads the title from Backlog and shows
+the assignment in `/agents`. The footer shows up to three active agents and
+a count of the rest. Use `/agents` for the full list.
+
+## Check `pi` after a change
+
+Run `node tools/pi-smoke.mjs` after Pi has installed the project packages.
+The check needs Node.js 24 and Pi on `PATH`. It uses a scratch checkout and a
+local HTTP server. It needs no provider credentials and makes no paid requests.
+The pre-commit hook runs it when you stage a Pi configuration or test change.
+
+The project sets GPT-6.2 Sol at `medium` in `.pi/settings.json` and the paw
+agent files in `.pi/agents/`. The project hook sends that model only to the
+OpenAI provider on OpenRouter. If that provider is down, a request fails
+instead of switching providers. Use `/cache-optimizer stats` to inspect
+cache use. A cache hit alone does not prove which provider served a request.
+
+Pi uses the shell and Vale hooks from Claude Code. Its comment hook flags
+possible narration for review. It does not remove comments.
+Pi has no sandbox. The limits of `nix run .#agent` apply to Claude Code
+only, and a command of Pi can read and write each file of your account.
+Run Pi in a container when the work needs that limit.

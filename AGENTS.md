@@ -131,35 +131,11 @@ contract. A contract is a trait, a saved type, a file format, a
   sandbox of `.claude/settings.json`. Start an agent with
   `nix run .#agent`: it adds limits on processes and memory
   ([the guide](docs/how-to/run-a-coding-agent-with-limits.md)).
-- A session of pi uses the same rules. `.pi/settings.json` gives it the
-  skills of `.claude/skills`, and `.pi/extensions/paw.ts` runs
-  `tools/guard-hook.py` before a command and `tools/vale-hook.sh` after
-  an edit or a write. pi has no sandbox: the files and the network of
-  `.claude/settings.json` do not limit a command of pi. Run pi in a
-  container when a command must not reach the machine.
-- The pi agent types are in `.pi/agents/`: `paw-builder`, `paw-worker`,
-  `paw-reviewer`, `paw-po` and `paw-scout`. The label `agent:` of a
-  ticket gives the type, and `.pi/extensions/paw.ts` refuses a spawn
-  whose type disagrees with the label. The builder and the worker use a
-  worktree. The spawn names the ticket `TASK-<id>` in the description, and
-  the footer of pi shows the ticket of each agent that runs.
-- The pi packages in `.pi/settings.json` add the sub-agent package, pi-lens for
-  Rust, Lua and Teal, the MCP adapter, the browser, the cache optimizer
-  and the output of the terminal. `.pi-lens.json` adds the Teal language server and disables
-  automatic format and automatic fixes: keep the style of each file by hand.
-  The hook reports each added code comment; the skill `no-comments`
-  gives the exceptions.
-- The `Skill` tool loads a skill by name, also a workflow skill that the
-  skill list hides, such as `retro`. The user runs one with
-  `/skill:<name>`, for example `/skill:retro`. The Matt Pocock skills are
-  installed as user skills, and `code-review` is the review skill of
-  `paw-reviewer`. They are a clone of `github.com/mattpocock/skills` in
-  the user skill folder of pi; update it with `git pull` there.
-- The project model is `openrouter/openai/gpt-6.2-sol`, with level
-  `medium`. Each paw agent pins it in its `model:` line, and a new
-  pi session inherits it from `.pi/settings.json`. `.pi/extensions/paw.ts`
-  sends every request of that model through the OpenAI upstream provider
-  of OpenRouter, and no other, to keep the prompt cache on one backend.
+- Pi: use the [agent setup guide](docs/how-to/run-a-coding-agent-with-limits.md)
+  to install skills, check the hooks, or change the model. Pi has no
+  sandbox. Run it in a container when commands must not reach the host.
+- Backlog: start the `Agent` description with `TASK-<id>:` to assign a
+  ticket. Use its `agent:` label to choose `paw-builder` or `paw-worker`.
 - Work in the dev shell of the flake (`nix develop`, or `direnv` with
   `.envrc`). Inside it, do not add the prefix `nix develop -c`.
 - The commands of each tier of checks are in the skill `paw-code`, part
