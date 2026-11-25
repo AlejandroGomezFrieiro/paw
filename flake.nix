@@ -648,71 +648,42 @@
 
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
-          # xmllint checks the DAWproject files of extensions/interop against the
-          # format's XML schema. cargo-insta reviews and accepts the Rust
-          # snapshots (the version of insta in Cargo.lock).
+          # The interop tests use xmllint to check DAWproject files against the schema.
           nativeBuildInputs = with pkgs; [ cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta cargo-machete cargo-deny ast-grep (lib.getBin libxml2) ]
             ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
-          # Every git worktree has a `target/` of its own, and cargo shares
-          # nothing between them: each one compiles the same four hundred
-          # crates again. sccache keeps what rustc made in one place, shared
-          # by every checkout, with a ceiling on its size; it only caches
-          # builds that are not incremental. `cargo sweep -t 14` clears what
-          # no build has used for two weeks (tools/sweep.sh does every tree).
-          # Dev builds (the default profile) are incremental: a build again of
-          # the same tree compiles only what changed. sccache then caches the
-          # dependencies only (cargo builds them without incremental); release
-          # builds are not incremental, so sccache caches all of them.
+          # Worktrees share cached builds of crates that compile without incremental mode.
           RUSTC_WRAPPER = "sccache";
           SCCACHE_CACHE_SIZE = "40G";
-          # mold links the dev builds several times faster than ld. Only in the
-          # dev shell: the packages of the flake link with the default linker.
+          # Use mold for local builds without changing the package linker.
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=mold";
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=mold";
-          # What the window tests (`crates/paw-gui/tests/window.rs`) drive: a
-          # private X server, a window manager, a pointer and key sender, and
-          # tesseract to find words on a screenshot.
-          # The Teal and Lua tools (docs/explanation/about-teal.md): `tl`
-          # (the version of runtime/lua/tl.lua), `cyan` (tools/dev-runtime.sh),
-          # the language servers of both, the formatters (`ceru` for Teal,
-          # `stylua` for Lua) and `luacheck`; nix/lua-tools.nix has those
-          # that nixpkgs has not, or has old. `uv` gives `uvx`, which fetches
-          # the pinned mcpscore for tools/mcpscore.sh.
+
+          # tools/mcpscore.sh uses uvx to fetch its pinned version.
           packages = with pkgs; [ xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv git gh ]
             ++ (with luaTools pkgs; [ cyan teal-language-server cerulean ])
             ++ [ pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck ];
-          # The style packages Vale checks the docs with (tools/vale.sh joins
-          # them with the project's own in .vale/styles; see .vale.ini).
+
           PAW_VALE_STYLES = "${valeStyles pkgs}";
           buildInputs = with pkgs; [ alsa-lib pipewire lilv lv2 serd sord sratom fontconfig ];
-          # The graphical frontend's libraries are on the path here;
-          # `PAW_GUI_LIBS` is where its build script finds them, to write
-          # into the binary, so that the binary also runs from a shell that
-          # is not this one.
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (guiLibs pkgs);
+          # The build embeds these paths so the window can start outside this shell.
           PAW_GUI_LIBS = pkgs.lib.makeLibraryPath (guiLibs pkgs);
           PAW_PLUGIN_LIB_DIRS = pkgs.lib.makeLibraryPath (pluginLibs pkgs);
-          # Plugins in all three formats for the test suite to host.
+
           PAW_TEST_PLUGINS = "${pkgs.lsp-plugins}/lib:${pkgs.surge-xt}/lib:${pkgs.neural-amp-modeler-lv2}/lib:${pkgs.sfizz-ui}/lib";
-          # Sample amp models for Neural Amp Modeler, from its sources
-          # (extensions/plugstate's tests load them).
+          # The amp model fixtures come from the plugin source tree.
           PAW_TEST_NAM_MODELS = "${pkgs.neural-amp-modeler-lv2.src}/models";
-          # The ARA SDK's test plug-in and extensions/ara's attachment, which
-          # extensions/ara/tests.lua host.
           PAW_TEST_ARA = "${(extensionsFor pkgs).ara.testPlugin}";
           PAW_ARA_BRIDGE = "${(extensionsFor pkgs).ara.bridge}/lib/paw-ara.so";
         };
-        # `nix develop .#profile`: the default shell and the profilers that
-        # bench/profile uses (bench/profile.md). perf samples the program's
-        # own processes without root when perf_event_paranoid is 2 or less.
+
         profile = self.devShells.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
             perf samply inferno heaptrack valgrind hyperfine
           ]);
         });
       } // nixpkgs.lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
-        # `nix develop .#browserpod`: BrowserPod's cargo, for
-        # web/browserpod/lock.sh.
+        # The pod lock needs Cargo from the BrowserPod toolchain.
         browserpod = pkgs.mkShell {
           BP_CARGO = "${(browserpod pkgs).pack}/pack/bin/cargo";
           RUSTC = "${(browserpod pkgs).pack}/pack/bin/rustc";
