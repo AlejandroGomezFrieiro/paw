@@ -317,6 +317,22 @@ async function guardAgent(event: { input: Record<string, unknown> }, ctx: Extens
 	return undefined;
 }
 
+const OPENROUTER_PIN = { only: ["openai"], allow_fallbacks: false };
+
+/**
+ * Keep each request of the pinned model on the OpenAI upstream provider of
+ * OpenRouter, and on no other. A split backend loses the prompt cache.
+ */
+function pinOpenRouterProvider(pi: ExtensionAPI): void {
+	pi.on("before_provider_request", (event, ctx) => {
+		if (ctx.model?.provider !== "openrouter") return;
+		const payload = event.payload as { model?: unknown; provider?: unknown } | undefined;
+		if (!payload || typeof payload !== "object") return;
+		if (payload.model !== "openai/gpt-6.2-sol") return;
+		payload.provider = OPENROUTER_PIN;
+	});
+}
+
 /** Show the ticket of each running agent in the footer, and in its description. */
 function installAgentTrace(pi: ExtensionAPI): void {
 	const onSubagent = (data: unknown): void => {
@@ -349,6 +365,7 @@ function installAgentTrace(pi: ExtensionAPI): void {
 }
 
 export default function paw(pi: ExtensionAPI) {
+	pinOpenRouterProvider(pi);
 	installAgentTrace(pi);
 	pi.on("session_start", () => {
 		// The env block of .claude/settings.json gives this value to Claude Code.

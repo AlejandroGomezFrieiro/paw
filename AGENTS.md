@@ -149,9 +149,11 @@ contract. A contract is a trait, a saved type, a file format, a
   automatic format and automatic fixes: keep the style of each file by hand.
   The hook reports each added code comment; the skill `no-comments`
   gives the exceptions.
-- The project model is `openrouter/deepseek/deepseek-v4.1-flash-1017`.
-  Each paw agent pins it in its `model:` line, and a new pi session
-  inherits it from `.pi/settings.json`.
+- The project model is `openrouter/openai/gpt-6.2-sol`, with level
+  `medium`. Each paw agent pins it in its `model:` line, and a new
+  pi session inherits it from `.pi/settings.json`. `.pi/extensions/paw.ts`
+  sends every request of that model through the OpenAI upstream provider
+  of OpenRouter, and no other, to keep the prompt cache on one backend.
 - Work in the dev shell of the flake (`nix develop`, or `direnv` with
   `.envrc`). Inside it, do not add the prefix `nix develop -c`.
 - The commands of each tier of checks are in the skill `paw-code`, part

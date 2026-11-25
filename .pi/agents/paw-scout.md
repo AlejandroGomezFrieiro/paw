@@ -1,7 +1,8 @@
 ---
 name: paw-scout
 description: "A fast read-only lookup in paw: find files or symbols, count uses, read logs, summarize a page or a ticket. Gives facts with file:line, no edits."
-model: openrouter/deepseek/deepseek-v4.1-flash-1017
+model: openrouter/openai/gpt-6.2-sol
+thinking: medium
 tools: read, bash, grep, find, ls
 ---
 

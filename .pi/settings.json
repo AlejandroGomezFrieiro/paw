@@ -1,7 +1,7 @@
 {
   "$schema": "https://pi.dev/schemas/settings.schema.json",
   "defaultProvider": "openrouter",
-  "defaultModel": "deepseek/deepseek-v4.1-flash-1017",
+  "defaultModel": "openai/gpt-6.2-sol",
   "skills": [
     "../.claude/skills"
   ],
@@ -12,5 +12,6 @@
     "npm:pi-agent-browser-native@0.9.35",
     "npm:@heyhuynhgiabuu/pi-pretty@0.10.2",
     "npm:pi-cache-optimizer@2.10.8"
-  ]
+  ],
+  "defaultThinkingLevel": "medium"
 }

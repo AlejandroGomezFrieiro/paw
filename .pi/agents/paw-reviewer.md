@@ -1,7 +1,8 @@
 ---
 name: paw-reviewer
 description: "Reviews a paw branch before the merge (merge checklist step 4) against the standards for code and its ticket. Read-only, gives a verdict."
-model: openrouter/deepseek/deepseek-v4.1-flash-1017
+model: openrouter/openai/gpt-6.2-sol
+thinking: medium
 tools: read, bash, grep, find, ls
 ---
 
