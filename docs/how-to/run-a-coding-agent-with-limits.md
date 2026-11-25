@@ -119,7 +119,8 @@ pi in this checkout uses the rules of `AGENTS.md` and the skills of
 `.pi/extensions/paw.ts` runs the same hooks as Claude Code:
 `tools/guard-hook.py` refuses a command that `AGENTS.md` forbids, and
 `tools/vale-hook.sh` runs Vale on each Markdown file that an edit or a
-write changes.
+write changes. pi also runs the paw agent types in `.pi/agents/` and the
+packages of `.pi/settings.json`.
 
 pi has no sandbox. The limits of `nix run .#agent` apply to Claude Code
 only, and a command of pi can read and write each file of your account.

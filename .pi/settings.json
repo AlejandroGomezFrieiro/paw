@@ -1,4 +1,15 @@
 {
   "$schema": "https://pi.dev/schemas/settings.schema.json",
-  "skills": ["../.claude/skills"]
+  "defaultProvider": "openrouter",
+  "defaultModel": "deepseek/deepseek-v4.1-flash-1017",
+  "skills": [
+    "../.claude/skills"
+  ],
+  "packages": [
+    "npm:@tintinweb/pi-subagents@0.26.3",
+    "npm:pi-lens@4.5.2",
+    "npm:pi-mcp-adapter@7.0.1",
+    "npm:pi-agent-browser-native@0.9.35",
+    "npm:@heyhuynhgiabuu/pi-pretty@0.10.2"
+  ]
 }

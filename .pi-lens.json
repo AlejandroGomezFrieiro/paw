@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/apmantza/pi-lens/master/docs/schema/pi-lens-config-v1.json",
+  "format": {
+    "enabled": false
+  },
+  "autofix": {
+    "enabled": false
+  },
+  "lsp": {
+    "servers": {
+      "teal": {
+        "name": "teal-language-server",
+        "extensions": [".tl"],
+        "command": "teal-language-server",
+        "args": [],
+        "rootMarkers": ["tlconfig.lua"]
+      }
+    }
+  }
+}

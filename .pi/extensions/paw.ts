@@ -47,10 +47,20 @@ function repoRoot(dir: string): string | undefined {
 	}
 }
 
-/** Run a hook of .claude/settings.json with the JSON of a Claude tool call. */
-function runHook(script: string, payload: unknown, cwd: string, timeoutMs: number): Promise<HookResult> {
+/** Run a program, with its input as the text of stdin when the program reads one. */
+function runProcess(
+	script: string,
+	args: string[],
+	input: string | undefined,
+	cwd: string,
+	timeoutMs: number,
+): Promise<HookResult> {
 	return new Promise((resolve) => {
-		const child = spawn(script, [], { cwd, timeout: timeoutMs, stdio: ["pipe", "pipe", "pipe"] });
+		const child = spawn(script, args, {
+			cwd,
+			timeout: timeoutMs,
+			stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+		});
 		let stdout = "";
 		let stderr = "";
 		child.stdout?.on("data", (data: Buffer) => {
@@ -65,11 +75,18 @@ function runHook(script: string, payload: unknown, cwd: string, timeoutMs: numbe
 		child.on("close", (code, signal) => {
 			resolve({ code, stdout, stderr, signal });
 		});
-		child.stdin?.on("error", () => {
-			// The script can stop before it reads its input. Its result says why.
-		});
-		child.stdin?.end(JSON.stringify(payload));
+		if (input !== undefined) {
+			child.stdin?.on("error", () => {
+				// The script can stop before it reads its input. Its result says why.
+			});
+			child.stdin?.end(input);
+		}
 	});
+}
+
+/** Run a hook of .claude/settings.json with the JSON of a Claude tool call. */
+function runHook(script: string, payload: unknown, cwd: string, timeoutMs: number): Promise<HookResult> {
+	return runProcess(script, [], JSON.stringify(payload), cwd, timeoutMs);
 }
 
 function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error"): void {
@@ -79,6 +96,141 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 function hookFailure(name: string, result: HookResult): string {
 	const reason = result.stderr.trim() || (result.signal ? `the signal ${result.signal}` : `the exit code ${result.code}`);
 	return `${name} did not run: ${reason}`;
+}
+
+const CODE_EXTENSIONS = new Set([
+	".rs",
+	".lua",
+	".tl",
+	".ts",
+	".mts",
+	".cts",
+	".js",
+	".mjs",
+	".cjs",
+	".sh",
+	".bash",
+	".py",
+	".nix",
+	".go",
+	".c",
+	".h",
+	".cc",
+	".cpp",
+	".hpp",
+	".java",
+	".kt",
+	".toml",
+	".yaml",
+	".yml",
+]);
+
+/** The comment text of a line, or undefined when the line is not a comment. */
+function commentText(extension: string, line: string): string | undefined {
+	const text = line.trim();
+	if (!text) return undefined;
+	if (/^#!/i.test(text)) return undefined;
+	// Legal headers, public API docs, required project notes, and tool directives.
+	if (/SPDX-License-Identifier|Copyright|Licensed under|This file is part of|MIT License|Apache License/i.test(text)) return undefined;
+	const content = text.replace(/^(?:\/\/\/|\/\/!|\/\*\*|\/\*!|\/\/|\/\*|---|--|#|;|\*)\s*/, "").trim();
+	if (/^(prettier-ignore|stylua:|luacheck:|rustfmt::|eslint-|@ts-|type: ignore|noqa\b|fmt: (off|on)|shellcheck\s|pragma\s|SAFETY:)/i.test(content)) return undefined;
+	if (extension === ".rs") {
+		if (/^(\/\/\/|\/\/!|\/\*\*|\/\*!)/.test(text)) return undefined;
+		if (/^(\/\/|\/\*|\*)/.test(text)) return text;
+		return undefined;
+	}
+	if (extension === ".lua" || extension === ".tl") {
+		if (/^---/.test(text)) return undefined;
+		if (/^--/.test(text)) return text;
+		return undefined;
+	}
+	if (extension === ".js" || extension === ".mjs" || extension === ".cjs" || extension === ".ts" || extension === ".mts" || extension === ".cts") {
+		if (/^(\/\/\/|\/\*\*)/.test(text)) return undefined;
+		if (/^(\/\/|\/\*|\*)/.test(text)) return text;
+		return undefined;
+	}
+	if (/^(#|;)/.test(text)) return text;
+	return undefined;
+}
+
+interface AddedLine {
+	number: number;
+	text: string;
+}
+
+/** The lines that an edit adds, with their numbers in the new file. */
+function addedLines(absolute: string, patch: string | undefined): AddedLine[] {
+	if (!patch) {
+		return fs
+			.readFileSync(absolute, "utf8")
+			.split("\n")
+			.map((text, index) => ({ number: index + 1, text }));
+	}
+	const lines: AddedLine[] = [];
+	let number = 0;
+	for (const line of patch.split("\n")) {
+		const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)/);
+		if (hunk) {
+			number = Number(hunk[1]);
+			continue;
+		}
+		if (line.startsWith("+++") || line.startsWith("---")) continue;
+		if (line.startsWith("+")) {
+			lines.push({ number, text: line.slice(1) });
+			number += 1;
+		} else if (line.startsWith(" ")) {
+			number += 1;
+		}
+	}
+	return lines;
+}
+
+/** The comments that the no-comments skill refuses, with their lines. */
+function commentFindings(filePath: string, patch: string | undefined): string[] {
+	const extension = path.extname(filePath).toLowerCase();
+	if (!CODE_EXTENSIONS.has(extension)) return [];
+	const findings: string[] = [];
+	for (const line of addedLines(filePath, patch)) {
+		const text = commentText(extension, line.text);
+		if (text) findings.push(`L${line.number}: ${text}`);
+	}
+	return findings;
+}
+
+const PAW_AGENTS = new Set(["paw-builder", "paw-worker", "paw-reviewer", "paw-po", "paw-scout"]);
+const AGENT_TIMEOUT_MS = 30_000;
+
+/**
+ * Refuse a paw agent whose type disagrees with the `agent:` label of its
+ * ticket. The type comes from the label (`.orchestrator/agent-for.sh`), so
+ * the orchestrator cannot start a worker on a builder ticket by mistake.
+ * A spawn with no ticket in its prompt, or a built-in agent, passes.
+ */
+async function guardAgent(event: { input: Record<string, unknown> }, ctx: ExtensionContext) {
+	const input = event.input as { subagent_type?: unknown; prompt?: unknown; description?: unknown };
+	const type = typeof input.subagent_type === "string" ? input.subagent_type.toLowerCase() : "";
+	if (!PAW_AGENTS.has(type)) return undefined;
+	const root = repoRoot(ctx.cwd);
+	if (!root) return undefined;
+	const agentFor = path.join(root, ".orchestrator", "agent-for.sh");
+	if (!fs.existsSync(agentFor)) return undefined;
+	const text = `${typeof input.prompt === "string" ? input.prompt : ""}\n${typeof input.description === "string" ? input.description : ""}`;
+	const match = text.match(/TASK-(\d+)/i) ?? text.match(/\bticket\s+(\d+)\b/i);
+	if (!match) return undefined;
+	const ticket = match[1];
+	const result = await runProcess(agentFor, [ticket], undefined, root, AGENT_TIMEOUT_MS);
+	if (result.code !== 0) {
+		const reason = result.stderr.trim() || `agent-for.sh failed for TASK-${ticket}`;
+		return { block: true, reason };
+	}
+	const expected = result.stdout.trim();
+	if (expected !== type) {
+		return {
+			block: true,
+			reason: `TASK-${ticket} takes ${expected}, not ${type}. Use the type that the label agent: gives, or change the label first.`,
+		};
+	}
+	return undefined;
 }
 
 export default function paw(pi: ExtensionAPI) {
@@ -93,6 +245,7 @@ export default function paw(pi: ExtensionAPI) {
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
+		if (event.toolName === "Agent") return guardAgent(event, ctx);
 		if (event.toolName !== "bash") return undefined;
 		const root = repoRoot(ctx.cwd);
 		if (!root) return undefined;
@@ -119,6 +272,7 @@ export default function paw(pi: ExtensionAPI) {
 		const filePath = (event.input as { path?: unknown }).path;
 		if (typeof filePath !== "string") return undefined;
 		const absolute = path.resolve(ctx.cwd, filePath);
+		const notices: string[] = [];
 		const result = await runHook(
 			path.join(root, "tools", "vale-hook.sh"),
 			{
@@ -131,10 +285,26 @@ export default function paw(pi: ExtensionAPI) {
 		);
 		if (result.code === 2 && result.stderr.trim()) {
 			notify(ctx, `Vale: alerts in ${filePath}`, "warning");
-			return { content: [...event.content, { type: "text" as const, text: result.stderr.trim() }] };
+			notices.push(result.stderr.trim());
+		} else if (result.code !== 0) {
+			notify(ctx, hookFailure("tools/vale-hook.sh", result), "warning");
 		}
-		if (result.code !== 0) notify(ctx, hookFailure("tools/vale-hook.sh", result), "warning");
-		return undefined;
+		const patch = (event as { details?: { patch?: string } }).details?.patch;
+		const comments = commentFindings(absolute, patch);
+		if (comments.length > 0) {
+			const shown = comments.slice(0, 20);
+			const more = comments.length > shown.length ? `\n  and ${comments.length - shown.length} more` : "";
+			notify(ctx, `no-comments: ${comments.length} added comment(s) in ${filePath}`, "warning");
+			notices.push(
+				`no-comments: ${comments.length} added comment(s) in ${filePath}:\n  ${shown.join("\n  ")}${more}\n` +
+					"Delete each one. Keep a line only for a legal header, a public API doc comment, a `// SAFETY:` note, " +
+					"an external dependency or protocol constraint, or a tool directive. Do not shorten it.",
+			);
+		}
+		if (notices.length === 0) return undefined;
+		return {
+			content: [...event.content, ...notices.map((text) => ({ type: "text" as const, text }))],
+		};
 	});
 
 	pi.on("before_agent_start", (event, ctx) => {

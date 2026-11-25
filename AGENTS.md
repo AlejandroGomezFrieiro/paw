@@ -137,6 +137,20 @@ contract. A contract is a trait, a saved type, a file format, a
   an edit or a write. pi has no sandbox: the files and the network of
   `.claude/settings.json` do not limit a command of pi. Run pi in a
   container when a command must not reach the machine.
+- The pi agent types are in `.pi/agents/`: `paw-builder`, `paw-worker`,
+  `paw-reviewer`, `paw-po` and `paw-scout`. The label `agent:` of a
+  ticket gives the type, and `.pi/extensions/paw.ts` refuses a spawn
+  whose type disagrees with the label. The builder and the worker use a
+  worktree.
+- The pi packages in `.pi/settings.json` add the sub-agent package, pi-lens for
+  Rust, Lua and Teal, the MCP adapter, the browser and the output of the
+  terminal. `.pi-lens.json` adds the Teal language server and disables
+  automatic format and automatic fixes: keep the style of each file by hand.
+  The hook reports each added code comment; the skill `no-comments`
+  gives the exceptions.
+- The project model is `openrouter/deepseek/deepseek-v4.1-flash-1017`.
+  Each paw agent pins it in its `model:` line, and a new pi session
+  inherits it from `.pi/settings.json`.
 - Work in the dev shell of the flake (`nix develop`, or `direnv` with
   `.envrc`). Inside it, do not add the prefix `nix develop -c`.
 - The commands of each tier of checks are in the skill `paw-code`, part
