@@ -4,11 +4,16 @@ title: 'Platforms P2+P3: cargo features and install layout'
 status: To Do
 assignee: []
 created_date: '2026-11-21T19:52:00Z'
-updated_date: '2026-11-23T16:16:00Z'
+updated_date: '2026-11-25T19:47:00Z'
 labels:
   - platforms
 milestone: m-1
 dependencies: []
+references:
+  - tests/tools/run.sh
+  - crates/paw-tui/src/main.rs
+modified_files:
+  - tools/package-linux.sh
 priority: medium
 ordinal: 44000
 ---
@@ -31,8 +36,16 @@ P2: pipewire and lv2 as cargo features, Linux-only deps under target cfg, guard 
 - [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Find a data layout for installed binaries. The layout must also work for artifacts that Nix builds.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Architecture review 2026-11-22 (backlog/docs/designs/architecture-review.md): TASK-99 adds the paw-core feature 'native' (rpc, tls, io, bake::helper, encode, files_watch), which belongs with these cargo features. TASK-98 adds [workspace.lints] and rust-version to the same manifests.
+
+The owner clarified that published artifacts come from Nix. The standalone Cargo job checks source compatibility without producing a release artifact.
 <!-- SECTION:NOTES:END -->

@@ -1,0 +1,46 @@
+name: Cargo on Linux
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cargo-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUSTUP_TOOLCHAIN: '1.95.0'
+
+jobs:
+  cargo-install:
+    name: Cargo install (Ubuntu x86-64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake libclang-dev pkg-config \
+            libasound2-dev libpipewire-0.3-dev liblilv-dev
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - name: Install from the Git commit under test
+        run: |
+          cargo install --locked --git "file://$PWD" --rev "$GITHUB_SHA" \
+            --root "$RUNNER_TEMP/paw-cargo" --jobs 2 --bin paw paw-tui
+      - name: Start the installed program outside the checkout
+        run: |
+          version=$(cargo metadata --locked --no-deps --format-version 1 |
+            jq -er '.packages[] | select(.name == "paw-tui") | .version')
+          bash tests/tools/cargo-install-smoke.sh \
+            "$RUNNER_TEMP/paw-cargo" "$version"

@@ -10,6 +10,11 @@ Open **Actions** to see the checks for a commit. The **CI** workflow runs
 read its log. Download `lua-suite` from **Artifacts** to read the full
 suite output and the JUnit report.
 
+Open **Cargo on Linux** to check that Cargo installs `paw` from Git on
+Ubuntu 24.04 x86-64 without Nix. The job checks the version and starts
+paw from outside the checkout. Cargo installs the executable, not the
+bundled extensions or the manual. GitHub release builds use Nix instead.
+
 To check dev and release builds in both orders, open **Extended tests**
 and choose **Run workflow**. GitHub also runs it every night. If a
 shuffled run fails, read `shuffle-seed.txt` in the artifact for that job.
