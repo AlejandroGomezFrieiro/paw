@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@pi'
 created_date: '2026-11-22T10:12:00Z'
-updated_date: '2026-11-25T19:20:00Z'
+updated_date: '2026-11-25T19:30:00Z'
 labels:
   - agent:worker
 milestone: m-9
@@ -69,4 +69,6 @@ A GitHub Actions workflow (or nix build + gh-pages) that builds the site from ma
 The live build fails before compilation because the BrowserPod source lacks the Lua suite workspace member. Restore the build before deployment.
 
 Refreshed the BrowserPod workspace inputs and lock. The complete site builds locally. Chromium passed all 17 site checks and 11 course checks under /custom_daw/ without isolation headers, including sound and every step of lesson 1. The public deployment and hosted run remain unverified.
+
+GitHub now names the repository paw. The Pages test uses its repository name in Actions and defaults to /paw/ locally. All 28 browser checks also pass under /paw/.
 <!-- SECTION:NOTES:END -->

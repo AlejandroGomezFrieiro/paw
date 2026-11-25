@@ -13,7 +13,7 @@
 # any visitor of the page does; nothing else leaves the machine. With
 # --no-headers the server sends no isolation headers, as GitHub Pages, and
 # the service worker isolates the page. With --pages-path, the site is
-# under /custom_daw/, not /. puppeteer-core is installed once into
+# under the repository path, not /. puppeteer-core is installed once into
 # target/browserpod/node. Chromium and Node come from nixpkgs.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -25,7 +25,10 @@ prefix="" script=test.mjs page=demo.html
 for flag in "${@:3}"; do
   case "$flag" in
     --no-headers) extra=(--no-headers) ;;
-    --pages-path) prefix=custom_daw/ ;;
+    --pages-path)
+      repository=${GITHUB_REPOSITORY:-paw}
+      prefix=${repository##*/}/
+      ;;
     --course) script=test-course.mjs page=docs/tutorials/course/in-the-browser.html ;;
     --site) script=test-site.mjs page=index.html ;;
     *) echo "unknown flag $flag" >&2; exit 2 ;;

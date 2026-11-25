@@ -98,8 +98,8 @@ Its costs are these.
   HTML tag. GitHub does the same.
 
 The GitHub Pages workflow builds `.#website-live`, which includes the pod.
-The browser checks serve the site under `/custom_daw/`, the same path as
-on GitHub Pages. GitHub Pages doesn't set the isolation headers that
+The browser checks serve the site under `/paw/`, the same path as on
+GitHub Pages. GitHub Pages doesn't set the isolation headers that
 BrowserPod needs, so the site uses a service worker to add them.
 
 See [How to preview the manual as a website](../how-to/preview-the-manual-as-a-website.md).

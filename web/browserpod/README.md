@@ -58,7 +58,8 @@ saves screenshots beside `OUT.json`.
 Set `PAW_LESSONS=1` to run only the first lesson.
 
 To check the site as GitHub Pages serves it, use the same two options as
-its workflow. The `--pages-path` option puts the site under `/custom_daw/`.
+its workflow. The `--pages-path` option puts the site under `/paw/` in
+a local run and uses the repository name on GitHub.
 
 ```sh
 web/browserpod/test.sh result target/pages/site.json --site --pages-path --no-headers
