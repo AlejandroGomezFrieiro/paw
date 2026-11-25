@@ -143,8 +143,8 @@ contract. A contract is a trait, a saved type, a file format, a
   whose type disagrees with the label. The builder and the worker use a
   worktree.
 - The pi packages in `.pi/settings.json` add the sub-agent package, pi-lens for
-  Rust, Lua and Teal, the MCP adapter, the browser and the output of the
-  terminal. `.pi-lens.json` adds the Teal language server and disables
+  Rust, Lua and Teal, the MCP adapter, the browser, the cache optimizer
+  and the output of the terminal. `.pi-lens.json` adds the Teal language server and disables
   automatic format and automatic fixes: keep the style of each file by hand.
   The hook reports each added code comment; the skill `no-comments`
   gives the exceptions.

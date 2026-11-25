@@ -10,6 +10,7 @@
     "npm:pi-lens@4.5.2",
     "npm:pi-mcp-adapter@7.0.1",
     "npm:pi-agent-browser-native@0.9.35",
-    "npm:@heyhuynhgiabuu/pi-pretty@0.10.2"
+    "npm:@heyhuynhgiabuu/pi-pretty@0.10.2",
+    "npm:pi-cache-optimizer@2.10.8"
   ]
 }
