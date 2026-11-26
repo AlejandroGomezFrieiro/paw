@@ -9,6 +9,11 @@
  *   the commands that AGENTS.md forbids.
  * - tools/vale-hook.sh after each edit or write. It checks each Markdown
  *   file with Vale and gives the alerts to the agent.
+ * - tools/comment-hook.py after each edit or write. It gives the agent the
+ *   comments that the edit added.
+ * - RTK, when it is on PATH, as the hooks of ~/.claude/settings.json give it
+ *   to Claude Code: `rtk rewrite` after the guard accepts a command, and the
+ *   PostToolUse hook of `rtk hook claude` on the output of `bash`.
  * - The folder of the suite slots, /tmp/paw-suite-locks, when a session
  *   starts.
  * - The local rules of CLAUDE.local.md in the system prompt. pi reads
@@ -29,6 +34,8 @@ import { installAgentTrace, TICKET_PREFIX } from "../lib/agent-trace.ts";
 const GUARD_TIMEOUT_MS = 10_000;
 const VALE_TIMEOUT_MS = 120_000;
 const COMMENT_TIMEOUT_MS = 30_000;
+const RTK_TIMEOUT_MS = 5_000;
+const RTK_MIN_OUTPUT = 512;
 const SUITE_LOCKS = "/tmp/paw-suite-locks";
 
 interface HookResult {
@@ -99,6 +106,52 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 function hookFailure(name: string, result: HookResult): string {
 	const reason = result.stderr.trim() || (result.signal ? `the signal ${result.signal}` : `the exit code ${result.code}`);
 	return `${name} did not run: ${reason}`;
+}
+
+/** The command as `rtk rewrite` gives it, or undefined when RTK is absent or has no rewrite. */
+async function rtkRewrite(command: string, cwd: string): Promise<string | undefined> {
+	if (command.startsWith("rtk ") || process.env.RTK_DISABLED === "1") return undefined;
+	const result = await runProcess("rtk", ["rewrite", command], undefined, cwd, RTK_TIMEOUT_MS);
+	if (result.code !== 0 && result.code !== 3) return undefined;
+	const rewritten = result.stdout.trim();
+	return rewritten && rewritten !== command ? rewritten : undefined;
+}
+
+type TextContent = { type: "text"; text: string };
+
+/**
+ * The output of a `bash` call, condensed by the PostToolUse hook of RTK as
+ * Claude Code gets it. RTK keeps the full output for `rtk recall`.
+ */
+async function condenseOutput(
+	input: unknown,
+	content: unknown[],
+	cwd: string,
+): Promise<{ content: TextContent[] } | undefined> {
+	const command = (input as { command?: unknown }).command;
+	if (typeof command !== "string" || process.env.RTK_DISABLED === "1") return undefined;
+	if (!content.every((part) => (part as { type?: unknown }).type === "text")) return undefined;
+	const output = (content as TextContent[]).map((part) => part.text).join("\n");
+	if (output.length < RTK_MIN_OUTPUT) return undefined;
+	const payload = {
+		hook_event_name: "PostToolUse",
+		tool_name: "Bash",
+		cwd,
+		tool_input: { command },
+		tool_response: { stdout: output, stderr: "", interrupted: false, isImage: false },
+	};
+	const result = await runProcess("rtk", ["hook", "claude"], JSON.stringify(payload), cwd, RTK_TIMEOUT_MS);
+	if (result.code !== 0 || !result.stdout.trim()) return undefined;
+	try {
+		const answer = JSON.parse(result.stdout) as {
+			hookSpecificOutput?: { updatedToolOutput?: { stdout?: unknown } };
+		};
+		const condensed = answer.hookSpecificOutput?.updatedToolOutput?.stdout;
+		if (typeof condensed !== "string" || condensed.length >= output.length) return undefined;
+		return { content: [{ type: "text", text: condensed }] };
+	} catch {
+		return undefined;
+	}
 }
 
 const PAW_IMPLEMENTERS = new Set(["paw-builder", "paw-worker"]);
@@ -266,10 +319,13 @@ export default function paw(pi: ExtensionAPI) {
 			return { block: true, reason: result.stderr.trim() || "The command is refused by tools/guard-hook.py." };
 		}
 		if (result.code !== 0) notify(ctx, hookFailure("tools/guard-hook.py", result), "warning");
+		const rewritten = await rtkRewrite(command, root);
+		if (rewritten) (event.input as { command: string }).command = rewritten;
 		return undefined;
 	});
 
 	pi.on("tool_result", async (event, ctx) => {
+		if (event.toolName === "bash") return condenseOutput(event.input, event.content, ctx.cwd);
 		if (event.isError) return undefined;
 		if (event.toolName !== "edit" && event.toolName !== "write") return undefined;
 		const root = repoRoot(ctx.cwd);

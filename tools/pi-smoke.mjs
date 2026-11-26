@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -21,6 +21,7 @@ const ticket = "41.2";
 const ticketLabel = `TASK-${ticket}: Child ticket | Review code`;
 const scoutTicket = "42";
 const failure = [];
+const hasRtk = spawnSync("rtk", ["--version"]).status === 0;
 const env = {
 	PATH: process.env.PATH,
 	HOME: home,
@@ -87,13 +88,17 @@ function responseFor(body) {
 		] };
 	}
 	if (root) {
+		if (next.tool_call_id === "rtk-check") {
+			if (hasRtk) assert.ok(next.content.length < 10000 && /rtk recall/.test(next.content), "RTK condenses a long output of bash");
+			return { content: "smoke complete" };
+		}
 		if (next.tool_call_id !== "comment-check") {
 			return { tool_calls: [call("write", { path: "sample.ts", content:
 				"// Set the result\nconst result = 1;\n// The remote protocol reserves zero for errors.\n" }, "comment-check")] };
 		}
 		assert.match(next.content, /no-comments: 2 comment.*\n +L1: \/\/ Set the result\n +L3: \/\/ The remote protocol/);
 		assert.match(next.content, /Only doc comments/);
-		return { content: "smoke complete" };
+		return { tool_calls: [call("bash", { command: "seq 1 5000" }, "rtk-check")] };
 	}
 	if (body.messages[0].content.includes('<active_agent name="paw-scout"/>')) return { content: "scout complete" };
 	assert.ok(tools.includes("Skill"), "The isolated worker must have the Skill tool");
@@ -136,6 +141,7 @@ try {
 		models: [{ id: model, reasoning: true }],
 	} } }));
 	put(join(agentDir, "skills/retro/SKILL.md"), "---\nname: retro\ndescription: Run a retrospective.\ndisable-model-invocation: true\n---\nExplicit retro fixture instructions\n");
+	put(join(home, ".config/rtk/pipeline.toml"), 'schema_version = 1\n\n[pipeline]\nname = "smoke"\nextends = "rtk:posthook"\n');
 	put(join(agentDir, "skills/code-review/SKILL.md"), "---\nname: code-review\ndescription: Review changes.\n---\nReview skill fixture instructions\n");
 	put(join(repo, ".orchestrator/agent-for.sh"), `#!/bin/sh\n[ "$1" = '${ticket}' ] && echo paw-worker\n`, 0o755);
 	put(join(scratch, "bin/backlog"), `#!/bin/sh\ncase "$2" in\n  ${ticket}) title='Child ticket' ;;\n  ${scoutTicket}) title='Other ticket' ;;\n  *) exit 1 ;;\nesac\nprintf 'Task TASK-%s - %s\\n' "$2" "$title"\n`, 0o755);
@@ -179,7 +185,7 @@ try {
 	const output = JSON.stringify(agents);
 	assert.ok(output.includes(ticketLabel) && output.includes("worker complete"), output);
 	assert.ok(output.includes(`TASK-${scoutTicket}: Other ticket | Locate code`) && output.includes("scout complete"), output);
-	console.log("Pi smoke: skills, worktree, ticket labels, footer, comment advice and wire route pass");
+	console.log("Pi smoke: skills, worktree, ticket labels, footer, comment advice, RTK and wire route pass");
 } finally {
 	server.close();
 	rmSync(scratch, { recursive: true, force: true });

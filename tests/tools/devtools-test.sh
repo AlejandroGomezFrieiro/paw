@@ -1,7 +1,8 @@
 #!/bin/sh
 # Tests the cargo queue (tools/bin/cargo) and the no-comments hook
-# (tools/comment-hook.py) with a stand-in cargo, in a scratch folder. The
-# flake's check `devtools` runs it; it needs heavy, git and python3.
+# (tools/comment-hook.py) with a stand-in cargo in a scratch folder, and the
+# guard hook (tools/guard-hook.py) on tests/tools/guard-cases.txt. The flake's
+# check `devtools` runs it; it needs heavy, git and python3.
 #
 #   tests/tools/devtools-test.sh
 set -u
@@ -54,4 +55,9 @@ hook_input='{"tool_input":{"file_path":"'"$work"'/repo/a.rs"},"tool_response":{"
 out=$(echo "$hook_input" | python3 -I "$here/tools/comment-hook.py" 2>&1)
 check "the hook reports a comment that the edit added" "$(echo "$out" | grep -c '^  L')" 1
 check "the hook names its line" "$(echo "$out" | grep '^  L' | cut -c1-6)" "  L1: "
+while IFS='	' read -r want command; do
+  input=$(printf '%s' "$command" | python3 -c 'import json, sys; print(json.dumps({"tool_input": {"command": sys.stdin.read()}}))')
+  printf '%s' "$input" | python3 -I "$here/tools/guard-hook.py" > /dev/null 2>&1
+  check "guard: $command" "$?" "$want"
+done < "$here/tests/tools/guard-cases.txt"
 exit "$failed"

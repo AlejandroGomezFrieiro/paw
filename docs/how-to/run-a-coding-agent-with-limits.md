@@ -200,8 +200,10 @@ and a request to it fails instead of switching when that provider is down.
 Use `/cache-optimizer stats` to inspect cache use. A cache hit alone does not
 prove which provider served a request.
 
-Pi uses the shell and Vale hooks from Claude Code. Its comment hook flags
-possible narration for review. It does not remove comments.
+Pi uses the shell, Vale and comment hooks from Claude Code. The comment
+hook tells the agent about each comment that an edit adds, and the agent
+then removes it. When `rtk` is on your `PATH`, Pi also shortens the
+output of commands in the same way as the RTK hooks of Claude Code.
 Pi has no sandbox. The limits of `nix run .#agent` apply to Claude Code
 only, and a command of Pi can read and write each file of your account.
 Run Pi in a container when the work needs that limit.

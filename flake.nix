@@ -526,7 +526,7 @@
         touch $out
       '';
 
-    # tests/tools/devtools-test.sh: the cargo queue and the no-comments hook.
+    # tests/tools/devtools-test.sh: the cargo queue, the no-comments hook and the guard hook.
     devtools = pkgs:
       pkgs.runCommand "paw-devtools" {
         src = ./.;

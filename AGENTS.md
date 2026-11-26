@@ -146,28 +146,17 @@ contract. A contract is a trait, a saved type, a file format, a
   (`tools/bin/cargo`, `tools/queue.sh`). Give a cargo command a long
   time limit. Release builds are for CI and `bench/`.
 - Each change of behavior has a test. A fix of the user experience has a
-  test that uses the real keys.
-- A test checks behavior. It waits for an event or a state, and its
-  result does not depend on time or load. A time in milliseconds goes
-  to `bench/`.
-- A test reads nothing of the machine: `tests/tools/env.sh` and
-  `sealed::seal` give it a scratch home and folders. Run paw by hand only
-  through `tests/tools/run.sh`.
-- A flaky test is a bug in the test. No retries. If you cannot fix it
-  now, add it to `tests/quarantine.txt` with the fix that it waits for.
-- Keep the tests to a minimum: each one guards a behavior that the user
-  or a caller relies on.
+  test that uses the real keys. The skills `lua-testing` and
+  `rust-testing` hold the rules for a test: no time, no load, nothing of
+  the machine, no retries. Run paw by hand only through
+  `tests/tools/run.sh`.
 - The window (`crates/paw-gui`) is paused: do not change, build, check
   or test it. A change of `paw-scene` can stop its build: say so in your
   report.
-- Some rules run by themselves. The hook `.githooks/pre-commit` refuses a
-  commit with a leftover of a merge, an id of the task board outside the
-  board, Rust files that change only in their format, or a lint that
-  fails. paw is not rustfmt-clean: keep the style of each file by hand. `tools/guard-hook.py` refuses the commands that put a
-  load on the machine that it cannot carry. `tests/tools/suite.sh` runs
-  the Lua suite under cargo-nextest. Each part of the suite takes one of
-  four slots of the machine (lock files in `/tmp/paw-suite-locks`) before
-  it starts paw, so all the runs on the machine share four paw processes.
+- Hooks enforce some rules: `.githooks/pre-commit`,
+  `tools/guard-hook.py` and `tools/comment-hook.py`. A refusal tells the
+  rule and what to run instead. paw is not rustfmt-clean: keep the style
+  of each file by hand.
 - A review of a change reads `CODING_STANDARDS.md`: the rules that need
   judgment.
 - The task board is `backlog/` (the tool Backlog, `backlog --help`),

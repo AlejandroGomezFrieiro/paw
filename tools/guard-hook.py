@@ -6,9 +6,9 @@ It refuses the commands that the rules of AGENTS.md forbid, before they run.
 Each one once cost a run of hours or put the machine under a load that it
 could not carry. The refusal goes back to the agent (exit 2) with the rule
 and what to run instead. It reads each command of the line (split at ;, &&,
-||, | and new lines), after `nix develop -c`, `timeout N`, `env` and
-assignments, so a text that only names a command (an echo, a heredoc of a
-brief) passes.
+||, |, & and new lines outside quotes), after `nix develop -c`, `rtk`,
+`timeout N`, `env` and assignments, so a text that only names a command (an
+echo, a quoted pattern, a heredoc of a brief) passes.
 """
 import json
 import os
@@ -78,30 +78,60 @@ def queued_cargo():
     return found.endswith("tools/bin/cargo")
 
 
-QUEUE_ESCAPE = re.compile(r"(^|[\s;&|(])(export\s+)?(HEAVY_\w+|CI|PAW_CARGO\w*|CARGO_BUILD_JOBS)=")
+QUEUE_VARIABLE = re.compile(r"(HEAVY_\w+|CI|PAW_CARGO\w*|CARGO_BUILD_JOBS)=.*")
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*")
+PREFIXES = {"env", "nice", "time", "command", "exec", "export"}
+RTK_RUNNERS = {"bypass", "err", "test", "summary", "run", "proxy"}
+OPERATORS = set(";&|()\n")
 
 
-PREFIXES = {"env", "nice", "time", "command", "exec"}
-
-
-def words_of(segment):
+def segments(command):
+    """The commands of a line as lists of words, split at operators outside quotes."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
     try:
-        words = shlex.split(segment, comments=True)
+        tokens = list(lexer)
     except ValueError:
-        return []
+        found = []
+        for part in re.split(r"\|\||&&|[;|\n&()]", command):
+            try:
+                found.append(shlex.split(part, comments=True))
+            except ValueError:
+                pass
+        return found
+    found, current = [], []
+    for token in tokens:
+        if token and set(token) <= OPERATORS:
+            found.append(current)
+            current = []
+        else:
+            current.append(token)
+    found.append(current)
+    return found
+
+
+def command_words(words):
+    """The words of the command that runs, and whether a queue variable is set on the way."""
+    sets_queue = False
     while words:
         head = words[0]
-        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", head) or head in PREFIXES:
+        if ASSIGNMENT.fullmatch(head):
+            sets_queue = sets_queue or bool(QUEUE_VARIABLE.fullmatch(head))
+            words = words[1:]
+        elif head in PREFIXES:
             words = words[1:]
         elif head == "timeout" and len(words) > 1:
             words = words[2:]
         elif head == "nix" and words[1:3] == ["develop", "-c"]:
             words = words[3:]
+        elif head == "rtk":
+            words = words[2:] if words[1:2] and words[1] in RTK_RUNNERS else words[1:]
         elif head in ("sh", "bash") and words[1:2] and not words[1].startswith("-"):
             words = words[1:]
         else:
             break
-    return words
+    return words, sets_queue
 
 
 def main():
@@ -109,12 +139,12 @@ def main():
     command = (data.get("tool_input") or {}).get("command") or ""
     # A heredoc body is text, not commands: drop it.
     command = re.sub(r"<<-?\s*'?\"?(\w+)'?\"?.*?\n.*?\n\1\s*(\n|$)", "\n", command, flags=re.S)
-    if QUEUE_ESCAPE.search(command):
-        print("Refused by the project hook (tools/guard-hook.py): the variables of the cargo queue "
-              "(HEAVY_*, CI, PAW_CARGO*, CARGO_BUILD_JOBS) are set by tools/bin/cargo, not by a command.", file=sys.stderr)
-        sys.exit(2)
-    for segment in re.split(r"\|\||&&|[;|\n&()]", command):
-        words = words_of(segment.strip())
+    for segment in segments(command):
+        words, sets_queue = command_words(segment)
+        if sets_queue:
+            print("Refused by the project hook (tools/guard-hook.py): the variables of the cargo queue "
+                  "(HEAVY_*, CI, PAW_CARGO*, CARGO_BUILD_JOBS) are set by tools/bin/cargo, not by a command.", file=sys.stderr)
+            sys.exit(2)
         for refused, why in RULES:
             if refused(words):
                 print(f"Refused by the project hook (tools/guard-hook.py): {why}", file=sys.stderr)

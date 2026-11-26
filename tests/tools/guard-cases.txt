@@ -1,0 +1,15 @@
+2	rtk cargo build --release
+2	rtk bypass cargo build --release
+2	timeout 60 rtk err cargo build --profile release
+2	cd x && cargo build -r
+2	x=$(cargo build --release)
+2	ls; nix develop -c cargo fmt
+2	CI=1 cargo build
+2	export HEAVY_HELD=cargo
+2	env CARGO_BUILD_JOBS=24 cargo b
+2	backlog task edit 3 -l a
+0	grep -n "a|heavy --slots 3 --" x
+0	echo "cargo build --release"
+0	git grep "CI=1"
+0	grep -n 'x; cargo fmt' y
+0	echo 'unbalanced
