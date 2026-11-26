@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@pi'
 created_date: '2026-11-25T19:11:00Z'
-updated_date: '2026-11-25T19:58:00Z'
+updated_date: '2026-11-26T20:58:00Z'
 labels:
   - ci
 dependencies: []
@@ -31,7 +31,7 @@ Contributors need the same checks on GitHub as in a local checkout. Start with t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Pull requests and main pushes run the Nix flake checks and the full dev Lua suite without deployment permissions.
+- [x] #1 Pull requests and main pushes run the Nix flake checks and the full dev Lua suite without deployment permissions.
 - [ ] #2 The nightly and manual workflow runs all four combinations of dev and release, serial and shuffled parallel. The run keeps the Lua reports and the seed.
 - [x] #3 The test guide names the checks and explains how to read the reports and reproduce a shuffle.
 <!-- AC:END -->
@@ -66,4 +66,5 @@ The local dev Lua suite reports failures in the ARA extension and plugin state c
 Local nextest result: 181 of 185 parts passed. Failed parts: ARA, sampler, attr, and scene_parity. The last three reported extra plugin state after the tests. No checks were skipped or given retries to hide these failures.
 
 The first hosted Lua suite used indexed colors, a long Nix temporary path and dash as /bin/sh. The CI runner now pins truecolor and a short temporary root. The nested-suite test runs its process limit in Bash. Four representative tests passed through the updated CI runner with the original runner-like environment. The exact process-limit command also passed under dash.
+Owner 2026-11-26 (gh run list): the CI workflow passed on a push to main after the pull request merged; the earlier CI failures on the pull request branch are fixed there. ci.yml has only contents: read. AC 2 waits for a first run of Extended tests (nightly or manual): no run of it is in the list yet.
 <!-- SECTION:NOTES:END -->
