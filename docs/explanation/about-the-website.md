@@ -97,7 +97,9 @@ Its costs are these.
 - A bare `<name>` in the text of `docs/reference/api.md` is read as an
   HTML tag. GitHub does the same.
 
-The next tickets of the website (a paw in the page, publishing) build on
-this output.
+The GitHub Pages workflow builds `.#website-live`, which includes the pod.
+The browser checks serve the site under `/paw/`, the same path as on
+GitHub Pages. GitHub Pages doesn't set the isolation headers that
+BrowserPod needs, so the site uses a service worker to add them.
 
 See [How to preview the manual as a website](../how-to/preview-the-manual-as-a-website.md).

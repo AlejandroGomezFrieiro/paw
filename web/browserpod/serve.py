@@ -78,7 +78,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 f.write(f"{self.path.split('?')[0]} {value}\n")
         super().send_header(keyword, value)
 
-    def log_message(self, *args):
+    def log_message(self, format, *args):
         pass
 
 
@@ -87,7 +87,7 @@ def main():
     Handler.headers_on = "--no-headers" not in sys.argv
     handler = functools.partial(Handler, directory=os.path.abspath(root))
     with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
-        print(f"http://127.0.0.1:{port}/", flush=True)
+        print(f"http://127.0.0.1:{server.server_port}/", flush=True)
         server.serve_forever()
 
 

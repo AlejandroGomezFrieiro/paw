@@ -40,8 +40,8 @@ Run `web/browserpod/test.sh result`. The script serves the image, opens the
 demo page in headless Chromium, and checks the terminal size, the keys, a
 scope, a lesson and the sound. It writes the screens and the times to
 `target/browserpod/test.json`. With `--no-headers` as the third argument,
-the server sends no isolation headers, as GitHub Pages does, and `coi.js`
-isolates the page.
+the server sends no isolation headers, as GitHub Pages does. The service
+worker isolates the page.
 
 The test loads BrowserPod's runtime and base disk from BrowserPod's servers,
 as each visitor of the page does. At the end, the script prints the bytes
@@ -55,6 +55,15 @@ To test the course page with a live paw, build the website with the pod
 presses the button of each lesson and the "Type it" button of each step.
 It checks that the tutor in paw goes on to the next step each time, and it
 saves screenshots beside `OUT.json`.
+Set `PAW_LESSONS=1` to run only the first lesson.
+
+To check the site as GitHub Pages serves it, use the same two options as
+its workflow. The `--pages-path` option puts the site under `/paw/` in
+a local run and uses the repository name on GitHub.
+
+```sh
+web/browserpod/test.sh result target/pages/site.json --site --pages-path --no-headers
+```
 
 ### How to update the lock of the pod build
 

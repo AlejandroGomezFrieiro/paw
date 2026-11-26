@@ -7,9 +7,9 @@
 // pod. The test checks: nothing loads from BrowserPod's servers before
 // Start, also when a step's button is pressed first; the credit and the
 // privacy note; the terminal is 100 by 30 cells; then, for each lesson
-// with buttons, the lesson's button opens it in paw, and the "Type it"
-// button of each step does the step, so that the tutor goes on to the next
-// step. OUT gets each check, the lessons' results, the times and the
+// with buttons, the lesson's button opens it in paw. Each "Type it"
+// button does its step, and the test types the keys for the manual first
+// lesson step. OUT gets each check, the lessons' results, the times and the
 // screens; screenshots go beside it. The exit code is the number of
 // failed checks.
 import puppeteer from "puppeteer-core";
@@ -139,13 +139,19 @@ try {
     }
     const total = steps.length;
     for (let i = 0; i < total; i++) {
-      if (!steps[i].keys) {
+      if (steps[i].keys) {
+        const target = await page.$(`ol[data-test-lesson="${lesson}"] > li:nth-child(${i + 1}) > [data-paw-keys] button`);
+        await target.click();
+        await until(() => target.evaluate((b) => !b.disabled), 60000);
+      } else if (lesson === 1 && i === 6) {
+        // The page leaves this step to the reader: play at the new tempo, then stop.
+        await page.evaluate(() => window.pawPod.sendKeys("<Space><Space>"));
+        await until(async () => /step 8 of 8|The song plays faster now/.test(await screen()), 20000);
+        await page.evaluate(() => window.pawPod.sendKeys("<Space><Space>"));
+      } else {
         report.steps.push("no keys");
         break;
       }
-      const target = await page.$(`ol[data-test-lesson="${lesson}"] > li:nth-child(${i + 1}) > [data-paw-keys] button`);
-      await target.click();
-      await until(() => target.evaluate((b) => !b.disabled), 60000);
       const next = i + 1 < total ? `step ${i + 2} of ${total}` : null;
       // The tutor shows the next step, or the ✓ text of this one. A panel
       // beside the tutor can make its title too short for the step number.
@@ -163,7 +169,10 @@ try {
       const covered = !done && !new RegExp(`lesson ${lesson} of`).test(await screen());
       report.steps.push(done || (covered ? "covered" : `not noticed (${next})`));
       if (lesson === 1 && i === 0) {
-        await pause(1500);
+        await page.waitForFunction(async () => {
+          const sound = await window.pawPod.audio.stats();
+          return sound.played > 0 && sound.peak > 0.01;
+        }, { polling: 250 });
         result.sound = await page.evaluate(() => window.pawPod.audio.stats());
         check("the song of lesson 1 reaches the worklet", result.sound.played > 0 && result.sound.peak > 0.01, JSON.stringify(result.sound));
       }
@@ -175,7 +184,7 @@ try {
     }
     report.ms = Date.now() - t;
     const ok = report.steps.length === total && report.steps.at(-1) === "ok" && report.steps.every((s) => s === "ok" || s === "covered");
-    check(`lesson ${lesson}: each step's button does the step`, ok, report.steps.join(" "));
+    check(`lesson ${lesson}: each step works in the browser`, ok, report.steps.join(" "));
     if ([2, 4, 10].includes(lesson)) await shot(`lesson-${lesson}`);
   }
 } catch (err) {

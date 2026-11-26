@@ -92,7 +92,20 @@ try {
   const landing = await open("landing");
   await landing.goto(url, { waitUntil: "load" });
   await landing.waitForSelector(".paw-cast-steps li", { timeout: 30000 });
-  await pause(1000);
+  const tour = await landing.$eval('img[src$="/tui-tour.gif"]', (img) => img.naturalWidth);
+  check("the landing page loads its tour image", tour > 0);
+
+  const manual = await open("manual");
+  await manual.goto(url, { waitUntil: "load" });
+  await manual.click('.landing-actions a[href$="docs/README.html"]');
+  await manual.waitForSelector("#mdbook-search-toggle");
+  check("the manual link stays within the site", manual.url() === `${site}docs/README.html`, manual.url());
+  await manual.click("#mdbook-search-toggle");
+  await manual.type("#mdbook-searchbar", "piano roll");
+  const search = await manual.waitForSelector("#mdbook-searchresults a", { visible: true });
+  const href = await search.evaluate((a) => a.href);
+  check("the manual search returns a page within the site", href.startsWith(`${site}docs/`), href);
+  await manual.close();
   const early = landing.requests.filter((u) => /browserpod\.io/.test(u));
   check("nothing loads from BrowserPod before Try paw", early.length === 0, early.join(" "));
   const panel = await landing.$eval(".paw-live-panel", (e) => e.textContent);
@@ -103,17 +116,17 @@ try {
 
   // The recorded session: its steps with their keys, and a step's screen.
   const steps = await landing.$$eval(".paw-cast-steps li", (items) => items.map((i) => i.textContent));
-  check("the recorded session lists its steps with their keys", steps.length >= 5 && steps.some((s) => s.includes("4Gwvicy0P")), steps.join(" | "));
+  check("the recorded session lists its steps with their keys", steps.length >= 5 && steps.some((s) => s.includes("4G0wvicy0P")), steps.join(" | "));
   await landing.click(".paw-cast-steps li:nth-child(4)");
-  await pause(300);
   const castScreen = await landing.$eval(".paw-cast-screen", (e) => e.textContent);
   const caption = await landing.$eval(".paw-cast-caption", (e) => e.textContent);
   check("a step of the recorded session shows its screen and caption", /NORMAL/.test(castScreen) && caption.length > 0 && steps[3].startsWith(caption), caption);
+  const beforePlay = await landing.$eval(".paw-cast-controls input", (e) => Number(e.value));
   await landing.click(".paw-cast-controls button");
-  await pause(1500);
+  await landing.waitForFunction((before) => Number(document.querySelector(".paw-cast-controls input").value) > before, {}, beforePlay);
   await landing.click(".paw-cast-controls button");
-  const played = await landing.$eval(".paw-cast-controls input", (e) => parseFloat(e.value));
-  check("Play moves the recorded session on", played > 1, String(played));
+  const played = await landing.$eval(".paw-cast-controls input", (e) => Number(e.value));
+  check("Play moves the recorded session on", played > beforePlay);
   await shot(landing, "cast", "paw-cast");
 
   // Try paw: the demo song, and its sound.
@@ -124,7 +137,19 @@ try {
   check("paw shows the demo song", song.join("\n").includes("Drums"));
   const [play] = await landing.$$(`xpath/.//button[normalize-space()="Play or stop the song"]`);
   await play.click();
-  await pause(3000);
+  try {
+    await landing.waitForFunction(async () => {
+      const sound = await window.pawPod.audio.stats();
+      return sound.played > 48000 && sound.peak > 0.01;
+    }, { polling: 250 });
+  } finally {
+    result.playback = await landing.evaluate(() => ({
+      status: document.querySelector(".paw-live-status").textContent,
+      audio: window.pawPod.audio.context?.state,
+      received: window.pawPod.audio.received,
+      screen: window.pawPod.screen().slice(-2),
+    }));
+  }
   const sound = await landing.evaluate(() => window.pawPod.audio.stats());
   await play.click();
   result.sound = sound;
@@ -140,7 +165,7 @@ try {
   result.screens["edit-notes"] = guideScreen;
   check("a how-to guide opens paw at its state", /runs here/.test(guideStatus) && guideScreen.join("\n").includes("Drums"), guideStatus);
   await guide.evaluate(() => window.pawPod.sendKeys("4G5|<CR>"));
-  await pause(1500);
+  await guide.waitForFunction(() => window.pawPod.screen().some((line) => line.includes("pianoroll")));
   const roll = await screen(guide);
   result.screens["edit-notes-pianoroll"] = roll;
   check("the guide's first step opens the piano roll", /pianoroll/.test(roll.join("\n")), roll[28]);
