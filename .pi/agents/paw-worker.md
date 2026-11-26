@@ -1,8 +1,8 @@
 ---
 name: paw-worker
 description: "Implements a well-specified paw ticket that follows a known pattern (label agent:worker): mechanical changes, fixes with a known cause, docs, tests, ports. Works in its own worktree."
-model: openrouter/openai/gpt-6.2-sol
-thinking: medium
+model: openrouter/deepseek/deepseek-v4.1-flash-1017
+thinking: high
 tools: "*, ext:paw/Skill"
 isolation: worktree
 persist_session: false

@@ -302,19 +302,31 @@ async function checkAgentRole(root: string, ticket: string, type: string) {
 	return undefined;
 }
 
-const OPENROUTER_PIN = { only: ["openai"], allow_fallbacks: false };
+/**
+ * The upstream provider of OpenRouter that serves a family of models, by the
+ * prefix of the model id. Only a family with a provider of its own goes here.
+ * DeepSeek serves its models through other providers, and the session affinity
+ * headers of the model keep one of them for the session.
+ */
+const UPSTREAM: Record<string, string> = {
+	"openai/": "openai",
+};
 
 /**
- * Keep each request of the pinned model on the OpenAI upstream provider of
+ * Keep each request of a pinned model on one upstream provider of
  * OpenRouter, and on no other. A split backend loses the prompt cache.
+ * A model without an entry keeps the routing of OpenRouter.
  */
 function pinOpenRouterProvider(pi: ExtensionAPI): void {
 	pi.on("before_provider_request", (event, ctx) => {
 		if (ctx.model?.provider !== "openrouter") return;
 		const payload = event.payload as { model?: unknown; provider?: unknown } | undefined;
 		if (!payload || typeof payload !== "object") return;
-		if (payload.model !== "openai/gpt-6.2-sol") return;
-		return { ...payload, provider: OPENROUTER_PIN };
+		const model = payload.model;
+		if (typeof model !== "string") return;
+		const entry = Object.keys(UPSTREAM).find((prefix) => model.startsWith(prefix));
+		if (!entry) return;
+		return { ...payload, provider: { only: [UPSTREAM[entry]], allow_fallbacks: false } };
 	});
 }
 

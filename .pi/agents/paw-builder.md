@@ -1,8 +1,8 @@
 ---
 name: paw-builder
 description: "Implements a paw ticket or bundle that changes a contract, the engine or a design (label agent:builder). Works in its own worktree and reports by the wave rules."
-model: openrouter/openai/gpt-6.2-sol
-thinking: medium
+model: openrouter/deepseek/deepseek-v4.1-flash-1017
+thinking: high
 tools: "*, ext:paw/Skill"
 isolation: worktree
 persist_session: false

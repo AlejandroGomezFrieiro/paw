@@ -1,8 +1,8 @@
 ---
 name: paw-po
 description: "The product owner pass on paw's Backlog board after a batch lands: tickets Done, follow-ups, merges of small tickets, refinement, agent labels, the next order."
-model: openrouter/openai/gpt-6.2-sol
-thinking: medium
+model: openrouter/deepseek/deepseek-v4.1-flash-1017
+thinking: high
 tools: "*, ext:paw/Skill"
 ---
 

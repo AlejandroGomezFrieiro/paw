@@ -16,7 +16,7 @@ const scratch = mkdtempSync(join(tmpdir(), "paw-pi-smoke-"));
 const repo = join(scratch, "repo");
 const home = join(scratch, "home");
 const agentDir = join(home, ".pi", "agent");
-const model = "openai/gpt-6.2-sol";
+const model = "deepseek/deepseek-v4.1-flash-1017";
 const ticket = "41.2";
 const ticketLabel = `TASK-${ticket}: Child ticket | Review code`;
 const scoutTicket = "42";
@@ -71,7 +71,8 @@ function checkFooter() {
 
 function responseFor(body) {
 	assert.equal(body.model, model);
-	assert.deepEqual(body.provider, { only: ["openai"], allow_fallbacks: false });
+	// The default model has no provider of its own, so it keeps the routing of OpenRouter.
+	assert.equal(body.provider, undefined);
 	const tools = body.tools?.map((tool) => tool.function.name) ?? [];
 	const text = JSON.stringify(body.messages);
 	const next = body.messages.at(-1);

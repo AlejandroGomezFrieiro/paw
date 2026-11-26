@@ -170,11 +170,13 @@ The check needs Node.js 24 and Pi on `PATH`. It uses a scratch checkout and a
 local HTTP server. It needs no provider credentials and makes no paid requests.
 The pre-commit hook runs it when you stage a Pi configuration or test change.
 
-The project sets GPT-6.2 Sol at `medium` in `.pi/settings.json` and the paw
-agent files in `.pi/agents/`. The project hook sends that model only to the
-OpenAI provider on OpenRouter. If that provider is down, a request fails
-instead of switching providers. Use `/cache-optimizer stats` to inspect
-cache use. A cache hit alone does not prove which provider served a request.
+The project sets DeepSeek V4.1 Flash 1017 at `high` in `.pi/settings.json` and
+the paw agent files in `.pi/agents/`. OpenRouter serves it through other
+providers, and the model keeps one of them for the session, so the prompt
+cache holds. A model of the OpenAI family goes only to the OpenAI provider,
+and a request to it fails instead of switching when that provider is down.
+Use `/cache-optimizer stats` to inspect cache use. A cache hit alone does not
+prove which provider served a request.
 
 Pi uses the shell and Vale hooks from Claude Code. Its comment hook flags
 possible narration for review. It does not remove comments.
