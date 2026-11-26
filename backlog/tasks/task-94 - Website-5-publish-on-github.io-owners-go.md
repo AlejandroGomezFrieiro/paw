@@ -1,11 +1,11 @@
 ---
 id: TASK-94
 title: 'Website 5: publish on github.io (owner''s go)'
-status: In Progress
+status: Done
 assignee:
   - '@pi'
 created_date: '2026-11-22T10:12:00Z'
-updated_date: '2026-11-25T19:30:00Z'
+updated_date: '2026-11-26T20:57:00Z'
 labels:
   - agent:worker
 milestone: m-9
@@ -38,20 +38,20 @@ A GitHub Actions workflow (or nix build + gh-pages) that builds the site from ma
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The complete live website builds and the project path passes the browser checks without server isolation headers.
-- [ ] #2 Only a manual run from main can publish the tested artifact to GitHub Pages.
-- [ ] #3 The owner can follow the preview guide and confirm that the public site works.
+- [x] #2 Only a manual run from main can publish the tested artifact to GitHub Pages.
+- [x] #3 The owner can follow the preview guide and confirm that the public site works.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Each acceptance criterion is met, and the notes give its evidence
-- [ ] #2 Tests: each change of behavior has a test (real keys for a UX change); tests are sealed and do not depend on time; prune-tests is applied
-- [ ] #3 Checks pass: clippy 0 warnings, tlcheck, luacheck, fmtcheck, testlint, layers, apidoc check, Vale 0 alerts on changed Markdown
+- [x] #1 Each acceptance criterion is met, and the notes give its evidence
+- [x] #2 Tests: each change of behavior has a test (real keys for a UX change); tests are sealed and do not depend on time; prune-tests is applied
+- [x] #3 Checks pass: clippy 0 warnings, tlcheck, luacheck, fmtcheck, testlint, layers, apidoc check, Vale 0 alerts on changed Markdown
 - [x] #4 Docs: each page the change made untrue is fixed; the notes give the stale-docs search; generated files are generated, not edited
-- [ ] #5 Architecture: a contract change is in the architecture documentation; a design change has a proposed ADR
-- [ ] #6 Report: it starts with Changes for the orchestrator (file, place, exact edit), then commits, evidence, tests to run after the build, before and after screens for a UX change, owner questions
-- [ ] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
-- [ ] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
+- [x] #5 Architecture: a contract change is in the architecture documentation; a design change has a proposed ADR
+- [x] #6 Report: it starts with Changes for the orchestrator (file, place, exact edit), then commits, evidence, tests to run after the build, before and after screens for a UX change, owner questions
+- [x] #7 Hygiene: no ticket ids or backlog paths in tracked files; commit trailer; no process left running; paw-gui not touched
+- [x] #8 Orchestrator: merged on main; affected tests and the full suite pass; the changes for the orchestrator are applied
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -71,4 +71,6 @@ The live build fails before compilation because the BrowserPod source lacks the 
 Refreshed the BrowserPod workspace inputs and lock. The complete site builds locally. Chromium passed all 17 site checks and 11 course checks under /custom_daw/ without isolation headers, including sound and every step of lesson 1. The public deployment and hosted run remain unverified.
 
 GitHub now names the repository paw. The Pages test uses its repository name in Actions and defaults to /paw/ locally. All 28 browser checks also pass under /paw/.
+
+Owner 2026-11-26: the public site on github.io works. AC 2: .github/workflows/pages.yml uploads the Pages artifact and runs the deploy job only when github.event_name is workflow_dispatch and github.ref is refs/heads/main; pull requests only verify. AC 3: the owner followed the guide and confirmed the public site.
 <!-- SECTION:NOTES:END -->
