@@ -16,6 +16,9 @@
 # - audio-no-log: no log macro in paw-engine. Its code runs on the audio
 #   thread: the engine counts, and the kernel logs the counts.
 #
+# It also tests the comment rules of tools/ast-grep/comments, which
+# tools/comment-hook.py runs on each edit of an agent.
+#
 # The lints of clippy (casts, unwrap, long functions) are in
 # [workspace.lints.clippy] of Cargo.toml, and `cargo clippy -- -D warnings`
 # checks them.
@@ -27,4 +30,6 @@ if ! command -v ast-grep > /dev/null; then
   exit 0
 fi
 ast-grep test --skip-snapshot-tests > /dev/null || exec ast-grep test --skip-snapshot-tests
+comments=tools/ast-grep/comments/sgconfig.yml
+ast-grep test -c "$comments" --skip-snapshot-tests > /dev/null || exec ast-grep test -c "$comments" --skip-snapshot-tests
 ast-grep scan crates extensions tests/harness

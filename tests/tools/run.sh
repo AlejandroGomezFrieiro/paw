@@ -4,7 +4,9 @@
 #
 #   tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check
 #
-# The binary is $PAW_TEST_BIN/paw, or target/release/paw.
+# The binary is the one that env.sh's paw_ready gives: a paw of this
+# checkout's sources, built if there is none.
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
+paw_ready || exit 1
 exec "$BIN/paw" "$@"

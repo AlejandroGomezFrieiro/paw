@@ -1,0 +1,21 @@
+id: comment-rust
+valid:
+  - |
+    /// The gain in decibels.
+    fn gain() {}
+  - |
+    //! The engine.
+  - |
+    // SAFETY: the pointer lives as long as the block.
+    unsafe { f() }
+  - |
+    /** A doc block. */
+    struct A;
+invalid:
+  - |
+    // Set the gain.
+    fn gain() {}
+  - |
+    fn f() { let a = 1; /* a block */ }
+  - |
+    // let old = 1;

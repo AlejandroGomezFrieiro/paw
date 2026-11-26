@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the Lua end-to-end suite on the release build (or on $PAW_TEST_BIN).
+# Run the Lua end-to-end suite on the dev build of this checkout (env.sh).
 #
 #   tests/tools/suite.sh                  every test, 4 parts at a time
 #   tests/tools/suite.sh only "loop on"   the tests whose name holds the words
@@ -83,14 +83,7 @@ while :; do
     *) break ;;
   esac
 done
-# The stub plugin that some tests load is a cargo example, which a plain
-# `cargo build` does not make: build it here, so that a test never loads a
-# stub that an older checkout left in target/. With PAW_TEST_BIN (a binary
-# that another checkout built, for example a dev build of main), env.sh
-# takes the stub from beside that binary, and nothing is built here.
-if [ -z "$PAW_TEST_BIN" ]; then
-  cargo build --release -q -j 4 -p paw-plugins --example stub_clap || exit 1
-fi
+paw_ready || exit 1
 out=$SCRATCH/suite.out
 
 # Print the quarantined tests of the output and the last line, and exit: 0
@@ -161,7 +154,8 @@ if [ "$1" = only ]; then
 fi
 [ -n "$PAW_TEST_REPEAT" ] && profile=lua-one
 rm -rf "$SCRATCH/parts"
-cargo nextest run --cargo-quiet --build-jobs 4 --no-tests warn -p paw-lua-suite --profile "$profile" ${jobs:+--test-threads "$jobs"}
+cargo nextest run --cargo-quiet --no-run -p paw-lua-suite || exit 1
+HEAVY_HELD=cargo cargo nextest run --cargo-quiet --no-tests warn -p paw-lua-suite --profile "$profile" ${jobs:+--test-threads "$jobs"}
 code=$?
 cat "$SCRATCH"/parts/*/suite.out > "$out" 2> /dev/null
 finish "$code"

@@ -1,0 +1,84 @@
+#!/bin/sh
+# The dev shell's cargo (tools/bin is first on PATH). Compiling commands wait
+# for a slot of the machine's queue (heavy, tools/queue-defaults.sh) and get
+# a share of the cores; tools/queue.sh shows the queue. It refuses a target
+# folder of another checkout, and writes paw.stamp (tools/stamp.sh) beside
+# each paw that it builds.
+here=$(cd "$(dirname "$0")" && pwd)
+real=$PAW_CARGO
+if [ -z "$real" ]; then
+  IFS=:
+  for d in $PATH; do
+    [ "$d" = "$here" ] && continue
+    [ -x "$d/cargo" ] && real=$d/cargo && break
+  done
+  unset IFS
+fi
+if [ -z "$real" ]; then
+  echo "cargo (tools/bin): no cargo on PATH after tools/bin" >&2
+  exit 127
+fi
+[ "$HEAVY_HELD" = cargo ] && exec "$real" "$@"
+
+sub=
+target_dir=$CARGO_TARGET_DIR
+profile=debug
+next=
+for a in "$@"; do
+  case "$next" in
+    skip) next= && continue ;;
+    target) target_dir=$a next= && continue ;;
+    profile) profile=$a next= && continue ;;
+  esac
+  case "$a" in
+    -Z | --config | -C | --color | --manifest-path | -p | --package | -j | --jobs | --features | -F | --bin | --example | --test | --bench | --target | --exclude) next=skip ;;
+    --target-dir) next=target ;;
+    --target-dir=*) target_dir=${a#--target-dir=} ;;
+    --profile) next=profile ;;
+    --profile=*) profile=${a#--profile=} ;;
+    --release | -r) profile=release ;;
+    +* | -*) ;;
+    *) [ -z "$sub" ] && sub=$a ;;
+  esac
+done
+case "$profile" in dev | test) profile=debug ;; bench) profile=release ;; esac
+case "$sub" in
+  build | b | check | c | clippy | test | t | nextest | run | r | doc | d | bench | rustc | rustdoc | fix | install | insta | llvm-cov | miri) ;;
+  *) exec "$real" "$@" ;;
+esac
+
+root=$(git rev-parse --show-toplevel 2> /dev/null)
+if [ -n "$root" ]; then
+  target=$(realpath -m "${target_dir:-$root/target}")
+  near=$target
+  while [ ! -d "$near" ]; do near=$(dirname "$near"); done
+  owner=$(git -C "$near" rev-parse --show-toplevel 2> /dev/null)
+  if [ -n "$owner" ] && [ "$owner" != "$root" ]; then
+    echo "cargo (tools/bin): the target folder $target belongs to the checkout $owner, not to $root." >&2
+    echo "A build here would put this checkout's artifacts in its place. Use this checkout's target, or a scratch folder." >&2
+    exit 2
+  fi
+fi
+
+. "$here/../queue-defaults.sh"
+if ! command -v "$PAW_HEAVY" > /dev/null; then
+  echo "cargo (tools/bin): heavy is not on PATH. Enter the dev shell again (direnv reload, or nix develop)." >&2
+  exit 127
+fi
+export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-$PAW_CARGO_JOBS}
+
+stamp=
+case "$sub" in
+  build | b | run | r | test | t | nextest | install)
+    [ -n "$root" ] && [ -x "$root/tools/stamp.sh" ] && stamp=$("$root/tools/stamp.sh" "$root")
+    ;;
+esac
+paw=$target/$profile/paw
+built=$(stat -c %y "$paw" 2> /dev/null)
+"$PAW_HEAVY" --pool cargo --slots "$PAW_CARGO_SLOTS" --dir "$PAW_CARGO_LOCKS" \
+  --log "$PAW_CARGO_LOCKS/cargo.log" --timeout "${PAW_CARGO_WAIT:-1800}" -- "$real" "$@"
+code=$?
+if [ "$code" -eq 0 ] && [ -n "$stamp" ] && [ "$(stat -c %y "$paw" 2> /dev/null)" != "$built" ]; then
+  printf '%s\n' "$stamp" > "$target/$profile/paw.stamp"
+fi
+exit "$code"

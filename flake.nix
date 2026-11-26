@@ -526,6 +526,17 @@
         touch $out
       '';
 
+    # tests/tools/devtools-test.sh: the cargo queue and the no-comments hook.
+    devtools = pkgs:
+      pkgs.runCommand "paw-devtools" {
+        src = ./.;
+        nativeBuildInputs = [(pkgs.callPackage ./nix/heavy.nix {}) pkgs.git pkgs.python3 pkgs.ast-grep];
+      } ''
+        export HOME=$TMPDIR
+        cd $src && sh tests/tools/devtools-test.sh
+        touch $out
+      '';
+
     # tools/hygiene.sh: no leftover of a patch or merge tool (*.orig,
     # *.rej) and no id of the local task board in a kept file. The flake's
     # source holds only the files that git keeps.
@@ -635,6 +646,7 @@
         default = paw pkgs;
         website = website pkgs;
         zerv = pkgs.callPackage ./nix/zerv.nix {};
+        heavy = pkgs.callPackage ./nix/heavy.nix {};
         paw = only pkgs "paw";
         paw-gui = only pkgs "paw-gui";
         paw-mcp = only pkgs "paw-mcp";
@@ -670,6 +682,7 @@
         zoomlint = zoomLint pkgs;
         partlint = partLint pkgs;
         hygiene = hygiene pkgs;
+        devtools = devtools pkgs;
         rustlint = rustlint pkgs;
         machete = machete pkgs;
         chaindeps = chainDeps pkgs;
@@ -695,7 +708,7 @@
         # runs docs/images/make/make.sh with VHS (it records paw in a
         # terminal of a headless browser, so it needs no display) and the
         # tools of gif.py. The fonts are given here, so that each machine
-        # draws the same GIF. paw is PAW_BIN or target/release: the app
+        # draws the same GIF. paw is PAW_BIN or target/debug: the app
         # does not build it.
         gifs = {
           type = "app";
@@ -788,6 +801,10 @@
           nativeBuildInputs = with pkgs;
             [cargo rustc clippy rustfmt rust-analyzer pkg-config rustPlatform.bindgenHook ffmpeg-headless sccache cargo-sweep cargo-nextest cargo-insta cargo-machete cargo-deny ast-grep (lib.getBin libxml2)]
             ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.mold-wrapped;
+          PAW_CARGO = "${pkgs.cargo}/bin/cargo";
+          shellHook = ''
+            export PATH="$PWD/tools/bin:$PATH"
+          '';
           # Worktrees share cached builds of crates that compile without incremental mode.
           RUSTC_WRAPPER = "sccache";
           SCCACHE_CACHE_SIZE = "40G";
@@ -797,7 +814,7 @@
 
           # tools/mcpscore.sh uses uvx to fetch its pinned version.
           packages = with pkgs;
-            [xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv git gh alejandra]
+            [xvfb openbox xdotool imagemagick tesseract vale curl luajitPackages.tl mdbook luajit uv git gh alejandra (callPackage ./nix/heavy.nix {})]
             ++ (with luaTools pkgs; [cyan teal-language-server cerulean])
             ++ [pkgs.lua-language-server pkgs.stylua pkgs.luajitPackages.luacheck];
 

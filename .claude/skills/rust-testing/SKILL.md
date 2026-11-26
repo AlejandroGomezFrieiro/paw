@@ -459,9 +459,9 @@ a run out of memory is a failure:
 
 ## 15. Commands
 
-Run them in the dev shell. Agents do not build or run tests when the
-orchestrator builds (the rules of the session). Name the tests to run in
-the report. The skill `paw-code`, part 7, gives the tier of each command.
+Run them in the dev shell. Cargo waits in the machine's queue, so give
+each command a long time limit. The skill `paw-code`, part 7, gives the
+tier of each command.
 
 ```sh
 cargo check -p <crate>                        # no link

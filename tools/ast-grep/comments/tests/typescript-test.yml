@@ -1,0 +1,12 @@
+id: comment-typescript
+valid:
+  - |
+    /** The comment text of a line. */
+    function f() {}
+  - |
+    // @ts-expect-error the type is wrong upstream
+    f();
+invalid:
+  - |
+    // Read the file.
+    f();

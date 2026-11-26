@@ -1,0 +1,13 @@
+id: comment-nix
+valid:
+  - |
+    {
+      /** The paw package. */
+      paw = 1;
+    }
+invalid:
+  - |
+    {
+      # The paw package.
+      paw = 1;
+    }

@@ -52,8 +52,8 @@ export XDG_CACHE_HOME=$D XDG_STATE_HOME=$D XDG_DATA_HOME=$D XDG_RUNTIME_DIR=$RUN
 export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/bus
 unset WAYLAND_DISPLAY DISPLAY XAUTHORITY SSH_AUTH_SOCK TMUX
 # The program: PAW_BIN when it is set (a folder with paw in it), else the
-# release build of this checkout.
-BIN=${PAW_BIN:-$ROOT/target/release}
+# dev build of this checkout.
+BIN=${PAW_BIN:-$ROOT/target/debug}
 SOCK=$RUN/k.sock
 TERM_SIZE=1120x700
 # The song every scene starts from; the scenes load extensions on top.

@@ -68,6 +68,28 @@ If you use home-manager, define the same slice with
 `nix run .#agent` says that the slice has no `MemoryMax`, and only the
 limits of each scope hold.
 
+## Share the builds between agents
+
+In the dev shell, `cargo` is `tools/bin/cargo`, which waits for a slot of
+one queue that every agent, terminal and checkout on the machine shares.
+A command that compiles, such as `build`, `check`, `clippy`, `test` or
+`nextest`, waits for one of 3 slots and runs with an equal share of the
+processor cores as its jobs. Other commands, such as `cargo metadata`,
+run at once. A command that waits says who holds each slot.
+
+1. To see who builds and who waits, run `tools/queue.sh`. It also shows
+   how long the last builds waited and ran.
+2. To change the number of slots, set `PAW_CARGO_SLOTS` before you start
+   the agents, for example `PAW_CARGO_SLOTS=2 nix run .#agent`.
+
+The queue lets each agent build and test its own worktree: the test
+suite builds the dev build of the worktree only when its Rust code
+differs from the main checkout ([How to run the
+tests](run-the-tests.md)). Give a long command a long time limit,
+because it can wait in the queue first. The project hook
+`tools/guard-hook.py` refuses a release build, a `cargo` outside the
+queue and a change of the queue's variables. CI runs the release builds.
+
 ## Know what the sandbox allows
 
 The project settings in `.claude/settings.json` turn on the sandbox of

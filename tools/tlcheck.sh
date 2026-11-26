@@ -5,7 +5,7 @@
 # flake's `teal` check run the same check, so the three agree. A change of
 # Teal needs no build: any binary checks the files of this checkout.
 #
-#   tools/tlcheck.sh            with $PAW_TEST_BIN/paw or target/release/paw, in the test environment
+#   tools/tlcheck.sh            with the paw of tests/tools/run.sh, in the test environment
 #   tools/tlcheck.sh <paw>      with that binary, in the environment it is given (the flake)
 #
 # Exits 1 when a file has a problem, and prints each one.

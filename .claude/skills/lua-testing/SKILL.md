@@ -371,14 +371,14 @@ A test of a `.tl` module can be Lua. The module itself passes
 
 ## 12. Commands
 
-Run them in the dev shell. A change of Lua or Teal needs no build: make a
-runtime from the checkout and use a binary of main. The skill `paw-code`,
-part 7, gives the tier of each command.
+Run them in the dev shell. The suite picks the paw by its `paw.stamp`.
+For a change of Lua or Teal, it runs the binary of main with a runtime
+of the checkout. For a change of Rust, it builds the dev paw of the
+checkout. The
+skill `paw-code`, part 7, gives the tier of each command.
 
 ```sh
-tools/dev-runtime.sh                                   # target/dev-runtime
-PAW_TEST_BIN=<dir of paw> PAW_RUNTIME=$PWD/target/dev-runtime \
-  tests/tools/suite.sh only "<words>" "<more>"         # the tests that hold any of the words
+tests/tools/suite.sh only "<words>" "<more>"           # the tests that hold any of the words
 tests/tools/suite.sh                                   # all tests, 4 parts at a time (the orchestrator, before a push)
 tests/tools/suite.sh -j 1                              # the same, 1 part at a time (1 to 4); only and repeat use 1 if no -j
 tests/tools/suite.sh repeat 20 only "<words>"          # find a flaky test

@@ -139,9 +139,12 @@ contract. A contract is a trait, a saved type, a file format, a
 - Work in the dev shell of the flake (`nix develop`, or `direnv` with
   `.envrc`). Inside it, do not add the prefix `nix develop -c`.
 - The commands of each tier of checks are in the skill `paw-code`, part
-  7. `nix flake check` runs all of them. A change of Lua or Teal needs
-  no build: use a binary of main and `tools/dev-runtime.sh`
+  7. `nix flake check` runs all of them. `tests/tools/suite.sh` picks or
+  builds a dev paw of your checkout by its `paw.stamp`
   ([Run the tests](docs/how-to/run-the-tests.md)).
+- In the dev shell, `cargo` waits in the machine's queue
+  (`tools/bin/cargo`, `tools/queue.sh`). Give a cargo command a long
+  time limit. Release builds are for CI and `bench/`.
 - Each change of behavior has a test. A fix of the user experience has a
   test that uses the real keys.
 - A test checks behavior. It waits for an event or a state, and its

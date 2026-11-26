@@ -63,8 +63,7 @@ The rig uses a scratch home, scratch `XDG_*` folders in
 or the home folder of the owner.
 
 `PAW_BIN` is the folder of the `paw` binary. Without it, the rig uses
-`target/release`. An agent does not build: it sets `PAW_BIN` to the
-shared binary of the session.
+`target/debug`: build it first with `cargo build -p paw-tui`.
 
 The scenes `gui-*.sh` and `stills.sh` need `paw-gui`. The graphical window
 is paused: a set skips them, and the rig refuses them.

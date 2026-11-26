@@ -14,7 +14,7 @@ script (cast-*.sh) gives the steps on standard input, one on each line:
 paw runs in a pseudo-terminal of 100 by 30 cells, with --clean,
 --no-plugins and --audio null, in a scratch home, as rig.sh runs it. The
 Lua in SETUP runs at the start. PAW_BIN is the folder of the paw program
-(target/release when it is not set). The time before paw draws its first
+(target/debug when it is not set). The time before paw draws its first
 screen is not in the file.
 """
 
@@ -152,7 +152,7 @@ def main():
         sys.exit(__doc__)
     name, out = sys.argv[1], sys.argv[2]
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    paw = os.path.join(os.environ.get("PAW_BIN") or os.path.join(root, "target", "release"), "paw")
+    paw = os.path.join(os.environ.get("PAW_BIN") or os.path.join(root, "target", "debug"), "paw")
     steps = [line.rstrip("\n").split(" ", 1) for line in sys.stdin if line.strip() and not line.startswith("#")]
     home = tempfile.mkdtemp(prefix="paw-cast-")
     # paw makes its control socket in XDG_RUNTIME_DIR, which must exist.

@@ -1,0 +1,8 @@
+# ast-grep: the comments that the no-comments skill refuses
+# (tools/comment-hook.py runs them on each edit, tools/rustlint.sh tests them).
+ruleDirs:
+  - rules
+testConfigs:
+  - testDir: tests
+languageGlobs:
+  lua: ["*.tl"]

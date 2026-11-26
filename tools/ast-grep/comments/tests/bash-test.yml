@@ -1,0 +1,22 @@
+id: comment-bash
+valid:
+  - |
+    #!/bin/sh
+    # Prints the stamp.
+    #
+    #   stamp.sh [ROOT]
+    echo hi
+  - |
+    echo hi
+    # shellcheck disable=SC2086
+    echo $a
+invalid:
+  - |
+    echo hi
+    # Print it again.
+    echo hi
+  - |
+    f() {
+      # In a function.
+      echo hi
+    }

@@ -1,0 +1,19 @@
+id: comment-python
+language: Python
+severity: warning
+message: A comment that is not the usage header of the script.
+note: Delete it. What a reader needs goes in the header at the top of the file.
+rule:
+  kind: comment
+  not:
+    any:
+      - regex: '^#!'
+      - regex: '(SAFETY:|SPDX-License-Identifier|Copyright|shellcheck |luacheck:|stylua:|rustfmt::|noqa|type: ignore|prettier-ignore|eslint-|@ts-|fmt: (off|on))'
+      - all:
+          - inside:
+              kind: module
+          - not:
+              follows:
+                not:
+                  kind: comment
+                stopBy: end

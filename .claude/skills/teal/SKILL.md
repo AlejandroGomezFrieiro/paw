@@ -39,9 +39,8 @@ module still in Lua gets signatures through `--- @type function(...)` lines.
 After a change of one of these, make the files again:
 
 ```sh
-nix develop -c cargo build --release -j 8
-nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua
-nix develop -c target/release/paw --clean --no-plugins -l tools/apidoc.lua check
+tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua
+tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check
 nix develop -c tools/tlcheck.sh
 ```
 
@@ -56,8 +55,8 @@ The Teal files have one check: `tools/tlcheck.lua`, which runs
 `.tl` file of `runtime`, `config`, `extensions` and `tools`. Three places run
 it, and they give the same result:
 
-- `tools/tlcheck.sh` (with `$PAW_TEST_BIN/paw` or `target/release/paw`; any
-  binary checks the files of the checkout, so a change of Teal needs no build),
+- `tools/tlcheck.sh` (with the paw of `tests/tools/run.sh`; a change of
+  Teal needs no build, because the binary of the main checkout serves),
 - the test suite (`tests/teal.lua`),
 - `nix flake check` (the `teal` check, with the binary of the commit).
 

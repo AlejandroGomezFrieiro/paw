@@ -9,11 +9,12 @@
 #                                   to alter the sound; say why in the commit
 #                                   message)
 #
-# It runs in the test environment (tests/tools/env.sh) on the binary of
-# $PAW_TEST_BIN, or target/release. It takes a few seconds.
+# It runs in the test environment (tests/tools/env.sh) on the paw that
+# env.sh gives: a dev build of this checkout's sources. It takes a few seconds.
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/tests/tools/env.sh"
 cd "$ROOT" || exit 1
+paw_ready || exit 1
 KEPT=tests/render-gate/hashes.sha256
 WORK=$SCRATCH/render-gate
 rm -rf "$WORK"

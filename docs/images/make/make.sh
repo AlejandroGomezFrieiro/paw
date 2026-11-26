@@ -1,11 +1,11 @@
 #!/bin/sh
-# Make the GIFs again, from the release build:
+# Make the GIFs again, from the dev build:
 #
-#   cargo build --release && nix run .#gifs -- [--check] [set or scene...]
+#   cargo build -p paw-tui && nix run .#gifs -- [--check] [set or scene...]
 #
 # The flake's app `gifs` runs this file with VHS and the other tools that
 # it needs. Run as docs/images/make/make.sh, it starts the app. PAW_BIN=<folder>
-# takes paw from that folder instead of target/release. The skill in
+# takes paw from that folder instead of target/debug. The skill in
 # .claude/skills/paw-gifs gives the rules for a scene.
 #
 # With no argument, the core's GIFs in docs/images (the README's). The name

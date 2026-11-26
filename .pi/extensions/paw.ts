@@ -28,6 +28,7 @@ import { installAgentTrace, TICKET_PREFIX } from "../lib/agent-trace.ts";
 
 const GUARD_TIMEOUT_MS = 10_000;
 const VALE_TIMEOUT_MS = 120_000;
+const COMMENT_TIMEOUT_MS = 30_000;
 const SUITE_LOCKS = "/tmp/paw-suite-locks";
 
 interface HookResult {
@@ -98,137 +99,6 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 function hookFailure(name: string, result: HookResult): string {
 	const reason = result.stderr.trim() || (result.signal ? `the signal ${result.signal}` : `the exit code ${result.code}`);
 	return `${name} did not run: ${reason}`;
-}
-
-const CODE_EXTENSIONS = new Set([
-	".rs",
-	".lua",
-	".tl",
-	".ts",
-	".mts",
-	".cts",
-	".js",
-	".mjs",
-	".cjs",
-	".sh",
-	".bash",
-	".py",
-	".nix",
-	".go",
-	".c",
-	".h",
-	".cc",
-	".cpp",
-	".hpp",
-	".java",
-	".kt",
-	".toml",
-	".yaml",
-	".yml",
-]);
-
-/** The comment text of a line, or undefined when the line is not a comment. */
-function commentText(extension: string, line: string): string | undefined {
-	const text = line.trim();
-	if (!text) return undefined;
-	if (/^#!/i.test(text)) return undefined;
-	// Legal headers, public API docs, required project notes, and tool directives.
-	if (/SPDX-License-Identifier|Copyright|Licensed under|This file is part of|MIT License|Apache License/i.test(text)) return undefined;
-	const content = text.replace(/^(?:\/\/\/|\/\/!|\/\*\*|\/\*!|\/\/|\/\*|---|--|#|;|\*)\s*/, "").trim();
-	if (/^(prettier-ignore|stylua:|luacheck:|rustfmt::|eslint-|@ts-|type: ignore|noqa\b|fmt: (off|on)|shellcheck\s|pragma\s|SAFETY:)/i.test(content)) return undefined;
-	if (extension === ".rs") {
-		if (/^(\/\/\/|\/\/!|\/\*\*|\/\*!)/.test(text)) return undefined;
-		if (/^(\/\/|\/\*|\*)/.test(text)) return text;
-		return undefined;
-	}
-	if (extension === ".lua" || extension === ".tl") {
-		if (/^---/.test(text)) return undefined;
-		if (/^--/.test(text)) return text;
-		return undefined;
-	}
-	if (extension === ".js" || extension === ".mjs" || extension === ".cjs" || extension === ".ts" || extension === ".mts" || extension === ".cts") {
-		if (/^(\/\/\/|\/\*\*)/.test(text)) return undefined;
-		if (/^(\/\/|\/\*|\*)/.test(text)) return text;
-		return undefined;
-	}
-	if (/^(#|;)/.test(text)) return text;
-	return undefined;
-}
-
-interface AddedLine {
-	number: number;
-	text: string;
-}
-
-/** The lines that an edit adds, with their numbers in the new file. */
-function addedLines(absolute: string, patch: string | undefined): AddedLine[] {
-	if (!patch) {
-		return fs
-			.readFileSync(absolute, "utf8")
-			.split("\n")
-			.map((text, index) => ({ number: index + 1, text }));
-	}
-	const lines: AddedLine[] = [];
-	let number = 0;
-	for (const line of patch.split("\n")) {
-		const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)/);
-		if (hunk) {
-			number = Number(hunk[1]);
-			continue;
-		}
-		if (line.startsWith("+++") || line.startsWith("---")) continue;
-		if (line.startsWith("+")) {
-			lines.push({ number, text: line.slice(1) });
-			number += 1;
-		} else if (line.startsWith(" ")) {
-			number += 1;
-		}
-	}
-	return lines;
-}
-
-const C_LIKE = new Set([".rs", ".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"]);
-
-interface BlockStart {
-	/** A doc comment that defines an API or a module, which the hook keeps. */
-	doc: boolean;
-	end: string;
-}
-
-/** The start of a block comment, and where it ends. */
-function blockStart(extension: string, text: string): BlockStart | undefined {
-	if (C_LIKE.has(extension) && /^\/\*\*|^\/\*!/.test(text)) return { doc: true, end: "*/" };
-	if (C_LIKE.has(extension) && /^\/\*/.test(text)) return { doc: false, end: "*/" };
-	if ((extension === ".lua" || extension === ".tl") && /^--\[=*\[/.test(text)) return { doc: false, end: "]]" };
-	return undefined;
-}
-
-/** The comments that the no-comments skill refuses, with their lines. */
-function commentFindings(filePath: string, patch: string | undefined): string[] {
-	const extension = path.extname(filePath).toLowerCase();
-	if (!CODE_EXTENSIONS.has(extension)) return [];
-	const findings: string[] = [];
-	let blockEnd: string | undefined;
-	for (const line of addedLines(filePath, patch)) {
-		const text = line.text.trim();
-		if (blockEnd) {
-			if (text.includes(blockEnd)) blockEnd = undefined;
-			continue;
-		}
-		const block = blockStart(extension, text);
-		if (block) {
-			if (!text.includes(block.end)) blockEnd = block.end;
-			if (block.doc) continue;
-		}
-		const comment = commentText(extension, line.text);
-		if (comment && looksLikeNarration(comment)) findings.push(`L${line.number}: ${comment}`);
-	}
-	return findings;
-}
-
-function looksLikeNarration(comment: string): boolean {
-	const text = comment.replace(/^(?:\/\/|\/\*|--|#|;|\*)\s*/, "");
-	return /^(?:[-=#*]{3,}|this (?:function|method|loop)\b|(?:get|set|return|call|increment|decrement|initialize)\b|(?:if|for|while)\s*\(|(?:let|const|local)\s+\w+\s*=)/i.test(text);
 }
 
 const PAW_IMPLEMENTERS = new Set(["paw-builder", "paw-worker"]);
@@ -425,15 +295,17 @@ export default function paw(pi: ExtensionAPI) {
 			notify(ctx, hookFailure("tools/vale-hook.sh", result), "warning");
 		}
 		const patch = (event as { details?: { patch?: string } }).details?.patch;
-		const comments = commentFindings(absolute, patch);
-		if (comments.length > 0) {
-			const shown = comments.slice(0, 20);
-			const more = comments.length > shown.length ? `\n  and ${comments.length - shown.length} more` : "";
-			notify(ctx, `no-comments: ${comments.length} review candidate(s) in ${filePath}`, "warning");
-			notices.push(
-				`no-comments: ${comments.length} review candidate(s) in ${filePath}:\n  ${shown.join("\n  ")}${more}\n` +
-					"Review these candidates for narration or dead code. Keep comments that explain a non-obvious reason; see CODING_STANDARDS.md.",
-			);
+		const comments = await runHook(
+			path.join(root, "tools", "comment-hook.py"),
+			{ tool_input: { file_path: absolute }, tool_response: { filePath: absolute, patch } },
+			root,
+			COMMENT_TIMEOUT_MS,
+		);
+		if (comments.code === 2 && comments.stderr.trim()) {
+			notify(ctx, `no-comments: comments in ${filePath}`, "warning");
+			notices.push(comments.stderr.trim());
+		} else if (comments.code !== 0) {
+			notify(ctx, hookFailure("tools/comment-hook.py", comments), "warning");
 		}
 		if (notices.length === 0) return undefined;
 		return {

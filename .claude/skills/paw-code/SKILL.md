@@ -23,8 +23,7 @@ them to paw.
    `paw.*` function, a layer), use the skill `architecture` first.
 2. **Make it work with little code.** Write the smallest clear code
    that gives the behavior. Do not add a layer, a trait or a registry for a
-   future need. Write the comments while you write the code. Refactor
-   only what stops you now.
+   future need. Refactor only what stops you now.
 3. **Prove it.** Write the tests of part 3. Fix each real failure before
    you say that the code works.
 4. **Round 1: logic.** Read each path of the code with the signals of
@@ -36,8 +35,7 @@ them to paw.
    Remove a wrapper that adds nothing. Run the tests again.
 6. **Round 3: consistency and comments.** Make the code like the code
    next to it: names, errors, options, how a command or key is added.
-   Write the comments of part 5. Fix each comment that is no longer
-   true. Run the tests, the format check and the lint checks again.
+   Apply part 5 to the comments. Run the tests, the format check and the lint checks again.
 7. **Repeat a round when it is necessary.** Do three rounds at least. A
    round with no change is correct when you write what you examined and
    why the code is clear. Do not make changes only to fill a round. Do
@@ -146,24 +144,18 @@ where it goes.
 
 ## 5. Comments
 
-- Write one comment for each logical block of code: the purpose of the
-  block, not one comment for each file or function.
-- Write a comment on the line where the code hides the intent: a branch,
-  a change of state, a chain of calls with a rule in it, an order of
-  events, a format on disk, an `unsafe` block, an assumption.
-- When a condition and its result each take several lines, write one
-  comment for the condition and one for the result.
-- For a field of state, write what it holds, what changes it, and what
-  must always be true of it.
-- Doc comments (`///`, `---`) give the contract of a declaration. Line
-  comments explain how the code runs.
-- Do not repeat the syntax in words. Do not keep code in comments. Do not
-  add words only to fill space.
-- Change the comment in the same edit as the code. A comment that is not
-  true is a defect.
-- Language: comments are internal text, in Simplified Technical English
-  (the instructions for agents). The doc comments that `tools/apidoc.lua` reads are
-  external text: they use `plain-writing`.
+- Write no comments in the code. Clear names, small functions and tests
+  tell how the code runs. The hook `tools/comment-hook.py` reports each
+  comment that an edit adds; the skill `no-comments` gives what stays.
+- Doc comments (`///`, `//!`, `---`, `/** */` in Nix) give the contract
+  of an item, and the reason when the code cannot show it. For a field
+  of state: what it holds and what must always be true of it.
+- A doc comment that only repeats the name is noise: delete it.
+- Change the doc comment in the same edit as the code. A doc comment
+  that is not true is a defect.
+- Language: doc comments are internal text, in Simplified Technical
+  English. The doc comments that `tools/apidoc.lua` reads are external
+  text: they use `plain-writing`.
 
 ## 6. Logic signals
 
@@ -191,11 +183,12 @@ These are lenses for a review, not numbers to report.
 
 Each check runs in one tier. A tier runs its own checks and the checks
 of the tiers above it in this list. Run the commands in the dev shell.
-When the orchestrator builds, an agent runs only the checks that need no
-build, and names the other checks in its report. Use `cargo check` and
-`cargo clippy` for most checks of Rust: they do not link. A dev build
-(`cargo build`) links with mold and is incremental, so it is faster than
-a release build.
+
+Each cargo command waits in the machine's queue (`tools/bin/cargo`), so
+each agent can build and test its own worktree. Use `cargo check` and
+`cargo clippy` for most checks of Rust: they do not link. The suite
+builds the dev paw of the worktree only when its Rust differs from the
+main checkout. Do not make a release build: CI makes it.
 
 The hook `.githooks/pre-commit` runs at each commit, in each worktree.
 The command `git config core.hooksPath .githooks` turns it on once. It
@@ -259,10 +252,10 @@ Extended tests workflow runs the full suite in four ways:
 
 | Build | Suite |
 | --- | --- |
-| Release (`cargo build --release`) | `tests/tools/suite.sh -j 1` |
-| Release | `tests/tools/suite.sh -j 4 --shuffle` (a new seed each run, printed on the first line) |
-| Dev (`cargo build`) | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 1` |
-| Dev | `PAW_TEST_BIN=target/debug tests/tools/suite.sh -j 4 --shuffle` |
+| Release | `PAW_TEST_PROFILE=release tests/tools/suite.sh -j 1` |
+| Release | `PAW_TEST_PROFILE=release tests/tools/suite.sh -j 4 --shuffle` (a new seed each run, printed on the first line) |
+| Dev | `tests/tools/suite.sh -j 1` |
+| Dev | `tests/tools/suite.sh -j 4 --shuffle` |
 
 The workflows keep `target/nextest/lua/junit.xml` and
 `target/test-scratch/suite.out`. A shuffled run also keeps its seed. Run

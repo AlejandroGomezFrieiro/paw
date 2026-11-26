@@ -41,7 +41,8 @@ names what a review looks for first.
 
 ## Comments and text (skills `paw-code` part 5, `plain-writing`)
 
-- A comment tells why, in STE. It does not tell what the next line does.
+- Code has no comments, only doc comments (skill `no-comments`). A doc
+  comment gives the contract or the reason, in STE, not what the name says.
 - A user page, a README and an API doc comment follow `plain-writing`.
   The other text follows STE.
 - A change of behavior changes each page that tells about it.

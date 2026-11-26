@@ -37,8 +37,8 @@ completion.
   [the teal skill](../../.claude/skills/teal/SKILL.md)), and the servers
   show the new types.
 - To check all of the Teal files at once, run `tools/tlcheck.sh`. It
-  shows each problem with its file and line. It runs a paw binary: the one
-  in `$PAW_TEST_BIN`, or `target/release/paw`.
+  shows each problem with its file and line. It runs the paw of
+  `tests/tools/run.sh`, which builds paw when your checkout has none.
 
 ## See also
 

@@ -91,9 +91,8 @@ function responseFor(body) {
 			return { tool_calls: [call("write", { path: "sample.ts", content:
 				"// Set the result\nconst result = 1;\n// The remote protocol reserves zero for errors.\n" }, "comment-check")] };
 		}
-		assert.match(next.content, /review candidate.*\n +L1: \/\/ Set the result/);
-		assert.doesNotMatch(next.content, /reserves zero/);
-		assert.match(next.content, /Keep comments/);
+		assert.match(next.content, /no-comments: 2 comment.*\n +L1: \/\/ Set the result\n +L3: \/\/ The remote protocol/);
+		assert.match(next.content, /Only doc comments/);
 		return { content: "smoke complete" };
 	}
 	if (body.messages[0].content.includes('<active_agent name="paw-scout"/>')) return { content: "scout complete" };
@@ -126,9 +125,9 @@ try {
 	checkFooter();
 	server.listen(0, "127.0.0.1");
 	await once(server, "listening");
-	for (const path of [".pi/extensions/paw.ts", ".pi/lib/agent-trace.ts", ".pi/agents/paw-worker.md", ".pi/agents/paw-scout.md", "tools/guard-hook.py"]) {
+	for (const path of [".pi/extensions/paw.ts", ".pi/lib/agent-trace.ts", ".pi/agents/paw-worker.md", ".pi/agents/paw-scout.md", "tools/guard-hook.py", "tools/comment-hook.py", "tools/ast-grep/comments"]) {
 		mkdirSync(join(repo, path, ".."), { recursive: true });
-		cpSync(join(checkout, path), join(repo, path));
+		cpSync(join(checkout, path), join(repo, path), { recursive: true });
 	}
 	put(join(repo, ".pi/settings.json"), JSON.stringify({ defaultProvider: "openrouter", defaultModel: model, extensions }));
 	put(join(repo, ".pi/subagents.json"), JSON.stringify({ workflowsEnabled: false, rememberAgents: false, outputTranscript: false }));

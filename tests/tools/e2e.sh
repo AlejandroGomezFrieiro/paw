@@ -22,6 +22,7 @@
 # repeats it. See docs/explanation/about-the-e2e-tests.md.
 . "$(dirname "$0")/env.sh"
 cd "$ROOT" || exit 1
+paw_ready || exit 1
 export HOME=$SCRATCH/e2e-home CLAP_PATH= VST3_PATH= LV2_PATH=
 mkdir -p "$HOME"
 

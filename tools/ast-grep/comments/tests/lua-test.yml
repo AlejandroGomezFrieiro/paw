@@ -1,0 +1,17 @@
+id: comment-lua
+valid:
+  - |
+    --- The gain in decibels.
+    local function gain() end
+  - |
+    -- luacheck: ignore 212
+invalid:
+  - |
+    -- Set the gain.
+    local x = 1
+  - |
+    local x = 1 -- one
+  - |
+    ---- banner ----
+  - |
+    --[[ old code ]]

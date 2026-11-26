@@ -11,8 +11,10 @@ assignments, so a text that only names a command (an echo, a heredoc of a
 brief) passes.
 """
 import json
+import os
 import re
 import shlex
+import shutil
 import sys
 
 RULES = [
@@ -28,6 +30,16 @@ RULES = [
     (lambda w: w[:2] == ["cargo", "fmt"] and "--check" not in w,
      "`cargo fmt` rewrites files, and paw is not rustfmt-clean: it once rewrote 158 files of one crate. "
      "Keep the style of the file by hand; `cargo fmt --check -p <crate>` only reads."),
+    (lambda w: w[:1] == ["cargo"] and builds_release(w),
+     "Release builds are for CI and for bench/. The tests and the GIFs use the dev build, "
+     "which tests/tools/env.sh builds when it is missing."),
+    (lambda w: bool(w) and w[0] != "cargo" and w[0].endswith("/cargo") and not w[0].endswith("tools/bin/cargo"),
+     "Run cargo by its name. The dev shell's cargo (tools/bin/cargo) waits for a slot of the machine's queue."),
+    (lambda w: w[:1] == ["cargo"] and not queued_cargo(),
+     "This shell has no cargo queue: start the agent in the dev shell again (direnv reload, or nix develop), "
+     "or run tools/bin/cargo."),
+    (lambda w: w[:1] == ["heavy"] and any(x in ("--", "--slots", "--pool", "--dir") for x in w) and "--status" not in w,
+     "The cargo queue sets the slots of heavy. Run cargo, and tools/queue.sh to see the queue."),
     (lambda w: w[:3] == ["backlog", "task", "edit"] and any(x in ("-l", "--label") or x.startswith("--label=") for x in w),
      "`backlog task edit -l` replaces every label of the ticket. "
      "Use `--add-label <label>` or `--remove-label <label>`."),
@@ -43,6 +55,30 @@ def builds_gui(words):
         if flag in ("-ppaw-gui", "--package=paw-gui") or flag.startswith("--manifest-path=") and "paw-gui" in flag:
             return True
     return False
+
+
+RELEASE_PROFILES = {"release", "profiling", "dist", "bench"}
+
+
+def builds_release(words):
+    """Whether a cargo command builds with a release profile."""
+    for i, word in enumerate(words):
+        if word in ("--release", "-r"):
+            return True
+        if word == "--profile" and i + 1 < len(words) and words[i + 1] in RELEASE_PROFILES:
+            return True
+        if word.startswith("--profile=") and word.split("=", 1)[1] in RELEASE_PROFILES:
+            return True
+    return False
+
+
+def queued_cargo():
+    """Whether `cargo` on PATH is the dev shell's cargo of tools/bin."""
+    found = shutil.which("cargo") or ""
+    return found.endswith("tools/bin/cargo")
+
+
+QUEUE_ESCAPE = re.compile(r"(^|[\s;&|(])(export\s+)?(HEAVY_\w+|CI|PAW_CARGO\w*|CARGO_BUILD_JOBS)=")
 
 
 PREFIXES = {"env", "nice", "time", "command", "exec"}
@@ -73,6 +109,10 @@ def main():
     command = (data.get("tool_input") or {}).get("command") or ""
     # A heredoc body is text, not commands: drop it.
     command = re.sub(r"<<-?\s*'?\"?(\w+)'?\"?.*?\n.*?\n\1\s*(\n|$)", "\n", command, flags=re.S)
+    if QUEUE_ESCAPE.search(command):
+        print("Refused by the project hook (tools/guard-hook.py): the variables of the cargo queue "
+              "(HEAVY_*, CI, PAW_CARGO*, CARGO_BUILD_JOBS) are set by tools/bin/cargo, not by a command.", file=sys.stderr)
+        sys.exit(2)
     for segment in re.split(r"\|\||&&|[;|\n&()]", command):
         words = words_of(segment.strip())
         for refused, why in RULES:

@@ -1,0 +1,9 @@
+id: comment-javascript
+valid:
+  - |
+    /** Runs the smoke test. */
+    function f() {}
+invalid:
+  - |
+    // Run it.
+    f();

@@ -1,0 +1,13 @@
+id: comment-python
+valid:
+  - |
+    #!/usr/bin/env python3
+    # A hook of Claude Code.
+    import sys
+  - |
+    import os  # noqa: F401
+invalid:
+  - |
+    import sys
+    # Read the input.
+    data = sys.stdin.read()

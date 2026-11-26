@@ -27,13 +27,25 @@ sh tools/ci-lua.sh release -j 4 --shuffle 12345
 
 ## Run the Lua suite
 
-The Lua suite is the end-to-end test of paw, and it runs on the release
-build.
+The Lua suite is the end-to-end test of paw, and it runs on the dev
+build of your checkout.
 
-1. Build paw: `cargo build --release`.
-2. Run `tests/tools/suite.sh`.
-3. Read the last line, which is `all passed` or the number of failed
+1. Run `tests/tools/suite.sh`.
+2. Read the last line, which is `all passed` or the number of failed
    tests.
+
+The suite builds paw when it needs to. Each build writes `paw.stamp`
+beside the binary, with a hash of the Rust code and of the Lua runtime
+it was built from. Before a run, the suite compares that hash with your
+checkout. If the Rust code is the same, it uses the binary as it is. If
+only the Lua or Teal differs, it makes a runtime folder from your
+checkout with `tools/dev-runtime.sh` and runs the binary with it. If the
+Rust code differs, it builds your checkout first, so a test never runs
+a binary of other sources.
+
+In a git worktree, the suite also tries the
+binary of the main checkout, so a branch that changes only Lua or Teal
+needs no build.
 
 The suite writes its full output to `target/test-scratch/suite.out`, and
 the output of each part to `target/test-scratch/parts/<part>/suite.out`.
@@ -67,16 +79,12 @@ loads each of the test files, in the order of their names.
 - To test the plugins that are not in nixpkgs, give their package:
   `PAW_TEST_TONE3000=<store path> PAW_TEST_SOUNDSHED=<store path> tests/tools/suite.sh plugins plugstate`.
   In that mode, the plugins get a scratch `HOME`.
-- To test a change of Lua or Teal without a build, use a binary that
-  another checkout built. Run `tools/dev-runtime.sh` to make a runtime
-  folder from your checkout. Then give the binary's folder and the
-  runtime:
-  `PAW_TEST_BIN=<folder> PAW_RUNTIME=$PWD/target/dev-runtime tests/tools/suite.sh only "loop on"`.
-  The folder also holds `examples/libstub_clap.so`. A change of Rust
-  still needs a build of your checkout. If the binary is older than the
-  runtime, the suite stops before the first test and names the functions
-  that the binary doesn't have. Build paw again, or use a binary of the
-  same commit.
+- To run another build, give its folder:
+  `PAW_TEST_BIN=<folder> tests/tools/suite.sh only "loop on"`. The folder
+  holds `paw`, `paw.stamp` and `examples/libstub_clap.so`. If the stamp
+  shows other Rust code than your checkout, the suite stops and says so.
+- To run the suite on the release build, as CI does, set
+  `PAW_TEST_PROFILE=release`.
 
 ## Run the parts of the suite at the same time
 
@@ -108,7 +116,9 @@ the number. If a part can't take a slot, it fails and says why.
 You can also run the suite with cargo-nextest itself, for example to run
 the parts whose name holds a word:
 `cargo nextest run -p paw-lua-suite --profile lua -E 'test(/modal/)'`.
-It uses the binary of `PAW_TEST_BIN`, or `target/release/paw`.
+It uses the binary of `PAW_TEST_BIN`, or `target/debug/paw`. Run it
+from `tests/tools/suite.sh` when you can, because only the suite checks
+the stamp and builds paw.
 
 On a machine that other people or programs use, give a smaller `-j`, so
 that the suite leaves some processor cores free. The load doesn't change
@@ -520,13 +530,13 @@ they ask the kernel what it holds.
    errors. To check only the pages that you changed, give them:
    `tools/vale.sh docs/how-to/run-the-tests.md`.
 2. To check the Lua API reference, run
-   `target/release/paw --clean --no-plugins -l tools/apidoc.lua check`.
+   `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua check`.
    It names each function that has no doc comment, and it says if
    `docs/reference/api.md` is out of date.
 3. If you changed a doc comment, make the API reference again:
-   `target/release/paw --clean --no-plugins -l tools/apidoc.lua`.
+   `tests/tools/run.sh --clean --no-plugins -l tools/apidoc.lua`.
 4. If you changed a lesson of the tutor, make the course again:
-   `target/release/paw --clean --no-plugins -l extensions/tutor/make-docs.lua`.
+   `tests/tools/run.sh --clean --no-plugins -l extensions/tutor/make-docs.lua`.
 
 Vale checks `README.md`, `AGENTS.md`, `docs/`, the READMEs of the crates
 and the extensions, the `doc/` pages of the extensions, `bench/README.md`

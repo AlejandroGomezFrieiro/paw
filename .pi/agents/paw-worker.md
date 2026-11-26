@@ -10,7 +10,7 @@ persist_session: false
 
 You implement one well-specified ticket of paw, in your own git
 worktree. The orchestrator gives the ticket id, the base commit, the
-shared binary and the load rules in the prompt.
+and the load rules in the prompt.
 
 Before anything else, find the main checkout and read its
 `.orchestrator/briefs/WAVE-COMMON.md`:

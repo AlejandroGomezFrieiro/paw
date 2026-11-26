@@ -1,31 +1,31 @@
 ---
 name: no-comments
-description: "Review code comments for narration, banners and dead code. Keep comments that explain a reason the code does not show. Use it when a change adds or edits comments or the comment hook reports a candidate."
+description: "Delete the comments that an edit adds, except doc comments. Use it when the no-comments hook reports comments, and when a change adds or edits comments."
 ---
 
 # No comments
 
-The hook in `.pi/extensions/paw.ts` flags possible narration after an
-edit or a write. Review its candidates against `CODING_STANDARDS.md`.
-Do the review yourself.
+paw code has no comments except doc comments. After each edit and write,
+`tools/comment-hook.py` runs the ast-grep rules of
+`tools/ast-grep/comments` on the lines that the edit added. The rules
+cover Rust, Teal, Lua, Nix, shell, Python and TypeScript. The hook
+reports each comment as `L<n>: <comment>`. Claude Code runs it from `.claude/settings.json`,
+and pi from `.pi/extensions/paw.ts`.
 
-## What to keep
+## What stays
 
-Keep these comments:
-
-- A legal or license header.
-- A doc comment that defines a public API contract (`///`, `//!`,
-  `/**`, `---@` and `---` in Lua).
-- A `// SAFETY:` note above an `unsafe` block (see the rules for agents).
-- A reason the code does not show, such as a required order of operations
-  or a constraint from a dependency.
-- A tool directive (`prettier-ignore`, `stylua:`, `luacheck:`,
-  `rustfmt::`, `eslint-`, `# shellcheck`, `# noqa`, `# type:`).
+- A doc comment of an item or a module: `///`, `//!` and `/** */` in
+  Rust, `---` in Lua and Teal, `/** */` in Nix and TypeScript.
+- The usage header at the top of a script (shell, Python).
+- A `// SAFETY:` note above an `unsafe` block.
+- A tool directive (`shellcheck`, `luacheck:`, `stylua:`, `rustfmt::`,
+  `noqa`, `eslint-`, `@ts-`) and a license line.
 
 ## The steps
 
-1. Read each line of the report: `L<n>: <comment>`.
-2. Delete narration, banners, and dead code. Keep a comment that tells
-   the reader why the code must work this way.
-3. Check a claimed constraint against the code or the dependency. If the
-   claim is false, correct or delete the comment.
+1. Delete each reported comment.
+2. If a reader needs the reason, put it in the doc comment of the item,
+   in one sentence that tells why.
+3. A doc comment must be useful: it tells the contract or the reason,
+   not what the name already says. Check a claimed constraint against
+   the code or the dependency.

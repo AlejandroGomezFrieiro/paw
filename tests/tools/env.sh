@@ -41,9 +41,57 @@ export PAW_TEST_ENV=1
 export DBUS_SESSION_BUS_ADDRESS="${PAW_TEST_BUS:-unix:path=/nonexistent/bus}"
 # Checkouts tested side by side each need a display number of their own.
 PAW_TEST_DISPLAY=${PAW_TEST_DISPLAY:-96}
-BIN=${PAW_TEST_BIN:-$ROOT/target/release}
-# The stub plugin of the tests comes from beside a binary of PAW_TEST_BIN
-# (suite.sh builds it beside target/release).
-if [ -n "$PAW_TEST_BIN" ]; then
-  export PAW_TEST_STUB=${PAW_TEST_STUB:-$BIN/examples/libstub_clap.so}
-fi
+export PATH="$ROOT/tools/bin:$PATH" PAW_ROOT="$ROOT"
+case "${PAW_TEST_PROFILE:-dev}" in
+  dev) PROFILE_DIR=debug ;;
+  release) PROFILE_DIR=release ;;
+  *)
+    echo "env.sh: PAW_TEST_PROFILE is dev or release, not $PAW_TEST_PROFILE" >&2
+    exit 2
+    ;;
+esac
+BIN=${PAW_TEST_BIN:-$ROOT/target/$PROFILE_DIR}
+export PAW_TEST_STUB=${PAW_TEST_STUB:-$BIN/examples/libstub_clap.so}
+
+paw_ready() {
+  if [ -n "$PAW_TEST_IN_SUITE" ] || [ "$PAW_TEST_STAMP" = off ]; then return 0; fi
+  want=$("$ROOT/tools/stamp.sh" "$ROOT") || return 1
+  want_rust=$(echo "$want" | sed -n 's/^rust //p')
+  rust_of() { sed -n 's/^rust //p' "$1/paw.stamp" 2> /dev/null; }
+  if [ -n "$PAW_TEST_BIN" ]; then
+    if [ "$(rust_of "$BIN")" != "$want_rust" ]; then
+      echo "env.sh: $BIN/paw was not built from the Rust sources of $ROOT (paw.stamp)." >&2
+      echo "Unset PAW_TEST_BIN, and the tests build this checkout, or build that binary again." >&2
+      return 1
+    fi
+  else
+    main=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2> /dev/null)
+    main=${main%/.git}
+    BIN=
+    for dir in "$ROOT/target/$PROFILE_DIR" "$main/target/$PROFILE_DIR"; do
+      if [ "$(rust_of "$dir")" = "$want_rust" ] && [ -f "$dir/examples/libstub_clap.so" ]; then
+        BIN=$dir
+        break
+      fi
+    done
+    if [ -z "$BIN" ]; then
+      BIN=$ROOT/target/$PROFILE_DIR
+      echo "env.sh: building paw (${PAW_TEST_PROFILE:-dev} profile) in $ROOT" >&2
+      (cd "$ROOT" && cargo build -q --profile "${PAW_TEST_PROFILE:-dev}" -p paw-tui -p paw-mcp -p chain-lsp &&
+        cargo build -q --profile "${PAW_TEST_PROFILE:-dev}" -p paw-plugins --example stub_clap) || return 1
+      echo "$want" > "$BIN/paw.stamp"
+    fi
+  fi
+  export PAW_TEST_BIN=$BIN PAW_TEST_STUB=$BIN/examples/libstub_clap.so
+  have_runtime=$(sed -n 's/^runtime //p' "$BIN/paw.stamp" 2> /dev/null)
+  want_runtime=$(echo "$want" | sed -n 's/^runtime //p')
+  if [ -z "$PAW_RUNTIME" ] && [ "$have_runtime" != "$want_runtime" ]; then
+    runtime=$ROOT/target/dev-runtime
+    if [ "$(cat "$runtime/stamp" 2> /dev/null)" != "$want_runtime" ]; then
+      echo "env.sh: making the runtime of $ROOT (tools/dev-runtime.sh)" >&2
+      "$ROOT/tools/dev-runtime.sh" "$runtime" > /dev/null || return 1
+      echo "$want_runtime" > "$runtime/stamp"
+    fi
+    export PAW_RUNTIME=$runtime
+  fi
+}

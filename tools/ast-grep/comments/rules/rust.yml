@@ -1,0 +1,13 @@
+id: comment-rust
+language: Rust
+severity: warning
+message: A comment that is not a doc comment.
+note: Delete it. A reason that a reader needs goes in the doc comment of the item.
+rule:
+  any:
+    - kind: line_comment
+    - kind: block_comment
+  not:
+    any:
+      - regex: '^(///|//!|/\*\*|/\*!)'
+      - regex: '(SAFETY:|SPDX-License-Identifier|Copyright|shellcheck |luacheck:|stylua:|rustfmt::|noqa|type: ignore|prettier-ignore|eslint-|@ts-|fmt: (off|on))'

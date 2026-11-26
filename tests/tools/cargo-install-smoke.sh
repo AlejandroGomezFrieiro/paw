@@ -11,7 +11,7 @@ unset PAW_HOME PAW_EXTENSIONS PAW_RUNTIME
 
 run() {
   ROOT="$scratch/outside" TMPDIR="$scratch" PAW_TEST_SCRATCH="$scratch/state" \
-    PAW_TEST_BIN="$install_root/bin" "$runner" "$@"
+    PAW_TEST_BIN="$install_root/bin" PAW_TEST_STAMP=off "$runner" "$@"
 }
 
 actual=$(run --version)
